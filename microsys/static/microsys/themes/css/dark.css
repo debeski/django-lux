@@ -918,3 +918,55 @@ html[dir="rtl"] :root.theme-dark .activity-timeline {
     color: #a0a0a0;
 }
 
+
+/* 27. User Hub - Dark Mode Overrides (Trigger & Dropdown) */
+:root.theme-dark .ms-user-trigger {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:root.theme-dark .ms-user-trigger:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+:root.theme-dark .ms-user-dropdown-card {
+    background: rgba(20, 20, 20, 0.95) !important;
+    backdrop-filter: blur(25px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
+    border-color: #343a40 !important;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+:root.theme-dark .ms-dropdown-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+:root.theme-dark .ms-dropdown-toolbar {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-top-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+:root.theme-dark .ms-tool-btn {
+    background: #2a2a2a !important;
+    border-color: #3e3e3e !important;
+    color: var(--primal) !important;
+    box-shadow: none !important;
+}
+
+:root.theme-dark .ms-tool-btn:hover {
+    background: var(--table-row-hover) !important;
+    color: #121212 !important;
+    transform: translateY(-2px) !important;
+}
+
+:root.theme-dark .ms-trigger-avatar {
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* 26. Dashboard Components - Hero Section Gradient Fix */
+:root.theme-dark .hero-section {
+    background: linear-gradient(135deg, rgba(var(--primal-rgb), 0.15) 0%, #121212 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+}

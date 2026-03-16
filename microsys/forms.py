@@ -72,6 +72,9 @@ def _attach_is_staff_permission(form, widget_id=None):
         option=option,
     )
 
+class ProfileImageWidget(forms.ClearableFileInput):
+    template_name = 'microsys/widgets/profile_image_widget.html'
+
 class GroupedPermissionWidget(ChoiceWidget):
     template_name = 'microsys/users/grouped_permissions.html'
     allow_multiple_selected = True
@@ -677,9 +680,10 @@ class ResetPasswordForm(SetPasswordForm):
 class UserProfileEditForm(forms.ModelForm):
     # Add fields from profile
     phone = forms.CharField(max_length=15, required=False, label="رقم الهاتف")
-    profile_picture = forms.ImageField(required=False, label="الصورة الشخصية")
+    profile_picture = forms.ImageField(required=False, label="الصورة الشخصية", widget=ProfileImageWidget)
 
     handles_save = True  # Indicate to DynamicModalManagerView to call save(commit=True) directly
+    refresh_parent = True # Force page reload on success
 
     class Meta:
         model = User
@@ -712,6 +716,7 @@ class UserProfileEditForm(forms.ModelForm):
         self.helper.form_tag = False
         
         layout_blocks = [
+            Field("profile_picture"),
             Row(Field("username", css_class="form-control")),            
             HTML("<hr>"),
             Row(
@@ -724,7 +729,6 @@ class UserProfileEditForm(forms.ModelForm):
                 Div(Field("email", css_class="form-control"), css_class="col-md-6"),
                 css_class="row"
             ),
-            Row(Field("profile_picture", css_class="form-control")),
             HTML("<hr>"),
             FormActions(
                 HTML(
@@ -749,15 +753,16 @@ class UserProfileEditForm(forms.ModelForm):
 
     def clean_profile_picture(self):
         profile_picture = self.cleaned_data.get('profile_picture')
-
-        # Check if the uploaded file is a valid image
         if profile_picture:
             try:
+                # Just check if it can be opened by Pillow
                 img = Image.open(profile_picture)
-                img.verify()
-                if img.width > 1200 or img.height > 1200: # Increased limit a bit
-                    raise ValidationError("The image must not exceed 1200x1200 pixels.")
-            except Exception as e:
+                # No need to verify() and raise error for size anymore
+                # as the model handles resizing automatically.
+                # However, we must reset the file pointer for further use.
+                if hasattr(profile_picture, 'seek'):
+                    profile_picture.seek(0)
+            except Exception:
                 raise ValidationError("Invalid image file.")
         return profile_picture
 

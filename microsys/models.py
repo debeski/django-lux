@@ -4,7 +4,10 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
+from django.core.files.base import ContentFile
 from .managers import ScopedManager
+import io
+from PIL import Image
 
 
 class Scope(models.Model):
@@ -211,6 +214,50 @@ class Profile(ScopedModel):
 
     def __str__(self):
         return self.user.username
+
+    @property
+    def profile_pic(self):
+        """Standardized property to access profile picture with default fallback."""
+        if self.profile_picture:
+            return self.profile_picture
+        return None
+
+    def save(self, *args, **kwargs):
+        """Optimize profile picture: Resize and convert to WebP."""
+        if self.profile_picture and hasattr(self.profile_picture, 'file'):
+            try:
+                # Normalize extension and check if processing is needed
+                ext = self.profile_picture.name.lower().split('.')[-1]
+                if ext != 'webp':
+                    img = Image.open(self.profile_picture)
+                    
+                    # Convert to RGB (standard for JPEG/WebP)
+                    if img.mode in ('RGBA', 'P'):
+                        img = img.convert('RGB')
+                    
+                    # Resize if larger than 300x300
+                    if img.width > 300 or img.height > 300:
+                        img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+                    
+                    # Prepare WebP buffer
+                    output = io.BytesIO()
+                    img.save(output, format='WEBP', quality=80)
+                    output.seek(0)
+                    
+                    # Construct new filename
+                    original_name = self.profile_picture.name.rsplit('.', 1)[0]
+                    new_filename = f"{original_name}.webp"
+                    
+                    # Replace the file content
+                    # We wrap in ContentFile and assign to the field
+                    # Note: We don't call super() here if we call self.profile_picture.save() with save=True
+                    # But if we use save=False, we still need super().save()
+                    content = ContentFile(output.read())
+                    self.profile_picture.save(new_filename, content, save=False)
+            except Exception:
+                pass
+                
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Profile"

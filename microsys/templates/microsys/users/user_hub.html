@@ -1,5 +1,5 @@
 {% load static %}
-<div id="ms-user-dropdown-card" class="ms-user-dropdown-card no-print">
+<div id="ms-user-dropdown-card" class="ms-user-dropdown-card no-print shadow-sm">
     <div class="ms-dropdown-header">
         <div class="ms-user-text">
             <span class="ms-display-name">{{ user.get_full_name|default:user.username }}</span>
@@ -24,31 +24,34 @@
     
     <div class="ms-dropdown-toolbar">
         <div class="ms-toolbar-left">
-            <a href="{% url 'user_profile' %}" class="ms-tool-btn" title="{{ MS_TRANS.profile }}">
+            <a href="{% url 'user_profile' %}" class="ms-tool-btn" data-ms-tooltip="{{ MS_TRANS.profile }}">
                 <i class="bi bi-person-bounding-box"></i>
             </a>
+            <button id="start-tour" type="button" class="ms-tool-btn" data-ms-tooltip="{{ MS_TRANS.help }}">
+                <i class="bi bi-question-circle-fill"></i>
+            </button>
         </div>
         <div class="ms-toolbar-right">
             {% if user.is_staff %}
-            <a href="{% url 'manage_users' %}" class="ms-tool-btn" title="{{ MS_TRANS.manage_users }}">
+            <a href="{% url 'manage_users' %}" class="ms-tool-btn" data-ms-tooltip="{{ MS_TRANS.manage_users }}">
                 <i class="bi bi-people-fill"></i>
             </a>
             {% endif %}
             
             {% if perms.microsys.view_useractivitylog or user.is_superuser %}
-            <a href="{% url 'user_activity_log' %}" class="ms-tool-btn" title="{{ MS_TRANS.activity_log }}">
+            <a href="{% url 'user_activity_log' %}" class="ms-tool-btn" data-ms-tooltip="{{ MS_TRANS.activity_log }}">
                 <i class="bi bi-clock-history"></i>
             </a>
             {% endif %}
             
-            <a href="{% url 'options_view' %}" class="ms-tool-btn" title="{{ MS_TRANS.options_title }}">
+            <a href="{% url 'options_view' %}" class="ms-tool-btn" data-ms-tooltip="{{ MS_TRANS.options_title }}">
                 <i class="bi bi-gear-fill"></i>
             </a>
             
             <form method="POST" action="{% url 'logout' %}" class="m-0">
                 {% csrf_token %}
-                <button type="submit" class="ms-tool-btn text-danger border-danger-subtle" title="{{ MS_TRANS.logout }}">
-                    <i class="bi bi-box-arrow-right"></i>
+                <button type="submit" class="ms-tool-btn text-danger border-danger-subtle" data-ms-tooltip="{{ MS_TRANS.logout }}">
+                    <i class="bi bi-box-arrow-{% if CURRENT_DIR == 'ltr' %}right{% else %}left{% endif %}"></i>
                 </button>
             </form>
         </div>

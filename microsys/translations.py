@@ -60,10 +60,10 @@ MICROSYS_STRINGS = {
         'form_sys_default_lang': 'اللغة الافتراضية',
         'form_sys_logo': 'الشعار (Logo)',
         'form_sys_favicon': 'أيقونة الموقع (Favicon)',
-        'form_sys_languages': 'اللغات المتوفرة (JSON)',
-        'help_sys_languages': 'مثال: {"ar": "العربية", "en": "English"}',
-        'form_sys_translations': 'تجاوز الترجمات (JSON)',
-        'help_sys_translations': 'مثال: {"ar": {"app_microsys": "النظام"}}',
+        'form_sys_languages': 'اللغات الاضافية المتوفرة (JSON)',
+        'help_sys_languages': 'مثال: {"fr": "francais", "de": "Deutsch"}',
+        'form_sys_translations': 'تعديل واضافة ترجمات النظام (JSON)',
+        'help_sys_translations': 'مثال: {"fr": {"app_microsys": "paramètres système"}, {"model_password": "mot de passe"},<br>"ar": {"app_microsys": "النظام"}}',
         'btn_save': 'حفظ التعديلات',
 
         # Options page
@@ -337,7 +337,7 @@ MICROSYS_STRINGS = {
 
         # 2FA
         '2fa_title': 'المصادقة الثنائية',
-        '2fa_desc': 'قم بتأمين حسابك باستخدام رمز تحقق يتم إرساله إلى بريدك الإلكتروني.',
+        '2fa_desc': 'قم بتأمين حسابك باستخدام رمز تحقق من هاتفك الخاص او بريدك الالكتروني.',
         '2fa_enable': 'تفعيل المصادقة الثنائية',
         '2fa_disable': 'تعطيل المصادقة الثنائية',
         '2fa_enabled_msg': 'تم تفعيل المصادقة الثنائية بنجاح.',

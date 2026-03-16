@@ -18,6 +18,12 @@
         <!-- Extra Titlebar Controls (Dynamically injected by autofill.js) -->
         
         {% if user.is_authenticated %}
+            <div class="m-0 signout-wrapper">
+                <a href="{{ APP_CONFIG.home_url }}" class="btn btn-sm btn-outline-primary d-flex align-items-center px-2 login-title-btn titlebar-signout">
+                    <i class="bi bi-house-fill signout-icon"></i>
+                    <span class="signout-name">{{ MS_TRANS.btn_home }}</span>
+                </a>
+            </div>
             <!-- Modern User Dropdown Trigger -->
             <div id="ms-user-dropdown-trigger" class="ms-user-trigger no-print ms-2">
                 {% if user.profile.profile_pic %}
@@ -30,16 +36,7 @@
                 <span class="ms-trigger-name">{{ user.username }}</span>
             </div>
             
-            {# Commented out legacy buttons #}
-            {% comment %}
-            <div class="m-0 signout-wrapper">
-                <a href="{{ APP_CONFIG.home_url }}" class="btn btn-sm btn-outline-primary d-flex align-items-center px-2 login-title-btn titlebar-signout" title="{{ MS_TRANS.btn_home }}">
-                    <i class="bi bi-house-fill signout-icon"></i>
-                    <span class="signout-name">{{ MS_TRANS.btn_home }}</span>
-                </a>
-            </div>
-
-            <div class="m-0 signout-wrapper ms-2">
+            <!-- <div class="m-0 signout-wrapper ms-2">
                 <button id="start-tour" type="button" class="btn btn-sm btn-outline-primary d-flex align-items-center px-2 login-title-btn titlebar-signout" title="{{ MS_TRANS.tour_title }}" aria-label="{{ MS_TRANS.help }}">
                     <i class="bi bi-question-circle-fill signout-icon"></i>
                     <span class="signout-name">{{ MS_TRANS.help }}</span>
@@ -54,8 +51,8 @@
                     <span class="signout-name">{{ user.username }}</span>
                     <span class="visually-hidden">{{ MS_TRANS.logout }}</span>
                 </button>
-            </form>
-            {% endcomment %}
+            </form> -->
+
         {% else %}
             <!-- Login Button for Unauthenticated Users (circular icon) -->
             {% if request.resolver_match.url_name != 'login' %}
