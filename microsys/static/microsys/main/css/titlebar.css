@@ -1,4 +1,5 @@
 .titlebar {
+    background: linear-gradient(90deg, #ffffff 10%, #f8fafc 90%);
     border-bottom: 1px solid #e1e8ed;
     box-shadow: 0 4px 20px rgba(0,0,0,0.03);
     height: var(--header-height);

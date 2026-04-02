@@ -24,6 +24,17 @@
         container.dataset.msWizardBound = 'true';
 
         let currentStep = 0;
+        if (typeof window.__msGetWizardInitialStep === 'function') {
+            const resolvedStep = Number(window.__msGetWizardInitialStep(container));
+            if (Number.isInteger(resolvedStep) && resolvedStep >= 0 && resolvedStep < steps.length) {
+                currentStep = resolvedStep;
+            }
+        } else if (container.dataset.msWizardInitialStep) {
+            const resolvedStep = Number(container.dataset.msWizardInitialStep);
+            if (Number.isInteger(resolvedStep) && resolvedStep >= 0 && resolvedStep < steps.length) {
+                currentStep = resolvedStep;
+            }
+        }
 
         function showStep(index) {
             steps.forEach(function(step, i) {
@@ -62,8 +73,7 @@
             }
         });
 
-        // Initialize on Step 1
-        showStep(0);
+        showStep(currentStep);
     }
 
     // Auto-initialize for any wizard steps already in the DOM

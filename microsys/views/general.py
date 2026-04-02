@@ -10,11 +10,18 @@ import django
 import psutil
 from django.apps import apps
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.db.models import Count
 from django.db.models.functions import TruncHour
+from django.utils.module_loading import import_string
+
+try:
+    import rest_framework
+except ImportError:
+    rest_framework = None
 
 
 # Dashboard View removed as per UX enhancements
@@ -85,6 +92,7 @@ def options_view(request):
         'os_info': f"{platform.system()} {platform.release()}",
         'python_version': sys.version.split()[0],
         'django_version': django.get_version(),
+        'drf_version': getattr(rest_framework, 'VERSION', 'N/A'),
         'api_reachable': api_reachable,
         'api_error': api_error,
         'db_info': extract_spec(r'PostgreSQL ([\d.]+)'),
@@ -101,3 +109,44 @@ def options_view(request):
         'disk_percent': disk_percent,
     }
     return render(request, 'microsys/includes/options.html', context)
+
+
+@login_required
+def system_setup_view(request):
+    """Dedicated first-launch setup page for superusers."""
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    SystemSettings = apps.get_model('microsys', 'SystemSettings')
+    instance = SystemSettings.load()
+    if getattr(instance, 'is_configured', False):
+        return redirect('options_view')
+
+    SystemSettingsForm = import_string('microsys.forms.SystemSettingsForm')
+
+    if request.method == 'POST':
+        form = SystemSettingsForm(
+            request.POST,
+            request.FILES,
+            instance=instance,
+            request=request,
+            user=request.user,
+            mode='setup',
+        )
+        if form.is_valid():
+            form.save()
+            from microsys.utils import get_system_config
+            return redirect(get_system_config().get('home_url', '/sys/users/'))
+    else:
+        form = SystemSettingsForm(
+            instance=instance,
+            request=request,
+            user=request.user,
+            mode='setup',
+        )
+
+    context = {
+        'form': form,
+        'page_title': 'System Setup',
+    }
+    return render(request, 'microsys/includes/system_setup.html', context)

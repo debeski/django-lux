@@ -5,6 +5,7 @@ from django.forms import modelform_factory
 import django_tables2 as tables
 from django.http import JsonResponse
 import json
+from copy import deepcopy
 # try-except for django_filters as it might not be installed (though likely is)
 try:
     import django_filters
@@ -17,6 +18,7 @@ from decimal import Decimal, InvalidOperation
 import inspect
 from .translations import get_strings
 from django.conf import settings
+from django.urls import NoReverseMatch, reverse
 
 
 # Auth Check — Staff permission test for @user_passes_test decorator
@@ -64,6 +66,52 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
     )
 
+def _merge_translation_layers(*layers):
+    merged = {}
+    for layer in layers:
+        if not isinstance(layer, dict):
+            continue
+        for lang, values in layer.items():
+            if not isinstance(values, dict):
+                continue
+            merged.setdefault(lang, {})
+            merged[lang].update(values)
+    return merged
+
+def _merge_language_layers(*layers):
+    merged = {}
+    for layer in layers:
+        if not isinstance(layer, dict):
+            continue
+        for code, payload in layer.items():
+            if isinstance(payload, dict):
+                merged[code] = {**merged.get(code, {}), **payload}
+            elif payload:
+                merged[code] = {'name': str(payload)}
+    return merged
+
+def _dedupe_sidebar_entries(entries):
+    seen = set()
+    deduped = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        key = entry.get('id') or entry.get('url_name') or entry.get('label')
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(entry)
+    return deduped
+
+def _reverse_sidebar_home(home_url_name, entries, fallback):
+    candidate = home_url_name
+    if candidate:
+        try:
+            return reverse(candidate), candidate
+        except NoReverseMatch:
+            candidate = None
+    return fallback, candidate
+
 def get_system_config():
     """
     Returns the deeply merged system configuration.
@@ -73,79 +121,126 @@ def get_system_config():
     """
     # Default configuration
     default_config = {
-        'name': 'microsys',
-        'verbose_name': 'ادارة النظام',
-        'logo': '/static/img/base_logo.png',
+        'name': 'microSYS',
+        'name_ar': '',
+        'name_en': 'microSYS',
+        'verbose_name': 'microSYS',
+        'logo': '/static/img/base_logo.webp',
         'login_logo': '/static/img/login_logo.webp',
         'favicon': '/static/favicon.ico',
         'home_url': '/sys/users/',
         'default_language': 'en',
+        'default_theme': 'light',
         'languages': {
             'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
             'en': {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'},
         },
-        'translations': {}
+        'translations': {},
+        'sidebar': {
+            'home_url_name': None,
+            'entries': [],
+        },
+        'is_configured': False,
     }
 
     # Project settings
     user_config = getattr(settings, 'MICROSYS_CONFIG', {})
+    if not isinstance(user_config, dict):
+        user_config = {}
     
     # DB settings
     db_config = {}
     try:
         from microsys.models import SystemSettings
         sys_settings = SystemSettings.load()
-        # Only pull non-empty values from DB (since UI can leave text fields empty or json fields empty dict/array)
-        # Avoid overriding with defaults if user hasn't explicitly set them
-        if sys_settings.name and sys_settings.name not in ['microsys', 'ادارة النظام']:
+        legacy_unconfigured_name = (
+            not getattr(sys_settings, 'is_configured', False) and
+            getattr(sys_settings, 'name', '') in {'ادارة النظام', 'إدارة النظام', None}
+        )
+        if sys_settings.name and not legacy_unconfigured_name:
             db_config['name'] = sys_settings.name
+            db_config['name_ar'] = sys_settings.name
         if sys_settings.name_en:
             db_config['name_en'] = sys_settings.name_en
         if sys_settings.logo:
             db_config['logo'] = sys_settings.logo.url
+            db_config['logo_url'] = sys_settings.logo.url
+            db_config['login_logo_url'] = sys_settings.logo.url
         if sys_settings.favicon:
             db_config['favicon'] = sys_settings.favicon.url
-        if sys_settings.home_url != '/sys/':
+            db_config['favicon_url'] = sys_settings.favicon.url
+        if sys_settings.home_url:
             db_config['home_url'] = sys_settings.home_url
-        if sys_settings.default_language != 'ar':
+        if sys_settings.default_language:
             db_config['default_language'] = sys_settings.default_language
-        if sys_settings.languages:
+        if getattr(sys_settings, 'default_theme', None):
+            db_config['default_theme'] = sys_settings.default_theme
+        if isinstance(sys_settings.languages, dict) and sys_settings.languages:
             db_config['languages'] = sys_settings.languages
-        if sys_settings.translations_override:
+        if isinstance(sys_settings.translations_override, dict) and sys_settings.translations_override:
             db_config['translations'] = sys_settings.translations_override
+        if isinstance(getattr(sys_settings, 'sidebar_config', None), dict) and sys_settings.sidebar_config:
+            db_config['sidebar'] = sys_settings.sidebar_config
+        if hasattr(sys_settings, 'is_configured'):
+            db_config['is_configured'] = bool(sys_settings.is_configured)
     except Exception:
         pass
 
-    # Merge
-    final_config = default_config.copy()
-    final_config.update({k:v for k,v in user_config.items() if k not in ['languages', 'translations']})
-    final_config.update({k:v for k,v in db_config.items() if k not in ['languages', 'translations']})
-    
-    # Preemptively strip localized overrides if the base key was explicitly provided by DB
-    for db_k in db_config.keys():
-        if db_k not in ['languages', 'translations']:
-            for lang_code in final_config.get('languages', {}).keys():
-                loc_key = f"{db_k}_{lang_code}"
-                if loc_key not in db_config:
-                    final_config.pop(loc_key, None)
-    
-    # Deep merge languages
-    langs = default_config['languages'].copy()
-    if 'languages' in user_config:
-        langs.update(user_config['languages'])
-    if 'languages' in db_config:
-        langs.update(db_config['languages'])
-    final_config['languages'] = langs
-    
-    # Deep merge translations
-    trans = default_config['translations'].copy()
-    for layer in [user_config.get('translations', {}), db_config.get('translations', {})]:
-        if layer:
-            for lang, keys in layer.items():
-                if lang not in trans:
-                    trans[lang] = {}
-                trans[lang].update(keys)
-    final_config['translations'] = trans
+    user_sidebar = user_config.get('sidebar', {})
+    if not isinstance(user_sidebar, dict):
+        user_sidebar = {}
+    db_sidebar = db_config.get('sidebar', {})
+    if not isinstance(db_sidebar, dict):
+        db_sidebar = {}
+
+    final_config = deepcopy(default_config)
+    for layer in (user_config, db_config):
+        for key, value in layer.items():
+            if key in ['languages', 'translations', 'sidebar']:
+                continue
+            final_config[key] = value
+
+    final_config['languages'] = _merge_language_layers(
+        default_config.get('languages', {}),
+        user_config.get('languages', {}),
+        db_config.get('languages', {}),
+    )
+    final_config['translations'] = _merge_translation_layers(
+        default_config.get('translations', {}),
+        user_config.get('translations', {}),
+        db_config.get('translations', {}),
+    )
+
+    from .discovery import sanitize_sidebar_config
+
+    merged_sidebar = deepcopy(default_config['sidebar'])
+    for layer in (user_sidebar, db_sidebar):
+        for key, value in layer.items():
+            if key == 'entries':
+                continue
+            merged_sidebar[key] = value
+    merged_sidebar['entries'] = _dedupe_sidebar_entries(
+        list(db_sidebar.get('entries', [])) + list(user_sidebar.get('entries', []))
+    )
+    merged_sidebar = sanitize_sidebar_config(merged_sidebar)
+    final_config['sidebar'] = merged_sidebar
+
+    if 'name_ar' not in final_config or not final_config.get('name_ar'):
+        final_config['name_ar'] = final_config.get('name_en') or final_config.get('name') or default_config['name_en']
+    if not final_config.get('name_en'):
+        final_config['name_en'] = user_config.get('name_en') or default_config['name_en']
+
+    final_config['logo_url'] = final_config.get('logo_url') or final_config.get('logo') or default_config['logo']
+    final_config['login_logo_url'] = final_config.get('login_logo_url') or final_config.get('login_logo') or final_config['logo_url']
+    final_config['favicon_url'] = final_config.get('favicon_url') or final_config.get('favicon') or default_config['favicon']
+
+    resolved_home, resolved_name = _reverse_sidebar_home(
+        merged_sidebar.get('home_url_name'),
+        merged_sidebar.get('entries', []),
+        final_config.get('home_url', default_config['home_url']),
+    )
+    final_config['home_url_name'] = resolved_name
+    final_config['home_url'] = resolved_home
 
     return final_config
 

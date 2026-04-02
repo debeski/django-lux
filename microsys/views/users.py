@@ -75,6 +75,9 @@ class CustomLoginView(LoginView):
         # 2. Check System Config for home_url
         from microsys.utils import get_system_config
         config_dict = get_system_config()
+        if self.request.user.is_superuser and not config_dict.get('is_configured', False):
+            from django.shortcuts import resolve_url
+            return resolve_url('system_setup')
         home_url = config_dict.get('home_url')
             
         if home_url:
@@ -377,5 +380,4 @@ class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         # Get last 10 logs for this user
         context['recent_logs'] = UserActivityLog.objects.filter(created_by=user).order_by('-created_at')[:10]
         return context
-
 

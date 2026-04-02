@@ -1,0 +1,57 @@
+{% if tree_state %}
+    {{ tree_state|json_script:"sidebarTreeData" }}
+{% endif %}
+
+<div class="sidebar-tree-root" id="sidebarTreeRoot">
+{% for entry in entries %}
+    {% if entry.kind == 'group' %}
+    <div class="accordion-item sidebar-tree-node sidebar-group-node" data-entry-kind="group" data-entry-id="{{ entry.id }}" data-group-id="{{ entry.id }}">
+        <h2 class="accordion-header d-flex flex-nowrap align-items-center{% if entry.url and entry.url != '#' %} has-url-btn{% endif %}">
+            <button class="accordion-button{% if not entry.is_open %} collapsed{% endif %}"
+                    style="flex-grow: 1;"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#{{ entry.id }}"
+                    aria-expanded="{% if entry.is_open %}true{% else %}false{% endif %}"
+                    aria-controls="{{ entry.id }}">
+                <i class="bi {{ entry.icon }} me-2" style="font-size: 24px;"></i>
+                <span class="flex-grow-1 text-start">{{ entry.label }}</span>
+            </button>
+            {% if entry.url and entry.url != '#' %}
+            <a href="{{ entry.url }}" class="group-url-btn" title="{{ entry.label }}">
+                <i class="bi bi-kanban group-url-icon"></i>
+            </a>
+            {% endif %}
+        </h2>
+        <div id="{{ entry.id }}" class="accordion-collapse collapse{% if entry.is_open %} show{% endif %}">
+            <div class="accordion-body p-0 sidebar-group-items" data-group-dropzone="{{ entry.id }}">
+                {% for item in entry.items %}
+                <a href="{{ item.url }}"
+                   class="list-group-item list-group-item-action sidebar-tree-node sidebar-group-item{% if item.active %} active{% endif %}"
+                   data-entry-kind="item"
+                   data-entry-id="{{ item.id }}"
+                   data-url-name="{{ item.url_name }}">
+                    <i class="bi {{ item.icon }} me-2" style="font-size: 24px;"></i>
+                    <span>{{ item.label }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <a href="{{ entry.url }}"
+       class="list-group-item list-group-item-action sidebar-tree-node sidebar-root-item{% if entry.active %} active{% endif %}"
+       data-entry-kind="item"
+       data-entry-id="{{ entry.id }}"
+       data-url-name="{{ entry.url_name }}">
+        <i class="bi {{ entry.icon }} me-2" style="font-size: 24px;"></i>
+        <span>{{ entry.label }}</span>
+    </a>
+    {% endif %}
+{% empty %}
+    <div class="p-3 text-center text-muted small">
+        <i class="bi bi-inbox mb-2" style="font-size: 24px;"></i>
+        <p class="mb-0">{{ MS_TRANS.no_items }}</p>
+    </div>
+{% endfor %}
+</div>

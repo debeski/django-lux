@@ -16,8 +16,8 @@
     'use strict';
 
     // Read server-resolved language from the injected USER_PREFS object
-    const currentLang = (window.USER_PREFS && window.USER_PREFS._lang) || 'ar';
-    const currentDir  = (window.USER_PREFS && window.USER_PREFS._dir)  || 'rtl';
+    const currentLang = (window.USER_PREFS && window.USER_PREFS._lang) || 'en';
+    const currentDir  = (window.USER_PREFS && window.USER_PREFS._dir)  || 'ltr';
 
     /**
      * Set the active language.

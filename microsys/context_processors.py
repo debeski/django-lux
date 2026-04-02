@@ -2,9 +2,8 @@ from .utils import is_scope_enabled
 from django.conf import settings
 import hashlib
 import json
-from django.core.cache import cache
 from django.urls import reverse, NoReverseMatch
-from .discovery import discover_list_urls, get_sidebar_config
+from .discovery import build_sidebar_navigation
 
 # Helper functions for Sidebar - KEPT PRIVATE
 def _get_config_hash(config):
@@ -127,6 +126,22 @@ def _sort_sidebar(items, order, id_field='url_name'):
     sorted_items.extend(item_map.values())
     return sorted_items
 
+def _user_has_sidebar_permission(user, permissions):
+    permissions = permissions or []
+    if not permissions:
+        return True
+    if getattr(user, 'is_superuser', False):
+        return True
+
+    for permission in permissions:
+        if permission == 'is_staff' and getattr(user, 'is_staff', False):
+            return True
+        if permission == 'is_superuser' and getattr(user, 'is_superuser', False):
+            return True
+        if permission not in ['is_staff', 'is_superuser'] and user.has_perm(permission):
+            return True
+    return False
+
 def microsys_context(request):
     """
     Unified context processor for the entire Microsys package.
@@ -195,10 +210,16 @@ def microsys_context(request):
     user_prefs = {}
     if request.user.is_authenticated and hasattr(request.user, 'profile'):
         user_prefs = request.user.profile.preferences or {}
+    if not isinstance(user_prefs, dict):
+        user_prefs = {}
+    default_theme = final_config.get('default_theme', 'light')
+    allowed_themes = {'light', 'blue', 'gold', 'green', 'red', 'dark'}
+    if user_prefs.get('theme') not in allowed_themes:
+        user_prefs = {**user_prefs, 'theme': default_theme}
     context['user_preferences'] = user_prefs # Injected for JS use
 
     lang_config = languages.get(current_lang, {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'})
-    current_dir = lang_config.get('dir', 'rtl')
+    current_dir = lang_config.get('dir', 'ltr')
 
     # Get translated strings (with project-level overrides from config)
     project_overrides = final_config.get('translations', None)
@@ -210,71 +231,34 @@ def microsys_context(request):
     context['LANG_CONFIG'] = lang_config
     context['MS_TRANS'] = ms_trans
 
-    # 5. Sidebar Context (uses current_lang for translated labels)
-    config = get_sidebar_config(lang_code=current_lang)
-    # Include config hash + lang in cache key so language changes get fresh items
-    cache_key = f'sidebar_auto_items_{current_lang}_{_get_config_hash(config)}'
-    items = cache.get(cache_key)
-    
-    if items is None:
-        items = discover_list_urls(lang_code=current_lang)
-        cache.set(cache_key, items, timeout=config['CACHE_TIMEOUT'])
-    
-    # Filter by user permissions
-    sidebar_items = []
-    extra_groups_dict = {}
+    # 5. Setup State
+    system_setup_required = bool(
+        request.user.is_authenticated and
+        request.user.is_superuser and
+        not final_config.get('is_configured', False)
+    )
+    context['SYSTEM_SETUP_REQUIRED'] = system_setup_required
+    context['SYSTEM_SETUP_URL'] = reverse('system_setup')
 
-    if request.user.is_authenticated:
-        if request.user.is_superuser:
-            # Superusers see everything
-            sidebar_items = items
-        else:
-            visible = []
-            for item in items:
-                if not item.get('permissions'):
-                    visible.append(item)
-                elif any(request.user.has_perm(p) for p in item['permissions']):
-                    visible.append(item)
-            sidebar_items = visible
-        
-        # Process extra items for authenticated users
-        extra_groups_dict = _process_extra_items(config, request, user_prefs, ms_trans)
-        
-        # --- Apply Reordering based on user_prefs ---
-        layout = user_prefs.get('sidebar_layout', {})
-        
-        # 1. Sort Auto Items
-        if sidebar_items and layout.get('auto_items'):
-            sidebar_items = _sort_sidebar(sidebar_items, layout['auto_items'], 'url_name')
-            
-        # 2. Sort Accordion Groups
-        extra_groups_list = list(extra_groups_dict.values())
-        if extra_groups_list and layout.get('accordion_groups_order'):
-            extra_groups_list = _sort_sidebar(extra_groups_list, layout['accordion_groups_order'], 'id')
-            
-        # 3. Sort Items within groups
-        group_items_orders = layout.get('group_items', {})
-        from django.utils.text import slugify
-        for group in extra_groups_list:
-            # Reconstruct the storage key used by JS
-            # JS: STORAGE_KEY_PREFIX_EXTRA + slugify(groupName)
-            # where groupName is the span text (label) or dataset.groupName
-            # Actually, using internal group_name is safer.
-            # Local key in JS: 'sidebar_extra_' + slugify(groupLabel)
-            # Let's use the same logic as JS 'restoreContainer' in main.html
-            group_raw = group.get('raw_name', '')
-            storage_key = 'sidebar_extra_' + slugify(group_raw)
-            if storage_key in group_items_orders:
-                group['items'] = _sort_sidebar(group['items'], group_items_orders[storage_key], 'url_name')
-        
-        extra_groups = extra_groups_list
-    else:
-        extra_groups = []
-    
-    context['sidebar_auto_items'] = sidebar_items
-    context['sidebar_extra_groups'] = extra_groups
+    # 6. Sidebar Context (single tree model shared with setup builder)
+    sidebar_tree_pref = user_prefs.get('sidebar_tree', {})
+    if not isinstance(sidebar_tree_pref, dict):
+        sidebar_tree_pref = {}
 
-    # 6. Sidebar State (Collapsed/Expanded)
+    navigation = build_sidebar_navigation(
+        lang_code=current_lang,
+        sidebar_override=sidebar_tree_pref,
+        user=request.user,
+        request_path=request.path,
+        open_accordions=user_prefs.get('open_accordions', []),
+    )
+
+    context['sidebar_entries'] = navigation.get('entries', [])
+    context['sidebar_tree_state'] = navigation.get('entries', [])
+    context['sidebar_auto_items'] = navigation.get('auto_items', [])
+    context['sidebar_extra_groups'] = navigation.get('extra_groups', [])
+
+    # 7. Sidebar State (Collapsed/Expanded)
     # Prioritize DB preference if available, else session, else default
     session_collapsed = request.session.get('sidebarCollapsed', False)
     db_collapsed = user_prefs.get('sidebar_collapsed', session_collapsed)

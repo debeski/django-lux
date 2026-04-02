@@ -19,6 +19,7 @@ urlpatterns = [
     
     # System URLs (all prefixed with sys/)
     # path('sys/', views.dashboard, name='sys_dashboard'),
+    path('sys/setup/', views.system_setup_view, name='system_setup'),
     path('sys/users/', views.UserListView.as_view(), name='manage_users'),
 
     # User Modal CRUD (dedicated route with custom form)

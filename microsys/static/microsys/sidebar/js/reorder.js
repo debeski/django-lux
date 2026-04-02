@@ -1,322 +1,323 @@
 (function() {
     'use strict';
 
-    const STORAGE_KEY_AUTO = 'sidebar_auto_order';
-    const STORAGE_KEY_PREFIX_EXTRA = 'sidebar_extra_';
-    const STORAGE_KEY_GROUPS = 'sidebar_groups_order';
-
     let isReorderMode = false;
-    let draggedElement = null;
-    let dropIndicator = null;
+    let draggedNode = null;
+    let itemMap = new Map();
+    let groupMap = new Map();
 
-    // Expose restore function globally for immediate FOUC fix
-    window.restoreSidebarOrder = restoreOrder;
+    function parseTreeState() {
+        const script = document.getElementById('sidebarTreeData');
+        if (!script) return [];
+        try {
+            const parsed = JSON.parse(script.textContent || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+            console.warn('Could not parse sidebar tree state:', err);
+            return [];
+        }
+    }
+
+    function indexTreeState(entries) {
+        itemMap = new Map();
+        groupMap = new Map();
+
+        function walk(nodes) {
+            (nodes || []).forEach((entry) => {
+                if (!entry || typeof entry !== 'object') return;
+                const entryId = entry.id || entry.url_name || entry.url;
+                if (!entryId) return;
+
+                if (entry.kind === 'group') {
+                    groupMap.set(entryId, {
+                        kind: 'group',
+                        id: entryId,
+                        label: entry.label || 'Group',
+                        icon: entry.icon || 'bi-folder2-open',
+                        url_name: entry.url_name || '',
+                        url: entry.url || '',
+                    });
+                    walk(entry.items || []);
+                    return;
+                }
+
+                itemMap.set(entryId, {
+                    kind: 'item',
+                    id: entryId,
+                    url_name: entry.url_name || entryId,
+                    label: entry.label || entry.url_name || entryId,
+                    icon: entry.icon || 'bi-link-45deg',
+                    permissions: Array.isArray(entry.permissions) ? entry.permissions : [],
+                    group_key: entry.group_key || '',
+                    group_label: entry.group_label || '',
+                });
+            });
+        }
+
+        walk(entries);
+    }
+
+    function getTreeRoot() {
+        return document.getElementById('sidebarTreeRoot');
+    }
+
+    function getGroupContainer(groupNode) {
+        return groupNode ? groupNode.querySelector('[data-group-dropzone]') : null;
+    }
+
+    function getNodeContainer(node) {
+        if (!node) return null;
+        const parent = node.parentElement;
+        if (!parent) return null;
+        if (parent.id === 'sidebarTreeRoot' || parent.hasAttribute('data-group-dropzone')) {
+            return parent;
+        }
+        return null;
+    }
+
+    function clearDropClasses(root) {
+        (root || document).querySelectorAll('.sidebar-drop-target').forEach((el) => el.classList.remove('sidebar-drop-target'));
+        (root || document).querySelectorAll('.sidebar-drop-before').forEach((el) => el.classList.remove('sidebar-drop-before'));
+        (root || document).querySelectorAll('.sidebar-drop-after').forEach((el) => el.classList.remove('sidebar-drop-after'));
+    }
+
+    function setDraggingState(node, active) {
+        if (!node) return;
+        node.classList.toggle('dragging', active);
+        if (node.dataset.entryKind === 'group') {
+            const button = node.querySelector('.accordion-button');
+            if (button) {
+                button.classList.toggle('dragging', active);
+            }
+        }
+    }
+
+    function canDropOnNode(targetNode) {
+        if (!draggedNode || !targetNode || draggedNode === targetNode) return false;
+        if (draggedNode.dataset.entryKind === 'group') {
+            return getNodeContainer(targetNode) === getTreeRoot();
+        }
+        return true;
+    }
+
+    function syncDraggableHandles(root) {
+        const nodes = root.querySelectorAll('[data-entry-kind][data-entry-id]');
+        nodes.forEach((node) => {
+            if (node.dataset.reorderBound === 'true') {
+                const handle = node.dataset.entryKind === 'group' ? node.querySelector('.accordion-button') : node;
+                if (handle) {
+                    if (isReorderMode) {
+                        handle.setAttribute('draggable', 'true');
+                    } else {
+                        handle.removeAttribute('draggable');
+                    }
+                }
+                return;
+            }
+
+            node.dataset.reorderBound = 'true';
+            const handle = node.dataset.entryKind === 'group' ? node.querySelector('.accordion-button') : node;
+            if (!handle) return;
+
+            handle.addEventListener('dragstart', (event) => {
+                if (!isReorderMode) {
+                    event.preventDefault();
+                    return;
+                }
+                draggedNode = node;
+                setDraggingState(node, true);
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', node.dataset.entryId || '');
+            });
+
+            handle.addEventListener('dragend', () => {
+                setDraggingState(node, false);
+                draggedNode = null;
+                clearDropClasses(root);
+            });
+
+            handle.addEventListener('click', (event) => {
+                if (isReorderMode) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            });
+
+            node.addEventListener('dragover', (event) => {
+                if (!isReorderMode || !canDropOnNode(node)) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const rect = node.getBoundingClientRect();
+                const before = event.clientY < rect.top + rect.height / 2;
+                node.classList.toggle('sidebar-drop-before', before);
+                node.classList.toggle('sidebar-drop-after', !before);
+            });
+
+            node.addEventListener('dragleave', () => {
+                node.classList.remove('sidebar-drop-before', 'sidebar-drop-after');
+            });
+
+            node.addEventListener('drop', (event) => {
+                if (!isReorderMode || !canDropOnNode(node) || !draggedNode) return;
+                event.preventDefault();
+                event.stopPropagation();
+
+                const container = getNodeContainer(node);
+                if (!container) return;
+
+                const rect = node.getBoundingClientRect();
+                const before = event.clientY < rect.top + rect.height / 2;
+                container.insertBefore(draggedNode, before ? node : node.nextSibling);
+                node.classList.remove('sidebar-drop-before', 'sidebar-drop-after');
+                saveSidebarTree(root);
+            });
+
+            if (node.dataset.entryKind === 'group') {
+                const groupContainer = getGroupContainer(node);
+                if (groupContainer) {
+                    groupContainer.addEventListener('dragover', (event) => {
+                        if (!isReorderMode || !draggedNode || draggedNode.dataset.entryKind !== 'item') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        groupContainer.classList.add('sidebar-drop-target');
+                    });
+
+                    groupContainer.addEventListener('dragleave', () => {
+                        groupContainer.classList.remove('sidebar-drop-target');
+                    });
+
+                    groupContainer.addEventListener('drop', (event) => {
+                        if (!isReorderMode || !draggedNode || draggedNode.dataset.entryKind !== 'item') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        groupContainer.appendChild(draggedNode);
+                        groupContainer.classList.remove('sidebar-drop-target');
+                        saveSidebarTree(root);
+                    });
+                }
+            }
+        });
+    }
+
+    function fallbackItemFromNode(node) {
+        return {
+            kind: 'item',
+            id: node.dataset.entryId,
+            url_name: node.dataset.urlName || node.dataset.entryId,
+            label: node.querySelector('span') ? node.querySelector('span').textContent.trim() : (node.dataset.urlName || node.dataset.entryId),
+            icon: Array.from(node.querySelector('i')?.classList || []).find((cls) => cls.startsWith('bi-')) || 'bi-link-45deg',
+            permissions: [],
+            group_key: '',
+            group_label: '',
+        };
+    }
+
+    function fallbackGroupFromNode(node) {
+        return {
+            kind: 'group',
+            id: node.dataset.entryId,
+            label: node.querySelector('.accordion-button span') ? node.querySelector('.accordion-button span').textContent.trim() : 'Group',
+            icon: Array.from(node.querySelector('.accordion-button i')?.classList || []).find((cls) => cls.startsWith('bi-')) || 'bi-folder2-open',
+            url_name: '',
+            url: '',
+        };
+    }
+
+    function serializeItems(container) {
+        return Array.from(container.children)
+            .filter((node) => node.nodeType === 1 && node.matches('[data-entry-kind="item"][data-entry-id]'))
+            .map((node) => {
+                const itemId = node.dataset.entryId;
+                return { ...(itemMap.get(itemId) || fallbackItemFromNode(node)), id: itemId, kind: 'item' };
+            });
+    }
+
+    function serializeSidebarTree(root) {
+        return Array.from(root.children)
+            .filter((node) => node.nodeType === 1 && node.matches('[data-entry-kind][data-entry-id]'))
+            .map((node) => {
+                const entryId = node.dataset.entryId;
+                if (node.dataset.entryKind === 'group') {
+                    const group = { ...(groupMap.get(entryId) || fallbackGroupFromNode(node)), id: entryId, kind: 'group' };
+                    const groupContainer = getGroupContainer(node);
+                    group.items = groupContainer ? serializeItems(groupContainer) : [];
+                    return group;
+                }
+                return { ...(itemMap.get(entryId) || fallbackItemFromNode(node)), id: entryId, kind: 'item' };
+            });
+    }
+
+    function saveSidebarTree(root) {
+        const entries = serializeSidebarTree(root);
+        const payload = { entries };
+
+        const script = document.getElementById('sidebarTreeData');
+        if (script) {
+            script.textContent = JSON.stringify(entries);
+        }
+
+        indexTreeState(entries);
+
+        if (window.updatePreferences) {
+            window.updatePreferences({ sidebar_tree: payload });
+        }
+        if (window.USER_PREFS) {
+            window.USER_PREFS.sidebar_tree = payload;
+        }
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
         const sidebar = document.getElementById('sidebar');
+        const treeRoot = getTreeRoot();
         const reorderToggle = document.getElementById('sidebarReorderToggle');
-        
-        if (!sidebar || !reorderToggle) return;
 
-        // Create drop indicator element
-        dropIndicator = document.createElement('div');
-        dropIndicator.className = 'drop-indicator';
-        dropIndicator.style.display = 'none';
+        if (!sidebar || !treeRoot || !reorderToggle) return;
 
-        // Restore is now called immediately via inline script for FOUC prevention
-        // But call again here as fallback if inline script didn't run
-        if (!window._sidebarOrderRestored) {
-            restoreOrder();
-        }
+        indexTreeState(parseTreeState());
+        syncDraggableHandles(treeRoot);
 
-        // Toggle reorder mode
-        reorderToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
+        reorderToggle.addEventListener('click', (event) => {
+            event.stopPropagation();
             isReorderMode = !isReorderMode;
             reorderToggle.classList.toggle('active', isReorderMode);
             sidebar.classList.toggle('reorder-mode', isReorderMode);
-            
-            if (isReorderMode) {
-                enableDragAndDrop();
-            } else {
-                disableDragAndDrop();
+            syncDraggableHandles(treeRoot);
+            if (!isReorderMode) {
+                clearDropClasses(treeRoot);
+                setDraggingState(draggedNode, false);
+                draggedNode = null;
             }
         });
 
-        // Close reorder mode when clicking outside
-        document.addEventListener('click', (e) => {
-            if (isReorderMode && !sidebar.contains(e.target)) {
+        document.addEventListener('click', (event) => {
+            if (isReorderMode && !sidebar.contains(event.target)) {
                 isReorderMode = false;
                 reorderToggle.classList.remove('active');
                 sidebar.classList.remove('reorder-mode');
-                disableDragAndDrop();
+                syncDraggableHandles(treeRoot);
+                clearDropClasses(treeRoot);
+                setDraggingState(draggedNode, false);
+                draggedNode = null;
             }
+        });
+
+        treeRoot.addEventListener('dragover', (event) => {
+            if (!isReorderMode || !draggedNode) return;
+            event.preventDefault();
+            treeRoot.classList.add('sidebar-drop-target');
+        });
+
+        treeRoot.addEventListener('dragleave', () => {
+            treeRoot.classList.remove('sidebar-drop-target');
+        });
+
+        treeRoot.addEventListener('drop', (event) => {
+            if (!isReorderMode || !draggedNode) return;
+            event.preventDefault();
+            event.stopPropagation();
+            treeRoot.appendChild(draggedNode);
+            treeRoot.classList.remove('sidebar-drop-target');
+            saveSidebarTree(treeRoot);
         });
     });
-
-    function enableDragAndDrop() {
-        // 1. Auto items in .sidebar-auto-items
-        const autoContainer = document.getElementById('sidebarAutoItems');
-        if (autoContainer) {
-            setupDraggableContainer(autoContainer, ':scope > .list-group-item', STORAGE_KEY_AUTO, 'urlName');
-        }
-
-        // 2. Extra group items in accordion bodies
-        const accordionBodies = document.querySelectorAll('.sidebar .accordion-body');
-        accordionBodies.forEach(body => {
-            const groupName = body.dataset.groupName || body.closest('.accordion-item')?.querySelector('.accordion-button span')?.textContent?.trim();
-            if (groupName) {
-                const key = STORAGE_KEY_PREFIX_EXTRA + slugify(groupName);
-                setupDraggableContainer(body, ':scope > .list-group-item', key, 'urlName');
-            }
-        });
-
-        // 3. Accordion groups themselves
-        const groupsContainer = document.getElementById('sidebarExtraAccordion');
-        if (groupsContainer) {
-            setupDraggableContainer(groupsContainer, ':scope > .accordion-item', STORAGE_KEY_GROUPS, 'groupId');
-        }
-    }
-
-    function disableDragAndDrop() {
-        const items = document.querySelectorAll('.sidebar [draggable="true"]');
-        items.forEach(item => {
-            item.removeAttribute('draggable');
-            item.removeEventListener('dragstart', handleDragStart);
-            item.removeEventListener('dragend', handleDragEnd);
-            item.removeEventListener('dragover', handleDragOver);
-            item.removeEventListener('drop', handleDrop);
-        });
-        
-        // Hide drop indicator
-        if (dropIndicator) {
-            dropIndicator.style.display = 'none';
-            if (dropIndicator.parentNode) {
-                dropIndicator.parentNode.removeChild(dropIndicator);
-            }
-        }
-    }
-
-    function setupDraggableContainer(container, selector, storageKey, idAttribute) {
-        const items = container.querySelectorAll(selector);
-        
-        items.forEach(item => {
-            item.setAttribute('draggable', 'true');
-            item.dataset.storageKey = storageKey;
-            item.dataset.idAttribute = idAttribute;
-            
-            item.addEventListener('dragstart', handleDragStart);
-            item.addEventListener('dragend', handleDragEnd);
-            item.addEventListener('dragover', handleDragOver);
-            item.addEventListener('drop', handleDrop);
-        });
-
-        // Add event listeners to container for drag events
-        container.addEventListener('dragover', handleContainerDragOver);
-        container.addEventListener('drop', handleContainerDrop);
-    }
-
-    function handleDragStart(e) {
-        draggedElement = this;
-        this.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', ''); // Required for Firefox
-        
-        // Add drop indicator to DOM
-        if (dropIndicator && this.parentNode) {
-            this.parentNode.appendChild(dropIndicator);
-        }
-    }
-
-    function handleDragEnd(e) {
-        this.classList.remove('dragging');
-        
-        // Hide drop indicator
-        if (dropIndicator) {
-            dropIndicator.style.display = 'none';
-        }
-        
-        // Save new order
-        if (draggedElement) {
-            saveOrder(draggedElement.parentNode, draggedElement.dataset.storageKey, draggedElement.dataset.idAttribute);
-        }
-        
-        draggedElement = null;
-    }
-
-    function handleDragOver(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        
-        if (!draggedElement || draggedElement === this) return;
-        if (draggedElement.dataset.storageKey !== this.dataset.storageKey) return;
-        
-        const rect = this.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        
-        // Show drop indicator
-        if (dropIndicator) {
-            dropIndicator.style.display = 'block';
-            if (e.clientY < midY) {
-                this.parentNode.insertBefore(dropIndicator, this);
-            } else {
-                this.parentNode.insertBefore(dropIndicator, this.nextSibling);
-            }
-        }
-    }
-
-    function handleContainerDragOver(e) {
-        e.preventDefault();
-    }
-
-    function handleDrop(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (!draggedElement || draggedElement === this) return;
-        if (draggedElement.dataset.storageKey !== this.dataset.storageKey) return;
-        
-        const rect = this.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        
-        if (e.clientY < midY) {
-            this.parentNode.insertBefore(draggedElement, this);
-        } else {
-            this.parentNode.insertBefore(draggedElement, this.nextSibling);
-        }
-    }
-
-    function handleContainerDrop(e) {
-        e.preventDefault();
-        // Item drops are handled by individual items
-    }
-
-    function saveOrder(container, storageKey, idAttribute) {
-        if (!container || !storageKey || !idAttribute) return;
-        
-        const items = container.querySelectorAll(`:scope > [data-${slugifyAttr(idAttribute)}]`);
-        const order = Array.from(items).map(item => item.dataset[idAttribute]);
-        
-        // 1. Update local storage (individual key for backward compat/local speed)
-        try {
-            localStorage.setItem(storageKey, JSON.stringify(order));
-        } catch (e) {
-            console.warn('Could not save sidebar order (localStorage):', e);
-        }
-
-        // 2. Update DB via consolidated sidebar_layout
-        if (window.updatePreferences) {
-            const currentPrefs = window.USER_PREFS || {};
-            const currentLayout = currentPrefs.sidebar_layout || {};
-            
-            // Reconstruct the specific part of the layout
-            if (storageKey === STORAGE_KEY_AUTO) {
-                currentLayout.auto_items = order;
-            } else if (storageKey === STORAGE_KEY_GROUPS) {
-                currentLayout.accordion_groups_order = order;
-            } else if (storageKey.startsWith(STORAGE_KEY_PREFIX_EXTRA)) {
-                if (!currentLayout.group_items) currentLayout.group_items = {};
-                currentLayout.group_items[storageKey] = order;
-            }
-            
-            window.updatePreferences({ 
-                sidebar_layout: currentLayout 
-            });
-            
-            // Sync local USER_PREFS
-            if (window.USER_PREFS) {
-                window.USER_PREFS.sidebar_layout = currentLayout;
-            }
-        }
-    }
-
-    function restoreOrder() {
-        // 1. Restore auto items order
-        const autoContainer = document.getElementById('sidebarAutoItems');
-        if (autoContainer) {
-            restoreContainerOrder(autoContainer, STORAGE_KEY_AUTO, 'urlName');
-        }
-
-        // 2. Restore extra group items order
-        const accordionBodies = document.querySelectorAll('.sidebar .accordion-body');
-        accordionBodies.forEach(body => {
-            const groupName = body.dataset.groupName || body.closest('.accordion-item')?.querySelector('.accordion-button span')?.textContent?.trim();
-            if (groupName) {
-                const key = STORAGE_KEY_PREFIX_EXTRA + slugify(groupName);
-                restoreContainerOrder(body, key, 'urlName');
-            }
-        });
-
-        // 3. Restore parent groups order
-        const groupsContainer = document.getElementById('sidebarExtraAccordion');
-        if (groupsContainer) {
-            restoreContainerOrder(groupsContainer, STORAGE_KEY_GROUPS, 'groupId');
-        }
-        
-        // Mark as restored
-        window._sidebarOrderRestored = true;
-    }
-
-    function restoreContainerOrder(container, storageKey, idAttribute) {
-        let savedOrder;
-        try {
-            const layout = window.USER_PREFS?.sidebar_layout || {};
-            
-            // Try structured layout first
-            if (storageKey === STORAGE_KEY_AUTO && layout.auto_items) {
-                savedOrder = layout.auto_items;
-            } else if (storageKey === STORAGE_KEY_GROUPS && layout.accordion_groups_order) {
-                savedOrder = layout.accordion_groups_order;
-            } else if (storageKey.startsWith(STORAGE_KEY_PREFIX_EXTRA) && layout.group_items?.[storageKey]) {
-                savedOrder = layout.group_items[storageKey];
-            } else {
-                // Fallback to legacy sidebar_order if it exists (for transition)
-                if (window.USER_PREFS?.sidebar_order?.[storageKey]) {
-                    savedOrder = window.USER_PREFS.sidebar_order[storageKey];
-                } else {
-                    // Final fallback to localStorage
-                    const saved = localStorage.getItem(storageKey);
-                    if (saved) savedOrder = JSON.parse(saved);
-                }
-            }
-        } catch (e) {
-            return; // Invalid, use default
-        }
-        
-        if (!Array.isArray(savedOrder) || savedOrder.length === 0) return;
-        
-        const items = container.querySelectorAll(`:scope > [data-${slugifyAttr(idAttribute)}]`);
-        const itemMap = new Map();
-        items.forEach(item => {
-            itemMap.set(item.dataset[idAttribute], item);
-        });
-        
-        // Reorder based on saved order
-        savedOrder.forEach(idValue => {
-            const item = itemMap.get(idValue);
-            if (item) {
-                container.appendChild(item);
-                itemMap.delete(idValue);
-            }
-        });
-        
-        // Append any remaining items (new items not in saved order)
-        itemMap.forEach(item => {
-            container.appendChild(item);
-        });
-    }
-
-    function slugify(text) {
-        return text
-            .toString()
-            .toLowerCase()
-            .trim()
-            .replace(/\s+/g, '-')
-            .replace(/[^\w\-]+/g, '')
-            .replace(/\-\-+/g, '-');
-    }
-
-    function slugifyAttr(text) {
-        return text.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-    }
 })();

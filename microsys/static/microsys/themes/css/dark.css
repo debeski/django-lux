@@ -31,6 +31,26 @@
     --bg-gradient: linear-gradient(135deg, #121212 0%, #1e1e1e 100%);
     --right-bg: var(--title);
     --primary-color: var(--primal);
+    /* Setup Builder Theme Tokens */
+    --ms-setup-shell-bg: linear-gradient(180deg, rgba(30, 30, 30, 0.96), rgba(18, 18, 18, 0.96));
+    --ms-setup-shell-border: rgba(255, 255, 255, 0.08);
+    --ms-setup-card-bg: rgba(30, 30, 30, 0.9);
+    --ms-setup-card-border: rgba(255, 255, 255, 0.08);
+    --ms-setup-pane-bg: rgba(255, 255, 255, 0.03);
+    --ms-setup-pane-border: rgba(255, 255, 255, 0.08);
+    --ms-setup-item-bg: rgba(255, 255, 255, 0.03);
+    --ms-setup-item-border: rgba(255, 255, 255, 0.08);
+    --ms-setup-item-hover-bg: rgba(255, 255, 255, 0.05);
+    --ms-setup-item-shadow: none;
+    --ms-setup-item-active-bg: rgba(var(--primal-rgb), 0.1);
+    --ms-setup-item-active-ring: rgba(var(--primal-rgb), 0.22);
+    --ms-setup-tree-bg: linear-gradient(180deg, rgba(18, 18, 18, 0.92), rgba(30, 30, 30, 0.92));
+    --ms-setup-tree-accent: rgba(var(--primal-rgb), 0.28);
+    --ms-setup-connector: rgba(148, 163, 184, 0.28);
+    --ms-setup-badge-bg: rgba(255, 255, 255, 0.08);
+    --ms-setup-badge-color: #e9ecef;
+    --ms-setup-text: var(--title);
+    --ms-setup-muted: #cbd5e1;
 }
 
 /* Force options to inherit dark theme colors */
@@ -503,10 +523,11 @@
 /* 14. Sidebar Toggle */
 :root.theme-dark .sidebar-toggle {
     color: #e9ecef !important;
-    background-color: transparent !important; /* Ensure it doesn't have a white bg */
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
 }
 :root.theme-dark .sidebar-toggle:hover {
-    background-color: rgba(255,255,255,0.1) !important;
+    background-color: rgba(255,255,255,0.12) !important;
     color: #fff !important;
 }
 

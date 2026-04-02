@@ -22,7 +22,7 @@
       <div class="left">
         <div class="d-flex flex-column align-items-center mb-4 d-md-none">
             <div class="logo-frame">
-                <img src="{% static 'img/login_logo.webp' %}" alt="Login Logo" class="logo-img">
+                <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="Login Logo" class="logo-img">
             </div>
         </div>
         <form method="post" action="" class="w-100">
@@ -105,7 +105,7 @@
       
       <div class="right d-none d-md-flex">
           <div class="logo-frame">
-            <img src="{% static 'img/login_logo.webp' %}" alt="Login Logo" class="logo-img">
+            <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="Login Logo" class="logo-img">
           </div>
       </div>
     </div>

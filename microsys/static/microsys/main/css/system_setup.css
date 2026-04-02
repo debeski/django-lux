@@ -1,0 +1,199 @@
+.ms-setup-page {
+  background: var(--ms-setup-shell-bg);
+  border: 1px solid var(--ms-setup-shell-border);
+  border-radius: 1.5rem;
+}
+
+.ms-setup-page-logo {
+  max-height: 88px;
+  width: auto;
+}
+
+.ms-system-settings-shell .wizard-step {
+  padding: 1rem 0;
+}
+
+.ms-setup-builder .card {
+  border-radius: 1rem;
+  background: var(--ms-setup-card-bg) !important;
+  border: 1px solid var(--ms-setup-card-border) !important;
+}
+
+.ms-sidebar-tree,
+.ms-sidebar-available {
+  min-height: 280px;
+  max-height: 460px;
+  overflow: auto;
+  padding: 0.25rem;
+  border: 1px dashed var(--ms-setup-pane-border);
+  border-radius: 0.9rem;
+  background: var(--ms-setup-pane-bg);
+}
+
+.ms-builder-available-group + .ms-builder-available-group {
+  margin-top: 1rem;
+}
+
+.ms-builder-available-group {
+  position: relative;
+}
+
+.ms-builder-available-items {
+  margin-top: 0.55rem;
+  margin-inline-start: 1rem;
+  padding-inline-start: 1rem;
+  border-inline-start: 1px solid var(--ms-setup-connector);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ms-builder-item,
+.ms-builder-node {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.8rem 0.95rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--ms-setup-item-border);
+  border-radius: 0.9rem;
+  background: var(--ms-setup-item-bg);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.ms-builder-item:hover,
+.ms-builder-node:hover {
+  background: var(--ms-setup-item-hover-bg);
+  border-color: rgba(var(--primal-rgb), 0.35);
+  box-shadow: var(--ms-setup-item-shadow);
+}
+
+.ms-builder-item.is-active,
+.ms-builder-node.is-active {
+  background: var(--ms-setup-item-active-bg);
+  border-color: var(--primal);
+  box-shadow: 0 0 0 3px var(--ms-setup-item-active-ring);
+}
+
+.ms-builder-item.available-item.is-child,
+.ms-builder-group-items .ms-builder-node.is-item {
+  position: relative;
+}
+
+.ms-builder-item.available-item.is-child::before,
+.ms-builder-group-items .ms-builder-node.is-item::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -0.92rem;
+  top: 50%;
+  width: 0.7rem;
+  border-top: 1px solid var(--ms-setup-connector);
+  transform: translateY(-50%);
+}
+
+.ms-builder-node {
+  cursor: pointer;
+}
+
+.ms-builder-node.is-group {
+  display: block;
+  padding: 0.75rem;
+}
+
+.ms-builder-group-header,
+.ms-builder-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.ms-builder-item-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ms-builder-item-label {
+  font-weight: 600;
+  color: var(--ms-setup-text);
+  line-height: 1.2;
+}
+
+.ms-builder-item-meta {
+  font-size: 0.78rem;
+  color: var(--ms-setup-muted);
+  line-height: 1.15;
+}
+
+.ms-builder-item-main span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-builder-item-copy .ms-builder-item-label,
+.ms-builder-item-copy .ms-builder-item-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-builder-group-items {
+  margin-top: 0.75rem;
+  margin-inline-start: 0.5rem;
+  padding: 0.85rem 0.85rem 0.85rem 1rem;
+  border-radius: 0.8rem;
+  background: var(--ms-setup-tree-bg);
+  border: 1px dashed var(--ms-setup-pane-border);
+  border-inline-start: 3px solid var(--ms-setup-tree-accent);
+}
+
+.ms-builder-group-items .ms-builder-node {
+  margin-bottom: 0.45rem;
+}
+
+.ms-builder-group-header {
+  justify-content: space-between;
+  padding: 0.2rem 0.1rem 0.2rem 0.15rem;
+  font-weight: 700;
+  color: var(--ms-setup-text);
+}
+
+.ms-builder-group-header .badge,
+.ms-builder-item.available-item.fw-semibold .badge {
+  background: var(--ms-setup-badge-bg) !important;
+  color: var(--ms-setup-badge-color) !important;
+}
+
+.ms-builder-drop-target {
+  border-color: var(--primal) !important;
+  background: var(--ms-setup-item-active-bg) !important;
+}
+
+.ms-builder-drop-before {
+  box-shadow: inset 0 3px 0 var(--primal);
+}
+
+.ms-builder-drop-after {
+  box-shadow: inset 0 -3px 0 var(--primal);
+}
+
+.ms-builder-node.is-dragging {
+  opacity: 0.55;
+}
+
+.ms-setup-builder .glass-input,
+.ms-setup-builder .input-group-text {
+  background: var(--glass-input-bg) !important;
+  border-color: var(--glass-input-border) !important;
+}
+
+@media (max-width: 991.98px) {
+  .ms-sidebar-tree,
+  .ms-sidebar-available {
+    max-height: 320px;
+  }
+}

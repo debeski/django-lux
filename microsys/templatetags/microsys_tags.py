@@ -24,7 +24,7 @@ def ms_timesince(context, value, arg=None):
         return ""
 
     strings = get_strings()
-    current_lang = strings.get('lang_code_id', 'ar')  # Safe fallback if needed by template tag processing, but mainly get_strings() handles the translation mapping natively now.
+    current_lang = strings.get('lang_code_id', 'en')  # Safe fallback if needed by template tag processing, but mainly get_strings() handles the translation mapping natively now.
     
     # Normalize buffer (replace non-breaking spaces)
     ts = ts.replace('\xa0', ' ')

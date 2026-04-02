@@ -761,10 +761,17 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             return resolve_model_by_name(model_name)
         return None
 
+    def _guard_model_access(self, model):
+        if model and model._meta.app_label == 'microsys' and model.__name__ == 'SystemSettings':
+            return self.request.user.is_superuser
+        return True
+
     def get(self, request, *args, **kwargs):
         model = self.get_model()
         if not model:
             return JsonResponse({'error': 'Model not found'}, status=404)
+        if not self._guard_model_access(model):
+            return JsonResponse({'error': 'Permission denied'}, status=403)
 
         # 1. Resolve Classes
         classes = get_model_classes(model._meta.model_name, app_label=model._meta.app_label)
@@ -843,6 +850,8 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         model = self.get_model()
         if not model:
             return JsonResponse({'error': 'Model not found'}, status=404)
+        if not self._guard_model_access(model):
+            return JsonResponse({'error': 'Permission denied'}, status=403)
 
         instance = None
         pk = kwargs.get('pk') or request.GET.get('id')

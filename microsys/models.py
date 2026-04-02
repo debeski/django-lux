@@ -63,12 +63,22 @@ class SingletonModel(models.Model):
                 config = getattr(settings, 'MICROSYS_CONFIG', {})
                 if 'name' in config:
                     obj.name = config.get('name')
+                if 'name_ar' in config:
+                    obj.name = config.get('name_ar') or obj.name
                 if 'default_language' in config:
                     obj.default_language = config.get('default_language')
+                if 'default_theme' in config:
+                    obj.default_theme = config.get('default_theme')
                 if 'name_en' in config:
                     obj.name_en = config.get('name_en')
-                if 'name_ar' in config:
-                    obj.name = config.get('name_ar')
+                if 'home_url' in config:
+                    obj.home_url = config.get('home_url') or obj.home_url
+                if hasattr(obj, 'languages') and isinstance(config.get('languages'), dict):
+                    obj.languages = config.get('languages')
+                if hasattr(obj, 'translations_override') and isinstance(config.get('translations'), dict):
+                    obj.translations_override = config.get('translations')
+                if hasattr(obj, 'sidebar_config') and isinstance(config.get('sidebar'), dict):
+                    obj.sidebar_config = config.get('sidebar')
                 obj.save()
             cache.set(cls.__name__, obj, timeout=86400)
         return obj
@@ -78,15 +88,17 @@ class SingletonModel(models.Model):
 
 
 class SystemSettings(SingletonModel):
-    name = models.CharField(max_length=255, default='ادارة النظام', verbose_name="اسم النظام (عربي)")
+    name = models.CharField(max_length=255, default='', verbose_name="اسم النظام (عربي)")
     name_en = models.CharField(max_length=255, blank=True, null=True, verbose_name="اسم النظام (إنجليزي)")
     logo = models.ImageField(upload_to='microsys/branding/', null=True, blank=True, verbose_name="شعار النظام (Logo)")
     favicon = models.ImageField(upload_to='microsys/branding/', null=True, blank=True, verbose_name="أيقونة الموقع (Favicon)")
-    default_language = models.CharField(max_length=10, default='ar', verbose_name="اللغة الافتراضية")
+    default_language = models.CharField(max_length=10, default='en', verbose_name="اللغة الافتراضية")
+    default_theme = models.CharField(max_length=20, default='light', verbose_name="المظهر الافتراضي")
     home_url = models.CharField(max_length=255, default='/sys/', verbose_name="الرابط الرئيسي")
-    
+    is_configured = models.BooleanField(default=False, verbose_name="تم الضبط")
     languages = models.JSONField(default=dict, blank=True, verbose_name="اللغات المتوفرة")
     translations_override = models.JSONField(default=dict, blank=True, verbose_name="تجاوز الترجمات")
+    sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="إعدادات الشريط الجانبي")
 
     class Meta:
         verbose_name = "System Settings"

@@ -1,5 +1,7 @@
 # Imports of the required python modules and libraries
 ######################################################
+import json
+
 from django import forms
 from django.contrib.auth.models import Permission as Permissions
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm, PasswordChangeForm, SetPasswordForm
@@ -9,15 +11,31 @@ from crispy_forms.layout import Layout, Field, Div, HTML, Submit, Row
 from crispy_forms.bootstrap import FormActions
 from PIL import Image
 from django.core.exceptions import ValidationError
+from django.core.serializers.json import DjangoJSONEncoder
 from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.db.models import Q
 from django.apps import apps
 from django.forms.widgets import ChoiceWidget
 from django.conf import settings
+from django.template.loader import render_to_string
+from django.urls import NoReverseMatch, reverse
 from .translations import get_strings
 
 User = get_user_model()
+
+THEME_CHOICES = [
+    ('light', '#f6f7f9', 'theme_white'),
+    ('blue', '#2363c3', 'theme_royal'),
+    ('gold', '#d97706', 'theme_gold'),
+    ('green', '#166534', 'theme_green'),
+    ('red', '#7f1d1d', 'theme_red'),
+    ('dark', '#0f172a', 'theme_dark'),
+]
+
+
+def _json_dump(value, **kwargs):
+    return json.dumps(value, cls=DjangoJSONEncoder, **kwargs)
 
 
 
@@ -821,6 +839,15 @@ class ScopeForm(forms.ModelForm):
 
 
 class SystemSettingsForm(forms.ModelForm):
+    default_language = forms.ChoiceField(
+        required=True,
+        widget=forms.HiddenInput(),
+    )
+    default_theme = forms.ChoiceField(
+        required=True,
+        choices=[(value, value) for value, _, _ in THEME_CHOICES],
+        widget=forms.HiddenInput(),
+    )
     languages = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 4}),
         required=False,
@@ -829,84 +856,214 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.Textarea(attrs={'rows': 4}),
         required=False,
     )
+    sidebar_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
 
     class Meta:
         model = apps.get_model('microsys', 'SystemSettings')
-        fields = ['name', 'name_en', 'logo', 'favicon', 'default_language', 'languages', 'translations_override']
+        fields = ['name', 'name_en', 'logo', 'favicon', 'default_language', 'default_theme', 'languages', 'translations_override', 'sidebar_config']
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
         self._user = kwargs.pop('user', None)
+        self.mode = kwargs.pop('mode', 'modal')
         super().__init__(*args, **kwargs)
-        
-        # Determine language context from user or request
-        user = self._user or (self.request.user if self.request else None)
+        self.refresh_parent = True
         s = get_strings()
-        
-        # Support passing translations directly via kwargs in Dynamic Modal
         if hasattr(self, 'translations') and self.translations:
             s = self.translations
 
-        
-        # Languages and Translations Override
+        from microsys.discovery import discover_sidebar_catalog, sanitize_sidebar_config
+        from microsys.utils import get_system_config
+
+        config = get_system_config()
+        current_languages = dict(config.get('languages', {}))
+        if isinstance(getattr(self.instance, 'languages', None), dict):
+            current_languages.update(self.instance.languages)
+        current_languages = {
+            code: payload if isinstance(payload, dict) else {'name': str(payload)}
+            for code, payload in current_languages.items()
+            if payload
+        }
+        if not current_languages:
+            current_languages = {
+                'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
+                'en': {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'},
+            }
+
+        self.fields['default_language'].choices = [
+            (code, payload.get('name', code) if isinstance(payload, dict) else str(payload))
+            for code, payload in current_languages.items()
+        ]
+
         self.fields['languages'].label = s.get('form_sys_languages', "اللغات المتوفرة (JSON)")
         self.fields['languages'].help_text = s.get('help_sys_languages', 'مثال: {"ar": "العربية", "en": "English"}')
-        
         self.fields['translations_override'].label = s.get('form_sys_translations', "تجاوز الترجمات (JSON)")
         self.fields['translations_override'].help_text = s.get('help_sys_translations', 'مثال: {"ar": {"app_microsys": "النظام"}}')
-        
         self.fields['name'].label = s.get('form_sys_name_ar', "اسم النظام (عربي)")
         self.fields['name_en'].label = s.get('form_sys_name_en', "اسم النظام (إنجليزي)")
         self.fields['default_language'].label = s.get('form_sys_default_lang', "اللغة الافتراضية")
+        self.fields['default_theme'].label = s.get('form_sys_default_theme', "المظهر الافتراضي")
         self.fields['logo'].label = s.get('form_sys_logo', "الشعار (Logo)")
         self.fields['favicon'].label = s.get('form_sys_favicon', "أيقونة الموقع (Favicon)")
+        self.fields['sidebar_config'].label = s.get('form_sys_sidebar', "إعدادات الشريط الجانبي")
 
-        # Seed instance fields from config if not yet customized
-        from django.conf import settings
-        config = getattr(settings, 'MICROSYS_CONFIG', {})
-        if not self.instance.name or self.instance.name == 'ادارة النظام':
-             self.instance.name = config.get('name_ar', config.get('name', 'ادارة النظام'))
+        project_config = getattr(settings, 'MICROSYS_CONFIG', {})
+        if (not getattr(self.instance, 'is_configured', False)) and (not self.instance.name or self.instance.name in {'ادارة النظام', 'إدارة النظام'}):
+             seeded_name_ar = project_config.get('name_ar', '')
+             if seeded_name_ar in {'ادارة النظام', 'إدارة النظام'}:
+                 seeded_name_ar = ''
+             self.instance.name = seeded_name_ar
+        self.initial['name'] = self.instance.name or ''
         if not self.instance.name_en:
-             self.instance.name_en = config.get('name_en', '')
-        if not self.instance.default_language or self.instance.default_language == 'ar':
-             self.instance.default_language = config.get('default_language', 'ar')
+             self.instance.name_en = project_config.get('name_en', '')
+        self.initial['name_en'] = self.instance.name_en or ''
+        if not self.instance.default_language:
+             self.instance.default_language = config.get('default_language', 'en')
+        self.initial['default_language'] = self.instance.default_language or config.get('default_language', 'en')
+        if not getattr(self.instance, 'default_theme', None):
+             self.instance.default_theme = config.get('default_theme', 'light')
+        self.initial['default_theme'] = self.instance.default_theme or config.get('default_theme', 'light')
 
-        # Convert JSON to string for textarea
         if self.instance and self.instance.pk:
-            import json
             if isinstance(self.instance.languages, dict):
-                self.initial['languages'] = json.dumps(self.instance.languages, ensure_ascii=False, indent=2)
+                self.initial['languages'] = _json_dump(self.instance.languages, ensure_ascii=False, indent=2)
             if isinstance(self.instance.translations_override, dict):
-                self.initial['translations_override'] = json.dumps(self.instance.translations_override, ensure_ascii=False, indent=2)
+                self.initial['translations_override'] = _json_dump(self.instance.translations_override, ensure_ascii=False, indent=2)
+            if isinstance(getattr(self.instance, 'sidebar_config', None), dict) and self.instance.sidebar_config:
+                self.initial['sidebar_config'] = _json_dump(sanitize_sidebar_config(self.instance.sidebar_config), ensure_ascii=False)
+
+        if not self.initial.get('languages'):
+            self.initial['languages'] = _json_dump(config.get('languages', {}), ensure_ascii=False, indent=2)
+        if not self.initial.get('translations_override'):
+            self.initial['translations_override'] = _json_dump(config.get('translations', {}), ensure_ascii=False, indent=2)
+        if not self.initial.get('default_language'):
+            self.initial['default_language'] = config.get('default_language', 'en')
+        if not self.initial.get('default_theme'):
+            self.initial['default_theme'] = config.get('default_theme', 'light')
+
+        self.fields['name'].widget.attrs['placeholder'] = ''
+
+        if not self.initial.get('sidebar_config'):
+            sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}))
+            if not sidebar_config or not sidebar_config.get('entries'):
+                sidebar_config = {'home_url_name': None, 'entries': []}
+            self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
+
+        self.language_picker_html = render_to_string(
+            'microsys/includes/language_previews.html',
+            {
+                'selected_language': self.initial.get('default_language', 'en'),
+                'picker_mode': 'setup',
+                'input_id': 'id_default_language',
+                'MS_TRANS': s,
+                'languages': current_languages,
+                'label': self.fields['default_language'].label,
+            },
+        )
+
+        self.theme_picker_html = render_to_string(
+            'microsys/includes/theme_previews.html',
+            {
+                'selected_theme': self.initial.get('default_theme', 'light'),
+                'picker_mode': 'setup',
+                'input_id': 'id_default_theme',
+                'MS_TRANS': s,
+                'THEME_CHOICES': THEME_CHOICES,
+                'label': self.fields['default_theme'].label,
+            },
+        )
+
+        self.sidebar_catalog = discover_sidebar_catalog(lang_code=self.initial.get('default_language', 'en'))
+        self.sidebar_builder_html = render_to_string(
+            'microsys/includes/sidebar_builder.html',
+            {
+                'sidebar_catalog': self.sidebar_catalog,
+                'sidebar_catalog_json': _json_dump(self.sidebar_catalog, ensure_ascii=False),
+                'sidebar_config_json': self.initial.get('sidebar_config', '{}'),
+                'mode': self.mode,
+                'MS_TRANS': s,
+            },
+        )
+
+        modal_heading = s.get('system_settings_title', 'إعدادات النظام العامة')
+        modal_desc = s.get('system_settings_modal_desc', 'حدّث العلامة التجارية واللغات والشريط الجانبي من نافذة الإعدادات.')
+        intro_html = ''
+        if self.mode != 'setup':
+            intro_html = (
+                f"<div class='ms-system-settings-intro mb-4'>"
+                f"<h4 class='fw-bold mb-2'>{modal_heading}</h4>"
+                f"<p class='text-muted mb-0'>{modal_desc}</p>"
+                f"</div>"
+            )
 
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
-            Row(
-                Div(Field('name', css_class='col-md-6'), css_class='col-md-6'),
-                Div(Field('name_en', css_class='col-md-6'), css_class='col-md-6'),
+            HTML(
+                (
+                    f"<div class='ms-system-settings-shell mode-{self.mode}'>"
+                    f"{intro_html}"
+                )
             ),
-            Row(
-                Div(Field('logo', css_class='col-md-6'), css_class='col-md-6'),
-                Div(Field('favicon', css_class='col-md-6'), css_class='col-md-6'),
-                css_class='row'
-            ),
-            Row(Field('default_language', css_class='col-12')),
-            HTML("<hr>"),
-            Row(Field('languages', css_class='col-12 font-monospace', dir='ltr')),
-            Row(Field('translations_override', css_class='col-12 font-monospace', dir='ltr')),
-            HTML("<hr>"),
             Div(
-                Submit('submit', s.get('btn_save', 'حفظ التعديلات'), css_class='btn btn-primary px-5 rounded-pill fw-bold'),
-                css_class='text-center mt-4 mb-2'
-            )
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step1', 'الخطوة 1')}</span></div>"),
+                Row(
+                    Div(Field('name', css_class='col-md-6'), css_class='col-md-6'),
+                    Div(Field('name_en', css_class='col-md-6'), css_class='col-md-6'),
+                ),
+                Row(
+                    Div(Field('logo', css_class='col-md-6'), css_class='col-md-6'),
+                    Div(Field('favicon', css_class='col-md-6'), css_class='col-md-6'),
+                    css_class='row'
+                ),
+                Row(
+                    Div(
+                        HTML(self.language_picker_html),
+                        Field('default_language'),
+                        css_class='col-lg-6'
+                    ),
+                    Div(HTML(self.theme_picker_html), Field('default_theme'), css_class='col-lg-6'),
+                ),
+                css_class='wizard-step'
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step2', 'الخطوة 2')}</span></div>"),
+                Row(Field('languages', css_class='col-12 font-monospace', dir='ltr')),
+                Row(Field('translations_override', css_class='col-12 font-monospace', dir='ltr')),
+                css_class='wizard-step'
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'الخطوة 3')}</span></div>"),
+                HTML(self.sidebar_builder_html),
+                Field('sidebar_config'),
+                css_class='wizard-step'
+            ),
+            FormActions(
+                HTML(
+                    f"<button type='button' class='btn btn-outline-secondary rounded-pill px-4 ms-btn-prev'>"
+                    f"{s.get('btn_prev', 'السابق')}</button>"
+                ),
+                HTML(
+                    f"<button type='button' class='btn btn-outline-primary rounded-pill px-4 ms-btn-next'>"
+                    f"{s.get('btn_next', 'التالي')}</button>"
+                ),
+                Submit(
+                    'submit',
+                    s.get('btn_save', 'حفظ التعديلات'),
+                    css_class='btn btn-primary px-5 rounded-pill fw-bold ms-btn-submit'
+                ),
+                css_class='d-flex justify-content-between align-items-center gap-2 mt-4',
+            ),
+            HTML("</div>")
         )
 
     def clean_languages(self):
         data = self.cleaned_data.get('languages')
         if not data:
             return {}
-        import json
         try:
             parsed = json.loads(data)
             if not isinstance(parsed, dict):
@@ -919,7 +1076,6 @@ class SystemSettingsForm(forms.ModelForm):
         data = self.cleaned_data.get('translations_override')
         if not data:
             return {}
-        import json
         try:
             parsed = json.loads(data)
             if not isinstance(parsed, dict):
@@ -928,3 +1084,50 @@ class SystemSettingsForm(forms.ModelForm):
         except json.JSONDecodeError:
             raise ValidationError("Invalid JSON format.")
 
+    def clean_default_theme(self):
+        value = self.cleaned_data.get('default_theme') or 'light'
+        valid = {theme for theme, _, _ in THEME_CHOICES}
+        if value not in valid:
+            raise ValidationError("Invalid theme choice.")
+        return value
+
+    def clean_sidebar_config(self):
+        from microsys.discovery import sanitize_sidebar_config
+
+        data = self.cleaned_data.get('sidebar_config')
+        if not data:
+            return {'home_url_name': None, 'entries': []}
+        try:
+            parsed = json.loads(data)
+        except json.JSONDecodeError:
+            raise ValidationError("Invalid sidebar JSON format.")
+        if not isinstance(parsed, dict):
+            raise ValidationError("Sidebar configuration must be a valid JSON object.")
+        entries = parsed.get('entries', [])
+        if not isinstance(entries, list):
+            raise ValidationError("Sidebar entries must be a list.")
+        return sanitize_sidebar_config({
+            'home_url_name': parsed.get('home_url_name'),
+            'entries': entries,
+        })
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.is_configured = True
+        instance.sidebar_config = self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []})
+
+        home_url_name = instance.sidebar_config.get('home_url_name')
+        resolved_home = None
+        fallback_home = getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or '/sys/users/'
+        if home_url_name:
+            try:
+                resolved_home = reverse(home_url_name)
+            except NoReverseMatch:
+                resolved_home = None
+
+        instance.home_url = resolved_home or fallback_home
+        instance.sidebar_config['home_url_name'] = home_url_name if resolved_home else None
+
+        if commit:
+            instance.save()
+        return instance

@@ -23,6 +23,26 @@
     --glass-input-bg: rgba(255, 255, 255, 0.6);
     --glass-input-focus-bg: rgba(255, 255, 255, 0.6); /* No opacity change on focus */
     --glass-input-border: rgba(0, 0, 0, 0.1);
+    /* Setup Builder Theme Tokens */
+    --ms-setup-shell-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.94));
+    --ms-setup-shell-border: rgba(255, 255, 255, 0.75);
+    --ms-setup-card-bg: rgba(255, 255, 255, 0.82);
+    --ms-setup-card-border: rgba(255, 255, 255, 0.5);
+    --ms-setup-pane-bg: rgba(255, 255, 255, 0.45);
+    --ms-setup-pane-border: rgba(148, 163, 184, 0.35);
+    --ms-setup-item-bg: rgba(255, 255, 255, 0.92);
+    --ms-setup-item-border: rgba(203, 213, 225, 0.85);
+    --ms-setup-item-hover-bg: rgba(var(--primal-rgb), 0.04);
+    --ms-setup-item-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    --ms-setup-item-active-bg: rgba(var(--primal-rgb), 0.06);
+    --ms-setup-item-active-ring: rgba(var(--primal-rgb), 0.18);
+    --ms-setup-tree-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(241, 245, 249, 0.92));
+    --ms-setup-tree-accent: rgba(var(--primal-rgb), 0.24);
+    --ms-setup-connector: rgba(148, 163, 184, 0.5);
+    --ms-setup-badge-bg: rgba(var(--primal-rgb), 0.1);
+    --ms-setup-badge-color: var(--primal_dark);
+    --ms-setup-text: var(--title);
+    --ms-setup-muted: var(--htitle);
 }
 
 :root .btn-secondary .bi,
@@ -295,4 +315,3 @@ form label {
         display: block;
     }
 }
-

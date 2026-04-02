@@ -213,18 +213,23 @@
 
 
 .sidebar-toggle {
-    background-color: transparent;
-    color: #2c3e50;
-    border: none;
-    transition: background-color 0.3s, transform 0.1s;
-    min-width: 5vh;
-    min-height: 5vh;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(var(--primal-rgb), 0.08);
+    color: var(--title);
+    border: 1px solid rgba(var(--primal-rgb), 0.12);
+    transition: background-color 0.3s, transform 0.1s, color 0.2s, border-color 0.2s;
+    min-width: 42px;
+    min-height: 42px;
     font-size: 1.5rem;
+    line-height: 1;
 }
 
 .sidebar-toggle:hover {
-    background-color: transparent !important;
-    color: var(--primal) !important;
+    background-color: rgba(var(--primal-rgb), 0.16) !important;
+    border-color: rgba(var(--primal-rgb), 0.22) !important;
+    color: var(--primal_dark) !important;
 }
 
 .sidebar-toggle:active {

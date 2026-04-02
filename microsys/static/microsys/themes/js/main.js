@@ -3,10 +3,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const themes = ['light', 'blue', 'gold', 'green', 'red', 'dark'];
 
     // Load saved theme
-    const savedTheme = (window.USER_PREFS && window.USER_PREFS.theme) || localStorage.getItem('appTheme');
-    if (savedTheme && themes.includes(savedTheme)) {
-        root.classList.add(`theme-${savedTheme}`);
-    }
+    const savedTheme = ((window.USER_PREFS && window.USER_PREFS.theme) || localStorage.getItem('appTheme') || 'light');
+    themes.forEach(t => root.classList.remove(`theme-${t}`));
+    root.classList.add(`theme-${themes.includes(savedTheme) ? savedTheme : 'light'}`);
 
     // Global function to set theme
     window.setTheme = function(theme) {

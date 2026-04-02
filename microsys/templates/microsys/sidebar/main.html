@@ -1,10 +1,10 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'microsys/sidebar/css/main.css' %}">
+<link rel="stylesheet" href="{% static 'microsys/sidebar/css/main.css' %}?v=20260402k">
 <link rel="stylesheet" href="{% static 'microsys/sidebar/css/theme_picker.css' %}">
-<link rel="stylesheet" href="{% static 'microsys/sidebar/css/reorder.css' %}">
-<script src="{% static 'microsys/sidebar/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+<link rel="stylesheet" href="{% static 'microsys/sidebar/css/reorder.css' %}?v=20260402k">
+<script src="{% static 'microsys/sidebar/js/main.js' %}?v=20260402k" nonce="{{ request.csp_nonce }}" defer></script>
 <script src="{% static 'microsys/sidebar/js/theme_picker.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-<script src="{% static 'microsys/sidebar/js/reorder.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% static 'microsys/sidebar/js/reorder.js' %}?v=20260402k" nonce="{{ request.csp_nonce }}" defer></script>
 <!-- Ghost Sidebar for small screens layout stability -->
 {% if request.user.is_authenticated %}
 <!-- <div class="sidebar-ghost"></div> -->
@@ -49,99 +49,6 @@
         
         {% endblock %}
     </div>
-    <script nonce="{{ request.csp_nonce }}">
-            // Immediate order restore to prevent FOUC - runs before browser paint
-            (function() {
-                var STORAGE_KEY_AUTO = 'sidebar_auto_order';
-                var STORAGE_KEY_PREFIX_EXTRA = 'sidebar_extra_';
-                var STORAGE_KEY_GROUPS = 'sidebar_groups_order';
-                
-                // Try to get USER_PREFS from script tag above if available
-                var prefs = window.USER_PREFS || {};
-                var savedLayout = prefs.sidebar_layout || {};
-                var savedLegacy = prefs.sidebar_order || {};
-
-                function restoreContainer(container, storageKey, identifierAttr) {
-                    var saved;
-                    // 1. Try new structured layout first
-                    if (storageKey === STORAGE_KEY_AUTO && savedLayout.auto_items) {
-                        saved = savedLayout.auto_items;
-                    } else if (storageKey === STORAGE_KEY_GROUPS && savedLayout.accordion_groups_order) {
-                        saved = savedLayout.accordion_groups_order;
-                    } else if (storageKey.indexOf(STORAGE_KEY_PREFIX_EXTRA) === 0 && savedLayout.group_items && savedLayout.group_items[storageKey]) {
-                        saved = savedLayout.group_items[storageKey];
-                    } 
-                    
-                    // 2. Fallback to legacy sidebar_order
-                    if (!saved && savedLegacy[storageKey]) {
-                        saved = savedLegacy[storageKey];
-                    }
-                    
-                    // 3. Fallback to localStorage
-                    if (!saved) {
-                        try {
-                            saved = localStorage.getItem(storageKey);
-                            if (saved) saved = JSON.parse(saved);
-                        } catch(e) {}
-                    }
-                    
-                    if (!Array.isArray(saved) || saved.length === 0) return;
-                    
-                    var items = container.querySelectorAll(':scope > [data-' + identifierAttr + ']');
-                    var itemMap = {};
-                    for (var i = 0; i < items.length; i++) {
-                        var id = items[i].getAttribute('data-' + identifierAttr);
-                        itemMap[id] = items[i];
-                    }
-                    for (var j = 0; j < saved.length; j++) {
-                        var item = itemMap[saved[j]];
-                        if (item) {
-                            container.appendChild(item);
-                            delete itemMap[saved[j]];
-                        }
-                    }
-                    for (var key in itemMap) {
-                        container.appendChild(itemMap[key]);
-                    }
-                }
-                
-                function slugify(text) {
-                    return text.toString().toLowerCase().trim()
-                        .replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-');
-                }
-                
-                // 1. Restore auto items
-                var autoContainer = document.getElementById('sidebarAutoItems');
-                if (autoContainer) {
-                    restoreContainer(autoContainer, STORAGE_KEY_AUTO, 'url-name');
-                }
-                
-                // 2. Restore extra group items within their bodies
-                var accordionBodies = document.querySelectorAll('.sidebar .accordion-body');
-                for (var k = 0; k < accordionBodies.length; k++) {
-                    var body = accordionBodies[k];
-                    var groupName = body.dataset.groupName;
-                    if (!groupName) {
-                        var item = body.closest('.accordion-item');
-                        if (item) {
-                            var span = item.querySelector('.accordion-button span');
-                            if (span) groupName = span.textContent.trim();
-                        }
-                    }
-                    if (groupName) {
-                        restoreContainer(body, STORAGE_KEY_PREFIX_EXTRA + slugify(groupName), 'url-name');
-                    }
-                }
-
-                // 3. Restore parent groups themselves
-                var groupsContainer = document.getElementById('sidebarExtraAccordion');
-                if (groupsContainer) {
-                    restoreContainer(groupsContainer, STORAGE_KEY_GROUPS, 'group-id');
-                }
-                
-                window._sidebarOrderRestored = true;
-            })();
-        </script>
     </div>
 
     <!-- Sidebar Toolbar (Theme Picker, Reorder, etc.) -->

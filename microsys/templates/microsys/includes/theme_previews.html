@@ -1,0 +1,36 @@
+<div{% if picker_mode == 'setup' %} data-setup-theme-picker data-theme-input="{{ input_id }}"{% endif %}>
+    {% if label %}
+    <label class="form-label d-block">{{ label }}</label>
+    {% endif %}
+    <div class="d-flex flex-wrap gap-3">
+        <div class="text-center">
+            <div
+                class="rounded-circle border shadow-sm mb-1 theme-preview{% if selected_theme == 'light' %} active{% endif %}"
+                style="width: 45px; height: 45px; background: #f6f7f9; cursor: pointer;"
+                data-theme="light"
+                title="{{ MS_TRANS.theme_white }}"
+            ></div>
+            <small class="text-muted">{{ MS_TRANS.theme_white }}</small>
+        </div>
+        <div class="text-center">
+            <div class="rounded-circle border shadow-sm mb-1 theme-preview{% if selected_theme == 'blue' %} active{% endif %}" style="width: 45px; height: 45px; background: #2363c3; cursor: pointer;" data-theme="blue" title="{{ MS_TRANS.theme_royal }}"></div>
+            <small class="text-muted">{{ MS_TRANS.theme_royal }}</small>
+        </div>
+        <div class="text-center">
+            <div class="rounded-circle border shadow-sm mb-1 theme-preview{% if selected_theme == 'gold' %} active{% endif %}" style="width: 45px; height: 45px; background: #d97706; cursor: pointer;" data-theme="gold" title="{{ MS_TRANS.theme_gold }}"></div>
+            <small class="text-muted">{{ MS_TRANS.theme_gold }}</small>
+        </div>
+        <div class="text-center">
+            <div class="rounded-circle border shadow-sm mb-1 theme-preview{% if selected_theme == 'green' %} active{% endif %}" style="width: 45px; height: 45px; background: #166534; cursor: pointer;" data-theme="green" title="{{ MS_TRANS.theme_green }}"></div>
+            <small class="text-muted">{{ MS_TRANS.theme_green }}</small>
+        </div>
+        <div class="text-center">
+            <div class="rounded-circle border shadow-sm mb-1 theme-preview{% if selected_theme == 'red' %} active{% endif %}" style="width: 45px; height: 45px; background: #7f1d1d; cursor: pointer;" data-theme="red" title="{{ MS_TRANS.theme_red }}"></div>
+            <small class="text-muted">{{ MS_TRANS.theme_red }}</small>
+        </div>
+        <div class="text-center">
+            <div class="rounded-circle border shadow-sm mb-1 theme-preview{% if selected_theme == 'dark' %} active{% endif %}" style="width: 45px; height: 45px; background: #0f172a; cursor: pointer;" data-theme="dark" title="{{ MS_TRANS.theme_dark }}"></div>
+            <small class="text-muted">{{ MS_TRANS.theme_dark }}</small>
+        </div>
+    </div>
+</div>

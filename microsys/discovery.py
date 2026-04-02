@@ -1,243 +1,780 @@
 """
-Auto-discovery module for sidebar navigation items.
+Resolver-driven sidebar discovery and rendering helpers.
 
-Scans Django URL patterns for list views and matches them to models
-to automatically generate sidebar navigation items.
+This module powers:
+1. Discovery of valid, reversible sidebar candidates.
+2. Default zero-boilerplate sidebar configuration generation.
+3. Transformation of stored sidebar JSON into render-ready items/groups.
 """
-from django.urls import get_resolver, URLPattern, URLResolver
 from django.apps import apps
-from django.conf import settings
-from difflib import get_close_matches
+from django.urls import NoReverseMatch, URLPattern, URLResolver, get_resolver, reverse
+from django.utils.encoding import force_str
 
 
-def get_sidebar_config(lang_code=None):
-    """Get sidebar configuration from Django settings with defaults."""
+EXCLUDED_EXACT_NAMES = {
+    'login',
+    'logout',
+    'toggle_sidebar',
+    'verify_otp_enable',
+    'verify_otp_login',
+    'verify_otp_generic',
+    'enable_2fa',
+    'setup_totp',
+    'disable_2fa',
+    'generate_backup_codes',
+    'resend_otp',
+    'resend_otp_login',
+    'system_setup',
+    'manage_users',
+    'manage_scopes',
+    'add_subsection',
+}
+
+EXCLUDED_NAME_PARTS = (
+    'modal',
+    'delete',
+    'api_',
+    'get_',
+    'save_',
+    'toggle_',
+    'verify_otp',
+    'resend_otp',
+    'reset_password',
+)
+
+EXCLUDED_NAMESPACE_PREFIXES = {
+    'admin',
+    'health_check',
+}
+
+EXCLUDED_PATH_PARTS = (
+    '/accounts/login/',
+    '/accounts/logout/',
+    '/health/',
+    '/sys/2fa/',
+    '/sys/api/',
+    '/sys/modals/',
+    '/sys/setup/',
+)
+
+SYSTEM_ROUTE_META = {
+    'manage_sections': {
+        'label_key': 'manage_sections',
+        'icon': 'bi-diagram-3',
+        'permissions': ['is_staff', 'microsys.manage_sections', 'microsys.view_sections'],
+        'group_key': 'microsys',
+    },
+    'manage_users': {
+        'label_key': 'manage_users',
+        'icon': 'bi-people',
+        'permissions': ['is_staff'],
+        'group_key': 'microsys',
+    },
+    'user_activity_log': {
+        'label_key': 'activity_log',
+        'icon': 'bi-clock-history',
+        'permissions': ['microsys.view_activitylog', 'microsys.view_activity_log'],
+        'group_key': 'microsys',
+    },
+    'user_profile': {
+        'label_key': 'profile',
+        'icon': 'bi-person-badge',
+        'group_key': 'microsys',
+    },
+    'options_view': {
+        'label_key': 'options_title',
+        'icon': 'bi-gear',
+        'group_key': 'microsys',
+    },
+}
+
+HIDDEN_SIDEBAR_GROUP_KEYS = {'microsys'}
+
+GROUP_ICON_DEFAULTS = {
+    'microsys': 'bi-sliders',
+    'core': 'bi-grid-1x2',
+    'storage': 'bi-box-seam',
+    'finance': 'bi-wallet2',
+    'treasury': 'bi-safe',
+    'hr_payroll': 'bi-person-badge',
+}
+
+VIEW_ICON_HINTS = {
+    'dashboard': 'bi-speedometer2',
+    'index': 'bi-house',
+    'home': 'bi-house',
+    'profile': 'bi-person-badge',
+    'options': 'bi-gear',
+    'users': 'bi-people',
+    'sections': 'bi-diagram-3',
+    'log': 'bi-clock-history',
+    'report': 'bi-file-earmark-bar-graph',
+    'import': 'bi-box-arrow-in-right',
+    'export': 'bi-box-arrow-right',
+    'return': 'bi-arrow-return-left',
+    'asset': 'bi-inboxes',
+    'fiscal': 'bi-calendar3',
+    'chapter': 'bi-list-ul',
+    'budget': 'bi-wallet2',
+    'revenue': 'bi-cash-stack',
+    'disbursement': 'bi-receipt',
+    'check': 'bi-credit-card',
+    'advance': 'bi-currency-exchange',
+    'trust': 'bi-safe',
+    'guarantee': 'bi-shield-check',
+    'ledger': 'bi-book',
+    'personnel': 'bi-people',
+    'payroll': 'bi-file-earmark-spreadsheet',
+    'wage': 'bi-clock-history',
+    'transfer': 'bi-bank',
+}
+
+
+def _iterate_named_patterns(patterns, namespaces=None):
+    namespaces = namespaces or []
+    for pattern in patterns:
+        if isinstance(pattern, URLResolver):
+            next_namespaces = list(namespaces)
+            if pattern.namespace:
+                next_namespaces.append(pattern.namespace)
+            yield from _iterate_named_patterns(pattern.url_patterns, next_namespaces)
+        elif isinstance(pattern, URLPattern) and pattern.name:
+            full_name = ':'.join(namespaces + [pattern.name]) if namespaces else pattern.name
+            yield pattern, full_name
+
+
+def _humanize(name):
+    name = (name or '').replace('-', ' ').replace('_', ' ').strip()
+    if not name:
+        return 'Untitled'
+    return ' '.join(part.capitalize() for part in name.split())
+
+
+def _plain_text(value, fallback=''):
+    if value is None:
+        return fallback
+    return force_str(value)
+
+
+def _guess_icon(url_name, model=None, callback=None):
+    explicit = getattr(callback, 'sidebar_icon', None)
+    if explicit:
+        return _plain_text(explicit)
+    if model and getattr(model._meta, 'sidebar_icon', None):
+        return _plain_text(getattr(model._meta, 'sidebar_icon'))
+
+    leaf = url_name.split(':')[-1].lower()
+    for hint, icon in VIEW_ICON_HINTS.items():
+        if hint in leaf:
+            return _plain_text(icon)
+
+    namespace = url_name.split(':')[0] if ':' in url_name else ''
+    return _plain_text(GROUP_ICON_DEFAULTS.get(namespace, 'bi-link-45deg'))
+
+
+def _guess_group_icon(group_key):
+    return _plain_text(GROUP_ICON_DEFAULTS.get(group_key, 'bi-folder2-open'))
+
+
+def _normalize_permissions(value):
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple, set)):
+        return [item for item in value if item]
+    return []
+
+
+def _infer_model(pattern):
+    callback = getattr(pattern, 'callback', None)
+    view_class = getattr(callback, 'view_class', None)
+    if view_class is not None:
+        queryset = getattr(view_class, 'queryset', None)
+        if getattr(queryset, 'model', None) is not None:
+            return queryset.model
+        model = getattr(view_class, 'model', None)
+        if model is not None:
+            return model
+    return None
+
+
+def _infer_callback_app_label(callback):
+    module_name = getattr(callback, '__module__', '') or ''
+    root_module = module_name.split('.')[0] if module_name else ''
+    if not root_module:
+        return None
+    try:
+        apps.get_app_config(root_module)
+        return root_module
+    except LookupError:
+        return None
+
+
+def _infer_group_key(url_name, model, callback):
+    explicit = getattr(callback, 'sidebar_group', None)
+    if explicit:
+        return explicit
+    if model is not None:
+        return model._meta.app_label
+    callback_app = _infer_callback_app_label(callback)
+    if callback_app:
+        return callback_app
+    if url_name in SYSTEM_ROUTE_META:
+        return SYSTEM_ROUTE_META[url_name]['group_key']
+    if ':' in url_name:
+        return url_name.split(':')[0]
+    return 'general'
+
+
+def _group_label(group_key, strings, lang_code=None):
+    if group_key == 'microsys':
+        return _plain_text(strings.get('sidebar_system', 'System Management'))
+
+    translation_key = f'app_{group_key}'
+    if translation_key in strings:
+        return _plain_text(strings.get(translation_key))
+
+    try:
+        app_config = apps.get_app_config(group_key)
+        verbose_name = _plain_text(app_config.verbose_name)
+    except LookupError:
+        verbose_name = ''
+
+    if (lang_code or '').split('-')[0] == 'ar' and verbose_name:
+        return verbose_name
+
+    return _humanize(group_key)
+
+
+def _infer_label(url_name, strings, model=None, callback=None):
+    explicit = getattr(callback, 'sidebar_label', None)
+    if explicit:
+        return _plain_text(explicit)
+
+    leaf = url_name.split(':')[-1]
+    namespace = url_name.split(':')[0] if ':' in url_name else ''
+    group_key = _infer_group_key(url_name, model, callback)
+    group_label = _group_label(group_key, strings)
+
+    if url_name in SYSTEM_ROUTE_META:
+        return _plain_text(strings.get(SYSTEM_ROUTE_META[url_name]['label_key'], _humanize(leaf)))
+
+    if model is not None and leaf.endswith('list'):
+        return _plain_text(strings.get(f'model_{model._meta.model_name}', str(model._meta.verbose_name_plural)))
+
+    candidates = [
+        f'page_title_{namespace}_{leaf}' if namespace else '',
+        f'page_title_{leaf}',
+        f'{namespace}_{leaf}' if namespace else '',
+        leaf,
+    ]
+    for key in candidates:
+        if key and key in strings:
+            return _plain_text(strings[key])
+
+    if model is not None:
+        if leaf in ['dashboard', 'index', 'home']:
+            return _plain_text(strings.get(f'{model._meta.app_label}_{leaf}', _humanize(f'{model._meta.app_label} {leaf}')))
+        return _plain_text(strings.get(f'model_{model._meta.model_name}', str(model._meta.verbose_name_plural)))
+
+    if leaf in ['dashboard', 'index', 'home'] and namespace:
+        return _plain_text(f"{group_label} {_humanize(leaf)}")
+
+    return _plain_text(_humanize(leaf))
+
+
+def _infer_permissions(url_name, model, callback):
+    explicit = _normalize_permissions(getattr(callback, 'sidebar_permissions', None))
+    if explicit:
+        return explicit
+
+    explicit = _normalize_permissions(getattr(callback, 'permission_required', None))
+    if explicit:
+        return explicit
+
+    if url_name in SYSTEM_ROUTE_META:
+        return list(SYSTEM_ROUTE_META[url_name].get('permissions', []))
+
+    if model is not None:
+        return [f'{model._meta.app_label}.view_{model._meta.model_name}']
+
+    return []
+
+
+def _is_hidden_sidebar_url(url_name):
+    if not url_name or not isinstance(url_name, str):
+        return False
+    if url_name in SYSTEM_ROUTE_META:
+        return True
+    namespace = url_name.split(':')[0] if ':' in url_name else ''
+    return namespace in HIDDEN_SIDEBAR_GROUP_KEYS
+
+
+def _is_hidden_sidebar_entry(entry):
+    if not isinstance(entry, dict):
+        return False
+
+    group_key = entry.get('group_key')
+    if group_key in HIDDEN_SIDEBAR_GROUP_KEYS:
+        return True
+
+    url_name = entry.get('url_name')
+    if _is_hidden_sidebar_url(url_name):
+        return True
+
+    entry_id = entry.get('id')
+    if isinstance(entry_id, str) and _is_hidden_sidebar_url(entry_id):
+        return True
+
+    return False
+
+
+def _sanitize_sidebar_entry(entry):
+    if not isinstance(entry, dict):
+        return None
+
+    kind = entry.get('kind', 'item')
+    if kind == 'group':
+        items = []
+        for item in entry.get('items', []):
+            cleaned_item = _sanitize_sidebar_entry(item)
+            if cleaned_item:
+                items.append(cleaned_item)
+
+        if not items:
+            return None
+
+        cleaned_group = dict(entry)
+        cleaned_group['label'] = _plain_text(cleaned_group.get('label') or 'Group')
+        cleaned_group['icon'] = _plain_text(cleaned_group.get('icon') or 'bi-folder2-open')
+        cleaned_group['items'] = items
+        return cleaned_group
+
+    if _is_hidden_sidebar_entry(entry):
+        return None
+
+    cleaned_item = dict(entry)
+    if 'label' in cleaned_item:
+        cleaned_item['label'] = _plain_text(cleaned_item.get('label'))
+    if 'icon' in cleaned_item:
+        cleaned_item['icon'] = _plain_text(cleaned_item.get('icon'))
+    if 'group_label' in cleaned_item:
+        cleaned_item['group_label'] = _plain_text(cleaned_item.get('group_label'))
+    return cleaned_item
+
+
+def sanitize_sidebar_config(sidebar_config):
+    if not isinstance(sidebar_config, dict):
+        return {'home_url_name': None, 'entries': []}
+
+    sanitized = dict(sidebar_config)
+    sanitized_entries = []
+    for entry in sidebar_config.get('entries', []):
+        cleaned_entry = _sanitize_sidebar_entry(entry)
+        if cleaned_entry:
+            sanitized_entries.append(cleaned_entry)
+
+    home_url_name = sidebar_config.get('home_url_name')
+    if _is_hidden_sidebar_url(home_url_name):
+        home_url_name = None
+
+    top_level_items = [
+        entry.get('url_name')
+        for entry in sanitized_entries
+        if entry.get('kind') == 'item' and entry.get('url_name')
+    ]
+    if home_url_name not in top_level_items:
+        home_url_name = None
+
+    sanitized['home_url_name'] = home_url_name
+    sanitized['entries'] = sanitized_entries
+    return sanitized
+
+
+def _sidebar_entry_id(entry):
+    if not isinstance(entry, dict):
+        return None
+    return entry.get('id') or entry.get('url_name') or entry.get('url')
+
+
+def _clone_sidebar_entry(entry):
+    cloned = dict(entry)
+    if cloned.get('kind') == 'group':
+        cloned['items'] = [_clone_sidebar_entry(item) for item in cloned.get('items', []) if isinstance(item, dict)]
+    return cloned
+
+
+def merge_sidebar_entries(base_entries, override_entries):
+    """
+    Merge a user-specific tree override onto the base sidebar tree.
+
+    The override controls ordering and item/group placement, while any new base
+    entries that are missing from the override are appended in their natural
+    base locations so users do not lose newly added navigation.
+    """
+    if not isinstance(base_entries, list):
+        base_entries = []
+    if not isinstance(override_entries, list) or not override_entries:
+        return [_clone_sidebar_entry(entry) for entry in base_entries if isinstance(entry, dict)]
+
+    item_pool = {}
+    group_pool = {}
+    group_item_pool = {}
+
+    for base_entry in base_entries:
+        if not isinstance(base_entry, dict):
+            continue
+        entry_id = _sidebar_entry_id(base_entry)
+        if not entry_id:
+            continue
+        if base_entry.get('kind') == 'group':
+            group_pool[entry_id] = {
+                key: value
+                for key, value in base_entry.items()
+                if key != 'items'
+            }
+            group_pool[entry_id]['id'] = entry_id
+            group_pool[entry_id]['kind'] = 'group'
+            group_item_pool[entry_id] = []
+            for child in base_entry.get('items', []):
+                if not isinstance(child, dict):
+                    continue
+                child_id = _sidebar_entry_id(child)
+                if not child_id:
+                    continue
+                normalized_child = dict(child)
+                normalized_child['id'] = child_id
+                normalized_child['kind'] = 'item'
+                item_pool[child_id] = normalized_child
+                group_item_pool[entry_id].append(child_id)
+        else:
+            normalized_item = dict(base_entry)
+            normalized_item['id'] = entry_id
+            normalized_item['kind'] = 'item'
+            item_pool[entry_id] = normalized_item
+
+    consumed_items = set()
+    consumed_groups = set()
+
+    def merge_item(item_id, override_item=None):
+        if not item_id or item_id in consumed_items or item_id not in item_pool:
+            return None
+        merged_item = dict(item_pool[item_id])
+        if isinstance(override_item, dict):
+            merged_item.update({
+                key: value
+                for key, value in override_item.items()
+                if key != 'items' and value not in [None, '', [], {}]
+            })
+        merged_item['id'] = item_id
+        merged_item['kind'] = 'item'
+        consumed_items.add(item_id)
+        return merged_item
+
+    def merge_group(group_id, override_group=None):
+        if not group_id or group_id in consumed_groups or group_id not in group_pool:
+            return None
+        merged_group = dict(group_pool[group_id])
+        if isinstance(override_group, dict):
+            merged_group.update({
+                key: value
+                for key, value in override_group.items()
+                if key != 'items' and value not in [None, '', [], {}]
+            })
+        merged_group['id'] = group_id
+        merged_group['kind'] = 'group'
+        merged_group_items = []
+
+        for child in (override_group or {}).get('items', []):
+            child_id = _sidebar_entry_id(child)
+            merged_child = merge_item(child_id, child)
+            if merged_child:
+                merged_group_items.append(merged_child)
+
+        for child_id in group_item_pool.get(group_id, []):
+            merged_child = merge_item(child_id)
+            if merged_child:
+                merged_group_items.append(merged_child)
+
+        merged_group['items'] = merged_group_items
+        consumed_groups.add(group_id)
+        return merged_group if merged_group_items else None
+
+    merged_entries = []
+
+    for override_entry in override_entries:
+        if not isinstance(override_entry, dict):
+            continue
+        entry_id = _sidebar_entry_id(override_entry)
+        if override_entry.get('kind') == 'group':
+            merged_group = merge_group(entry_id, override_entry)
+            if merged_group:
+                merged_entries.append(merged_group)
+        else:
+            merged_item = merge_item(entry_id, override_entry)
+            if merged_item:
+                merged_entries.append(merged_item)
+
+    for base_entry in base_entries:
+        if not isinstance(base_entry, dict):
+            continue
+        entry_id = _sidebar_entry_id(base_entry)
+        if base_entry.get('kind') == 'group':
+            merged_group = merge_group(entry_id)
+            if merged_group:
+                merged_entries.append(merged_group)
+        else:
+            merged_item = merge_item(entry_id)
+            if merged_item:
+                merged_entries.append(merged_item)
+
+    return merged_entries
+
+
+def _is_candidate(url_name, url, callback):
+    leaf = url_name.split(':')[-1]
+    namespace = url_name.split(':')[0] if ':' in url_name else ''
+    lower_name = url_name.lower()
+    lower_leaf = leaf.lower()
+
+    if namespace in EXCLUDED_NAMESPACE_PREFIXES:
+        return False
+    if lower_leaf in EXCLUDED_EXACT_NAMES:
+        return False
+    if any(part in lower_name for part in EXCLUDED_NAME_PARTS):
+        return False
+    if any(part in url for part in EXCLUDED_PATH_PARTS):
+        return False
+    if getattr(callback, 'sidebar_exclude', False):
+        return False
+
+    return True
+
+
+def discover_sidebar_catalog(lang_code=None):
+    """Return all valid, reversible sidebar candidates."""
     from .translations import get_strings
     from .utils import get_system_config
 
-    config_dict = get_system_config()
-    default_lang = config_dict.get('default_language', 'ar')
-    project_overrides = config_dict.get('translations', None)
+    config = get_system_config()
+    lang_code = (lang_code or config.get('default_language', 'en')).split('-')[0]
+    strings = get_strings(lang_code, overrides=config.get('translations'))
 
-    if lang_code is None:
-        lang_code = default_lang
-    strings = get_strings(lang_code, overrides=project_overrides)
-
-    system_group = {
-        'name': strings.get('sidebar_system', 'System Management'),
-        'icon': 'bi-sliders',
-        'url_name': 'sys_dashboard',
-        'items': [
-            {
-                'url_name': 'manage_sections',
-                'label': strings.get('manage_sections', 'Section Management'),
-                'icon': 'bi-diagram-3',
-                'permission': ['is_staff', 'microsys.manage_sections', 'microsys.view_sections'],
-            },
-            {
-                'url_name': 'manage_users',
-                'label': strings.get('manage_users', 'User Management'),
-                'icon': 'bi-people',
-                'permission': 'is_staff',
-            },
-            {
-                'url_name': 'user_activity_log',
-                'label': strings.get('activity_log', 'Activity Log'),
-                'icon': 'bi-clock-history',
-                'permission': 'microsys.view_activity_log',
-            },
-            {
-                'url_name': 'user_profile',
-                'label': strings.get('profile', 'Profile'),
-                'icon': 'bi-person-badge',
-            },
-            {
-                'url_name': 'options_view',
-                'label': strings.get('options_title', 'Options'),
-                'icon': 'bi-gear',
-            },
-        ],
-    }
-    defaults = {
-        'ENABLED': True,
-        'URL_PATTERNS': ['list'],
-        'EXCLUDE_APPS': ['admin', 'auth', 'contenttypes', 'sessions'],
-        'EXCLUDE_MODELS': [],
-        'CACHE_TIMEOUT': 3600,
-        'DEFAULT_ICON': 'bi-list',
-        # Extra items that don't require model matching
-        # Format: {'group_name': {'icon': 'bi-gear', 'items': [{'url_name': 'x', 'label': 'X', 'icon': 'bi-x'}]}}
-        'EXTRA_ITEMS': {},
-        # Built-in system group (appended after user EXTRA_ITEMS when enabled)
-        'SYSTEM_GROUP_ENABLED': False,
-        'SYSTEM_GROUP': system_group,
-        # Default overrides for auto-discovered items
-        # Format: {'url_name': {'label': 'X', 'icon': 'bi-x', 'order': 10}}
-        'DEFAULT_ITEMS': {},
-    }
-    user_config = getattr(settings, 'SIDEBAR_AUTO', {})
-    config = {**defaults, **user_config}
-
-    # Merge EXTRA_ITEMS so user groups don't overwrite the system group
-    merged_extra = {}
-    user_extra = user_config.get('EXTRA_ITEMS', {})
-    if isinstance(user_extra, dict):
-        merged_extra.update(user_extra)
-
-    if config.get('SYSTEM_GROUP_ENABLED', True):
-        sys_group = config.get('SYSTEM_GROUP', system_group)
-        # Use a stable ASCII key for the group instead of the translated name
-        sys_key = 'sidebar_system'
-        sys_name = sys_group.get('name', 'إدارة النظام')
-        sys_icon = sys_group.get('icon', 'bi-sliders')
-        sys_url_name = sys_group.get('url_name')
-        sys_items = list(sys_group.get('items', []))
-
-        # We first check if the user overrode the group using the translation key (sidebar_system)
-        # We also check the translated name (sys_name) for backwards compatibility
-        existing_key = sys_key if sys_key in merged_extra else (sys_name if sys_name in merged_extra else None)
-
-        if existing_key:
-            existing = merged_extra[existing_key]
-            if not existing.get('icon'):
-                existing['icon'] = sys_icon
-            if not existing.get('url_name'):
-                existing['url_name'] = sys_url_name
-            # Ensure label is set
-            if not existing.get('label'):
-                existing['label'] = sys_name
-
-            existing_items = list(existing.get('items', []))
-            existing_urls = {item.get('url_name') for item in existing_items}
-            for item in sys_items:
-                if item.get('url_name') in existing_urls:
-                    continue
-                existing_items.append(item)
-            existing['items'] = existing_items
-            merged_extra[existing_key] = existing
-        else:
-            merged_extra[sys_key] = {'label': sys_name, 'icon': sys_icon, 'url_name': sys_url_name, 'items': sys_items}
-
-    config['EXTRA_ITEMS'] = merged_extra
-    return config
-
-
-
-def discover_list_urls(lang_code=None):
-    """
-    Scan all URL patterns for names containing configured keywords.
-    Match them to Django models and extract verbose_name_plural.
-    
-    Returns:
-        List of sidebar item dictionaries sorted by order.
-    """
-    config = get_sidebar_config(lang_code=lang_code)
-    
-    if not config['ENABLED']:
-        return []
-    
+    catalog = []
     resolver = get_resolver()
-    items = []
-    
-    for pattern in _iterate_patterns(resolver.url_patterns):
-        url_name = getattr(pattern, 'name', '') or ''
-        
-        # Check if URL name contains any of the configured patterns
-        matched_keyword = None
-        for kw in config['URL_PATTERNS']:
-            if kw in url_name.lower():
-                matched_keyword = kw
+    for pattern, url_name in _iterate_named_patterns(resolver.url_patterns):
+        callback = getattr(pattern, 'callback', None)
+        try:
+            url = reverse(url_name)
+        except NoReverseMatch:
+            continue
+
+        if not _is_candidate(url_name, url, callback):
+            continue
+
+        model = _infer_model(pattern)
+        group_key = _infer_group_key(url_name, model, callback)
+        if group_key in HIDDEN_SIDEBAR_GROUP_KEYS:
+            continue
+        group_label = _group_label(group_key, strings, lang_code=lang_code)
+        entry = {
+            'kind': 'item',
+            'id': url_name,
+            'url_name': url_name,
+            'url': url,
+            'label': _infer_label(url_name, strings, model=model, callback=callback),
+            'icon': _guess_icon(url_name, model=model, callback=callback),
+            'permissions': _infer_permissions(url_name, model, callback),
+            'group_key': group_key,
+            'group_label': group_label,
+            'group_icon': _guess_group_icon(group_key),
+        }
+        catalog.append(entry)
+
+    catalog.sort(key=lambda entry: (entry['group_label'], entry['label']))
+    return catalog
+
+
+def build_default_sidebar_config(lang_code=None):
+    """Build a useful starter sidebar from discovered routes."""
+    catalog = discover_sidebar_catalog(lang_code=lang_code)
+    grouped = {}
+    for entry in catalog:
+        grouped.setdefault(entry['group_key'], {
+            'label': entry['group_label'],
+            'icon': entry.get('group_icon') or _guess_group_icon(entry['group_key']),
+            'entries': [],
+        })
+        grouped[entry['group_key']]['entries'].append(entry)
+
+    final_entries = []
+    home_url_name = None
+    for group_key, group in grouped.items():
+        dashboard_entry = None
+        remaining = []
+        for entry in group['entries']:
+            leaf = entry['url_name'].split(':')[-1]
+            if dashboard_entry is None and leaf in ['dashboard', 'index', 'home']:
+                dashboard_entry = dict(entry)
+            else:
+                remaining.append(dict(entry))
+
+        if dashboard_entry is not None:
+            final_entries.append(dashboard_entry)
+            if home_url_name is None:
+                home_url_name = dashboard_entry.get('url_name')
+
+        if group_key == 'microsys' or remaining:
+            group_entry = {
+                'kind': 'group',
+                'id': f'{group_key}-group',
+                'label': group['label'],
+                'icon': group['icon'],
+                'items': remaining if group_key != 'microsys' else [dict(entry) for entry in group['entries'] if entry.get('url_name') != (dashboard_entry or {}).get('url_name')],
+            }
+            if group_entry['items']:
+                final_entries.append(group_entry)
+
+    if home_url_name is None:
+        for entry in final_entries:
+            if entry.get('kind') == 'item' and entry.get('url_name'):
+                home_url_name = entry['url_name']
                 break
-        
-        if matched_keyword:
-            # Extract model hint (e.g., 'decree' from 'decree_list')
-            model_hint = url_name
-            for kw in config['URL_PATTERNS']:
-                model_hint = model_hint.replace(f'_{kw}', '').replace(f'-{kw}', '').replace(kw, '')
-            
-            model_hint = model_hint.strip('_-')
-            
-            # Try to find model - first with stripped hint, then with keyword itself
-            model = None
-            if model_hint:
-                model = _find_model(model_hint, config)
-            
-            # If no model found and keyword looks like it could be a model name, try that
-            if not model and matched_keyword not in ['list', 'index', 'view', 'page']:
-                model = _find_model(matched_keyword, config)
-            
-            if model:
-                # Check exclusions
-                if model._meta.app_label in config['EXCLUDE_APPS']:
-                    continue
-                if f"{model._meta.app_label}.{model.__name__}" in config['EXCLUDE_MODELS']:
-                    continue
-                
-                items.append({
-                    'url_name': url_name,
-                    'label': getattr(model._meta, 'sidebar_label', None) or str(model._meta.verbose_name_plural),
-                    'icon': getattr(model._meta, 'sidebar_icon', config['DEFAULT_ICON']),
-                    'order': getattr(model._meta, 'sidebar_order', 100),
-                    'app_label': model._meta.app_label,
-                    'model_name': model._meta.model_name,
-                    'permissions': [f'{model._meta.app_label}.view_{model._meta.model_name}'],
+
+    return sanitize_sidebar_config({
+        'home_url_name': home_url_name,
+        'entries': final_entries,
+    })
+
+
+def _user_has_sidebar_permission(user, permissions):
+    permissions = _normalize_permissions(permissions)
+    if not permissions:
+        return True
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+
+    for permission in permissions:
+        if permission == 'is_staff' and getattr(user, 'is_staff', False):
+            return True
+        if permission == 'is_superuser' and getattr(user, 'is_superuser', False):
+            return True
+        if permission not in ['is_staff', 'is_superuser'] and user.has_perm(permission):
+            return True
+    return False
+
+
+def _is_active_path(request_path, url):
+    if not request_path or not url or url == '#':
+        return False
+    return request_path == url or request_path.startswith(url.rstrip('/') + '/')
+
+
+def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, request_path='', open_accordions=None):
+    """
+    Transform sidebar JSON config into a single render-ready sidebar tree.
+    """
+    from .utils import get_system_config
+
+    config = get_system_config()
+    base_sidebar = sanitize_sidebar_config(config.get('sidebar', {}))
+    override_sidebar = sanitize_sidebar_config(sidebar_override) if isinstance(sidebar_override, dict) else None
+    if override_sidebar and override_sidebar.get('entries'):
+        sidebar = {
+            'home_url_name': base_sidebar.get('home_url_name'),
+            'entries': merge_sidebar_entries(base_sidebar.get('entries', []), override_sidebar.get('entries', [])),
+        }
+    else:
+        sidebar = base_sidebar
+
+    entries = sidebar.get('entries', []) if isinstance(sidebar, dict) else []
+    if not isinstance(entries, list):
+        entries = []
+    open_accordions = set(open_accordions or [])
+
+    catalog = {entry['id']: entry for entry in discover_sidebar_catalog(lang_code=lang_code)}
+
+    render_entries = []
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+
+        kind = entry.get('kind', 'item')
+        if kind == 'group':
+            items = []
+            for raw_item in entry.get('items', []):
+                resolved_item = _resolve_sidebar_item(raw_item, catalog)
+                if resolved_item and _user_has_sidebar_permission(user, resolved_item.get('permissions')):
+                    resolved_item['active'] = _is_active_path(request_path, resolved_item.get('url'))
+                    items.append(resolved_item)
+            if items:
+                group_id = entry.get('id') or f"group-{len(render_entries) + 1}"
+                has_active = any(item.get('active') for item in items)
+                render_entries.append({
+                    'kind': 'group',
+                    'id': group_id,
+                    'label': entry.get('label') or 'Group',
+                    'icon': entry.get('icon') or 'bi-folder2-open',
+                    'url': _resolve_group_url(entry),
+                    'url_name': entry.get('url_name'),
+                    'items': items,
+                    'has_active': has_active,
+                    'is_open': (group_id in open_accordions) or has_active,
+                    'raw_name': entry.get('id') or group_id,
                 })
+            continue
 
-            # Override with DEFAULT_ITEMS if present
-            default_items = config.get('DEFAULT_ITEMS', {})
-            if url_name in default_items:
-                item_config = default_items[url_name]
-                # Update last added item
-                if items:
-                    item = items[-1]
-                    if 'label' in item_config:
-                        item['label'] = item_config['label']
-                    if 'icon' in item_config:
-                        item['icon'] = item_config['icon']
-                    if 'order' in item_config:
-                        item['order'] = item_config['order']
-    
-    return sorted(items, key=lambda x: (x['order'], x['label']))
+        resolved = _resolve_sidebar_item(entry, catalog)
+        if resolved and _user_has_sidebar_permission(user, resolved.get('permissions')):
+            resolved['active'] = _is_active_path(request_path, resolved.get('url'))
+            render_entries.append(resolved)
+
+    return {
+        'entries': render_entries,
+        'auto_items': [entry for entry in render_entries if entry.get('kind') != 'group'],
+        'extra_groups': [entry for entry in render_entries if entry.get('kind') == 'group'],
+        'home_url_name': sidebar.get('home_url_name'),
+        'sidebar': sidebar,
+    }
 
 
-def _iterate_patterns(patterns, prefix=''):
-    """Recursively iterate through URL patterns."""
-    for pattern in patterns:
-        if isinstance(pattern, URLResolver):
-            yield from _iterate_patterns(pattern.url_patterns, prefix + str(pattern.pattern))
-        elif isinstance(pattern, URLPattern):
-            yield pattern
+def _resolve_group_url(entry):
+    url_name = entry.get('url_name')
+    if url_name:
+        try:
+            return reverse(url_name)
+        except NoReverseMatch:
+            return '#'
+    url = entry.get('url')
+    return url or '#'
 
 
-def _find_model(hint, config):
-    """
-    Find model by name using exact and fuzzy matching.
-    
-    Args:
-        hint: The model name hint extracted from URL
-        config: Sidebar configuration dictionary
-        
-    Returns:
-        Model class or None if not found
-    """
-    all_models = apps.get_models()
-    
-    # Build lookup excluding configured apps
-    model_names = {}
-    for m in all_models:
-        if m._meta.app_label not in config['EXCLUDE_APPS']:
-            model_names[m.__name__.lower()] = m
-    
-    hint_lower = hint.lower()
-    
-    # Exact match first
-    if hint_lower in model_names:
-        return model_names[hint_lower]
-    
-    # Handle common pluralization (simple 's' suffix)
-    if hint_lower.endswith('s') and hint_lower[:-1] in model_names:
-        return model_names[hint_lower[:-1]]
-    
-    # Fuzzy match as fallback
-    matches = get_close_matches(hint_lower, model_names.keys(), n=1, cutoff=0.8)
-    return model_names[matches[0]] if matches else None
+def _resolve_sidebar_item(entry, catalog):
+    item = dict(entry)
+    discovered = catalog.get(item.get('id') or item.get('url_name') or '')
+    if discovered:
+        merged = dict(discovered)
+        merged.update({k: v for k, v in item.items() if v not in [None, '', [], {}]})
+        item = merged
+
+    url_name = item.get('url_name')
+    if url_name:
+        try:
+            item['url'] = reverse(url_name)
+        except NoReverseMatch:
+            return None
+    elif item.get('url'):
+        item['url'] = item['url']
+    else:
+        return None
+
+    item['label'] = item.get('label') or _humanize(item.get('id') or url_name or 'link')
+    item['icon'] = item.get('icon') or 'bi-link-45deg'
+    item['permissions'] = _normalize_permissions(item.get('permissions') or item.get('permission'))
+    item['id'] = item.get('id') or url_name or item.get('url')
+    item['url_name'] = url_name or item.get('id') or item.get('url')
+    return item

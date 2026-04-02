@@ -122,35 +122,10 @@
     <div class="row">
         <!-- Theme Selection -->
         <div class="col-md-6 mb-4 no-print">
-            <div class="glass-profile option-section h-100">
+                <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
-                <div class="d-flex flex-wrap gap-3">
-                    <div class="text-center">
-                        <div class="rounded-circle border shadow-sm mb-1 theme-preview" style="width: 45px; height: 45px; background: #f6f7f9; cursor: pointer;" data-theme="light" title="{{ MS_TRANS.theme_white }}"></div>
-                        <small class="text-muted">{{ MS_TRANS.theme_white }}</small>
-                    </div>
-                    <div class="text-center">
-                        <div class="rounded-circle border shadow-sm mb-1 theme-preview" style="width: 45px; height: 45px; background: #2363c3; cursor: pointer;" data-theme="blue" title="{{ MS_TRANS.theme_royal }}"></div>
-                        <small class="text-muted">{{ MS_TRANS.theme_royal }}</small>
-                    </div>
-                    <div class="text-center">
-                        <div class="rounded-circle border shadow-sm mb-1 theme-preview" style="width: 45px; height: 45px; background: #d97706; cursor: pointer;" data-theme="gold" title="{{ MS_TRANS.theme_gold }}"></div>
-                        <small class="text-muted">{{ MS_TRANS.theme_gold }}</small>
-                    </div>
-                    <div class="text-center">
-                        <div class="rounded-circle border shadow-sm mb-1 theme-preview" style="width: 45px; height: 45px; background: #166534; cursor: pointer;" data-theme="green" title="{{ MS_TRANS.theme_green }}"></div>
-                        <small class="text-muted">{{ MS_TRANS.theme_green }}</small>
-                    </div>
-                    <div class="text-center">
-                        <div class="rounded-circle border shadow-sm mb-1 theme-preview" style="width: 45px; height: 45px; background: #7f1d1d; cursor: pointer;" data-theme="red" title="{{ MS_TRANS.theme_red }}"></div>
-                        <small class="text-muted">{{ MS_TRANS.theme_red }}</small>
-                    </div>
-                    <div class="text-center">
-                        <div class="rounded-circle border shadow-sm mb-1 theme-preview" style="width: 45px; height: 45px; background: #0f172a; cursor: pointer;" data-theme="dark" title="{{ MS_TRANS.theme_dark }}"></div>
-                        <small class="text-muted">{{ MS_TRANS.theme_dark }}</small>
-                    </div>
-                </div>
+                {% include 'microsys/includes/theme_previews.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
             </div>
         </div>
 
@@ -161,19 +136,7 @@
                 <p class="text-muted small mb-4">{{ MS_TRANS.language_desc }}</p>
                 
                 {% if LANGUAGES|length > 1 %}
-                <div class="d-flex flex-wrap gap-3">
-                    {% for code, lang in LANGUAGES.items %}
-                    <div class="text-center">
-                        <div class="lang-option rounded border shadow-sm p-2 mb-1{% if code == CURRENT_LANG %} lang-active{% endif %}"
-                             data-lang="{{ code }}"
-                             style="cursor: pointer; min-width: 80px;"
-                             title="{{ lang.name }}">
-                            <span style="font-size: 1.5rem;">{{ lang.flag }}</span>
-                        </div>
-                        <small class="text-muted">{{ lang.name }}</small>
-                    </div>
-                    {% endfor %}
-                </div>
+                {% include 'microsys/includes/language_previews.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
                 {% else %}
                 <div class="text-muted small">
                     <i class="bi bi-info-circle me-1"></i>
@@ -260,16 +223,6 @@
 
         <script nonce="{{ request.csp_nonce }}">
             document.addEventListener('DOMContentLoaded', () => {
-                // --- System Setup Auto-Trigger ---
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('setup') === '1') {
-                    const settingsBtn = document.querySelector('[data-dynamic-modal*="SystemSettings"]');
-                    if (settingsBtn) {
-                        setTimeout(() => settingsBtn.click(), 300);
-                        window.history.replaceState({}, document.title, window.location.pathname);
-                    }
-                }
-
                 // --- Autofill Logic ---
                 const toggle = document.getElementById('autofillToggle');
                 
