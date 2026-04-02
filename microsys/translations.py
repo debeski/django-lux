@@ -331,8 +331,8 @@ MICROSYS_STRINGS = {
         'account_health_good': 'جيد',
         'account_health_attention': 'يحتاج انتباه',
         'badge_verified': 'موثق',
-        'badge_admin': 'مسؤول',
-        'badge_staff': 'موظف',
+        'badge_admin': 'مدير النظام',
+        'badge_staff': 'مسؤول',
         'timeline_empty': 'لا يوجد نشاط حديث',
 
         # 2FA

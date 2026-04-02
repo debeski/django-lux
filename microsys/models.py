@@ -303,7 +303,7 @@ class UserActivityLog(ScopedModel):
         verbose_name_plural = "Activity Logs"
         default_permissions = ()
         permissions = [
-            ("view_activity_log", "View activity log"),
+            ("view_activitylog", "View activity log"),
         ]
 
     @classmethod
