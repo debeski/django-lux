@@ -64,8 +64,8 @@ class CustomLoginView(LoginView):
 
     def get_success_url(self):
         """
-        Custom redirect logic to prioritize branding 'home_url'.
-        Order: 1. ?next=, 2. MICROSYS_CONFIG['home_url'], 3. settings.LOGIN_REDIRECT_URL
+        Custom redirect logic to prioritize the configured system home URL.
+        Order: 1. ?next=, 2. first-launch setup for unconfigured superusers, 3. system-config home_url, 4. settings.LOGIN_REDIRECT_URL
         """
         # 1. Standard Django behavior (checks 'next' param)
         url = self.get_redirect_url()
@@ -380,4 +380,3 @@ class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         # Get last 10 logs for this user
         context['recent_logs'] = UserActivityLog.objects.filter(created_by=user).order_by('-created_at')[:10]
         return context
-

@@ -61,19 +61,7 @@
     </div>
 
     <div class="row g-3 mt-1">
-        <div class="col-xl-7">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="fw-bold mb-1">{{ MS_TRANS.sidebar_home_title|default:"Home Destination" }}</h6>
-                    <p class="text-muted small mb-0">{{ MS_TRANS.sidebar_home_desc|default:"Optional: choose a top-level sidebar item if you want the titlebar Home button to point there." }}</p>
-                </div>
-                <div class="card-body">
-                    <select class="form-select glass-input" data-builder-home-select></select>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-5">
+        <div class="col-12">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-transparent border-0">
                     <h6 class="fw-bold mb-1">{{ MS_TRANS.sidebar_inspector_title|default:"Inspector" }}</h6>
@@ -82,25 +70,34 @@
                 <div class="card-body">
                     <div class="small text-muted" data-builder-empty-inspector>{{ MS_TRANS.sidebar_inspector_empty|default:"Select a group or item from the left pane to edit it." }}</div>
                     <div class="d-none" data-builder-inspector>
-                        <div class="mb-3">
-                            <label class="form-label">{{ MS_TRANS.sidebar_label_field|default:"Label" }}</label>
-                            <input type="text" class="form-control glass-input" data-builder-label-input>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">{{ MS_TRANS.sidebar_icon_field|default:"Icon" }}</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-stars" data-builder-icon-preview></i></span>
-                                <input type="text" class="form-control glass-input" data-builder-icon-input placeholder="bi-house">
+                        <div class="row g-3 align-items-start">
+                            <div class="col-lg-5">
+                                <div class="mb-3">
+                                    <label class="form-label">{{ MS_TRANS.sidebar_label_field|default:"Label" }}</label>
+                                    <input type="text" class="form-control glass-input" data-builder-label-input>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">{{ MS_TRANS.sidebar_icon_field|default:"Icon" }}</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-stars" data-builder-icon-preview></i></span>
+                                        <input type="text" class="form-control glass-input" data-builder-icon-input placeholder="bi-house">
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-builder-action="duplicate-entry">
+                                        <i class="bi bi-copy me-1"></i>{{ MS_TRANS.sidebar_duplicate|default:"Duplicate" }}
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" data-builder-action="delete-entry">
+                                        <i class="bi bi-trash3 me-1"></i>{{ MS_TRANS.delete_label|default:"Delete" }}
+                                    </button>
+                                </div>
                             </div>
-                            <div class="d-flex flex-wrap gap-2 mt-2" data-builder-icon-suggestions></div>
-                        </div>
-                        <div class="d-flex gap-2 flex-wrap">
-                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-builder-action="duplicate-entry">
-                                <i class="bi bi-copy me-1"></i>{{ MS_TRANS.sidebar_duplicate|default:"Duplicate" }}
-                            </button>
-                            <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" data-builder-action="delete-entry">
-                                <i class="bi bi-trash3 me-1"></i>{{ MS_TRANS.delete_label|default:"Delete" }}
-                            </button>
+                            <div class="col-lg-7">
+                                <label class="form-label">{{ MS_TRANS.sidebar_icon_field|default:"Icon" }}</label>
+                                <div class="ms-builder-icon-picker p-2 rounded-4 border" data-builder-icon-picker>
+                                    <div class="ms-builder-icon-suggestions" data-builder-icon-suggestions></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

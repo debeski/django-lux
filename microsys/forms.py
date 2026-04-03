@@ -839,6 +839,10 @@ class ScopeForm(forms.ModelForm):
 
 
 class SystemSettingsForm(forms.ModelForm):
+    home_url_discovered = forms.ChoiceField(
+        required=False,
+        choices=(),
+    )
     default_language = forms.ChoiceField(
         required=True,
         widget=forms.HiddenInput(),
@@ -863,7 +867,7 @@ class SystemSettingsForm(forms.ModelForm):
 
     class Meta:
         model = apps.get_model('microsys', 'SystemSettings')
-        fields = ['name', 'name_en', 'logo', 'favicon', 'default_language', 'default_theme', 'languages', 'translations_override', 'sidebar_config']
+        fields = ['name', 'name_en', 'logo', 'favicon', 'home_url', 'default_language', 'default_theme', 'languages', 'translations_override', 'sidebar_config']
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
@@ -904,6 +908,19 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['translations_override'].help_text = s.get('help_sys_translations', 'مثال: {"ar": {"app_microsys": "النظام"}}')
         self.fields['name'].label = s.get('form_sys_name_ar', "اسم النظام (عربي)")
         self.fields['name_en'].label = s.get('form_sys_name_en', "اسم النظام (إنجليزي)")
+        self.fields['home_url'].required = False
+        self.fields['home_url'].label = s.get('form_sys_home_url', "الرابط الرئيسي")
+        self.fields['home_url'].help_text = s.get('help_sys_home_url', 'يمكنك كتابة مسار مخصص مثل / أو /finance/ أو رابط كامل إذا أردت.')
+        self.fields['home_url'].widget.attrs.update({
+            'class': 'form-control glass-input',
+            'dir': 'ltr',
+            'placeholder': '/sys/',
+        })
+        self.fields['home_url_discovered'].label = s.get('form_sys_home_url_discovered', "اختر من الصفحات المكتشفة")
+        self.fields['home_url_discovered'].help_text = s.get('help_sys_home_url_discovered', 'اختياري: اختر صفحة مكتشفة لتعبئة الرابط الرئيسي تلقائياً، أو اتركه فارغاً واكتب رابطاً مخصصاً.')
+        self.fields['home_url_discovered'].widget.attrs.update({
+            'class': 'form-select glass-input',
+        })
         self.fields['default_language'].label = s.get('form_sys_default_lang', "اللغة الافتراضية")
         self.fields['default_theme'].label = s.get('form_sys_default_theme', "المظهر الافتراضي")
         self.fields['logo'].label = s.get('form_sys_logo', "الشعار (Logo)")
@@ -926,6 +943,13 @@ class SystemSettingsForm(forms.ModelForm):
         if not getattr(self.instance, 'default_theme', None):
              self.instance.default_theme = config.get('default_theme', 'light')
         self.initial['default_theme'] = self.instance.default_theme or config.get('default_theme', 'light')
+        current_home_url = (
+            (self.instance.home_url or '')
+            or config.get('home_url', '')
+            or project_config.get('home_url', '')
+            or '/sys/'
+        )
+        self.initial['home_url'] = current_home_url
 
         if self.instance and self.instance.pk:
             if isinstance(self.instance.languages, dict):
@@ -933,7 +957,9 @@ class SystemSettingsForm(forms.ModelForm):
             if isinstance(self.instance.translations_override, dict):
                 self.initial['translations_override'] = _json_dump(self.instance.translations_override, ensure_ascii=False, indent=2)
             if isinstance(getattr(self.instance, 'sidebar_config', None), dict) and self.instance.sidebar_config:
-                self.initial['sidebar_config'] = _json_dump(sanitize_sidebar_config(self.instance.sidebar_config), ensure_ascii=False)
+                sidebar_config = sanitize_sidebar_config(self.instance.sidebar_config)
+                sidebar_config['home_url_name'] = None
+                self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
 
         if not self.initial.get('languages'):
             self.initial['languages'] = _json_dump(config.get('languages', {}), ensure_ascii=False, indent=2)
@@ -950,7 +976,28 @@ class SystemSettingsForm(forms.ModelForm):
             sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}))
             if not sidebar_config or not sidebar_config.get('entries'):
                 sidebar_config = {'home_url_name': None, 'entries': []}
+            sidebar_config['home_url_name'] = None
             self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
+
+        catalog_lang = self.initial.get('default_language') or self.instance.default_language or config.get('default_language', 'en')
+        self.sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang)
+        seen_home_urls = set()
+        home_url_choices = [('', s.get('form_sys_home_url_custom', 'Use a custom URL'))]
+        for entry in self.sidebar_catalog:
+            url_name = entry.get('url_name')
+            if not url_name:
+                continue
+            try:
+                resolved_url = reverse(url_name)
+            except NoReverseMatch:
+                continue
+            if resolved_url in seen_home_urls:
+                continue
+            seen_home_urls.add(resolved_url)
+            entry_label = str(entry.get('label') or entry.get('group_label') or url_name).strip()
+            home_url_choices.append((resolved_url, f"{entry_label} ({url_name})"))
+        self.fields['home_url_discovered'].choices = home_url_choices
+        self.initial['home_url_discovered'] = current_home_url if current_home_url in seen_home_urls else ''
 
         self.language_picker_html = render_to_string(
             'microsys/includes/language_previews.html',
@@ -976,7 +1023,6 @@ class SystemSettingsForm(forms.ModelForm):
             },
         )
 
-        self.sidebar_catalog = discover_sidebar_catalog(lang_code=self.initial.get('default_language', 'en'))
         self.sidebar_builder_html = render_to_string(
             'microsys/includes/sidebar_builder.html',
             {
@@ -1026,6 +1072,10 @@ class SystemSettingsForm(forms.ModelForm):
                         css_class='col-lg-6'
                     ),
                     Div(HTML(self.theme_picker_html), Field('default_theme'), css_class='col-lg-6'),
+                ),
+                Row(
+                    Div(Field('home_url_discovered', css_class='col-lg-6'), css_class='col-lg-6'),
+                    Div(Field('home_url', css_class='col-lg-6', dir='ltr'), css_class='col-lg-6'),
                 ),
                 css_class='wizard-step'
             ),
@@ -1091,6 +1141,11 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Invalid theme choice.")
         return value
 
+    def clean_home_url(self):
+        value = str(self.cleaned_data.get('home_url') or '').strip()
+        discovered_value = str(self.cleaned_data.get('home_url_discovered') or '').strip()
+        return value or discovered_value or getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or '/sys/'
+
     def clean_sidebar_config(self):
         from microsys.discovery import sanitize_sidebar_config
 
@@ -1107,7 +1162,7 @@ class SystemSettingsForm(forms.ModelForm):
         if not isinstance(entries, list):
             raise ValidationError("Sidebar entries must be a list.")
         return sanitize_sidebar_config({
-            'home_url_name': parsed.get('home_url_name'),
+            'home_url_name': None,
             'entries': entries,
         })
 
@@ -1115,18 +1170,10 @@ class SystemSettingsForm(forms.ModelForm):
         instance = super().save(commit=False)
         instance.is_configured = True
         instance.sidebar_config = self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []})
-
-        home_url_name = instance.sidebar_config.get('home_url_name')
-        resolved_home = None
-        fallback_home = getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or '/sys/users/'
-        if home_url_name:
-            try:
-                resolved_home = reverse(home_url_name)
-            except NoReverseMatch:
-                resolved_home = None
-
-        instance.home_url = resolved_home or fallback_home
-        instance.sidebar_config['home_url_name'] = home_url_name if resolved_home else None
+        fallback_home = getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or '/sys/'
+        instance.home_url = self.cleaned_data.get('home_url') or fallback_home
+        if isinstance(instance.sidebar_config, dict):
+            instance.sidebar_config['home_url_name'] = None
 
         if commit:
             instance.save()

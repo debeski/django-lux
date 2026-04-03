@@ -136,7 +136,7 @@ def system_setup_view(request):
         if form.is_valid():
             form.save()
             from microsys.utils import get_system_config
-            return redirect(get_system_config().get('home_url', '/sys/users/'))
+            return redirect(get_system_config().get('home_url', '/sys/'))
     else:
         form = SystemSettingsForm(
             instance=instance,

@@ -4,17 +4,190 @@
     const SETUP_STATE_KEY = `microsys.systemSetupState:${window.location.pathname}`;
     const ICON_SUGGESTIONS = [
         'bi-house',
+        'bi-house-fill',
+        'bi-house-door',
+        'bi-house-door-fill',
+        'bi-house-heart',
+        'bi-house-heart-fill',
+        'bi-house-gear',
+        'bi-house-gear-fill',
+        'bi-house-lock',
+        'bi-houses',
         'bi-speedometer2',
+        'bi-speedometer',
+        'bi-grid',
+        'bi-grid-3x2',
+        'bi-grid-3x2-gap',
+        'bi-grid-3x3-gap',
+        'bi-grid-fill',
+        'bi-layout-sidebar',
+        'bi-layout-text-sidebar',
+        'bi-layout-sidebar-inset',
+        'bi-layout-three-columns',
+        'bi-box',
+        'bi-box-fill',
         'bi-box-seam',
-        'bi-wallet2',
-        'bi-safe',
-        'bi-person-badge',
-        'bi-gear',
-        'bi-file-earmark-bar-graph',
-        'bi-people',
+        'bi-box-seam-fill',
+        'bi-box2',
+        'bi-boxes',
+        'bi-inbox',
+        'bi-inbox-fill',
+        'bi-inboxes',
+        'bi-inboxes-fill',
+        'bi-archive',
+        'bi-archive-fill',
+        'bi-collection',
+        'bi-collection-fill',
+        'bi-folder',
+        'bi-folder-fill',
+        'bi-folder-plus',
+        'bi-folder-check',
+        'bi-folder-x',
         'bi-folder2-open',
+        'bi-wallet',
+        'bi-wallet-fill',
+        'bi-wallet2',
+        'bi-cash',
+        'bi-cash-coin',
+        'bi-cash-stack',
+        'bi-currency-dollar',
+        'bi-currency-euro',
+        'bi-currency-exchange',
+        'bi-bank',
+        'bi-bank2',
+        'bi-piggy-bank',
+        'bi-credit-card',
+        'bi-credit-card-fill',
+        'bi-receipt',
+        'bi-receipt-cutoff',
+        'bi-safe',
+        'bi-safe-fill',
+        'bi-safe2',
+        'bi-shield',
+        'bi-shield-check',
+        'bi-shield-lock',
+        'bi-shield-fill-check',
+        'bi-person',
+        'bi-person-fill',
+        'bi-person-circle',
+        'bi-person-badge',
+        'bi-person-badge-fill',
+        'bi-person-lines-fill',
+        'bi-person-vcard',
+        'bi-person-gear',
+        'bi-people',
+        'bi-people-fill',
+        'bi-gear',
+        'bi-gear-fill',
+        'bi-gear-wide',
+        'bi-gear-wide-connected',
+        'bi-sliders',
+        'bi-sliders2',
+        'bi-sliders2-vertical',
+        'bi-wrench',
+        'bi-wrench-adjustable',
+        'bi-wrench-adjustable-circle',
+        'bi-briefcase',
+        'bi-briefcase-fill',
+        'bi-building',
+        'bi-building-fill',
+        'bi-building-gear',
+        'bi-buildings',
+        'bi-shop',
+        'bi-shop-window',
+        'bi-file-bar-graph',
+        'bi-file-earmark-bar-graph',
+        'bi-file-earmark-text',
+        'bi-file-earmark-check',
+        'bi-file-earmark-code',
+        'bi-file-earmark-spreadsheet',
+        'bi-file-earmark-person',
+        'bi-file-text',
+        'bi-clipboard-data',
+        'bi-clipboard-data-fill',
+        'bi-clipboard-check',
+        'bi-clipboard-check-fill',
+        'bi-clipboard2-data',
+        'bi-clipboard2-check',
+        'bi-journal-text',
+        'bi-journal-check',
+        'bi-journal-richtext',
+        'bi-book',
+        'bi-book-fill',
+        'bi-bookmark',
+        'bi-bookmark-star',
+        'bi-table',
+        'bi-list-ul',
+        'bi-list-check',
+        'bi-list-task',
+        'bi-kanban',
+        'bi-kanban-fill',
+        'bi-pie-chart',
+        'bi-pie-chart-fill',
+        'bi-bar-chart',
+        'bi-bar-chart-line',
+        'bi-bar-chart-steps',
+        'bi-graph-up',
+        'bi-graph-up-arrow',
+        'bi-graph-down',
         'bi-diagram-3',
+        'bi-diagram-3-fill',
+        'bi-diagram-2',
+        'bi-diagram-2-fill',
         'bi-grid-1x2',
+        'bi-columns',
+        'bi-columns-gap',
+        'bi-window',
+        'bi-window-sidebar',
+        'bi-window-stack',
+        'bi-truck',
+        'bi-truck-front',
+        'bi-truck-flatbed',
+        'bi-cart',
+        'bi-cart-fill',
+        'bi-cart-check',
+        'bi-cart3',
+        'bi-bag',
+        'bi-bag-fill',
+        'bi-bag-check',
+        'bi-basket',
+        'bi-basket-fill',
+        'bi-basket3',
+        'bi-globe',
+        'bi-globe2',
+        'bi-globe-europe-africa',
+        'bi-chat-square-text',
+        'bi-chat-left-text',
+        'bi-chat-dots',
+        'bi-chat-quote',
+        'bi-send',
+        'bi-send-check',
+        'bi-mailbox',
+        'bi-telephone',
+        'bi-telephone-fill',
+        'bi-telephone-inbound',
+        'bi-telephone-outbound',
+        'bi-calendar',
+        'bi-calendar-event',
+        'bi-calendar-check',
+        'bi-clock',
+        'bi-clock-history',
+        'bi-bell',
+        'bi-bell-fill',
+        'bi-star',
+        'bi-star-fill',
+        'bi-check-circle',
+        'bi-check-square',
+        'bi-x-circle',
+        'bi-link-45deg',
+        'bi-arrow-left-right',
+        'bi-arrow-repeat',
+        'bi-database',
+        'bi-database-fill',
+        'bi-database-gear',
+        'bi-database-check',
+        'bi-calculator',
+        'bi-calculator-fill',
     ];
 
     function t(key, fallback) {
@@ -332,7 +505,6 @@
         const refs = {
             selectedTree: builder.querySelector('[data-builder-selected-tree]'),
             availableList: builder.querySelector('[data-builder-available-list]'),
-            homeSelect: builder.querySelector('[data-builder-home-select]'),
             search: builder.querySelector('[data-builder-search]'),
             inspector: builder.querySelector('[data-builder-inspector]'),
             inspectorEmpty: builder.querySelector('[data-builder-empty-inspector]'),
@@ -344,34 +516,6 @@
 
         function serialize() {
             hiddenInput.value = JSON.stringify(state.config);
-        }
-
-        function renderHomeSelect() {
-            const options = topLevelItems(state.config.entries);
-            refs.homeSelect.innerHTML = '';
-
-            const defaultOption = document.createElement('option');
-            defaultOption.value = '';
-            defaultOption.textContent = options.length
-                ? t('sidebar_home_use_default', 'Use the titlebar Home button default')
-                : t('sidebar_no_home_items', 'Use the titlebar Home button default');
-            refs.homeSelect.appendChild(defaultOption);
-            refs.homeSelect.disabled = false;
-
-            const activeValue = options.some(item => item.url_name === state.config.home_url_name)
-                ? state.config.home_url_name
-                : '';
-            state.config.home_url_name = activeValue || null;
-            defaultOption.selected = !activeValue;
-
-            options.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item.url_name;
-                opt.textContent = item.label;
-                opt.selected = item.url_name === activeValue;
-                refs.homeSelect.appendChild(opt);
-            });
-            serialize();
         }
 
         function renderAvailable() {
@@ -587,7 +731,9 @@
             ICON_SUGGESTIONS.forEach(icon => {
                 const button = document.createElement('button');
                 button.type = 'button';
-                button.className = 'btn btn-sm btn-outline-secondary rounded-pill';
+                button.className = `btn btn-sm ms-builder-icon-choice ${location.entry.icon === icon ? 'is-active' : ''}`;
+                button.setAttribute('title', icon);
+                button.setAttribute('aria-label', icon);
                 button.innerHTML = `<i class="bi ${icon}"></i>`;
                 button.addEventListener('click', () => {
                     refs.iconInput.value = icon;
@@ -603,7 +749,6 @@
             serialize();
             renderSelected();
             renderAvailable();
-            renderHomeSelect();
             renderInspector();
         }
 
@@ -648,7 +793,6 @@
 
         function removeAllSelectedEntries() {
             state.config.entries = [];
-            state.config.home_url_name = null;
             state.selected = null;
             state.selectedTargetGroup = null;
             renderAll();
@@ -746,11 +890,6 @@
             renderAvailable();
         });
 
-        refs.homeSelect.addEventListener('change', () => {
-            state.config.home_url_name = refs.homeSelect.value || null;
-            serialize();
-        });
-
         refs.labelInput.addEventListener('input', () => {
             if (!state.selected || state.selected.pane !== 'selected') return;
             const location = findEntryLocation(state.config.entries, state.selected.id, state.selected.kind);
@@ -759,7 +898,6 @@
             serialize();
             renderSelected();
             renderAvailable();
-            renderHomeSelect();
         });
 
         refs.iconInput.addEventListener('input', () => {
@@ -771,6 +909,7 @@
             serialize();
             renderSelected();
             renderAvailable();
+            renderInspector();
         });
 
         refs.selectedTree.addEventListener('dragover', (event) => {
@@ -803,6 +942,46 @@
         });
 
         renderAll();
+    }
+
+    function initSetupHomeFields(root) {
+        root.querySelectorAll('form').forEach((form) => {
+            if (form.dataset.setupHomeFieldsBound === 'true') {
+                return;
+            }
+
+            const routeSelect = form.querySelector('[name="home_url_discovered"]');
+            const urlInput = form.querySelector('[name="home_url"]');
+            if (!routeSelect || !urlInput) {
+                return;
+            }
+
+            form.dataset.setupHomeFieldsBound = 'true';
+
+            const selectableValues = new Set(
+                Array.from(routeSelect.options || [])
+                    .map((option) => option.value)
+                    .filter(Boolean)
+            );
+
+            function syncSelectFromInput() {
+                const currentValue = (urlInput.value || '').trim();
+                routeSelect.value = selectableValues.has(currentValue) ? currentValue : '';
+            }
+
+            routeSelect.addEventListener('change', () => {
+                if (!routeSelect.value) {
+                    return;
+                }
+                urlInput.value = routeSelect.value;
+                urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+                urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+
+            urlInput.addEventListener('input', syncSelectFromInput);
+            urlInput.addEventListener('change', syncSelectFromInput);
+            syncSelectFromInput();
+        });
     }
 
     function initSetupLanguagePicker(root) {
@@ -880,6 +1059,7 @@
 
     function scan(root) {
         restoreSetupFormState(root);
+        initSetupHomeFields(root);
         root.querySelectorAll('.ms-setup-builder').forEach(initBuilder);
         initSetupLanguagePicker(root);
         initSetupThemePicker(root);

@@ -69,6 +69,11 @@ MICROSYS_STRINGS = {
         # System Settings Form
         'form_sys_name_ar': 'اسم النظام (عربي)',
         'form_sys_name_en': 'اسم النظام (إنجليزي)',
+        'form_sys_home_url': 'الرابط الرئيسي العام',
+        'help_sys_home_url': 'يمكنك كتابة مسار مخصص مثل / أو /finance/ أو رابط كامل إذا أردت.',
+        'form_sys_home_url_discovered': 'اختر من الصفحات المكتشفة',
+        'help_sys_home_url_discovered': 'اختياري: اختر صفحة مكتشفة لتعبئة الرابط الرئيسي تلقائياً، أو اتركه فارغاً واكتب رابطاً مخصصاً.',
+        'form_sys_home_url_custom': 'استخدم رابطاً مخصصاً أو اترك القيمة الحالية',
         'form_sys_default_lang': 'اللغة الافتراضية',
         'form_sys_default_theme': 'المظهر الافتراضي',
         'form_sys_logo': 'الشعار (Logo)',
@@ -558,6 +563,11 @@ MICROSYS_STRINGS = {
         # System Settings Form
         'form_sys_name_ar': 'System Name (Arabic)',
         'form_sys_name_en': 'System Name (English)',
+        'form_sys_home_url': 'Global Home URL',
+        'help_sys_home_url': 'Enter a custom path like / or /finance/ or a full URL if you want.',
+        'form_sys_home_url_discovered': 'Choose From Discovered Pages',
+        'help_sys_home_url_discovered': 'Optional: choose a discovered page to fill the Home URL automatically, or leave it blank and type a custom URL.',
+        'form_sys_home_url_custom': 'Use a custom URL or keep the current one',
         'form_sys_default_lang': 'Default Language',
         'form_sys_default_theme': 'Default Theme',
         'form_sys_logo': 'System Logo (Logo)',

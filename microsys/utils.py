@@ -18,7 +18,6 @@ from decimal import Decimal, InvalidOperation
 import inspect
 from .translations import get_strings
 from django.conf import settings
-from django.urls import NoReverseMatch, reverse
 
 
 # Auth Check — Staff permission test for @user_passes_test decorator
@@ -103,15 +102,6 @@ def _dedupe_sidebar_entries(entries):
         deduped.append(entry)
     return deduped
 
-def _reverse_sidebar_home(home_url_name, entries, fallback):
-    candidate = home_url_name
-    if candidate:
-        try:
-            return reverse(candidate), candidate
-        except NoReverseMatch:
-            candidate = None
-    return fallback, candidate
-
 def get_system_config():
     """
     Returns the deeply merged system configuration.
@@ -128,7 +118,7 @@ def get_system_config():
         'logo': '/static/img/base_logo.webp',
         'login_logo': '/static/img/login_logo.webp',
         'favicon': '/static/favicon.ico',
-        'home_url': '/sys/users/',
+        'home_url': '/sys/',
         'default_language': 'en',
         'default_theme': 'light',
         'languages': {
@@ -234,13 +224,8 @@ def get_system_config():
     final_config['login_logo_url'] = final_config.get('login_logo_url') or final_config.get('login_logo') or final_config['logo_url']
     final_config['favicon_url'] = final_config.get('favicon_url') or final_config.get('favicon') or default_config['favicon']
 
-    resolved_home, resolved_name = _reverse_sidebar_home(
-        merged_sidebar.get('home_url_name'),
-        merged_sidebar.get('entries', []),
-        final_config.get('home_url', default_config['home_url']),
-    )
-    final_config['home_url_name'] = resolved_name
-    final_config['home_url'] = resolved_home
+    final_config['home_url_name'] = None
+    final_config['home_url'] = final_config.get('home_url') or default_config['home_url']
 
     return final_config
 

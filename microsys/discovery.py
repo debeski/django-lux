@@ -609,7 +609,6 @@ def build_default_sidebar_config(lang_code=None):
         grouped[entry['group_key']]['entries'].append(entry)
 
     final_entries = []
-    home_url_name = None
     for group_key, group in grouped.items():
         dashboard_entry = None
         remaining = []
@@ -622,8 +621,6 @@ def build_default_sidebar_config(lang_code=None):
 
         if dashboard_entry is not None:
             final_entries.append(dashboard_entry)
-            if home_url_name is None:
-                home_url_name = dashboard_entry.get('url_name')
 
         if group_key == 'microsys' or remaining:
             group_entry = {
@@ -636,14 +633,8 @@ def build_default_sidebar_config(lang_code=None):
             if group_entry['items']:
                 final_entries.append(group_entry)
 
-    if home_url_name is None:
-        for entry in final_entries:
-            if entry.get('kind') == 'item' and entry.get('url_name'):
-                home_url_name = entry['url_name']
-                break
-
     return sanitize_sidebar_config({
-        'home_url_name': home_url_name,
+        'home_url_name': None,
         'entries': final_entries,
     })
 

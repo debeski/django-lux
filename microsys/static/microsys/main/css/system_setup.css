@@ -191,9 +191,61 @@
   border-color: var(--glass-input-border) !important;
 }
 
+.ms-builder-icon-picker {
+  background: var(--ms-setup-pane-bg);
+  border-color: var(--ms-setup-pane-border) !important;
+}
+
+.ms-builder-icon-suggestions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
+  gap: 0.6rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  padding-inline-end: 0.15rem;
+}
+
+.ms-builder-icon-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.25rem;
+  padding: 0.35rem;
+  border: 1px solid var(--ms-setup-item-border);
+  border-radius: 0.9rem;
+  background: var(--ms-setup-item-bg);
+  color: var(--ms-setup-text);
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.ms-builder-icon-choice:hover {
+  background: var(--ms-setup-item-hover-bg);
+  border-color: rgba(var(--primal-rgb), 0.35);
+  box-shadow: var(--ms-setup-item-shadow);
+  transform: translateY(-1px);
+}
+
+.ms-builder-icon-choice.is-active {
+  background: var(--ms-setup-item-active-bg);
+  border-color: var(--primal);
+  box-shadow: 0 0 0 3px var(--ms-setup-item-active-ring);
+}
+
+.ms-builder-icon-choice i {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
 @media (max-width: 991.98px) {
   .ms-sidebar-tree,
   .ms-sidebar-available {
     max-height: 320px;
+  }
+
+  .ms-builder-icon-suggestions {
+    max-height: 14rem;
   }
 }
