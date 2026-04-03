@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">microSYS sidebar builder screenshot placeholder</title>
+  <desc id="desc">Reserved slot for a future screenshot of the setup sidebar builder and inspector.</desc>
+  <rect width="1200" height="720" fill="#111827"/>
+  <rect x="60" y="60" width="1080" height="600" rx="28" fill="#f8fafc"/>
+  <rect x="110" y="120" width="420" height="480" rx="24" fill="#dbeafe"/>
+  <rect x="560" y="120" width="180" height="480" rx="24" fill="#e5e7eb"/>
+  <rect x="770" y="120" width="320" height="480" rx="24" fill="#dcfce7"/>
+  <text x="120" y="175" fill="#0f172a" font-family="Arial, sans-serif" font-size="34" font-weight="700">Sidebar Builder Capture Slot</text>
+  <text x="150" y="255" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">Catalog</text>
+  <text x="150" y="295" fill="#334155" font-family="Arial, sans-serif" font-size="22">Discovered pages and</text>
+  <text x="150" y="327" fill="#334155" font-family="Arial, sans-serif" font-size="22">add/remove controls</text>
+  <text x="592" y="255" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">Tree</text>
+  <text x="592" y="295" fill="#334155" font-family="Arial, sans-serif" font-size="22">Saved runtime</text>
+  <text x="592" y="327" fill="#334155" font-family="Arial, sans-serif" font-size="22">sidebar structure</text>
+  <text x="800" y="255" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">Inspector</text>
+  <text x="800" y="295" fill="#334155" font-family="Arial, sans-serif" font-size="22">Labels, icons,</text>
+  <text x="800" y="327" fill="#334155" font-family="Arial, sans-serif" font-size="22">grouping, and metadata</text>
+  <text x="120" y="620" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="24">Replace this placeholder with a real screenshot of the setup builder and icon inspector.</text>
+</svg>

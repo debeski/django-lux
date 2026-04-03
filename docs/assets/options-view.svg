@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">microSYS options view screenshot placeholder</title>
+  <desc id="desc">Reserved slot for a future screenshot of the runtime Options view.</desc>
+  <rect width="1200" height="720" fill="#0f172a"/>
+  <rect x="60" y="60" width="1080" height="600" rx="28" fill="#f8fafc"/>
+  <rect x="110" y="120" width="980" height="70" rx="18" fill="#e2e8f0"/>
+  <rect x="110" y="220" width="450" height="160" rx="24" fill="#dbeafe"/>
+  <rect x="640" y="220" width="450" height="160" rx="24" fill="#dcfce7"/>
+  <rect x="110" y="420" width="290" height="160" rx="24" fill="#ede9fe"/>
+  <rect x="455" y="420" width="290" height="160" rx="24" fill="#fef3c7"/>
+  <rect x="800" y="420" width="290" height="160" rx="24" fill="#fee2e2"/>
+  <text x="120" y="175" fill="#0f172a" font-family="Arial, sans-serif" font-size="34" font-weight="700">Options View Capture Slot</text>
+  <text x="150" y="285" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">Accessibility</text>
+  <text x="680" y="285" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">System Info</text>
+  <text x="150" y="485" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">Theme</text>
+  <text x="505" y="485" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">Language</text>
+  <text x="850" y="485" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">Preferences</text>
+  <text x="120" y="620" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="24">Replace this placeholder with a real screenshot from /sys/options/ after a local demo project is configured.</text>
+</svg>

@@ -1,0 +1,112 @@
+# Reference
+
+This page is the fast lookup sheet for common microSYS commands, routes, template tags, and helper utilities.
+
+## Management Commands
+
+| Command | Purpose |
+| --- | --- |
+| `python manage.py microsys_setup` | Create migrations, apply migrations, and run the config check. |
+| `python manage.py microsys_setup --skip-check` | Skip the validation pass after setup. |
+| `python manage.py microsys_setup --no-migrate` | Skip `makemigrations` and `migrate`. |
+| `python manage.py microsys_check` | Validate apps, middleware, context processors, URLs, and Crispy settings. |
+
+## Core Routes
+
+| Route | Purpose |
+| --- | --- |
+| `/accounts/login/` | Login screen |
+| `/accounts/logout/` | Logout |
+| `/accounts/profile/` | User profile |
+| `/sys/setup/` | First-launch system setup |
+| `/sys/options/` | Options view |
+| `/sys/users/` | User management |
+| `/sys/logs/` | Activity log |
+| `/sys/scopes/manage/` | Scope management |
+| `/sys/sections/` | Section management |
+
+## 2FA Routes
+
+| Route | Purpose |
+| --- | --- |
+| `/sys/2fa/enable/` | Start enabling a 2FA method |
+| `/sys/2fa/setup/totp/` | Generate a TOTP secret and QR code |
+| `/sys/2fa/verify/login/` | Verify OTP during login |
+| `/sys/2fa/verify/enable/` | Verify OTP during 2FA enable flow |
+| `/sys/2fa/disable/` | Disable a 2FA method |
+| `/sys/2fa/backup-codes/generate/` | Generate backup codes |
+| `/sys/2fa/resend/<intent>/` | Resend an OTP |
+
+## API Endpoints
+
+### Autofill
+
+| Route | Method | Purpose |
+| --- | --- | --- |
+| `/sys/api/last-entry/<app>/<model>/` | `GET` | Return the most recent record for sticky-form cloning |
+| `/sys/api/details/<app>/<model>/empty_schema/` | `GET` | Return an empty field structure for clearing autofill targets |
+| `/sys/api/details/<app>/<model>/<pk>/` | `GET` | Return serialized model details for autofill |
+
+### Preferences
+
+| Route | Method | Purpose |
+| --- | --- | --- |
+| `/sys/api/preferences/update/` | `POST` | Merge updated preference values into `Profile.preferences` |
+| `/sys/api/preferences/reset/` | `POST` | Clear saved preferences and related session keys |
+
+Common preference keys:
+
+- `theme`
+- `lang`
+- `sidebar_collapsed`
+- `sidebar_accordions`
+- `sidebar_order`
+- `autofill_enabled`
+
+## Template Tags and Filters
+
+### `microsys_tags`
+
+| Name | Type | Purpose |
+| --- | --- | --- |
+| `ms_timesince` | simple tag | Translated relative timestamp output |
+| `include_if_exists` | simple tag | Render a template only if it exists |
+
+### `microsys_translation`
+
+| Name | Type | Purpose |
+| --- | --- | --- |
+| `translate_log` | filter | Translate log values with a prefix such as `action` or `model` |
+| `format_log_details` | simple tag | Render structured log details as HTML badges |
+
+### `sidebar_tags`
+
+| Name | Type | Purpose |
+| --- | --- | --- |
+| `auto_sidebar` | inclusion tag | Render auto-discovered sidebar items |
+| `extra_sidebar` | inclusion tag | Render additional sidebar groups |
+| `sidebar_item_class` | simple tag | Return `active` when the current request matches a URL name |
+
+## Frequently Used Helpers
+
+| Helper | Purpose |
+| --- | --- |
+| `get_system_config()` | Return the merged runtime configuration |
+| `get_model_classes()` | Resolve model, form, table, and filter classes via conventions or overrides |
+| `resolve_model_by_name()` | Find a model class dynamically by name |
+| `filter_context_actions()` | Hide context-menu actions the current user should not see |
+| `collect_related_objects()` | Inspect reverse and related objects for reporting or delete warnings |
+| `has_related_records()` | Fast relation check before destructive actions |
+| `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
+| `set_field_attrs()` | Apply microSYS-friendly widget classes and affordances to a form |
+| `log_user_action()` | Create consistent audit log entries |
+
+## Codebase Entry Points
+
+When you need to trace behavior in the code, these files are the usual first stops:
+
+- `microsys/models.py` for `SystemSettings`, `ScopedModel`, `Profile`, and scope-related models
+- `microsys/forms.py` for the setup wizard form, user wizard, and runtime configuration form logic
+- `microsys/views/sections.py` for sections and dynamic modal flows
+- `microsys/translations.py` for built-in translation keys and language-resolution logic
+- `microsys/utils.py` for discovery helpers, configuration merging, filtering helpers, and UI utilities
