@@ -1,19 +1,24 @@
+from pathlib import Path
+
 from setuptools import setup
 
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
+
+BASE_DIR = Path(__file__).parent
+VERSION = (BASE_DIR / "microsys" / "VERSION").read_text(encoding="utf-8").strip()
+long_description = (BASE_DIR / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="django_microsys",
-    version="1.8.1",
+    version=VERSION,
     author="DeBeski",
     author_email="debeski1@gmail.com",
-    description="Django micro (System Integration Service) - Multilingual Django Starter Pack, Packed with Features.",
+    description="Django microSYS (System Integration Service) - Multilingual Django Starter Pack, Packed with Features.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/debeski/django-microsys",
     packages=["microsys"],
     include_package_data=True,
+    package_data={"microsys": ["VERSION"]},
     classifiers=[
         "Framework :: Django",
         "Framework :: Django :: 5",

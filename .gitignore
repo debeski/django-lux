@@ -13,13 +13,19 @@ logs/
 media/
 staticfiles/
 imports/
+backups/
 .backups/
+secrets/
 .secrets/
 .xpose/
 venv/
+.venv/
 dist/
+.dist/
 *.egg-info/
-build
+build/
+.build/
+.codex/
 
 # Ignore celery-related files
 celerybeat-schedule

@@ -18,6 +18,8 @@ from django.db.models import Count
 from django.db.models.functions import TruncHour
 from django.utils.module_loading import import_string
 
+from microsys import __version__
+
 try:
     import rest_framework
 except ImportError:
@@ -98,7 +100,7 @@ def options_view(request):
         'db_info': extract_spec(r'PostgreSQL ([\d.]+)'),
         'redis_info': extract_spec(r'Redis ([\d.]+)'),
         'celery_info': extract_spec(r'Celery ([\d.]+)'),
-        'version': settings.VERSION,
+        'version': __version__,
         
         # System Stats
         'ram_total': f"{ram_total_gb:.1f}",

@@ -8,8 +8,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django_microsys"
-version = "1.8.1"
-description = "Django micro (System Integration Service) - Multilingual Django Starter Pack, Packed with Features."
+dynamic = ["version"]
+description = "Django microSYS (System Integration Service) - Multilingual Django Starter Pack, Packed with Features."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -51,6 +51,12 @@ include = ["microsys"]
 # Include static/templates files (equivalent to include_package_data=True)
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = "microsys.__version__" }
+
+[tool.setuptools.package-data]
+microsys = ["VERSION"]
 
 [project.urls]
 Homepage = "https://github.com/debeski/django-microsys"
