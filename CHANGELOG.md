@@ -1,8 +1,8 @@
 # Changelog
 
-This file now owns the release history for `django-microsys`.
+This file owns the release history for `django-microsys`.
 
-Older README version-history entries were migrated here and normalized into newest-first headings with bullet lists so future updates stay easier to scan and maintain.
+> Only stable version of django-microsys are available for install through pip, a list with those versions can be viewed on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 ## v1.18.12
 
@@ -268,6 +268,8 @@ Older README version-history entries were migrated here and normalized into newe
 - **Dynamic Modal Reconstruction**: Successfully restored the deleted `DynamicModalManagerView` and `DynamicModalDeleteView` functionality.
 - Standardized dynamic modals with a unified AJAX-driven combined view (List + Form) for auxiliary models.
 - Integrated related-record protection in deletion views with localized error messaging.
+
+> Due to data corruption in the codebase and not committing frequently some part of the code was lost specifically a newly implemented Dynamic Modal derived from the subsection modal was lost and had to be re-implemented.
 
 ## v1.8.1
 
