@@ -5,6 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.core.files.base import ContentFile
+from .constants import DEFAULT_HOME_URL
 from .managers import ScopedManager
 import io
 from PIL import Image
@@ -94,7 +95,7 @@ class SystemSettings(SingletonModel):
     favicon = models.ImageField(upload_to='microsys/branding/', null=True, blank=True, verbose_name="أيقونة الموقع (Favicon)")
     default_language = models.CharField(max_length=10, default='en', verbose_name="اللغة الافتراضية")
     default_theme = models.CharField(max_length=20, default='light', verbose_name="المظهر الافتراضي")
-    home_url = models.CharField(max_length=255, default='/sys/', verbose_name="الرابط الرئيسي")
+    home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="الرابط الرئيسي")
     is_configured = models.BooleanField(default=False, verbose_name="تم الضبط")
     languages = models.JSONField(default=dict, blank=True, verbose_name="اللغات المتوفرة")
     translations_override = models.JSONField(default=dict, blank=True, verbose_name="تجاوز الترجمات")

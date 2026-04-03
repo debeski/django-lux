@@ -15,6 +15,7 @@ from django_tables2 import RequestConfig, SingleTableView
 from django.views.generic.detail import DetailView
 
 # Project imports
+from ..constants import DEFAULT_HOME_URL
 from ..utils import is_scope_enabled, is_staff, is_superuser, log_user_action, get_client_ip, get_user_linked_models
 from ..translations import get_strings
 from .twofa import send_otp
@@ -88,7 +89,7 @@ class CustomLoginView(LoginView):
                 return home_url
 
         # 3. Fallback to settings.LOGIN_REDIRECT_URL
-        return getattr(settings, 'LOGIN_REDIRECT_URL', '/sys/')
+        return getattr(settings, 'LOGIN_REDIRECT_URL', DEFAULT_HOME_URL)
 
 
 # User Management — List view with filtering, pagination, and scope-aware queryset

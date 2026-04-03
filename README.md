@@ -93,6 +93,8 @@ urlpatterns = [
 ]
 ```
 
+With that root include in place, microsys provides `/accounts/...` and `/sys/...`. If your project does not define its own `/` view, microsys falls back from an unresolved `/` request into its login/setup flow instead of leaving a 404.
+
 4. Run the setup command.
 
 ```bash

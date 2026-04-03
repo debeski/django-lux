@@ -16,6 +16,7 @@ from django.db.models import ManyToManyField, ManyToManyRel, Q
 from django.db import models as dj_models
 from decimal import Decimal, InvalidOperation
 import inspect
+from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
 from .translations import get_strings
 from django.conf import settings
 
@@ -118,7 +119,7 @@ def get_system_config():
         'logo': '/static/img/base_logo.webp',
         'login_logo': '/static/img/login_logo.webp',
         'favicon': '/static/favicon.ico',
-        'home_url': '/sys/',
+        'home_url': DEFAULT_HOME_URL,
         'default_language': 'en',
         'default_theme': 'light',
         'languages': {
@@ -159,7 +160,11 @@ def get_system_config():
         if sys_settings.favicon:
             db_config['favicon'] = sys_settings.favicon.url
             db_config['favicon_url'] = sys_settings.favicon.url
-        if sys_settings.home_url:
+        legacy_unconfigured_home_url = (
+            not getattr(sys_settings, 'is_configured', False) and
+            getattr(sys_settings, 'home_url', '') == LEGACY_HOME_URL
+        )
+        if sys_settings.home_url and not legacy_unconfigured_home_url:
             db_config['home_url'] = sys_settings.home_url
         if sys_settings.default_language:
             db_config['default_language'] = sys_settings.default_language

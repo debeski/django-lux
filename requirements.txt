@@ -1,2 +1,13 @@
 build
 twine
+
+# microsys requirements:
+# Python 3.11+
+# Django 5.1+
+# `django-crispy-forms`
+# `crispy-bootstrap5`
+# `django-tables2`
+# `django-filter`
+# `psutil`
+# `pyotp`
+# `qrcode`

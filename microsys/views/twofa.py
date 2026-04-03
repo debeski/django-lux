@@ -18,6 +18,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect
 
 # Project imports
+from ..constants import DEFAULT_HOME_URL
 from ..translations import get_strings
 
 User = get_user_model()
@@ -169,8 +170,8 @@ def verify_otp_view(request, intent='login'):
                     home_url = None
                 if home_url:
                     return redirect(home_url)
-                    
-                return redirect('sys_dashboard')
+
+                return redirect(getattr(settings, 'LOGIN_REDIRECT_URL', DEFAULT_HOME_URL))
 
             else:
                 # Check if 2FA was previously disabled (first-time activation)

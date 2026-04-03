@@ -20,6 +20,7 @@ from django.forms.widgets import ChoiceWidget
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
+from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
 from .translations import get_strings
 
 User = get_user_model()
@@ -914,7 +915,7 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['home_url'].widget.attrs.update({
             'class': 'form-control glass-input',
             'dir': 'ltr',
-            'placeholder': '/sys/',
+            'placeholder': DEFAULT_HOME_URL,
         })
         self.fields['home_url_discovered'].label = s.get('form_sys_home_url_discovered', "اختر من الصفحات المكتشفة")
         self.fields['home_url_discovered'].help_text = s.get('help_sys_home_url_discovered', 'اختياري: اختر صفحة مكتشفة لتعبئة الرابط الرئيسي تلقائياً، أو اتركه فارغاً واكتب رابطاً مخصصاً.')
@@ -943,11 +944,18 @@ class SystemSettingsForm(forms.ModelForm):
         if not getattr(self.instance, 'default_theme', None):
              self.instance.default_theme = config.get('default_theme', 'light')
         self.initial['default_theme'] = self.instance.default_theme or config.get('default_theme', 'light')
+        instance_home_url = str(self.instance.home_url or '').strip()
+        if (
+            not getattr(self.instance, 'is_configured', False)
+            and instance_home_url == LEGACY_HOME_URL
+        ):
+            instance_home_url = ''
+
         current_home_url = (
-            (self.instance.home_url or '')
+            instance_home_url
             or config.get('home_url', '')
             or project_config.get('home_url', '')
-            or '/sys/'
+            or DEFAULT_HOME_URL
         )
         self.initial['home_url'] = current_home_url
 
@@ -1144,7 +1152,7 @@ class SystemSettingsForm(forms.ModelForm):
     def clean_home_url(self):
         value = str(self.cleaned_data.get('home_url') or '').strip()
         discovered_value = str(self.cleaned_data.get('home_url_discovered') or '').strip()
-        return value or discovered_value or getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or '/sys/'
+        return value or discovered_value or getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
 
     def clean_sidebar_config(self):
         from microsys.discovery import sanitize_sidebar_config
@@ -1170,7 +1178,7 @@ class SystemSettingsForm(forms.ModelForm):
         instance = super().save(commit=False)
         instance.is_configured = True
         instance.sidebar_config = self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []})
-        fallback_home = getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or '/sys/'
+        fallback_home = getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
         instance.home_url = self.cleaned_data.get('home_url') or fallback_home
         if isinstance(instance.sidebar_config, dict):
             instance.sidebar_config['home_url_name'] = None

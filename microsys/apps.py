@@ -3,6 +3,8 @@
 from django.apps import AppConfig
 from django.apps import apps
 
+from .constants import DEFAULT_HOME_URL
+
 
 def custom_permission_str(self):
     """Custom translations for Django permissions based on active language"""
@@ -38,7 +40,7 @@ class MicrosysConfig(AppConfig):
         try:
             from django.conf import settings
             if not getattr(settings, 'LOGIN_REDIRECT_URL', None):
-                settings.LOGIN_REDIRECT_URL = '/sys/'
+                settings.LOGIN_REDIRECT_URL = DEFAULT_HOME_URL
             if not getattr(settings, 'LOGOUT_REDIRECT_URL', None):
                 settings.LOGOUT_REDIRECT_URL = '/accounts/login/'
         except Exception:

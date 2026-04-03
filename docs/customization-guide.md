@@ -12,7 +12,7 @@ MICROSYS_CONFIG = {
     "name_ar": "النظام",
     "default_language": "en",
     "default_theme": "light",
-    "home_url": "/sys/",
+    "home_url": "/accounts/profile/",
     "languages": {
         "ar": {"name": "العربية", "dir": "rtl", "flag": "🇱🇾"},
         "en": {"name": "English", "dir": "ltr", "flag": "🇬🇧"},

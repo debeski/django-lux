@@ -67,9 +67,16 @@
                     </tr>
                     <tr>
                         <th width="40%">{{ MS_TRANS.storage }}:</th>
-                        <td class="text-end dir-ltr font-monospace">
-                            {{ disk_used }}GB / {{ disk_total }}GB 
-                            <span class="badge {% if disk_percent > 90 %}bg-danger{% elif disk_percent > 70 %}bg-warning{% else %}bg-success{% endif %} ms-1">{{ disk_percent }}%</span>
+                        <td class="dir-ltr font-monospace">
+                            <div class="d-flex justify-content-end align-items-center gap-2" style="white-space: nowrap;">
+                                <span>{{ disk_used }}GB / {{ disk_total }}GB</span>
+                                <div class="progress flex-shrink-0" style="width: 90px; height: 6px;">
+                                    <div class="progress-bar {% if disk_percent > 90 %}bg-danger{% elif disk_percent > 70 %}bg-warning{% else %}bg-success{% endif %}"
+                                        role="progressbar" style="width: {{ disk_percent }}%;"
+                                        aria-valuenow="{{ disk_percent }}" aria-valuemin="0" aria-valuemax="100">
+                                    </div>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                     <tr>
@@ -84,34 +91,76 @@
                         <th>{{ MS_TRANS.django_version }}:</th>
                         <td class="text-end font-monospace">{{ django_version }}</td>
                     </tr>
+                    {% if drf_service %}
                     <tr>
                         <th>{{ MS_TRANS.drf_version }}:</th>
-                        <td class="text-end font-monospace">{{ drf_version }}</td>
+                        <td class="text-end font-monospace">{{ drf_service.version }}</td>
                     </tr>
+                    {% endif %}
+                    {% if api_service %}
                     <tr>
                         <th>{{ MS_TRANS.api_status }}:</th>
-                        <td class="text-end font-monospace">
-                            {% if api_reachable %}
-                                <span class="badge bg-success">{{ MS_TRANS.api_online }}</span>
-                            {% else %}
-                                <span class="badge bg-danger" title="{{ api_error }}">{{ MS_TRANS.api_offline }}</span>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                                <span class="badge {{ api_service.badge_class }}" title="{{ api_service.note|default:'' }}">{{ api_service.label }}</span>
+                            </div>
+                            {% if api_service.url %}
+                            <div class="small mt-1 text-break">
+                                <a href="{{ api_service.url }}" target="_blank" rel="noopener" class="font-monospace text-decoration-none">{{ api_service.url }}</a>
+                            </div>
+                            {% endif %}
+                            {% if api_service.note %}
+                            <div class="small text-muted mt-1">{{ api_service.note }}</div>
                             {% endif %}
                         </td>
                     </tr>
+                    {% endif %}
+                    {% if db_service %}
                     <tr>
                         <th>{{ MS_TRANS.database }}:</th>
-                        <td class="text-end font-monospace">PostgreSQL {{ db_info }}</td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                                <span class="font-monospace">{{ db_service.detail }}</span>
+                                <span class="badge {{ db_service.badge_class }}" title="{{ db_service.note|default:'' }}">{{ db_service.label }}</span>
+                            </div>
+                            {% if db_service.note %}
+                            <div class="small text-muted mt-1">{{ db_service.note }}</div>
+                            {% endif %}
+                        </td>
                     </tr>
+                    {% endif %}
+                    {% if cache_service %}
                     <tr>
                         <th>{{ MS_TRANS.cache }}:</th>
-                        <td class="text-end font-monospace">Redis {{ redis_info }}</td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                                <span class="font-monospace">{{ cache_service.detail }}</span>
+                                <span class="badge {{ cache_service.badge_class }}" title="{{ cache_service.note|default:'' }}">{{ cache_service.label }}</span>
+                            </div>
+                            {% if cache_service.note %}
+                            <div class="small text-muted mt-1">{{ cache_service.note }}</div>
+                            {% endif %}
+                        </td>
                     </tr>
+                    {% endif %}
+                    {% if celery_service %}
                     <tr>
                         <th>{{ MS_TRANS.tasks }}:</th>
-                        <td class="text-end font-monospace">Celery {{ celery_info }}</td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                                {% if celery_service.detail %}
+                                <span class="font-monospace">{{ celery_service.detail }}</span>
+                                {% endif %}
+                                <span class="badge {{ celery_service.badge_class }}" title="{{ celery_service.note|default:'' }}">{{ celery_service.label }}</span>
+                            </div>
+                            {% if celery_service.note %}
+                            <div class="small text-muted mt-1">{{ celery_service.note }}</div>
+                            {% endif %}
+                        </td>
                     </tr>
+                    {% endif %}
                     <tr>
-                        <th>{{ MS_TRANS.app_version }}:</th>
+                        <th>{{ MS_TRANS.microsys_version }}:</th>
                         <td class="text-end"><span class="badge bg-primary">v{{ version }}</span></td>
                     </tr>
                 </table>
@@ -122,7 +171,7 @@
     <div class="row">
         <!-- Theme Selection -->
         <div class="col-md-6 mb-4 no-print">
-                <div class="glass-profile option-section h-100">
+            <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
                 {% include 'microsys/includes/theme_previews.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
@@ -400,5 +449,4 @@
                 }
             });
         </script>
-    </div>
 {% endblock %}

@@ -2,7 +2,13 @@
 
 This file owns the release history for `django-microsys`.
 
-> Only stable version of django-microsys are available for install through pip, a list with those versions can be viewed on PyPI [here](https://pypi.org/project/django-microsys/#history).
+> Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
+
+
+## v1.18.13
+
+- **Fix**: Fixed the issue where the home URL was not being set correctly.
+- **Documentation**: Completely revamped the documentation.
 
 ## v1.18.12
 

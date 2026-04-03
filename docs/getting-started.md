@@ -83,6 +83,8 @@ This gives you:
 - `/sys/setup/` for first launch
 - `/sys/`-prefixed system views such as users, logs, scopes, sections, and options
 
+If your project does not define its own `/` view, microsys will catch an otherwise unresolved `/` request and redirect into the bundled login/setup flow.
+
 If your project already owns `/accounts/`, mount microsys under a prefix and update auth redirects explicitly:
 
 ```python
@@ -91,7 +93,7 @@ urlpatterns = [
 ]
 
 LOGIN_URL = "/microsys/accounts/login/"
-LOGIN_REDIRECT_URL = "/microsys/sys/"
+LOGIN_REDIRECT_URL = "/microsys/accounts/profile/"
 LOGOUT_REDIRECT_URL = "/microsys/accounts/login/"
 ```
 
