@@ -4,14 +4,16 @@ This page explains how microSYS fits into a Django project and how to think abou
 
 ## The Core Mental Model
 
-microSYS is a Django app that combines four layers:
+microSYS is a Django app that combines six layers:
 
 1. runtime configuration
 2. generic discovery and generation
 3. global patches for translation and scope behavior
 4. reusable templates, views, and JavaScript for internal system workflows
+5. audit and governance infrastructure
+6. data-movement and productivity utilities
 
-If you keep those four layers in mind, the package becomes much easier to extend without fighting it.
+If you keep those layers in mind, the package becomes much easier to extend without fighting it.
 
 ## Configuration Layers
 
@@ -103,6 +105,13 @@ The generic class resolver looks for model-adjacent classes in this order:
 
 That same discovery model powers both sections and dynamic modal flows.
 
+It also connects to the surrounding UI systems:
+
+- sidebar discovery for runtime navigation
+- context-menu actions attached to generated tables
+- autofill metadata attached to generated or patched form fields
+- generic modal/list/detail views that expect convention-friendly classes
+
 ## Sections vs Dynamic Modals
 
 Use sections when:
@@ -138,6 +147,21 @@ Two recent themes in microSYS are worth treating as first-class features, not si
 - scope behavior is auto-injected when enabled and removed when disabled
 
 That means you should usually extend the system by leaning into those mechanisms rather than rebuilding them locally in each form, table, or view.
+
+## Audit, Interaction, and Utility Subsystems
+
+microSYS also includes a few subsystems that make it feel larger than a normal "app with some templates":
+
+- Activity logging:
+  the system captures login/logout, CRUD, merged User/Profile changes, diffs, and download/export events through signals and shared logging helpers.
+- Context menus:
+  generated or custom tables can emit URL actions or decoupled `micro:record:*` events, which lets the UI layer stay interactive without hard-wiring custom JavaScript everywhere.
+- Fetch/export helpers:
+  `fetch_file()` and `fetch_excel()` provide package-level download/export behavior instead of every project reimplementing file handling and Excel generation.
+- Productivity helpers:
+  autofill, sticky forms, filter setup, and reusable list templates push common back-office UX patterns into shared infrastructure.
+
+That cluster of subsystems is a big part of why microSYS should be treated like an internal platform layer, not just a widget library.
 
 ## Where to Go Next
 

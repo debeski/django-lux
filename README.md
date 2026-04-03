@@ -6,16 +6,17 @@
   <img src="https://raw.githubusercontent.com/debeski/django-microsys/main/microsys/static/img/login_logo.webp" alt="microSys Logo" width="450"/>
 </p>
 
-microSYS is a multilingual Django app that gives a project-level system layer for user management, branding, translations, scopes, navigation, activity logging, guided onboarding, and dynamic CRUD tooling. The package now keeps the landing README short and moves the long-form operating and integration guidance into [`docs/`](docs/README.md).
+microSYS is a multilingual Django app that gives a project-level system layer for user management, branding, translations, scopes, navigation, activity logging, guided onboarding, data export, and dynamic CRUD tooling. It is not just a themed admin shell: it is a fairly large internal-systems toolkit that bundles runtime configuration, user operations, auditability, UI infrastructure, and zero-boilerplate management patterns into one package. The package now keeps the landing README short and moves the long-form operating and integration guidance into [`docs/`](docs/README.md).
 
 ## What microSYS gives you
 
-- A first-launch setup wizard at `/sys/setup/` for branding, languages, themes, home URL, and sidebar structure.
-- A runtime system UI for users and superusers, including Options, user management, activity logs, 2FA, and scoped data tools.
+- A first-launch setup wizard at `/sys/setup/` for branding, languages, themes, global home URL, and sidebar structure.
+- A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
 - A database-backed `SystemSettings` singleton layered over `MICROSYS_CONFIG`, so projects can seed defaults in code and refine them in the UI later.
-- A `ScopedModel` base with audit fields, soft-delete behavior, actor tracking, and automatic scope handling.
-- Zero-boilerplate sections, dynamic modals, context menus, translations, and autofill helpers for common internal Django workflows.
-- Persistent user preferences for theme, language, sidebar state, and autofill behavior.
+- A `ScopedModel` base with audit fields, soft-delete behavior, actor tracking, filtered managers, and automatic scope handling.
+- Zero-boilerplate sections and dynamic modal CRUD flows for auxiliary models, plus a reusable context-menu/event model for richer interactions.
+- A built-in audit trail with signal-based logging, merged User/Profile updates, diff capture, masked sensitive fields, and download/export log entries.
+- Universal data helpers such as `fetch_file`, `fetch_excel`, sticky-form autofill, tutorial overlays, and persistent UI preferences.
 
 ## Requirements
 
@@ -104,13 +105,20 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 
 ## Key Capabilities
 
-- First-launch setup wizard and runtime System Settings modal.
-- Resolver-driven sidebar builder with runtime tree rendering and user-level reordering.
-- Interactive user wizard with translated grouped permissions.
-- Dynamic sections and AJAX-driven modal CRUD flows.
-- Translation framework with runtime overrides and automatic label translation.
-- Scoped models with audit fields, actor tracking, soft-delete, and automatic scope injection.
-- Built-in tutorial, autofill engine, preferences API, and activity logging.
+- Onboarding and runtime configuration:
+  first-launch setup wizard, Options view, runtime System Settings modal, language/theme defaults, translation overrides, and a global Home destination.
+- User and security operations:
+  interactive user wizard, grouped translated permissions, profile management, multiple 2FA flows, backup codes, and runtime preference persistence.
+- Generic CRUD infrastructure:
+  dynamic sections, AJAX-driven modal CRUD, automatic form/table/filter discovery, context-menu actions, and reusable event dispatch.
+- Navigation and UI infrastructure:
+  resolver-driven sidebar builder, runtime tree rendering, user-level reordering, tutorial overlays, theme-aware system surfaces, and template injection hooks.
+- Data movement and productivity helpers:
+  universal file download, Excel export, smart autofill, sticky-form cloning, and generic list/filter helpers.
+- Audit and governance:
+  signal-based activity logging, diff capture, masked sensitive fields, deduplicated entries, download/export logging, and scoped visibility.
+- Framework-level automation:
+  translation patches, scoped-model auto-injection, actor tracking, soft-delete, and config layering across defaults, project settings, and runtime UI.
 
 ## Documentation
 

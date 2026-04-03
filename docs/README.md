@@ -20,22 +20,25 @@ Use the sections below based on what you are trying to do.
 ## I am Integrating microSYS into a Django Project
 
 - [Developer Guide](developer-guide.md) for the system mental model, configuration layers, scoped models, discovery, and when to use each subsystem.
-- [Customization Guide](customization-guide.md) for `MICROSYS_CONFIG`, translations, sections, dynamic modals, context-menu events, autofill, and template overrides.
+- [Customization Guide](customization-guide.md) for `MICROSYS_CONFIG`, translations, sections, dynamic modals, context-menu integrations, fetch/export utilities, activity logging, autofill, and template overrides.
 
 ## I Need Reference Material
 
 - [Reference](reference.md) for management commands, endpoints, template tags, helper utilities, and codebase entry points.
+- [Customization Guide](customization-guide.md#universal-fetcher-and-excel-export) for download/export helpers.
+- [Customization Guide](customization-guide.md#context-menu-integration) for action schema and integration patterns.
+- [Customization Guide](customization-guide.md#activity-logging-and-audit-trail) for the audit-log model and manual hooks.
 
 ## Current Major Capabilities
 
-- A three-step first-launch setup wizard for branding, languages, themes, global home URL, and sidebar structure.
-- A runtime Options view for accessibility, theme, language, autofill, reset actions, and superuser-only System Settings updates.
-- A resolver-driven sidebar builder that feeds the live runtime sidebar tree instead of a separate builder-only format.
-- Interactive user management with a two-step wizard and dynamically translated permission labels.
-- Automatic translation patches for forms, filters, tables, and context-menu labels.
-- `ScopedModel` support with audit fields, soft-delete, actor tracking, and automatic scope injection.
-- Dynamic tutorial coverage for the main microsys views based on the active URL.
-- Persistent preferences for theme, language, sidebar state, and autofill behavior.
+- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, and a global home URL.
+- A full internal-operations UI including user management, profiles, grouped permissions, activity logs, scopes, sections, options, and built-in two-factor authentication flows.
+- A resolver-driven sidebar system with discovered app pages, structured groups, runtime tree rendering, and user-level reordering layered on top of the system default.
+- A generic CRUD layer made of sections, dynamic modals, list/filter helpers, and reusable context-menu actions and events.
+- A built-in audit trail that records CRUD, login/logout, user-profile merges, diffs, masked sensitive changes, and download/export actions.
+- Data-movement helpers such as the universal fetcher, Excel export, sticky autofill, recursive foreign-key autofill, and downloadable file handling.
+- Framework-level automation for translations, scope injection, actor tracking, soft-delete, and UI preference persistence.
+- Tutorial and design infrastructure including view-aware walkthroughs, theme-aware surfaces, and extension hooks for head/scripts injection.
 
 ## Maintenance Rule
 

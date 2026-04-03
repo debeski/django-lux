@@ -16,7 +16,7 @@ User-specific preferences live separately in `Profile.preferences`. That is wher
 
 The setup wizard lives at `/sys/setup/` and is only intended for the initial system configuration pass. It is the canonical place to establish the project-wide defaults that later users inherit.
 
-![Setup wizard capture slot](assets/setup-wizard.svg)
+![Setup wizard capture slot](assets/setup-wizard.webp)
 
 The wizard currently runs in three steps:
 
@@ -56,7 +56,7 @@ When the wizard is saved:
 
 The sidebar builder is not just a setup-only toy. It feeds the actual runtime sidebar tree, so the structure you save is what users start from.
 
-![Sidebar builder capture slot](assets/sidebar-builder.svg)
+![Sidebar builder capture slot](assets/sidebar-builder.webp)
 
 Important behaviors:
 
@@ -72,7 +72,7 @@ Operationally, that means you can keep a carefully curated default navigation wh
 
 After first launch, day-to-day configuration continues in `/sys/options/`.
 
-![Options view capture slot](assets/options-view.svg)
+![Options view capture slot](assets/options-view.webp)
 
 The Options screen currently provides:
 
@@ -113,6 +113,21 @@ Other admin-facing runtime behaviors to expect:
 - profile pages expose 2FA controls and backup-code workflows
 - activity logs show diffs and download/export context
 
+## Activity Logs in Daily Use
+
+The activity log screen lives at `/sys/logs/` and is intended to be an operational audit surface, not just a developer debug page.
+
+What admins and staff can expect to see there:
+
+- CRUD events captured from signal-driven model saves and deletes
+- login and logout events
+- merged User/Profile updates recorded as one logical "User Profile" history stream
+- masked sensitive fields such as passwords and backup codes
+- download and export activity coming from the universal fetcher and Excel exporter
+- scope-aware visibility for staff who should not see every system-wide action
+
+The detail modal resolves the related object when possible, so an audit row can often be traced back to the underlying model instance instead of staying as a dead log record.
+
 ## User Preferences
 
 User preferences are stored in `Profile.preferences` and updated through the Preferences API. Common keys include:
@@ -125,7 +140,3 @@ User preferences are stored in `Profile.preferences` and updated through the Pre
 - `autofill_enabled`
 
 Resetting preferences from the Options screen clears both the stored preference payload and the related session keys.
-
-## Screenshot Assets
-
-The visual assets for this guide live in [`docs/assets/`](assets/README.md). The current files are lightweight placeholders so the docs already have stable image targets before real seeded-project captures are committed.

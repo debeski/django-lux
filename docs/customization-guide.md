@@ -118,9 +118,39 @@ Useful override points:
 - `handles_save` on the form class
 - `get_modal_context()` on the model
 
-## Context Menu Events
+## Context Menu Integration
 
-microSYS context menus can navigate directly or dispatch events.
+microSYS context menus are a reusable interaction layer, not just a cosmetic right-click menu. They can navigate directly, submit forms, or dispatch events that the rest of the UI responds to.
+
+Basic HTML usage:
+
+```html
+<tr
+  data-micro-context="true"
+  data-micro-actions='[{"label": "Edit", "icon": "bi bi-pencil", "url": "/zones/1/edit/"}]'>
+</tr>
+```
+
+Action types supported by the client script include:
+
+- URL navigation
+- event dispatch
+- dividers
+- form submission
+
+Useful action keys include:
+
+- `label`
+- `icon`
+- `url`
+- `type`
+- `event`
+- `data`
+- `dblclick`
+- `textClass`
+- `permission` or `permissions`
+
+That gives you one consistent pattern for table rows, cards, custom list items, and long-press interactions on touch devices.
 
 Example event action:
 
@@ -144,7 +174,143 @@ Built-in record events:
 - `micro:record:edit`
 - `micro:record:delete`
 
+JavaScript integration example:
+
+```javascript
+document.addEventListener("micro:record:edit", (event) => {
+  console.log(event.detail.data);
+});
+```
+
+Table integration example:
+
+```python
+import json
+
+
+def get_actions(record):
+    return json.dumps([
+        {
+            "label": "View",
+            "icon": "bi bi-eye",
+            "type": "event",
+            "event": "micro:record:view",
+            "data": {"model": "department", "id": record.pk, "name": str(record)},
+            "dblclick": True,
+        },
+        {"type": "divider"},
+        {
+            "label": "Delete",
+            "icon": "bi bi-trash",
+            "url": f"/departments/{record.pk}/delete/",
+            "textClass": "text-danger",
+        },
+    ])
+```
+
 Use `filter_context_actions()` on the backend when actions should disappear for users who lack permissions.
+
+For system-managed tables, context-menu integration is part of the normal ecosystem: section tables, user flows, and dynamic modal actions already build on the same model.
+
+## Universal Fetcher and Excel Export
+
+microSYS includes shared download and export helpers so projects do not have to rebuild file-serving and spreadsheet-export logic in every app.
+
+### `fetch_file()`
+
+Use `fetch_file()` when a view should download:
+
+- one file from one record
+- multiple files from one record
+- multiple files from many records as a ZIP
+
+```python
+from microsys.fetcher import fetch_file
+
+
+def download_invoice(request, pk):
+    invoice = Invoice.objects.get(pk=pk)
+    return fetch_file(request, invoice)
+
+
+def download_invoice_pdf(request, pk):
+    invoice = Invoice.objects.get(pk=pk)
+    return fetch_file(request, invoice, file_type="pdf_file")
+
+
+def bulk_download(request):
+    invoices = Invoice.objects.filter(status="approved")
+    return fetch_file(request, invoices)
+```
+
+Behavior to know:
+
+- it introspects `FileField`s automatically
+- it chooses a filename using model name, identifier-like fields, dates, and file-field names
+- it serves a single file directly or creates a ZIP when multiple files are involved
+- it logs downloads through the shared activity-log helper
+
+### `fetch_excel()`
+
+Use `fetch_excel()` when a queryset should become an `.xlsx` export with sensible defaults.
+
+```python
+from microsys.fetcher import fetch_excel
+
+
+def export_invoices(request):
+    qs = Invoice.objects.select_related("customer")
+    return fetch_excel(
+        request,
+        qs,
+        exclude_fields=["internal_notes"],
+        hidden_fields=["created_by"],
+        sheet_title="Invoices",
+    )
+```
+
+Behavior to know:
+
+- file/image columns are included but hidden by default
+- auto-managed timestamp columns are hidden by default
+- you can fully exclude fields or merely hide them
+- exports are logged as `EXPORT` activity entries with filename and count metadata
+
+## Activity Logging and Audit Trail
+
+microSYS activity logging is broader than a single `log_user_action()` helper.
+
+Automatic logging currently covers:
+
+- login and logout events
+- model creates, updates, and deletes through signals
+- merged User/Profile audit history under a shared logical model name
+- field-level diffs for updates
+- masked sensitive values such as `password` and `backup_codes`
+- download and export events triggered by the fetcher helpers
+
+Important implementation details:
+
+- `UserActivityLog` inherits from `ScopedModel`, so logs carry audit fields and can participate in scope-aware filtering
+- `UserActivityLog.safe_log()` debounces duplicates within a short time window
+- middleware stores the current request and user in thread-local state so saves and signals can still know the actor
+
+Manual logging stays simple:
+
+```python
+from microsys.utils import log_user_action
+
+
+def maintenance_view(request, asset):
+    log_user_action(
+        request,
+        "MAINTENANCE_LOG",
+        instance=asset,
+        details={"notes": "Oil changed"},
+    )
+```
+
+Use the manual helper when the action is business-specific and not already covered by the built-in signal flows.
 
 ## Autofill and Sticky Forms
 
@@ -185,21 +351,4 @@ Two low-friction global injection hooks are available without overriding the ent
 
 Use them for global CSS, meta tags, analytics, or shared JavaScript.
 
-## Activity Logging Hook
-
-When you need a manual audit entry, use `log_user_action()` instead of creating log rows directly.
-
-```python
-from microsys.utils import log_user_action
-
-
-def maintenance_view(request, asset):
-    log_user_action(
-        request,
-        "MAINTENANCE_LOG",
-        instance=asset,
-        details={"notes": "Oil changed"},
-    )
-```
-
-That keeps logging behavior consistent with the rest of the system.
+The same helper layer also fits well with fetch/export and context-menu-driven workflows, so forms, tables, downloads, and auditability can all share one system language instead of being implemented as unrelated project-level utilities.

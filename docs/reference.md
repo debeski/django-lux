@@ -22,6 +22,7 @@ This page is the fast lookup sheet for common microSYS commands, routes, templat
 | `/sys/options/` | Options view |
 | `/sys/users/` | User management |
 | `/sys/logs/` | Activity log |
+| `/sys/logs/<int:pk>/details/` | Activity log detail modal |
 | `/sys/scopes/manage/` | Scope management |
 | `/sys/sections/` | Section management |
 
@@ -63,6 +64,39 @@ Common preference keys:
 - `sidebar_order`
 - `autofill_enabled`
 
+## Context Menu Events
+
+| Event | Purpose |
+| --- | --- |
+| `micro:record:view` | View a record from a context-enabled element |
+| `micro:record:edit` | Open or route into an edit flow |
+| `micro:record:delete` | Trigger a delete flow |
+
+Common action keys:
+
+- `label`
+- `icon`
+- `url`
+- `type`
+- `event`
+- `data`
+- `dblclick`
+- `textClass`
+- `permission`
+- `permissions`
+
+## Common Activity Log Actions
+
+The system records several action families out of the box, including:
+
+- `CREATE`
+- `UPDATE`
+- `DELETE`
+- `LOGIN`
+- `LOGOUT`
+- `DOWNLOAD`
+- `EXPORT`
+
 ## Template Tags and Filters
 
 ### `microsys_tags`
@@ -100,6 +134,8 @@ Common preference keys:
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
 | `set_field_attrs()` | Apply microSYS-friendly widget classes and affordances to a form |
 | `log_user_action()` | Create consistent audit log entries |
+| `fetch_file()` | Download one file, many files, or ZIP bundles from model instances |
+| `fetch_excel()` | Export queryset data to Excel with hidden system/file columns |
 
 ## Codebase Entry Points
 
