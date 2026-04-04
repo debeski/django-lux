@@ -25,14 +25,19 @@ urlpatterns = [
     # User Modal CRUD (dedicated route with custom form)
     path('sys/modals/users/', views.DynamicModalManagerView.as_view(
         model=views.User,
-        form_class=views.UserModalForm,
+        form_class=views.CustomUserCreationForm,
         show_table=False,
     ), name='modal_user'),
     path('sys/modals/users/<str:pk>/', views.DynamicModalManagerView.as_view(
         model=views.User,
-        form_class=views.UserModalForm,
+        form_class=views.CustomUserChangeForm,
         show_table=False,
     ), name='modal_user_edit'),
+    path('sys/modals/users/<str:pk>/permissions/', views.DynamicModalManagerView.as_view(
+        model=views.User,
+        form_class=views.CustomUserPermissionsForm,
+        show_table=False,
+    ), name='modal_user_permissions'),
     # User Detail Modal
     path('sys/users/<int:pk>/modal/', views.UserDetailModalView.as_view(), name='user_detail_modal'),
     # User Reset Password

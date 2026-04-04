@@ -201,18 +201,7 @@
             }
         });
 
-        // 2. Handle Edit User Event from Context Menu — open in dynamic modal
-        document.addEventListener('micro:record:edit', function(e) {
-            const data = e.detail.data;
-            if (!data || !data.id) return;
-            const editUrl = '{% url "modal_user" %}' + data.id + '/';
-            const title = '{{ MS_TRANS.edit_label|default:"تعديل" }}' + ' ' + (data.name || '');
-            document.body.dispatchEvent(new CustomEvent('micro:dynamic_modal:open', {
-                detail: { data: { url: editUrl, title: title } }
-            }));
-        });
-
-        // 3. Handle Password Reset Event from Context Menu
+        // 2. Handle Password Reset Event from Context Menu
         document.addEventListener('micro:reset-password', function(e) {
             const eventData = e.detail.data; 
             if (!eventData || !eventData.url) return;
@@ -231,7 +220,7 @@
             }
         });
 
-        // 4. Handle Soft Delete Event from Context Menu
+        // 3. Handle Soft Delete Event from Context Menu
         document.addEventListener('micro:soft-delete', function(e) {
             const eventData = e.detail.data;
             if (!eventData || !eventData.url) return;

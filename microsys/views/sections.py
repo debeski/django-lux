@@ -71,6 +71,9 @@ def core_models_view(request):
     
     selected_data = models_map[model_param]
     selected_model = selected_data['model']
+    ui_strings = get_strings()
+    save_label = ui_strings.get('save', 'Save')
+    cancel_label = ui_strings.get('cancel', 'Cancel')
     
     # Get classes from discovery result
     FormClass = selected_data['form_class']
@@ -114,7 +117,7 @@ def core_models_view(request):
     else:
         form.helper.form_tag = False
         if not getattr(form.helper, "inputs", None):
-            form.helper.add_input(Submit("submit", "حفظ", css_class="btn btn-primary rounded-pill"))
+            form.helper.add_input(Submit("submit", save_label, css_class="btn btn-primary rounded-pill"))
 
     user_scope = None
     if hasattr(request.user, 'profile') and getattr(request.user.profile, 'scope', None):
@@ -149,7 +152,7 @@ def core_models_view(request):
         accepts_model_name = False
 
     # Pass model_name to constructor if supported, otherwise inject it as an attribute
-    translations = get_strings()
+    translations = ui_strings
     if accepts_model_name:
         table = TableClass(queryset, model_name=model_param, translations=translations, request=request)
     else:
@@ -246,7 +249,7 @@ def core_models_view(request):
              child_form_instance.helper.form_tag = True
         child_form_instance.helper.form_action = f"{target_url}?model={child_model_name}&parent={model_param}"
         if not getattr(child_form_instance.helper, "inputs", None):
-             child_form_instance.helper.add_input(Submit("submit", "حفظ", css_class="btn btn-primary rounded-pill"))
+             child_form_instance.helper.add_input(Submit("submit", save_label, css_class="btn btn-primary rounded-pill"))
 
         if is_scope_enabled() and user_scope and not request.user.is_superuser:
             child_scope_field = child_form_instance.fields.get('scope')
@@ -328,12 +331,12 @@ def core_models_view(request):
                 if cancel_url:
                     buttons_html = f"""
                     <div class="d-flex">
-                        <button type="submit" class="btn btn-primary rounded-start-pill rounded-end-0">حفظ</button>
-                        <a href="{cancel_url}" class="btn btn-outline-warning rounded-end-pill rounded-start-0">إلغاء</a>
+                        <button type="submit" class="btn btn-primary rounded-start-pill rounded-end-0">{save_label}</button>
+                        <a href="{cancel_url}" class="btn btn-outline-warning rounded-end-pill rounded-start-0">{cancel_label}</a>
                     </div>
                     """
                 else:
-                    buttons_html = '<button type="submit" class="btn btn-primary rounded-pill">حفظ</button>'
+                    buttons_html = f'<button type="submit" class="btn btn-primary rounded-pill">{save_label}</button>'
                 
                 row_content.append(
                     Column(
@@ -352,12 +355,12 @@ def core_models_view(request):
             if cancel_url:
                 buttons_html = f"""
                 <div class="d-flex">
-                    <button type="submit" class="btn btn-primary rounded-start-pill rounded-end-0">حفظ</button>
-                    <a href="{cancel_url}" class="btn btn-outline-warning rounded-end-pill rounded-start-0">إلغاء</a>
+                    <button type="submit" class="btn btn-primary rounded-start-pill rounded-end-0">{save_label}</button>
+                    <a href="{cancel_url}" class="btn btn-outline-warning rounded-end-pill rounded-start-0">{cancel_label}</a>
                 </div>
                 """
             else:
-                buttons_html = '<button type="submit" class="btn btn-primary rounded-pill">حفظ</button>'
+                buttons_html = f'<button type="submit" class="btn btn-primary rounded-pill">{save_label}</button>'
             layout_components.append(Row(Column(HTML(buttons_html), css_class="col-auto")))
 
         form.helper.layout = Layout(*layout_components)

@@ -3,7 +3,9 @@
 <div class="titlebar shadow-sm d-flex justify-content-between align-items-center no-print">
     <div class="d-flex align-items-center flex-grow-1" style="min-width: 0;">
         {% if request.user.is_authenticated %}
-            <button id="sidebarToggle" class="sidebar-toggle ms-2 rounded flex-shrink-0">☰</button>
+            <button id="sidebarToggle" class="sidebar-toggle ms-2 flex-shrink-0" type="button" aria-label="{{ MS_TRANS.tut_sidebar_title|default:'Sidebar' }}">
+                <i class="bi bi-list"></i>
+            </button>
         {% endif %}
         <div class="align-items-center d-flex text-decoration-none text-inherit w-100 ps-2" style="min-width: 0;">
             <img src="{{ APP_CONFIG.logo_url|default:'/static/img/base_logo.webp' }}" alt="Logo" class="flex-shrink-0">

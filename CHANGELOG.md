@@ -5,10 +5,24 @@ This file owns the release history for `django-microsys`.
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 
+## v1.18.15
+
+- **Split User Edit Modals**: Separated user editing into two dedicated dynamic modals, `Edit User` for account/profile data and `Edit Permissions` for staff/permission management, while preserving the existing user-creation wizard unchanged.
+- **Manage Users Context Menu Upgrade**: Replaced the single `Edit` action in User Management with distinct `Edit User` and `Edit Permissions` actions, each routing to its own modal flow.
+- **Language-Aware Action Alignment**: Fixed wizard and modal action-button layout so controls now align correctly by active UI direction, including prev/next arrow orientation for Arabic vs English.
+- **Dynamic Modal Header Cleanup**: Removed the duplicate inner form title from shared dynamic modal rendering so form-only modals show a single clear title instead of stacked headings.
+
+## v1.18.14
+
+- **Guaranteed System Navigation Controls**: Added a conditional sidebar toolbar shortcut for Dynamic Sections Manager and introduced a builder toggle to reveal Microsys system items (`manage_users`, `activity_log`, `options`, `manage_sections`) without forcing them into normal app discovery.
+- **Configurable System Sidebar Items**: Extended sidebar discovery, sanitization, and setup persistence so the approved Microsys system routes stay hidden by default but can now be intentionally included in saved sidebar structures.
+- **Localization Sweep for Sections & Filters**: Replaced multiple hardcoded Arabic/English strings with translation-backed labels across subsection management, user/activity filters, date range placeholders, and auto-generated section form buttons.
+- **Titlebar and Sidebar Polish**: Refined the titlebar sidebar toggle to blend into the bar instead of looking permanently pressed, and matched sidebar toolbar-collapse behavior so the Sections Manager shortcut hides with the collapsed sidebar state.
+
 ## v1.18.13
 
-- **Fix**: Fixed the issue where the home URL was not being set correctly.
-- **Documentation**: Completely revamped the documentation.
+- **Fix**: Fixed an issue where the home URL was not being set correctly.
+- **Documentation**: Completely revamped the documentation and split into multiple structured files.
 
 ## v1.18.12
 

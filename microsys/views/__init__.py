@@ -16,7 +16,13 @@ from .users import (
     reset_password,
     User,
 )
-from ..forms import UserModalForm, UserProfileEditForm
+from ..forms import (
+    CustomUserCreationForm,
+    CustomUserChangeForm,
+    CustomUserPermissionsForm,
+    UserModalForm,
+    UserProfileEditForm,
+)
 
 # 2FA
 from .twofa import (

@@ -348,6 +348,7 @@
                 group_key: entry.group_key || 'general',
                 group_label: entry.group_label || entry.group_key || 'General',
                 group_icon: entry.group_icon || 'bi-folder2-open',
+                is_system: Boolean(entry.is_system),
             }));
     }
 
@@ -428,7 +429,7 @@
 
     function availableItems(state) {
         const selectedIds = collectSelectedItemIds(state.config.entries);
-        return state.catalog.filter(item => !selectedIds.has(item.id));
+        return state.catalog.filter(item => !selectedIds.has(item.id) && (state.showSystemItems || !item.is_system));
     }
 
     function groupedAvailableItems(state) {
@@ -500,12 +501,14 @@
             selectedTargetGroup: null,
             search: '',
             dragging: null,
+            showSystemItems: false,
         };
 
         const refs = {
             selectedTree: builder.querySelector('[data-builder-selected-tree]'),
             availableList: builder.querySelector('[data-builder-available-list]'),
             search: builder.querySelector('[data-builder-search]'),
+            systemToggle: builder.querySelector('[data-builder-system-toggle]'),
             inspector: builder.querySelector('[data-builder-inspector]'),
             inspectorEmpty: builder.querySelector('[data-builder-empty-inspector]'),
             labelInput: builder.querySelector('[data-builder-label-input]'),
@@ -889,6 +892,22 @@
             state.search = refs.search.value || '';
             renderAvailable();
         });
+
+        if (refs.systemToggle) {
+            refs.systemToggle.addEventListener('change', () => {
+                state.showSystemItems = Boolean(refs.systemToggle.checked);
+                if (!state.showSystemItems && state.selected && state.selected.pane === 'available') {
+                    const selectedAvailableItem = state.catalog.find(item => item.id === state.selected.id);
+                    if (
+                        (state.selected.kind === 'group' && state.selected.id === 'microsys') ||
+                        (selectedAvailableItem && selectedAvailableItem.is_system)
+                    ) {
+                        state.selected = null;
+                    }
+                }
+                renderAvailable();
+            });
+        }
 
         refs.labelInput.addEventListener('input', () => {
             if (!state.selected || state.selected.pane !== 'selected') return;

@@ -6,6 +6,7 @@ import django_tables2 as tables
 from django.http import JsonResponse
 import json
 from copy import deepcopy
+from functools import lru_cache
 # try-except for django_filters as it might not be installed (though likely is)
 try:
     import django_filters
@@ -217,7 +218,7 @@ def get_system_config():
     merged_sidebar['entries'] = _dedupe_sidebar_entries(
         list(db_sidebar.get('entries', [])) + list(user_sidebar.get('entries', []))
     )
-    merged_sidebar = sanitize_sidebar_config(merged_sidebar)
+    merged_sidebar = sanitize_sidebar_config(merged_sidebar, allow_system_items=True)
     final_config['sidebar'] = merged_sidebar
 
     if 'name_ar' not in final_config or not final_config.get('name_ar'):
@@ -859,13 +860,18 @@ def _build_generic_filter_class(model):
 
     def _init(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
+        s = get_strings()
 
         if date_field and 'year' in self.filters:
+            year_label = s.get('filter_year', 'السنة')
+            self.filters['year'].label = year_label
+            self.filters['year'].extra['empty_label'] = year_label
             years = self.Meta.model.objects.dates(date_field, 'year').distinct()
             self.filters['year'].extra['choices'] = [(year.year, year.year) for year in years]
             self.filters['year'].field.widget.attrs.update({
                 'class': 'auto-submit-filter'
             })
+            set_first_choice(self.filters['year'].field, year_label)
 
         if not hasattr(self.form, 'helper') or self.form.helper is None:
             # Layout handled by setup_filter_helper in the view
@@ -1083,6 +1089,33 @@ def discover_section_models(app_name=None, include_children=False):
             })
     
     return section_models
+
+
+@lru_cache(maxsize=None)
+def has_section_models(app_name=None):
+    """
+    Return True when at least one model is explicitly marked as a section model.
+    """
+    if app_name:
+        try:
+            app_configs = [apps.get_app_config(app_name)]
+        except LookupError:
+            return False
+    else:
+        app_configs = apps.get_app_configs()
+
+    for app_config in app_configs:
+        if app_config.name.startswith('django.'):
+            continue
+
+        for model in app_config.get_models():
+            meta = model._meta
+            if not meta.managed or meta.abstract:
+                continue
+            if _model_is_section(model):
+                return True
+
+    return False
 
 # Section Discovery — Returns the first section model name for default tab selection
 def get_default_section_model(app_name=None):
@@ -1332,23 +1365,55 @@ def set_field_attrs(form, request=None):
             # Handle auto-generated filter suffixes (gte/lte) for cleaner Arabic translation
             clean_name = field_name
             suffix = ""
+            range_type = None
             if "__gte" in field_name:
                 clean_name = field_name.replace("__gte", "")
                 suffix = f" ({ms_trans.get('filter_from', 'من')})"
+                range_type = "from"
             elif "__lte" in field_name:
                 clean_name = field_name.replace("__lte", "")
                 suffix = f" ({ms_trans.get('filter_to', 'إلى')})"
+                range_type = "to"
+            elif field_name.endswith("_gte"):
+                clean_name = field_name[:-4]
+                suffix = f" ({ms_trans.get('filter_from', 'من')})"
+                range_type = "from"
+            elif field_name.endswith("_lte"):
+                clean_name = field_name[:-4]
+                suffix = f" ({ms_trans.get('filter_to', 'إلى')})"
+                range_type = "to"
+
+            if clean_name == "date" and range_type == "from":
+                label = ms_trans.get('filter_date_from')
+            elif clean_name == "date" and range_type == "to":
+                label = ms_trans.get('filter_date_to')
             
-            # Try to resolve base label (e.g. label_created_at)
-            base_label = ms_trans.get(f"label_{clean_name}") or field.label
-            
-            # If default field.label is messy (auto-generated English), clean it
-            if not base_label or 'is greater than' in base_label or 'is less than' in base_label:
-                base_label = clean_name.replace('_', ' ').split('.')[-1].title()
-                # Secondary lookup for core field name in translations
-                base_label = ms_trans.get(f"label_{base_label.lower()}") or base_label
-            
-            label = f"{base_label}{suffix}"
+            if not label:
+                # Try to resolve base label (e.g. label_created_at)
+                base_label = (
+                    ms_trans.get(f"label_{clean_name}")
+                    or ms_trans.get(f"filter_{clean_name}")
+                    or field.label
+                )
+                
+                # If default field.label is messy (auto-generated English), clean it
+                if (
+                    not base_label
+                    or '[invalid name]' in str(base_label).lower()
+                    or 'is greater than' in str(base_label).lower()
+                    or 'is less than' in str(base_label).lower()
+                ):
+                    base_label = clean_name.replace('_', ' ').split('.')[-1].title()
+                    # Secondary lookup for core field name in translations
+                    base_label = (
+                        ms_trans.get(f"label_{clean_name}")
+                        or ms_trans.get(f"filter_{clean_name}")
+                        or ms_trans.get(f"label_{base_label.lower()}")
+                        or ms_trans.get(f"filter_{base_label.lower()}")
+                        or base_label
+                    )
+                
+                label = f"{base_label}{suffix}"
 
         # Common attributes
         field.widget.attrs['placeholder'] = label

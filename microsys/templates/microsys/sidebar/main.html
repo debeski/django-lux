@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'microsys/sidebar/css/main.css' %}?v=20260402k">
+<link rel="stylesheet" href="{% static 'microsys/sidebar/css/main.css' %}?v=20260404b">
 <link rel="stylesheet" href="{% static 'microsys/sidebar/css/theme_picker.css' %}">
 <link rel="stylesheet" href="{% static 'microsys/sidebar/css/reorder.css' %}?v=20260402k">
 <script src="{% static 'microsys/sidebar/js/main.js' %}?v=20260402k" nonce="{{ request.csp_nonce }}" defer></script>
@@ -53,6 +53,11 @@
 
     <!-- Sidebar Toolbar (Theme Picker, Reorder, etc.) -->
     <div class="sidebar-toolbar no-print">
+        {% if sidebar_has_sections_manager %}
+        <a href="{% url 'manage_sections' %}" class="sidebar-toolbar-link" title="{{ MS_TRANS.sidebar_sections_manager_tooltip|default:MS_TRANS.manage_sections }}">
+            <i class="bi bi-diagram-3"></i>
+        </a>
+        {% endif %}
         <i class="bi bi-arrows-move reorder-toggle" id="sidebarReorderToggle" title="{{ MS_TRANS.sidebar_reorder }}"></i>
         <i class="bi bi-chevron-up theme-arrow" id="sidebarThemeArrow"></i>
         <div class="current-theme-indicator" id="sidebarThemeIndicator" title="{{ MS_TRANS.theme_change }}"></div>

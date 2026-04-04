@@ -1,19 +1,13 @@
+import json
+
 import django_tables2 as tables
-from django.contrib.auth import get_user_model
 from django.apps import apps
-from django.utils.safestring import mark_safe
+from django.contrib.auth import get_user_model
+from django.urls import reverse
+
 from .translations import get_strings
-from .utils import filter_context_actions
-from django.conf import settings
 
 User = get_user_model()
-
-
-
-
-# 
-from django.urls import reverse
-import json
 
 class UserTable(tables.Table):
     username = tables.Column(verbose_name="اسم المستخدم")
@@ -39,12 +33,7 @@ class UserTable(tables.Table):
         attrs = {'class': 'table table-hover align-middle'}
         row_attrs = {
             "data-micro-context": "true",
-            "data-micro-actions": lambda record: json.dumps([
-                {"label": "view_label", "icon": "bi bi-eye", "type": "event", "event": "micro:view-user-details", "data": {"url": reverse('user_detail_modal', args=[record.pk])}, "dblclick": True},
-                {"type": "divider"},
-                {"label": "edit_label", "icon": "bi bi-pencil", "type": "event", "event": "micro:record:edit", "data": {"model": "user", "id": record.pk, "name": getattr(record, 'full_name', record.username) or record.username}},
-                {"label": "reset_password", "icon": "bi bi-key", "type": "event", "event": "micro:reset-password", "data": {"id": record.pk, "username": record.username, "url": reverse('reset_password', args=[record.pk])}},
-            ])
+            "data-micro-actions": lambda record: json.dumps(_build_user_row_actions(record))
         }
 
 class UserActivityLogTable(tables.Table):
@@ -76,7 +65,14 @@ class UserActivityLogTable(tables.Table):
         row_attrs = {
             "data-micro-context": "true",
             "data-micro-actions": lambda record: json.dumps([
-                {"label": "view_details", "icon": "bi bi-eye", "type": "event", "event": "micro:view-log-details", "data": {"url": reverse('user_activity_log_detail', args=[record.pk])}, "dblclick": True}
+                {
+                    "label": get_strings().get("view_details", "View Details"),
+                    "icon": "bi bi-eye",
+                    "type": "event",
+                    "event": "micro:view-log-details",
+                    "data": {"url": reverse('user_activity_log_detail', args=[record.pk])},
+                    "dblclick": True,
+                }
             ]),
         }
 
@@ -121,3 +117,54 @@ class ScopeTable(tables.Table):
         template_name = "django_tables2/bootstrap5.html"
         fields = ("name", "actions")
         attrs = {'class': 'table table-hover align-middle'}
+
+
+def _build_user_row_actions(record):
+    s = get_strings()
+    display_name = ''
+    if hasattr(record, 'get_full_name'):
+        display_name = record.get_full_name() or ''
+    display_name = display_name or getattr(record, 'username', '')
+
+    return [
+        {
+            "label": s.get("view_label", "View"),
+            "icon": "bi bi-eye",
+            "type": "event",
+            "event": "micro:view-user-details",
+            "data": {"url": reverse('user_detail_modal', args=[record.pk])},
+            "dblclick": True,
+        },
+        {"type": "divider"},
+        {
+            "label": s.get("edit_user_label", "Edit User"),
+            "icon": "bi bi-pencil",
+            "type": "event",
+            "event": "micro:dynamic_modal:open",
+            "data": {
+                "url": reverse('modal_user_edit', args=[record.pk]),
+                "title": f"{s.get('edit_user_label', 'Edit User')} {display_name}".strip(),
+            },
+        },
+        {
+            "label": s.get("edit_permissions_label", "Edit Permissions"),
+            "icon": "bi bi-shield-lock",
+            "type": "event",
+            "event": "micro:dynamic_modal:open",
+            "data": {
+                "url": reverse('modal_user_permissions', args=[record.pk]),
+                "title": f"{s.get('edit_permissions_label', 'Edit Permissions')} {display_name}".strip(),
+            },
+        },
+        {
+            "label": s.get("reset_password", "Reset Password"),
+            "icon": "bi bi-key",
+            "type": "event",
+            "event": "micro:reset-password",
+            "data": {
+                "id": record.pk,
+                "username": record.username,
+                "url": reverse('reset_password', args=[record.pk]),
+            },
+        },
+    ]

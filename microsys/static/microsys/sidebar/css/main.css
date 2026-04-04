@@ -216,24 +216,40 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(var(--primal-rgb), 0.08);
-    color: var(--title);
-    border: 1px solid rgba(var(--primal-rgb), 0.12);
-    transition: background-color 0.3s, transform 0.1s, color 0.2s, border-color 0.2s;
-    min-width: 42px;
-    min-height: 42px;
-    font-size: 1.5rem;
+    background-color: transparent;
+    color: #7a8794;
+    border: none;
+    box-shadow: none;
+    transition: color 0.2s ease, transform 0.1s ease;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    font-size: 1rem;
     line-height: 1;
+    border-radius: 0;
 }
 
 .sidebar-toggle:hover {
-    background-color: rgba(var(--primal-rgb), 0.16) !important;
-    border-color: rgba(var(--primal-rgb), 0.22) !important;
-    color: var(--primal_dark) !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    color: var(--primal) !important;
+}
+
+.sidebar-toggle:focus,
+.sidebar-toggle:focus-visible {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--primal) !important;
 }
 
 .sidebar-toggle:active {
     transform: scale(0.95);
+}
+
+.sidebar-toggle .bi {
+    font-size: 1.65rem;
+    line-height: 1;
 }
 
 .tooltip-custom .tooltip-inner {
@@ -257,6 +273,35 @@
     pointer-events: none; /* Let clicks pass through to content if needed */
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+}
+
+.sidebar-toolbar-link {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #8c98a4;
+    text-decoration: none;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    pointer-events: auto;
+}
+
+.sidebar-toolbar-link:hover {
+    color: var(--primal, #2363c3);
+    background-color: rgba(var(--primal-rgb), 0.08);
+    transform: scale(1.08);
+}
+
+.sidebar-toolbar-link i {
+    font-size: 1.15rem;
+}
+
+.sidebar.collapsed .sidebar-toolbar-link {
+    display: none;
 }
 
 /* Direction-aware hover shift variable */

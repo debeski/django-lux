@@ -1,9 +1,9 @@
-from .utils import is_scope_enabled
+from .utils import has_section_models, is_scope_enabled
 from django.conf import settings
 import hashlib
 import json
 from django.urls import reverse, NoReverseMatch
-from .discovery import build_sidebar_navigation
+from .discovery import SYSTEM_ROUTE_META, build_sidebar_navigation
 
 # Helper functions for Sidebar - KEPT PRIVATE
 def _get_config_hash(config):
@@ -257,6 +257,14 @@ def microsys_context(request):
     context['sidebar_tree_state'] = navigation.get('entries', [])
     context['sidebar_auto_items'] = navigation.get('auto_items', [])
     context['sidebar_extra_groups'] = navigation.get('extra_groups', [])
+    context['sidebar_has_sections_manager'] = bool(
+        request.user.is_authenticated and
+        has_section_models() and
+        _user_has_sidebar_permission(
+            request.user,
+            SYSTEM_ROUTE_META.get('manage_sections', {}).get('permissions', []),
+        )
+    )
 
     # 7. Sidebar State (Collapsed/Expanded)
     # Prioritize DB preference if available, else session, else default

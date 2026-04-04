@@ -6,7 +6,7 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, Field, HTML, Hidden
 from django.db.models import Q
 from django.apps import apps
-from microsys.utils import is_scope_enabled
+from microsys.utils import is_scope_enabled, set_first_choice
 from microsys.translations import get_strings
 from django.conf import settings as django_settings
 
@@ -65,16 +65,20 @@ class UserActivityLogFilter(django_filters.FilterSet):
         s = get_strings()
 
         # Update labels from translations
-        self.filters['year'].extra['empty_label'] = s.get('filter_year', 'السنة')
+        year_label = s.get('filter_year', 'السنة')
+        self.filters['year'].label = year_label
+        self.filters['year'].extra['empty_label'] = year_label
         if 'scope' in self.filters:
+            scope_label = s.get('filter_scope', 'النطاق')
             self.filters['scope'].extra['empty_label'] = s.get('filter_all', 'الكل')
-            self.filters['scope'].label = s.get('filter_scope', 'النطاق')
+            self.filters['scope'].label = scope_label
         
         years = self.Meta.model.objects.dates('created_at', 'year').distinct()
         self.filters['year'].extra['choices'] = [(year.year, year.year) for year in years]
         self.filters['year'].field.widget.attrs.update({
             'class': 'auto-submit-filter'
         })
+        set_first_choice(self.filters['year'].field, year_label)
         if 'scope' in self.filters:
             self.filters['scope'].field.widget.attrs.update({
                 'class': 'auto-submit-filter'

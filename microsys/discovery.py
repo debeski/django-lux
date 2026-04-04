@@ -88,6 +88,13 @@ SYSTEM_ROUTE_META = {
     },
 }
 
+CONFIGURABLE_SYSTEM_ROUTE_NAMES = {
+    'manage_sections',
+    'manage_users',
+    'user_activity_log',
+    'options_view',
+}
+
 HIDDEN_SIDEBAR_GROUP_KEYS = {'microsys'}
 
 GROUP_ICON_DEFAULTS = {
@@ -184,6 +191,10 @@ def _normalize_permissions(value):
     if isinstance(value, (list, tuple, set)):
         return [item for item in value if item]
     return []
+
+
+def _is_configurable_system_url(url_name):
+    return isinstance(url_name, str) and url_name in CONFIGURABLE_SYSTEM_ROUTE_NAMES
 
 
 def _infer_model(pattern):
@@ -302,35 +313,44 @@ def _infer_permissions(url_name, model, callback):
     return []
 
 
-def _is_hidden_sidebar_url(url_name):
+def _is_hidden_sidebar_url(url_name, allow_system_items=False):
     if not url_name or not isinstance(url_name, str):
         return False
     if url_name in SYSTEM_ROUTE_META:
+        if allow_system_items and _is_configurable_system_url(url_name):
+            return False
         return True
     namespace = url_name.split(':')[0] if ':' in url_name else ''
+    if allow_system_items and _is_configurable_system_url(url_name):
+        return False
     return namespace in HIDDEN_SIDEBAR_GROUP_KEYS
 
 
-def _is_hidden_sidebar_entry(entry):
+def _is_hidden_sidebar_entry(entry, allow_system_items=False):
     if not isinstance(entry, dict):
+        return False
+
+    url_name = entry.get('url_name')
+    entry_id = entry.get('id')
+    if not url_name and isinstance(entry_id, str):
+        url_name = entry_id
+    if allow_system_items and _is_configurable_system_url(url_name):
         return False
 
     group_key = entry.get('group_key')
     if group_key in HIDDEN_SIDEBAR_GROUP_KEYS:
         return True
 
-    url_name = entry.get('url_name')
-    if _is_hidden_sidebar_url(url_name):
+    if _is_hidden_sidebar_url(url_name, allow_system_items=allow_system_items):
         return True
 
-    entry_id = entry.get('id')
-    if isinstance(entry_id, str) and _is_hidden_sidebar_url(entry_id):
+    if isinstance(entry_id, str) and _is_hidden_sidebar_url(entry_id, allow_system_items=allow_system_items):
         return True
 
     return False
 
 
-def _sanitize_sidebar_entry(entry):
+def _sanitize_sidebar_entry(entry, allow_system_items=False):
     if not isinstance(entry, dict):
         return None
 
@@ -338,7 +358,7 @@ def _sanitize_sidebar_entry(entry):
     if kind == 'group':
         items = []
         for item in entry.get('items', []):
-            cleaned_item = _sanitize_sidebar_entry(item)
+            cleaned_item = _sanitize_sidebar_entry(item, allow_system_items=allow_system_items)
             if cleaned_item:
                 items.append(cleaned_item)
 
@@ -351,7 +371,7 @@ def _sanitize_sidebar_entry(entry):
         cleaned_group['items'] = items
         return cleaned_group
 
-    if _is_hidden_sidebar_entry(entry):
+    if _is_hidden_sidebar_entry(entry, allow_system_items=allow_system_items):
         return None
 
     cleaned_item = dict(entry)
@@ -364,19 +384,19 @@ def _sanitize_sidebar_entry(entry):
     return cleaned_item
 
 
-def sanitize_sidebar_config(sidebar_config):
+def sanitize_sidebar_config(sidebar_config, allow_system_items=False):
     if not isinstance(sidebar_config, dict):
         return {'home_url_name': None, 'entries': []}
 
     sanitized = dict(sidebar_config)
     sanitized_entries = []
     for entry in sidebar_config.get('entries', []):
-        cleaned_entry = _sanitize_sidebar_entry(entry)
+        cleaned_entry = _sanitize_sidebar_entry(entry, allow_system_items=allow_system_items)
         if cleaned_entry:
             sanitized_entries.append(cleaned_entry)
 
     home_url_name = sidebar_config.get('home_url_name')
-    if _is_hidden_sidebar_url(home_url_name):
+    if _is_hidden_sidebar_url(home_url_name, allow_system_items=allow_system_items):
         home_url_name = None
 
     top_level_items = [
@@ -532,7 +552,7 @@ def merge_sidebar_entries(base_entries, override_entries):
     return merged_entries
 
 
-def _is_candidate(url_name, url, callback):
+def _is_candidate(url_name, url, callback, include_system_items=False):
     leaf = url_name.split(':')[-1]
     namespace = url_name.split(':')[0] if ':' in url_name else ''
     lower_name = url_name.lower()
@@ -540,7 +560,7 @@ def _is_candidate(url_name, url, callback):
 
     if namespace in EXCLUDED_NAMESPACE_PREFIXES:
         return False
-    if lower_leaf in EXCLUDED_EXACT_NAMES:
+    if lower_leaf in EXCLUDED_EXACT_NAMES and not (include_system_items and _is_configurable_system_url(url_name)):
         return False
     if any(part in lower_name for part in EXCLUDED_NAME_PARTS):
         return False
@@ -552,7 +572,7 @@ def _is_candidate(url_name, url, callback):
     return True
 
 
-def discover_sidebar_catalog(lang_code=None):
+def discover_sidebar_catalog(lang_code=None, include_system_items=False):
     """Return all valid, reversible sidebar candidates."""
     from .translations import get_strings
     from .utils import get_system_config
@@ -570,12 +590,12 @@ def discover_sidebar_catalog(lang_code=None):
         except NoReverseMatch:
             continue
 
-        if not _is_candidate(url_name, url, callback):
+        if not _is_candidate(url_name, url, callback, include_system_items=include_system_items):
             continue
 
         model = _infer_model(pattern)
         group_key = _infer_group_key(url_name, model, callback)
-        if group_key in HIDDEN_SIDEBAR_GROUP_KEYS:
+        if group_key in HIDDEN_SIDEBAR_GROUP_KEYS and not (include_system_items and _is_configurable_system_url(url_name)):
             continue
         group_label = _group_label(group_key, strings, lang_code=lang_code)
         entry = {
@@ -589,6 +609,7 @@ def discover_sidebar_catalog(lang_code=None):
             'group_key': group_key,
             'group_label': group_label,
             'group_icon': _guess_group_icon(group_key),
+            'is_system': _is_configurable_system_url(url_name),
         }
         catalog.append(entry)
 
@@ -671,8 +692,8 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
     from .utils import get_system_config
 
     config = get_system_config()
-    base_sidebar = sanitize_sidebar_config(config.get('sidebar', {}))
-    override_sidebar = sanitize_sidebar_config(sidebar_override) if isinstance(sidebar_override, dict) else None
+    base_sidebar = sanitize_sidebar_config(config.get('sidebar', {}), allow_system_items=True)
+    override_sidebar = sanitize_sidebar_config(sidebar_override, allow_system_items=True) if isinstance(sidebar_override, dict) else None
     if override_sidebar and override_sidebar.get('entries'):
         sidebar = {
             'home_url_name': base_sidebar.get('home_url_name'),
@@ -686,7 +707,7 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
         entries = []
     open_accordions = set(open_accordions or [])
 
-    catalog = {entry['id']: entry for entry in discover_sidebar_catalog(lang_code=lang_code)}
+    catalog = {entry['id']: entry for entry in discover_sidebar_catalog(lang_code=lang_code, include_system_items=True)}
 
     render_entries = []
 

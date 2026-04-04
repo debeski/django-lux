@@ -21,7 +21,7 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
 from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
-from .translations import get_strings
+from .translations import get_strings, get_current_language_code
 
 User = get_user_model()
 
@@ -89,6 +89,68 @@ def _attach_is_staff_permission(form, widget_id=None):
         model_key='staff_access',
         model_name=s.get('perm_staff_access', 'صلاحيات الإدارة'),
         option=option,
+    )
+
+
+def _get_ui_direction():
+    return 'rtl' if get_current_language_code().startswith('ar') else 'ltr'
+
+
+def _build_cancel_button_html(strings):
+    return f"""
+    <button type="button" class="btn btn-danger rounded-pill" data-bs-dismiss="modal">
+        <i class="bi bi-x-circle text-light me-1 h4"></i> {strings.get('btn_cancel', 'Cancel')}
+    </button>
+    """
+
+
+def _wrap_modal_action_buttons(*buttons):
+    direction = _get_ui_direction()
+    button_html = ''.join(buttons)
+    return FormActions(
+        HTML(
+            f"""
+            <div class="d-flex flex-wrap justify-content-end gap-2 ms-modal-form-actions" dir="{direction}">
+                {button_html}
+            </div>
+            """
+        )
+    )
+
+
+def _build_wizard_actions(strings, submit_label, submit_icon):
+    direction = _get_ui_direction()
+    prev_icon = 'bi-arrow-right-circle' if direction == 'rtl' else 'bi-arrow-left-circle'
+    next_icon = 'bi-arrow-left-circle' if direction == 'rtl' else 'bi-arrow-right-circle'
+
+    return _wrap_modal_action_buttons(
+        _build_cancel_button_html(strings),
+        f"""
+        <button type="button" class="btn btn-secondary rounded-pill ms-btn-prev" style="display: none;">
+            <i class="bi {prev_icon} text-light me-1 h4"></i> {strings.get('btn_prev', 'Previous')}
+        </button>
+        """,
+        f"""
+        <button type="button" class="btn btn-primary rounded-pill ms-btn-next">
+            {strings.get('btn_next', 'Next')} <i class="bi {next_icon} text-light ms-1 h4"></i>
+        </button>
+        """,
+        f"""
+        <button type="submit" class="btn btn-success rounded-pill ms-btn-submit" style="display: none;">
+            <i class="bi {submit_icon} text-light me-1 h4"></i> {submit_label}
+        </button>
+        """,
+    )
+
+
+def _build_submit_actions(strings, submit_label, submit_icon, submit_class='btn btn-success rounded-pill'):
+    return _wrap_modal_action_buttons(
+        _build_cancel_button_html(strings),
+        f"""
+        <button type="submit" class="{submit_class}">
+            <i class="bi {submit_icon} text-light me-1 h4"></i> {submit_label}
+        </button>
+        """,
     )
 
 class ProfileImageWidget(forms.ClearableFileInput):
@@ -276,6 +338,9 @@ class GroupedPermissionWidget(ChoiceWidget):
 
 # Custom User Creation form layout
 class CustomUserCreationForm(UserCreationForm):
+    handles_save = True
+    refresh_parent = True
+
     # Added fields from Profile
     phone = forms.CharField(max_length=15, required=False)
     scope = forms.ModelChoiceField(queryset=None, required=False, label="النطاق")
@@ -335,6 +400,7 @@ class CustomUserCreationForm(UserCreationForm):
 
         # Load translations
         s = get_strings()
+        self.modal_heading = s.get('add_user', 'Add New User')
         
         # Inject translations into widget
         self.fields['permissions'].widget.translations = s
@@ -404,28 +470,10 @@ class CustomUserCreationForm(UserCreationForm):
         ]
         step_2_div = Div(*step_2_fields, css_class="wizard-step wizard-step-2", style="display: none;")
 
-        actions = FormActions(
-            HTML(
-                f"""
-                <button type="button" class="btn btn-secondary rounded-pill ms-btn-prev" style="display: none;">
-                    <i class="bi bi-arrow-right-circle text-light me-1 h4"></i> {s.get('btn_prev', 'السابق')}
-                </button>
-                <button type="button" class="btn btn-primary rounded-pill ms-btn-next">
-                    {s.get('btn_next', 'التالي')} <i class="bi bi-arrow-left-circle text-light ms-1 h4"></i>
-                </button>
-                <button type="submit" class="btn btn-success rounded-pill ms-btn-submit" style="display: none;">
-                    <i class="bi bi-person-plus-fill text-light me-1 h4"></i>
-                    {s.get('btn_add', 'إضافة')}
-                </button>
-                """
-            ),
-            HTML(
-                f"""
-                <button type="button" class="btn btn-danger rounded-pill" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle text-light me-1 h4"></i> {s.get('btn_cancel', 'إلغـــاء')}
-                </button>
-                """
-            )
+        actions = _build_wizard_actions(
+            s,
+            submit_label=s.get('btn_add', 'إضافة'),
+            submit_icon='bi-person-plus-fill',
         )
 
         self.helper.layout = Layout(step_1_div, step_2_div, actions)
@@ -454,8 +502,110 @@ class CustomUserCreationForm(UserCreationForm):
 
 # Custom User Editing form layout
 class CustomUserChangeForm(UserChangeForm):
+    handles_save = True
+    refresh_parent = True
+
     phone = forms.CharField(max_length=15, required=False)
     scope = forms.ModelChoiceField(queryset=None, required=False, label="النطاق")
+
+    class Meta:
+        model = User
+        fields = ["username", "first_name", "last_name", "email", "is_active"]
+
+    def __init__(self, *args, **kwargs):
+        self.user_context = kwargs.pop('user', None)
+        user_instance = kwargs.get('instance')
+        super().__init__(*args, **kwargs)
+        
+        Scope = apps.get_model('microsys', 'Scope')
+        self.fields['scope'].queryset = Scope.objects.all()
+
+        # Initialize Profile Fields
+        if user_instance and hasattr(user_instance, 'profile'):
+            self.fields['phone'].initial = user_instance.profile.phone
+            self.fields['scope'].initial = user_instance.profile.scope
+
+        # Labels
+        s = get_strings()
+        self.modal_heading = s.get('edit_user_label', 'Edit User')
+
+        self.fields["username"].label = s.get('form_username', "اسم المستخدم")
+        self.fields["email"].label = s.get('form_email', "البريد الإلكتروني")
+        self.fields["first_name"].label = s.get('form_firstname', "الاسم الاول")
+        self.fields["last_name"].label = s.get('form_lastname', "اللقب")
+        self.fields["is_active"].label = s.get('form_is_active', "الحساب مفعل")
+        self.fields["phone"].label = s.get('form_phone', "رقم الهاتف")
+        self.fields["scope"].label = s.get('form_scope', "النطاق")
+        
+        self.fields["username"].help_text = s.get('help_username', "اسم المستخدم يجب أن يكون فريدًا...")
+        self.fields["email"].help_text = s.get('help_email', "أدخل عنوان البريد الإلكتروني الصحيح (اختياري)")
+        self.fields["is_active"].help_text = s.get('help_is_active', "يحدد ما إذا كان يجب اعتبار هذا الحساب نشطًا.")
+        self.fields["phone"].help_text = s.get('help_phone', "أدخل رقم الهاتف الصحيح...")
+        self.fields["scope"].help_text = ""
+
+        if self.user_context and not self.user_context.is_superuser:
+            if self.user_context == user_instance:
+                if self.user_context.is_staff:
+                    self.fields['scope'].disabled = True
+                    self.fields['is_active'].disabled = True
+                    self.fields['scope'].help_text = s.get('help_scope_self', "لا يمكنك تغيير نطاقك الخاص لمنع تجريد نفسك من صلاحيات المدير العام.")
+
+        self.fields["email"].required = False
+
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        
+        from microsys.utils import is_scope_enabled
+        scope_visible = 'scope' in self.fields and getattr(self.fields['scope'].widget, 'input_type', '') != 'hidden' and is_scope_enabled()
+        
+        layout_fields = [
+            Row(Field("username", css_class="form-control")),            
+            HTML("<hr>"),
+            Row(
+                Div(Field("first_name", css_class="form-control"), css_class="col-md-6"),
+                Div(Field("last_name", css_class="form-control"), css_class="col-md-6"),
+                css_class="row"
+            ),
+            Row(
+                Div(Field("phone", css_class="form-control"), css_class="col-md-6"),
+                Div(Field("email", css_class="form-control"), css_class="col-md-6"),
+                css_class="row"
+            ),
+            Field("is_active")
+        ]
+        
+        if scope_visible:
+            layout_fields.append(Row(Field("scope", css_class="form-control")))
+
+        actions = _build_submit_actions(
+            s,
+            submit_label=s.get('btn_update', 'تحديث'),
+            submit_icon='bi-person-check-fill',
+        )
+        
+        self.helper.layout = Layout(*layout_fields, actions)
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if commit:
+            user.save()
+            
+            # Save Profile fields
+            Profile = apps.get_model('microsys', 'Profile')
+            profile, created = Profile.all_objects.get_or_create(user=user)
+            profile.phone = self.cleaned_data.get('phone')
+            if self.user_context and not self.user_context.is_superuser and hasattr(self.user_context, 'profile') and self.user_context.profile.scope:
+                profile.scope = self.user_context.profile.scope
+            else:
+                profile.scope = self.cleaned_data.get('scope')
+            profile.save()
+            
+        return user
+
+
+class CustomUserPermissionsForm(UserChangeForm):
+    handles_save = True
+    refresh_parent = True
 
     permissions = forms.ModelMultipleChoiceField(
         queryset=Permissions.objects.exclude(
@@ -476,48 +626,26 @@ class CustomUserChangeForm(UserChangeForm):
 
     class Meta:
         model = User
-        fields = ["username", "first_name", "last_name", "email", "is_staff", "permissions", "is_active"]
+        fields = ["is_staff", "permissions"]
 
     def __init__(self, *args, **kwargs):
         self.user_context = kwargs.pop('user', None)
         user_instance = kwargs.get('instance')
         super().__init__(*args, **kwargs)
-        
-        Scope = apps.get_model('microsys', 'Scope')
-        self.fields['scope'].queryset = Scope.objects.all()
 
-        # Permission check
-        if self.user_context and not self.user_context.is_superuser:
-            user_perms = self.user_context.user_permissions.all() | Permissions.objects.filter(group__user=self.user_context)
-            self.fields['permissions'].queryset = self.fields['permissions'].queryset.filter(id__in=user_perms.values_list('id', flat=True))
-
-        # Initialize Profile Fields
-        if user_instance and hasattr(user_instance, 'profile'):
-            self.fields['phone'].initial = user_instance.profile.phone
-            self.fields['scope'].initial = user_instance.profile.scope
-
-        # Labels
         s = get_strings()
+        self.modal_heading = s.get('edit_permissions_label', 'Edit Permissions')
         self.fields['permissions'].widget.translations = s
 
-        self.fields["username"].label = s.get('form_username', "اسم المستخدم")
-        self.fields["email"].label = s.get('form_email', "البريد الإلكتروني")
-        self.fields["first_name"].label = s.get('form_firstname', "الاسم الاول")
-        self.fields["last_name"].label = s.get('form_lastname', "اللقب")
+        if self.user_context and not self.user_context.is_superuser:
+            user_perms = self.user_context.user_permissions.all() | Permissions.objects.filter(group__user=self.user_context)
+            self.fields['permissions'].queryset = self.fields['permissions'].queryset.filter(
+                id__in=user_perms.values_list('id', flat=True)
+            )
+
         self.fields["is_staff"].label = s.get('form_is_staff', "صلاحيات انشاء و تعديل المستخدمين")
-        self.fields["is_active"].label = s.get('form_is_active', "الحساب مفعل")
-        self.fields["phone"].label = s.get('form_phone', "رقم الهاتف")
-        self.fields["scope"].label = s.get('form_scope', "النطاق")
-        self.fields["permissions"].label = s.get('form_permissions', "الصلاحيات")
-        
-        # Help Texts
-        # Help Texts
-        self.fields["username"].help_text = s.get('help_username', "اسم المستخدم يجب أن يكون فريدًا...")
-        self.fields["email"].help_text = s.get('help_email', "أدخل عنوان البريد الإلكتروني الصحيح (اختياري)")
-        self.fields["is_active"].help_text = s.get('help_is_active', "يحدد ما إذا كان يجب اعتبار هذا الحساب نشطًا.")
         self.fields["is_staff"].help_text = s.get('help_is_staff', "يحدد ما إذا كان يمكن للمستخدم عرض وادارة المستخدمين.")
-        self.fields["phone"].help_text = s.get('help_phone', "أدخل رقم الهاتف الصحيح...")
-        self.fields["scope"].help_text = ""
+        self.fields["permissions"].label = s.get('form_permissions', "الصلاحيات")
 
         if user_instance:
             self.fields["permissions"].initial = user_instance.user_permissions.all()
@@ -529,107 +657,39 @@ class CustomUserChangeForm(UserChangeForm):
             and self.user_context.profile.scope
         )
 
-        # --- Foolproofing & Role-based logic ---
         if self.user_context and not self.user_context.is_superuser:
-            # 1. Self-Editing Protection
-            if self.user_context == user_instance:
-                if self.user_context.is_staff:
-                    self.fields['scope'].disabled = True
-                    self.fields['is_staff'].disabled = True
-                    self.fields['is_active'].disabled = True
-                    self.fields['scope'].help_text = s.get('help_scope_self', "لا يمكنك تغيير نطاقك الخاص لمنع تجريد نفسك من صلاحيات المدير العام.")
-                    self.fields['permissions'].queryset = self.fields['permissions'].queryset.exclude(codename='manage_staff')
-            
-        # 2. Scope Manager Restrictions
-        if lock_scope:
-             # Already handled above by general lock_scope check, but we need to ensure permissions are filtered
-             self.fields['permissions'].queryset = self.fields['permissions'].queryset.exclude(codename='manage_staff')
+            if self.user_context == user_instance and self.user_context.is_staff:
+                self.fields['is_staff'].disabled = True
+                self.fields['permissions'].queryset = self.fields['permissions'].queryset.exclude(codename='manage_staff')
 
-        self.fields["email"].required = False
-
-        # --- can_manage_staff logic ---
-        if self.user_context and not self.user_context.is_superuser:
             if not self.user_context.has_perm('microsys.manage_staff'):
                 self.fields['is_staff'].disabled = True
-                self.fields['is_staff'].help_text = s.get('help_is_staff_no_perm', "ليس لديك صلاحية لتغيير وضع هذا المستخدم لمسؤول .")
+                self.fields['is_staff'].help_text = s.get(
+                    'help_is_staff_no_perm',
+                    "ليس لديك صلاحية لتغيير وضع هذا المستخدم لمسؤول .",
+                )
+
+        if lock_scope:
+            self.fields['permissions'].queryset = self.fields['permissions'].queryset.exclude(codename='manage_staff')
 
         _attach_is_staff_permission(self, self.fields['permissions'].widget.attrs.get('id'))
 
         self.helper = FormHelper()
         self.helper.form_tag = False
-        
-        from microsys.utils import is_scope_enabled
-        scope_visible = 'scope' in self.fields and getattr(self.fields['scope'].widget, 'input_type', '') != 'hidden' and is_scope_enabled()
-        
-        step_1_fields = [
-            Row(Field("username", css_class="form-control")),            
-            HTML("<hr>"),
-            Row(
-                Div(Field("first_name", css_class="form-control"), css_class="col-md-6"),
-                Div(Field("last_name", css_class="form-control"), css_class="col-md-6"),
-                css_class="row"
+        self.helper.layout = Layout(
+            Field("permissions", css_class="col-12"),
+            _build_submit_actions(
+                s,
+                submit_label=s.get('btn_update', 'تحديث'),
+                submit_icon='bi-shield-check',
             ),
-            Row(
-                Div(Field("phone", css_class="form-control"), css_class="col-md-6"),
-                Div(Field("email", css_class="form-control"), css_class="col-md-6"),
-                css_class="row"
-            ),
-            Field("is_active")
-        ]
-        
-        if scope_visible:
-            step_1_fields.append(Row(Field("scope", css_class="form-control")))
-            
-        step_1_div = Div(*step_1_fields, css_class="wizard-step wizard-step-1")
-        
-        step_2_fields = [
-            HTML("<hr>"),
-            Field("permissions", css_class="col-12")
-        ]
-        step_2_div = Div(*step_2_fields, css_class="wizard-step wizard-step-2", style="display: none;")
-
-        actions = FormActions(
-            HTML(
-                f"""
-                <button type="button" class="btn btn-secondary rounded-pill ms-btn-prev" style="display: none;">
-                    <i class="bi bi-arrow-right-circle text-light me-1 h4"></i> {s.get('btn_prev', 'السابق')}
-                </button>
-                <button type="button" class="btn btn-primary rounded-pill ms-btn-next">
-                    {s.get('btn_next', 'التالي')} <i class="bi bi-arrow-left-circle text-light ms-1 h4"></i>
-                </button>
-                <button type="submit" class="btn btn-success rounded-pill ms-btn-submit" style="display: none;">
-                    <i class="bi bi-person-check-fill text-light me-1 h4"></i>
-                    {s.get('btn_update', 'تحديث')}
-                </button>
-                """
-            ),
-            HTML(
-                f"""
-                <button type="button" class="btn btn-danger rounded-pill" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle text-light me-1 h4"></i> {s.get('btn_cancel', 'إلغـــاء')}
-                </button>
-                """
-            )
         )
-        
-        self.helper.layout = Layout(step_1_div, step_2_div, actions)
 
     def save(self, commit=True):
         user = super().save(commit=False)
         if commit:
             user.save()
             user.user_permissions.set(self.cleaned_data["permissions"])
-            
-            # Save Profile fields
-            Profile = apps.get_model('microsys', 'Profile')
-            profile, created = Profile.all_objects.get_or_create(user=user)
-            profile.phone = self.cleaned_data.get('phone')
-            if self.user_context and not self.user_context.is_superuser and hasattr(self.user_context, 'profile') and self.user_context.profile.scope:
-                profile.scope = self.user_context.profile.scope
-            else:
-                profile.scope = self.cleaned_data.get('scope')
-            profile.save()
-            
         return user
 
 
@@ -965,7 +1025,7 @@ class SystemSettingsForm(forms.ModelForm):
             if isinstance(self.instance.translations_override, dict):
                 self.initial['translations_override'] = _json_dump(self.instance.translations_override, ensure_ascii=False, indent=2)
             if isinstance(getattr(self.instance, 'sidebar_config', None), dict) and self.instance.sidebar_config:
-                sidebar_config = sanitize_sidebar_config(self.instance.sidebar_config)
+                sidebar_config = sanitize_sidebar_config(self.instance.sidebar_config, allow_system_items=True)
                 sidebar_config['home_url_name'] = None
                 self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
 
@@ -981,17 +1041,18 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['name'].widget.attrs['placeholder'] = ''
 
         if not self.initial.get('sidebar_config'):
-            sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}))
+            sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}), allow_system_items=True)
             if not sidebar_config or not sidebar_config.get('entries'):
                 sidebar_config = {'home_url_name': None, 'entries': []}
             sidebar_config['home_url_name'] = None
             self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
 
         catalog_lang = self.initial.get('default_language') or self.instance.default_language or config.get('default_language', 'en')
-        self.sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang)
+        public_sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang)
+        self.sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=True)
         seen_home_urls = set()
         home_url_choices = [('', s.get('form_sys_home_url_custom', 'Use a custom URL'))]
-        for entry in self.sidebar_catalog:
+        for entry in public_sidebar_catalog:
             url_name = entry.get('url_name')
             if not url_name:
                 continue
@@ -1172,7 +1233,7 @@ class SystemSettingsForm(forms.ModelForm):
         return sanitize_sidebar_config({
             'home_url_name': None,
             'entries': entries,
-        })
+        }, allow_system_items=True)
 
     def save(self, commit=True):
         instance = super().save(commit=False)
