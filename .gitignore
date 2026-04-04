@@ -4,9 +4,8 @@
 *.pyo
 **/.DS_Store
 desktop.ini
-desktop.inf
 autorun.ini
-autorun.inf
+.codex
 
 # Ignore app directories
 logs/
@@ -17,7 +16,6 @@ backups/
 .backups/
 secrets/
 .secrets/
-.xpose/
 venv/
 .venv/
 dist/
@@ -25,14 +23,15 @@ dist/
 *.egg-info/
 build/
 .build/
+codex/
 .codex/
+agents/
+.agents/
+.xpose/
 
 # Ignore celery-related files
-celerybeat-schedule
-celerybeat-schedule-shm
-celerybeat-schedule-wal
+celerybeat-*
 
 # Ignore Sensetive Secrets
 .env
 .key
-startx.sh
