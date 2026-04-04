@@ -116,7 +116,32 @@ Useful override points:
 - `show_table`
 - `show_form`
 - `handles_save` on the form class
+- `handles_save` on the form class
 - `get_modal_context()` on the model
+- `get_smart_view_context()` on the model (see Smart View Customization below)
+
+## Smart View Customization
+
+The "Smart View" (the eye icon in sections or tables) generates a generic detail view by default. You can override the returned context or the visible fields by adding `get_smart_view_context` or `get_modal_context` to your model.
+
+```python
+class Zone(ScopedModel):
+    name = models.CharField(max_length=100)
+
+    def get_modal_context(self):
+        """Override the Smart View / Detail Modal context."""
+        return {
+            "title": f"Zone: {self.name}",
+            "fields": {
+                "Title": self.name,
+                "Status": "Active" if self.is_active else "Inactive",
+                "Custom Field": self.get_custom_data(),
+            },
+            "related": collect_related_objects(self),
+        }
+```
+
+If `get_modal_context` returns a dictionary with `fields`, those fields will be rendered as a definition list in the detail modal.
 
 ## Context Menu Integration
 
@@ -311,6 +336,61 @@ def maintenance_view(request, asset):
 ```
 
 Use the manual helper when the action is business-specific and not already covered by the built-in signal flows.
+
+## 2FA Developer Integration
+
+You can check if a user has enabled any Two-Factor Authentication method via their profile:
+
+```python
+def my_secure_view(request):
+    if not request.user.profile.is_2fa_enabled:
+        messages.warning(request, "Please enable 2FA to access this area.")
+        return redirect('profile')
+    # ...
+```
+
+Built-in 2FA intents include:
+- `is_email_2fa_enabled`
+- `is_phone_2fa_enabled`
+- `is_totp_2fa_enabled`
+
+The property `is_2fa_enabled` returns `True` if any of the above are active. To force 2FA setup, redirect the user to `reverse('enable_2fa')`.
+
+## Tutorial Engine Customization
+
+microSYS uses [Driver.js](https://driverjs.com/) for its path-aware guided tours. Projects can register custom tutorial steps for their own views by providing a global JavaScript hook.
+
+1.  **Register the Hook**: Add a script to your page (or via `custom_scripts.html`) that defines `window.get_custom_tutorial_steps`.
+2.  **Define Steps**: Return an array of Driver.js step objects.
+
+```javascript
+window.get_custom_tutorial_steps = function(path) {
+    if (path.includes('/my-app/dashboard/')) {
+        return [
+            { 
+                element: '#tour-start-point', 
+                popover: { 
+                    title: 'Welcome!', 
+                    description: 'This is your custom dashboard.', 
+                    side: "bottom", 
+                    align: 'start' 
+                } 
+            },
+            { 
+                element: '.bi-graph-up', 
+                popover: { 
+                    title: 'Analytics', 
+                    description: 'Track your progress here.', 
+                    side: "left" 
+                } 
+            }
+        ];
+    }
+    return [];
+};
+```
+
+The system automatically filters out steps where the target element is missing and merges your steps with the system defaults.
 
 ## Autofill and Sticky Forms
 

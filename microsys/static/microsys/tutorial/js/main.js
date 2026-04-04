@@ -89,7 +89,21 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         
         // Filter out steps where element doesn't exist
-        return steps.filter(step => document.querySelector(step.element));
+        steps = steps.filter(step => document.querySelector(step.element));
+
+        // Hook for project-level steps
+        if (typeof window.get_custom_tutorial_steps === 'function') {
+            try {
+                const customSteps = window.get_custom_tutorial_steps(path);
+                if (Array.isArray(customSteps)) {
+                    steps = steps.concat(customSteps.filter(step => document.querySelector(step.element)));
+                }
+            } catch (e) {
+                console.error('Error in custom tutorial steps hook:', e);
+            }
+        }
+        
+        return steps;
     }
 
     // Driver instance will be created on click

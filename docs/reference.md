@@ -127,12 +127,14 @@ The system records several action families out of the box, including:
 | --- | --- |
 | `get_system_config()` | Return the merged runtime configuration |
 | `get_model_classes()` | Resolve model, form, table, and filter classes via conventions or overrides |
+| `get_user_linked_models()` | Find all models with a OneToOneField to the User model |
 | `resolve_model_by_name()` | Find a model class dynamically by name |
 | `filter_context_actions()` | Hide context-menu actions the current user should not see |
 | `collect_related_objects()` | Inspect reverse and related objects for reporting or delete warnings |
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
 | `set_field_attrs()` | Apply microSYS-friendly widget classes and affordances to a form |
+| `translate_choices()` | Translate choice lists using the system translation engine |
 | `log_user_action()` | Create consistent audit log entries |
 | `fetch_file()` | Download one file, many files, or ZIP bundles from model instances |
 | `fetch_excel()` | Export queryset data to Excel with hidden system/file columns |
