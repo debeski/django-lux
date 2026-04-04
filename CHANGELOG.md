@@ -5,6 +5,12 @@ This file owns the release history for `django-microsys`.
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 
+## v1.18.16
+
+- **License Change**: Changed the license from MIT to NON-COMMERCIAL.
+- **Documentation**: Updated the documentation to reflect the license change.
+- **Setup**: Updated build from setup.py to pyproject.toml.
+
 ## v1.18.15
 
 - **Split User Edit Modals**: Separated user editing into two dedicated dynamic modals, `Edit User` for account/profile data and `Edit Permissions` for staff/permission management, while preserving the existing user-creation wizard unchanged.

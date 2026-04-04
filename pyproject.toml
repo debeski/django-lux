@@ -12,7 +12,7 @@ dynamic = ["version"]
 description = "Django microSYS (System Integration Service) - Multilingual Django Starter Pack, Packed with Features."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "NON-COMMERCIAL" }
 authors = [
     { name = "DeBeski", email = "debeski1@gmail.com" }
 ]
@@ -33,14 +33,11 @@ classifiers = [
     "Framework :: Django",
     "Framework :: Django :: 5",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Operating System :: OS Independent",
 ]
 
