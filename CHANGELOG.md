@@ -4,6 +4,11 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v1.19.1
+
+- **Updated pip package dependencies**: Included pyotp, psutil, and qrcode in the pyproject dependencies.
+- **Updated the documentation**: Refined the requirements and dependencies sections..
+
 
 ## v1.19.0
 

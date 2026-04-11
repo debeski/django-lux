@@ -26,6 +26,8 @@ microSYS is a multilingual Django app that gives a project-level system layer fo
 - `crispy-bootstrap5`
 - `django-tables2`
 - `django-filter`
+- `pillow` "for image handling"
+- `babel` "for translations"
 - `psutil` "for system monitoring"
 - `pyotp` "for TOTP 2FA"
 - `qrcode` "for TOTP 2FA QR codes"
@@ -33,9 +35,9 @@ microSYS is a multilingual Django app that gives a project-level system layer fo
 ## Installation
 
 ```bash
-pip install django-microsys crispy-bootstrap5 psutil pyotp qrcode
+pip install django-microsys
 # OR
-pip install git+https://github.com/debeski/django-microsys.git crispy-bootstrap5 psutil pyotp qrcode
+pip install git+https://github.com/debeski/django-microsys.git
 ```
 
 ## Minimal Quick Start
@@ -71,7 +73,7 @@ With that root include in place, microsys provides `/accounts/...` and `/sys/...
 python manage.py microsys_setup
 ```
 
-4. Sign in as a superuser and complete the first-launch wizard at `/sys/setup/`. On a fresh install, an anonymous request may be sent through `/sys/setup/` and then to login before the wizard can be completed. After setup, the main runtime UI lives under `/sys/`.
+4. Sign in as a superuser and complete the first-launch wizard at `/sys/setup/`. On a fresh install, an anonymous request may be sent through `/sys/setup/` and then to login before the wizard can be completed. After setup, the main runtime UI lives under `user_hub`.
 
 For a fuller setup path, prefix-mount guidance, and first-launch expectations, use the [Getting Started guide](docs/getting-started.md).
 

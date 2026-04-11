@@ -10,6 +10,8 @@ Use this page when adding `django-microsys` to a host Django project for the fir
 - `crispy-bootstrap5`
 - `django-tables2`
 - `django-filter`
+- `pillow`
+- `babel`
 - `psutil`
 - `pyotp`
 - `qrcode`
@@ -17,9 +19,9 @@ Use this page when adding `django-microsys` to a host Django project for the fir
 ## Install the Package
 
 ```bash
-pip install django-microsys crispy-bootstrap5 psutil pyotp qrcode
+pip install django-microsys
 # OR
-pip install git+https://github.com/debeski/django-microsys.git crispy-bootstrap5 psutil pyotp qrcode
+pip install git+https://github.com/debeski/django-microsys.git
 ```
 
 ## Minimum Django Configuration
