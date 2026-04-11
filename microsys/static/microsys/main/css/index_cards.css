@@ -1,7 +1,7 @@
 /* --- Superior Sys Dashboard Cards --- */
 :root {
     --card-bg: #ffffff;
-    --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
 .hero-section {
@@ -12,7 +12,7 @@
     color: white;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
 
@@ -47,8 +47,8 @@
 }
 
 .module-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 15px 35px rgba(0,0,0,0.1) !important;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.05) !important;
 }
 
 .module-card .card-body {
@@ -163,6 +163,6 @@
     background: #ffffff;
     border-radius: 20px;
     padding: 1.5rem;
-    box-shadow: var(--card-shadow);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
     border: 1px solid rgba(0, 0, 0, 0.03);
 }

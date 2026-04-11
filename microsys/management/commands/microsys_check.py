@@ -4,12 +4,26 @@ Management command to validate microsys configuration.
 Checks INSTALLED_APPS, MIDDLEWARE, context processors, and URLs.
 Prints exact code snippets for any missing configuration.
 """
+import importlib
+from pathlib import Path
+
 from django.core.management.base import BaseCommand
 from django.conf import settings
 
 
 class Command(BaseCommand):
     help = 'Validate microsys configuration and show missing settings'
+
+    def _get_settings_file(self):
+        module_name = getattr(settings, "SETTINGS_MODULE", None)
+        if not module_name:
+            return None
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:
+            return None
+        module_file = getattr(module, "__file__", None)
+        return Path(module_file).resolve() if module_file else None
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.MIGRATE_HEADING('\n🔍 MicroSys Configuration Check\n'))
@@ -22,28 +36,37 @@ class Command(BaseCommand):
         # Check INSTALLED_APPS
         # ─────────────────────────────────────────────────
         self.stdout.write('\n📋 INSTALLED_APPS: ', ending='')
+        required_apps = ['microsys', 'crispy_forms', 'crispy_bootstrap5', 'django_filters', 'django_tables2']
         if 'microsys' in settings.INSTALLED_APPS:
             self.stdout.write(self.style.SUCCESS('✓ OK'))
         else:
             self.stdout.write(self.style.ERROR('✗ MISSING'))
             issues.append({
                 'setting': 'INSTALLED_APPS',
-                'snippet': """INSTALLED_APPS = [
-    'microsys',  # Add at the top
-    # ... other apps
-]"""
+                'snippet': """from microsys.utils import microsys_settings
+microsys_settings(globals())"""
             })
 
-        # Check dependencies
-        deps = ['crispy_forms', 'crispy_bootstrap5', 'django_filters', 'django_tables2']
-        missing_deps = [d for d in deps if d not in settings.INSTALLED_APPS]
+        missing_deps = [d for d in required_apps if d not in settings.INSTALLED_APPS]
         if missing_deps:
             warnings.append({
                 'setting': 'INSTALLED_APPS (dependencies)',
                 'message': f"Missing recommended dependencies: {', '.join(missing_deps)}",
-                'snippet': f"""# Add these dependencies to INSTALLED_APPS:
-{chr(10).join(f"    '{d}'," for d in missing_deps)}"""
+                'snippet': """# Recommended:
+from microsys.utils import microsys_settings
+microsys_settings(globals())"""
             })
+        else:
+            microsys_index = settings.INSTALLED_APPS.index('microsys')
+            crispy_index = settings.INSTALLED_APPS.index('crispy_bootstrap5')
+            if microsys_index > crispy_index:
+                warnings.append({
+                    'setting': 'INSTALLED_APPS order',
+                    'message': "'microsys' appears after 'crispy_bootstrap5'; framework template overrides may lose precedence",
+                    'snippet': """# Preferred ordering:
+from microsys.utils import microsys_settings
+microsys_settings(globals())"""
+                })
 
         # ─────────────────────────────────────────────────
         # Check MIDDLEWARE
@@ -56,10 +79,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR('✗ MISSING'))
             issues.append({
                 'setting': 'MIDDLEWARE',
-                'snippet': f"""MIDDLEWARE = [
-    # ... after AuthenticationMiddleware
-    '{middleware_path}',
-]"""
+                'snippet': """from microsys.utils import microsys_settings
+microsys_settings(globals())"""
             })
 
         # ─────────────────────────────────────────────────
@@ -84,17 +105,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR('✗ MISSING'))
             issues.append({
                 'setting': 'TEMPLATES context_processors',
-                'snippet': f"""TEMPLATES = [
-    {{
-        # ...
-        'OPTIONS': {{
-            'context_processors': [
-                # ... other processors
-                '{context_proc}',
-            ],
-        }},
-    }},
-]"""
+                'snippet': """from microsys.utils import microsys_settings
+microsys_settings(globals())"""
             })
 
         # ─────────────────────────────────────────────────
@@ -103,7 +115,7 @@ class Command(BaseCommand):
         self.stdout.write('\n📋 URLS: ', ending='')
         try:
             from django.urls import reverse
-            reverse('microsys:login')
+            reverse('login')
             self.stdout.write(self.style.SUCCESS('✓ OK'))
         except Exception:
             self.stdout.write(self.style.WARNING('⚠ Not detected'))
@@ -115,7 +127,7 @@ from django.urls import path, include
 
 urlpatterns = [
     # ...
-    path('sys/', include('microsys.urls')),
+    path('', include('microsys.urls')),
 ]"""
             })
 
@@ -133,10 +145,33 @@ urlpatterns = [
             warnings.append({
                 'setting': 'CRISPY_TEMPLATE_PACK',
                 'message': "Crispy forms template pack not set",
-                'snippet': """# Add to settings.py:
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-CRISPY_TEMPLATE_PACK = "bootstrap5" """
+                'snippet': """# Recommended:
+from microsys.utils import microsys_settings
+microsys_settings(globals())"""
             })
+
+        # ─────────────────────────────────────────────────
+        # Check settings helper wiring (recommended)
+        # ─────────────────────────────────────────────────
+        self.stdout.write('\n📋 SETTINGS HELPER: ', ending='')
+        settings_file = self._get_settings_file()
+        helper_import = 'from microsys.utils import microsys_settings'
+        helper_call = 'microsys_settings(globals())'
+        if settings_file and settings_file.exists():
+            contents = settings_file.read_text(encoding='utf-8')
+            if helper_import in contents and helper_call in contents:
+                self.stdout.write(self.style.SUCCESS('✓ Detected'))
+            else:
+                self.stdout.write(self.style.WARNING('⚠ Not detected'))
+                warnings.append({
+                    'setting': 'settings.py helper',
+                    'message': 'Microsys is configured, but the recommended reusable settings helper is not wired into the project settings file',
+                    'snippet': f"""# At the end of {settings_file.name}:
+from microsys.utils import microsys_settings
+microsys_settings(globals())"""
+                })
+        else:
+            self.stdout.write(self.style.WARNING('⚠ Unable to inspect'))
 
         # ─────────────────────────────────────────────────
         # Print Issues

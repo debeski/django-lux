@@ -1,0 +1,324 @@
+.archive-form-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.85rem;
+    margin-top: 1rem;
+}
+
+.microsys-form-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    margin-top: 1rem;
+}
+
+.microsys-filter .microsys-filter-controls {
+    gap: 0;
+}
+
+.microsys-filter .btn.microsys-filter-chip,
+.microsys-filter .btn.microsys-filter-action,
+.microsys-filter a.microsys-filter-action {
+    border-width: 1px;
+    border-style: solid;
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.048), transparent 56%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 250, 0.94));
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.032);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.microsys-filter .btn.microsys-filter-chip {
+    min-height: 2.95rem;
+    font-weight: 700;
+}
+
+.microsys-filter .btn.microsys-filter-chip:hover,
+.microsys-filter .btn.microsys-filter-chip:focus-visible,
+.microsys-filter .btn.microsys-filter-action:hover,
+.microsys-filter .btn.microsys-filter-action:focus-visible,
+.microsys-filter a.microsys-filter-action:hover,
+.microsys-filter a.microsys-filter-action:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.3);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.045);
+    outline: none;
+}
+
+.microsys-filter .btn.microsys-filter-submit {
+    color: var(--bs-body-color, #212529) !important;
+}
+
+.microsys-filter .btn.microsys-filter-clear {
+    min-width: 3.15rem;
+    color: #8a5a00 !important;
+}
+
+.microsys-filter .btn.microsys-filter-toggle {
+    color: var(--bs-body-color, #212529) !important;
+}
+
+.microsys-filter .btn.microsys-filter-toggle[aria-expanded="true"] {
+    color: var(--primal_dark, #0d6efd) !important;
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.3) !important;
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.1), transparent 58%),
+        linear-gradient(180deg, rgba(244, 248, 255, 0.99), rgba(236, 242, 250, 0.95)) !important;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.045);
+}
+
+.microsys-filter .btn.microsys-filter-toggle[aria-expanded="true"] i {
+    color: inherit !important;
+}
+
+.microsys-filter .btn.microsys-filter-action,
+.microsys-filter a.microsys-filter-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    width: 100%;
+    min-height: 2.95rem;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    color: var(--bs-body-color, #212529) !important;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.microsys-filter .btn.microsys-filter-action:hover,
+.microsys-filter .btn.microsys-filter-action:focus-visible,
+.microsys-filter a.microsys-filter-action:hover,
+.microsys-filter a.microsys-filter-action:focus-visible {
+    color: inherit !important;
+    text-decoration: none;
+}
+
+.microsys-filter .microsys-filter-action i {
+    font-size: 1rem !important;
+    line-height: 1;
+}
+
+.microsys-filter .btn.microsys-filter-action.btn-primary,
+.microsys-filter a.microsys-filter-action.btn-primary {
+    color: #114a2d !important;
+    border-color: rgba(25, 135, 84, 0.24) !important;
+    background:
+        radial-gradient(circle at top, rgba(25, 135, 84, 0.08), transparent 56%),
+        linear-gradient(180deg, rgba(238, 250, 244, 0.98), rgba(231, 245, 237, 0.94)) !important;
+}
+
+.microsys-filter .btn.microsys-filter-action.btn-outline-success,
+.microsys-filter a.microsys-filter-action.btn-outline-success {
+    color: #0f5132 !important;
+    border-color: rgba(25, 135, 84, 0.22) !important;
+    background:
+        radial-gradient(circle at top, rgba(25, 135, 84, 0.05), transparent 56%),
+        linear-gradient(180deg, rgba(248, 252, 249, 0.98), rgba(240, 247, 242, 0.94)) !important;
+}
+
+.microsys-filter .btn.microsys-filter-action.btn-outline-primary,
+.microsys-filter a.microsys-filter-action.btn-outline-primary {
+    color: var(--primal_dark, #0d6efd) !important;
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.18) !important;
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.05), transparent 56%),
+        linear-gradient(180deg, rgba(249, 251, 255, 0.98), rgba(242, 246, 250, 0.94)) !important;
+}
+
+.microsys-filter .btn.microsys-filter-submit.btn-secondary,
+.microsys-filter .btn.microsys-filter-toggle.btn-outline-secondary,
+.microsys-filter .btn.microsys-filter-clear.btn-warning {
+    background-color: transparent !important;
+}
+
+.microsys-filter .btn.microsys-filter-submit.btn-secondary {
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.18) !important;
+}
+
+.microsys-filter .btn.microsys-filter-toggle.btn-outline-secondary {
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.16) !important;
+}
+
+.microsys-filter .btn.microsys-filter-clear.btn-warning {
+    border-color: rgba(255, 193, 7, 0.28) !important;
+    background:
+        radial-gradient(circle at top, rgba(255, 193, 7, 0.08), transparent 56%),
+        linear-gradient(180deg, rgba(255, 251, 235, 0.98), rgba(250, 246, 227, 0.94)) !important;
+}
+
+.archive-form-action {
+    display: flex;
+    appearance: none;
+    -webkit-appearance: none;
+    align-items: center;
+    gap: 0.85rem;
+    width: 100%;
+    min-height: 4.4rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+    border-radius: 1.25rem;
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.06), transparent 54%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 250, 0.94));
+    color: var(--bs-body-color, #212529);
+    text-align: start;
+    text-decoration: none;
+    font: inherit;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.032);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    cursor: pointer;
+}
+
+.microsys-form-action {
+    display: inline-flex;
+    appearance: none;
+    -webkit-appearance: none;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 3.35rem;
+    min-height: 3.05rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+    border-radius: 999px;
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.05), transparent 54%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 250, 0.94));
+    color: var(--bs-body-color, #212529);
+    text-decoration: none;
+    font: inherit;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.032);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    cursor: pointer;
+}
+
+.archive-form-action:hover,
+.archive-form-action:focus-visible,
+.microsys-form-action:hover,
+.microsys-form-action:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 7px 18px rgba(15, 23, 42, 0.045);
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.36);
+    outline: none;
+    color: inherit;
+    text-decoration: none;
+}
+
+.archive-form-action.is-disabled,
+.archive-form-action:disabled,
+.microsys-form-action.is-disabled,
+.microsys-form-action:disabled {
+    opacity: 0.58;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.archive-form-action-icon,
+.microsys-form-action-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+}
+
+.archive-form-action-icon {
+    width: 2.7rem;
+    height: 2.7rem;
+    border-radius: 0.95rem;
+    font-size: 1.15rem;
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    color: var(--primal_dark, #0d6efd);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.microsys-form-action-icon {
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 1.28rem;
+    line-height: 1;
+}
+
+.archive-form-action-copy,
+.microsys-form-action-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.18rem;
+}
+
+.archive-form-action-title,
+.microsys-form-action-title {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.archive-form-action-title i,
+.microsys-form-action-title i {
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.microsys-form-action-copy,
+.microsys-form-action-title,
+.microsys-form-action-meta {
+    display: none;
+}
+
+.archive-form-action-meta,
+.microsys-form-action-meta {
+    color: var(--bs-secondary-color, #6c757d);
+    font-size: 0.84rem;
+    line-height: 1.3;
+}
+
+.archive-form-action-primary .archive-form-action-icon,
+.microsys-form-action-primary .microsys-form-action-icon {
+    color: #157347;
+}
+
+.microsys-form-action-primary {
+    border-color: rgba(25, 135, 84, 0.22);
+    background:
+        radial-gradient(circle at top, rgba(25, 135, 84, 0.08), transparent 56%),
+        linear-gradient(180deg, rgba(238, 250, 244, 0.98), rgba(231, 245, 237, 0.94));
+}
+
+.archive-form-action-secondary .archive-form-action-icon,
+.microsys-form-action-secondary .microsys-form-action-icon {
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    color: var(--primal_dark, #0d6efd);
+}
+
+.archive-form-action-neutral .archive-form-action-icon,
+.microsys-form-action-neutral .microsys-form-action-icon {
+    color: #b42318;
+}
+
+.microsys-form-action-neutral {
+    border-color: rgba(220, 53, 69, 0.18);
+    background:
+        radial-gradient(circle at top, rgba(220, 53, 69, 0.05), transparent 56%),
+        linear-gradient(180deg, rgba(255, 250, 250, 0.98), rgba(250, 244, 244, 0.94));
+}
+
+@media (max-width: 767.98px) {
+    .archive-form-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .archive-form-action,
+    .microsys-form-action {
+        min-height: 3rem;
+        padding: 0.72rem 0.95rem;
+    }
+}

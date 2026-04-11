@@ -4,6 +4,7 @@
 {% block title %}{{ MS_TRANS.options_title }}{% endblock %}
 
 {% block extra_head %}
+    {% include "microsys/forms/assets_head.html" %}
     <link rel="stylesheet" href="{% static 'microsys/accessibility/css/main.css' %}">
 {% endblock %}
 
@@ -270,6 +271,7 @@
         {% endif %}
     </div>
 
+        {% include "microsys/forms/assets_scripts.html" %}
         <script nonce="{{ request.csp_nonce }}">
             document.addEventListener('DOMContentLoaded', () => {
                 // --- Autofill Logic ---

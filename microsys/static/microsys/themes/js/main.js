@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const root = document.documentElement;
-    const themes = ['light', 'blue', 'gold', 'green', 'red', 'dark'];
+    const themes = ['light', 'blue', 'gold', 'green', 'red', 'dark', 'neon'];
 
     // Load saved theme
     const savedTheme = ((window.USER_PREFS && window.USER_PREFS.theme) || localStorage.getItem('appTheme') || 'light');

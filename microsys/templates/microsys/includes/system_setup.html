@@ -1,4 +1,4 @@
-{% extends 'microsys/base.html' %}
+{% extends 'microsys/form_base.html' %}
 {% load crispy_forms_tags %}
 {% load static %}
 
@@ -20,7 +20,7 @@
                         <p class="text-muted mb-0">{{ MS_TRANS.system_setup_page_desc|default:"Complete the initial branding, languages, and sidebar structure for Microsys." }}</p>
                     </div>
 
-                    <form method="post" enctype="multipart/form-data" class="ms-system-setup-form">
+                    <form method="post" enctype="multipart/form-data" class="ms-system-setup-form microsys-form">
                         {% csrf_token %}
                         {% crispy form %}
                     </form>

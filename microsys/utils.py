@@ -12,8 +12,9 @@ try:
     import django_filters
 except ImportError:
     django_filters = None
-
-from django.db.models import ManyToManyField, ManyToManyRel, Q
+from django.db.models import ManyToManyRel, Q
+from django.db.models.fields.files import FieldFile
+from django.db.models.fields.related import ManyToManyField
 from django.db import models as dj_models
 from decimal import Decimal, InvalidOperation
 import inspect
@@ -21,6 +22,94 @@ from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
 from .translations import get_strings
 from django.conf import settings
 
+def microsys_settings(scope):
+    """
+    Apply the default MicroSys settings requirements to a Django settings module.
+
+    Intended usage from a host project's settings.py:
+
+        from microsys.utils import microsys_settings
+        microsys_settings(globals())
+    """
+    if not isinstance(scope, dict):
+        raise TypeError("microsys_settings() expects the result of globals() from settings.py")
+
+    installed_apps = scope.setdefault("INSTALLED_APPS", [])
+    middleware = scope.setdefault("MIDDLEWARE", [])
+    templates = scope.setdefault("TEMPLATES", [])
+
+    required_apps = [
+        "microsys",
+        "crispy_forms",
+        "crispy_bootstrap5",
+        "django_filters",
+        "django_tables2",
+    ]
+    for app_label in reversed(required_apps):
+        if app_label in installed_apps:
+            installed_apps.remove(app_label)
+        installed_apps.insert(0, app_label)
+
+    auth_middleware = "django.contrib.auth.middleware.AuthenticationMiddleware"
+    microsys_middleware = "microsys.middleware.ActivityLogMiddleware"
+    if microsys_middleware in middleware:
+        middleware.remove(microsys_middleware)
+    if auth_middleware in middleware:
+        auth_index = middleware.index(auth_middleware)
+        middleware.insert(auth_index + 1, microsys_middleware)
+    else:
+        middleware.append(microsys_middleware)
+
+    context_proc = "microsys.context_processors.microsys_context"
+    for template in templates:
+        if not isinstance(template, dict):
+            continue
+        options = template.setdefault("OPTIONS", {})
+        processors = options.setdefault("context_processors", [])
+        if context_proc not in processors:
+            processors.append(context_proc)
+
+    scope.setdefault("CRISPY_ALLOWED_TEMPLATE_PACKS", "bootstrap5")
+    scope.setdefault("CRISPY_TEMPLATE_PACK", "bootstrap5")
+    scope.setdefault("LANGUAGE_CODE", "ar")
+    scope.setdefault("TIME_ZONE", "Etc/GMT-2")
+    scope.setdefault("USE_I18N", True)
+    scope.setdefault("USE_TZ", True)
+    scope.setdefault("DEFAULT_CHARSET", "utf-8")
+
+    format_module_path = scope.get("FORMAT_MODULE_PATH")
+    if not format_module_path:
+        scope["FORMAT_MODULE_PATH"] = ["microsys.formats"]
+    elif isinstance(format_module_path, (list, tuple)):
+        merged_format_module_path = list(format_module_path)
+        if "microsys.formats" not in merged_format_module_path:
+            merged_format_module_path.append("microsys.formats")
+        scope["FORMAT_MODULE_PATH"] = merged_format_module_path
+    else:
+        scope["FORMAT_MODULE_PATH"] = [format_module_path, "microsys.formats"]
+    return scope
+
+def _normalize_asset_url(value, fallback_base='/media/'):
+    """Ensure stored media paths render as browser-safe absolute URLs."""
+    if not value:
+        return value
+
+    normalized = str(value).strip()
+    if not normalized:
+        return normalized
+
+    if (
+        normalized.startswith(('http://', 'https://', '//', '/', 'data:'))
+        or ':' in normalized.split('/', 1)[0]
+    ):
+        return normalized
+
+    base_url = str(getattr(settings, 'MEDIA_URL', '') or fallback_base).strip() or fallback_base
+    if not base_url.startswith('/'):
+        base_url = f'/{base_url}'
+    if not base_url.endswith('/'):
+        base_url = f'{base_url}/'
+    return f"{base_url}{normalized.lstrip('/')}"
 
 # Auth Check — Staff permission test for @user_passes_test decorator
 def is_staff(user):
@@ -67,6 +156,7 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
     )
 
+# Config Merger — Merges translation dictionaries across language layers
 def _merge_translation_layers(*layers):
     merged = {}
     for layer in layers:
@@ -79,6 +169,7 @@ def _merge_translation_layers(*layers):
             merged[lang].update(values)
     return merged
 
+# Config Merger — Merges language configuration dictionaries
 def _merge_language_layers(*layers):
     merged = {}
     for layer in layers:
@@ -91,6 +182,7 @@ def _merge_language_layers(*layers):
                 merged[code] = {'name': str(payload)}
     return merged
 
+# Sidebar Helper — Removes duplicate sidebar entries by id/url_name/label
 def _dedupe_sidebar_entries(entries):
     seen = set()
     deduped = []
@@ -226,9 +318,15 @@ def get_system_config():
     if not final_config.get('name_en'):
         final_config['name_en'] = user_config.get('name_en') or default_config['name_en']
 
-    final_config['logo_url'] = final_config.get('logo_url') or final_config.get('logo') or default_config['logo']
-    final_config['login_logo_url'] = final_config.get('login_logo_url') or final_config.get('login_logo') or final_config['logo_url']
-    final_config['favicon_url'] = final_config.get('favicon_url') or final_config.get('favicon') or default_config['favicon']
+    final_config['logo_url'] = _normalize_asset_url(
+        final_config.get('logo_url') or final_config.get('logo') or default_config['logo']
+    )
+    final_config['login_logo_url'] = _normalize_asset_url(
+        final_config.get('login_logo_url') or final_config.get('login_logo') or final_config['logo_url']
+    )
+    final_config['favicon_url'] = _normalize_asset_url(
+        final_config.get('favicon_url') or final_config.get('favicon') or default_config['favicon']
+    )
 
     final_config['home_url_name'] = None
     final_config['home_url'] = final_config.get('home_url') or default_config['home_url']
@@ -650,8 +748,7 @@ def collect_related_objects(instance):
                 
     return related_data
 
-from django.db.models.fields.files import FieldFile
-from django.db.models.fields.related import ManyToManyField
+
 def _build_generic_detail_context(instance, request=None):
     """
     Dynamically generates a list of {'label': ..., 'value': ...} dictionaries 
@@ -850,6 +947,7 @@ def _build_generic_filter_class(model):
         elif date_field is None and isinstance(field, (dj_models.DateField, dj_models.DateTimeField)):
             date_field = field.name
 
+    # Filter Helper — Parses string value to Decimal for numeric filtering
     def _parse_number(value):
         if value is None:
             return None
@@ -858,6 +956,7 @@ def _build_generic_filter_class(model):
         except (InvalidOperation, ValueError):
             return None
 
+    # Filter Init — Initializes filter with translated labels and year choices
     def _init(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
         s = get_strings()
@@ -877,6 +976,7 @@ def _build_generic_filter_class(model):
             # Layout handled by setup_filter_helper in the view
             pass
 
+    # Filter Method — Performs keyword search across text and numeric fields
     def _filter_keyword(self, queryset, name, value, text_fields=text_fields, int_fields=int_fields, num_fields=num_fields):
         if not value:
             return queryset
@@ -912,13 +1012,13 @@ def _build_generic_filter_class(model):
             field_name=date_field,
             lookup_expr="gte",
             label='',
-            widget=dj_forms.DateInput(attrs={'class': 'form-control flatpickr', 'placeholder': 'من تاريخ'}),
+            widget=dj_forms.DateInput(attrs={'class': 'form-control ms-datepicker', 'placeholder': 'من تاريخ', 'autocomplete': 'off'}),
         )
         attrs["date_lte"] = django_filters.DateFilter(
             field_name=date_field,
             lookup_expr="lte",
             label='',
-            widget=dj_forms.DateInput(attrs={'class': 'form-control flatpickr', 'placeholder': 'إلى تاريخ'}),
+            widget=dj_forms.DateInput(attrs={'class': 'form-control ms-datepicker', 'placeholder': 'إلى تاريخ', 'autocomplete': 'off'}),
         )
         attrs["year"] = django_filters.ChoiceFilter(
             field_name=f"{date_field}__year",
@@ -1348,11 +1448,12 @@ def toggle_sidebar(request):
 # Form Helper — Automatically sets placeholders and direction based on language
 def set_field_attrs(form, request=None):
     """Set common attributes for all fields in the form."""
-    ms_trans = get_strings()
+    from microsys.translations import get_current_language_code
+
+    lang = get_current_language_code(request)
+    ms_trans = get_strings(lang)
     
     # Detect language for direction
-    from microsys.translations import get_current_language_code
-    lang = get_current_language_code()
     direction = 'rtl' if lang.startswith('ar') else 'ltr'
     
     for field_name in form.fields:
@@ -1368,19 +1469,19 @@ def set_field_attrs(form, request=None):
             range_type = None
             if "__gte" in field_name:
                 clean_name = field_name.replace("__gte", "")
-                suffix = f" ({ms_trans.get('filter_from', 'من')})"
+                suffix = f" ({ms_trans.get('filter_from', 'From')})"
                 range_type = "from"
             elif "__lte" in field_name:
                 clean_name = field_name.replace("__lte", "")
-                suffix = f" ({ms_trans.get('filter_to', 'إلى')})"
+                suffix = f" ({ms_trans.get('filter_to', 'To')})"
                 range_type = "to"
             elif field_name.endswith("_gte"):
                 clean_name = field_name[:-4]
-                suffix = f" ({ms_trans.get('filter_from', 'من')})"
+                suffix = f" ({ms_trans.get('filter_from', 'From')})"
                 range_type = "from"
             elif field_name.endswith("_lte"):
                 clean_name = field_name[:-4]
-                suffix = f" ({ms_trans.get('filter_to', 'إلى')})"
+                suffix = f" ({ms_trans.get('filter_to', 'To')})"
                 range_type = "to"
 
             if clean_name == "date" and range_type == "from":
@@ -1436,15 +1537,24 @@ def set_field_attrs(form, request=None):
             if 'form-control' not in existing_class:
                 field.widget.attrs['class'] = f"{existing_class} form-control".strip()
             
-        # 3. Inject Flatpickr for date/datetime fields
-        # Check by widget, field name, or existing library classes (like datetimeinput from crispy)
-        is_date = any(kw in field_name.lower() for kw in ['date', 'time', 'since', 'until']) or \
-                  isinstance(field.widget, (forms.DateInput, forms.DateTimeInput)) or \
-                  'datetimeinput' in existing_class
+        # 3. Inject the shared microSYS datepicker hook for real date/datetime inputs.
+        # Keep legacy .flatpickr compatibility so host apps do not need an immediate markup sweep.
+        # Do not attach the picker to selects such as date__year choice filters.
+        is_select_like = isinstance(field.widget, (forms.Select, forms.SelectMultiple, forms.NullBooleanSelect))
+        is_date = (
+            isinstance(field.widget, (forms.DateInput, forms.DateTimeInput)) or
+            'datetimeinput' in existing_class or
+            (
+                not is_select_like and
+                any(kw in field_name.lower() for kw in ['date', 'time', 'since', 'until'])
+            )
+        )
         
-        if is_date and 'flatpickr' not in field.widget.attrs.get('class', ''):
+        if is_date and 'ms-datepicker' not in field.widget.attrs.get('class', '') and 'flatpickr' not in field.widget.attrs.get('class', ''):
             current_class = field.widget.attrs.get('class', '')
-            field.widget.attrs['class'] = f"{current_class} flatpickr".strip()
+            field.widget.attrs['class'] = f"{current_class} ms-datepicker".strip()
+        if is_date:
+            field.widget.attrs['autocomplete'] = 'off'
 
         field.label = ''  # Clear the label for crispy layouts that use placeholders
 
@@ -1455,12 +1565,12 @@ def setup_filter_helper(filter_instance, request=None, preserve_keys=None):
     Aligns fields dynamically using Bootstrap 5 flexbox and appends a filter button.
     """
     from crispy_forms.helper import FormHelper
-    from crispy_forms.layout import Layout, Div, Field, HTML, Hidden
+    from crispy_forms.layout import Layout, Div, Field, HTML, Hidden, Row
     
     helper = FormHelper()
     helper.form_method = 'get'
     helper.form_tag = True
-    helper.form_class = 'no-print'
+    helper.form_class = 'py-3 row g-2 no-print m-0 microsys-form microsys-filter'
     
     # Determine which keys to preserve in the URL and form state
     if preserve_keys is None:
@@ -1497,12 +1607,12 @@ def setup_filter_helper(filter_instance, request=None, preserve_keys=None):
 
     # Build button group
     if has_active_filters:
-        search_btn = '<button type="submit" class="btn btn-secondary rounded-start-pill rounded-end-0 flex-grow-1"><i class="bi bi-search"></i></button>'
-        clear_btn = f'<a href="{clear_url}" class="btn btn-warning rounded-end-pill rounded-start-0 px-3"><i class="bi bi-x-lg"></i></a>'
-        btn_html = f'<div class="d-flex w-100">{search_btn}{clear_btn}</div>'
+        search_btn = '<button type="submit" class="btn btn-secondary microsys-filter-chip microsys-filter-submit rounded-start-pill rounded-end-0 flex-grow-1"><i class="bi bi-search"></i></button>'
+        clear_btn = f'<a href="{clear_url}" class="btn btn-warning microsys-filter-chip microsys-filter-clear rounded-end-pill rounded-start-0 px-3"><i class="bi bi-x-lg"></i></a>'
+        btn_html = f'<div class="d-flex w-100 microsys-filter-controls">{search_btn}{clear_btn}</div>'
     else:
-        search_btn = '<button type="submit" class="btn btn-secondary rounded-pill flex-grow-1"><i class="bi bi-search"></i></button>'
-        btn_html = f'<div class="d-flex w-100">{search_btn}</div>'
+        search_btn = '<button type="submit" class="btn btn-secondary microsys-filter-chip microsys-filter-submit rounded-pill flex-grow-1"><i class="bi bi-search"></i></button>'
+        btn_html = f'<div class="d-flex w-100 microsys-filter-controls">{search_btn}</div>'
     
     divs.append(
         Div(
@@ -1520,6 +1630,320 @@ def setup_filter_helper(filter_instance, request=None, preserve_keys=None):
     
     # Apply set_field_attrs for placeholders and translation
     set_field_attrs(filter_instance.form, request)
+
+
+def advanced_filter_helper(filter_instance, config=None, request=None, preserve_keys=None):
+    """
+    Build an "advanced" filter helper with:
+    - a primary row of fields
+    - a pill-shaped search/clear control
+    - an expand/collapse button for advanced fields
+    - one or more advanced rows inside a collapse container
+    - an optional bottom action row for add/download/custom buttons
+
+    Config format:
+        {
+            "fields": [<field spec>, ...],
+            "advanced_fields": [[<field spec>, ...], ...],
+            "buttons": [<button spec>, ...],
+            "hidden_inputs": [<raw html>, ...],
+            "hidden_preserve_keys": ["sort", ...],
+            "clear_preserve_keys": ["sort", "page"],
+            "clear_url": "...",
+            "advanced_target": "advanced-search",
+            "toggle_label_key": "filter_advanced_search_action",
+            "primary_row_class": "g-2",
+            "advanced_wrapper_class": "collapse m-0",
+            "actions_row_class": "g-2",
+        }
+
+    Field spec:
+        "field_name"
+        {
+            "name": "field_name",
+            "col_class": "form-group col-auto flex-fill",
+            "attrs": {"placeholder": "..."},
+            "placeholder": "...",
+            "placeholder_key": "translation_key",
+            "range_label_key": "label_date",
+            "range_direction": "from" | "to",
+            "wrapper_class": "mb-0",
+        }
+        {
+            "type": "label" | "html",
+            "text": "...",
+            "text_key": "translation_key",
+            "html": "<strong>...</strong>",
+            "col_class": "...",
+        }
+
+    Button spec:
+        {
+            "url": "...",
+            "permission": "app.perm_name",
+            "label": "...",
+            "label_key": "translation_key",
+            "icon": "bi bi-plus-lg me-2 h4",
+            "btn_class": "btn btn-primary w-100",
+            "col_class": "col-auto text-center",
+        }
+        or {"type": "html", "html": "...", "col_class": "..."}
+    """
+    from crispy_forms.helper import FormHelper
+    from crispy_forms.layout import Layout, Div, Field, HTML, Hidden, Row
+
+    config = config or {}
+    helper = FormHelper()
+    helper.form_method = 'get'
+    helper.form_tag = True
+    helper.form_class = config.get('form_class', 'py-3 row g-2 no-print m-0 microsys-form microsys-filter')
+    helper.attrs = dict(config.get('form_attrs', {}) or {})
+    if config.get('autosubmit_selects', True):
+        helper.attrs['data-ms-filter-autosubmit'] = 'true'
+
+    if preserve_keys is None:
+        preserve_keys = (
+            config.get('hidden_preserve_keys')
+            or config.get('preserve_keys')
+            or ['sort', 'per_page', 'export_type']
+        )
+
+    clear_preserve_keys = config.get('clear_preserve_keys')
+    if clear_preserve_keys is None:
+        clear_preserve_keys = ['sort', 'page']
+
+    from microsys.translations import get_current_language_code
+    lang = get_current_language_code(request)
+    s = get_strings(lang)
+
+    set_field_attrs(filter_instance.form, request)
+
+    hidden_layout = []
+    if request and request.GET:
+        for key in preserve_keys:
+            if key in request.GET:
+                hidden_layout.append(Hidden(key, request.GET.get(key)))
+
+    for hidden_html in config.get('hidden_inputs', []) or []:
+        hidden_layout.append(HTML(hidden_html))
+
+    # Config Helper — Resolves translation text from MS_TRANS with fallback
+    def _resolve_text(key=None, fallback=''):
+        if key:
+            return s.get(key, fallback)
+        return fallback
+
+    # Config Helper — Merges custom attributes into field widget
+    def _merge_attrs(field_obj, attrs):
+        if not attrs:
+            return
+        field_obj.widget.attrs.update(attrs)
+
+    # Config Helper — Resolves placeholder text from spec with translation support
+    def _resolve_placeholder(spec):
+        if spec.get('placeholder') is not None:
+            return spec['placeholder']
+        if spec.get('placeholder_key'):
+            return _resolve_text(spec['placeholder_key'], spec['placeholder_key'])
+
+        range_label_key = spec.get('range_label_key')
+        range_direction = spec.get('range_direction')
+        if range_label_key and range_direction in {'from', 'to'}:
+            base = _resolve_text(range_label_key, range_label_key)
+            suffix_key = 'filter_from' if range_direction == 'from' else 'filter_to'
+            suffix = _resolve_text(suffix_key, 'From' if range_direction == 'from' else 'To')
+            return f"{base} {suffix}".strip()
+        return None
+
+    # Layout Builder — Renders a field spec into a Crispy Div with proper styling
+    def _render_field_spec(spec, default_col_class):
+        if isinstance(spec, str):
+            spec = {'name': spec}
+        if not isinstance(spec, dict):
+            return None
+
+        spec_type = spec.get('type', 'field')
+        col_class = spec.get('col_class', default_col_class)
+
+        if spec_type == 'html':
+            return Div(HTML(spec.get('html', '')), css_class=col_class)
+
+        if spec_type == 'label':
+            text = spec.get('text')
+            if text is None:
+                text = _resolve_text(spec.get('text_key'), '')
+            tag = spec.get('tag', 'strong')
+            return Div(HTML(f'<{tag}>{text}</{tag}>'), css_class=col_class)
+
+        field_name = spec.get('name')
+        if not field_name or field_name not in filter_instance.form.fields:
+            return None
+
+        field_obj = filter_instance.form.fields[field_name]
+        placeholder = _resolve_placeholder(spec)
+        if placeholder:
+            field_obj.widget.attrs['placeholder'] = placeholder
+            if hasattr(field_obj, 'empty_label'):
+                field_obj.empty_label = placeholder
+            if hasattr(field_obj, 'choices'):
+                set_first_choice(field_obj, placeholder)
+
+        _merge_attrs(field_obj, spec.get('attrs'))
+        return Div(
+            Field(field_name, wrapper_class=spec.get('wrapper_class', 'mb-0')),
+            css_class=col_class,
+        )
+
+    # Layout Builder — Builds an action button with permission check support
+    def _build_action_button(spec):
+        if not isinstance(spec, dict):
+            return None
+
+        if spec.get('type') == 'html':
+            return Div(HTML(spec.get('html', '')), css_class=spec.get('col_class', 'col-auto text-center'))
+
+        label = spec.get('label')
+        if label is None:
+            label = _resolve_text(spec.get('label_key'), '')
+        icon = spec.get('icon', '')
+        icon_html = f'<i class="{icon}"></i>' if icon else ''
+        btn_class = spec.get("btn_class", "btn btn-outline-secondary w-100")
+        if "microsys-filter-action" not in btn_class:
+            btn_class = f"{btn_class} microsys-filter-action".strip()
+        button_html = f'<a href="{spec.get("url", "#")}" class="{btn_class}">{icon_html}{label}</a>'
+
+        permission = spec.get('permission')
+        if permission:
+            app_label, codename = permission.split('.', 1)
+            button_html = f'{{% if perms.{app_label}.{codename} %}}{button_html}{{% endif %}}'
+
+        return Div(HTML(button_html), css_class=spec.get('col_class', 'col-auto text-center'))
+
+    # URL Builder — Constructs clear URL preserving specified query parameters
+    def _build_clear_url():
+        explicit = config.get('clear_url')
+        if explicit:
+            return explicit
+
+        clear_url = '?'
+        if request and request.GET:
+            import urllib.parse
+            clear_params = {k: v for k, v in request.GET.items() if k in clear_preserve_keys}
+            qs = urllib.parse.urlencode(clear_params, doseq=True)
+            if qs:
+                clear_url = f'?{qs}'
+        return clear_url
+
+    # Filter State — Checks if any non-preserved filters are active
+    def _has_active_filters():
+        if not request or not request.GET:
+            return False
+        return any(k not in clear_preserve_keys and v for k, v in request.GET.items())
+
+    advanced_specs = config.get('advanced_fields') or []
+    advanced_names = {
+        spec.get('name')
+        for row in advanced_specs
+        for spec in (row if isinstance(row, (list, tuple)) else [row])
+        if isinstance(spec, dict) and spec.get('type', 'field') == 'field' and spec.get('name')
+    }
+    show_advanced = bool(
+        request and request.GET and any(request.GET.get(name) for name in advanced_names)
+    )
+
+    primary_divs = []
+    for spec in config.get('fields') or list(filter_instance.form.fields.keys()):
+        primary_div = _render_field_spec(spec, config.get('primary_field_col_class', 'col-sm-6 col-md-3 col-lg-auto flex-grow-1'))
+        if primary_div:
+            primary_divs.append(primary_div)
+
+    clear_url = _build_clear_url()
+    has_active_filters = _has_active_filters()
+    search_btn = '<button type="submit" class="btn btn-secondary microsys-filter-chip microsys-filter-submit rounded-start-pill rounded-end-0 flex-grow-1"><i class="bi bi-search"></i></button>'
+    clear_btn = ''
+    if has_active_filters:
+        clear_btn = f'<a href="{clear_url}" class="btn btn-warning microsys-filter-chip microsys-filter-clear rounded-end-pill rounded-start-0 px-3"><i class="bi bi-x-lg"></i></a>'
+    else:
+        search_btn = '<button type="submit" class="btn btn-secondary microsys-filter-chip microsys-filter-submit rounded-pill flex-grow-1"><i class="bi bi-search"></i></button>'
+
+    primary_divs.append(
+        Div(
+            HTML(f'<div class="d-flex w-100 microsys-filter-controls">{search_btn}{clear_btn}</div>'),
+            css_class=config.get('search_controls_col_class', 'col-sm-12 col-md-2 col-lg-auto')
+        )
+    )
+
+    toggle_target = config.get('advanced_target', 'advanced-search')
+    toggle_label = _resolve_text(config.get('toggle_label_key', 'filter_advanced_search_action'), 'Advanced')
+    toggle_icon = config.get('toggle_icon', 'bi bi-binoculars-fill')
+    primary_divs.append(
+        Div(
+            HTML(
+                '<button class="btn btn-outline-secondary microsys-filter-chip microsys-filter-toggle w-100" type="button" '
+                f'data-bs-toggle="collapse" data-bs-target="#{toggle_target}" '
+                f'aria-expanded="{"true" if show_advanced else "false"}" aria-controls="{toggle_target}">'
+                f'<i class="{toggle_icon} me-2"></i>{toggle_label}'
+                '</button>'
+            ),
+            css_class=config.get('toggle_col_class', 'col-sm-12 col-md-3 col-lg-auto')
+        )
+    )
+
+    advanced_rows = []
+    for row in advanced_specs:
+        row_specs = row if isinstance(row, (list, tuple)) else [row]
+        row_divs = []
+        for spec in row_specs:
+            row_div = _render_field_spec(spec, config.get('advanced_field_col_class', 'col-auto flex-fill'))
+            if row_div:
+                row_divs.append(row_div)
+        if row_divs:
+            advanced_rows.append(
+                Row(
+                    *row_divs,
+                    css_class=config.get('advanced_row_class', 'g-2 align-items-start mb-0'),
+                )
+            )
+
+    action_divs = []
+    for spec in config.get('buttons', []):
+        action_div = _build_action_button(spec)
+        if action_div:
+            action_divs.append(action_div)
+
+    layout_items = list(hidden_layout)
+    layout_items.append(
+        Div(
+            *primary_divs,
+            css_class=config.get('primary_row_class', 'row g-2 align-items-start mb-0'),
+        )
+    )
+
+    if advanced_rows:
+        collapse_class = config.get('advanced_wrapper_class', 'collapse m-0')
+        if show_advanced:
+            collapse_class = f"{collapse_class} show"
+        layout_items.append(
+            Div(
+                *advanced_rows,
+                css_class=collapse_class,
+                id=toggle_target,
+            )
+        )
+
+    if action_divs:
+        layout_items.append(
+            Div(
+                Div(
+                    *action_divs,
+                    css_class=config.get('actions_row_class', 'row g-2'),
+                ),
+                css_class=config.get('buttons_wrapper_class', 'p-0 my-2'),
+            )
+        )
+
+    helper.layout = Layout(*layout_items)
+    filter_instance.form.helper = helper
 
 # Form Helper — Renames the first choice in a Selection menu
 def set_first_choice(field, placeholder):
@@ -1584,6 +2008,7 @@ def has_submit_button(form):
         
     from crispy_forms.layout import Submit, Button, HTML
     
+    # Layout Inspector — Recursively checks for Submit/Button objects in layout
     def check_node(node):
         # Direct match for Submit or Button objects
         if isinstance(node, (Submit, Button)):

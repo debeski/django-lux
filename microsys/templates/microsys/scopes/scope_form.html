@@ -7,7 +7,7 @@
     </button>
 </div>
 
-<form id="scopeForm" data-url="{% url 'save_scope' %}{% if scope_id %}/{{ scope_id }}{% endif %}">
+<form id="scopeForm" class="microsys-form" data-url="{% url 'save_scope' %}{% if scope_id %}/{{ scope_id }}{% endif %}">
     {% csrf_token %}
     {% crispy form %}
     

@@ -126,6 +126,7 @@ The system records several action families out of the box, including:
 | Helper | Purpose |
 | --- | --- |
 | `get_system_config()` | Return the merged runtime configuration |
+| `microsys_settings()` | Apply the default MicroSys settings requirements from a project `settings.py` via `microsys_settings(globals())`, including app stack, middleware, context processor, Crispy defaults, and core language/format defaults |
 | `get_model_classes()` | Resolve model, form, table, and filter classes via conventions or overrides |
 | `get_user_linked_models()` | Find all models with a OneToOneField to the User model |
 | `resolve_model_by_name()` | Find a model class dynamically by name |
@@ -133,7 +134,8 @@ The system records several action families out of the box, including:
 | `collect_related_objects()` | Inspect reverse and related objects for reporting or delete warnings |
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
-| `set_field_attrs()` | Apply microSYS-friendly widget classes and affordances to a form |
+| `advanced_filter_helper()` | Build a primary filter row plus collapsible advanced rows, optional action buttons, and separate hidden/clear preserve behavior |
+| `set_field_attrs()` | Apply microSYS-friendly widget classes and affordances to a form, including the shared datepicker hook (`.ms-datepicker` with legacy `.flatpickr` compatibility) |
 | `translate_choices()` | Translate choice lists using the system translation engine |
 | `log_user_action()` | Create consistent audit log entries |
 | `fetch_file()` | Download one file, many files, or ZIP bundles from model instances |

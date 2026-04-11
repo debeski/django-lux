@@ -1,4 +1,11 @@
-/* Target the text element inside Plotly's hover layer for RTL correction */
+/* Decouple Plotly's internal SVG layout from page direction.
+   Without this, RTL pages can shift legend hitboxes onto their labels. */
+.js-plotly-plot,
+.js-plotly-plot .plotly,
+.js-plotly-plot .main-svg {
+    direction: ltr !important;
+}
+
 /* --- Modern Hover Layer Styling --- */
 
 /* 1. Target the SVG path (Background Box) */
@@ -11,18 +18,29 @@
 }
 
 /* 2. Target the Text */
-.hoverlayer .hovertext text {
-    text-anchor: end !important;
-    direction: rtl !important;
+.js-plotly-plot .hoverlayer .hovertext text {
+    text-anchor: start !important;
+    direction: ltr !important;
+    unicode-bidi: plaintext !important;
     font-size: 14px !important;
     font-family: 'Shabwa', sans-serif !important;
     fill: var(--title, #333) !important; 
     text-shadow: none !important;
 }
 
-/* Correct legend text alignment in RTL context for Plotly Chart */
-.legendtext {
+[dir="rtl"] .js-plotly-plot .hoverlayer .hovertext text {
     text-anchor: end !important;
+    direction: rtl !important;
+}
+
+/* Keep legend labels readable in both directions without overriding Plotly's own geometry. */
+.js-plotly-plot .legendtext {
+    direction: ltr !important;
+    unicode-bidi: plaintext !important;
+}
+
+[dir="rtl"] .js-plotly-plot .legendtext {
+    direction: rtl !important;
 }
 
 /* Set the location of modebar on Plotly Chart */

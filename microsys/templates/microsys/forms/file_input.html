@@ -1,0 +1,103 @@
+<div
+    class="archive-file-field"
+    data-archive-file-widget
+    data-field-label="{{ widget.field_label }}"
+    data-empty-title="{{ MS_TRANS.archive_file_empty_title|default:'No file selected' }}"
+    data-empty-meta="{{ MS_TRANS.archive_file_empty_meta|default:'Drop a file here or use the actions.' }}"
+    data-current-meta="{{ MS_TRANS.archive_file_current_meta|default:'Current file on this record.' }}"
+    data-selected-meta="{{ MS_TRANS.archive_file_selected_meta|default:'Ready to save with this form.' }}"
+    data-initial-name="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.display_name }}{% endif %}"
+    data-initial-url="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.file_url }}{% endif %}"
+    data-initial-icon="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.icon_class }}{% else %}bi bi-file-earmark-arrow-up-fill{% endif %}"
+>
+    <div class="archive-file-card" data-archive-file-drop tabindex="0" role="button" aria-controls="{{ widget.attrs.id }}">
+        <div class="archive-file-topbar">
+            <div class="archive-file-tag" data-archive-file-label>
+                {{ widget.field_label|default:widget.name }}
+            </div>
+            <div class="archive-file-tools">
+                <a
+                    class="archive-file-tool archive-file-link"
+                    data-archive-file-link
+                    href="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.file_url }}{% else %}#{% endif %}"
+                    target="_blank"
+                    rel="noopener"
+                    title="{{ MS_TRANS.archive_file_open_action|default:'Open file' }}"
+                    aria-label="{{ MS_TRANS.archive_file_open_action|default:'Open file' }}"
+                    {% if not widget.is_initial or widget.attrs.checked %}hidden{% endif %}
+                >
+                    <i class="bi bi-box-arrow-up-right"></i>
+                </a>
+
+                <button
+                    type="button"
+                    class="archive-file-tool archive-file-tool-upload"
+                    data-archive-file-upload
+                    title="{{ MS_TRANS.archive_file_upload_action|default:'Upload file' }}"
+                    aria-label="{{ MS_TRANS.archive_file_upload_action|default:'Upload file' }}"
+                >
+                    <i class="bi bi-upload"></i>
+                </button>
+
+                {% if widget.show_scan %}
+                    <button
+                        type="button"
+                        class="archive-file-tool archive-file-tool-scan scan-btn"
+                        data-archive-file-scan
+                        data-target="{{ widget.attrs.id }}"
+                        title="{{ MS_TRANS.scan_label|default:'Scan' }}"
+                        aria-label="{{ MS_TRANS.scan_label|default:'Scan' }}"
+                    >
+                        <i class="bi bi-printer"></i>
+                    </button>
+                {% endif %}
+
+                {% if not widget.required %}
+                    <button
+                        type="button"
+                        class="archive-file-tool archive-file-tool-clear"
+                        data-archive-file-clear
+                        title="{{ MS_TRANS.archive_file_clear_action|default:'Clear file' }}"
+                        aria-label="{{ MS_TRANS.archive_file_clear_action|default:'Clear file' }}"
+                        {% if not widget.is_initial or widget.attrs.checked %}hidden{% endif %}
+                    >
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="archive-file-body">
+            <div class="archive-file-icon" data-archive-file-icon>
+                <i class="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.icon_class }}{% else %}bi bi-file-earmark-arrow-up-fill{% endif %}"></i>
+            </div>
+            <div class="archive-file-name" data-archive-file-name>
+                {% if widget.is_initial and not widget.attrs.checked %}
+                    {{ widget.display_name }}
+                {% else %}
+                    {{ MS_TRANS.archive_file_empty_title|default:"No file selected" }}
+                {% endif %}
+            </div>
+            <div class="archive-file-meta" data-archive-file-meta>
+                {% if widget.is_initial and not widget.attrs.checked %}
+                    {{ MS_TRANS.archive_file_current_meta|default:"Current file on this record." }}
+                {% else %}
+                    {{ MS_TRANS.archive_file_empty_meta|default:"Drop a file here or use the actions." }}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if widget.is_initial and not widget.required %}
+        <input
+            type="checkbox"
+            name="{{ widget.checkbox_name }}"
+            id="{{ widget.checkbox_id }}"
+            class="archive-file-clear-checkbox d-none"
+            {% if widget.attrs.disabled %}disabled{% endif %}
+            {% if widget.attrs.checked %}checked{% endif %}
+        >
+    {% endif %}
+
+    <input type="{{ widget.type }}" name="{{ widget.name }}" data-archive-file-input="true"{% include "django/forms/widgets/attrs.html" %}>
+</div>

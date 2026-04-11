@@ -1,0 +1,12 @@
+<div class="archive-checkbox-field form-check">
+    {{ field.as_widget }}
+    <label class="form-check-label mb-0" for="{{ field.id_for_label }}">
+        {{ field.label }}
+    </label>
+</div>
+
+{% if field.errors %}
+    {% for error in field.errors %}
+        <div class="invalid-feedback d-block">{{ error }}</div>
+    {% endfor %}
+{% endif %}

@@ -1,0 +1,1621 @@
+/* --- Cyberpunk Neon Theme --- */
+/* A high-contrast cyberpunk theme with neon accents, glows, and animated elements */
+
+:root.theme-neon {
+    /* Core Palette - Cyberpunk Neon */
+    --neon-pink: #ff00ff;
+    --neon-cyan: #00ffff;
+    --neon-purple: #bf00ff;
+    --neon-lime: #39ff14;
+    --neon-yellow: #ffff00;
+    --neon-orange: #ff6600;
+    
+    /* Dark Base Colors */
+    --cyber-black: #0a0a0f;
+    --cyber-dark: #0f0f1a;
+    --cyber-darker: #050508;
+    --cyber-panel: #12121f;
+    --cyber-border: #1a1a2e;
+    
+    /* Theme Variables Mapped */
+    --title: #e0e0ff;
+    --body: var(--cyber-black);
+    --htitle: #ffffff;
+    --hbody: var(--cyber-dark);
+    --table-row: var(--cyber-panel);
+    --table-row-hover: #1e1e33;
+    --primal: var(--neon-cyan);
+    --primal_dark: var(--neon-pink);
+    --primal-rgb: 0, 255, 255;
+    --btn-primary-shadow: rgba(0, 255, 255, 0.5);
+    --nav-item-color: var(--neon-cyan);
+    color-scheme: dark;
+
+    /* Bootstrap Overrides with Neon Glow */
+    --bs-primary: var(--neon-cyan);
+    --bs-primary-rgb: 0, 255, 255;
+    --bs-btn-bg: var(--neon-cyan);
+    --bs-btn-border-color: var(--neon-cyan);
+    --bs-btn-hover-bg: var(--neon-pink);
+    --bs-btn-hover-border-color: var(--neon-pink);
+    --bs-link-color: var(--neon-cyan);
+    --bs-link-hover-color: var(--neon-pink);
+    --bs-body-bg: var(--cyber-black);
+    --bs-body-color: var(--title);
+
+    /* Login Theme Variables */
+    --bg-gradient: linear-gradient(135deg, var(--cyber-black) 0%, var(--cyber-dark) 50%, #1a0a2e 100%);
+    --right-bg: var(--title);
+    --primary-color: var(--neon-cyan);
+    
+    /* Setup Builder Theme Tokens - Cyberpunk Edition */
+    --ms-setup-shell-bg: linear-gradient(180deg, rgba(15, 15, 26, 0.98), rgba(10, 10, 15, 0.98));
+    --ms-setup-shell-border: rgba(0, 255, 255, 0.2);
+    --ms-setup-card-bg: rgba(18, 18, 31, 0.95);
+    --ms-setup-card-border: rgba(255, 0, 255, 0.15);
+    --ms-setup-pane-bg: rgba(0, 255, 255, 0.03);
+    --ms-setup-pane-border: rgba(0, 255, 255, 0.12);
+    --ms-setup-item-bg: rgba(18, 18, 31, 0.9);
+    --ms-setup-item-border: rgba(0, 255, 255, 0.15);
+    --ms-setup-item-hover-bg: rgba(0, 255, 255, 0.08);
+    --ms-setup-item-shadow: 0 0 20px rgba(0, 255, 255, 0.15);
+    --ms-setup-item-active-bg: rgba(0, 255, 255, 0.12);
+    --ms-setup-item-active-ring: rgba(0, 255, 255, 0.4);
+    --ms-setup-tree-bg: linear-gradient(180deg, rgba(10, 10, 15, 0.95), rgba(15, 15, 26, 0.95));
+    --ms-setup-tree-accent: rgba(255, 0, 255, 0.3);
+    --ms-setup-connector: rgba(0, 255, 255, 0.25);
+    --ms-setup-badge-bg: rgba(255, 0, 255, 0.15);
+    --ms-setup-badge-color: #e0e0ff;
+    --ms-setup-text: var(--title);
+    --ms-setup-muted: #a0a0c0;
+}
+
+/* Animated Background Effect */
+:root.theme-neon::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(ellipse at 20% 80%, rgba(255, 0, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(0, 255, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(191, 0, 255, 0.03) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+    animation: cyberPulse 8s ease-in-out infinite;
+}
+
+@keyframes cyberPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Force options to inherit neon theme colors */
+:root.theme-neon select option {
+    background-color: var(--cyber-panel);
+    color: var(--title);
+}
+
+/* --- Global Elements with Neon Glow --- */
+
+/* 1. Global, Cards & Modals - Cyberpunk Panels */
+:root.theme-neon .card:not([class*="text-bg-"]):not([class*="bg-"]),
+:root.theme-neon .card-body:not([class*="text-bg-"]):not([class*="bg-"]),
+:root.theme-neon .dashboard-card:not([class*="text-bg-"]):not([class*="bg-"]), 
+:root.theme-neon .option-section:not([class*="text-bg-"]):not([class*="bg-"]),
+:root.theme-neon .list-group-item:not([class*="text-bg-"]):not([class*="bg-"]):not(.active),
+:root.theme-neon .modal-content,
+:root.theme-neon .chart-container-sys {
+    background-color: var(--cyber-panel) !important;
+    color: var(--title) !important;
+    border: 1px solid rgba(0, 255, 255, 0.15) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.05) !important;
+}
+
+:root.theme-neon .card:hover,
+:root.theme-neon .dashboard-card:hover {
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.12) !important;
+    border-color: rgba(0, 255, 255, 0.3) !important;
+}
+
+/* Selective Border Coloring */
+:root.theme-neon .card:not([class*="border-"]),
+:root.theme-neon .card-body:not([class*="border-"]),
+:root.theme-neon .dashboard-card:not([class*="border-"]),
+:root.theme-neon .list-group-item:not([class*="border-"]),
+:root.theme-neon .modal-content:not([class*="border-"]),
+:root.theme-neon .chart-container-sys:not([class*="border-"]) {
+    border-color: rgba(0, 255, 255, 0.15) !important;
+}
+
+/* Chart Fix */
+:root.theme-neon .chart-container-sys {
+    background-color: transparent !important;
+    border-color: rgba(0, 255, 255, 0.2) !important;
+    box-shadow: none !important;
+}
+
+:root.theme-neon .list-group-item.bg-transparent {
+    background-color: transparent !important;
+}
+
+/* Sidebar - Cyberpunk Edition */
+:root.theme-neon #sidebar {
+    background: linear-gradient(180deg, var(--cyber-dark) 0%, var(--cyber-black) 100%) !important;
+    border-left: 1px solid rgba(0, 255, 255, 0.2) !important;
+    box-shadow: -5px 0 30px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .text-muted,
+:root.theme-neon .text-secondary {
+    color: #a0a0c0 !important;
+}
+
+:root.theme-neon .bg-light {
+    background-color: var(--cyber-dark) !important;
+    border-color: rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .bg-white {
+    background-color: var(--cyber-panel) !important;
+    color: var(--title) !important;
+}
+
+:root.theme-neon .border-white {
+    border-color: rgba(0, 255, 255, 0.2) !important;
+}
+
+/* 2. Titlebar - Glowing Header */
+:root.theme-neon .titlebar {
+    background: linear-gradient(90deg, var(--cyber-black) 0%, var(--cyber-dark) 50%, #1a0a2e 100%) !important;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 0 2px 20px rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .titlebar p,
+:root.theme-neon .titlebar .btn-light,
+:root.theme-neon .titlebar .btn-light .bi {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
+}
+
+:root.theme-neon .titlebar .btn-light:hover {
+    background-color: rgba(0, 255, 255, 0.15) !important;
+    color: var(--neon-pink) !important;
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.3) !important;
+}
+
+:root.theme-neon .titlebar .btn-light:hover .bi {
+    color: var(--neon-pink) !important;
+}
+
+/* 3. Forms & Inputs - Neon Glowing Fields */
+:root.theme-neon .microsys-form,
+:root.theme-neon .archive-document-form,
+:root.theme-neon .microsys-filter {
+    --archive-form-surface: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.96));
+    --archive-form-border: rgba(0, 255, 255, 0.2);
+    --archive-form-border-strong: rgba(0, 255, 255, 0.5);
+    --archive-form-focus-ring: rgba(0, 255, 255, 0.25);
+    --archive-form-muted: #a0a0c0;
+}
+
+:root.theme-neon .form-control,
+:root.theme-neon .form-select,
+:root.theme-neon .input-group-text {
+    background-color: var(--cyber-panel) !important;
+    border-color: rgba(0, 255, 255, 0.2) !important;
+    color: var(--title) !important;
+    box-shadow: inset 0 1px 0 rgba(0, 255, 255, 0.05) !important;
+}
+
+:root.theme-neon .form-control:focus,
+:root.theme-neon .form-select:focus {
+    background-color: var(--cyber-dark) !important;
+    border-color: var(--neon-cyan) !important;
+    color: #fff !important;
+    box-shadow: 
+        0 0 0 0.2rem rgba(0, 255, 255, 0.25),
+        0 0 15px rgba(0, 255, 255, 0.3) !important;
+    outline: none !important;
+}
+
+:root.theme-neon .microsys-form .form-control,
+:root.theme-neon .microsys-form .form-select,
+:root.theme-neon .microsys-form textarea,
+:root.theme-neon .archive-document-form .form-control,
+:root.theme-neon .archive-document-form .form-select,
+:root.theme-neon .archive-document-form textarea,
+:root.theme-neon .microsys-filter .form-control,
+:root.theme-neon .microsys-filter .form-select,
+:root.theme-neon .microsys-filter textarea {
+    background: var(--archive-form-surface) !important;
+    border-color: var(--archive-form-border) !important;
+    color: var(--title) !important;
+    box-shadow: 
+        inset 0 1px 0 rgba(0, 255, 255, 0.03),
+        0 0 10px rgba(0, 255, 255, 0.05) !important;
+}
+
+:root.theme-neon .microsys-form .form-control:hover,
+:root.theme-neon .microsys-form .form-select:hover,
+:root.theme-neon .microsys-form textarea:hover,
+:root.theme-neon .archive-document-form .form-control:hover,
+:root.theme-neon .archive-document-form .form-select:hover,
+:root.theme-neon .archive-document-form textarea:hover,
+:root.theme-neon .microsys-filter .form-control:hover,
+:root.theme-neon .microsys-filter .form-select:hover,
+:root.theme-neon .microsys-filter textarea:hover {
+    border-color: rgba(0, 255, 255, 0.4) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .microsys-form .form-control:focus,
+:root.theme-neon .microsys-form .form-select:focus,
+:root.theme-neon .microsys-form textarea:focus,
+:root.theme-neon .archive-document-form .form-control:focus,
+:root.theme-neon .archive-document-form .form-select:focus,
+:root.theme-neon .archive-document-form textarea:focus,
+:root.theme-neon .microsys-filter .form-control:focus,
+:root.theme-neon .microsys-filter .form-select:focus,
+:root.theme-neon .microsys-filter textarea:focus {
+    background: linear-gradient(180deg, rgba(20, 20, 35, 0.98), rgba(12, 12, 20, 0.96)) !important;
+    border-color: var(--neon-cyan) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(0, 255, 255, 0.05),
+        0 0 0 0.22rem var(--archive-form-focus-ring),
+        0 0 20px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .microsys-filter .btn.microsys-filter-toggle[aria-expanded="true"] {
+    color: var(--neon-cyan) !important;
+    border-color: rgba(0, 255, 255, 0.4) !important;
+    background: linear-gradient(180deg, rgba(0, 40, 40, 0.98), rgba(0, 25, 25, 0.96)) !important;
+    box-shadow: 
+        inset 0 1px 0 rgba(0, 255, 255, 0.1),
+        0 0 15px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon label,
+:root.theme-neon .form-label,
+:root.theme-neon .col-form-label {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+/* Placeholder with Neon Tint */
+.theme-neon input::placeholder, 
+.theme-neon textarea::placeholder,
+.theme-neon .form-control::placeholder { 
+    color: #606080 !important; 
+    opacity: 1 !important; 
+}
+
+.theme-neon input::-webkit-input-placeholder,
+.theme-neon textarea::-webkit-input-placeholder,
+.theme-neon .form-control::-webkit-input-placeholder {
+    color: #606080 !important;
+    opacity: 1 !important;
+}
+
+.theme-neon input::-moz-placeholder,
+.theme-neon textarea::-moz-placeholder,
+.theme-neon .form-control::-moz-placeholder {
+    color: #606080 !important;
+    opacity: 1 !important;
+}
+
+/* Form Actions - Neon Buttons */
+:root.theme-neon .archive-form-action,
+:root.theme-neon .microsys-form-action,
+:root.theme-neon .microsys-filter .microsys-filter-chip,
+:root.theme-neon .microsys-filter .microsys-filter-action {
+    border-color: rgba(0, 255, 255, 0.25) !important;
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.96)) !important;
+    color: var(--title) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.08) !important;
+}
+
+:root.theme-neon .microsys-filter .btn.microsys-filter-submit {
+    color: var(--neon-cyan) !important;
+    border-color: rgba(0, 255, 255, 0.3) !important;
+    background: linear-gradient(180deg, rgba(0, 40, 50, 0.98), rgba(0, 25, 35, 0.96)) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .microsys-filter .btn.microsys-filter-toggle {
+    color: #c0c0e0 !important;
+    border-color: rgba(255, 0, 255, 0.2) !important;
+    background: linear-gradient(180deg, rgba(25, 18, 31, 0.98), rgba(15, 10, 20, 0.96)) !important;
+}
+
+:root.theme-neon .archive-form-action:hover,
+:root.theme-neon .archive-form-action:focus-visible,
+:root.theme-neon .microsys-form-action:hover,
+:root.theme-neon .microsys-form-action:focus-visible,
+:root.theme-neon .microsys-filter .microsys-filter-chip:hover,
+:root.theme-neon .microsys-filter .microsys-filter-chip:focus-visible,
+:root.theme-neon .microsys-filter .microsys-filter-action:hover,
+:root.theme-neon .microsys-filter .microsys-filter-action:focus-visible {
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .archive-form-action-icon,
+:root.theme-neon .microsys-form-action-icon,
+:root.theme-neon .microsys-filter .microsys-filter-action i {
+    color: var(--neon-cyan) !important;
+}
+
+/* Primary Action - Hot Pink Glow */
+:root.theme-neon .archive-form-action-primary .archive-form-action-icon,
+:root.theme-neon .microsys-form-action-primary .microsys-form-action-icon,
+:root.theme-neon .microsys-filter .microsys-filter-action.btn-primary {
+    color: var(--neon-pink) !important;
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.5) !important;
+}
+
+:root.theme-neon .microsys-form-action-primary {
+    border-color: rgba(255, 0, 255, 0.3) !important;
+    background: linear-gradient(180deg, rgba(40, 0, 40, 0.98), rgba(25, 0, 25, 0.96)) !important;
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.15) !important;
+}
+
+:root.theme-neon .microsys-filter .microsys-filter-action.btn-outline-success,
+:root.theme-neon .microsys-filter a.microsys-filter-action.btn-outline-success {
+    color: var(--neon-lime) !important;
+    border-color: rgba(57, 255, 20, 0.3) !important;
+    background: linear-gradient(180deg, rgba(10, 40, 10, 0.98), rgba(5, 25, 5, 0.96)) !important;
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.1) !important;
+}
+
+:root.theme-neon .microsys-filter .microsys-filter-action.btn-outline-primary,
+:root.theme-neon .microsys-filter a.microsys-filter-action.btn-outline-primary {
+    color: var(--neon-cyan) !important;
+    border-color: rgba(0, 255, 255, 0.3) !important;
+    background: linear-gradient(180deg, rgba(0, 40, 50, 0.98), rgba(0, 25, 35, 0.96)) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1) !important;
+}
+
+/* Neutral/Warning - Orange Glow */
+:root.theme-neon .archive-form-action-neutral .archive-form-action-icon,
+:root.theme-neon .microsys-form-action-neutral .microsys-form-action-icon {
+    color: var(--neon-orange) !important;
+    text-shadow: 0 0 10px rgba(255, 102, 0, 0.5) !important;
+}
+
+:root.theme-neon .microsys-form-action-neutral {
+    border-color: rgba(255, 102, 0, 0.3) !important;
+    background:
+        radial-gradient(circle at top, rgba(255, 102, 0, 0.15), transparent 56%),
+        linear-gradient(180deg, rgba(40, 20, 10, 0.98), rgba(25, 12, 5, 0.96)) !important;
+    box-shadow: 0 0 10px rgba(255, 102, 0, 0.1) !important;
+}
+
+:root.theme-neon .microsys-filter .microsys-filter-clear {
+    color: var(--neon-yellow) !important;
+    text-shadow: 0 0 10px rgba(255, 255, 0, 0.4) !important;
+    border-color: rgba(255, 255, 0, 0.3) !important;
+    background:
+        radial-gradient(circle at top, rgba(255, 255, 0, 0.12), transparent 56%),
+        linear-gradient(180deg, rgba(40, 40, 10, 0.98), rgba(25, 25, 5, 0.96)) !important;
+}
+
+/* File Cards - Cyberpunk Style */
+:root.theme-neon .archive-file-card {
+    border-color: rgba(0, 255, 255, 0.2) !important;
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.96)) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.08) !important;
+}
+
+:root.theme-neon .archive-file-field.is-dragover .archive-file-card,
+:root.theme-neon .archive-file-card:hover,
+:root.theme-neon .archive-file-card:focus-visible {
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .archive-file-tag {
+    background: rgba(0, 255, 255, 0.15) !important;
+    color: var(--neon-cyan) !important;
+    border: 1px solid rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .archive-file-tool {
+    background: rgba(0, 255, 255, 0.1) !important;
+    color: var(--neon-cyan) !important;
+    border: 1px solid rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .archive-file-tool-upload {
+    background: rgba(0, 255, 255, 0.2) !important;
+    color: var(--neon-cyan) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .archive-file-tool-scan {
+    background: rgba(255, 255, 0, 0.15) !important;
+    color: var(--neon-yellow) !important;
+    border: 1px solid rgba(255, 255, 0, 0.3) !important;
+}
+
+:root.theme-neon .archive-file-tool-clear {
+    background: rgba(255, 0, 255, 0.15) !important;
+    color: var(--neon-pink) !important;
+    border: 1px solid rgba(255, 0, 255, 0.3) !important;
+}
+
+:root.theme-neon .archive-file-icon {
+    background: rgba(0, 255, 255, 0.15) !important;
+    color: var(--neon-cyan) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .archive-file-name {
+    color: var(--title) !important;
+}
+
+:root.theme-neon .archive-file-meta {
+    color: #8080a0 !important;
+}
+
+/* 4. Tables - Cyberpunk Data Grid */
+:root.theme-neon .table {
+    color: var(--title) !important;
+    --bs-table-color: var(--title) !important;
+    --bs-table-striped-color: var(--title) !important;
+    --bs-table-active-color: var(--title) !important;
+}
+
+:root.theme-neon .table thead th {
+    background-color: var(--cyber-dark) !important;
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
+    border-color: rgba(0, 255, 255, 0.2) !important;
+    border-bottom: 2px solid var(--neon-cyan) !important;
+}
+
+:root.theme-neon .table>tbody>tr>td, 
+:root.theme-neon .table>tbody>tr>th {
+    border-color: rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .table>tbody>tr:nth-child(odd)>td, 
+:root.theme-neon .table>tbody>tr:nth-child(odd)>th {
+    --bs-table-bg-type: var(--cyber-black) !important; 
+    background-color: var(--cyber-black) !important;
+    color: var(--htitle) !important;
+}
+
+:root.theme-neon .table>tbody>tr:nth-child(even)>td, 
+:root.theme-neon .table>tbody>tr:nth-child(even)>th {
+    --bs-table-bg-type: var(--cyber-panel) !important;
+    background-color: var(--cyber-panel) !important;
+    color: var(--htitle) !important;
+}
+
+:root.theme-neon .table>tbody>tr:hover>td,
+:root.theme-neon .table>tbody>tr:hover>th {
+    background-color: rgba(0, 255, 255, 0.08) !important;
+    box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.05) !important;
+}
+
+/* 5. Dropdowns - Holographic Menu */
+:root.theme-neon .dropdown-menu {
+    background-color: var(--cyber-panel) !important;
+    border-color: var(--neon-cyan) !important;
+    border: 1px solid rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .dropdown-item {
+    color: var(--htitle) !important;
+}
+
+:root.theme-neon .dropdown-item:hover {
+    background-color: rgba(0, 255, 255, 0.15) !important;
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
+}
+
+/* 5b. Buttons - Glowing Primary */
+:root.theme-neon .btn-primary, 
+:root.theme-neon .btn-primary *,
+:root.theme-neon .btn-primary:hover,
+:root.theme-neon .btn-primary:active,
+.theme-neon .btn-primary,
+.theme-neon .btn-primary * {
+    background: linear-gradient(135deg, var(--neon-cyan) 0%, #00cccc 100%) !important;
+    border-color: var(--neon-cyan) !important;
+    color: var(--cyber-black) !important;
+    font-weight: 600 !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4) !important;
+    text-shadow: none !important;
+}
+
+:root.theme-neon .btn-primary:hover {
+    background: linear-gradient(135deg, var(--neon-pink) 0%, #cc00cc 100%) !important;
+    border-color: var(--neon-pink) !important;
+    box-shadow: 0 0 30px rgba(255, 0, 255, 0.5) !important;
+    transform: translateY(-1px);
+}
+
+/* 6. Sidebar Active State & Scrollbar - Neon Accents */
+.theme-neon .sidebar .list-group-item:not(.active),
+.theme-neon .sidebar .accordion-button.collapsed,
+.theme-neon .sidebar .accordion-button {
+    color: #a0a0c0 !important;
+}
+
+:root.theme-neon .accordion-button::after,
+.theme-neon .accordion-button::after {
+    filter: invert(0.5) sepia(1) hue-rotate(170deg) saturate(5) brightness(1.2) !important;
+}
+
+:root.theme-neon .sidebar .list-group-item.active,
+:root.theme-neon .sidebar .accordion-button:not(.collapsed),
+.theme-neon .sidebar .list-group-item.active,
+.theme-neon .sidebar .accordion-button:not(.collapsed) {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
+    background: rgba(0, 255, 255, 0.08) !important;
+    border-left: 3px solid var(--neon-cyan) !important;
+    box-shadow: 
+        inset 5px 0 15px rgba(0, 255, 255, 0.1),
+        0 0 15px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon ::-webkit-scrollbar-track {
+    background: var(--cyber-black); 
+}
+
+:root.theme-neon ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--neon-cyan), var(--neon-pink)) !important;
+    border: 3px solid var(--cyber-black);
+    border-radius: 10px;
+}
+
+:root.theme-neon ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, var(--neon-pink), var(--neon-cyan)) !important;
+}
+
+/* 7. Plotly/Charts - Neon Data Visualization */
+:root.theme-neon .js-plotly-plot .main-svg {
+    background: transparent !important;
+}
+
+:root.theme-neon .js-plotly-plot text {
+    fill: var(--neon-cyan) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .js-plotly-plot .xgrid,
+:root.theme-neon .js-plotly-plot .ygrid,
+:root.theme-neon .js-plotly-plot .zerolinelayer path {
+    stroke: rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .js-plotly-plot .bg {
+    fill: rgba(0, 0, 0, 0) !important;
+}
+
+/* 8. Text Elements & Headers - Neon Typography */
+:root.theme-neon h1, 
+:root.theme-neon h2, 
+:root.theme-neon h3, 
+:root.theme-neon h4, 
+:root.theme-neon h5, 
+:root.theme-neon h6,
+:root.theme-neon .header-title,
+:root.theme-neon .stat-value,
+:root.theme-neon .form-text,
+:root.theme-neon .accordion-button,
+:root.theme-neon label,
+:root.theme-neon .form-label,
+:root.theme-neon .titlebar p,
+:root.theme-neon .card-title-sys,
+.theme-neon h1, 
+.theme-neon h2, 
+.theme-neon h3, 
+.theme-neon h4, 
+.theme-neon h5, 
+.theme-neon h6,
+.theme-neon .header-title,
+.theme-neon .stat-value,
+.theme-neon .form-text,
+.theme-neon .accordion-button,
+.theme-neon label,
+.theme-neon .form-label,
+.theme-neon .titlebar p,
+.theme-neon .card-title-sys {
+    color: #ffffff !important;
+}
+
+:root.theme-neon h1, 
+:root.theme-neon h2, 
+:root.theme-neon .page-title,
+.theme-neon h1, 
+.theme-neon h2, 
+.theme-neon .page-title {
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .card-text-sys {
+    color: #a0a0c0 !important;
+}
+
+/* 9. Sidebar & Button Specifics */
+:root.theme-neon .sidebar .list-group-item,
+:root.theme-neon .sidebar .accordion-button,
+:root.theme-neon .sidebar .btn {
+    border-color: transparent !important;
+}
+
+:root.theme-neon .sidebar .group-url-btn:hover {
+    color: var(--neon-cyan) !important;
+    background-color: rgba(0, 255, 255, 0.1) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
+}
+
+:root.theme-neon .titlebar .login-title-btn {
+    border-color: transparent !important;
+    background-color: transparent !important;
+}
+
+:root.theme-neon .titlebar .ms-titlebar-home {
+    color: var(--neon-cyan) !important;
+    background: rgba(0, 255, 255, 0.08) !important;
+    border-color: rgba(0, 255, 255, 0.25) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .titlebar .ms-titlebar-home:hover,
+:root.theme-neon .titlebar .ms-titlebar-home:focus,
+:root.theme-neon .titlebar .ms-titlebar-home:focus-visible {
+    color: var(--neon-pink) !important;
+    background: rgba(255, 0, 255, 0.15) !important;
+    border-color: rgba(255, 0, 255, 0.4) !important;
+    box-shadow: 0 0 25px rgba(255, 0, 255, 0.3) !important;
+}
+
+/* Soft Colored Buttons - Neon Variants */
+:root.theme-neon .btn,
+.theme-neon .btn {
+    border: 1px solid rgba(0, 255, 255, 0.25) !important;
+    transition: all 0.2s ease !important;
+}
+
+:root.theme-neon .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .btn-secondary,
+:root.theme-neon .btn-success,
+:root.theme-neon .btn-info,
+:root.theme-neon .btn-warning,
+:root.theme-neon .btn-danger,
+:root.theme-neon .btn-light {
+    color: var(--cyber-black) !important;
+    font-weight: 500 !important;
+}
+
+:root.theme-neon .btn-dark {
+    background-color: var(--cyber-panel) !important;
+    border-color: rgba(0, 255, 255, 0.3) !important;
+    color: var(--neon-cyan) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .btn-dark:hover {
+    background-color: var(--cyber-dark) !important;
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .btn-outline-dark {
+    border-color: rgba(0, 255, 255, 0.4) !important;
+    color: var(--neon-cyan) !important;
+    background: transparent !important;
+}
+
+:root.theme-neon .btn-outline-dark:hover {
+    background-color: rgba(0, 255, 255, 0.15) !important;
+    border-color: var(--neon-cyan) !important;
+    color: #fff !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .btn-secondary .bi,
+:root.theme-neon .btn-success .bi,
+:root.theme-neon .btn-info .bi,
+:root.theme-neon .btn-warning .bi,
+:root.theme-neon .btn-danger .bi,
+:root.theme-neon .btn-light .bi {
+    color: inherit !important;
+}
+
+/* Hover States for Neon Buttons */
+:root.theme-neon .btn-secondary:hover { 
+    background-color: #a0a0c0 !important; 
+    box-shadow: 0 0 15px rgba(160, 160, 192, 0.3) !important;
+}
+
+:root.theme-neon .btn-success:hover { 
+    background-color: var(--neon-lime) !important; 
+    box-shadow: 0 0 20px rgba(57, 255, 20, 0.4) !important;
+}
+
+:root.theme-neon .btn-info:hover { 
+    background-color: var(--neon-cyan) !important; 
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4) !important;
+}
+
+:root.theme-neon .btn-warning:hover { 
+    background-color: var(--neon-yellow) !important; 
+    box-shadow: 0 0 20px rgba(255, 255, 0, 0.4) !important;
+}
+
+:root.theme-neon .btn-danger:hover { 
+    background-color: var(--neon-pink) !important; 
+    box-shadow: 0 0 20px rgba(255, 0, 255, 0.4) !important;
+}
+
+:root.theme-neon .theme-preview {
+    border: none !important;
+    box-shadow: none !important;
+    outline: 2px solid rgba(0, 255, 255, 0.3);
+    outline-offset: 2px;
+}
+
+:root.theme-neon .theme-preview.active {
+    outline-color: var(--neon-cyan) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5) !important;
+}
+
+/* 10. Users App Glass Components - Cyberpunk Glass */
+:root.theme-neon .glass-profile,
+:root.theme-neon .glass-card,
+:root.theme-neon .glass-detail {
+    background: rgba(18, 18, 31, 0.95) !important;
+    border: 1px solid rgba(0, 255, 255, 0.2) !important;
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        0 0 30px rgba(0, 255, 255, 0.08) !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+:root.theme-neon .info-label,
+:root.theme-neon .info-label-sm,
+:root.theme-neon .form-label-custom {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .info-value,
+:root.theme-neon .info-value-lg,
+:root.theme-neon .section-header,
+:root.theme-neon .page-title {
+    color: #ffffff !important;
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .form-control-glass {
+    background: rgba(10, 10, 15, 0.6) !important;
+    border-color: rgba(0, 255, 255, 0.2) !important;
+    color: var(--title) !important;
+}
+
+:root.theme-neon .form-control-glass:focus {
+    background: rgba(10, 10, 15, 0.8) !important;
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.2) !important;
+}
+
+/* 11. Nav Tabs - Neon Tabs */
+:root.theme-neon .nav-link {
+    color: #8080a0 !important;
+    border-color: transparent !important;
+}
+
+:root.theme-neon .nav-link:hover {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .nav-link.active {
+    color: var(--neon-cyan) !important;
+    background-color: rgba(0, 255, 255, 0.1) !important;
+    border-color: var(--neon-cyan) !important;
+    border-bottom-color: transparent !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
+    box-shadow: 
+        inset 0 2px 0 var(--neon-cyan),
+        0 0 15px rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .modern-tabs .nav-link {
+    border-color: rgba(0, 255, 255, 0.25) !important;
+    background: rgba(0, 255, 255, 0.03);
+}
+
+:root.theme-neon .modern-tabs .nav-link:hover {
+    background: rgba(0, 255, 255, 0.1) !important;
+    color: var(--neon-cyan) !important;
+    border-color: rgba(0, 255, 255, 0.4) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .modern-tabs .nav-link.active {
+    color: var(--cyber-black) !important;
+    background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-pink) 100%) !important;
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 
+        0 10px 30px rgba(0, 255, 255, 0.3),
+        0 0 0 1px rgba(0, 255, 255, 0.3) !important;
+    text-shadow: none !important;
+    font-weight: 600 !important;
+}
+
+:root.theme-neon .btn[class*="btn-outline-"] {
+    border-color: rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon #decreeTabs .nav-link.active {
+    color: var(--neon-cyan) !important;
+    background-color: rgba(0, 255, 255, 0.15) !important;
+    border-color: rgba(0, 255, 255, 0.4) rgba(0, 255, 255, 0.4) transparent !important;
+    box-shadow: inset 0 -2px 0 var(--neon-cyan);
+}
+
+/* 12. Reports & Gen Report - Cyberpunk Terminal Style */
+:root.theme-neon .glass-container,
+:root.theme-neon .report-stat-card {
+    background: rgba(18, 18, 31, 0.95) !important;
+    border: 1px solid rgba(0, 255, 255, 0.2) !important;
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        0 0 30px rgba(0, 255, 255, 0.08) !important;
+}
+
+:root.theme-neon .filter-label, 
+:root.theme-neon .stat-title {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .glass-input {
+    background-color: rgba(10, 10, 15, 0.6) !important;
+    border-color: rgba(0, 255, 255, 0.2) !important;
+    color: var(--title) !important;
+}
+
+/* 13. Utilities & Icons - Neon Glow */
+:root.theme-neon .text-dark {
+    color: #ffffff !important;
+}
+
+:root.theme-neon .text-light {
+    color: var(--cyber-panel) !important;
+}
+
+:root.theme-neon .bi-three-dots,
+:root.theme-neon .bi-three-dots-vertical,
+:root.theme-neon .bi:not(.btn-primary .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+/* 14. Sidebar Toggle - Neon Button */
+:root.theme-neon .sidebar-toggle {
+    color: var(--neon-cyan) !important;
+    background-color: rgba(0, 255, 255, 0.1) !important;
+    border-color: rgba(0, 255, 255, 0.25) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .sidebar-toggle:hover {
+    background-color: rgba(0, 255, 255, 0.2) !important;
+    color: #fff !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.25) !important;
+}
+
+/* 15. Login Screen - Cyberpunk Terminal */
+:root.theme-neon .page .left {
+    background: rgba(18, 18, 31, 0.98) !important;
+    border: 1px solid rgba(0, 255, 255, 0.25) !important;
+    box-shadow: 
+        0 8px 32px 0 rgba(0, 0, 0, 0.5),
+        0 0 40px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .page .right {
+    background: linear-gradient(135deg, var(--cyber-dark) 0%, #1a0a2e 100%) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5) !important;
+    color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .page label {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .page input {
+    background: rgba(10, 10, 15, 0.6) !important;
+    border-color: rgba(0, 255, 255, 0.2) !important;
+    color: var(--title) !important;
+}
+
+:root.theme-neon .page input:focus {
+    background: rgba(10, 10, 15, 0.8) !important;
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.2), 0 0 20px rgba(0, 255, 255, 0.2) !important;
+}
+
+/* 16. Pagination - Neon Navigation */
+:root.theme-neon .pagination .page-link {
+    background-color: var(--cyber-panel) !important;
+    border-color: rgba(0, 255, 255, 0.2) !important;
+    color: #a0a0c0 !important;
+}
+
+:root.theme-neon .pagination .page-link:hover {
+    background-color: rgba(0, 255, 255, 0.15) !important;
+    border-color: rgba(0, 255, 255, 0.4) !important;
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-pink) 100%) !important;
+    border-color: var(--neon-cyan) !important;
+    color: var(--cyber-black) !important;
+    font-weight: 600 !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4) !important;
+}
+
+:root.theme-neon .pagination .page-item.disabled .page-link {
+    background-color: var(--cyber-dark) !important;
+    border-color: rgba(0, 255, 255, 0.1) !important;
+    color: #404060 !important;
+}
+
+/* 17. File Input - Cyberpunk Upload */
+:root.theme-neon input[type="file"].form-control {
+    background-color: var(--cyber-panel) !important;
+    color: var(--title) !important;
+    border-color: rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon input[type="file"]::file-selector-button {
+    background-color: rgba(0, 255, 255, 0.15) !important;
+    color: var(--neon-cyan) !important;
+    border: none !important;
+    border-right: 1px solid rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1) !important;
+}
+
+/* 19. Sidebar Tooltip - Holographic */
+:root.theme-neon .tooltip-custom .tooltip-inner {
+    background-color: var(--cyber-panel) !important;
+    color: var(--neon-cyan) !important;
+    border: 1px solid rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.15) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+/* 18. Permissions Card - Cyberpunk Access Control */
+:root.theme-neon .permissions-card-header {
+    background: linear-gradient(90deg, var(--cyber-dark) 0%, var(--cyber-panel) 100%) !important;
+    color: var(--neon-cyan) !important;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.25) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .form-check-input {
+    background-color: var(--cyber-panel) !important;
+    border-color: rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .form-check-input:checked {
+    background-color: var(--neon-cyan) !important;
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.4) !important;
+}
+
+:root.theme-neon .permissions-card-header h5.app-title {
+    color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .permissions-card-body {
+    background-color: var(--cyber-panel) !important;
+    color: var(--title) !important;
+}
+
+:root.theme-neon .model-group {
+    background-color: var(--cyber-dark) !important;
+    border: 1px solid rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .model-header {
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.1) 0%, transparent 100%) !important;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15) !important;
+    color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .model-title {
+    color: var(--title) !important;
+}
+
+:root.theme-neon .model-permissions {
+    background-color: var(--cyber-black) !important;
+}
+
+:root.theme-neon .permission-item:hover {
+    background-color: rgba(0, 255, 255, 0.08) !important;
+    box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.05) !important;
+}
+
+:root.theme-neon .permissions-card-footer {
+    background-color: var(--cyber-dark) !important;
+    border-top: 1px solid rgba(0, 255, 255, 0.15) !important;
+}
+
+/* 20. Bootstrap Alerts - Neon Notifications */
+:root.theme-neon .alert-success {
+    background-color: rgba(57, 255, 20, 0.12) !important;
+    border-color: rgba(57, 255, 20, 0.35) !important;
+    color: var(--neon-lime) !important;
+    box-shadow: 0 0 20px rgba(57, 255, 20, 0.15) !important;
+}
+
+:root.theme-neon .alert-success .alert-link {
+    color: #6eff5a !important;
+}
+
+:root.theme-neon .alert-warning {
+    background-color: rgba(255, 255, 0, 0.1) !important;
+    border-color: rgba(255, 255, 0, 0.35) !important;
+    color: var(--neon-yellow) !important;
+    box-shadow: 0 0 20px rgba(255, 255, 0, 0.15) !important;
+}
+
+:root.theme-neon .alert-warning .alert-link {
+    color: #ffff66 !important;
+}
+
+:root.theme-neon .alert-danger {
+    background-color: rgba(255, 0, 255, 0.12) !important;
+    border-color: rgba(255, 0, 255, 0.35) !important;
+    color: var(--neon-pink) !important;
+    box-shadow: 0 0 20px rgba(255, 0, 255, 0.15) !important;
+}
+
+:root.theme-neon .alert-danger .alert-link {
+    color: #ff66ff !important;
+}
+
+:root.theme-neon .alert-info {
+    background-color: rgba(0, 255, 255, 0.12) !important;
+    border-color: rgba(0, 255, 255, 0.35) !important;
+    color: var(--neon-cyan) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .alert-info .alert-link {
+    color: #66ffff !important;
+}
+
+/* 21. Table Danger Rows - Neon Warning */
+:root.theme-neon .table > tbody > tr.table-danger > td,
+:root.theme-neon .table > tbody > tr.table-danger > th {
+    --bs-table-bg-type: rgba(255, 0, 255, 0.15) !important;
+    background-color: rgba(255, 0, 255, 0.15) !important;
+    color: var(--neon-pink) !important;
+}
+
+:root.theme-neon .table-hover > tbody > tr.table-danger:hover > * {
+    --bs-table-accent-bg: rgba(255, 0, 255, 0.25) !important;
+}
+
+/* 22. Badges - Neon Indicators */
+:root.theme-neon .badge {
+    border: 1px solid rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .badge.bg-primary {
+    background: linear-gradient(135deg, var(--neon-cyan) 0%, #00cccc 100%) !important;
+    color: var(--cyber-black) !important;
+    border-color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .badge.bg-success {
+    background: linear-gradient(135deg, var(--neon-lime) 0%, #2de010 100%) !important;
+    color: var(--cyber-black) !important;
+    border-color: var(--neon-lime) !important;
+}
+
+:root.theme-neon .badge.bg-warning {
+    background: linear-gradient(135deg, var(--neon-yellow) 0%, #e6e600 100%) !important;
+    color: var(--cyber-black) !important;
+    border-color: var(--neon-yellow) !important;
+}
+
+:root.theme-neon .badge.bg-danger {
+    background: linear-gradient(135deg, var(--neon-pink) 0%, #cc00cc 100%) !important;
+    color: var(--cyber-black) !important;
+    border-color: var(--neon-pink) !important;
+}
+
+:root.theme-neon .badge.bg-info {
+    background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-purple) 100%) !important;
+    color: var(--cyber-black) !important;
+    border-color: var(--neon-cyan) !important;
+}
+
+/* 23. Progress Bars - Neon Fill */
+:root.theme-neon .progress {
+    background-color: var(--cyber-dark) !important;
+    border: 1px solid rgba(0, 255, 255, 0.15) !important;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5) !important;
+}
+
+:root.theme-neon .progress-bar {
+    background: linear-gradient(90deg, var(--neon-cyan) 0%, var(--neon-pink) 100%) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .progress-bar.bg-success {
+    background: linear-gradient(90deg, var(--neon-lime) 0%, #2de010 100%) !important;
+    box-shadow: 0 0 15px rgba(57, 255, 20, 0.3) !important;
+}
+
+:root.theme-neon .progress-bar.bg-warning {
+    background: linear-gradient(90deg, var(--neon-yellow) 0%, #e6e600 100%) !important;
+    box-shadow: 0 0 15px rgba(255, 255, 0, 0.3) !important;
+}
+
+:root.theme-neon .progress-bar.bg-danger {
+    background: linear-gradient(90deg, var(--neon-pink) 0%, #cc00cc 100%) !important;
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.3) !important;
+}
+
+/* 24. List Groups - Cyberpunk Menu */
+:root.theme-neon .list-group-item {
+    background-color: var(--cyber-panel) !important;
+    border-color: rgba(0, 255, 255, 0.1) !important;
+    color: var(--title) !important;
+}
+
+:root.theme-neon .list-group-item:hover {
+    background-color: rgba(0, 255, 255, 0.08) !important;
+    border-color: rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .list-group-item.active {
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.15) 0%, rgba(255, 0, 255, 0.1) 100%) !important;
+    border-color: var(--neon-cyan) !important;
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
+    box-shadow: 
+        inset 3px 0 0 var(--neon-cyan),
+        0 0 20px rgba(0, 255, 255, 0.15) !important;
+}
+
+/* 25. Accordions - Cyberpunk Collapsible */
+:root.theme-neon .accordion-item {
+    background-color: var(--cyber-panel) !important;
+    border-color: rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .accordion-button {
+    background-color: var(--cyber-dark) !important;
+    color: var(--title) !important;
+    border-color: rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .accordion-button:not(.collapsed) {
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.1) 0%, transparent 100%) !important;
+    color: var(--neon-cyan) !important;
+    box-shadow: inset 0 -1px 0 rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .accordion-body {
+    background-color: var(--cyber-black) !important;
+    color: var(--title) !important;
+}
+
+/* 26. Modals - Cyberpunk Popup */
+:root.theme-neon .modal-header {
+    background: linear-gradient(90deg, var(--cyber-dark) 0%, var(--cyber-panel) 100%) !important;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .modal-header .modal-title {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .modal-footer {
+    background-color: var(--cyber-dark) !important;
+    border-top: 1px solid rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .modal-body {
+    background-color: var(--cyber-panel) !important;
+}
+
+:root.theme-neon .btn-close {
+    filter: invert(0.8) sepia(1) hue-rotate(170deg) saturate(5) !important;
+    opacity: 0.8 !important;
+}
+
+:root.theme-neon .btn-close:hover {
+    opacity: 1 !important;
+    filter: invert(0.8) sepia(1) hue-rotate(300deg) saturate(5) !important;
+}
+
+/* 27. Toasts - Neon Notifications */
+:root.theme-neon .toast {
+    background-color: var(--cyber-panel) !important;
+    border: 1px solid rgba(0, 255, 255, 0.25) !important;
+    box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .toast-header {
+    background: linear-gradient(90deg, var(--cyber-dark) 0%, var(--cyber-panel) 100%) !important;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15) !important;
+    color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .toast-body {
+    color: var(--title) !important;
+}
+
+/* 28. Tooltips - Neon Hints */
+:root.theme-neon .tooltip {
+    --bs-tooltip-bg: var(--cyber-panel) !important;
+    --bs-tooltip-color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .tooltip-inner {
+    background-color: var(--cyber-panel) !important;
+    color: var(--neon-cyan) !important;
+    border: 1px solid rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.15) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+/* 29. Breadcrumbs - Cyberpunk Path */
+:root.theme-neon .breadcrumb {
+    background-color: var(--cyber-panel) !important;
+    border: 1px solid rgba(0, 255, 255, 0.15) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.05) !important;
+}
+
+:root.theme-neon .breadcrumb-item {
+    color: #8080a0 !important;
+}
+
+:root.theme-neon .breadcrumb-item.active {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .breadcrumb-item a {
+    color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .breadcrumb-item a:hover {
+    color: var(--neon-pink) !important;
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.4) !important;
+}
+
+:root.theme-neon .breadcrumb-item + .breadcrumb-item::before {
+    color: rgba(0, 255, 255, 0.4) !important;
+}
+
+/* 30. Spinners - Neon Loading */
+:root.theme-neon .spinner-border {
+    border-color: var(--neon-cyan) !important;
+    border-right-color: transparent !important;
+}
+
+:root.theme-neon .spinner-grow {
+    background-color: var(--neon-cyan) !important;
+    opacity: 0.8 !important;
+}
+
+/* 31. Offcanvas - Cyberpunk Slide Panel */
+:root.theme-neon .offcanvas {
+    background-color: var(--cyber-dark) !important;
+    border-left: 1px solid rgba(0, 255, 255, 0.2) !important;
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+:root.theme-neon .offcanvas-header {
+    background: linear-gradient(90deg, var(--cyber-panel) 0%, var(--cyber-dark) 100%) !important;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .offcanvas-title {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
+}
+
+/* 32. Theme Picker - Neon Circle */
+:root.theme-neon .current-theme-indicator {
+    border-color: rgba(0, 255, 255, 0.5) !important;
+    box-shadow: 
+        inset 0 0 0 1px rgba(0, 255, 255, 0.2),
+        0 0 15px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .current-theme-indicator:hover {
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.5) !important;
+    transform: translateY(-1px) scale(1.06);
+}
+
+:root.theme-neon .theme-popup {
+    background: var(--cyber-panel) !important;
+    border: 1px solid rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .theme-option-circle {
+    box-shadow: inset 0 0 0 1px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .theme-option-circle:hover {
+    transform: scale(1.2);
+    box-shadow: 
+        inset 0 0 0 1px rgba(0, 255, 255, 0.3),
+        0 0 15px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .theme-option-circle.active {
+    border-color: var(--neon-cyan) !important;
+    box-shadow: 
+        0 0 0 2px var(--cyber-black),
+        0 0 0 4px var(--neon-cyan),
+        0 0 20px rgba(0, 255, 255, 0.5) !important;
+}
+
+/* 33. Floating Scan Lines Effect (Subtle) */
+:root.theme-neon body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 255, 255, 0.015) 2px,
+        rgba(0, 255, 255, 0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+    animation: scanlines 10s linear infinite;
+}
+
+@keyframes scanlines {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(4px); }
+}
+
+/* 34. Code/Pre Blocks - Terminal Style */
+:root.theme-neon code,
+:root.theme-neon pre {
+    background-color: var(--cyber-dark) !important;
+    border: 1px solid rgba(0, 255, 255, 0.2) !important;
+    color: var(--neon-cyan) !important;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+:root.theme-neon pre {
+    border-left: 3px solid var(--neon-cyan) !important;
+}
+
+/* 35. Keyboard/Shortcuts - Neon Keys */
+:root.theme-neon kbd {
+    background: linear-gradient(180deg, var(--cyber-panel) 0%, var(--cyber-dark) 100%) !important;
+    border: 1px solid rgba(0, 255, 255, 0.3) !important;
+    border-bottom-width: 3px !important;
+    color: var(--neon-cyan) !important;
+    box-shadow: 
+        0 2px 0 rgba(0, 255, 255, 0.1),
+        0 0 10px rgba(0, 255, 255, 0.1) !important;
+}
+
+/* 36. Special Effects - Glowing Corners on Cards */
+:root.theme-neon .card::before,
+:root.theme-neon .option-section::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.3) 0%, transparent 30%, transparent 70%, rgba(255, 0, 255, 0.3) 100%);
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+:root.theme-neon .card:hover::before,
+:root.theme-neon .option-section:hover::before {
+    opacity: 1;
+}
+
+:root.theme-neon .card,
+:root.theme-neon .option-section {
+    position: relative;
+}
+
+/* 37. Active/Focus States - Neon Ring */
+:root.theme-neon *:focus-visible {
+    outline: 2px solid var(--neon-cyan) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3) !important;
+}
+
+/* 38. Disabled States - Dimmed Neon */
+:root.theme-neon .disabled,
+:root.theme-neon :disabled {
+    opacity: 0.5 !important;
+    filter: grayscale(0.5) !important;
+}
+
+/* 39. Links - Neon Glow */
+:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item) {
+    color: var(--neon-cyan) !important;
+    text-decoration: none !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.2) !important;
+    transition: all 0.2s ease !important;
+}
+
+:root.theme-neon a:not(.btn):not(.nav-link):not(.dropdown-item):not(.list-group-item):hover {
+    color: var(--neon-pink) !important;
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.4) !important;
+}
+
+/* 40. Horizontal Rules - Neon Line */
+:root.theme-neon hr {
+    border-color: rgba(0, 255, 255, 0.2) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1) !important;
+    border-top-width: 1px !important;
+}
+
+/* 41. Blockquotes - Cyberpunk Quote */
+:root.theme-neon blockquote {
+    border-left: 3px solid var(--neon-cyan) !important;
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.05) 0%, transparent 100%) !important;
+    color: var(--title) !important;
+}
+
+/* 42. Tables Advanced - Neon Grid Lines */
+:root.theme-neon .table-bordered {
+    border-color: rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .table-bordered th,
+:root.theme-neon .table-bordered td {
+    border-color: rgba(0, 255, 255, 0.15) !important;
+}
+
+/* 43. Input Groups - Neon Attachments */
+:root.theme-neon .input-group-text {
+    background: linear-gradient(180deg, rgba(0, 255, 255, 0.1) 0%, rgba(0, 255, 255, 0.05) 100%) !important;
+    border-color: rgba(0, 255, 255, 0.25) !important;
+    color: var(--neon-cyan) !important;
+}
+
+/* 44. Floating Labels - Neon Float */
+:root.theme-neon .form-floating > label {
+    color: #8080a0 !important;
+}
+
+:root.theme-neon .form-floating > .form-control:focus ~ label,
+:root.theme-neon .form-floating > .form-control:not(:placeholder-shown) ~ label {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+/* 45. Form Range - Neon Slider */
+:root.theme-neon .form-range::-webkit-slider-thumb {
+    background: var(--neon-cyan) !important;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
+}
+
+:root.theme-neon .form-range::-webkit-slider-runnable-track {
+    background-color: var(--cyber-dark) !important;
+    border: 1px solid rgba(0, 255, 255, 0.2) !important;
+}
+
+/* 46. Form Select Multiple - Neon List */
+:root.theme-neon select[multiple] option:checked {
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.2) 0%, rgba(255, 0, 255, 0.1) 100%) !important;
+    color: var(--neon-cyan) !important;
+}
+
+/* 47. Validation States - Neon Feedback */
+:root.theme-neon .is-valid {
+    border-color: var(--neon-lime) !important;
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.2) !important;
+}
+
+:root.theme-neon .valid-feedback {
+    color: var(--neon-lime) !important;
+    text-shadow: 0 0 5px rgba(57, 255, 20, 0.3) !important;
+}
+
+:root.theme-neon .is-invalid {
+    border-color: var(--neon-pink) !important;
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.2) !important;
+}
+
+:root.theme-neon .invalid-feedback {
+    color: var(--neon-pink) !important;
+    text-shadow: 0 0 5px rgba(255, 0, 255, 0.3) !important;
+}
+
+/* 48. Popovers - Neon Popup */
+:root.theme-neon .popover {
+    background-color: var(--cyber-panel) !important;
+    border: 1px solid rgba(0, 255, 255, 0.25) !important;
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .popover-header {
+    background: linear-gradient(90deg, var(--cyber-dark) 0%, var(--cyber-panel) 100%) !important;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.15) !important;
+    color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .popover-body {
+    color: var(--title) !important;
+}
+
+:root.theme-neon .popover .popover-arrow::before {
+    border-color: transparent !important;
+}
+
+:root.theme-neon .popover .popover-arrow::after {
+    border-color: var(--cyber-panel) !important;
+}
+
+/* 49. Figures/Captions - Neon Caption */
+:root.theme-neon figure figcaption,
+:root.theme-neon .figure-caption {
+    color: #8080a0 !important;
+}
+
+/* 50. Print - Disable Neon Effects */
+@media print {
+    :root.theme-neon * {
+        text-shadow: none !important;
+        box-shadow: none !important;
+    }
+    
+    :root.theme-neon body::after,
+    :root.theme-neon::before {
+        display: none !important;
+    }
+}

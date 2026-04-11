@@ -6,6 +6,8 @@ This module powers:
 2. Default zero-boilerplate sidebar configuration generation.
 3. Transformation of stored sidebar JSON into render-ready items/groups.
 """
+import re
+
 from django.apps import apps
 from django.urls import NoReverseMatch, URLPattern, URLResolver, get_resolver, reverse
 from django.utils.encoding import force_str
@@ -41,6 +43,18 @@ EXCLUDED_NAME_PARTS = (
     'resend_otp',
     'reset_password',
 )
+
+EXCLUDED_ROUTE_TOKENS = {
+    'ajax',
+    'add',
+    'create',
+    'edit',
+    'update',
+}
+
+EXCLUDED_EXACT_ROUTE_NAMES = {
+    'set_active_model',
+}
 
 EXCLUDED_NAMESPACE_PREFIXES = {
     'admin',
@@ -157,6 +171,10 @@ def _humanize(name):
     return ' '.join(part.capitalize() for part in name.split())
 
 
+def _route_name_tokens(value):
+    return [token for token in re.split(r'[_:\-]+', (value or '').lower()) if token]
+
+
 def _plain_text(value, fallback=''):
     if value is None:
         return fallback
@@ -271,10 +289,8 @@ def _infer_label(url_name, strings, model=None, callback=None):
     if url_name in SYSTEM_ROUTE_META:
         return _plain_text(strings.get(SYSTEM_ROUTE_META[url_name]['label_key'], _humanize(leaf)))
 
-    if model is not None and leaf.endswith('list'):
-        return _plain_text(strings.get(f'model_{model._meta.model_name}', str(model._meta.verbose_name_plural)))
-
     candidates = [
+        f'view_{leaf}',
         f'page_title_{namespace}_{leaf}' if namespace else '',
         f'page_title_{leaf}',
         f'{namespace}_{leaf}' if namespace else '',
@@ -285,6 +301,13 @@ def _infer_label(url_name, strings, model=None, callback=None):
             return _plain_text(strings[key])
 
     if model is not None:
+        if leaf.endswith('list'):
+            return _plain_text(
+                strings.get(
+                    f'models_{model._meta.model_name}',
+                    strings.get(f'model_{model._meta.model_name}', str(model._meta.verbose_name_plural))
+                )
+            )
         if leaf in ['dashboard', 'index', 'home']:
             return _plain_text(strings.get(f'{model._meta.app_label}_{leaf}', _humanize(f'{model._meta.app_label} {leaf}')))
         return _plain_text(strings.get(f'model_{model._meta.model_name}', str(model._meta.verbose_name_plural)))
@@ -557,10 +580,15 @@ def _is_candidate(url_name, url, callback, include_system_items=False):
     namespace = url_name.split(':')[0] if ':' in url_name else ''
     lower_name = url_name.lower()
     lower_leaf = leaf.lower()
+    leaf_tokens = set(_route_name_tokens(leaf))
 
     if namespace in EXCLUDED_NAMESPACE_PREFIXES:
         return False
     if lower_leaf in EXCLUDED_EXACT_NAMES and not (include_system_items and _is_configurable_system_url(url_name)):
+        return False
+    if lower_leaf in EXCLUDED_EXACT_ROUTE_NAMES:
+        return False
+    if leaf_tokens.intersection(EXCLUDED_ROUTE_TOKENS):
         return False
     if any(part in lower_name for part in EXCLUDED_NAME_PARTS):
         return False
@@ -726,11 +754,13 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
             if items:
                 group_id = entry.get('id') or f"group-{len(render_entries) + 1}"
                 has_active = any(item.get('active') for item in items)
+                inferred_group_label = next((item.get('group_label') for item in items if item.get('group_label')), None)
+                inferred_group_icon = next((item.get('group_icon') for item in items if item.get('group_icon')), None)
                 render_entries.append({
                     'kind': 'group',
                     'id': group_id,
-                    'label': entry.get('label') or 'Group',
-                    'icon': entry.get('icon') or 'bi-folder2-open',
+                    'label': inferred_group_label or entry.get('label') or 'Group',
+                    'icon': inferred_group_icon or entry.get('icon') or 'bi-folder2-open',
                     'url': _resolve_group_url(entry),
                     'url_name': entry.get('url_name'),
                     'items': items,
@@ -770,7 +800,12 @@ def _resolve_sidebar_item(entry, catalog):
     discovered = catalog.get(item.get('id') or item.get('url_name') or '')
     if discovered:
         merged = dict(discovered)
-        merged.update({k: v for k, v in item.items() if v not in [None, '', [], {}]})
+        merged.update({
+            k: v
+            for k, v in item.items()
+            if k not in {'label', 'group_label'}
+            and v not in [None, '', [], {}]
+        })
         item = merged
 
     url_name = item.get('url_name')

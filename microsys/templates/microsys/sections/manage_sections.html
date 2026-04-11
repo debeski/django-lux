@@ -1,7 +1,12 @@
-{% extends 'microsys/base.html' %}
+{% extends 'microsys/form_base.html' %}
 {% load crispy_forms_tags %}
 {% load django_tables2 %}
 {% load static %}
+
+{% block extra_head %}
+    {% include "microsys/forms/filter_assets_head.html" %}
+    {{ block.super }}
+{% endblock %}
 
 {% block content %}
 
@@ -46,7 +51,7 @@
             </h4>
         </div> -->
         <div class="card-body mt-2">
-            <form method="post" novalidate>
+            <form method="post" novalidate class="microsys-form">
                 {% csrf_token %}
                 {% crispy form %}
                 {% if subsection_selects %}
@@ -56,13 +61,22 @@
                 {% endif %}
                 {% if not hide_form_buttons %}
                     {% if show_cancel and cancel_url %}
-                    <div class="d-flex mt-3">
-                        <button type="submit" class="btn btn-primary rounded-start-pill rounded-end-0">{{ MS_TRANS.save }}</button>
-                        <a href="{{ cancel_url }}" class="btn btn-outline-warning rounded-end-pill rounded-start-0">{{ MS_TRANS.cancel }}</a>
+                    <div class="microsys-form-actions mt-3">
+                        <button type="submit" class="microsys-form-action microsys-form-action-primary" aria-label="{{ MS_TRANS.save }}" title="{{ MS_TRANS.save }}">
+                            <span class="microsys-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+                            <span class="visually-hidden">{{ MS_TRANS.save }}</span>
+                        </button>
+                        <a href="{{ cancel_url }}" class="microsys-form-action microsys-form-action-neutral" aria-label="{{ MS_TRANS.cancel }}" title="{{ MS_TRANS.cancel }}">
+                            <span class="microsys-form-action-icon"><i class="bi bi-x-lg" aria-hidden="true"></i></span>
+                            <span class="visually-hidden">{{ MS_TRANS.cancel }}</span>
+                        </a>
                     </div>
                     {% else %}
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-primary rounded-pill">{{ MS_TRANS.save }}</button>
+                    <div class="microsys-form-actions mt-3">
+                        <button type="submit" class="microsys-form-action microsys-form-action-primary" aria-label="{{ MS_TRANS.save }}" title="{{ MS_TRANS.save }}">
+                            <span class="microsys-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+                            <span class="visually-hidden">{{ MS_TRANS.save }}</span>
+                        </button>
                     </div>
                     {% endif %}
                 {% endif %}
@@ -107,7 +121,7 @@
             <h5 class="modal-title" id="addSubsectionModalLabel_{{ subsection.name }}"><i class="bi bi-plus-circle me-2"></i>{{ MS_TRANS.add_label }} {{ subsection.verbose_name }}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <div class="modal-body">
+          <div class="modal-body microsys-form">
             {% crispy subsection.form %}
           </div>
         </div>
@@ -161,11 +175,6 @@
 {% endblock %}
 
 {% block scripts %}
-    <link rel="stylesheet" href="{% static 'flatpickr/flatpickr.min.css' %}">
-
-    <script src="{% static 'flatpickr/flatpickr.min.js' %}"></script>
-    <script src="{% static 'flatpickr/locale/ar.js' %}"></script>
-
     {% if id_type %}
     <script nonce="{{ request.csp_nonce }}">
         document.getElementById('id_type').addEventListener('change', function() {
@@ -192,12 +201,9 @@
 
     <script nonce="{{ request.csp_nonce }}">
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize flatpickr date pickers for filter inputs
-            flatpickr('.flatpickr', {
-                locale: 'ar',
-                dateFormat: 'Y-m-d',
-                allowInput: true,
-            });
+            if (typeof window.initMicrosysDatepickers === 'function') {
+                window.initMicrosysDatepickers(document);
+            }
         });
     </script>
 

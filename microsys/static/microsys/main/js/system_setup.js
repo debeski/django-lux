@@ -1094,7 +1094,13 @@
         for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
                 if (node.nodeType !== 1) continue;
-                if (node.matches && (node.matches('.ms-setup-builder') || node.querySelector('.ms-setup-builder') || node.querySelector('[data-setup-language-picker]'))) {
+                if (
+                    node.matches && (
+                        node.matches('.ms-setup-builder') ||
+                        node.querySelector('.ms-setup-builder') ||
+                        node.querySelector('[data-setup-language-picker]')
+                    )
+                ) {
                     scan(node);
                     return;
                 }

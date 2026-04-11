@@ -213,7 +213,7 @@ def microsys_context(request):
     if not isinstance(user_prefs, dict):
         user_prefs = {}
     default_theme = final_config.get('default_theme', 'light')
-    allowed_themes = {'light', 'blue', 'gold', 'green', 'red', 'dark'}
+    allowed_themes = {'light', 'blue', 'gold', 'green', 'red', 'dark', 'neon'}
     if user_prefs.get('theme') not in allowed_themes:
         user_prefs = {**user_prefs, 'theme': default_theme}
     context['user_preferences'] = user_prefs # Injected for JS use

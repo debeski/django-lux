@@ -1,0 +1,12 @@
+<div id="div_id_{{ field.name }}" class="mb-3 mb-0">
+    {% if field.label %}
+        <label for="{{ field.id_for_label }}" class="visually-hidden">{{ field.label }}</label>
+    {% endif %}
+    {{ field }}
+    {% if field.help_text %}
+        <div id="hint_{{ field.auto_id }}" class="form-text">{{ field.help_text|safe }}</div>
+    {% endif %}
+    {% for error in field.errors %}
+        <div class="invalid-feedback d-block">{{ error }}</div>
+    {% endfor %}
+</div>

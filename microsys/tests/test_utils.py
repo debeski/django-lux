@@ -1,0 +1,323 @@
+from django.conf import settings
+
+if not settings.configured:
+    settings.configure(
+        SECRET_KEY='microsys-test-key',
+        ALLOWED_HOSTS=['testserver', 'localhost'],
+        INSTALLED_APPS=[
+            'django.contrib.auth',
+            'django.contrib.contenttypes',
+            'django.contrib.sessions',
+            'django.contrib.messages',
+            'django.contrib.staticfiles',
+            'crispy_forms',
+            'crispy_bootstrap5',
+            'django_filters',
+            'django_tables2',
+            'microsys',
+        ],
+        MIDDLEWARE=[
+            'django.contrib.sessions.middleware.SessionMiddleware',
+            'django.contrib.auth.middleware.AuthenticationMiddleware',
+            'microsys.middleware.ActivityLogMiddleware',
+        ],
+        ROOT_URLCONF='microsys.urls',
+        TEMPLATES=[
+            {
+                'BACKEND': 'django.template.backends.django.DjangoTemplates',
+                'APP_DIRS': True,
+                'OPTIONS': {
+                    'context_processors': [
+                        'django.template.context_processors.request',
+                        'django.contrib.auth.context_processors.auth',
+                        'django.contrib.messages.context_processors.messages',
+                        'microsys.context_processors.microsys_context',
+                    ],
+                },
+            }
+        ],
+        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
+        STATIC_URL='/static/',
+        MEDIA_URL='/media/',
+        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
+        USE_TZ=True,
+        CRISPY_ALLOWED_TEMPLATE_PACKS='bootstrap5',
+        CRISPY_TEMPLATE_PACK='bootstrap5',
+    )
+
+    import django
+    django.setup()
+
+from django.test import TestCase, RequestFactory, override_settings
+from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from microsys.utils import (
+    get_system_config, is_staff, is_superuser, get_client_ip,
+    log_user_action, is_scope_enabled, _normalize_asset_url
+)
+
+User = get_user_model()
+
+
+class UtilsTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123'
+        )
+
+    def test_is_staff(self):
+        """Test is_staff utility function."""
+        self.assertFalse(is_staff(self.user))
+        self.user.is_staff = True
+        self.user.save()
+        self.assertTrue(is_staff(self.user))
+
+    def test_is_superuser(self):
+        """Test is_superuser utility function."""
+        self.assertFalse(is_superuser(self.user))
+        self.user.is_superuser = True
+        self.user.save()
+        self.assertTrue(is_superuser(self.user))
+
+    def test_get_client_ip_with_x_forwarded_for(self):
+        """Test get_client_ip with X-Forwarded-For header."""
+        request = self.factory.get('/')
+        request.META['HTTP_X_FORWARDED_FOR'] = '192.168.1.1, 10.0.0.1'
+        ip = get_client_ip(request)
+        self.assertEqual(ip, '192.168.1.1')
+
+    def test_get_client_ip_with_remote_addr(self):
+        """Test get_client_ip with REMOTE_ADDR."""
+        request = self.factory.get('/')
+        request.META['REMOTE_ADDR'] = '192.168.1.2'
+        ip = get_client_ip(request)
+        self.assertEqual(ip, '192.168.1.2')
+
+    def test_get_client_ip_without_headers(self):
+        """Test get_client_ip without IP headers."""
+        request = self.factory.get('/')
+        ip = get_client_ip(request)
+        self.assertIsNone(ip)
+
+    def test_log_user_action(self):
+        """Test log_user_action utility function."""
+        from microsys.models import UserActivityLog
+        
+        request = self.factory.get('/')
+        request.user = self.user
+        request.META['HTTP_USER_AGENT'] = 'TestAgent'
+        request.META['REMOTE_ADDR'] = '127.0.0.1'
+        
+        log_user_action(request, 'CREATE', model_name='TestModel', object_id=1)
+        
+        log = UserActivityLog.objects.filter(
+            created_by=self.user,
+            action='CREATE',
+            model_name='TestModel'
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.object_id, 1)
+
+    def test_log_user_action_with_instance(self):
+        """Test log_user_action with model instance."""
+        from microsys.models import UserActivityLog
+        
+        request = self.factory.get('/')
+        request.user = self.user
+        request.META['HTTP_USER_AGENT'] = 'TestAgent'
+        request.META['REMOTE_ADDR'] = '127.0.0.1'
+        
+        log_user_action(request, 'UPDATE', instance=self.user)
+        
+        log = UserActivityLog.objects.filter(
+            created_by=self.user,
+            action='UPDATE'
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.object_id, self.user.pk)
+
+    def test_log_user_action_with_details(self):
+        """Test log_user_action with details dict."""
+        from microsys.models import UserActivityLog
+        
+        request = self.factory.get('/')
+        request.user = self.user
+        request.META['HTTP_USER_AGENT'] = 'TestAgent'
+        request.META['REMOTE_ADDR'] = '127.0.0.1'
+        
+        details = {'field1': 'old', 'field2': 'new'}
+        log_user_action(request, 'UPDATE', model_name='TestModel', details=details)
+        
+        log = UserActivityLog.objects.filter(
+            created_by=self.user,
+            action='UPDATE'
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.details, details)
+
+    def test_get_system_config_default(self):
+        """Test get_system_config returns default config."""
+        config = get_system_config()
+        self.assertIn('name', config)
+        self.assertIn('default_language', config)
+        self.assertIn('default_theme', config)
+        self.assertIn('languages', config)
+        self.assertEqual(config['default_language'], 'en')
+
+    def test_get_system_config_with_settings_override(self):
+        """Test get_system_config with MICROSYS_CONFIG override."""
+        with override_settings(MICROSYS_CONFIG={
+            'name': 'Test System',
+            'default_language': 'ar',
+            'default_theme': 'dark'
+        }):
+            config = get_system_config()
+            self.assertEqual(config['name'], 'Test System')
+            self.assertEqual(config['default_language'], 'ar')
+            self.assertEqual(config['default_theme'], 'dark')
+
+    def test_get_system_config_with_database_override(self):
+        """Test get_system_config with database override."""
+        from microsys.models import SystemSettings
+        
+        settings = SystemSettings.load()
+        settings.name = 'DB System'
+        settings.default_language = 'ar'
+        settings.save()
+        
+        config = get_system_config()
+        self.assertEqual(config['name'], 'DB System')
+        self.assertEqual(config['default_language'], 'ar')
+
+    def test_is_scope_enabled(self):
+        """Test is_scope_enabled utility function."""
+        from microsys.models import ScopeSettings
+        
+        # Default should be False
+        self.assertFalse(is_scope_enabled())
+        
+        # Enable scopes
+        scope_settings = ScopeSettings.load()
+        scope_settings.is_enabled = True
+        scope_settings.save()
+        
+        self.assertTrue(is_scope_enabled())
+
+    def test_normalize_asset_url_with_absolute_url(self):
+        """Test _normalize_asset_url with absolute URL."""
+        url = _normalize_asset_url('http://example.com/image.png')
+        self.assertEqual(url, 'http://example.com/image.png')
+        
+        url = _normalize_asset_url('https://example.com/image.png')
+        self.assertEqual(url, 'https://example.com/image.png')
+
+    def test_normalize_asset_url_with_relative_path(self):
+        """Test _normalize_asset_url with relative path."""
+        url = _normalize_asset_url('media/image.png')
+        self.assertEqual(url, '/media/media/image.png')
+
+    def test_normalize_asset_url_with_leading_slash(self):
+        """Test _normalize_asset_url with leading slash."""
+        url = _normalize_asset_url('/media/image.png')
+        self.assertEqual(url, '/media/image.png')
+
+    def test_normalize_asset_url_with_empty_value(self):
+        """Test _normalize_asset_url with empty value."""
+        url = _normalize_asset_url('')
+        self.assertEqual(url, '')
+        
+        url = _normalize_asset_url(None)
+        self.assertIsNone(url)
+
+    def test_normalize_asset_url_with_media_url_setting(self):
+        """Test _normalize_asset_url respects MEDIA_URL setting."""
+        with override_settings(MEDIA_URL='/custom-media/'):
+            url = _normalize_asset_url('image.png')
+            self.assertEqual(url, '/custom-media/image.png')
+
+    def test_discover_section_models(self):
+        """Test discover_section_models function."""
+        from microsys.utils import discover_section_models
+        
+        # Test with no app_name (should search all apps)
+        models = discover_section_models(app_name=None, include_children=False)
+        self.assertIsInstance(models, list)
+
+    def test_resolve_model_by_name(self):
+        """Test resolve_model_by_name function."""
+        from microsys.utils import resolve_model_by_name
+        
+        # Test with valid model name
+        model = resolve_model_by_name('User')
+        self.assertIsNotNone(model)
+        
+        # Test with invalid model name
+        model = resolve_model_by_name('InvalidModel')
+        self.assertIsNone(model)
+
+    def test_resolve_form_class_for_model(self):
+        """Test resolve_form_class_for_model function."""
+        from microsys.utils import resolve_form_class_for_model
+        
+        # Test with User model
+        form_class = resolve_form_class_for_model(User)
+        self.assertIsNotNone(form_class)
+
+    def test_get_model_classes(self):
+        """Test get_model_classes function."""
+        from microsys.utils import get_model_classes
+        
+        # Test with User model
+        classes = get_model_classes('User', app_label='auth')
+        self.assertIn('form_class', classes)
+        self.assertIn('table_class', classes)
+        self.assertIn('filter_class', classes)
+
+    def test_collect_related_objects(self):
+        """Test collect_related_objects function."""
+        from microsys.utils import collect_related_objects
+        
+        # Test with User instance
+        related = collect_related_objects(self.user)
+        self.assertIsInstance(related, dict)
+
+    def test_has_related_records(self):
+        """Test has_related_records function."""
+        from microsys.utils import has_related_records
+        
+        # Test with User instance (should have profile)
+        has_related = has_related_records(self.user)
+        self.assertTrue(has_related)
+
+    def test_setup_filter_helper(self):
+        """Test setup_filter_helper function."""
+        from microsys.utils import setup_filter_helper
+        from django_filters import FilterSet
+        
+        # Create a simple filter
+        class TestFilter(FilterSet):
+            class Meta:
+                model = User
+                fields = ['username']
+        
+        request = self.factory.get('/')
+        filter_obj = TestFilter(request.GET or None, queryset=User.objects.all())
+        
+        # Should not raise error
+        setup_filter_helper(filter_obj, request)
+
+    def test_has_submit_button(self):
+        """Test has_submit_button function."""
+        from microsys.utils import has_submit_button
+        from django import forms
+        
+        # Create a form with submit button
+        class TestForm(forms.Form):
+            name = forms.CharField()
+        
+        form = TestForm()
+        self.assertFalse(has_submit_button(form))

@@ -1,7 +1,12 @@
-{% extends 'microsys/base.html' %}
+{% extends 'microsys/list_base.html' %}
 {% load crispy_forms_tags %}
 {% load django_tables2 %}
 {% load static %}
+
+{% block extra_head %}
+    {% include "microsys/forms/assets_head.html" %}
+    {{ block.super }}
+{% endblock %}
 
 {% block title %}
     {{ page_title }}
@@ -15,8 +20,8 @@
         <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 fw-bold">{{ page_title }}</h5>
         </div>
-        <div id="globalFormCardBody" class="card-body px-4 pt-1 pb-4">
-            <form method="post" novalidate>
+        <div id="globalFormCardBody" class="card-body px-4 pt-1 pb-4 microsys-form">
+            <form method="post" novalidate class="microsys-form">
                 {% csrf_token %}
                 {% crispy form %}
             </form>
@@ -32,9 +37,7 @@
             </h5>
         </div>
         <div class="card-body px-4 pt-1 pb-4">
-            <form method="get" class="w-100" id="filterForm">
-                {% crispy filter.form %}
-            </form>
+            {% crispy filter.form %}
         </div>
     </div>
     {% endif %}

@@ -26,9 +26,9 @@ microSYS is a multilingual Django app that gives a project-level system layer fo
 - `crispy-bootstrap5`
 - `django-tables2`
 - `django-filter`
-- `psutil`
-- `pyotp`
-- `qrcode`
+- `psutil` "for system monitoring"
+- `pyotp` "for TOTP 2FA"
+- `qrcode` "for TOTP 2FA QR codes"
 
 ## Installation
 
@@ -40,50 +40,20 @@ pip install git+https://github.com/debeski/django-microsys.git crispy-bootstrap5
 
 ## Minimal Quick Start
 
-1. Add the app and its companion packages to `INSTALLED_APPS`.
+1. Add the MicroSys helper at the end of your project `settings.py`.
 
 ```python
-INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    "crispy_forms",
-    "crispy_bootstrap5",
-    "django_filters",
-    "django_tables2",
-    "microsys",
-]
+from microsys.utils import microsys_settings
+
+microsys_settings(globals())
 ```
 
-2. Add the middleware, context processor, and Crispy Bootstrap 5 settings.
+That helper prepends the required apps, inserts `microsys.middleware.ActivityLogMiddleware` after Django authentication middleware when present, adds the Microsys context processor, sets the Crispy Bootstrap 5 defaults, and seeds the standard MicroSys runtime defaults for language, timezone, i18n/tz flags, `FORMAT_MODULE_PATH`, and charset unless your project already defines them.
 
-```python
-MIDDLEWARE = [
-    # ...
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "microsys.middleware.ActivityLogMiddleware",
-]
+__Proceed to [Getting Started](docs/getting-started.md) if you prefer to wire everything manually.__
 
-TEMPLATES = [
-    {
-        # ...
-        "OPTIONS": {
-            "context_processors": [
-                # ...
-                "microsys.context_processors.microsys_context",
-            ],
-        },
-    },
-]
 
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-CRISPY_TEMPLATE_PACK = "bootstrap5"
-```
-
-3. Mount `microsys.urls` at project root so the bundled auth and system routes stay at `/accounts/...` and `/sys/...`.
+2. Mount `microsys.urls` at project root so the bundled auth and system routes stay at `/accounts/...` and `/sys/...`.
 
 ```python
 from django.urls import include, path
@@ -93,15 +63,15 @@ urlpatterns = [
 ]
 ```
 
-With that root include in place, microsys provides `/accounts/...` and `/sys/...`. If your project does not define its own `/` view, microsys falls back from an unresolved `/` request into its login/setup flow instead of leaving a 404.
+With that root include in place, microsys provides `/accounts/...` and `/sys/...`. If your project does not define its own `/` view, microsys falls back from an unresolved `/` request into its login/setup flow instead of leaving a 404. On a fresh and unconfigured install, Microsys also guards ordinary anonymous requests so a public root page cannot bypass first-time setup; once setup is complete, your existing root view continues to behave normally.
 
-4. Run the setup command.
+3. Run the setup command.
 
 ```bash
 python manage.py microsys_setup
 ```
 
-5. Sign in as a superuser and complete the first-launch wizard at `/sys/setup/`. After that, the main runtime UI lives under `/sys/`.
+4. Sign in as a superuser and complete the first-launch wizard at `/sys/setup/`. On a fresh install, an anonymous request may be sent through `/sys/setup/` and then to login before the wizard can be completed. After setup, the main runtime UI lives under `/sys/`.
 
 For a fuller setup path, prefix-mount guidance, and first-launch expectations, use the [Getting Started guide](docs/getting-started.md).
 

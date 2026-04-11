@@ -106,6 +106,8 @@ The safest mental model is:
 
 microSYS includes a built-in tutorial system that targets the current view path. Users may see different guided steps on `/sys/`, `/sys/users/`, `/sys/sections/`, and other supported pages.
 
+Project-specific tutorial additions should extend this built-in system rather than replace it. The intended developer path is to load a project script through `templates/microsys/includes/custom_scripts.html` and register `window.get_custom_tutorial_steps(path)`. See the customization guide for the supported extension pattern.
+
 Other admin-facing runtime behaviors to expect:
 
 - user management uses the interactive two-step modal wizard

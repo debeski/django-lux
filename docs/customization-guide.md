@@ -32,6 +32,28 @@ Keep in mind:
 - UI edits made through System Settings layer on top of these values
 - runtime language and translation overrides can live in the database without deleting your code defaults
 
+## Settings Integration Helper
+
+For most projects, the preferred low-friction settings integration path is:
+
+```python
+from microsys.utils import microsys_settings
+
+microsys_settings(globals())
+```
+
+Use it near the end of your project `settings.py`.
+
+The helper currently:
+
+- prepends the required MicroSys apps and companion packages
+- inserts `microsys.middleware.ActivityLogMiddleware` after Django authentication middleware
+- adds `microsys.context_processors.microsys_context`
+- sets Crispy Bootstrap 5 defaults when absent
+- seeds `LANGUAGE_CODE`, `TIME_ZONE`, `USE_I18N`, `USE_TZ`, `FORMAT_MODULE_PATH`, and `DEFAULT_CHARSET` when the host project has not already set them
+
+If you need a nonstandard stack, you can still wire those settings manually, but the helper is the supported default path and the one `microsys_setup` / `microsys_check` now target.
+
 ## Translation Workflow
 
 Project-level translations come from two places:
@@ -360,8 +382,20 @@ The property `is_2fa_enabled` returns `True` if any of the above are active. To 
 
 microSYS uses [Driver.js](https://driverjs.com/) for its path-aware guided tours. Projects can register custom tutorial steps for their own views by providing a global JavaScript hook.
 
-1.  **Register the Hook**: Add a script to your page (or via `custom_scripts.html`) that defines `window.get_custom_tutorial_steps`.
-2.  **Define Steps**: Return an array of Driver.js step objects.
+Recommended pattern:
+
+1.  **Keep the built-in shell**: do not override `microsys/includes/tutorial.html` unless you are intentionally changing the framework-level tutorial runtime.
+2.  **Register the Hook**: load one small project script that defines `window.get_custom_tutorial_steps(path)`.
+3.  **Prefer global injection hooks**: in most projects, the cleanest place to register the script is `templates/microsys/includes/custom_scripts.html`, so the base template loads it automatically.
+4.  **Return extra steps only**: your hook should return an array of Driver.js step objects for the current path, or `[]` when nothing extra is needed.
+
+Minimal project wiring:
+
+```django
+{# templates/microsys/includes/custom_scripts.html #}
+{% load static %}
+<script src="{% static 'my_app/tutorial.js' %}" nonce="{{ request.csp_nonce }}"></script>
+```
 
 ```javascript
 window.get_custom_tutorial_steps = function(path) {
@@ -390,7 +424,41 @@ window.get_custom_tutorial_steps = function(path) {
 };
 ```
 
-The system automatically filters out steps where the target element is missing and merges your steps with the system defaults.
+The system automatically:
+
+- merges your custom steps with the built-in path-aware defaults
+- filters out steps whose target element is missing from the DOM
+- keeps Driver.js loading, controls, translations, and button chrome inside the framework layer
+
+That means project code normally only needs to supply selectors and popover content.
+
+If your project needs translated strings inside the custom hook, `microsys/base.html` already exposes the resolved translation map on `window.__MS_TRANS`. A tiny helper is usually enough:
+
+```javascript
+function tr(key, fallback) {
+    return (window.__MS_TRANS && window.__MS_TRANS[key]) || fallback;
+}
+
+window.get_custom_tutorial_steps = function(path) {
+    if (!path.includes('/my-app/invoices/')) {
+        return [];
+    }
+
+    return [
+        {
+            element: 'input[name="keyword"]',
+            popover: {
+                title: tr('search_title', 'Search'),
+                description: tr('my_invoice_tour_search_desc', 'Search invoice records here.'),
+                side: 'right',
+                align: 'center',
+            },
+        },
+    ];
+};
+```
+
+Use this hook for project-specific additions. Use Microsys source edits only when the default tutorial engine itself needs to change for every project.
 
 ## Autofill and Sticky Forms
 
@@ -416,6 +484,55 @@ from microsys.utils import set_field_attrs
 set_field_attrs(form, request)
 ```
 
+For list filters that need more than the basic one-row helper, use `advanced_filter_helper()` instead of hand-rolling a separate Crispy layout.
+
+```python
+from microsys.utils import advanced_filter_helper
+
+
+advanced_filter_helper(
+    my_filter,
+    request=request,
+    config={
+        "fields": [
+            {"name": "keyword", "placeholder_key": "search_placeholder"},
+            {"name": "date__year", "col_class": "form-group col-auto"},
+        ],
+        "advanced_fields": [
+            [
+                {"name": "number"},
+                {"name": "category"},
+            ],
+            [
+                {"name": "date__gte", "range_label_key": "label_date", "range_direction": "from"},
+                {"name": "date__lte", "range_label_key": "label_date", "range_direction": "to"},
+            ],
+        ],
+        "buttons": [
+            {
+                "url": "{% url 'add_invoice' %}",
+                "permission": "billing.add_invoice",
+                "label_key": "btn_add",
+                "icon": "bi bi-plus-lg me-2",
+                "btn_class": "btn btn-primary w-100",
+            },
+        ],
+        "clear_preserve_keys": ["sort", "page"],
+    },
+)
+```
+
+Behavior to know:
+
+- the primary row keeps the pill-shaped search / clear control used by `setup_filter_helper()`
+- the advanced rows live inside a Bootstrap collapse container
+- field placeholders still flow through `set_field_attrs()`, so direction and translations follow the active request language
+- route-level action buttons can be injected without rebuilding the filter layout by hand
+- hidden state and clear-state can now be controlled separately:
+  - `hidden_preserve_keys` or legacy `preserve_keys` decide what is re-submitted with the filter form
+  - `clear_preserve_keys` decides what survives the clear button, defaulting to `sort` and `page`
+  - views that need to keep extra contextual params such as `model` should pass them explicitly instead of relying on framework defaults
+
 ## Base Template and Global Injections
 
 The normal extension point for project pages is the microsys base template:
@@ -429,6 +546,83 @@ Two low-friction global injection hooks are available without overriding the ent
 - `templates/microsys/includes/custom_head.html`
 - `templates/microsys/includes/custom_scripts.html`
 
-Use them for global CSS, meta tags, analytics, or shared JavaScript.
+Use them for global CSS, meta tags, analytics, shared JavaScript, or framework-approved hooks such as project tutorial extensions.
 
 The same helper layer also fits well with fetch/export and context-menu-driven workflows, so forms, tables, downloads, and auditability can all share one system language instead of being implemented as unrelated project-level utilities.
+
+### Form Pages
+
+If a page is primarily a form, prefer the dedicated form base instead of loading form-only assets through the global base hooks:
+
+```django
+{% extends "microsys/form_base.html" %}
+```
+
+`microsys/form_base.html` extends `microsys/base.html` and automatically loads the shared Microsys form bundle:
+
+- `microsys/forms/css/form_fields.css`
+- `microsys/forms/css/file_field.css`
+- `microsys/forms/css/form_actions.css`
+- `microsys/forms/js/file_field.js`
+- the shared scan-link helper scripts used by the file widget
+
+This keeps normal non-form pages free of form-only imports while giving full-page forms one consistent supported entrypoint.
+
+### List and Filter Pages
+
+If a page is primarily a list/filter surface, prefer the dedicated list base:
+
+```django
+{% extends "microsys/list_base.html" %}
+```
+
+`microsys/list_base.html` extends `microsys/base.html` and automatically loads the shared filter surface CSS:
+
+- `microsys/forms/css/form_fields.css`
+- `microsys/forms/css/form_actions.css`
+
+That is the supported page-level entrypoint for Crispy filter helpers such as `setup_filter_helper()` and `advanced_filter_helper()`.
+
+If a page mixes list/filter and full form behavior, either:
+
+- extend `microsys/form_base.html` and include `microsys/forms/filter_assets_head.html` in `extra_head`, or
+- extend `microsys/list_base.html` and manually include the full form asset bundle when the page also hosts the Microsys file widget
+
+### Embedded or Manual Filter Hosts
+
+If a page renders a filter helper but cannot extend `microsys/list_base.html`, include:
+
+- `microsys/forms/filter_assets_head.html`
+
+### Embedded or Modal Forms
+
+If a page hosts an embedded form or modal form but does not itself extend `microsys/form_base.html`, include the shared form assets on the host page:
+
+- `microsys/forms/assets_head.html`
+- `microsys/forms/assets_scripts.html`
+
+Example:
+
+```django
+{% block extra_head %}
+    {% include "microsys/forms/assets_head.html" %}
+{% endblock %}
+
+{% block scripts %}
+    {{ block.super }}
+    {% include "microsys/forms/assets_scripts.html" %}
+{% endblock %}
+```
+
+### File Field Template Override
+
+Microsys now ships a framework-owned Crispy file-field bridge at:
+
+- `templates/bootstrap5/layout/field_file.html`
+
+and the underlying reusable form templates at:
+
+- `microsys/forms/file_input.html`
+- `microsys/forms/file_field.html`
+
+If your project uses Crispy Bootstrap 5 and you want the Microsys file-field override to win automatically, make sure the Microsys template path is resolved before the package-default Crispy template in your Django template lookup order. The simplest reliable route is to keep Microsys earlier than `crispy_bootstrap5` in `INSTALLED_APPS` when you want Microsys to own that override globally.

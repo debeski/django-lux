@@ -5,6 +5,34 @@ This file owns the release history for `django-microsys`.
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 
+## v1.19.0
+
+- **Settings Helper**: Added `microsys_settings(globals())` in `microsys.utils` as the supported low-friction settings integration path for host projects. The helper prepends the required apps, inserts `ActivityLogMiddleware`, adds the Microsys context processor, sets Crispy Bootstrap 5 defaults, and seeds the standard MicroSys language/timezone/format defaults when the host project has not already defined them.
+- **Command Upgrade**: `microsys_setup` now appends the recommended helper block to the active project `settings.py` instead of only running migrations, and `microsys_check` now validates the helper pattern explicitly alongside the resulting configuration state.
+- **List Base Template**: Added `microsys/list_base.html` plus `microsys/forms/filter_assets_head.html` as the supported entrypoint for list/filter pages, so filter-helper surfaces can use the same modern field/button styling without loading the full form bundle globally.
+- **Form Base Template**: Added `microsys/form_base.html` as the supported full-page entrypoint for Microsys forms, so projects can opt into the shared form surface without loading form-only assets through `microsys/base.html`.
+- **Reusable Form Asset Includes**: Added `microsys/forms/assets_head.html` and `microsys/forms/assets_scripts.html` for pages that host embedded or modal forms but do not extend `microsys/form_base.html`.
+- **Shared Modern Form Bundle**: Added a framework-owned Microsys form asset package under `microsys/static/microsys/forms/` covering standard field surfaces, modern file-field styling, action-dock styling, and file-widget JS.
+- **Modern Filter Surface**: `setup_filter_helper()` and `advanced_filter_helper()` now emit Microsys filter classes so shared field/button styling and dark-mode treatment apply automatically when the page uses `microsys/list_base.html` or `microsys/forms/filter_assets_head.html`.
+- **Framework Form Templates**: Added Microsys form templates for the reusable file widget and a default Crispy file-field bridge under `templates/bootstrap5/layout/field_file.html`, so projects can point file widgets and field partials at a framework-owned path instead of copying a local bundle.
+- **Documentation**: Updated the customization guide to document the new `microsys/form_base.html` and the embedded-form asset-include pattern.
+
+## v1.18.18
+
+- **Official Datepicker Switch**: Replaced Flatpickr as the shared datepicker standard with `vanillajs-datepicker`, added built-in Arabic locale wiring, and kept legacy `.flatpickr` selector compatibility for existing host-project forms.
+- **Advanced Filter Helper**: Added `advanced_filter_helper()` for zero-boilerplate list filters with a primary search row, collapsible advanced rows, optional action buttons, and separate hidden-preserve vs clear-preserve query handling.
+- **Request-Aware Field Direction**: Updated `set_field_attrs()` to resolve the active request language before assigning placeholders and direction, so English filter inputs no longer inherit Arabic RTL behavior.
+- **Sidebar Discovery and Translation Refinement**: Sidebar discovery now excludes noisy AJAX/add/edit route patterns more reliably, prefers route-level translation keys such as `view_*`, and no longer lets stale stored sidebar labels override discovered translated route/group metadata at render time.
+- **Sidebar Width and Gutter Polish**: Refined the shared sidebar CSS so expanded sidebars keep enough width for the toolbar while preserving a small inline-end label gutter without leaving the toolbar shade short.
+- **Chart and Dark-Theme UI Fixes**: Plotly chart CSS now decouples internal SVG layout from page RTL to stop legend/toggle overlap, dark mode now gives modern tabs and decree tabs a clearly visible active surface instead of only brighter text, and the official datepicker now has dark-theme styling.
+- **Documentation**: Expanded the customization and reference guides to document the supported tutorial-extension hook, `advanced_filter_helper()`, and the preferred project-extension path through Microsys base-template injection points.
+
+## v1.18.17
+
+- **First-Launch Guard for Public Roots**: Unconfigured installs now redirect ordinary anonymous traffic into the setup/login path even when the host project already exposes a public `/` view, preventing first-time setup from being bypassed.
+- **Signed-Out Layout Fix**: `microsys/base.html` no longer wraps anonymous pages in the authenticated sidebar shell, eliminating the squeezed-content layout issue on public pages that extend the shared base template.
+- **Documentation**: Updated integration docs to clarify how root-mounted Microsys behaves before and after initial system configuration.
+
 ## v1.18.16
 
 - **License Change**: Changed the license from MIT to NON-COMMERCIAL.

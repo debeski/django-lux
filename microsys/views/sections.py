@@ -293,6 +293,25 @@ def core_models_view(request):
     # For auto-generated helpers, build a custom 2-column layout with inline buttons
     if getattr(form, "_auto_helper", False):
         from crispy_forms.layout import Layout, Row, Column, Field, HTML, Div
+
+        def build_form_actions_html(cancel_href=None):
+            save_button = f"""
+                <button type="submit" class="microsys-form-action microsys-form-action-primary" aria-label="{save_label}" title="{save_label}">
+                    <span class="microsys-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+                    <span class="visually-hidden">{save_label}</span>
+                </button>
+            """
+
+            if cancel_href:
+                cancel_button = f"""
+                    <a href="{cancel_href}" class="microsys-form-action microsys-form-action-neutral" aria-label="{cancel_label}" title="{cancel_label}">
+                        <span class="microsys-form-action-icon"><i class="bi bi-x-lg" aria-hidden="true"></i></span>
+                        <span class="visually-hidden">{cancel_label}</span>
+                    </a>
+                """
+                return f'<div class="microsys-form-actions">{save_button}{cancel_button}</div>'
+
+            return f'<div class="microsys-form-actions">{save_button}</div>'
         
         # Identify visible fields (excluding subsections which are handled separately)
         visible_fields = [
@@ -328,15 +347,7 @@ def core_models_view(request):
                     row_content.append(Column(Field(field_name), css_class="col"))
                 
                 # Build Buttons HTML
-                if cancel_url:
-                    buttons_html = f"""
-                    <div class="d-flex">
-                        <button type="submit" class="btn btn-primary rounded-start-pill rounded-end-0">{save_label}</button>
-                        <a href="{cancel_url}" class="btn btn-outline-warning rounded-end-pill rounded-start-0">{cancel_label}</a>
-                    </div>
-                    """
-                else:
-                    buttons_html = f'<button type="submit" class="btn btn-primary rounded-pill">{save_label}</button>'
+                buttons_html = build_form_actions_html(cancel_url)
                 
                 row_content.append(
                     Column(
@@ -352,15 +363,7 @@ def core_models_view(request):
                 
         # If no visible fields but we have actions (rare edge case), just show buttons
         if not visible_fields:
-            if cancel_url:
-                buttons_html = f"""
-                <div class="d-flex">
-                    <button type="submit" class="btn btn-primary rounded-start-pill rounded-end-0">{save_label}</button>
-                    <a href="{cancel_url}" class="btn btn-outline-warning rounded-end-pill rounded-start-0">{cancel_label}</a>
-                </div>
-                """
-            else:
-                buttons_html = f'<button type="submit" class="btn btn-primary rounded-pill">{save_label}</button>'
+            buttons_html = build_form_actions_html(cancel_url)
             layout_components.append(Row(Column(HTML(buttons_html), css_class="col-auto")))
 
         form.helper.layout = Layout(*layout_components)
@@ -769,6 +772,9 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             return self.request.user.is_superuser
         return True
 
+    def _is_system_settings_model(self, model):
+        return bool(model and model._meta.app_label == 'microsys' and model.__name__ == 'SystemSettings')
+
     def get(self, request, *args, **kwargs):
         model = self.get_model()
         if not model:
@@ -789,6 +795,10 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         action = request.GET.get('action')
         show_table = self.show_table if action != 'view' else False
         show_form = self.show_form if action != 'view' else False
+
+        if self._is_system_settings_model(model):
+            show_table = False
+            show_form = True
 
         if show_table:
             queryset = model.objects.all()

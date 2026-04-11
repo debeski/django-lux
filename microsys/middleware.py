@@ -41,18 +41,22 @@ class ActivityLogMiddleware:
         return any(request.path.startswith(prefix) for prefix in allowed_prefixes)
 
     def _should_redirect_to_setup(self, request):
-        user = getattr(request, 'user', None)
-        if not user or not getattr(user, 'is_authenticated', False) or not user.is_superuser:
-            return False
         if self._setup_guard_allowed(request):
             return False
 
         try:
             from microsys.utils import get_system_config
             config = get_system_config()
-            return not bool(config.get('is_configured', False))
+            if bool(config.get('is_configured', False)):
+                return False
         except Exception:
             return False
+
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return True
+
+        return bool(user.is_superuser)
 
     def _is_root_mounted_microsys(self):
         try:

@@ -205,12 +205,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Initialize plugins if they exist
-        if (window.flatpickr) {
-            flatpickr(modalBody.querySelectorAll('.flatpickr'), {
-                locale: 'ar',
-                dateFormat: 'Y-m-d',
-                allowInput: true,
-            });
+        if (window.Datepicker) {
+            if (typeof window.initMicrosysDatepickers === 'function') {
+                window.initMicrosysDatepickers(modalBody);
+            } else {
+                modalBody.querySelectorAll('.ms-datepicker, .flatpickr').forEach(input => {
+                    if (input.dataset.msDatepickerReady === 'true') {
+                        return;
+                    }
+                    input.dataset.msDatepickerReady = 'true';
+                    new Datepicker(input, {
+                        format: 'yyyy-mm-dd',
+                        autohide: true,
+                        buttonClass: 'btn',
+                    });
+                });
+            }
         }
     }
 

@@ -1,0 +1,205 @@
+.microsys-form,
+.archive-document-form {
+    --archive-form-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 250, 0.96));
+    --archive-form-border: rgba(var(--primal-rgb, 13, 110, 253), 0.14);
+    --archive-form-border-strong: rgba(var(--primal-rgb, 13, 110, 253), 0.32);
+    --archive-form-focus-ring: rgba(var(--primal-rgb, 13, 110, 253), 0.10);
+    --archive-form-muted: color-mix(in srgb, var(--bs-secondary-color, #6c757d) 88%, white);
+}
+
+.microsys-form .row,
+.archive-document-form .row {
+    --bs-gutter-y: 0.25rem;
+}
+
+.microsys-filter .form-group,
+.microsys-filter [class*="col-"] {
+    min-width: 0;
+}
+
+.microsys-filter .form-control,
+.microsys-filter .form-select,
+.microsys-filter textarea {
+    min-height: 2.95rem;
+}
+
+.microsys-filter .form-control,
+.microsys-filter .form-select {
+    font-size: 0.96rem;
+}
+
+.microsys-filter .form-select {
+    padding-inline-end: 2.35rem;
+}
+
+.microsys-filter .invalid-feedback,
+.microsys-filter .form-text {
+    padding-inline: 0.2rem;
+}
+
+.microsys-form label:not(.form-check-label):not(.visually-hidden),
+.archive-document-form label:not(.form-check-label):not(.visually-hidden) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.45rem;
+    color: var(--archive-form-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.microsys-form .form-control,
+.microsys-form .form-select,
+.microsys-form textarea,
+.microsys-form input[type="text"],
+.microsys-form input[type="number"],
+.microsys-form input[type="date"],
+.archive-document-form .form-control,
+.archive-document-form .form-select,
+.archive-document-form textarea,
+.archive-document-form input[type="text"],
+.archive-document-form input[type="number"],
+.archive-document-form input[type="date"] {
+    min-height: 3.05rem;
+    border: 1px solid var(--archive-form-border);
+    border-radius: 1rem;
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.032), transparent 64%),
+        var(--archive-form-surface);
+    color: var(--bs-body-color, #212529);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        0 3px 10px rgba(15, 23, 42, 0.028);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.microsys-form textarea,
+.archive-document-form textarea {
+    min-height: 7.25rem;
+    resize: vertical;
+}
+
+.microsys-form .form-control::placeholder,
+.microsys-form textarea::placeholder,
+.archive-document-form .form-control::placeholder,
+.archive-document-form textarea::placeholder {
+    color: color-mix(in srgb, var(--bs-secondary-color, #6c757d) 78%, white);
+}
+
+.microsys-form .form-control:hover,
+.microsys-form .form-select:hover,
+.microsys-form textarea:hover,
+.archive-document-form .form-control:hover,
+.archive-document-form .form-select:hover,
+.archive-document-form textarea:hover {
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.22);
+}
+
+.microsys-form .form-control:focus,
+.microsys-form .form-select:focus,
+.microsys-form textarea:focus,
+.microsys-form .form-check-input:focus,
+.archive-document-form .form-control:focus,
+.archive-document-form .form-select:focus,
+.archive-document-form textarea:focus,
+.archive-document-form .form-check-input:focus {
+    border-color: var(--archive-form-border-strong);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.92),
+        0 0 0 0.22rem var(--archive-form-focus-ring);
+    background-color: rgba(255, 255, 255, 0.99);
+}
+
+.microsys-form .form-check-input,
+.archive-document-form .form-check-input {
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 0.42rem;
+    border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.24);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.025);
+}
+
+.microsys-form .form-check-label,
+.archive-document-form .form-check-label {
+    font-weight: 600;
+    color: var(--bs-body-color, #212529);
+}
+
+.microsys-form .archive-checkbox-field,
+.archive-document-form .archive-checkbox-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-height: 3.05rem;
+    padding: 0.55rem 0.95rem;
+    border: 1px solid var(--archive-form-border);
+    border-radius: 1rem;
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.028), transparent 64%),
+        var(--archive-form-surface);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.88),
+        0 3px 10px rgba(15, 23, 42, 0.02);
+}
+
+.microsys-form .archive-checkbox-field .form-check-input,
+.archive-document-form .archive-checkbox-field .form-check-input {
+    margin: 0;
+}
+
+.microsys-form .archive-checkbox-field .form-check-label,
+.archive-document-form .archive-checkbox-field .form-check-label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.15rem;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.microsys-form hr,
+.archive-document-form hr {
+    margin: 1rem 0 1.1rem;
+    border: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(var(--primal-rgb, 13, 110, 253), 0.18), transparent);
+    opacity: 1;
+}
+
+.microsys-form .alert,
+.archive-document-form .alert {
+    border-radius: 1rem;
+    border-color: rgba(255, 193, 7, 0.28);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.028);
+}
+
+.microsys-form .invalid-feedback,
+.microsys-form .form-text,
+.archive-document-form .invalid-feedback,
+.archive-document-form .form-text {
+    padding-inline: 0.2rem;
+}
+
+.microsys-form .select2-container .select2-selection,
+.microsys-form .ts-control,
+.archive-document-form .select2-container .select2-selection,
+.archive-document-form .ts-control {
+    border-radius: 1rem !important;
+}
+
+@media (max-width: 767.98px) {
+    .microsys-form .form-control,
+    .microsys-form .form-select,
+    .microsys-form textarea,
+    .microsys-form input[type="text"],
+    .microsys-form input[type="number"],
+    .microsys-form input[type="date"],
+    .archive-document-form .form-control,
+    .archive-document-form .form-select,
+    .archive-document-form textarea,
+    .archive-document-form input[type="text"],
+    .archive-document-form input[type="number"],
+    .archive-document-form input[type="date"] {
+        min-height: 2.9rem;
+    }
+}

@@ -1,5 +1,4 @@
 {% load static %}
-<!-- Title Bar -->
 <div class="titlebar shadow-sm d-flex justify-content-between align-items-center no-print">
     <div class="d-flex align-items-center flex-grow-1" style="min-width: 0;">
         {% if request.user.is_authenticated %}
@@ -20,12 +19,14 @@
         <!-- Extra Titlebar Controls (Dynamically injected by autofill.js) -->
         
         {% if user.is_authenticated %}
-            <div class="m-0 signout-wrapper">
-                <a href="{{ APP_CONFIG.home_url }}" class="btn btn-sm btn-outline-primary d-flex align-items-center px-2 login-title-btn titlebar-signout">
-                    <i class="bi bi-house-fill signout-icon"></i>
-                    <span class="signout-name">{{ MS_TRANS.btn_home }}</span>
-                </a>
-            </div>
+            <a
+                href="{{ APP_CONFIG.home_url }}"
+                class="ms-titlebar-home ms-2"
+                title="{{ MS_TRANS.btn_home }}"
+                aria-label="{{ MS_TRANS.btn_home }}"
+            >
+                <i class="bi bi-house-fill"></i>
+            </a>
             <!-- Modern User Dropdown Trigger -->
             <div id="ms-user-dropdown-trigger" class="ms-user-trigger no-print ms-2">
                 {% if user.profile.profile_pic %}

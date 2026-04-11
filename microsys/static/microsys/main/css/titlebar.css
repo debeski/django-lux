@@ -49,87 +49,36 @@
     border-color: rgba(var(--primal-rgb), 0.2) !important;
 }
 
-.titlebar .titlebar-signout {
-    --signout-size: 38px;
-    --signout-bg: rgba(255, 193, 7, 0.1);
-    --signout-border: rgba(255, 193, 7, 0.4);
-    
-    height: var(--signout-size);
-    width: var(--signout-size);
-    max-width: var(--signout-size);
-    padding: 0 !important;
-    border-radius: 40px;
+.titlebar .ms-titlebar-home {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 50%;
     display: inline-flex;
     align-items: center;
-    justify-content: flex-start; /* Anchor to start to prevent wobble */
-    overflow: hidden;
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 1px solid transparent !important;
-    background-color: transparent;
-    cursor: pointer;
-    position: relative;
-    z-index: 2;
-    white-space: nowrap;
-}
-
-/* Stable wrapper ensures the hover area doesn't shift or flicker */
-.titlebar .signout-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    min-width: var(--signout-size);
-    height: var(--signout-size);
-    cursor: pointer;
-    margin-inline-start: 8px; /* Reduced gap between circular buttons */
-}
-
-.titlebar .signout-wrapper:hover .titlebar-signout,
-.titlebar .titlebar-signout:focus,
-.titlebar .titlebar-signout:focus-visible {
-    max-width: 300px;
-    width: auto;
-    background-color: var(--signout-bg);
-    border-color: var(--signout-border) !important;
-    padding-inline-end: 18px !important; /* Slightly more trailing padding for balance */
-}
-
-.titlebar .titlebar-signout .signout-icon {
-    font-size: 1.2rem;
-    line-height: 1;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
     justify-content: center;
-    width: var(--signout-size); /* Stationary icon zone */
-    height: 100%;
-    margin: 0;
+    text-decoration: none;
+    color: var(--title);
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(var(--primal-rgb), 0.12);
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
 }
 
-.titlebar .titlebar-signout .signout-name {
-    max-width: 0;
-    opacity: 0;
-    margin: 0;
-    overflow: hidden;
-    transition: all 0.35s ease;
-    font-size: 0.85rem;
-    font-weight: 700;
+.titlebar .ms-titlebar-home:hover,
+.titlebar .ms-titlebar-home:focus,
+.titlebar .ms-titlebar-home:focus-visible {
+    color: var(--primal_dark);
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(var(--primal-rgb), 0.22);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+    outline: none;
 }
 
-.titlebar .signout-wrapper:hover .signout-name {
-    max-width: 200px;
-    opacity: 1;
-    margin-inline-start: 4px; /* Small gap between icon circle and text */
-}
-
-/* Keep hover buffer inside the titlebar to avoid horizontal page overflow */
-.titlebar .signout-wrapper::before {
-    content: "";
-    position: absolute;
-    inset-block: -10px;
-    inset-inline-start: -25px;
-    inset-inline-end: 0;
-    z-index: 1;
+.titlebar .ms-titlebar-home i {
+    font-size: 1rem;
+    line-height: 1;
 }
 
 .titlebar img {

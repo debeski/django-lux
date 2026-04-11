@@ -98,7 +98,7 @@
     <script src="{% static 'microsys/helpers/prevent_double_submit.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/users/js/user_hub.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/users/js/wizard.js' %}?v=20260403c" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'microsys/main/js/system_setup.js' %}?v=20260404a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'microsys/main/js/system_setup.js' %}?v=20260410a" nonce="{{ request.csp_nonce }}" defer></script>
 
 </head>
 <body>
@@ -112,25 +112,33 @@
     {% endblock %}
 
     {% block layout %}
-    <div class="col overflow-hidden">
-        <div class="row g-0 m-0 d-flex flex-grow-1 flex-nowrap">
-            <!-- Sidebar -->
-                {% include 'microsys/includes/sidebar_items.html' %} 
-            <!-- Main Content -->
-            <div class="col p-3 flex-column flex-fill p-4" id="mainContent">
-                    {% if messages %}
-                        <div class="alert-container position-absolute top-0 start-0 w-100">
-                            {% for message in messages %}
-                                <div class="alert alert-{{ message.tags }} text-center h4" style="opacity: 95%; z-index: 1090;">
-                                    {{ message }}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                {% block content %}{% endblock %}
+    {% if request.user.is_authenticated %}
+        <div class="col overflow-hidden">
+            <div class="row g-0 m-0 d-flex flex-grow-1 flex-nowrap">
+                <!-- Sidebar -->
+                    {% include 'microsys/includes/sidebar_items.html' %}
+                <!-- Main Content -->
+                <div class="col p-3 flex-column flex-fill p-4" id="mainContent">
+    {% else %}
+        <main class="flex-fill w-100 p-4" id="mainContent">
+    {% endif %}
+        {% if messages %}
+            <div class="alert-container position-absolute top-0 start-0 w-100">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} text-center h4" style="opacity: 95%; z-index: 1090;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    {% if request.user.is_authenticated %}
+                </div>
             </div>
         </div>
-    </div>
+    {% else %}
+        </main>
+    {% endif %}
     {% endblock %}
 
     {% include_if_exists 'microsys/includes/custom_scripts.html' %}
@@ -139,22 +147,62 @@
     <script src="{% static 'bootstrap/bootstrap.bundle.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
     
     {% block scripts %}{% endblock %}
-    <link rel="stylesheet" href="{% static 'flatpickr/flatpickr.min.css' %}">
-    <script src="{% static 'flatpickr/flatpickr.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
-    {% if CURRENT_LANG == 'ar' %}
-    <script src="{% static 'flatpickr/locale/ar.js' %}" nonce="{{ request.csp_nonce }}"></script>
-    {% endif %}
+    <link rel="stylesheet" href="{% static 'vanillajs-datepicker/datepicker-bs5.min.css' %}">
+    <script src="{% static 'vanillajs-datepicker/datepicker.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
 
     <script nonce="{{ request.csp_nonce }}">
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Flatpickr on all elements with the class 'flatpickr'
-            const fpOpts = {
-                dateFormat: "Y-m-d",
-                position: "auto",
-                allowInput: true,
+            function ensureArabicDatepickerLocale() {
+                if (!window.Datepicker) {
+                    return;
+                }
+                window.Datepicker.locales = window.Datepicker.locales || {};
+                if (!window.Datepicker.locales.ar) {
+                    window.Datepicker.locales.ar = {
+                        days: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+                        daysShort: ['أحد', 'إثن', 'ثلا', 'أرب', 'خم', 'جم', 'سبت'],
+                        daysMin: ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'],
+                        months: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+                        monthsShort: ['ينا', 'فبر', 'مار', 'أبر', 'ماي', 'يون', 'يول', 'أغس', 'سبت', 'أكت', 'نوف', 'ديس'],
+                        today: 'اليوم',
+                        clear: 'مسح',
+                        titleFormat: 'MM y'
+                    };
+                }
+            }
+
+            function microsysDatepickerOptions() {
+                const options = {
+                    format: 'yyyy-mm-dd',
+                    autohide: true,
+                    buttonClass: 'btn',
+                };
+                {% if CURRENT_LANG == 'ar' %}
+                ensureArabicDatepickerLocale();
+                options.language = 'ar';
+                {% endif %}
+                return options;
+            }
+
+            window.initMicrosysDatepickers = function (scope) {
+                if (!window.Datepicker) {
+                    return;
+                }
+                const root = scope || document;
+                root.querySelectorAll('.ms-datepicker, .flatpickr').forEach(function (input) {
+                    if (!(input instanceof HTMLInputElement) || input.type === 'hidden') {
+                        return;
+                    }
+                    if (input.dataset.msDatepickerReady === 'true') {
+                        return;
+                    }
+                    input.setAttribute('autocomplete', 'off');
+                    input.dataset.msDatepickerReady = 'true';
+                    new Datepicker(input, microsysDatepickerOptions());
+                });
             };
-            {% if CURRENT_LANG == 'ar' %}fpOpts.locale = 'ar';{% endif %}
-            flatpickr('.flatpickr', fpOpts);
+
+            window.initMicrosysDatepickers(document);
         });
     </script>
 

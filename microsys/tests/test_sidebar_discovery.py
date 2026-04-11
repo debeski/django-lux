@@ -51,10 +51,24 @@ if not settings.configured:
 
     django.setup()
 
-from microsys.discovery import discover_sidebar_catalog, sanitize_sidebar_config
+from microsys.discovery import _is_candidate, discover_sidebar_catalog, sanitize_sidebar_config
 
 
 class SidebarDiscoveryTests(SimpleTestCase):
+    def test_discovery_excludes_ajax_and_add_edit_route_names(self):
+        self.assertFalse(_is_candidate("ajax_search_decrees", "/ajax/search/decrees/", callback=None))
+        self.assertFalse(_is_candidate("ajax-check-duplicate", "/ajax/check-duplicate/", callback=None))
+        self.assertFalse(_is_candidate("edit_user", "/users/edit/1/", callback=None))
+        self.assertFalse(_is_candidate("user_edit", "/users/1/edit/", callback=None))
+        self.assertFalse(_is_candidate("add_chapter", "/chapters/add/", callback=None))
+        self.assertFalse(_is_candidate("chapter_add", "/chapters/add/", callback=None))
+
+    def test_discovery_excludes_set_active_model_route_name(self):
+        self.assertFalse(_is_candidate("set_active_model", "/models/set-active/", callback=None))
+
+    def test_discovery_does_not_misclassify_credit_routes(self):
+        self.assertTrue(_is_candidate("credit_report", "/finance/credit-report/", callback=None))
+
     def test_sanitize_sidebar_config_hides_system_items_by_default(self):
         sidebar = {
             "home_url_name": None,

@@ -85,6 +85,8 @@ This gives you:
 
 If your project does not define its own `/` view, microsys will catch an otherwise unresolved `/` request and redirect into the bundled login/setup flow.
 
+On a fresh and unconfigured install, Microsys also guards ordinary anonymous requests before normal app pages render. That means a host project's public `/` page will still be redirected into the setup/login path until the system is configured. After setup completes, control returns to the host project's normal root view behavior.
+
 If your project already owns `/accounts/`, mount microsys under a prefix and update auth redirects explicitly:
 
 ```python
@@ -119,7 +121,7 @@ python manage.py microsys_check
 
 ## What Happens on First Launch
 
-On a fresh install, the first superuser who reaches the system UI is guided to `/sys/setup/`.
+On a fresh install, Microsys protects ordinary requests until the system is configured. In practice, an anonymous visitor can be redirected toward `/sys/setup/`, then on to login, and the first superuser who signs in is guided through the wizard.
 
 The setup flow currently has three steps:
 
@@ -139,6 +141,7 @@ After setup, the same configuration stays editable from the superuser System Set
 
 - You can log in through `/accounts/login/`.
 - The first superuser reaches `/sys/setup/` on a fresh install.
+- If your project has a public `/` page, it is redirected into setup/login before configuration and behaves normally again after setup.
 - `python manage.py microsys_check` reports the core configuration as valid.
 - `/sys/options/` loads after setup.
 

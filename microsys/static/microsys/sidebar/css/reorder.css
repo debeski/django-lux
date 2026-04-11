@@ -1,23 +1,57 @@
 /* Reorder Toggle Button */
 .reorder-toggle {
-    font-size: 1.2rem;
     color: #8c98a4;
     cursor: pointer;
-    padding: 5px;
-    margin-left: 10px;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    border: 1px solid rgba(var(--primal-rgb), 0.1);
     border-radius: 50%;
+    background: rgba(255, 255, 255, 0.42);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.44),
+        0 4px 10px rgba(64, 88, 122, 0.08);
     transition: all 0.2s ease;
     pointer-events: auto;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.reorder-toggle i {
+    font-size: 1.34rem;
+    line-height: 1;
 }
 
 .reorder-toggle:hover {
     color: var(--primal, #2363c3);
-    transform: scale(1.1);
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb), 0.14), transparent 70%),
+        rgba(255, 255, 255, 0.6);
+    border-color: rgba(var(--primal-rgb), 0.2);
+    transform: translateY(-1px) scale(1.04);
 }
 
 .reorder-toggle.active {
     color: var(--primal, #2363c3);
-    background-color: rgba(35, 99, 195, 0.1);
+    border-color: rgba(var(--primal-rgb), 0.24);
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb), 0.18), transparent 70%),
+        rgba(255, 255, 255, 0.66);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.52),
+        0 7px 16px rgba(64, 88, 122, 0.12);
+}
+
+.reorder-toggle:focus,
+.reorder-toggle:focus-visible {
+    outline: none;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.52),
+        0 0 0 0.18rem rgba(var(--primal-rgb), 0.16);
 }
 
 /* Hide reorder toggle in collapsed sidebar */
