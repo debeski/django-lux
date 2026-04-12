@@ -52,14 +52,26 @@ from django.test import TestCase, RequestFactory, override_settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from microsys.context_processors import microsys_context
+from microsys.themes import get_theme_names
 
 User = get_user_model()
 
 
 class ContextProcessorsTests(TestCase):
     def setUp(self):
+        from django.contrib.auth.models import AnonymousUser
+
         cache.clear()
         self.factory = RequestFactory()
+        raw_get = self.factory.get
+
+        def get_with_context(*args, **kwargs):
+            request = raw_get(*args, **kwargs)
+            request.session = {}
+            request.user = AnonymousUser()
+            return request
+
+        self.factory.get = get_with_context
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
@@ -175,9 +187,12 @@ class ContextProcessorsTests(TestCase):
         request = self.factory.get('/')
         context = microsys_context(request)
         config = context['config']
+        theme_names = list(get_theme_names())
         
         self.assertIn('default_theme', config)
-        self.assertIn(config['default_theme'], ['light', 'dark', 'blue', 'gold', 'green', 'red'])
+        self.assertIn(config['default_theme'], theme_names)
+        self.assertEqual(context['MICROSYS_THEME_NAMES'], theme_names)
+        self.assertEqual([theme['slug'] for theme in context['MICROSYS_THEMES']], theme_names)
 
     def test_microsys_context_home_url(self):
         """Test that home_url is properly set."""

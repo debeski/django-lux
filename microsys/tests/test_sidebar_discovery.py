@@ -116,6 +116,19 @@ class SidebarDiscoveryTests(SimpleTestCase):
         self.assertEqual(len(sanitized["entries"]), 1)
         self.assertEqual(sanitized["entries"][0]["url_name"], "manage_sections")
 
+    def test_sanitize_sidebar_config_preserves_sidebar_behavior_flags(self):
+        sidebar = {
+            "home_url_name": None,
+            "entries": [],
+            "enable_reorder": False,
+            "show_toolbar": False,
+        }
+
+        sanitized = sanitize_sidebar_config(sidebar, allow_system_items=True)
+
+        self.assertFalse(sanitized["enable_reorder"])
+        self.assertFalse(sanitized["show_toolbar"])
+
     @patch("microsys.utils.get_system_config", return_value={"default_language": "en", "translations": {}})
     def test_discovery_can_include_only_configurable_system_items(self, _mock_get_system_config):
         default_catalog = discover_sidebar_catalog(lang_code="en")

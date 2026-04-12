@@ -10,7 +10,7 @@ microSYS is a multilingual Django app that gives a project-level system layer fo
 
 ## What microSYS gives you
 
-- A first-launch setup wizard at `/sys/setup/` for branding, languages, themes, global home URL, and sidebar structure.
+- A first-launch setup wizard at `/sys/setup/` for branding, languages, themes, global home URL, and sidebar structure, including runtime sidebar-toolbar and user-reordering controls.
 - A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
 - A database-backed `SystemSettings` singleton layered over `MICROSYS_CONFIG`, so projects can seed defaults in code and refine them in the UI later.
 - A `ScopedModel` base with audit fields, soft-delete behavior, actor tracking, filtered managers, and automatic scope handling.
@@ -86,7 +86,7 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 - Generic CRUD infrastructure:
   dynamic sections, AJAX-driven modal CRUD, automatic form/table/filter discovery, context-menu actions, and reusable event dispatch.
 - Navigation and UI infrastructure:
-  resolver-driven sidebar builder, runtime tree rendering, user-level reordering, tutorial overlays, theme-aware system surfaces, and template injection hooks.
+  resolver-driven sidebar builder, runtime tree rendering, optional user-level reordering, configurable sidebar toolbar visibility, a shared theme registry, tutorial overlays, theme-aware system surfaces, and template injection hooks.
 - Data movement and productivity helpers:
   universal file download, Excel export, smart autofill, sticky-form cloning, and generic list/filter helpers.
 - Audit and governance:

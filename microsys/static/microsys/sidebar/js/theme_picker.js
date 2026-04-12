@@ -45,21 +45,34 @@
         });
 
         function updateCurrentThemeIndicator(theme) {
-            // Update the main indicator circle's color class
-            indicator.className = 'current-theme-indicator theme-circle-' + (theme || 'light');
+            const resolvedTheme = theme || 'light';
+            const activeOption = Array.from(options).find(
+                (opt) => opt.getAttribute('data-theme') === resolvedTheme
+            );
+
+            indicator.className = 'current-theme-indicator';
+            if (activeOption) {
+                indicator.style.background = window.getComputedStyle(activeOption).background;
+            } else {
+                indicator.style.background = '';
+            }
             
             // Highlight active option in popup
             options.forEach(opt => {
                 opt.classList.remove('active');
-                if (opt.getAttribute('data-theme') === (theme || 'light')) {
+                if (opt.getAttribute('data-theme') === resolvedTheme) {
                     opt.classList.add('active');
                 }
             });
         }
+
+        window.addEventListener('microsys:theme-changed', (event) => {
+            const theme = event?.detail?.theme || window.USER_PREFS?.theme || localStorage.getItem('appTheme') || 'light';
+            updateCurrentThemeIndicator(theme);
+        });
 
         // Initialize indicator color
         const savedTheme = window.USER_PREFS?.theme || localStorage.getItem('appTheme') || 'light';
         updateCurrentThemeIndicator(savedTheme);
     });
 })();
-

@@ -31,9 +31,10 @@ Use the sections below based on what you are trying to do.
 
 ## Current Major Capabilities
 
-- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, and a global home URL.
+- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, a global home URL, and sidebar behavior controls.
 - A full internal-operations UI including user management, profiles, grouped permissions, activity logs, scopes, sections, options, and built-in two-factor authentication flows.
-- A resolver-driven sidebar system with discovered app pages, structured groups, runtime tree rendering, and user-level reordering layered on top of the system default.
+- A resolver-driven sidebar system with discovered app pages, structured groups, runtime tree rendering, optional user-level reordering layered on top of the system default, and a configurable runtime toolbar.
+- A shared theme registry that keeps theme validation, ordering, previews, and CSS inclusion aligned across setup, options, and the live runtime UI.
 - A generic CRUD layer made of sections, dynamic modals, list/filter helpers, and reusable context-menu actions and events.
 - A built-in audit trail that records CRUD, login/logout, user-profile merges, diffs, masked sensitive changes, and download/export actions.
 - Data-movement helpers such as the universal fetcher, Excel export, sticky autofill, recursive foreign-key autofill, and downloadable file handling.

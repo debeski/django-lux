@@ -23,6 +23,8 @@ MICROSYS_CONFIG = {
     "sidebar": {
         "home_url_name": None,
         "entries": [],
+        "enable_reorder": True,
+        "show_toolbar": True,
     },
 }
 ```
@@ -31,6 +33,34 @@ Keep in mind:
 
 - UI edits made through System Settings layer on top of these values
 - runtime language and translation overrides can live in the database without deleting your code defaults
+- `sidebar.enable_reorder` controls whether end users can save their own sidebar order
+- `sidebar.show_toolbar` controls whether the runtime sidebar footer toolbar is rendered
+
+## Themes and Sidebar Runtime Controls
+
+microSYS now treats theme registration as a shared framework concern instead of a repeated hardcoded list.
+
+What to know:
+
+- the official theme registry lives in `microsys/themes.py`
+- that registry supplies theme names, labels, ordering, preview swatches, CSS asset paths, and the runtime allowlist
+- base-template theme CSS inclusion follows the registry instead of a separate hand-maintained stylesheet list
+- the active runtime list is filtered against the actual files present in `microsys/static/microsys/themes/css`, so stray registry entries do not become selectable unless their CSS exists
+
+For sidebar behavior defaults, the code-owned `MICROSYS_CONFIG["sidebar"]` layer can also seed:
+
+- `enable_reorder`
+- `show_toolbar`
+
+Those defaults are then layered with runtime System Settings edits in the normal configuration flow.
+
+When adding or refining a theme, treat these as one framework surface:
+
+- setup wizard theme choices
+- options-page theme previews
+- sidebar toolbar theme picker
+- first-paint theme bootstrap
+- theme-specific overrides for framework-owned cards, profile/activity surfaces, tutorial popovers, and options controls
 
 ## Settings Integration Helper
 

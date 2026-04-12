@@ -110,7 +110,7 @@
 :root.theme-neon .chart-container-sys {
     background-color: var(--cyber-panel) !important;
     color: var(--title) !important;
-    border: 1px solid rgba(0, 255, 255, 0.15) !important;
+    /* border: 1px solid rgba(0, 255, 255, 0.15) !important; */
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.05) !important;
 }
 
@@ -135,6 +135,66 @@
     background-color: transparent !important;
     border-color: rgba(0, 255, 255, 0.2) !important;
     box-shadow: none !important;
+}
+
+:root.theme-neon .module-card,
+:root.theme-neon .chart-container-sys {
+    background:
+        linear-gradient(180deg, rgba(18, 18, 31, 0.96) 0%, rgba(9, 11, 24, 0.98) 100%) !important;
+    border: 1px solid rgba(0, 255, 255, 0.18) !important;
+    box-shadow:
+        0 0 24px rgba(0, 255, 255, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+:root.theme-neon .module-card:hover,
+:root.theme-neon .chart-container-sys:hover {
+    border-color: rgba(0, 255, 255, 0.34) !important;
+    box-shadow:
+        0 0 30px rgba(0, 255, 255, 0.14),
+        0 0 10px rgba(255, 0, 255, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+:root.theme-neon .module-card .module-icon-wrapper {
+    background:
+        radial-gradient(circle at 30% 30%, rgba(0, 255, 255, 0.24), transparent 68%),
+        linear-gradient(180deg, rgba(8, 18, 34, 0.98), rgba(18, 10, 30, 0.94)) !important;
+    border: 1px solid rgba(0, 255, 255, 0.2) !important;
+    box-shadow:
+        0 0 18px rgba(0, 255, 255, 0.12),
+        inset 0 0 18px rgba(0, 255, 255, 0.05) !important;
+}
+
+:root.theme-neon .module-card .module-name,
+:root.theme-neon .chart-container-sys h5,
+:root.theme-neon .chart-container-sys h6 {
+    color: #f5fbff !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.12) !important;
+}
+
+:root.theme-neon .module-card .module-desc,
+:root.theme-neon .module-card .text-muted,
+:root.theme-neon .chart-container-sys .text-muted,
+:root.theme-neon .chart-container-sys small {
+    color: #9fb0cb !important;
+}
+
+:root.theme-neon .module-card .module-action,
+:root.theme-neon .chart-container-sys .module-action {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.18) !important;
+}
+
+:root.theme-neon .module-card .border-top,
+:root.theme-neon .chart-container-sys .border-top {
+    border-top-color: rgba(0, 255, 255, 0.14) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 0, 255, 0.04);
+}
+
+:root.theme-neon .module-card .display-6,
+:root.theme-neon .chart-container-sys .display-6 {
+    text-shadow: 0 0 14px rgba(0, 255, 255, 0.16) !important;
 }
 
 :root.theme-neon .list-group-item.bg-transparent {
@@ -357,6 +417,23 @@
     text-shadow: 0 0 10px rgba(255, 0, 255, 0.5) !important;
 }
 
+:root.theme-neon .microsys-filter .microsys-filter-action.btn-primary,
+:root.theme-neon .microsys-filter a.microsys-filter-action.btn-primary {
+    color: #ffe6ff !important;
+    border-color: rgba(255, 0, 255, 0.34) !important;
+    background: linear-gradient(180deg, rgba(44, 0, 48, 0.98), rgba(24, 0, 28, 0.96)) !important;
+    box-shadow: 0 0 14px rgba(255, 0, 255, 0.16) !important;
+}
+
+:root.theme-neon .microsys-filter .microsys-filter-action.btn-primary:hover,
+:root.theme-neon .microsys-filter .microsys-filter-action.btn-primary:focus-visible,
+:root.theme-neon .microsys-filter a.microsys-filter-action.btn-primary:hover,
+:root.theme-neon .microsys-filter a.microsys-filter-action.btn-primary:focus-visible {
+    border-color: rgba(255, 0, 255, 0.55) !important;
+    background: linear-gradient(180deg, rgba(64, 0, 70, 0.98), rgba(34, 0, 38, 0.96)) !important;
+    box-shadow: 0 0 22px rgba(255, 0, 255, 0.26) !important;
+}
+
 :root.theme-neon .microsys-form-action-primary {
     border-color: rgba(255, 0, 255, 0.3) !important;
     background: linear-gradient(180deg, rgba(40, 0, 40, 0.98), rgba(25, 0, 25, 0.96)) !important;
@@ -538,6 +615,12 @@
     text-shadow: none !important;
 }
 
+:root.theme-neon .btn-primary > *,
+.theme-neon .btn-primary > * {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
 :root.theme-neon .btn-primary:hover {
     background: linear-gradient(135deg, var(--neon-pink) 0%, #cc00cc 100%) !important;
     border-color: var(--neon-pink) !important;
@@ -554,7 +637,17 @@
 
 :root.theme-neon .accordion-button::after,
 .theme-neon .accordion-button::after {
-    filter: invert(0.5) sepia(1) hue-rotate(170deg) saturate(5) brightness(1.2) !important;
+    filter: none !important;
+}
+
+:root.theme-neon .sidebar,
+.theme-neon .sidebar {
+    --sidebar-divider-color: rgba(0, 255, 255, 0.075);
+    --sidebar-hover-bg: rgba(0, 255, 255, 0.05);
+    --sidebar-folder-bg: rgba(10, 14, 32, 0.3);
+    --sidebar-folder-active-bg: rgba(0, 255, 255, 0.09);
+    --sidebar-root-active-bg: rgba(0, 255, 255, 0.075);
+    --sidebar-folder-indicator-border: rgba(0, 255, 255, 0.18);
 }
 
 :root.theme-neon .sidebar .list-group-item.active,
@@ -945,6 +1038,33 @@
     text-shadow: 0 0 5px rgba(0, 255, 255, 0.3) !important;
 }
 
+:root.theme-neon .lang-option,
+.theme-neon .lang-option {
+    background-color: rgba(18, 18, 31, 0.92) !important;
+    border-color: rgba(0, 255, 255, 0.16) !important;
+    color: #9fb0cb !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24) !important;
+}
+
+:root.theme-neon .lang-option:hover,
+.theme-neon .lang-option:hover {
+    background-color: rgba(20, 24, 40, 0.96) !important;
+    border-color: rgba(0, 255, 255, 0.3) !important;
+    color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .lang-option.lang-active,
+:root.theme-neon .lang-option.active,
+:root.theme-neon .lang-active,
+.theme-neon .lang-option.lang-active,
+.theme-neon .lang-option.active,
+.theme-neon .lang-active {
+    background-color: rgba(0, 255, 255, 0.12) !important;
+    border-color: var(--neon-cyan) !important;
+    color: var(--neon-cyan) !important;
+    box-shadow: 0 0 0 3px rgba(0, 255, 255, 0.14) !important;
+}
+
 :root.theme-neon .page input {
     background: rgba(10, 10, 15, 0.6) !important;
     border-color: rgba(0, 255, 255, 0.2) !important;
@@ -1158,6 +1278,16 @@
     background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-purple) 100%) !important;
     color: var(--cyber-black) !important;
     border-color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .text-bg-primary,
+:root.theme-neon .badge.text-bg-primary,
+:root.theme-neon .ms-system-settings-shell .text-bg-primary {
+    background: linear-gradient(135deg, var(--neon-cyan) 0%, #00d7d7 100%) !important;
+    color: var(--cyber-black) !important;
+    border: 1px solid rgba(0, 255, 255, 0.35) !important;
+    text-shadow: none !important;
+    box-shadow: 0 0 14px rgba(0, 255, 255, 0.16) !important;
 }
 
 /* 23. Progress Bars - Neon Fill */
@@ -1392,6 +1522,31 @@
         0 0 20px rgba(0, 255, 255, 0.5) !important;
 }
 
+:root.theme-neon .sidebar .list-group-item,
+:root.theme-neon .sidebar .accordion-button,
+:root.theme-neon .sidebar .accordion-item,
+:root.theme-neon .sidebar .accordion-body,
+:root.theme-neon .sidebar .group-url-btn,
+.theme-neon .sidebar .list-group-item,
+.theme-neon .sidebar .accordion-button,
+.theme-neon .sidebar .accordion-item,
+.theme-neon .sidebar .accordion-body,
+.theme-neon .sidebar .group-url-btn {
+    border-width: 0 !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+:root.theme-neon .sidebar .list-group-item.active,
+:root.theme-neon .sidebar .accordion-button:not(.collapsed),
+:root.theme-neon .sidebar .accordion-button.has-active-child,
+.theme-neon .sidebar .list-group-item.active,
+.theme-neon .sidebar .accordion-button:not(.collapsed),
+.theme-neon .sidebar .accordion-button.has-active-child {
+    border-left: none !important;
+    box-shadow: none !important;
+}
+
 /* 33. Floating Scan Lines Effect (Subtle) */
 :root.theme-neon body::after {
     content: '';
@@ -1443,7 +1598,8 @@
 
 /* 36. Special Effects - Glowing Corners on Cards */
 :root.theme-neon .card::before,
-:root.theme-neon .option-section::before {
+:root.theme-neon .option-section::before,
+:root.theme-neon .chart-container-sys::before {
     content: '';
     position: absolute;
     top: -1px;
@@ -1452,19 +1608,30 @@
     bottom: -1px;
     background: linear-gradient(135deg, rgba(0, 255, 255, 0.3) 0%, transparent 30%, transparent 70%, rgba(255, 0, 255, 0.3) 100%);
     border-radius: inherit;
-    z-index: -1;
+    z-index: 0;
     opacity: 0;
     transition: opacity 0.3s ease;
+    pointer-events: none;
 }
 
 :root.theme-neon .card:hover::before,
-:root.theme-neon .option-section:hover::before {
+:root.theme-neon .option-section:hover::before,
+:root.theme-neon .chart-container-sys:hover::before {
     opacity: 1;
 }
 
 :root.theme-neon .card,
-:root.theme-neon .option-section {
+:root.theme-neon .option-section,
+:root.theme-neon .chart-container-sys {
     position: relative;
+    isolation: isolate;
+}
+
+:root.theme-neon .card > *,
+:root.theme-neon .option-section > *,
+:root.theme-neon .chart-container-sys > * {
+    position: relative;
+    z-index: 1;
 }
 
 /* 37. Active/Focus States - Neon Ring */
@@ -1601,13 +1768,266 @@
     border-color: var(--cyber-panel) !important;
 }
 
-/* 49. Figures/Captions - Neon Caption */
+/* 49. User Hub, Profile, Activity Log, and Tutorial - Neon Conformance */
+:root.theme-neon .ms-user-trigger {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(255, 0, 255, 0.08)) !important;
+    border-color: rgba(0, 255, 255, 0.22) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 0 18px rgba(0, 255, 255, 0.08) !important;
+}
+
+:root.theme-neon .ms-user-trigger:hover {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.16), rgba(255, 0, 255, 0.12)) !important;
+    border-color: rgba(0, 255, 255, 0.34) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 0 24px rgba(0, 255, 255, 0.16) !important;
+}
+
+:root.theme-neon .ms-user-dropdown-card {
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.98)) !important;
+    border-color: rgba(0, 255, 255, 0.24) !important;
+    box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.55),
+        0 0 35px rgba(0, 255, 255, 0.12) !important;
+}
+
+:root.theme-neon .ms-dropdown-header {
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .ms-dropdown-toolbar {
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.05), rgba(255, 0, 255, 0.04)) !important;
+    border-top-color: rgba(0, 255, 255, 0.12) !important;
+}
+
+:root.theme-neon .ms-user-role {
+    background: rgba(0, 255, 255, 0.12) !important;
+    color: var(--neon-cyan) !important;
+    border: 1px solid rgba(0, 255, 255, 0.18) !important;
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .ms-tool-btn {
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.96), rgba(10, 10, 15, 0.96)) !important;
+    border-color: rgba(0, 255, 255, 0.18) !important;
+    color: var(--neon-cyan) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 0 16px rgba(0, 255, 255, 0.06) !important;
+}
+
+:root.theme-neon .ms-tool-btn:hover {
+    background: linear-gradient(180deg, rgba(0, 255, 255, 0.18), rgba(255, 0, 255, 0.14)) !important;
+    border-color: rgba(0, 255, 255, 0.36) !important;
+    color: var(--cyber-black) !important;
+    box-shadow:
+        0 0 20px rgba(0, 255, 255, 0.22),
+        0 0 30px rgba(255, 0, 255, 0.12) !important;
+}
+
+:root.theme-neon .ms-tool-btn.text-danger {
+    color: #ff7ac8 !important;
+    border-color: rgba(255, 0, 255, 0.2) !important;
+}
+
+:root.theme-neon .ms-tool-btn.text-danger:hover {
+    background: linear-gradient(180deg, rgba(255, 0, 255, 0.22), rgba(255, 102, 0, 0.16)) !important;
+    border-color: rgba(255, 0, 255, 0.34) !important;
+    color: var(--cyber-black) !important;
+}
+
+:root.theme-neon .ms-avatar-preview,
+:root.theme-neon .ms-trigger-avatar {
+    border-color: rgba(0, 255, 255, 0.3) !important;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.12) !important;
+}
+
+:root.theme-neon .ms-avatar-preview.bg-light {
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.96)) !important;
+    color: var(--neon-cyan) !important;
+}
+
+:root.theme-neon .ms-tooltip {
+    background: rgba(10, 10, 15, 0.95) !important;
+    color: var(--neon-cyan) !important;
+    border-color: rgba(0, 255, 255, 0.22) !important;
+    box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.45),
+        0 0 18px rgba(0, 255, 255, 0.1) !important;
+}
+
+:root.theme-neon .profile-img-container,
+:root.theme-neon .preview-img,
+:root.theme-neon .ms-image-preview-circle {
+    border-color: rgba(0, 255, 255, 0.28) !important;
+    box-shadow:
+        0 12px 28px rgba(0, 0, 0, 0.38),
+        0 0 24px rgba(0, 255, 255, 0.12) !important;
+}
+
+:root.theme-neon .stats-card {
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.92), rgba(10, 10, 15, 0.88)) !important;
+    border: 1px solid rgba(0, 255, 255, 0.18) !important;
+    box-shadow: 0 0 16px rgba(0, 255, 255, 0.06) !important;
+}
+
+:root.theme-neon .stats-card:hover {
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(12, 12, 20, 0.94)) !important;
+    border-color: rgba(0, 255, 255, 0.32) !important;
+    box-shadow:
+        0 10px 26px rgba(0, 0, 0, 0.35),
+        0 0 20px rgba(0, 255, 255, 0.14) !important;
+}
+
+:root.theme-neon .stats-value,
+:root.theme-neon .stats-icon {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 12px rgba(0, 255, 255, 0.28) !important;
+}
+
+:root.theme-neon .stats-label,
+:root.theme-neon .timeline-time,
+:root.theme-neon .text-white-50 {
+    color: #9bb8d1 !important;
+}
+
+:root.theme-neon .activity-timeline {
+    border-color: rgba(0, 255, 255, 0.2) !important;
+}
+
+html[dir="rtl"] :root.theme-neon .activity-timeline {
+    border-color: rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .timeline-content {
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.84), rgba(10, 10, 15, 0.76)) !important;
+    border: 1px solid rgba(0, 255, 255, 0.14) !important;
+    box-shadow: 0 0 14px rgba(0, 255, 255, 0.05) !important;
+}
+
+:root.theme-neon .timeline-title {
+    color: #ffffff !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .timeline-dot {
+    border-color: var(--cyber-black) !important;
+    box-shadow:
+        0 0 0 2px rgba(0, 255, 255, 0.2),
+        0 0 12px rgba(0, 255, 255, 0.18) !important;
+}
+
+:root.theme-neon .completeness-container {
+    background: linear-gradient(180deg, rgba(0, 255, 255, 0.07), rgba(255, 0, 255, 0.05)) !important;
+    border: 1px solid rgba(0, 255, 255, 0.14) !important;
+}
+
+:root.theme-neon .progress-custom {
+    background-color: rgba(0, 255, 255, 0.08) !important;
+}
+
+:root.theme-neon .glass-profile .bg-light.border,
+:root.theme-neon .glass-card .bg-light.border,
+:root.theme-neon #activityLogDetailModal .bg-light,
+:root.theme-neon #backupCodesModal .alert.alert-warning,
+:root.theme-neon #otpSetupSuccess .alert.alert-warning {
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.95), rgba(12, 12, 20, 0.92)) !important;
+    border-color: rgba(0, 255, 255, 0.18) !important;
+    color: var(--title) !important;
+}
+
+:root.theme-neon #activityLogDetailModal .badge.bg-secondary {
+    background: rgba(0, 255, 255, 0.14) !important;
+    color: var(--neon-cyan) !important;
+    border: 1px solid rgba(0, 255, 255, 0.18) !important;
+}
+
+:root.theme-neon #activityLogDetailModal .modal-title,
+:root.theme-neon #activityLogDetailModal h6,
+:root.theme-neon #activityLogDetailModal .text-secondary {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.16) !important;
+}
+
+:root.theme-neon #activityLogDetailModal .modal-footer,
+:root.theme-neon #activityLogDetailModal .modal-header {
+    border-color: rgba(0, 255, 255, 0.12) !important;
+}
+
+:root.theme-neon #activityLogDetailModal .table-responsive,
+:root.theme-neon .activitylog-page-card {
+    background: transparent !important;
+}
+
+:root.theme-neon .driver-popover {
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.98)) !important;
+    color: var(--title) !important;
+    border: 1px solid rgba(0, 255, 255, 0.24) !important;
+    box-shadow:
+        0 20px 44px rgba(0, 0, 0, 0.55),
+        0 0 30px rgba(0, 255, 255, 0.12) !important;
+}
+
+:root.theme-neon .driver-popover-title {
+    color: var(--neon-cyan) !important;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.22) !important;
+}
+
+:root.theme-neon .driver-popover-description {
+    color: #c7d4ea !important;
+}
+
+:root.theme-neon .driver-popover-progress-text {
+    color: #8fb4cb !important;
+}
+
+:root.theme-neon .driver-popover-next-btn {
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.9), rgba(255, 0, 255, 0.78)) !important;
+    border-color: rgba(0, 255, 255, 0.28) !important;
+    color: var(--cyber-black) !important;
+    box-shadow: 0 0 18px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .driver-popover-next-btn:hover {
+    background: linear-gradient(90deg, rgba(0, 255, 255, 1), rgba(255, 0, 255, 0.9)) !important;
+    box-shadow:
+        0 0 22px rgba(0, 255, 255, 0.28),
+        0 0 18px rgba(255, 0, 255, 0.18) !important;
+}
+
+:root.theme-neon .driver-popover-prev-btn {
+    background: rgba(18, 18, 31, 0.95) !important;
+    color: #c7d4ea !important;
+    border-color: rgba(0, 255, 255, 0.16) !important;
+}
+
+:root.theme-neon .driver-popover-prev-btn:hover {
+    background: rgba(0, 255, 255, 0.08) !important;
+    color: var(--neon-cyan) !important;
+    border-color: rgba(0, 255, 255, 0.28) !important;
+}
+
+:root.theme-neon .driver-popover-close-btn {
+    color: #8fb4cb !important;
+}
+
+:root.theme-neon .driver-popover-close-btn:hover {
+    color: var(--neon-pink) !important;
+}
+
+:root.theme-neon .driver-popover-arrow {
+    color: rgba(18, 18, 31, 0.98) !important;
+}
+
+/* 50. Figures/Captions - Neon Caption */
 :root.theme-neon figure figcaption,
 :root.theme-neon .figure-caption {
     color: #8080a0 !important;
 }
 
-/* 50. Print - Disable Neon Effects */
+/* 51. Print - Disable Neon Effects */
 @media print {
     :root.theme-neon * {
         text-shadow: none !important;

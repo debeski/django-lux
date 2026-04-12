@@ -22,17 +22,11 @@ from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
 from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
 from .translations import get_strings, get_current_language_code
+from .themes import get_theme_choices, get_theme_options, is_valid_theme
 
 User = get_user_model()
 
-THEME_CHOICES = [
-    ('light', '#f6f7f9', 'theme_white'),
-    ('blue', '#2363c3', 'theme_royal'),
-    ('gold', '#d97706', 'theme_gold'),
-    ('green', '#166534', 'theme_green'),
-    ('red', '#7f1d1d', 'theme_red'),
-    ('dark', '#0f172a', 'theme_dark'),
-]
+THEME_CHOICES = get_theme_choices()
 
 
 def _json_dump(value, **kwargs):
@@ -925,6 +919,14 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.HiddenInput(),
         required=False,
     )
+    sidebar_enable_reorder = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    sidebar_enable_toolbar = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
 
     class Meta:
         model = apps.get_model('microsys', 'SystemSettings')
@@ -987,6 +989,16 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['logo'].label = s.get('form_sys_logo', "الشعار (Logo)")
         self.fields['favicon'].label = s.get('form_sys_favicon', "أيقونة الموقع (Favicon)")
         self.fields['sidebar_config'].label = s.get('form_sys_sidebar', "إعدادات الشريط الجانبي")
+        self.fields['sidebar_enable_reorder'].label = s.get('form_sys_sidebar_enable_reorder', 'Enable sidebar reorder')
+        self.fields['sidebar_enable_reorder'].help_text = s.get(
+            'help_sys_sidebar_enable_reorder',
+            'Show the quick reorder control in the sidebar toolbar so users can rearrange sidebar items from the UI.',
+        )
+        self.fields['sidebar_enable_toolbar'].label = s.get('form_sys_sidebar_enable_toolbar', 'Enable sidebar toolbar')
+        self.fields['sidebar_enable_toolbar'].help_text = s.get(
+            'help_sys_sidebar_enable_toolbar',
+            'Show the sidebar toolbar that contains the quick theme picker, reorder toggle, and dynamic section manager shortcut.',
+        )
 
         project_config = getattr(settings, 'MICROSYS_CONFIG', {})
         if (not getattr(self.instance, 'is_configured', False)) and (not self.instance.name or self.instance.name in {'ادارة النظام', 'إدارة النظام'}):
@@ -1024,10 +1036,10 @@ class SystemSettingsForm(forms.ModelForm):
                 self.initial['languages'] = _json_dump(self.instance.languages, ensure_ascii=False, indent=2)
             if isinstance(self.instance.translations_override, dict):
                 self.initial['translations_override'] = _json_dump(self.instance.translations_override, ensure_ascii=False, indent=2)
-            if isinstance(getattr(self.instance, 'sidebar_config', None), dict) and self.instance.sidebar_config:
-                sidebar_config = sanitize_sidebar_config(self.instance.sidebar_config, allow_system_items=True)
-                sidebar_config['home_url_name'] = None
-                self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
+        if isinstance(getattr(self.instance, 'sidebar_config', None), dict) and self.instance.sidebar_config:
+            sidebar_config = sanitize_sidebar_config(self.instance.sidebar_config, allow_system_items=True)
+            sidebar_config['home_url_name'] = None
+            self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
 
         if not self.initial.get('languages'):
             self.initial['languages'] = _json_dump(config.get('languages', {}), ensure_ascii=False, indent=2)
@@ -1042,10 +1054,28 @@ class SystemSettingsForm(forms.ModelForm):
 
         if not self.initial.get('sidebar_config'):
             sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}), allow_system_items=True)
-            if not sidebar_config or not sidebar_config.get('entries'):
-                sidebar_config = {'home_url_name': None, 'entries': []}
+            if not isinstance(sidebar_config, dict):
+                sidebar_config = {
+                    'home_url_name': None,
+                    'entries': [],
+                    'enable_reorder': True,
+                    'show_toolbar': True,
+                }
+            sidebar_config.setdefault('entries', [])
+            sidebar_config.setdefault('enable_reorder', True)
+            sidebar_config.setdefault('show_toolbar', True)
             sidebar_config['home_url_name'] = None
             self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
+
+        try:
+            initial_sidebar_config = json.loads(self.initial.get('sidebar_config') or '{}')
+        except (TypeError, ValueError):
+            initial_sidebar_config = {}
+        if not isinstance(initial_sidebar_config, dict):
+            initial_sidebar_config = {}
+
+        self.initial['sidebar_enable_reorder'] = bool(initial_sidebar_config.get('enable_reorder', True))
+        self.initial['sidebar_enable_toolbar'] = bool(initial_sidebar_config.get('show_toolbar', True))
 
         catalog_lang = self.initial.get('default_language') or self.instance.default_language or config.get('default_language', 'en')
         public_sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang)
@@ -1087,7 +1117,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'picker_mode': 'setup',
                 'input_id': 'id_default_theme',
                 'MS_TRANS': s,
-                'THEME_CHOICES': THEME_CHOICES,
+                'MICROSYS_THEMES': get_theme_options(s),
                 'label': self.fields['default_theme'].label,
             },
         )
@@ -1103,13 +1133,11 @@ class SystemSettingsForm(forms.ModelForm):
             },
         )
 
-        modal_heading = s.get('system_settings_title', 'إعدادات النظام العامة')
         modal_desc = s.get('system_settings_modal_desc', 'حدّث العلامة التجارية واللغات والشريط الجانبي من نافذة الإعدادات.')
         intro_html = ''
         if self.mode != 'setup':
             intro_html = (
                 f"<div class='ms-system-settings-intro mb-4'>"
-                f"<h4 class='fw-bold mb-2'>{modal_heading}</h4>"
                 f"<p class='text-muted mb-0'>{modal_desc}</p>"
                 f"</div>"
             )
@@ -1156,6 +1184,16 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'الخطوة 3')}</span></div>"),
+                Row(
+                    Div(Field('sidebar_enable_reorder'), css_class='col-lg-6'),
+                    Div(Field('sidebar_enable_toolbar'), css_class='col-lg-6'),
+                ),
+                HTML(
+                    f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enable_toolbar', True) else ''}' "
+                    f"data-sidebar-toolbar-note>"
+                    f"{s.get('sidebar_toolbar_disable_note', 'Disabling the sidebar toolbar also removes the only built-in shortcut to Dynamic Sections Manager. If you still want UI access, enable system items in the sidebar builder and add Section Management to your sidebar.')}"
+                    f"</div>"
+                ),
                 HTML(self.sidebar_builder_html),
                 Field('sidebar_config'),
                 css_class='wizard-step'
@@ -1205,8 +1243,7 @@ class SystemSettingsForm(forms.ModelForm):
 
     def clean_default_theme(self):
         value = self.cleaned_data.get('default_theme') or 'light'
-        valid = {theme for theme, _, _ in THEME_CHOICES}
-        if value not in valid:
+        if not is_valid_theme(value):
             raise ValidationError("Invalid theme choice.")
         return value
 
@@ -1233,6 +1270,8 @@ class SystemSettingsForm(forms.ModelForm):
         return sanitize_sidebar_config({
             'home_url_name': None,
             'entries': entries,
+            'enable_reorder': bool(self.cleaned_data.get('sidebar_enable_reorder', True)),
+            'show_toolbar': bool(self.cleaned_data.get('sidebar_enable_toolbar', True)),
         }, allow_system_items=True)
 
     def save(self, commit=True):

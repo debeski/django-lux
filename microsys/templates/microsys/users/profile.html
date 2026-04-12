@@ -517,6 +517,5 @@
 {% endblock %}
 
 {% block scripts %}
-    {% include "microsys/forms/assets_scripts.html" %}
     <script src="{% static 'microsys/users/js/profile_2fa.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

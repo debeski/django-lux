@@ -4,6 +4,7 @@ import hashlib
 import json
 from django.urls import reverse, NoReverseMatch
 from .discovery import SYSTEM_ROUTE_META, build_sidebar_navigation
+from .themes import get_theme_names, get_theme_options
 
 # Helper functions for Sidebar - KEPT PRIVATE
 def _get_config_hash(config):
@@ -213,7 +214,7 @@ def microsys_context(request):
     if not isinstance(user_prefs, dict):
         user_prefs = {}
     default_theme = final_config.get('default_theme', 'light')
-    allowed_themes = {'light', 'blue', 'gold', 'green', 'red', 'dark', 'neon'}
+    allowed_themes = set(get_theme_names())
     if user_prefs.get('theme') not in allowed_themes:
         user_prefs = {**user_prefs, 'theme': default_theme}
     context['user_preferences'] = user_prefs # Injected for JS use
@@ -224,6 +225,8 @@ def microsys_context(request):
     # Get translated strings (with project-level overrides from config)
     project_overrides = final_config.get('translations', None)
     ms_trans = get_strings(current_lang, overrides=project_overrides)
+    context['MICROSYS_THEME_NAMES'] = list(get_theme_names())
+    context['MICROSYS_THEMES'] = get_theme_options(ms_trans)
 
     context['CURRENT_LANG'] = current_lang
     context['CURRENT_DIR'] = current_dir
@@ -257,6 +260,11 @@ def microsys_context(request):
     context['sidebar_tree_state'] = navigation.get('entries', [])
     context['sidebar_auto_items'] = navigation.get('auto_items', [])
     context['sidebar_extra_groups'] = navigation.get('extra_groups', [])
+    sidebar_runtime_config = final_config.get('sidebar', {})
+    if not isinstance(sidebar_runtime_config, dict):
+        sidebar_runtime_config = {}
+    context['sidebar_toolbar_enabled'] = bool(sidebar_runtime_config.get('show_toolbar', True))
+    context['sidebar_reorder_enabled'] = bool(sidebar_runtime_config.get('enable_reorder', True))
     context['sidebar_has_sections_manager'] = bool(
         request.user.is_authenticated and
         has_section_models() and
@@ -271,6 +279,16 @@ def microsys_context(request):
     session_collapsed = request.session.get('sidebarCollapsed', False)
     db_collapsed = user_prefs.get('sidebar_collapsed', session_collapsed)
     context['sidebar_collapsed'] = db_collapsed
+    context['config'] = final_config
+    context['user'] = request.user
+    context['languages'] = languages
+    context['translations'] = ms_trans
+    context['sidebar'] = {
+        **sidebar_runtime_config,
+        'entries': context['sidebar_entries'],
+        'auto_items': context['sidebar_auto_items'],
+        'extra_groups': context['sidebar_extra_groups'],
+    }
 
     return context
 

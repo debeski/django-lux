@@ -64,6 +64,20 @@ Common preference keys:
 - `sidebar_order`
 - `autofill_enabled`
 
+Common runtime sidebar config keys in `get_system_config()["sidebar"]`:
+
+- `home_url_name`
+- `entries`
+- `enable_reorder`
+- `show_toolbar`
+
+Theme/runtime UI notes:
+
+- official theme ordering comes from `microsys/themes.py`
+- the options page uses `.theme-preview` selectors
+- the sidebar toolbar picker uses `.theme-option-circle` selectors
+- runtime theme changes dispatch the `microsys:theme-changed` event so secondary UI such as the sidebar indicator can sync without a refresh
+
 ## Context Menu Events
 
 | Event | Purpose |
@@ -126,6 +140,9 @@ The system records several action families out of the box, including:
 | Helper | Purpose |
 | --- | --- |
 | `get_system_config()` | Return the merged runtime configuration |
+| `get_theme_names()` | Return the active official theme-name list from the shared theme registry |
+| `get_theme_choices()` | Return the active theme tuples used by settings/forms choice fields |
+| `get_theme_options()` | Return the active theme metadata used by previews, labels, CSS inclusion, and runtime pickers |
 | `microsys_settings()` | Apply the default MicroSys settings requirements from a project `settings.py` via `microsys_settings(globals())`, including app stack, middleware, context processor, Crispy defaults, and core language/format defaults |
 | `get_model_classes()` | Resolve model, form, table, and filter classes via conventions or overrides |
 | `get_user_linked_models()` | Find all models with a OneToOneField to the User model |

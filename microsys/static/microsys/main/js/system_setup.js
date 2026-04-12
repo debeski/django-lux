@@ -1076,12 +1076,36 @@
         });
     }
 
+    function initSidebarBehaviorOptions(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.sidebarBehaviorBound === 'true') {
+                return;
+            }
+
+            const toolbarToggle = form.querySelector('#id_sidebar_enable_toolbar');
+            const toolbarNote = form.querySelector('[data-sidebar-toolbar-note]');
+            if (!toolbarToggle || !toolbarNote) {
+                return;
+            }
+
+            form.dataset.sidebarBehaviorBound = 'true';
+
+            function syncToolbarNote() {
+                toolbarNote.classList.toggle('d-none', Boolean(toolbarToggle.checked));
+            }
+
+            toolbarToggle.addEventListener('change', syncToolbarNote);
+            syncToolbarNote();
+        });
+    }
+
     function scan(root) {
         restoreSetupFormState(root);
         initSetupHomeFields(root);
         root.querySelectorAll('.ms-setup-builder').forEach(initBuilder);
         initSetupLanguagePicker(root);
         initSetupThemePicker(root);
+        initSidebarBehaviorOptions(root);
     }
 
     if (document.readyState === 'loading') {

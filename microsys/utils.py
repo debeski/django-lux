@@ -19,6 +19,7 @@ from django.db import models as dj_models
 from decimal import Decimal, InvalidOperation
 import inspect
 from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
+from .themes import is_valid_theme
 from .translations import get_strings
 from django.conf import settings
 
@@ -223,6 +224,8 @@ def get_system_config():
         'sidebar': {
             'home_url_name': None,
             'entries': [],
+            'enable_reorder': True,
+            'show_toolbar': True,
         },
         'is_configured': False,
     }
@@ -317,6 +320,8 @@ def get_system_config():
         final_config['name_ar'] = final_config.get('name_en') or final_config.get('name') or default_config['name_en']
     if not final_config.get('name_en'):
         final_config['name_en'] = user_config.get('name_en') or default_config['name_en']
+    if not is_valid_theme(final_config.get('default_theme')):
+        final_config['default_theme'] = default_config['default_theme']
 
     final_config['logo_url'] = _normalize_asset_url(
         final_config.get('logo_url') or final_config.get('logo') or default_config['logo']

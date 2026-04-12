@@ -57,6 +57,7 @@ from unittest.mock import patch
 from microsys.constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
 from microsys.forms import SystemSettingsForm
 from microsys.models import SystemSettings
+from microsys.themes import get_theme_names
 from microsys.utils import get_system_config
 
 
@@ -117,6 +118,27 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertEqual(form.initial['home_url'], DEFAULT_HOME_URL)
+
+    @override_settings(MICROSYS_CONFIG={
+        'default_theme': 'neon',
+        'sidebar': {
+            'entries': [],
+            'enable_reorder': False,
+            'show_toolbar': False,
+        },
+    })
+    def test_setup_form_surfaces_neon_and_sidebar_behavior_flags(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(default_theme='neon', is_configured=False),
+        )
+
+        theme_choices = [value for value, _label in form.fields['default_theme'].choices]
+
+        self.assertIn('neon', theme_choices)
+        self.assertEqual(theme_choices, list(get_theme_names()))
+        self.assertEqual(form.initial['default_theme'], 'neon')
+        self.assertFalse(form.initial['sidebar_enable_reorder'])
+        self.assertFalse(form.initial['sidebar_enable_toolbar'])
 
     @override_settings(MICROSYS_CONFIG={}, MEDIA_URL='')
     def test_uploaded_branding_urls_fall_back_to_absolute_media_paths(self):

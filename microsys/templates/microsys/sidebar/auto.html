@@ -1,7 +1,7 @@
 <div class="sidebar-auto-items" id="sidebarAutoItems">
 {% for item in items %}
 <a href="{{ item.url }}" 
-   class="list-group-item list-group-item-action{% if item.active %} active{% endif %}"
+   class="list-group-item list-group-item-action sidebar-tree-node sidebar-root-item{% if item.active %} active{% endif %}"
    data-url-name="{{ item.url_name }}">
     <i class="bi {{ item.icon }} me-2" style="font-size: 24px;"></i>
     <span>{{ item.label }}</span>

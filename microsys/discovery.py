@@ -409,7 +409,12 @@ def _sanitize_sidebar_entry(entry, allow_system_items=False):
 
 def sanitize_sidebar_config(sidebar_config, allow_system_items=False):
     if not isinstance(sidebar_config, dict):
-        return {'home_url_name': None, 'entries': []}
+        return {
+            'home_url_name': None,
+            'entries': [],
+            'enable_reorder': True,
+            'show_toolbar': True,
+        }
 
     sanitized = dict(sidebar_config)
     sanitized_entries = []
@@ -432,6 +437,8 @@ def sanitize_sidebar_config(sidebar_config, allow_system_items=False):
 
     sanitized['home_url_name'] = home_url_name
     sanitized['entries'] = sanitized_entries
+    sanitized['enable_reorder'] = bool(sidebar_config.get('enable_reorder', True))
+    sanitized['show_toolbar'] = bool(sidebar_config.get('show_toolbar', True))
     return sanitized
 
 

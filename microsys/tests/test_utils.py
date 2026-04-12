@@ -1,4 +1,5 @@
 from django.conf import settings
+from unittest.mock import patch
 
 if not settings.configured:
     settings.configure(
@@ -179,6 +180,39 @@ class UtilsTests(TestCase):
             self.assertEqual(config['name'], 'Test System')
             self.assertEqual(config['default_language'], 'ar')
             self.assertEqual(config['default_theme'], 'dark')
+
+    def test_get_system_config_rejects_unknown_default_theme(self):
+        fake_settings = type('FakeSettings', (), {
+            'name': '',
+            'name_en': '',
+            'logo': '',
+            'favicon': '',
+            'home_url': '',
+            'default_language': '',
+            'default_theme': '',
+            'languages': {},
+            'translations_override': {},
+            'sidebar_config': {},
+            'is_configured': False,
+        })()
+
+        with patch('microsys.models.SystemSettings.load', return_value=fake_settings), override_settings(MICROSYS_CONFIG={'default_theme': 'missing-theme'}):
+            config = get_system_config()
+
+        self.assertEqual(config['default_theme'], 'light')
+
+    def test_get_system_config_preserves_sidebar_behavior_flags(self):
+        with override_settings(MICROSYS_CONFIG={
+            'sidebar': {
+                'entries': [],
+                'enable_reorder': False,
+                'show_toolbar': False,
+            }
+        }):
+            config = get_system_config()
+
+        self.assertFalse(config['sidebar']['enable_reorder'])
+        self.assertFalse(config['sidebar']['show_toolbar'])
 
     def test_get_system_config_with_database_override(self):
         """Test get_system_config with database override."""

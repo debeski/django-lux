@@ -27,7 +27,7 @@ The wizard currently runs in three steps:
    This step manages the available languages JSON and the translation-override JSON.
 
 3. Sidebar structure
-   This step uses the sidebar builder to assemble the default navigation tree that the runtime UI will render.
+   This step uses the sidebar builder to assemble the default navigation tree that the runtime UI will render. It also controls whether end users can reorder their own sidebar and whether the runtime sidebar toolbar is shown at all.
 
 Useful JSON patterns:
 
@@ -51,6 +51,7 @@ When the wizard is saved:
 - the selected default theme and language become the starting point for new users
 - the saved sidebar tree becomes the runtime base sidebar
 - the chosen home URL becomes the global titlebar Home destination
+- the sidebar reorder and toolbar flags become part of the runtime sidebar behavior
 
 ## Sidebar Builder and Runtime Navigation
 
@@ -64,9 +65,36 @@ Important behaviors:
 - hidden microsys, Django admin, and health-check routes are excluded from the public navigation catalog
 - icons, labels, and grouping can be curated in the inspector
 - the global Home URL is now independent from sidebar structure
-- runtime user reordering works as a personal override layered on top of the system base tree
+- runtime user reordering works as a personal override layered on top of the system base tree when reorder is enabled
+- the sidebar toolbar can be disabled entirely if a project does not want the runtime theme picker and reorder entrypoint in the sidebar footer
+- the built-in Dynamic Sections Manager shortcut lives in that toolbar; if you disable it and still want UI access, expose the relevant Microsys system item inside the sidebar tree instead
+- the runtime sidebar now uses one shared flat rail layout across themes, while each theme can still supply its own accent colors, active states, and toolbar styling without changing the geometry
 
 Operationally, that means you can keep a carefully curated default navigation while still letting users personalize their own ordering later.
+
+## Themes and the Shared Theme Registry
+
+microSYS now keeps its official theme list in one shared registry. That registry drives:
+
+- setup and System Settings theme choices
+- runtime theme validation and fallback behavior
+- sidebar theme-picker ordering and preview swatches
+- base-template theme stylesheet inclusion
+
+Operationally, that means theme additions should be treated as framework-level changes rather than one-off CSS drops. If a theme exists in the official registry, it should appear consistently across setup, options, and the live runtime UI.
+
+The current official order is:
+
+- `light`
+- `blue`
+- `gold`
+- `green`
+- `red`
+- `mono`
+- `dark`
+- `gothic`
+- `retro`
+- `neon`
 
 ## Options View
 
@@ -83,6 +111,10 @@ The Options screen currently provides:
 - autofill enable or disable
 - reset-to-defaults for user preferences
 - a superuser-only System Settings button that opens the editable settings modal
+
+Operational note:
+
+- dark themes are expected to skin both the language picker and theme-preview selectors on this page so inactive choices do not fall back to light/white treatment
 
 That means the setup wizard is for initial onboarding, while the Options view is the ongoing operational hub.
 

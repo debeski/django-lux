@@ -1,10 +1,18 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'microsys/sidebar/css/main.css' %}?v=20260404b">
-<link rel="stylesheet" href="{% static 'microsys/sidebar/css/theme_picker.css' %}">
+<link rel="stylesheet" href="{% static 'microsys/sidebar/css/main.css' %}?v=20260412c">
+{% if sidebar_toolbar_enabled %}
+<link rel="stylesheet" href="{% static 'microsys/sidebar/css/theme_picker.css' %}?v=20260412c">
+{% endif %}
+{% if sidebar_toolbar_enabled and sidebar_reorder_enabled %}
 <link rel="stylesheet" href="{% static 'microsys/sidebar/css/reorder.css' %}?v=20260402k">
+{% endif %}
 <script src="{% static 'microsys/sidebar/js/main.js' %}?v=20260402k" nonce="{{ request.csp_nonce }}" defer></script>
-<script src="{% static 'microsys/sidebar/js/theme_picker.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+{% if sidebar_toolbar_enabled %}
+<script src="{% static 'microsys/sidebar/js/theme_picker.js' %}?v=20260412c" nonce="{{ request.csp_nonce }}" defer></script>
+{% endif %}
+{% if sidebar_toolbar_enabled and sidebar_reorder_enabled %}
 <script src="{% static 'microsys/sidebar/js/reorder.js' %}?v=20260402k" nonce="{{ request.csp_nonce }}" defer></script>
+{% endif %}
 <!-- Ghost Sidebar for small screens layout stability -->
 {% if request.user.is_authenticated %}
 <!-- <div class="sidebar-ghost"></div> -->
@@ -51,6 +59,7 @@
     </div>
     </div>
 
+    {% if sidebar_toolbar_enabled %}
     <!-- Sidebar Toolbar (Theme Picker, Reorder, etc.) -->
     <div class="sidebar-toolbar no-print">
         {% if sidebar_has_sections_manager %}
@@ -58,23 +67,22 @@
             <i class="bi bi-diagram-3"></i>
         </a>
         {% endif %}
+        {% if sidebar_reorder_enabled %}
         <button type="button" class="reorder-toggle" id="sidebarReorderToggle" title="{{ MS_TRANS.sidebar_reorder }}" aria-label="{{ MS_TRANS.sidebar_reorder }}">
             <i class="bi bi-arrows-move"></i>
         </button>
+        {% endif %}
         <i class="bi bi-chevron-up theme-arrow" id="sidebarThemeArrow"></i>
         <div class="current-theme-indicator" id="sidebarThemeIndicator" title="{{ MS_TRANS.theme_change }}"></div>
         <div class="theme-popup" id="sidebarThemePopup">
             <div class="small fw-bold mb-2 text-center border-bottom pb-1">{{ MS_TRANS.theme_pick_color }}</div>
             <div class="theme-options-grid">
-                <div class="theme-option-circle theme-circle-light" data-theme="light" title="{{ MS_TRANS.theme_light }}"></div>
-                <div class="theme-option-circle theme-circle-blue" data-theme="blue" title="{{ MS_TRANS.theme_blue }}"></div>
-                <div class="theme-option-circle theme-circle-gold" data-theme="gold" title="{{ MS_TRANS.theme_gold }}"></div>
-                <div class="theme-option-circle theme-circle-green" data-theme="green" title="{{ MS_TRANS.theme_green }}"></div>
-                <div class="theme-option-circle theme-circle-red" data-theme="red" title="{{ MS_TRANS.theme_red }}"></div>
-                <div class="theme-option-circle theme-circle-dark" data-theme="dark" title="{{ MS_TRANS.theme_dark }}"></div>
-                <div class="theme-option-circle theme-circle-neon" data-theme="neon" title="{{ MS_TRANS.theme_neon }}"></div>
+                {% for theme in MICROSYS_THEMES %}
+                <div class="theme-option-circle" data-theme="{{ theme.slug }}" title="{{ theme.label }}" style="{{ theme.preview_style }}"></div>
+                {% endfor %}
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 {% endif %}

@@ -7,7 +7,7 @@
     {% if entry.kind == 'group' %}
     <div class="accordion-item sidebar-tree-node sidebar-group-node" data-entry-kind="group" data-entry-id="{{ entry.id }}" data-group-id="{{ entry.id }}">
         <h2 class="accordion-header d-flex flex-nowrap align-items-center{% if entry.url and entry.url != '#' %} has-url-btn{% endif %}">
-            <button class="accordion-button{% if not entry.is_open %} collapsed{% endif %}"
+            <button class="accordion-button sidebar-folder-button{% if entry.has_active %} has-active-child{% endif %}{% if not entry.is_open %} collapsed{% endif %}"
                     style="flex-grow: 1;"
                     type="button"
                     data-bs-toggle="collapse"

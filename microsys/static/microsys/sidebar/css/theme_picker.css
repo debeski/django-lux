@@ -1,7 +1,7 @@
 
 .current-theme-indicator {
-    width: 32px;
-    height: 32px;
+    width: var(--sidebar-toolbar-slot-size, 36px);
+    height: var(--sidebar-toolbar-slot-size, 36px);
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid rgba(255, 255, 255, 0.78);
@@ -10,7 +10,6 @@
         0 5px 12px rgba(56, 82, 120, 0.14);
     transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
     margin: 0;
-    justify-self: end;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -19,7 +18,7 @@
 
 .theme-arrow {
     position: absolute;
-    bottom: 46px;
+    bottom: calc(100% - 4px);
     inset-inline-start: 50%;
     transform: translateX(-50%);
     color: var(--primal);
@@ -37,13 +36,9 @@
 }
 
 .sidebar.collapsed .theme-arrow {
-    bottom: 46px;
+    bottom: calc(100% - 4px);
     inset-inline-start: 50%;
     transform: translateX(-50%);
-}
-
-.sidebar.collapsed .current-theme-indicator {
-     margin: 0 auto;
 }
 
 .current-theme-indicator:hover {
@@ -55,29 +50,22 @@
 .theme-popup {
     display: none;
     position: absolute;
-    bottom: 45px;
-    inset-inline-end: 10px;
+    bottom: calc(100% - 1px);
+    inset-inline: 8px;
     background: white;
-    border-radius: 12px;
+    border-radius: 14px 14px 8px 8px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-    padding: 10px;
+    padding: 10px 12px 12px;
     z-index: 1100;
-    min-width: 110px;
+    min-width: 0;
     border: 1px solid rgba(0, 0, 0, 0.08);
     animation: popupIn 0.2s ease-out;
     pointer-events: auto;
 }
 
 .sidebar.collapsed .theme-popup {
-    inset-inline-start: 5px;
-    inset-inline-end: 5px;
-    bottom: 65px; /* More space to accommodate larger arrow and breathing room */
-    min-width: auto;
-    width: auto;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
+    inset-inline: 4px;
+    bottom: calc(100% - 1px);
 }
 
 .sidebar.collapsed .theme-popup .small {
@@ -85,9 +73,7 @@
 }
 
 .sidebar.collapsed .theme-options-grid {
-    grid-template-columns: 1fr; /* Vertical column */
-    gap: 8px;
-    justify-items: center;
+    gap: 6px;
 }
 
 /* Staggered Animations for items */
@@ -109,6 +95,10 @@
 .theme-popup.show .theme-option-circle:nth-child(4) { transition-delay: 0.2s; }
 .theme-popup.show .theme-option-circle:nth-child(5) { transition-delay: 0.25s; }
 .theme-popup.show .theme-option-circle:nth-child(6) { transition-delay: 0.3s; }
+.theme-popup.show .theme-option-circle:nth-child(7) { transition-delay: 0.35s; }
+.theme-popup.show .theme-option-circle:nth-child(8) { transition-delay: 0.4s; }
+.theme-popup.show .theme-option-circle:nth-child(9) { transition-delay: 0.45s; }
+.theme-popup.show .theme-option-circle:nth-child(10) { transition-delay: 0.5s; }
 
 @keyframes popupIn {
     from { opacity: 0; transform: translateY(10px); }
@@ -121,13 +111,14 @@
 
 .theme-options-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(24px, 1fr));
+    gap: 10px 8px;
+    justify-items: center;
 }
 
 .theme-option-circle {
-    width: 25px;
-    height: 25px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid transparent;
@@ -144,12 +135,3 @@
     border-color: #3b82f6;
     box-shadow: 0 0 0 2px white, 0 0 0 4px #3b82f6 !important;
 }
-
-/* Theme Colors for circles */
-.theme-circle-light { background: #f6f7f9; }
-.theme-circle-blue  { background: #2363c3; }
-.theme-circle-gold  { background: #d97706; }
-.theme-circle-green { background: #166534; }
-.theme-circle-red   { background: #7f1d1d; }
-.theme-circle-dark  { background: #0f172a; }
-.theme-circle-neon  { background: linear-gradient(135deg, #00ffff 0%, #ff00ff 50%, #0a0a0f 100%); }

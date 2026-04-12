@@ -251,7 +251,7 @@
         {% if user.is_superuser %}
         <!-- System Settings -->
         <div class="col-md-4 mb-4">
-            <div class="card h-100 p-4 border-0 ms-card ms-shadow blur">
+            <div class="card h-100 p-4 border-0 ms-card shadow-sm blur">
                 <div class="d-flex align-items-center mb-3">
                     <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3 ms-icon-box">
                         <i class="bi bi-sliders text-warning fs-3"></i>
@@ -270,8 +270,6 @@
         </div>
         {% endif %}
     </div>
-
-        {% include "microsys/forms/assets_scripts.html" %}
         <script nonce="{{ request.csp_nonce }}">
             document.addEventListener('DOMContentLoaded', () => {
                 // --- Autofill Logic ---

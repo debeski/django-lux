@@ -4,11 +4,19 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v1.19.2
+
+- **Sidebar Runtime Controls**: Added system-level sidebar builder toggles for runtime reordering and sidebar-toolbar visibility, persisted them through setup and runtime config sanitization, and documented the Dynamic Sections Manager access implication when the toolbar is disabled.
+- **Sidebar Visual Overhaul**: Reworked the shared sidebar from rounded floating pills into a flatter edge-to-edge rail, restored clear active states for the older/light themes, added a modern non-arrow folder marker, normalized row geometry in collapsed mode, improved the compact theme picker layout, and separated parent-folder vs child-item active treatment more clearly in `mono` and `dark`.
+- **Documentation Refresh**: Updated the README, admin guide, customization guide, and reference material to document the `1.19.1` theme-engine changes, sidebar behavior controls, dark-theme runtime picker behavior, and current runtime configuration expectations.
+
 ## v1.19.1
 
-- **Updated pip package dependencies**: Included pyotp, psutil, and qrcode in the pyproject dependencies.
-- **Updated the documentation**: Refined the requirements and dependencies sections..
-
+- **Packaging and Dependency Cleanup**: Added the missing runtime package dependencies (`pyotp`, `psutil`, and `qrcode`) to `pyproject.toml` so installs match the features microSYS already exposes in the UI and runtime.
+- **Unified Theme Registry**: Centralized theme registration through a shared `microsys/themes.py` registry so theme names, picker ordering, preview swatches, runtime validation, and template CSS inclusion stay aligned across forms, context processors, templates, and JS.
+- **Expanded Theme Set and Stability Fixes**: Registered the new `mono`, `gothic`, and `retro` themes, fixed the first-paint `neon` allowlist so navigation no longer flashes back to light mode, and aligned newer theme-specific surfaces such as the user hub, profile cards, activity-log details, tutorial popovers, system-settings badges, options-page theme/language pickers, and sidebar toolbar.
+- **Theme Surface Conformance**: Extended the newer themes so dashboard/index cards, toolbar controls, sidebar separators, icon treatments, and dark-theme option controls follow each theme’s palette instead of leaking generic light or white fallback styling.
+- **Runtime Theme UX Polish**: Theme changes made from Options now update the sidebar toolbar indicator immediately, and the options-page preview rings now follow the active theme instead of falling back to the generic white active outline on dark themes.
 
 ## v1.19.0
 
