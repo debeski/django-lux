@@ -1270,9 +1270,15 @@ class SystemSettingsForm(forms.ModelForm):
         return sanitize_sidebar_config({
             'home_url_name': None,
             'entries': entries,
-            'enable_reorder': bool(self.cleaned_data.get('sidebar_enable_reorder', True)),
-            'show_toolbar': bool(self.cleaned_data.get('sidebar_enable_toolbar', True)),
         }, allow_system_items=True)
+
+    def clean(self):
+        cleaned = super().clean()
+        sidebar = cleaned.get('sidebar_config')
+        if isinstance(sidebar, dict):
+            sidebar['enable_reorder'] = bool(cleaned.get('sidebar_enable_reorder', True))
+            sidebar['show_toolbar'] = bool(cleaned.get('sidebar_enable_toolbar', True))
+        return cleaned
 
     def save(self, commit=True):
         instance = super().save(commit=False)

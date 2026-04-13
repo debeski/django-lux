@@ -171,20 +171,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
             /* Custom Controls Bar */
             #tutorial-controls {
+                --tut-bar-bg: rgba(255, 255, 255, 0.95);
+                --tut-bar-border: #dee2e6;
+                --tut-bar-shadow: rgba(0, 0, 0, 0.05);
+                --tut-progress-color: #4b5563;
+                --tut-next-bg: #3b82f6;
+                --tut-next-bg-hover: #2563eb;
+                --tut-next-color: #fff;
+                --tut-next-shadow: rgba(59, 130, 246, 0.3);
+                --tut-prev-bg: #f3f4f6;
+                --tut-prev-bg-hover: #e5e7eb;
+                --tut-prev-color: #4b5563;
+                --tut-prev-border: #e5e7eb;
+                --tut-skip-color: #ef4444;
+                --tut-skip-border: #fecaca;
+                --tut-skip-bg-hover: #fef2f2;
+
                 position: fixed;
                 bottom: 0;
                 left: 0;
                 right: 0;
                 width: 100vw;
-                background-color: rgba(255, 255, 255, 0.95);
-                border-top: 1px solid #dee2e6;
+                background-color: var(--tut-bar-bg);
+                border-top: 1px solid var(--tut-bar-border);
                 padding: 15px 0;
                 display: flex;
                 justify-content: center;
                 align-items: center;
                 gap: 20px;
                 z-index: 2147483648; /* Higher than popover */
-                box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+                box-shadow: 0 -4px 12px var(--tut-bar-shadow);
                 backdrop-filter: blur(5px);
                 direction: ltr;
                 animation: slideUp 0.3s ease-out;
@@ -207,30 +223,30 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             .tut-btn-next {
-                background-color: #3b82f6;
-                color: white;
-                box-shadow: 0 2px 5px rgba(59, 130, 246, 0.3);
+                background-color: var(--tut-next-bg);
+                color: var(--tut-next-color);
+                box-shadow: 0 2px 5px var(--tut-next-shadow);
             }
-            .tut-btn-next:hover { background-color: #2563eb; transform: translateY(-1px); }
+            .tut-btn-next:hover { background-color: var(--tut-next-bg-hover); transform: translateY(-1px); }
 
             .tut-btn-prev {
-                background-color: #f3f4f6;
-                color: #4b5563;
-                border: 1px solid #e5e7eb;
+                background-color: var(--tut-prev-bg);
+                color: var(--tut-prev-color);
+                border: 1px solid var(--tut-prev-border);
             }
-            .tut-btn-prev:hover { background-color: #e5e7eb; }
+            .tut-btn-prev:hover { background-color: var(--tut-prev-bg-hover); }
             .tut-btn-prev:disabled { opacity: 0.5; cursor: not-allowed; }
 
             .tut-btn-skip {
                 background-color: transparent;
-                color: #ef4444;
-                border: 1px solid #fecaca;
+                color: var(--tut-skip-color);
+                border: 1px solid var(--tut-skip-border);
             }
-            .tut-btn-skip:hover { background-color: #fef2f2; }
+            .tut-btn-skip:hover { background-color: var(--tut-skip-bg-hover); }
 
             .tut-progress {
                 font-family: 'Shabwa', sans-serif;
-                color: #4b5563;
+                color: var(--tut-progress-color);
                 font-weight: bold;
                 min-width: 60px;
                 text-align: center;

@@ -1386,3 +1386,70 @@ html[dir="rtl"] :root.theme-dark .activity-timeline {
 :root.theme-dark .datepicker-cell.prev:not(.disabled) {
     color: rgba(233, 236, 239, 0.5) !important;
 }
+
+/* 24. Tutorial - Driver.js Popover & Controls Bar */
+:root.theme-dark .driver-popover {
+    background: rgba(30, 30, 30, 0.98) !important;
+    border: 1px solid #343a40 !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+    color: #e9ecef !important;
+}
+
+:root.theme-dark .driver-popover-title {
+    color: #60a5fa !important;
+}
+
+:root.theme-dark .driver-popover-description {
+    color: #ced4da !important;
+}
+
+:root.theme-dark .driver-popover-progress-text,
+:root.theme-dark .driver-popover-close-btn {
+    color: #adb5bd !important;
+}
+
+:root.theme-dark .driver-popover-close-btn:hover {
+    color: #ef4444 !important;
+}
+
+:root.theme-dark .driver-popover-next-btn {
+    background: #3b82f6 !important;
+    color: #fff !important;
+    border-color: #3b82f6 !important;
+}
+
+:root.theme-dark .driver-popover-next-btn:hover {
+    background: #2563eb !important;
+}
+
+:root.theme-dark .driver-popover-prev-btn {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #e9ecef !important;
+    border-color: #343a40 !important;
+}
+
+:root.theme-dark .driver-popover-prev-btn:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+:root.theme-dark .driver-popover-arrow {
+    color: rgba(30, 30, 30, 0.98) !important;
+}
+
+:root.theme-dark #tutorial-controls {
+    --tut-bar-bg: rgba(30, 30, 30, 0.96);
+    --tut-bar-border: #343a40;
+    --tut-bar-shadow: rgba(0, 0, 0, 0.3);
+    --tut-progress-color: #ced4da;
+    --tut-next-bg: #3b82f6;
+    --tut-next-bg-hover: #2563eb;
+    --tut-next-color: #fff;
+    --tut-next-shadow: rgba(59, 130, 246, 0.25);
+    --tut-prev-bg: rgba(255, 255, 255, 0.06);
+    --tut-prev-bg-hover: rgba(255, 255, 255, 0.12);
+    --tut-prev-color: #e9ecef;
+    --tut-prev-border: #343a40;
+    --tut-skip-color: #f87171;
+    --tut-skip-border: rgba(248, 113, 113, 0.25);
+    --tut-skip-bg-hover: rgba(248, 113, 113, 0.1);
+}

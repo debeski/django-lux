@@ -333,6 +333,23 @@
     outline: none !important;
 }
 
+:root.theme-retro .form-control[type="file"]::file-selector-button {
+    background: linear-gradient(135deg, var(--retro-amber) 0%, var(--retro-copper) 100%) !important;
+    color: var(--retro-black) !important;
+    border: none !important;
+    border-inline-end: 1px solid rgba(212, 165, 116, 0.2) !important;
+    padding: 0.375rem 0.75rem;
+    margin-inline-end: 0.75rem;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+    cursor: pointer;
+}
+
+:root.theme-retro .form-control[type="file"]::file-selector-button:hover {
+    background: linear-gradient(135deg, var(--retro-copper) 0%, var(--retro-bronze) 100%) !important;
+    box-shadow: 0 0 15px rgba(212, 165, 116, 0.2) !important;
+}
+
 /* 4. Tables - Cinematic Data Grid */
 :root.theme-retro .table {
     color: var(--title) !important;
@@ -874,13 +891,57 @@
     box-shadow: none !important;
 }
 
+/* 23. Tutorial Controls Bar */
+:root.theme-retro #tutorial-controls {
+    --tut-bar-bg: rgba(21, 18, 16, 0.96);
+    --tut-bar-border: var(--retro-border);
+    --tut-bar-shadow: rgba(13, 11, 10, 0.4);
+    --tut-progress-color: var(--retro-rose);
+    --tut-next-bg: linear-gradient(135deg, var(--retro-amber), var(--retro-copper));
+    --tut-next-bg-hover: linear-gradient(135deg, var(--retro-copper), var(--retro-bronze));
+    --tut-next-color: var(--retro-black);
+    --tut-next-shadow: rgba(184, 115, 51, 0.3);
+    --tut-prev-bg: rgba(255, 255, 255, 0.05);
+    --tut-prev-bg-hover: rgba(255, 255, 255, 0.1);
+    --tut-prev-color: #e8ddd4;
+    --tut-prev-border: var(--retro-border);
+    --tut-skip-color: #e57373;
+    --tut-skip-border: rgba(229, 115, 115, 0.2);
+    --tut-skip-bg-hover: rgba(229, 115, 115, 0.08);
+}
+
+:root.theme-retro .tut-btn-next {
+    background: var(--tut-next-bg) !important;
+}
+
+:root.theme-retro .tut-btn-next:hover {
+    background: var(--tut-next-bg-hover) !important;
+}
+
+/* 24. Titlebar Home Button */
+:root.theme-retro .titlebar .ms-titlebar-home {
+    color: var(--retro-amber) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(184, 115, 51, 0.18) !important;
+    box-shadow: none !important;
+}
+
+:root.theme-retro .titlebar .ms-titlebar-home:hover,
+:root.theme-retro .titlebar .ms-titlebar-home:focus,
+:root.theme-retro .titlebar .ms-titlebar-home:focus-visible {
+    color: #f5ebe0 !important;
+    background: rgba(212, 165, 116, 0.14) !important;
+    border-color: rgba(212, 165, 116, 0.3) !important;
+    box-shadow: 0 0 14px rgba(212, 165, 116, 0.12) !important;
+}
+
 /* Print - Disable effects */
 @media print {
     :root.theme-retro * {
         text-shadow: none !important;
         box-shadow: none !important;
     }
-    
+
     :root.theme-retro body::before,
     :root.theme-retro::before {
         display: none !important;

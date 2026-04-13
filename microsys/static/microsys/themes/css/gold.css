@@ -50,3 +50,11 @@
     background-color: rgba(217, 119, 6, 0.08) !important;
     color: #b45309 !important;
 }
+
+/* Tutorial Controls Bar */
+:root.theme-gold #tutorial-controls {
+    --tut-next-bg: #d97706;
+    --tut-next-bg-hover: #b45309;
+    --tut-next-shadow: rgba(217, 119, 6, 0.3);
+    --tut-progress-color: #78350f;
+}

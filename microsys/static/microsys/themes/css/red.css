@@ -50,3 +50,14 @@
     background-color: rgba(239, 68, 68, 0.08) !important;
     color: #dc2626 !important;
 }
+
+/* Tutorial Controls Bar */
+:root.theme-red #tutorial-controls {
+    --tut-next-bg: #ef4444;
+    --tut-next-bg-hover: #dc2626;
+    --tut-next-shadow: rgba(239, 68, 68, 0.3);
+    --tut-progress-color: #7f1d1d;
+    --tut-skip-color: #64748b;
+    --tut-skip-border: #cbd5e1;
+    --tut-skip-bg-hover: #f1f5f9;
+}

@@ -2027,6 +2027,40 @@ html[dir="rtl"] :root.theme-neon .activity-timeline {
     color: #8080a0 !important;
 }
 
+
+/* 50b. Tutorial Controls Bar */
+:root.theme-neon #tutorial-controls {
+    --tut-bar-bg: rgba(10, 10, 15, 0.96);
+    --tut-bar-border: var(--cyber-border);
+    --tut-bar-shadow: rgba(0, 255, 255, 0.08);
+    --tut-progress-color: var(--neon-cyan);
+    --tut-next-bg: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+    --tut-next-bg-hover: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+    --tut-next-color: var(--cyber-black);
+    --tut-next-shadow: rgba(0, 255, 255, 0.3);
+    --tut-prev-bg: rgba(255, 255, 255, 0.04);
+    --tut-prev-bg-hover: rgba(0, 255, 255, 0.08);
+    --tut-prev-color: #e0e0ff;
+    --tut-prev-border: var(--cyber-border);
+    --tut-skip-color: #ff4d6d;
+    --tut-skip-border: rgba(255, 77, 109, 0.25);
+    --tut-skip-bg-hover: rgba(255, 77, 109, 0.08);
+}
+
+:root.theme-neon .tut-btn-next {
+    background: var(--tut-next-bg) !important;
+    text-shadow: none !important;
+}
+
+:root.theme-neon .tut-btn-next:hover {
+    background: var(--tut-next-bg-hover) !important;
+    box-shadow: 0 0 16px rgba(255, 0, 255, 0.4) !important;
+}
+
+:root.theme-neon .tut-btn-prev:hover {
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.15) !important;
+}
+
 /* 51. Print - Disable Neon Effects */
 @media print {
     :root.theme-neon * {

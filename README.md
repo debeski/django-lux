@@ -19,6 +19,7 @@ microSYS is a multilingual Django app that gives a project-level system layer fo
 - Universal data helpers such as `fetch_file`, `fetch_excel`, sticky-form autofill, tutorial overlays, and persistent UI preferences.
 
 ## Requirements
+`note: all the requirements will be installed automatically when you install django-microsys.`
 
 - Python 3.11+
 - Django 5.1+

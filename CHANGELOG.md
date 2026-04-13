@@ -4,6 +4,14 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v1.19.3
+
+- **Expanded Sidebar Icon Library**: Grew the sidebar builder icon picker from ~190 to over 530 Bootstrap icons, with comprehensive coverage for file types, security, communication, devices, media, and more.
+- **Icon Picker Search**: Added a real-time search field inside the icon picker with case-insensitive, space-to-hyphen filtering for fast icon discovery.
+- **Theme-Aware Tutorial Controls Bar**: Refactored the tutorial controls bar (`#tutorial-controls`) to use CSS custom properties and added per-theme overrides across all ten themes, so the bottom bar now matches each theme's palette instead of always rendering white.
+- **Dark Theme Tutorial Popover**: Added Driver.js popover styling for the Dark theme so tutorial popovers blend with the dark surface.
+- **Titlebar Home Button Fix**: Added `.ms-titlebar-home` overrides for Gothic and Retro themes so the home button no longer renders with a bright translucent-white background on dark titlebar surfaces.
+
 ## v1.19.2
 
 - **Sidebar Runtime Controls**: Added system-level sidebar builder toggles for runtime reordering and sidebar-toolbar visibility, persisted them through setup and runtime config sanitization, and documented the Dynamic Sections Manager access implication when the toolbar is disabled.

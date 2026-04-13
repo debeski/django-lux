@@ -913,6 +913,34 @@
     box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--mono-700) !important;
 }
 
+
+/* 22. Tutorial Controls Bar */
+:root.theme-mono #tutorial-controls {
+    --tut-bar-bg: rgba(255, 255, 255, 0.98);
+    --tut-bar-border: var(--mono-200);
+    --tut-bar-shadow: rgba(15, 23, 42, 0.06);
+    --tut-progress-color: var(--mono-600);
+    --tut-next-bg: linear-gradient(135deg, var(--mono-600), var(--mono-700));
+    --tut-next-bg-hover: linear-gradient(135deg, var(--mono-700), var(--mono-800));
+    --tut-next-color: #fff;
+    --tut-next-shadow: rgba(71, 85, 105, 0.2);
+    --tut-prev-bg: #ffffff;
+    --tut-prev-bg-hover: var(--mono-100);
+    --tut-prev-color: var(--mono-700);
+    --tut-prev-border: var(--mono-300);
+    --tut-skip-color: #ef4444;
+    --tut-skip-border: #fecaca;
+    --tut-skip-bg-hover: #fef2f2;
+}
+
+:root.theme-mono .tut-btn-next {
+    background: var(--tut-next-bg) !important;
+}
+
+:root.theme-mono .tut-btn-next:hover {
+    background: var(--tut-next-bg-hover) !important;
+}
+
 /* Print */
 @media print {
     :root.theme-mono * {

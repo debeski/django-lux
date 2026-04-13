@@ -55,3 +55,11 @@
     border: 1px solid rgba(255, 255, 255, 0.8) !important;
     box-shadow: 0 12px 40px -10px rgba(71, 85, 105, 0.2) !important;
 }
+
+/* Tutorial Controls Bar */
+:root.theme-light #tutorial-controls {
+    --tut-next-bg: #475569;
+    --tut-next-bg-hover: #334155;
+    --tut-next-shadow: rgba(71, 85, 105, 0.3);
+    --tut-progress-color: #334155;
+}

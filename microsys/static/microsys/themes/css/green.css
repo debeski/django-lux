@@ -62,3 +62,11 @@
     border-color: #475569 !important;
     color: #ffffff !important;
 }
+
+/* Tutorial Controls Bar */
+:root.theme-green #tutorial-controls {
+    --tut-next-bg: #10b981;
+    --tut-next-bg-hover: #059669;
+    --tut-next-shadow: rgba(16, 185, 129, 0.3);
+    --tut-progress-color: #166534;
+}
