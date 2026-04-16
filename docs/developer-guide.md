@@ -37,7 +37,7 @@ The main system-level models are:
   Stores branding, theme, language, home URL, translations override, and sidebar configuration.
 
 - `Scope` and `ScopeSettings`
-  Represent the optional scope-isolation system and whether scoping is globally enabled.
+  Represent the optional scope-isolation system and whether scoping is globally enabled. `ScopeSettings.auto_create_user_scope` enables automatic creation of a dedicated `Scope` for every newly registered user, providing automatic user isolation without manual assignment.
 
 - `ScopedModel`
   Gives inheriting models audit fields, actor tracking, soft-delete behavior, and automatic scope support.
@@ -75,6 +75,7 @@ Behavior to remember:
 - `delete()` becomes a soft-delete
 - `objects` is scope-aware and hides soft-deleted rows
 - `all_objects` is the raw escape hatch
+- When `ScopeSettings.auto_create_user_scope` is enabled, new users automatically receive their own dedicated scope
 
 ## Startup Patches and Zero-Boilerplate Behavior
 

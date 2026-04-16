@@ -116,6 +116,8 @@ MICROSYS_STRINGS = {
         'sidebar_no_selected': 'لم يتم اختيار أي عناصر بعد.',
         'sidebar_show_system_items': 'إظهار عناصر النظام',
         'sidebar_sections_manager_tooltip': 'مدير الأقسام الديناميكي',
+        'enable_scopes': 'تفعيل النطاقات',
+        'enable_auto_scopes': 'عزل المستخدمين تلقائياً (إنشاء نطاق لكل مستخدم)',
 
         # Options page
         'options_title': 'خيارات التطبيق',
@@ -598,6 +600,8 @@ MICROSYS_STRINGS = {
         'form_sys_name_en': 'System Name (English)',
         'form_sys_home_url': 'Global Home URL',
         'help_sys_home_url': 'Enter a custom path like / or /finance/ or a full URL if you want.',
+        'enable_scopes': 'Enable Scopes',
+        'enable_auto_scopes': 'Auto User Isolation (Unique scope per user)',
         'form_sys_home_url_discovered': 'Choose From Discovered Pages',
         'help_sys_home_url_discovered': 'Optional: choose a discovered page to fill the Home URL automatically, or leave it blank and type a custom URL.',
         'form_sys_home_url_custom': 'Use a custom URL or keep the current one',

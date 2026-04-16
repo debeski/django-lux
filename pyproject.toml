@@ -61,3 +61,11 @@ microsys = ["VERSION"]
 
 [project.urls]
 Homepage = "https://github.com/debeski/django-microsys"
+
+[project.optional-dependencies]
+sso = [
+    "django-oauth-toolkit>=3.0",
+    "pyjwt>=2.8",
+    "cryptography>=42.0",
+    "django-cors-headers>=4.0"
+]

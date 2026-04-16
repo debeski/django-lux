@@ -124,3 +124,25 @@ def toggle_scopes(request):
         return JsonResponse({'success': True, 'is_enabled': settings.is_enabled})
     return JsonResponse({'success': False}, status=400)
 
+
+@login_required
+@user_passes_test(is_superuser)
+def toggle_auto_scopes(request):
+    if request.method == "POST":
+        ScopeSettings = apps.get_model('microsys', 'ScopeSettings')
+        settings = ScopeSettings.load()
+        
+        target_enabled = None
+        try:
+            body = json.loads(request.body)
+            target_enabled = body.get('target_enabled')
+        except (json.JSONDecodeError, ValueError):
+            pass
+        
+        if target_enabled is None:
+            target_enabled = not getattr(settings, 'auto_create_user_scope', False)
+            
+        settings.auto_create_user_scope = target_enabled
+        settings.save()
+        return JsonResponse({'success': True, 'auto_create_user_scope': settings.auto_create_user_scope})
+    return JsonResponse({'success': False}, status=400)

@@ -4,6 +4,27 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v1.19.4b4
+
+- **Anonymous Root Redirect Fix**: Fixed a regression where anonymous users visiting the root URL `/` received a 404 instead of being redirected to the login page. Removed the `is_authenticated` check from `_should_redirect_missing_root()` so the middleware now intercepts all 404s on `/` and routes anonymous users to `/accounts/login/` while authenticated users continue to their configured home URL or setup wizard.
+
+## v1.19.4b3
+
+- **Restored Missing User Views Package**: Recovered the `microsys/views/users.py` module and related files that were accidentally excluded from the package due to a gitignore pattern matching folders named `users`. This restores user management, profile editing, and the user creation wizard functionality.
+
+## v1.19.4b2 `corrupted`
+
+- **Scope Auto-Create Hardening**: Improved the `auto_create_user_scope` feature added in b1 with safer transaction handling and better error reporting when scope creation fails during user registration.
+
+## v1.19.4b1
+
+- **Per-User Scope Auto-Creation**: Added `auto_create_user_scope` toggle to `ScopeSettings` that automatically creates a dedicated `Scope` for each newly registered user. This enables automatic user isolation using the microsys scope system, scoped manager, and permissions infrastructure without manual scope assignment.
+
+## v1.19.4b0
+
+- **Email 2FA Configuration Fix**: Replaced the broken `os.getenv('EMAIL_HOST')` check in `get_2fa_config()` with an explicit `email_2fa` flag read from the merged system config (`MICROSYS_CONFIG` + DB). The old check silently failed when email was configured via Django settings or SOPS injection rather than as a bare OS environment variable.
+- **Email 2FA Setup Toggle**: Added an `email_2fa` BooleanField to `SystemSettings` and a corresponding toggle in the System Settings form (Step 1), so administrators can enable email-based two-factor authentication from the UI. The flag is also seedable from `MICROSYS_CONFIG['email_2fa']`.
+
 ## v1.19.3
 
 - **Expanded Sidebar Icon Library**: Grew the sidebar builder icon picker from ~190 to over 530 Bootstrap icons, with comprehensive coverage for file types, security, communication, devices, media, and more.

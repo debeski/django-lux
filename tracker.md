@@ -4,7 +4,7 @@
 
 ### Current Verified Snapshot and current project overview:
 
-- Verified on: `2026-04-12`
+- Verified on: `2026-04-16`
 - Project: `django-microsys` framework package
 - Current framework state:
   - `microsys_settings(globals())` in `microsys.utils` is the supported low-friction settings integration path
@@ -71,6 +71,8 @@
 - host projects that override `extra_head` without `{{ block.super }}` can accidentally drop base-provided asset includes
 - automatic framework takeover of Crispy file fields is still not guaranteed unless template resolution order favors Microsys over `crispy_bootstrap5`
 - the latest theme/surface/sidebar CSS refinements are verified statically and through Django checks, but still need manual browser confirmation across the newer dark themes and the updated sidebar picker/runtime combinations
+- ~~Email 2FA option not appearing in deployments~~ — **Fixed in v1.19.4** (`get_2fa_config()` now reads explicit `email_2fa` flag from system config)
+- ~~Anonymous users receiving 404 on root URL instead of redirect to login~~ — **Fixed in v1.19.4b4** (removed `is_authenticated` check from `_should_redirect_missing_root()` in `middleware.py`)
 
 ### Tasks:
 
@@ -99,6 +101,20 @@
   - [x] Add sidebar runtime controls for reorder and toolbar visibility in setup and runtime config handling
   - [x] Rework the shared sidebar into a flatter rail with better active states, compact picker docking, collapsed icon handling, and live theme-indicator sync
   - [x] Document the `1.19.1` theme/sidebar/runtime polish batch across changelog and docs
+  - [x] Fix email 2FA: replace `os.getenv('EMAIL_HOST')` with explicit `email_2fa` config flag (v1.19.4b0)
+  - [x] Add `email_2fa` BooleanField to SystemSettings model + migration `0002`
+  - [x] Add `email_2fa` toggle to SystemSettingsForm (Step 1)
+  - [x] Wire `email_2fa` through `get_system_config()` default + DB read + MICROSYS_CONFIG seed
+  - [x] Add `auto_create_user_scope` toggle to ScopeSettings for per-user automatic scope creation (v1.19.4b1)
+  - [x] Fix transaction handling and error reporting for auto_create_user_scope (v1.19.4b2)
+  - [x] Restore missing users views module lost due to gitignore `users/` folder pattern (v1.19.4b3)
+  - [x] Fix anonymous root redirect (removed `is_authenticated` check from middleware) (v1.19.4b4)
+
+- SSO / OIDC:
+  - [x] Phase 1: Core OIDC Provider via `django-oauth-toolkit` — `microsys/sso/` sub-package
+  - [x] Phase 2: SSO Admin Card + Modal for client app management
+  - [x] Phase 3: Connected Devices UI in Profile for Token Revocation
+  - [x] Phase 4: Separate `django-microsys-sso-client` package
 
 ### Tests:
 
@@ -111,7 +127,11 @@
   - `python -m compileall /home/debeski/depy/projects/microsys-pkg/microsys/themes.py /home/debeski/depy/projects/microsys-pkg/microsys/forms.py /home/debeski/depy/projects/microsys-pkg/microsys/context_processors.py /home/debeski/depy/projects/microsys-pkg/microsys/utils.py`
   - `docker compose exec -T web python manage.py shell -c "from microsys.themes import get_theme_names; print(get_theme_names())"`
   - `docker compose exec -T web python manage.py test microsys.tests.test_context_processors.ContextProcessorsTests.test_microsys_context_theme_options microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_form_surfaces_neon_and_sidebar_behavior_flags microsys.tests.test_utils.UtilsTests.test_get_system_config_rejects_unknown_default_theme`
+  - `python -m py_compile` passed for `models.py`, `views/twofa.py`, `utils.py`, `forms.py`, `migrations/0002_systemsettings_email_2fa.py` (email 2FA fix)
 - Recommended next validation:
+  - Deploy updated microsys to finestor compose and confirm email 2FA toggle appears in system settings
+  - Enable email_2fa toggle, verify email 2FA option appears in profile page
+  - Send test OTP email to confirm email delivery works
   - add package tests for the new helper and list base
   - visually confirm the modern filter surface in both light and dark modes on a real list page
   - visually confirm the latest dark-theme and sidebar-runtime refinements in the browser
@@ -134,6 +154,7 @@
   - `microsys/themes.py`
   - sidebar config keys `enable_reorder` and `show_toolbar`
   - options-page `.theme-preview` and sidebar `.theme-option-circle` theme-picking surfaces
+  - `email_2fa` config flag (via `MICROSYS_CONFIG` or System Settings UI)
 
 ## Part 2: Global
 

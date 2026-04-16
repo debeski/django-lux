@@ -43,7 +43,15 @@
         {% endif %}
 
         {% if request.user.is_superuser %}
-        <div class="d-inline-block ms-auto no-print">
+        <div class="d-inline-block ms-auto no-print d-flex gap-3">
+            {% if scope_enabled %}
+            <div id="autoScopeContainer" class="form-check form-switch form-check-reverse d-inline-block align-middle">
+                <input class="form-check-input" type="checkbox" id="toggleAutoScopes" 
+                data-url="{% url 'toggle_auto_scopes' %}" data-csrf="{{ csrf_token }}"
+                {% if auto_scope_enabled %}checked{% endif %}>
+                <label class="form-check-label" for="toggleAutoScopes">{{ MS_TRANS.enable_auto_scopes }}</label>
+            </div>
+            {% endif %}
             <div class="form-check form-switch form-check-reverse d-inline-block align-middle">
                 <input class="form-check-input" type="checkbox" id="toggleScopes" 
                 data-url="{% url 'toggle_scopes' %}" data-csrf="{{ csrf_token }}"

@@ -2,7 +2,6 @@ from django.apps import apps
 from django.utils.module_loading import import_string
 from django import forms
 from django.forms import modelform_factory
-import django_tables2 as tables
 from django.http import JsonResponse
 import json
 from copy import deepcopy
@@ -59,7 +58,8 @@ def microsys_settings(scope):
         auth_index = middleware.index(auth_middleware)
         middleware.insert(auth_index + 1, microsys_middleware)
     else:
-        middleware.append(microsys_middleware)
+        # Fallback to index 0 if auth middleware is not found, though unusual
+        middleware.insert(0, microsys_middleware)
 
     context_proc = "microsys.context_processors.microsys_context"
     for template in templates:
@@ -216,6 +216,7 @@ def get_system_config():
         'home_url': DEFAULT_HOME_URL,
         'default_language': 'en',
         'default_theme': 'light',
+        'email_2fa': False,
         'languages': {
             'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
             'en': {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'},
@@ -274,6 +275,8 @@ def get_system_config():
             db_config['sidebar'] = sys_settings.sidebar_config
         if hasattr(sys_settings, 'is_configured'):
             db_config['is_configured'] = bool(sys_settings.is_configured)
+        if hasattr(sys_settings, 'email_2fa'):
+            db_config['email_2fa'] = bool(sys_settings.email_2fa)
     except Exception:
         pass
 
@@ -830,6 +833,8 @@ def _build_generic_table_class(model):
     Build Meta dynamically so django-tables2 sees Meta.model at class creation.
     Includes row_attrs for context menu support.
     """
+    import django_tables2 as tables
+    
     raw_exclude = getattr(model, "table_exclude", None)
     if raw_exclude is None:
         raw_exclude = []
@@ -1463,9 +1468,17 @@ def set_field_attrs(form, request=None):
     
     for field_name in form.fields:
         field = form.fields.get(field_name)
-        # Try to get label from MS_TRANS if it looks like a key, or use verbose name
-        label_key = f"label_{field_name}"
-        label = ms_trans.get(label_key)
+        # Try to get label from MS_TRANS (model-specific first, then generic)
+        model_name = ""
+        if hasattr(form, '_meta') and hasattr(form._meta, 'model'):
+             model_name = form._meta.model.__name__.lower()
+        
+        label_key_model = f"label_{model_name}_{field_name}" if model_name else None
+        label_key_generic = f"label_{field_name}"
+        
+        label = ms_trans.get(label_key_model) if label_key_model else None
+        if not label:
+            label = ms_trans.get(label_key_generic)
         
         if not label:
             # Handle auto-generated filter suffixes (gte/lte) for cleaner Arabic translation
@@ -1522,6 +1535,9 @@ def set_field_attrs(form, request=None):
                 label = f"{base_label}{suffix}"
 
         # Common attributes
+        if label:
+            field.label = False # standard microsys: use placeholder instead for clean UI
+            
         field.widget.attrs['placeholder'] = label
         field.widget.attrs['dir'] = direction  # Set text direction dynamically
         
@@ -2042,3 +2058,38 @@ def has_submit_button(form):
             return True
             
     return False
+
+def microsys_settings(global_settings):
+    """
+    Injects required microSYS settings into a Django settings module globals.
+    Usage in settings.py:
+        from microsys.utils import microsys_settings
+        microsys_settings(globals())
+    """
+    apps = [
+        "django_filters",
+        "django_tables2",
+        "crispy_forms",
+        "crispy_bootstrap5",
+        "microsys",
+    ]
+    installed_apps = global_settings.get("INSTALLED_APPS", [])
+    for app in apps:
+        if app not in installed_apps:
+            installed_apps.append(app)
+    global_settings["INSTALLED_APPS"] = installed_apps
+
+    mw = global_settings.get("MIDDLEWARE", [])
+    if "microsys.middleware.ActivityLogMiddleware" not in mw:
+        mw.append("microsys.middleware.ActivityLogMiddleware")
+    global_settings["MIDDLEWARE"] = mw
+
+    templates = global_settings.get("TEMPLATES", [])
+    if templates and "OPTIONS" in templates[0] and "context_processors" in templates[0]["OPTIONS"]:
+        cps = templates[0]["OPTIONS"]["context_processors"]
+        if "microsys.context_processors.microsys_context" not in cps:
+            cps.append("microsys.context_processors.microsys_context")
+
+    global_settings["CRISPY_ALLOWED_TEMPLATE_PACKS"] = "bootstrap5"
+    global_settings["CRISPY_TEMPLATE_PACK"] = "bootstrap5"
+

@@ -53,6 +53,7 @@ urlpatterns = [
     path('sys/scopes/save/<int:pk>/', views.save_scope, name='save_scope'),
     path('sys/scopes/delete/<int:pk>/', views.delete_scope, name='delete_scope'),
     path('sys/scopes/toggle/', views.toggle_scopes, name='toggle_scopes'),
+    path('sys/scopes/toggle-auto/', views.toggle_auto_scopes, name='toggle_auto_scopes'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
     path('sys/sections/', views.core_models_view, name='manage_sections'),

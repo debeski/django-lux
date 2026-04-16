@@ -281,7 +281,15 @@ def create_user_profile(sender, instance, created, **kwargs):
     """Automatically create a Profile for every new User."""
     if created:
         Profile = apps.get_model('microsys', 'Profile')
-        Profile.objects.get_or_create(user=instance)
+        profile, _ = Profile.objects.get_or_create(user=instance)
+        
+        from .models import ScopeSettings, Scope
+        settings_obj = ScopeSettings.load()
+        if settings_obj.is_enabled and getattr(settings_obj, 'auto_create_user_scope', False):
+            scope_name = instance.username
+            scope, _ = Scope.objects.get_or_create(name=scope_name)
+            profile.scope = scope
+            profile.save(update_fields=['scope'])
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_user_connected_profiles(sender, instance, created, **kwargs):

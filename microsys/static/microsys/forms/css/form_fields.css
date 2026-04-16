@@ -187,19 +187,7 @@
     border-radius: 1rem !important;
 }
 
-@media (max-width: 767.98px) {
-    .microsys-form .form-control,
-    .microsys-form .form-select,
-    .microsys-form textarea,
-    .microsys-form input[type="text"],
-    .microsys-form input[type="number"],
-    .microsys-form input[type="date"],
-    .archive-document-form .form-control,
-    .archive-document-form .form-select,
-    .archive-document-form textarea,
-    .archive-document-form input[type="text"],
-    .archive-document-form input[type="number"],
-    .archive-document-form input[type="date"] {
-        min-height: 2.9rem;
-    }
+.microsys-form .form-check-input {
+    float: none;
+    margin-inline-start: 0;
 }

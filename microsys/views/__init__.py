@@ -49,13 +49,13 @@ from .sections import (
     DynamicModalDeleteView,
 )
 
-# Scope Management
 from .scopes import (
     manage_scopes,
     get_scope_form,
     save_scope,
     delete_scope,
     toggle_scopes,
+    toggle_auto_scopes,
 )
 
 # Activity Log

@@ -71,6 +71,10 @@ Common runtime sidebar config keys in `get_system_config()["sidebar"]`:
 - `enable_reorder`
 - `show_toolbar`
 
+Common runtime feature flags in `get_system_config()`:
+
+- `email_2fa` — Enable email-based 2FA (set via `MICROSYS_CONFIG['email_2fa']` or the System Settings UI)
+
 Theme/runtime UI notes:
 
 - official theme ordering comes from `microsys/themes.py`

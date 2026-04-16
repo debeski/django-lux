@@ -2,7 +2,6 @@
 ######################################################
 from django.apps import AppConfig
 from django.apps import apps
-
 from .constants import DEFAULT_HOME_URL
 
 
@@ -46,33 +45,7 @@ class MicrosysConfig(AppConfig):
         except Exception:
             pass
         
-        # Set verbose names for Auth app and Permission model based on active language
-        try:
-            from django.contrib.auth.models import Permission
-            from .translations import get_strings
-            
-            # Determine default language from DB config (with fallback if tables aren't created yet)
-            try:
-                from microsys.models import SystemSettings
-                sys_settings = SystemSettings.load()
-                default_lang = sys_settings.default_language
-                project_overrides = sys_settings.translations_override
-            except Exception:
-                # Fallback during initial migrations or if DB is offline
-                default_lang = 'en'
-                project_overrides = None
-                
-            strings = get_strings(default_lang, overrides=project_overrides)
-            
-            auth_config = apps.get_app_config('auth')
-            auth_config.verbose_name = strings.get('auth_system', "نظام المصادقة")
-            
-            Permission.add_to_class("__str__", custom_permission_str)
-            Permission._meta.verbose_name = strings.get('permission_manage', "ادارة الصلاحيات")
-            Permission._meta.verbose_name_plural = strings.get('permissions', "الصلاحيات")
-        except (LookupError, AttributeError):
-            pass
-
+        # Patch models and signals
         import microsys.signals
         import microsys.discovery
 
@@ -80,6 +53,13 @@ class MicrosysConfig(AppConfig):
         from microsys.patches import apply_scoped_patches, apply_global_translation_patches
         apply_scoped_patches()
         apply_global_translation_patches()
+        
+        # Lazy str patch for Permission
+        try:
+            from django.contrib.auth.models import Permission
+            Permission.add_to_class("__str__", custom_permission_str)
+        except (LookupError, ImportError):
+            pass
 
     def _validate_configuration(self):
         """Validate microsys configuration at startup and emit warnings."""

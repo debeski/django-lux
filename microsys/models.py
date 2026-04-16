@@ -24,6 +24,7 @@ class Scope(models.Model):
 
 class ScopeSettings(models.Model):
     is_enabled = models.BooleanField(default=False, verbose_name="تفعيل النطاقات")
+    auto_create_user_scope = models.BooleanField(default=False, verbose_name="إنشاء نطاق تلقائي لكل مستخدم")
 
     class Meta:
         verbose_name = "Scope Settings"
@@ -57,6 +58,11 @@ class SingletonModel(models.Model):
     @classmethod
     def load(cls):
         obj = cache.get(cls.__name__)
+        if obj:
+            # Check if object still exists in DB to prevent stale cache after DB wipes
+            if not cls.objects.filter(pk=obj.pk).exists():
+                obj = None
+        
         if not obj:
             obj, created = cls.objects.get_or_create(pk=1)
             if created:
@@ -80,6 +86,8 @@ class SingletonModel(models.Model):
                     obj.translations_override = config.get('translations')
                 if hasattr(obj, 'sidebar_config') and isinstance(config.get('sidebar'), dict):
                     obj.sidebar_config = config.get('sidebar')
+                if hasattr(obj, 'email_2fa') and 'email_2fa' in config:
+                    obj.email_2fa = bool(config.get('email_2fa'))
                 obj.save()
             cache.set(cls.__name__, obj, timeout=86400)
         return obj
@@ -97,6 +105,7 @@ class SystemSettings(SingletonModel):
     default_theme = models.CharField(max_length=20, default='light', verbose_name="المظهر الافتراضي")
     home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="الرابط الرئيسي")
     is_configured = models.BooleanField(default=False, verbose_name="تم الضبط")
+    email_2fa = models.BooleanField(default=False, verbose_name="Enable Email 2FA")
     languages = models.JSONField(default=dict, blank=True, verbose_name="اللغات المتوفرة")
     translations_override = models.JSONField(default=dict, blank=True, verbose_name="تجاوز الترجمات")
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="إعدادات الشريط الجانبي")

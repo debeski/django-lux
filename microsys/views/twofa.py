@@ -84,11 +84,13 @@ def verify_otp_logic(user, code, intent='login'):
 
 # 2FA Config — Returns available 2FA methods based on server environment
 def get_2fa_config():
-    """Returns available 2FA methods based on server config."""
+    """Returns available 2FA methods based on system config (DB + MICROSYS_CONFIG)."""
+    from microsys.utils import get_system_config
+    config = get_system_config()
     return {
-        'email': bool(os.getenv('EMAIL_HOST')),
-        'phone': bool(os.getenv('SMS_BACKEND')), # Placeholder check
-        'totp': True # Always available if lib installed
+        'email': bool(config.get('email_2fa', False)),
+        'phone': bool(os.getenv('SMS_BACKEND')),  # Placeholder check
+        'totp': True  # Always available if lib installed
     }
 
 # 2FA View — Handles OTP verification for login and method activation

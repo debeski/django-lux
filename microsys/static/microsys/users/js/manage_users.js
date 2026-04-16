@@ -5,7 +5,38 @@ document.addEventListener('DOMContentLoaded', function() {
         btnManageScopes.addEventListener('click', loadScopeManager);
     }
 
-    // 2. Toggle Scopes Switch (Main page)
+    // 2. Toggle Auto Scopes Switch
+    const toggleAutoScopes = document.getElementById('toggleAutoScopes');
+    if (toggleAutoScopes) {
+        toggleAutoScopes.addEventListener('change', function(e) {
+            const checkbox = e.target;
+            const url = checkbox.dataset.url;
+            const csrfToken = checkbox.dataset.csrf;
+            if (!url || !csrfToken) return;
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ target_enabled: checkbox.checked })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('فشل في تبديل الخاصية.');
+                    checkbox.checked = !checkbox.checked;
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                checkbox.checked = !checkbox.checked;
+            });
+        });
+    }
+
+    // 3. Toggle Scopes Switch (Main page)
     const toggleScopes = document.getElementById('toggleScopes');
     if (toggleScopes) {
         toggleScopes.addEventListener('change', handleToggleScopes);

@@ -142,9 +142,14 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
         
         scope_enabled = is_scope_enabled()
         
+        ScopeSettings = apps.get_model('microsys', 'ScopeSettings')
+        settings = ScopeSettings.load()
+        auto_scope_enabled = getattr(settings, 'auto_create_user_scope', False)
+
         context["filter"] = user_filter
         context["users"] = user_filter.qs
         context["scope_enabled"] = scope_enabled
+        context["auto_scope_enabled"] = auto_scope_enabled
         
         # Disabling scopes is only safe if no users are currently assigned to any scope
         can_toggle_scope = True

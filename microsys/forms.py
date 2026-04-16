@@ -487,8 +487,9 @@ class CustomUserCreationForm(UserCreationForm):
             profile.phone = self.cleaned_data.get('phone')
             if self.user_context and not self.user_context.is_superuser and hasattr(self.user_context, 'profile') and self.user_context.profile.scope:
                 profile.scope = self.user_context.profile.scope
-            else:
+            elif self.cleaned_data.get('scope'):
                 profile.scope = self.cleaned_data.get('scope')
+            # If empty scope, we do not overwrite since signal may have auto-assigned one
             profile.save()
             
         return user
@@ -591,7 +592,8 @@ class CustomUserChangeForm(UserChangeForm):
             if self.user_context and not self.user_context.is_superuser and hasattr(self.user_context, 'profile') and self.user_context.profile.scope:
                 profile.scope = self.user_context.profile.scope
             else:
-                profile.scope = self.cleaned_data.get('scope')
+                if 'scope' in self.changed_data:
+                    profile.scope = self.cleaned_data.get('scope')
             profile.save()
             
         return user
@@ -927,6 +929,10 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=True,
     )
+    email_2fa = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
 
     class Meta:
         model = apps.get_model('microsys', 'SystemSettings')
@@ -999,7 +1005,11 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_sidebar_enable_toolbar',
             'Show the sidebar toolbar that contains the quick theme picker, reorder toggle, and dynamic section manager shortcut.',
         )
-
+        self.fields['email_2fa'].label = s.get('form_sys_email_2fa', 'Enable Email 2FA')
+        self.fields['email_2fa'].help_text = s.get(
+            'help_sys_email_2fa',
+            'Allow users to enable two-factor authentication via email. Requires a working EMAIL_HOST in Django settings.',
+        )
         project_config = getattr(settings, 'MICROSYS_CONFIG', {})
         if (not getattr(self.instance, 'is_configured', False)) and (not self.instance.name or self.instance.name in {'ادارة النظام', 'إدارة النظام'}):
              seeded_name_ar = project_config.get('name_ar', '')
@@ -1049,7 +1059,10 @@ class SystemSettingsForm(forms.ModelForm):
             self.initial['default_language'] = config.get('default_language', 'en')
         if not self.initial.get('default_theme'):
             self.initial['default_theme'] = config.get('default_theme', 'light')
-
+        self.initial['email_2fa'] = bool(
+            getattr(self.instance, 'email_2fa', False)
+            or config.get('email_2fa', False)
+        )
         self.fields['name'].widget.attrs['placeholder'] = ''
 
         if not self.initial.get('sidebar_config'):
@@ -1173,6 +1186,9 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(Field('home_url_discovered', css_class='col-lg-6'), css_class='col-lg-6'),
                     Div(Field('home_url', css_class='col-lg-6', dir='ltr'), css_class='col-lg-6'),
+                ),
+                Row(
+                    Div(Field('email_2fa'), css_class='col-lg-6'),
                 ),
                 css_class='wizard-step'
             ),
