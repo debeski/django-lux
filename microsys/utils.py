@@ -1,26 +1,63 @@
-from django.apps import apps
-from django.utils.module_loading import import_string
+import json
+import os
+from copy import deepcopy
+from decimal import Decimal, InvalidOperation
+from functools import lru_cache
+import inspect
+
 from django import forms
+from django.apps import apps
+from django.conf import settings
+from django.contrib.messages import constants as messages
+from django.db import models as dj_models
+from django.db.models import ManyToManyRel, Q
+from django.db.models.fields.files import FieldFile
+from django.db.models.fields.related import ManyToManyField
 from django.forms import modelform_factory
 from django.http import JsonResponse
-import json
-from copy import deepcopy
-from functools import lru_cache
+from django.utils.module_loading import import_string
+
+from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
+from .themes import is_valid_theme
+from .translations import get_strings
 # try-except for django_filters as it might not be installed (though likely is)
 try:
     import django_filters
 except ImportError:
     django_filters = None
-from django.db.models import ManyToManyRel, Q
-from django.db.models.fields.files import FieldFile
-from django.db.models.fields.related import ManyToManyField
-from django.db import models as dj_models
-from decimal import Decimal, InvalidOperation
-import inspect
-from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
-from .themes import is_valid_theme
-from .translations import get_strings
-from django.conf import settings
+
+
+def _coerce_list_setting(scope, key):
+    value = scope.get(key)
+    if value is None:
+        value = []
+    elif isinstance(value, tuple):
+        value = list(value)
+    scope[key] = value
+    return value
+
+
+def _insert_middleware_once(middleware, middleware_path, *, after=None, before=None):
+    if middleware_path in middleware:
+        middleware.remove(middleware_path)
+
+    insert_at = 0
+    if before and before in middleware:
+        insert_at = middleware.index(before)
+    elif after and after in middleware:
+        insert_at = middleware.index(after) + 1
+
+    middleware.insert(insert_at, middleware_path)
+
+
+def get_secret(secret_name, env_var):
+    """Read a Docker secret first, then fall back to an environment variable."""
+    secret_path = os.path.join("/run/secrets", secret_name)
+    try:
+        with open(secret_path, "r", encoding="utf-8") as secret_file:
+            return secret_file.read().strip()
+    except OSError:
+        return os.getenv(env_var)
 
 def microsys_settings(scope):
     """
@@ -34,9 +71,9 @@ def microsys_settings(scope):
     if not isinstance(scope, dict):
         raise TypeError("microsys_settings() expects the result of globals() from settings.py")
 
-    installed_apps = scope.setdefault("INSTALLED_APPS", [])
-    middleware = scope.setdefault("MIDDLEWARE", [])
-    templates = scope.setdefault("TEMPLATES", [])
+    installed_apps = _coerce_list_setting(scope, "INSTALLED_APPS")
+    middleware = _coerce_list_setting(scope, "MIDDLEWARE")
+    templates = _coerce_list_setting(scope, "TEMPLATES")
 
     required_apps = [
         "microsys",
@@ -51,15 +88,49 @@ def microsys_settings(scope):
         installed_apps.insert(0, app_label)
 
     auth_middleware = "django.contrib.auth.middleware.AuthenticationMiddleware"
+    session_middleware = "django.contrib.sessions.middleware.SessionMiddleware"
+    common_middleware = "django.middleware.common.CommonMiddleware"
+    locale_middleware = "django.middleware.locale.LocaleMiddleware"
     microsys_middleware = "microsys.middleware.ActivityLogMiddleware"
-    if microsys_middleware in middleware:
-        middleware.remove(microsys_middleware)
-    if auth_middleware in middleware:
-        auth_index = middleware.index(auth_middleware)
-        middleware.insert(auth_index + 1, microsys_middleware)
+
+    if session_middleware in middleware and common_middleware in middleware:
+        session_index = middleware.index(session_middleware)
+        common_index = middleware.index(common_middleware)
+        if session_index < common_index:
+            _insert_middleware_once(
+                middleware,
+                locale_middleware,
+                before=common_middleware,
+            )
+        else:
+            _insert_middleware_once(
+                middleware,
+                locale_middleware,
+                after=session_middleware,
+            )
+    elif session_middleware in middleware:
+        _insert_middleware_once(
+            middleware,
+            locale_middleware,
+            after=session_middleware,
+        )
+    elif common_middleware in middleware:
+        _insert_middleware_once(
+            middleware,
+            locale_middleware,
+            before=common_middleware,
+        )
     else:
-        # Fallback to index 0 if auth middleware is not found, though unusual
-        middleware.insert(0, microsys_middleware)
+        _insert_middleware_once(middleware, locale_middleware)
+
+    if auth_middleware in middleware:
+        _insert_middleware_once(
+            middleware,
+            microsys_middleware,
+            after=auth_middleware,
+        )
+    else:
+        _insert_middleware_once(middleware, microsys_middleware)
 
     context_proc = "microsys.context_processors.microsys_context"
     for template in templates:
@@ -77,6 +148,12 @@ def microsys_settings(scope):
     scope.setdefault("USE_I18N", True)
     scope.setdefault("USE_TZ", True)
     scope.setdefault("DEFAULT_CHARSET", "utf-8")
+
+    message_tags = scope.get("MESSAGE_TAGS")
+    if not isinstance(message_tags, dict):
+        message_tags = dict(message_tags or {})
+    message_tags.setdefault(messages.ERROR, "danger")
+    scope["MESSAGE_TAGS"] = message_tags
 
     format_module_path = scope.get("FORMAT_MODULE_PATH")
     if not format_module_path:
@@ -217,6 +294,7 @@ def get_system_config():
         'default_language': 'en',
         'default_theme': 'light',
         'email_2fa': False,
+        'public_root': False,
         'languages': {
             'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
             'en': {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'},
@@ -277,6 +355,8 @@ def get_system_config():
             db_config['is_configured'] = bool(sys_settings.is_configured)
         if hasattr(sys_settings, 'email_2fa'):
             db_config['email_2fa'] = bool(sys_settings.email_2fa)
+        if hasattr(sys_settings, 'public_root'):
+            db_config['public_root'] = bool(sys_settings.public_root)
     except Exception:
         pass
 
@@ -2058,38 +2138,4 @@ def has_submit_button(form):
             return True
             
     return False
-
-def microsys_settings(global_settings):
-    """
-    Injects required microSYS settings into a Django settings module globals.
-    Usage in settings.py:
-        from microsys.utils import microsys_settings
-        microsys_settings(globals())
-    """
-    apps = [
-        "django_filters",
-        "django_tables2",
-        "crispy_forms",
-        "crispy_bootstrap5",
-        "microsys",
-    ]
-    installed_apps = global_settings.get("INSTALLED_APPS", [])
-    for app in apps:
-        if app not in installed_apps:
-            installed_apps.append(app)
-    global_settings["INSTALLED_APPS"] = installed_apps
-
-    mw = global_settings.get("MIDDLEWARE", [])
-    if "microsys.middleware.ActivityLogMiddleware" not in mw:
-        mw.append("microsys.middleware.ActivityLogMiddleware")
-    global_settings["MIDDLEWARE"] = mw
-
-    templates = global_settings.get("TEMPLATES", [])
-    if templates and "OPTIONS" in templates[0] and "context_processors" in templates[0]["OPTIONS"]:
-        cps = templates[0]["OPTIONS"]["context_processors"]
-        if "microsys.context_processors.microsys_context" not in cps:
-            cps.append("microsys.context_processors.microsys_context")
-
-    global_settings["CRISPY_ALLOWED_TEMPLATE_PACKS"] = "bootstrap5"
-    global_settings["CRISPY_TEMPLATE_PACK"] = "bootstrap5"
 

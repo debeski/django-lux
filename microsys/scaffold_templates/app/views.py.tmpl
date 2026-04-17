@@ -1,0 +1,41 @@
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, UpdateView
+from django_filters.views import FilterView
+from django_tables2 import SingleTableMixin
+
+from microsys.utils import setup_filter_helper
+
+from .filters import ExampleRecordFilter
+from .forms import ExampleRecordForm
+from .models import ExampleRecord
+from .tables import ExampleRecordTable
+
+
+class ExampleRecordListView(SingleTableMixin, FilterView):
+    model = ExampleRecord
+    table_class = ExampleRecordTable
+    filterset_class = ExampleRecordFilter
+    template_name = "{{ app_name }}/example_record_list.html"
+    paginate_by = 25
+
+    def get_queryset(self):
+        return ExampleRecord.objects.order_by("-created_at")
+
+    def get_filterset(self, filterset_class):
+        filterset = super().get_filterset(filterset_class)
+        setup_filter_helper(filterset, request=self.request)
+        return filterset
+
+
+class ExampleRecordCreateView(CreateView):
+    model = ExampleRecord
+    form_class = ExampleRecordForm
+    template_name = "{{ app_name }}/example_record_form.html"
+    success_url = reverse_lazy("{{ app_name }}:example_record_list")
+
+
+class ExampleRecordUpdateView(UpdateView):
+    model = ExampleRecord
+    form_class = ExampleRecordForm
+    template_name = "{{ app_name }}/example_record_form.html"
+    success_url = reverse_lazy("{{ app_name }}:example_record_list")

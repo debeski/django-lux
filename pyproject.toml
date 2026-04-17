@@ -47,7 +47,7 @@ classifiers = [
 
 # Tell setuptools which packages to include
 [tool.setuptools.packages.find]
-include = ["microsys"]
+include = ["microsys", "microsys.*"]
 
 # Include static/templates files (equivalent to include_package_data=True)
 [tool.setuptools]
@@ -57,10 +57,19 @@ include-package-data = true
 version = { attr = "microsys.__version__" }
 
 [tool.setuptools.package-data]
-microsys = ["VERSION"]
+microsys = [
+    "VERSION",
+    "scaffold_templates/*.tmpl",
+    "scaffold_templates/*/*.tmpl",
+    "scaffold_templates/*/*/*.tmpl",
+    "scaffold_templates/*/*/*/*.tmpl",
+]
 
 [project.urls]
 Homepage = "https://github.com/debeski/django-microsys"
+
+[project.scripts]
+ms = "microsys.cli:main"
 
 [project.optional-dependencies]
 sso = [

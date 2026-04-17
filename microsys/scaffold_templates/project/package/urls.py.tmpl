@@ -1,0 +1,14 @@
+"""
+Generated with django-microsys {{ microsys_version }}.
+Project name: {{ project_name }}.
+Generated on: {{ generated_date }}.
+"""
+from django.contrib import admin
+from django.urls import include, path
+
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("health/", include("health_check.urls")),
+    path("", include("microsys.urls")),
+]

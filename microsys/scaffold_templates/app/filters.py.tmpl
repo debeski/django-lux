@@ -1,0 +1,19 @@
+import django_filters
+from django.db.models import Q
+
+from .models import ExampleRecord
+
+
+class ExampleRecordFilter(django_filters.FilterSet):
+    keyword = django_filters.CharFilter(method="filter_keyword", label="")
+
+    class Meta:
+        model = ExampleRecord
+        fields = ["keyword", "is_active"]
+
+    def filter_keyword(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(
+            Q(name__icontains=value) | Q(description__icontains=value)
+        )

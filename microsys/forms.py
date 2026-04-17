@@ -933,6 +933,10 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=False,
     )
+    public_root = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
 
     class Meta:
         model = apps.get_model('microsys', 'SystemSettings')
@@ -1010,6 +1014,11 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_email_2fa',
             'Allow users to enable two-factor authentication via email. Requires a working EMAIL_HOST in Django settings.',
         )
+        self.fields['public_root'].label = s.get('form_sys_public_root', 'Public Root Access')
+        self.fields['public_root'].help_text = s.get(
+            'help_sys_public_root',
+            'Allow anonymous (non-logged-in) users to access the root URL (/). When enabled, the system will not force-redirect to login.',
+        )
         project_config = getattr(settings, 'MICROSYS_CONFIG', {})
         if (not getattr(self.instance, 'is_configured', False)) and (not self.instance.name or self.instance.name in {'ادارة النظام', 'إدارة النظام'}):
              seeded_name_ar = project_config.get('name_ar', '')
@@ -1062,6 +1071,10 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['email_2fa'] = bool(
             getattr(self.instance, 'email_2fa', False)
             or config.get('email_2fa', False)
+        )
+        self.initial['public_root'] = bool(
+            getattr(self.instance, 'public_root', False)
+            or config.get('public_root', False)
         )
         self.fields['name'].widget.attrs['placeholder'] = ''
 
@@ -1189,6 +1202,7 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 Row(
                     Div(Field('email_2fa'), css_class='col-lg-6'),
+                    Div(Field('public_root'), css_class='col-lg-6'),
                 ),
                 css_class='wizard-step'
             ),

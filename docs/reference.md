@@ -2,6 +2,20 @@
 
 This page is the fast lookup sheet for common microSYS commands, routes, template tags, and helper utilities.
 
+## Scaffold Commands
+
+| Command | Purpose |
+| --- | --- |
+| `python -m microsys startproject myproject` | Create a new MicroSys-ready Django project. |
+| `python -m microsys startapp billing` | Create a new MicroSys-native app in the current project. |
+| `python -m microsys startapp billing --register` | Create the app and also patch project settings and URLs. |
+
+Generated project baseline:
+- `.secrets/.env` with scaffolded bootstrap secret values
+- `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
+- `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter CORS/CSP settings
+- `compose.yml` keeping the standard inline-env pattern
+
 ## Management Commands
 
 | Command | Purpose |
@@ -18,6 +32,7 @@ This page is the fast lookup sheet for common microSYS commands, routes, templat
 | `/accounts/login/` | Login screen |
 | `/accounts/logout/` | Logout |
 | `/accounts/profile/` | User profile |
+| `/health/` | Django health-check endpoint for readiness checks |
 | `/sys/setup/` | First-launch system setup |
 | `/sys/options/` | Options view |
 | `/sys/users/` | User management |
@@ -147,7 +162,8 @@ The system records several action families out of the box, including:
 | `get_theme_names()` | Return the active official theme-name list from the shared theme registry |
 | `get_theme_choices()` | Return the active theme tuples used by settings/forms choice fields |
 | `get_theme_options()` | Return the active theme metadata used by previews, labels, CSS inclusion, and runtime pickers |
-| `microsys_settings()` | Apply the default MicroSys settings requirements from a project `settings.py` via `microsys_settings(globals())`, including app stack, middleware, context processor, Crispy defaults, and core language/format defaults |
+| `microsys_settings()` | Apply the default MicroSys settings requirements from a project `settings.py` via `microsys_settings(globals())`, including app stack, locale and activity middleware, context processor, Crispy defaults, `MESSAGE_TAGS`, and core language/format defaults |
+| `get_secret()` | Read a Docker secret file first, then fall back to an environment variable |
 | `get_model_classes()` | Resolve model, form, table, and filter classes via conventions or overrides |
 | `get_user_linked_models()` | Find all models with a OneToOneField to the User model |
 | `resolve_model_by_name()` | Find a model class dynamically by name |

@@ -41,6 +41,20 @@ pip install django-microsys
 pip install git+https://github.com/debeski/django-microsys.git
 ```
 
+## Scaffold a New Project or App
+
+```bash
+python -m microsys startproject myproject
+cd myproject
+python -m microsys startapp billing --register
+```
+
+`python -m microsys startproject` creates a new Django project already wired for MicroSys. `python -m microsys startapp` creates a MicroSys-native app skeleton with models, forms, filters, tables, translations, templates, tests, and optional project registration.
+
+Generated projects also include a baseline Docker stack with `compose.yml`, `compose.dev.yml`, a `config/celery.py` worker entrypoint, and a `/health/` endpoint via `django-health-check`.
+They also generate `.secrets/.env` with the bootstrap secrets used by the standard decrypter/startup flow.
+The scaffolded settings baseline now also includes `django-cors-headers` and `django-csp` with their apps, middleware, and starter CORS/CSP policy settings.
+
 ## Minimal Quick Start
 
 1. Add the MicroSys helper at the end of your project `settings.py`.
@@ -51,7 +65,7 @@ from microsys.utils import microsys_settings
 microsys_settings(globals())
 ```
 
-That helper prepends the required apps, inserts `microsys.middleware.ActivityLogMiddleware` after Django authentication middleware when present, adds the Microsys context processor, sets the Crispy Bootstrap 5 defaults, and seeds the standard MicroSys runtime defaults for language, timezone, i18n/tz flags, `FORMAT_MODULE_PATH`, and charset unless your project already defines them.
+That helper prepends the required apps, inserts `django.middleware.locale.LocaleMiddleware` and `microsys.middleware.ActivityLogMiddleware` in the supported order, adds the Microsys context processor, sets the Crispy Bootstrap 5 defaults, adds a Bootstrap-friendly `MESSAGE_TAGS` error mapping, and seeds the standard MicroSys runtime defaults for language, timezone, i18n/tz flags, `FORMAT_MODULE_PATH`, and charset unless your project already defines them.
 
 __Proceed to [Getting Started](docs/getting-started.md) if you prefer to wire everything manually.__
 

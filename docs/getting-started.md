@@ -24,6 +24,25 @@ pip install django-microsys
 pip install git+https://github.com/debeski/django-microsys.git
 ```
 
+## Fastest Greenfield Start
+
+If you are starting a brand-new project, use the MicroSys scaffold instead of raw Django defaults:
+
+```bash
+python -m microsys startproject myproject
+cd myproject
+```
+
+For new apps inside a MicroSys project:
+
+```bash
+python -m microsys startapp billing
+# or
+python -m microsys startapp billing --register
+```
+
+The generated project already includes a Docker baseline, a `config/celery.py` entrypoint, a `celery` compose service, a `/health/` endpoint, a generated `.secrets/.env` file with the bootstrap secret values, and a baseline `django-cors-headers` / `django-csp` setup in `config/settings.py`.
+
 ## Minimum Django Configuration
 
 Add the required apps:
@@ -119,6 +138,13 @@ Useful follow-up command:
 
 ```bash
 python manage.py microsys_check
+```
+
+Useful scaffold commands:
+
+```bash
+python -m microsys startproject myproject
+python -m microsys startapp billing --register
 ```
 
 ## What Happens on First Launch

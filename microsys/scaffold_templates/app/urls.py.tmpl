@@ -1,0 +1,16 @@
+from django.urls import path
+
+from .views import (
+    ExampleRecordCreateView,
+    ExampleRecordListView,
+    ExampleRecordUpdateView,
+)
+
+
+app_name = "{{ app_name }}"
+
+urlpatterns = [
+    path("", ExampleRecordListView.as_view(), name="example_record_list"),
+    path("add/", ExampleRecordCreateView.as_view(), name="example_record_add"),
+    path("<int:pk>/edit/", ExampleRecordUpdateView.as_view(), name="example_record_edit"),
+]

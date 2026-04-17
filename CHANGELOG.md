@@ -4,6 +4,24 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v1.20.2
+
+- **Windows Docker Desktop Path Translation**: Updated the generated `start.ps1` scaffold to translate Windows project paths such as `C:\Users\...` into Docker Desktop’s daemon-visible Linux form (`/host_mnt/<drive>/...`) before launching the decrypter container.
+- **Windows Compose Bind-Mount Compatibility**: Fixed the generated PowerShell launcher so relative compose mounts like `./.nginx/nginx.conf`, `./media`, `./logs`, and the dev override `./:/app` resolve correctly on Windows instead of breaking when the helper container uses a private in-container path.
+- **Windows Shell File Reliability**: Kept scaffold file generation on forced LF newlines so generated `entrypoint.sh` and `start.sh` remain executable inside Linux containers even when the project is created on Windows.
+
+## v1.20.1
+
+- **Windows PowerShell Launcher Fix**: Updated the generated `start.ps1` scaffold so the decrypter container always uses `/workspace` as its in-container working directory instead of passing a Windows host path such as `C:\...` to `docker run -w`.
+- **Windows Shell Newline Fix**: Updated scaffold file generation to always emit LF newlines so generated `entrypoint.sh` and `start.sh` work correctly inside Linux containers when a project is created on Windows.
+
+## v1.20.0
+
+- **Scaffolding CLI**: Added package-level `microsys startproject` for greenfield MicroSys-ready Django projects and `microsys startapp` for MicroSys-native app scaffolds, including an optional `--register` flag to patch project settings and URLs safely.
+- **Scaffold Templates**: Added built-in project and app templates that generate starter docs, tests, translations, filters, tables, views, and templates following current MicroSys conventions.
+- **Scaffold Security/Runtime Baseline**: Expanded generated project settings to include `django-health-check`, Celery wiring, generated bootstrap secrets under `.secrets/.env`, `django-cors-headers`, and `django-csp` with starter middleware and baseline policy settings.
+- **Settings Helper Hardening**: Fixed the duplicate trailing `microsys_settings()` override in `microsys.utils`, added `LocaleMiddleware` ordering, added Bootstrap-friendly `MESSAGE_TAGS[messages.ERROR] = "danger"` defaulting, and kept the helper as the canonical low-friction integration path.
+
 ## v1.19.4b4
 
 - **Anonymous Root Redirect Fix**: Fixed a regression where anonymous users visiting the root URL `/` received a 404 instead of being redirected to the login page. Removed the `is_authenticated` check from `_should_redirect_missing_root()` so the middleware now intercepts all 404s on `/` and routes anonymous users to `/accounts/login/` while authenticated users continue to their configured home URL or setup wizard.

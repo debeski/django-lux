@@ -88,6 +88,8 @@ class SingletonModel(models.Model):
                     obj.sidebar_config = config.get('sidebar')
                 if hasattr(obj, 'email_2fa') and 'email_2fa' in config:
                     obj.email_2fa = bool(config.get('email_2fa'))
+                if hasattr(obj, 'public_root') and 'public_root' in config:
+                    obj.public_root = bool(config.get('public_root'))
                 obj.save()
             cache.set(cls.__name__, obj, timeout=86400)
         return obj
@@ -106,6 +108,7 @@ class SystemSettings(SingletonModel):
     home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="الرابط الرئيسي")
     is_configured = models.BooleanField(default=False, verbose_name="تم الضبط")
     email_2fa = models.BooleanField(default=False, verbose_name="Enable Email 2FA")
+    public_root = models.BooleanField(default=False, verbose_name="Public Root Access")
     languages = models.JSONField(default=dict, blank=True, verbose_name="اللغات المتوفرة")
     translations_override = models.JSONField(default=dict, blank=True, verbose_name="تجاوز الترجمات")
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="إعدادات الشريط الجانبي")

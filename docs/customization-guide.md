@@ -77,10 +77,14 @@ Use it near the end of your project `settings.py`.
 The helper currently:
 
 - prepends the required MicroSys apps and companion packages
+- inserts `django.middleware.locale.LocaleMiddleware` in the supported Django order when missing
 - inserts `microsys.middleware.ActivityLogMiddleware` after Django authentication middleware
 - adds `microsys.context_processors.microsys_context`
 - sets Crispy Bootstrap 5 defaults when absent
+- adds `MESSAGE_TAGS[messages.ERROR] = "danger"` when the host project has not already provided its own mapping
 - seeds `LANGUAGE_CODE`, `TIME_ZONE`, `USE_I18N`, `USE_TZ`, `FORMAT_MODULE_PATH`, and `DEFAULT_CHARSET` when the host project has not already set them
+
+The helper intentionally does not set cookie names or a generic `BASE_URL`. Those remain host-project concerns.
 
 If you need a nonstandard stack, you can still wire those settings manually, but the helper is the supported default path and the one `microsys_setup` / `microsys_check` now target.
 

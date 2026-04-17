@@ -1,0 +1,47 @@
+# Ignore Python and OS bytecode files
+*.pyc
+*.pyo
+__pycache__/
+*.DS_Store
+desktop.ini
+autorun.ini
+
+# Ignore Docker-related files
+Dockerfile
+compose.yml
+compose.dev.yml
+docker-compose.yml
+
+# Ignore git-related files
+.git/
+.gitignore
+.gitattributes
+
+# Ignore app directories
+logs/
+media/
+staticfiles/
+imports/
+.backups/
+secrets/
+.secrets/
+venv/
+.venv/
+dist/
+*.egg-info/
+build/
+.agents/
+.xpose/
+
+# Ignore celery-related files
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
+
+# Ignore sensitive secrets
+.env
+.key
+secrets.enc
+start.sh
+start.ps1
+db.sqlite3

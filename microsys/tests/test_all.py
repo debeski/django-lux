@@ -32,6 +32,7 @@ def run_all_tests():
         'test_signals.py',
         'test_utils.py',
         'test_context_processors.py',
+        'test_scaffold.py',
     ]
     
     print("="*70)

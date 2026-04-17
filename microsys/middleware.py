@@ -79,14 +79,20 @@ class ActivityLogMiddleware:
         from microsys.utils import get_system_config
         user = request.user
         
-        # Anonymous users always go to login
-        if not getattr(user, 'is_authenticated', False):
-            return redirect('login')
+        config = get_system_config()
         
-        try:
-            config = get_system_config()
-        except Exception:
-            config = {}
+        # Anonymous users: check if public root is allowed
+        if not getattr(user, 'is_authenticated', False):
+            # If host set explicit LOGIN_REDIRECT_URL, respect their routing intent
+            has_custom_login_redirect = hasattr(settings, 'LOGIN_REDIRECT_URL') and settings.LOGIN_REDIRECT_URL != DEFAULT_HOME_URL
+            # Or if public_root is explicitly enabled in config
+            public_root_enabled = config.get('public_root', False)
+            
+            if has_custom_login_redirect or public_root_enabled:
+                # Let the request proceed (will likely 404, letting host handle it)
+                return None
+            # Otherwise, redirect to login
+            return redirect('login')
 
         # Direct check again for safety
         try:

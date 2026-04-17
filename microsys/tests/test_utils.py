@@ -1,5 +1,5 @@
 from django.conf import settings
-from unittest.mock import patch
+from unittest.mock import mock_open, patch
 
 if not settings.configured:
     settings.configure(
@@ -51,10 +51,13 @@ if not settings.configured:
 
 from django.test import TestCase, RequestFactory, override_settings
 from django.contrib.auth import get_user_model
+from django.contrib.messages import constants as messages
 from django.core.cache import cache
+from microsys import __version__, get_version
 from microsys.utils import (
     get_system_config, is_staff, is_superuser, get_client_ip,
-    log_user_action, is_scope_enabled, _normalize_asset_url
+    log_user_action, is_scope_enabled, _normalize_asset_url,
+    get_secret, microsys_settings,
 )
 
 User = get_user_model()
@@ -103,6 +106,91 @@ class UtilsTests(TestCase):
         request = self.factory.get('/')
         ip = get_client_ip(request)
         self.assertIsNone(ip)
+
+    def test_microsys_settings_adds_locale_and_message_defaults(self):
+        scope = {
+            'INSTALLED_APPS': ['django.contrib.admin'],
+            'MIDDLEWARE': [
+                'django.contrib.sessions.middleware.SessionMiddleware',
+                'django.middleware.common.CommonMiddleware',
+                'django.contrib.auth.middleware.AuthenticationMiddleware',
+            ],
+            'TEMPLATES': [
+                {
+                    'OPTIONS': {
+                        'context_processors': [],
+                    },
+                }
+            ],
+            'MESSAGE_TAGS': {
+                messages.INFO: 'info-custom',
+            },
+        }
+
+        microsys_settings(scope)
+
+        self.assertEqual(scope['INSTALLED_APPS'][:5], [
+            'microsys',
+            'crispy_forms',
+            'crispy_bootstrap5',
+            'django_filters',
+            'django_tables2',
+        ])
+        self.assertIn('microsys.context_processors.microsys_context', scope['TEMPLATES'][0]['OPTIONS']['context_processors'])
+        self.assertEqual(
+            scope['MIDDLEWARE'].index('django.middleware.locale.LocaleMiddleware'),
+            scope['MIDDLEWARE'].index('django.middleware.common.CommonMiddleware') - 1,
+        )
+        self.assertEqual(
+            scope['MIDDLEWARE'].index('microsys.middleware.ActivityLogMiddleware'),
+            scope['MIDDLEWARE'].index('django.contrib.auth.middleware.AuthenticationMiddleware') + 1,
+        )
+        self.assertEqual(scope['MESSAGE_TAGS'][messages.ERROR], 'danger')
+        self.assertEqual(scope['MESSAGE_TAGS'][messages.INFO], 'info-custom')
+
+    def test_microsys_settings_preserves_existing_scalar_defaults(self):
+        scope = {
+            'INSTALLED_APPS': [],
+            'MIDDLEWARE': [],
+            'TEMPLATES': [],
+            'USE_I18N': False,
+            'USE_TZ': False,
+            'DEFAULT_CHARSET': 'latin-1',
+            'FORMAT_MODULE_PATH': ['project.formats'],
+        }
+
+        microsys_settings(scope)
+
+        self.assertFalse(scope['USE_I18N'])
+        self.assertFalse(scope['USE_TZ'])
+        self.assertEqual(scope['DEFAULT_CHARSET'], 'latin-1')
+        self.assertEqual(scope['FORMAT_MODULE_PATH'], ['project.formats', 'microsys.formats'])
+
+    def test_get_secret_reads_docker_secret_first(self):
+        with patch('builtins.open', mock_open(read_data='super-secret\n')):
+            secret = get_secret('db_password', 'DB_PASSWORD')
+
+        self.assertEqual(secret, 'super-secret')
+
+    def test_get_secret_falls_back_to_environment_variable(self):
+        with patch('builtins.open', side_effect=OSError), patch.dict('os.environ', {'DB_PASSWORD': 'env-secret'}, clear=False):
+            secret = get_secret('db_password', 'DB_PASSWORD')
+
+        self.assertEqual(secret, 'env-secret')
+
+    def test_get_secret_returns_none_when_missing_everywhere(self):
+        with patch('builtins.open', side_effect=OSError), patch.dict('os.environ', {}, clear=True):
+            secret = get_secret('db_password', 'DB_PASSWORD')
+
+        self.assertIsNone(secret)
+
+    def test_version_helpers_read_from_version_file(self):
+        from pathlib import Path
+
+        expected = Path(__file__).resolve().parents[1].joinpath('VERSION').read_text(encoding='utf-8').strip()
+
+        self.assertEqual(get_version(), expected)
+        self.assertEqual(__version__, expected)
 
     def test_log_user_action(self):
         """Test log_user_action utility function."""

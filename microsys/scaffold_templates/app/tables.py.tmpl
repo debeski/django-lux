@@ -1,0 +1,10 @@
+import django_tables2 as tables
+
+from .models import ExampleRecord
+
+
+class ExampleRecordTable(tables.Table):
+    class Meta:
+        model = ExampleRecord
+        fields = ("name", "is_active", "created_at")
+        attrs = {"class": "table table-hover align-middle"}
