@@ -10,9 +10,10 @@ microSYS is a multilingual Django app that gives a project-level system layer fo
 
 ## What microSYS gives you
 
-- A first-launch setup wizard at `/sys/setup/` for branding, languages, themes, global home URL, and sidebar structure, including runtime sidebar-toolbar and user-reordering controls.
+- A first-launch setup wizard at `/sys/setup/` for branding, languages, themes, default table density, global home URL, and sidebar structure, including runtime sidebar-toolbar and user-reordering controls.
 - A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
 - A database-backed `SystemSettings` singleton layered over `MICROSYS_CONFIG`, so projects can seed defaults in code and refine them in the UI later.
+- A framework-owned `django_tables2` platform that auto-adopts stock tables, ships built-in pagination and per-page controls, exposes a public `MicrosysTable` base class, and supports per-table `microsys_table`, `microsys_density`, `microsys_per_page`, and `microsys_actions` overrides.
 - A `ScopedModel` base with audit fields, soft-delete behavior, actor tracking, filtered managers, and automatic scope handling.
 - Zero-boilerplate sections and dynamic modal CRUD flows for auxiliary models, plus a reusable context-menu/event model for richer interactions.
 - A built-in audit trail with signal-based logging, merged User/Profile updates, diff capture, masked sensitive fields, and download/export log entries.
@@ -91,6 +92,52 @@ python manage.py microsys_setup
 4. Sign in as a superuser and complete the first-launch wizard at `/sys/setup/`. On a fresh install, an anonymous request may be sent through `/sys/setup/` and then to login before the wizard can be completed. After setup, the main runtime UI lives under `user_hub`.
 
 For a fuller setup path, prefix-mount guidance, and first-launch expectations, use the [Getting Started guide](docs/getting-started.md).
+
+## vNext Tables and Filter Pages
+
+If you are wiring a normal list screen today, the supported path is:
+
+- extend `microsys/list_base.html`
+- call `setup_filter_helper()` or `advanced_filter_helper()` in the view
+- render the table with `{% render_table table %}` and do not wrap it in another `.table-responsive`
+- prefer `microsys.tables.MicrosysTable` for handwritten tables
+
+The current table contract is:
+
+- stock `django_tables2` templates and no-template tables are auto-adopted into the Microsys renderer
+- explicit non-stock custom templates are left alone unless you point them at the Microsys template yourself
+- density precedence is `Table.Meta.microsys_density` -> `Profile.preferences["table_density"]` -> `SystemSettings.default_table_density` -> `balanced`
+- page-size precedence is `Table.Meta.microsys_per_page` -> request `per_page` -> `Profile.preferences["table_page_size"]` -> `20`
+- built-in per-page controls and the density switcher live in the framework-owned footer
+- tables with forced `microsys_density` intentionally hide the footer density switcher
+- default row actions are `micro:record:view`, `micro:record:edit`, and `micro:record:delete`
+- disable default row actions with `Meta.microsys_actions = False`
+- customize the action list with `get_microsys_row_actions(self, record, base_actions)`
+
+Typical handwritten table:
+
+```python
+from microsys.tables import MicrosysTable
+
+
+class InvoiceTable(MicrosysTable):
+    class Meta(MicrosysTable.Meta):
+        model = Invoice
+        fields = ("number", "customer", "status", "created_at")
+        microsys_density = "balanced"
+        microsys_per_page = 50
+```
+
+Filter pages also have a clearer contract now:
+
+- `setup_filter_helper()` and `advanced_filter_helper()` default to inline placeholder labels for filter bars
+- if you want normal external labels instead, pass `inline_labels=False`
+- if a page cannot extend `microsys/list_base.html`, include `microsys/forms/filter_assets_head.html`
+
+For the full contract and more examples, use:
+
+- [Reference](docs/reference.md)
+- [Customization Guide](docs/customization-guide.md)
 
 ## Key Capabilities
 

@@ -1,6 +1,10 @@
 {% load crispy_forms_tags %}
 
-<form method="post" class="microsys-form" action="{{ request.path }}{% if request.GET.model %}?model={{ request.GET.model }}{% endif %}{% if request.GET.id %}&id={{ request.GET.id }}{% endif %}">
+<form method="post"
+      class="microsys-form"
+      action="{{ request.path }}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+      {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}
+      {% if wizard_initial_step is not None %}data-ms-wizard-initial-step="{{ wizard_initial_step }}"{% endif %}>
     {% csrf_token %}
     {% crispy form %}
     {% if not hide_form_buttons %}

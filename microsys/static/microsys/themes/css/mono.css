@@ -67,6 +67,11 @@
     --ms-setup-badge-color: var(--mono-700);
     --ms-setup-text: var(--title);
     --ms-setup-muted: var(--mono-500);
+    --ms-table-header-surface: linear-gradient(180deg, rgba(71, 85, 105, 0.055), rgba(255, 255, 255, 0.985));
+    --ms-table-border-strong: rgba(71, 85, 105, 0.2);
+    --ms-table-row-odd: rgba(251, 252, 254, 0.98);
+    --ms-table-row-even: rgba(241, 245, 249, 0.98);
+    --ms-table-row-hover: rgba(225, 232, 240, 0.98);
 }
 
 /* Subtle texture overlay for sophistication */
@@ -110,6 +115,22 @@
 :root.theme-mono .dashboard-card:hover {
     box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06) !important;
     border-color: var(--mono-300) !important;
+}
+
+:root.theme-mono .card.ms-table-card:not([class*="text-bg-"]):not([class*="bg-"]),
+:root.theme-mono .card.ms-table-card > .card-body:not([class*="text-bg-"]):not([class*="bg-"]) {
+    background: transparent !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+:root.theme-mono .card.ms-table-card:hover,
+:root.theme-mono .card.ms-table-card:hover > .card-body {
+    background: transparent !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 /* Selective Border Coloring */
@@ -214,7 +235,7 @@
 }
 
 :root.theme-mono .table thead th {
-    background-color: var(--mono-50) !important;
+    background: var(--ms-table-header-surface) !important;
     color: var(--mono-800) !important;
     border-color: var(--mono-200) !important;
     border-bottom: 2px solid var(--mono-400) !important;
@@ -252,9 +273,22 @@
     color: var(--title) !important;
 }
 
-:root.theme-mono .dropdown-item:hover {
+:root.theme-mono .dropdown-item:hover,
+:root.theme-mono .dropdown-item:focus,
+:root.theme-mono .dropdown-item:active,
+:root.theme-mono .dropdown-item.active {
     background-color: var(--mono-100) !important;
     color: var(--mono-800) !important;
+    box-shadow: inset 0 0 0 1px rgba(71, 85, 105, 0.1) !important;
+    text-shadow: none !important;
+}
+
+:root.theme-mono .dropdown-item:hover i,
+:root.theme-mono .dropdown-item:focus i,
+:root.theme-mono .dropdown-item:active i,
+:root.theme-mono .dropdown-item.active i {
+    color: var(--mono-700) !important;
+    opacity: 1 !important;
 }
 
 /* 6. Buttons - Minimal Primary */
@@ -292,6 +326,21 @@
 :root.theme-mono .btn-danger .bi,
 :root.theme-mono .btn-light .bi {
     color: #ffffff !important;
+}
+
+:root.theme-mono .microsys-filter .btn.microsys-filter-submit.btn-secondary {
+    background:
+        radial-gradient(circle at top, rgba(71, 85, 105, 0.08), transparent 58%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.98)) !important;
+    border-color: var(--mono-300) !important;
+    color: var(--mono-800) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.96),
+        0 8px 18px -16px rgba(15, 23, 42, 0.18) !important;
+}
+
+:root.theme-mono .microsys-filter .btn.microsys-filter-submit.btn-secondary i {
+    color: var(--mono-800) !important;
 }
 
 /* 7. Sidebar Active State */
@@ -335,14 +384,16 @@
 }
 
 :root.theme-mono .sidebar .accordion-button:not(.collapsed),
-:root.theme-mono .sidebar .accordion-button.has-active-child,
 .theme-mono .sidebar .accordion-button:not(.collapsed),
-.theme-mono .sidebar .accordion-button.has-active-child {
+:root.theme-mono .sidebar.collapsed .accordion-button.has-active-child,
+.theme-mono .sidebar.collapsed .accordion-button.has-active-child {
     color: var(--mono-900) !important;
     background:
-        linear-gradient(90deg, rgba(71, 85, 105, 0.18) 0%, rgba(71, 85, 105, 0.06) 42%, transparent 100%),
-        rgba(255, 255, 255, 0.62) !important;
-    box-shadow: none !important;
+        linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1)),
+        rgba(71, 85, 105, 0.055) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.36),
+        inset 0 -1px 0 rgba(71, 85, 105, 0.05) !important;
 }
 
 :root.theme-mono .sidebar .list-group-item::before,

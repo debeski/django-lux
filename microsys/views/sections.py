@@ -33,6 +33,7 @@ from ..utils import (
     log_user_action,
     setup_filter_helper,
     has_submit_button,
+    resolve_detail_field_label,
 )
 from ..translations import get_strings
 
@@ -159,7 +160,7 @@ def core_models_view(request):
         table = TableClass(queryset, translations=translations, request=request)
         if not hasattr(table, "model_name"):
             table.model_name = model_param
-    RequestConfig(request, paginate={'per_page': 10}).configure(table)
+    RequestConfig(request).configure(table)
 
     # Merge 'scope' into existing excludes without duplicates for scoped non-superusers
     if is_scope_enabled() and user_scope and not request.user.is_superuser:
@@ -675,7 +676,8 @@ def get_section_details(request):
                     # Handle choices
                     if hasattr(instance, f"get_{field.name}_display"):
                          val = getattr(instance, f"get_{field.name}_display")()
-                    fields_data[str(field.verbose_name)] = str(val) if val is not None else ""
+                    label = resolve_detail_field_label(instance, field, request=request)
+                    fields_data[str(label)] = str(val) if val is not None else ""
                 except:
                     pass
 
@@ -724,13 +726,17 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
                 continue
 
             params = sig.parameters
+            accepts_var_kwargs = any(
+                param.kind == inspect.Parameter.VAR_KEYWORD
+                for param in params.values()
+            )
 
             # Pass user if explicitly named as a parameter
-            if 'user' in params:
+            if 'user' in params or accepts_var_kwargs:
                 extra.setdefault('user', self.request.user)
 
             # Pass request when explicitly named
-            if 'request' in params:
+            if 'request' in params or accepts_var_kwargs:
                 extra.setdefault('request', self.request)
 
         return extra
@@ -775,6 +781,20 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
     def _is_system_settings_model(self, model):
         return bool(model and model._meta.app_label == 'microsys' and model.__name__ == 'SystemSettings')
 
+    def _get_wizard_initial_step(self, model):
+        if not self._is_system_settings_model(model):
+            return None
+
+        raw_step = self.request.GET.get('step')
+        try:
+            step = int(raw_step)
+        except (TypeError, ValueError):
+            return None
+
+        if 0 <= step <= 2:
+            return step
+        return None
+
     def get(self, request, *args, **kwargs):
         model = self.get_model()
         if not model:
@@ -813,7 +833,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             # Marker for templates to know it's a modal context
             table.is_dynamic_modal = True
             
-            RequestConfig(request, paginate={'per_page': 10}).configure(table)
+            RequestConfig(request).configure(table)
 
         # 3. Resolve instance (always — needed for form, detail, or table-edit)
         instance = None
@@ -837,6 +857,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             'object': instance,  # Django convention alias
             'MS_TRANS': get_strings(),
             'hide_form_buttons': getattr(form, "_auto_helper", False) or has_submit_button(form),
+            'wizard_initial_step': self._get_wizard_initial_step(model),
         }
 
         # Auto-merge model-defined modal context (convention: get_modal_context)
@@ -907,6 +928,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             'instance': instance,
             'MS_TRANS': get_strings(),
             'hide_form_buttons': getattr(form, "_auto_helper", False) or has_submit_button(form),
+            'wizard_initial_step': self._get_wizard_initial_step(model),
         }
         # Render combined view for validation failure
         html = render_to_string('microsys/helpers/dynamic_modal_combined.html', context, request=request)

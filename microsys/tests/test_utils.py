@@ -54,10 +54,11 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import constants as messages
 from django.core.cache import cache
 from microsys import __version__, get_version
+from microsys.constants import DEFAULT_TABLE_DENSITY
 from microsys.utils import (
     get_system_config, is_staff, is_superuser, get_client_ip,
     log_user_action, is_scope_enabled, _normalize_asset_url,
-    get_secret, microsys_settings,
+    get_secret, microsys_settings, _build_generic_detail_context,
 )
 
 User = get_user_model()
@@ -254,20 +255,24 @@ class UtilsTests(TestCase):
         self.assertIn('name', config)
         self.assertIn('default_language', config)
         self.assertIn('default_theme', config)
+        self.assertIn('default_table_density', config)
         self.assertIn('languages', config)
         self.assertEqual(config['default_language'], 'en')
+        self.assertEqual(config['default_table_density'], DEFAULT_TABLE_DENSITY)
 
     def test_get_system_config_with_settings_override(self):
         """Test get_system_config with MICROSYS_CONFIG override."""
         with override_settings(MICROSYS_CONFIG={
             'name': 'Test System',
             'default_language': 'ar',
-            'default_theme': 'dark'
+            'default_theme': 'dark',
+            'default_table_density': 'roomy',
         }):
             config = get_system_config()
             self.assertEqual(config['name'], 'Test System')
             self.assertEqual(config['default_language'], 'ar')
             self.assertEqual(config['default_theme'], 'dark')
+            self.assertEqual(config['default_table_density'], 'roomy')
 
     def test_get_system_config_rejects_unknown_default_theme(self):
         fake_settings = type('FakeSettings', (), {
@@ -288,6 +293,27 @@ class UtilsTests(TestCase):
             config = get_system_config()
 
         self.assertEqual(config['default_theme'], 'light')
+
+    def test_get_system_config_rejects_unknown_default_table_density(self):
+        fake_settings = type('FakeSettings', (), {
+            'name': '',
+            'name_en': '',
+            'logo': '',
+            'favicon': '',
+            'home_url': '',
+            'default_language': '',
+            'default_theme': '',
+            'default_table_density': 'invalid-density',
+            'languages': {},
+            'translations_override': {},
+            'sidebar_config': {},
+            'is_configured': False,
+        })()
+
+        with patch('microsys.models.SystemSettings.load', return_value=fake_settings), override_settings(MICROSYS_CONFIG={'default_table_density': 'missing-density'}):
+            config = get_system_config()
+
+        self.assertEqual(config['default_table_density'], DEFAULT_TABLE_DENSITY)
 
     def test_get_system_config_preserves_sidebar_behavior_flags(self):
         with override_settings(MICROSYS_CONFIG={
@@ -314,6 +340,30 @@ class UtilsTests(TestCase):
         config = get_system_config()
         self.assertEqual(config['name'], 'DB System')
         self.assertEqual(config['default_language'], 'ar')
+
+    @override_settings(MICROSYS_CONFIG={
+        'default_language': 'en',
+        'translations': {
+            'ar': {
+                'label_systemsettings_public_root': 'الوصول العام للجذر',
+                'label_public_root': 'الجذر العام',
+            }
+        },
+    })
+    def test_generic_detail_context_uses_translated_model_field_label(self):
+        from microsys.models import SystemSettings
+
+        self.user.profile.preferences = {'language': 'ar'}
+        self.user.profile.save(update_fields=['preferences'])
+
+        request = self.factory.get('/')
+        request.user = self.user
+
+        instance = SystemSettings(public_root=True)
+        fields = _build_generic_detail_context(instance, request=request)
+        labels = {field['label']: field['value'] for field in fields}
+
+        self.assertIn('الوصول العام للجذر', labels)
 
     def test_is_scope_enabled(self):
         """Test is_scope_enabled utility function."""
@@ -431,6 +481,74 @@ class UtilsTests(TestCase):
         
         # Should not raise error
         setup_filter_helper(filter_obj, request)
+        username_field = filter_obj.form.fields['username']
+        self.assertEqual(username_field.label, '')
+        self.assertTrue(username_field.widget.attrs.get('placeholder'))
+
+    def test_set_field_attrs_preserves_labels_by_default(self):
+        from django import forms
+        from microsys.utils import set_field_attrs
+
+        class TestForm(forms.Form):
+            name = forms.CharField(label='Name')
+            status = forms.ChoiceField(
+                label='Status',
+                choices=[('', '---------'), ('active', 'Active')],
+                required=False,
+            )
+            is_active = forms.BooleanField(label='Is Active', required=False)
+
+        form = TestForm()
+
+        set_field_attrs(form)
+
+        self.assertEqual(form.fields['name'].label, 'Name')
+        self.assertIsNone(form.fields['name'].widget.attrs.get('placeholder'))
+        self.assertEqual(form.fields['status'].label, 'Status')
+        self.assertEqual(list(form.fields['status'].choices)[0][1], '---------')
+        self.assertEqual(form.fields['is_active'].label, 'Is Active')
+
+    def test_set_field_attrs_inline_labels_uses_placeholders_when_supported(self):
+        from django import forms
+        from microsys.utils import set_field_attrs
+
+        class TestForm(forms.Form):
+            name = forms.CharField(label='Name')
+            status = forms.ChoiceField(
+                label='Status',
+                choices=[('', '---------'), ('active', 'Active')],
+                required=False,
+            )
+            is_active = forms.BooleanField(label='Is Active', required=False)
+
+        form = TestForm()
+
+        set_field_attrs(form, inline_labels=True)
+
+        self.assertEqual(form.fields['name'].label, '')
+        self.assertEqual(form.fields['name'].widget.attrs.get('placeholder'), 'Name')
+        self.assertEqual(form.fields['status'].label, '')
+        self.assertEqual(list(form.fields['status'].choices)[0][1], 'Status')
+        self.assertEqual(form.fields['is_active'].label, 'Is Active')
+        self.assertIsNone(form.fields['is_active'].widget.attrs.get('placeholder'))
+
+    def test_setup_filter_helper_can_disable_inline_labels(self):
+        from microsys.utils import setup_filter_helper
+        from django_filters import FilterSet
+
+        class TestFilter(FilterSet):
+            class Meta:
+                model = User
+                fields = ['username']
+
+        request = self.factory.get('/')
+        filter_obj = TestFilter(request.GET or None, queryset=User.objects.all())
+
+        setup_filter_helper(filter_obj, request, inline_labels=False)
+
+        username_field = filter_obj.form.fields['username']
+        self.assertNotEqual(username_field.label, '')
+        self.assertIsNone(username_field.widget.attrs.get('placeholder'))
 
     def test_has_submit_button(self):
         """Test has_submit_button function."""

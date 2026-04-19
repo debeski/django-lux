@@ -52,6 +52,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.core.cache import cache
 import json
+from unittest.mock import patch
 
 User = get_user_model()
 
@@ -85,6 +86,31 @@ class GeneralViewsTests(TestCase):
         self.assertIn('version', response.context)
         self.assertIn('django_version', response.context)
         self.assertIn('python_version', response.context)
+
+    def test_options_view_reads_decrypter_version_from_env(self):
+        with patch.dict('os.environ', {'DECRYPTER_VERSION': '2.4.1'}, clear=False):
+            response = self.client.get(reverse('options_view'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['decrypter_version'], '2.4.1')
+
+    def test_options_view_exposes_split_system_settings_entrypoints(self):
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '?step=0')
+        self.assertContains(response, '?step=1')
+        self.assertContains(response, '?step=2')
+
+    def test_system_settings_modal_honors_requested_wizard_step(self):
+        response = self.client.get(
+            reverse('modal_manager', args=['microsys', 'SystemSettings', 1]) + '?step=2',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIn('data-ms-wizard-initial-step="2"', payload['html'])
+        self.assertIn('?step=2', payload['html'])
 
     def test_system_setup_view_requires_superuser(self):
         """Test that system_setup_view requires superuser status."""
@@ -272,3 +298,47 @@ class ActivityLogViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('filter', response.context)
         self.assertIn('table', response.context)
+        self.assertEqual(response.context['filter'].form.fields['keyword'].label, '')
+
+    def test_activity_log_view_keeps_inline_filter_labels_on_bound_get_requests(self):
+        from microsys.models import UserActivityLog
+
+        UserActivityLog.objects.create(
+            created_by=self.user,
+            action='CREATE',
+            model_name='Keyword Match',
+        )
+
+        response = self.client.get(reverse('user_activity_log'), {'keyword': 'match', 'page': 1})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('filter', response.context)
+        self.assertEqual(response.context['filter'].form.fields['keyword'].label, '')
+        self.assertTrue(response.context['filter'].form.fields['keyword'].widget.attrs.get('placeholder'))
+
+    def test_activity_log_detail_view_renders_structured_changes_and_masks_totp_secret(self):
+        from microsys.models import UserActivityLog
+
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_superuser'])
+
+        log = UserActivityLog.objects.create(
+            created_by=self.user,
+            action='UPDATE',
+            model_name='User Profile',
+            object_id=self.user.pk,
+            details={
+                'first_name': {'old': 'Old', 'new': 'New'},
+                'totp_secret': {'old': 'RAWOLDSECRET', 'new': 'RAWNEWSECRET'},
+            },
+        )
+
+        response = self.client.get(reverse('user_activity_log_detail', args=[log.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ms-log-detail-panel')
+        self.assertContains(response, 'ms-log-detail-item')
+        self.assertContains(response, 'ms-log-detail-status is-changed')
+        self.assertContains(response, '********')
+        self.assertNotContains(response, 'RAWOLDSECRET')
+        self.assertNotContains(response, 'RAWNEWSECRET')

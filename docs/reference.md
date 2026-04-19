@@ -74,6 +74,8 @@ Common preference keys:
 
 - `theme`
 - `lang`
+- `table_density`
+- `table_page_size`
 - `sidebar_collapsed`
 - `sidebar_accordions`
 - `sidebar_order`
@@ -89,6 +91,7 @@ Common runtime sidebar config keys in `get_system_config()["sidebar"]`:
 Common runtime feature flags in `get_system_config()`:
 
 - `email_2fa` — Enable email-based 2FA (set via `MICROSYS_CONFIG['email_2fa']` or the System Settings UI)
+- `default_table_density` — System default table density (`balanced`, `dense`, or `roomy`)
 
 Theme/runtime UI notes:
 
@@ -96,6 +99,31 @@ Theme/runtime UI notes:
 - the options page uses `.theme-preview` selectors
 - the sidebar toolbar picker uses `.theme-option-circle` selectors
 - runtime theme changes dispatch the `microsys:theme-changed` event so secondary UI such as the sidebar indicator can sync without a refresh
+
+## Framework-Owned Table Surface
+
+Microsys now owns the default table chrome for standard `django_tables2` tables.
+
+- stock `django_tables2` templates such as `django_tables2/bootstrap5.html` are remapped at runtime to `microsys/tables/table.html`
+- tables with no explicit template are also auto-captured
+- explicit non-stock custom templates are left alone by default
+- the system default density comes from `SystemSettings.default_table_density`
+- the per-user override lives in `Profile.preferences["table_density"]`
+- the per-user page-size preference lives in `Profile.preferences["table_page_size"]`
+- built-in pagination and page-size controls are rendered by `microsys/tables/table.html`
+- the recommended handwritten-table base class is `microsys.tables.MicrosysTable`
+
+Supported table Meta overrides:
+
+- `microsys_table = False` to opt out of the framework-owned renderer
+- `microsys_density = "dense" | "balanced" | "roomy"` to force density for one table
+- `microsys_per_page = 20` to force a fixed default page size for one table
+- `microsys_per_page_options = (10, 20, 50, 100)` to override the built-in page-size choices
+- `microsys_actions = False` to disable default Microsys row actions
+
+Supported table extension hook:
+
+- `get_microsys_row_actions(self, record, base_actions)` to extend or replace the default action list before permission filtering
 
 ## Context Menu Events
 

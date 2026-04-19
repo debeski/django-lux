@@ -5,20 +5,22 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.exceptions import FieldDoesNotExist
 from django.utils.module_loading import import_string
 from django.views.generic.detail import DetailView
-from django_tables2 import SingleTableMixin
+from django_tables2 import SingleTableView
 from django_filters.views import FilterView
 
 # Project imports
+from ..constants import DEFAULT_TABLE_PAGE_SIZE
 from ..utils import is_scope_enabled
 from ..translations import get_strings
 
 
 # Activity Log View — Paginated, filterable list of user activity with scope support
-class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, SingleTableMixin, FilterView):
+class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTableView):
     model = apps.get_model('microsys', 'UserActivityLog')
     table_class = import_string('microsys.tables.UserActivityLogTable')
     filterset_class = import_string('microsys.filters.UserActivityLogFilter')
     template_name = "microsys/activitylog/activity_log.html"
+    paginate_by = DEFAULT_TABLE_PAGE_SIZE
 
     def test_func(self):
         return self.request.user.is_staff  # Only staff can access logs
@@ -61,9 +63,10 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, SingleTableMi
         context = super().get_context_data(**kwargs)
         # Standardize Filter Layout
         from ..utils import setup_filter_helper
-        setup_filter_helper(self.filterset, self.request)
-        
-        context['filter'] = self.filterset
+        activity_filter = self.get_filterset(self.filterset_class)
+        setup_filter_helper(activity_filter, self.request)
+
+        context['filter'] = activity_filter
         return context
 
 
@@ -120,4 +123,3 @@ class ActivityLogDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView)
         context['related_object'] = related_object
         context['related_object_model'] = related_object._meta.verbose_name if related_object else (log.model_name or "-")
         return context
-

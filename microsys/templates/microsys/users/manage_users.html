@@ -23,9 +23,8 @@
         {% crispy filter.form %}
     </div>
 
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-0 table-responsive-lg">
-            <!-- Render the table -->
+    <div class="card border-0 shadow-sm ms-table-card">
+        <div class="card-body p-0">
             {% render_table table %}
         </div>
     </div>
@@ -221,9 +220,9 @@
 
             const modalEl = document.getElementById('resetPasswordModal');
             const form = document.getElementById('resetPasswordForm');
-            const usernameInput = document.getElementById('id_username');
 
             if (modalEl && form) {
+                const usernameInput = form.querySelector('input[name$="username"]');
                 form.action = eventData.url;
                 if (usernameInput && eventData.username) {
                     usernameInput.value = eventData.username;
@@ -254,5 +253,4 @@
     });
     </script>
     <script src="{% static 'microsys/users/js/manage_users.js' %}" nonce="{{ request.csp_nonce }}"></script>
-    <script src="{% static 'microsys/users/js/wizard.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

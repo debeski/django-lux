@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.core.files.base import ContentFile
-from .constants import DEFAULT_HOME_URL
+from .constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, TABLE_DENSITY_CHOICES, TABLE_DENSITY_VALUES
 from .managers import ScopedManager
 import io
 from PIL import Image
@@ -76,6 +76,8 @@ class SingletonModel(models.Model):
                     obj.default_language = config.get('default_language')
                 if 'default_theme' in config:
                     obj.default_theme = config.get('default_theme')
+                if hasattr(obj, 'default_table_density') and config.get('default_table_density') in TABLE_DENSITY_VALUES:
+                    obj.default_table_density = config.get('default_table_density')
                 if 'name_en' in config:
                     obj.name_en = config.get('name_en')
                 if 'home_url' in config:
@@ -105,6 +107,12 @@ class SystemSettings(SingletonModel):
     favicon = models.ImageField(upload_to='microsys/branding/', null=True, blank=True, verbose_name="أيقونة الموقع (Favicon)")
     default_language = models.CharField(max_length=10, default='en', verbose_name="اللغة الافتراضية")
     default_theme = models.CharField(max_length=20, default='light', verbose_name="المظهر الافتراضي")
+    default_table_density = models.CharField(
+        max_length=20,
+        default=DEFAULT_TABLE_DENSITY,
+        choices=TABLE_DENSITY_CHOICES,
+        verbose_name="الكثافة الافتراضية للجداول",
+    )
     home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="الرابط الرئيسي")
     is_configured = models.BooleanField(default=False, verbose_name="تم الضبط")
     email_2fa = models.BooleanField(default=False, verbose_name="Enable Email 2FA")

@@ -4,6 +4,31 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v1.20.5
+
+- **Table Surface and Theme Conformance**: Expanded the vNext table platform across the shipped themes by adding Retro table tokens, light/color theme-owned header and row tokens, dark-theme empty-state and density-card tokens, softer header gradients, and wrapper/shell curve fixes including the mono-specific table-card opt-out.
+- **Density and Footer Polish**: Added the compact in-footer density switcher beside per-page controls, suppressed it automatically on tables with forced `Meta.microsys_density`, and completed the runtime wiring for system default density plus per-user density/page-size persistence.
+- **Filter Helper Contract Clarification**: `set_field_attrs()` now preserves real labels by default, while `setup_filter_helper()` and `advanced_filter_helper()` intentionally default to inline placeholder labels for filter bars via explicit `inline_labels=True` behavior.
+- **Activity Log Filter Stability**: Aligned the activity-log page with the working `FilterView + SingleTableView` composition so the filter helper is applied consistently on initial render and follow-up GET interactions.
+- **Theme-Specific Filter and Profile Fixes**: Fixed filter search button/icon contrast for `gothic`, `retro`, and `mono`, restored the intended filter-field surface in `gothic` and `retro`, and normalized the profile action-pill sizing in `gothic` and `retro`.
+- **Activity Log and Detail UX Hardening**: Refreshed the activity-log detail modal into structured cards, masked OTP/TOTP secret-like values in saved diffs and rendered detail payloads, and made auto-generated detail labels follow the live MicroSys translation contract instead of raw English `verbose_name` values.
+- **Options and System Settings Refinements**: Split the Options entry for System Settings into focused branding/languages/sidebar launches, restored missing `email_2fa` and `public_root` translation coverage, and modernized System Settings branding uploads onto the shared Microsys file-input path with automatic multipart modal submission.
+- **Sidebar Builder Runtime Polish**: Fixed selected-entry localization drift in Arabic and added cross-pane drag/drop so discovered entries can be moved into or back out of the selected tree without leaving the builder flow.
+
+## v1.20.4
+
+- **Microsys Table Platform vNext**: Added the public `MicrosysTable` base class and aligned generic auto-built tables with the same renderer, density handling, default attrs, sorting, pagination, and row-action contract.
+- **Framework-Owned Pagination**: Shipped built-in table pagination controls, per-page options (`10`, `20`, `50`, `100`), global per-user page-size persistence through `Profile.preferences["table_page_size"]`, and centralized `RequestConfig` patching so Microsys-managed tables no longer need manual `per_page` wiring.
+- **Zero-Boilerplate CRUD Actions**: Added default `micro:record:view|edit|delete` row actions for Microsys-managed tables, including captured stock-template host tables, with permission filtering, divider cleanup, and a `get_microsys_row_actions()` extension hook for custom tables.
+- **Dark Theme Table Conformance**: Added explicit `--ms-table-*` token overrides in the `dark`, `gothic`, and `neon` themes so the new table shell, sticky surfaces, empty state, pagination, and page-size controls render correctly on dark palettes.
+- **Scaffold and View Alignment**: Updated built-in Microsys views and scaffolded app templates to use the framework page-size default and `MicrosysTable` path instead of shipping old hardcoded pagination assumptions.
+
+## v1.20.3b0
+
+- **Framework-Owned Table Surface**: Replaced the old CSS-only table polish with a Microsys-owned `django_tables2` template, responsive shell, pagination styling, sort affordances, empty-state rendering, and modern density-aware table tokens.
+- **Zero-Boilerplate Table Adoption**: Added runtime remapping so built-in tables, generic generated tables, and host-project tables using stock `django_tables2` templates adopt the Microsys renderer automatically, while explicit custom templates remain untouched by default.
+- **Layered Table Density Controls**: Added `SystemSettings.default_table_density`, per-user `Profile.preferences["table_density"]`, and per-table `Meta.microsys_density` / `Meta.microsys_table` controls with precedence from table override to user preference to system default to the `balanced` fallback.
+
 ## v1.20.2
 
 - **Windows Docker Desktop Path Translation**: Updated the generated `start.ps1` scaffold to translate Windows project paths such as `C:\Users\...` into Docker Desktop’s daemon-visible Linux form (`/host_mnt/<drive>/...`) before launching the decrypter container.

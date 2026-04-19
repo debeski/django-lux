@@ -3,6 +3,7 @@ from django.views.generic import CreateView, UpdateView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 
+from microsys.constants import DEFAULT_TABLE_PAGE_SIZE
 from microsys.utils import setup_filter_helper
 
 from .filters import ExampleRecordFilter
@@ -16,7 +17,7 @@ class ExampleRecordListView(SingleTableMixin, FilterView):
     table_class = ExampleRecordTable
     filterset_class = ExampleRecordFilter
     template_name = "{{ app_name }}/example_record_list.html"
-    paginate_by = 25
+    paginate_by = DEFAULT_TABLE_PAGE_SIZE
 
     def get_queryset(self):
         return ExampleRecord.objects.order_by("-created_at")

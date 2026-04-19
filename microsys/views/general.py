@@ -1,4 +1,5 @@
 # Fundemental imports
+import os
 import platform
 import sys
 import urllib.error
@@ -325,6 +326,7 @@ def options_view(request):
         'os_info': f"{platform.system()} {platform.release()}",
         'python_version': sys.version.split()[0],
         'django_version': django.get_version(),
+        'decrypter_version': os.getenv('DECRYPTER_VERSION', '').strip(),
         'drf_service': drf_service,
         'api_service': api_service,
         'db_service': db_service,

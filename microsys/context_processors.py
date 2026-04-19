@@ -1,3 +1,4 @@
+from .constants import DEFAULT_TABLE_DENSITY, TABLE_DENSITY_CHOICES, TABLE_DENSITY_VALUES
 from .utils import has_section_models, is_scope_enabled
 from django.conf import settings
 import hashlib
@@ -217,6 +218,11 @@ def microsys_context(request):
     allowed_themes = set(get_theme_names())
     if user_prefs.get('theme') not in allowed_themes:
         user_prefs = {**user_prefs, 'theme': default_theme}
+    default_table_density = final_config.get('default_table_density', DEFAULT_TABLE_DENSITY)
+    if default_table_density not in TABLE_DENSITY_VALUES:
+        default_table_density = DEFAULT_TABLE_DENSITY
+    if user_prefs.get('table_density') not in TABLE_DENSITY_VALUES:
+        user_prefs = {**user_prefs, 'table_density': default_table_density}
     context['user_preferences'] = user_prefs # Injected for JS use
 
     lang_config = languages.get(current_lang, {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'})
@@ -227,6 +233,7 @@ def microsys_context(request):
     ms_trans = get_strings(current_lang, overrides=project_overrides)
     context['MICROSYS_THEME_NAMES'] = list(get_theme_names())
     context['MICROSYS_THEMES'] = get_theme_options(ms_trans)
+    context['MICROSYS_TABLE_DENSITIES'] = list(TABLE_DENSITY_CHOICES)
 
     context['CURRENT_LANG'] = current_lang
     context['CURRENT_DIR'] = current_dir

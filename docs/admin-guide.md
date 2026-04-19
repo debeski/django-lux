@@ -108,6 +108,7 @@ The Options screen currently provides:
 - system information such as server time, storage usage, Python version, Django version, DRF version, and the current app version
 - theme switching
 - language switching
+- table-density switching for the current user
 - autofill enable or disable
 - reset-to-defaults for user preferences
 - a superuser-only System Settings button that opens the editable settings modal
@@ -124,6 +125,7 @@ The most common admin-facing configuration tasks are:
 
 - changing the default theme used before a user saves a personal preference
 - changing the default language used before a user saves a personal preference
+- changing the default table density used before a user saves a personal preference
 - updating the list of available languages
 - adding translation overrides without touching code
 - adjusting the global home URL used by the titlebar Home button
@@ -168,6 +170,8 @@ User preferences are stored in `Profile.preferences` and updated through the Pre
 
 - `theme`
 - `lang`
+- `table_density`
+- `table_page_size`
 - `sidebar_collapsed`
 - `sidebar_accordions`
 - `sidebar_order`

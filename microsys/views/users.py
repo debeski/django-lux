@@ -15,7 +15,7 @@ from django_tables2 import RequestConfig, SingleTableView
 from django.views.generic.detail import DetailView
 
 # Project imports
-from ..constants import DEFAULT_HOME_URL
+from ..constants import DEFAULT_HOME_URL, DEFAULT_TABLE_PAGE_SIZE
 from ..utils import is_scope_enabled, is_staff, is_superuser, log_user_action, get_client_ip, get_user_linked_models
 from ..translations import get_strings
 from .twofa import send_otp
@@ -98,7 +98,7 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
     table_class = import_string('microsys.tables.UserTable')
     filterset_class = import_string('microsys.filters.UserFilter')  # Set the filter class to apply filtering
     template_name = "microsys/users/manage_users.html"
-    paginate_by = 10
+    paginate_by = DEFAULT_TABLE_PAGE_SIZE
     
     # Restrict access to only staff users
     def test_func(self):
@@ -161,7 +161,7 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
         # Add Reset Password Form for Modal (Dummy user to generate fields)
         if self.request.user.is_authenticated:
             ResetPasswordForm = import_string('microsys.forms.ResetPasswordForm')
-            context["form_reset"] = ResetPasswordForm(user=self.request.user)
+            context["form_reset"] = ResetPasswordForm(user=self.request.user, prefix='reset_password')
             
         return context
 
@@ -228,7 +228,7 @@ def edit_user(request, pk):
              messages.error(request, "ليس لديك صلاحية لتعديل هذا المستخدم!")
              return redirect('manage_users')
 
-    form_reset = ResetPasswordForm(user, data=request.POST or None)
+    form_reset = ResetPasswordForm(user, data=request.POST or None, prefix='reset_password')
 
     if request.method == "POST":
         form = CustomUserChangeForm(request.POST, instance=user, user=request.user)
@@ -331,7 +331,7 @@ def reset_password(request, pk):
              return redirect('manage_users')
 
     if request.method == "POST":
-        form = ResetPasswordForm(user=user, data=request.POST)  # ✅ Correct usage with SetPasswordForm
+        form = ResetPasswordForm(user=user, data=request.POST, prefix='reset_password')  # ✅ Correct usage with SetPasswordForm
         if form.is_valid():
             form.save()
             log_user_action(request, "RESET", instance=user, model_name="password")
@@ -361,8 +361,8 @@ class UserDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         
         # Create table manually
         UserActivityLogTableNoUser = import_string('microsys.tables.UserActivityLogTableNoUser')
-        table = UserActivityLogTableNoUser(logs_qs, translations=get_strings())
-        RequestConfig(self.request, paginate={'per_page': 10}).configure(table)
+        table = UserActivityLogTableNoUser(logs_qs, translations=get_strings(), request=self.request)
+        RequestConfig(self.request).configure(table)
         
         context['table'] = table
         return context

@@ -51,6 +51,68 @@
     --ms-setup-badge-color: #e9ecef;
     --ms-setup-text: var(--title);
     --ms-setup-muted: #cbd5e1;
+    /* Microsys Table Tokens */
+    --ms-table-surface:
+        radial-gradient(circle at top, rgba(var(--primal-rgb), 0.08), transparent 68%),
+        linear-gradient(180deg, rgba(34, 34, 34, 0.98), rgba(18, 18, 18, 0.98));
+    --ms-table-border: rgba(255, 255, 255, 0.08);
+    --ms-table-border-strong: rgba(255, 255, 255, 0.14);
+    --ms-table-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.62);
+    --ms-table-header-surface: linear-gradient(180deg, rgba(40, 40, 40, 0.98), rgba(34, 34, 34, 0.97));
+    --ms-table-header-text: #f4f7fb;
+    --ms-table-row-odd: rgba(26, 26, 26, 0.96);
+    --ms-table-row-even: rgba(34, 34, 34, 0.96);
+    --ms-table-row-hover: rgba(52, 58, 64, 0.96);
+    --ms-table-cell-border: rgba(255, 255, 255, 0.08);
+    --ms-table-sort-muted: rgba(226, 232, 240, 0.72);
+    --ms-table-empty-muted: rgba(203, 213, 225, 0.84);
+    --ms-table-empty-surface: linear-gradient(180deg, rgba(28, 28, 28, 0.98), rgba(20, 20, 20, 0.98));
+    --ms-table-empty-icon-bg: rgba(255, 255, 255, 0.04);
+    --ms-table-empty-icon-color: #dbe5f0;
+    --ms-table-empty-icon-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --ms-table-footer-surface: linear-gradient(180deg, rgba(20, 20, 20, 0.96), rgba(16, 16, 16, 0.98));
+    --ms-table-footer-text: rgba(226, 232, 240, 0.82);
+    --ms-density-card-border: rgba(255, 255, 255, 0.1);
+    --ms-density-card-surface:
+        radial-gradient(circle at top, rgba(var(--primal-rgb), 0.06), transparent 68%),
+        linear-gradient(180deg, rgba(30, 30, 30, 0.98), rgba(20, 20, 20, 0.98));
+    --ms-density-card-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 16px 30px -26px rgba(0, 0, 0, 0.62);
+    --ms-density-card-hover-border: rgba(var(--primal-rgb), 0.22);
+    --ms-density-card-hover-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 20px 34px -28px rgba(0, 0, 0, 0.72);
+    --ms-density-card-active-border: rgba(var(--primal-rgb), 0.3);
+    --ms-density-card-active-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 0 0 0.18rem rgba(var(--primal-rgb), 0.12);
+    --ms-density-card-icon-bg: rgba(255, 255, 255, 0.05);
+    --ms-density-card-icon-color: #e9eff7;
+    --ms-density-card-title: #eef3f9;
+    --ms-density-card-copy: rgba(203, 213, 225, 0.84);
+    --ms-table-chip-bg: rgba(255, 255, 255, 0.04);
+    --ms-table-chip-border: rgba(255, 255, 255, 0.1);
+    --ms-table-chip-text: #e9ecef;
+    --ms-table-chip-hover-bg: rgba(255, 255, 255, 0.09);
+    --ms-table-chip-active-bg: rgba(var(--primal-rgb), 0.18);
+    --ms-table-chip-active-border: rgba(var(--primal-rgb), 0.34);
+    --ms-table-page-bg: rgba(255, 255, 255, 0.04);
+    --ms-table-page-border: rgba(255, 255, 255, 0.1);
+    --ms-table-page-text: #eef2f7;
+    --ms-table-page-hover-bg: rgba(255, 255, 255, 0.08);
+    --ms-table-page-hover-border: rgba(var(--primal-rgb), 0.3);
+    --ms-table-page-active-bg: rgba(var(--primal-rgb), 0.92);
+    --ms-table-page-active-border: rgba(var(--primal-rgb), 0.92);
+    --ms-table-page-active-text: #101216;
+    --ms-table-page-disabled-bg: rgba(255, 255, 255, 0.02);
+    --ms-table-page-disabled-border: rgba(255, 255, 255, 0.08);
+    --ms-table-page-disabled-text: rgba(226, 232, 240, 0.45);
+    --ms-table-sticky-shadow: 10px 0 24px -20px rgba(0, 0, 0, 0.75);
+    --ms-table-row-deleted-bg: rgba(255, 255, 255, 0.03);
+    --ms-table-row-deleted-text: #7c8797;
+    --ms-table-row-danger-bg: rgba(88, 31, 44, 0.82);
+    --ms-table-row-danger-hover-bg: rgba(108, 40, 54, 0.9);
 }
 
 /* Force options to inherit dark theme colors */
@@ -413,7 +475,7 @@
 }
 
 :root.theme-dark .table thead th {
-    background-color: var(--hbody) !important;
+    background: var(--ms-table-header-surface) !important;
     color: #fff !important;
     border-color: #343a40 !important;
 }
@@ -477,10 +539,16 @@
 
 :root.theme-dark .sidebar .list-group-item.active,
 :root.theme-dark .sidebar .accordion-button:not(.collapsed),
-:root.theme-dark .sidebar .accordion-button.has-active-child,
-.theme-dark .sidebar .accordion-button.has-active-child,
 .theme-dark .sidebar .list-group-item.active,
 .theme-dark .sidebar .accordion-button:not(.collapsed) {
+    color: #c9d2df !important;
+    /* font-weight: 700 !important; */
+}
+
+:root.theme-dark .sidebar.collapsed .accordion-button.has-active-child,
+.theme-dark .sidebar.collapsed .accordion-button.has-active-child,
+:root.theme-dark .sidebar .list-group-item.active,
+.theme-dark .sidebar .list-group-item.active {
     color: #60a5fa !important; /* Bright blue for active/expanded */
     /* font-weight: 700 !important; */
 }
@@ -1130,16 +1198,27 @@ html[dir="rtl"] :root.theme-dark .activity-timeline {
 }
 
 :root.theme-dark .sidebar .accordion-button:not(.collapsed),
-:root.theme-dark .sidebar .accordion-button.has-active-child,
-.theme-dark .sidebar .accordion-button:not(.collapsed),
-.theme-dark .sidebar .accordion-button.has-active-child {
+.theme-dark .sidebar .accordion-button:not(.collapsed) {
+    color: #cfd8e3 !important;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.01)),
+        rgba(255, 255, 255, 0.008) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.18) !important;
+}
+
+:root.theme-dark .sidebar.collapsed .accordion-button.has-active-child,
+.theme-dark .sidebar.collapsed .accordion-button.has-active-child {
     color: #7cc0ff !important;
     background:
-        linear-gradient(90deg, rgba(96, 165, 250, 0.18) 0%, rgba(96, 165, 250, 0.06) 42%, transparent 100%),
-        rgba(255, 255, 255, 0.015) !important;
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+        rgba(255, 255, 255, 0.01) !important;
     box-shadow:
-        inset 0 0 0 1px rgba(96, 165, 250, 0.09),
-        0 0 24px rgba(96, 165, 250, 0.08) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        inset 0 -1px 0 rgba(96, 165, 250, 0.05),
+        inset 0 0 0 1px rgba(96, 165, 250, 0.06),
+        0 0 18px rgba(96, 165, 250, 0.035) !important;
 }
 
 /* Dark Mode Overrides for the Popup */

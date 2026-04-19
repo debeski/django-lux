@@ -1,6 +1,7 @@
 from django import template
 from django.template.loader import get_template
 from django.template import TemplateDoesNotExist
+from django.http import QueryDict
 from django.utils.timesince import timesince
 from django.utils.html import avoid_wrapping
 from django.conf import settings
@@ -60,3 +61,56 @@ def include_if_exists(context, template_name):
         return t.render(context.flatten())
     except TemplateDoesNotExist:
         return ""
+
+
+@register.simple_tag(takes_context=True)
+def ms_querystring(context, key, value):
+    """
+    Return the current request querystring with one dynamic key updated.
+    Usage: {% ms_querystring table.prefixed_order_by_field column.order_by_alias.next %}
+    """
+    request = context.get('request')
+    if request is not None:
+        querydict = request.GET.copy()
+    else:
+        querydict = QueryDict('', mutable=True)
+
+    key = str(key or '').strip()
+    if not key:
+        encoded = querydict.urlencode()
+        return f'?{encoded}' if encoded else ''
+
+    if value in (None, ''):
+        querydict.pop(key, None)
+    else:
+        querydict[key] = value
+
+    encoded = querydict.urlencode()
+    return f'?{encoded}' if encoded else ''
+
+
+@register.simple_tag(takes_context=True)
+def ms_querystring_multi(context, *args):
+    """
+    Return the current request querystring with multiple dynamic keys updated.
+    Usage: {% ms_querystring_multi table.prefixed_page_field '' table.microsys_per_page_field 50 %}
+    """
+    request = context.get('request')
+    if request is not None:
+        querydict = request.GET.copy()
+    else:
+        querydict = QueryDict('', mutable=True)
+
+    pair_count = len(args) - (len(args) % 2)
+    for index in range(0, pair_count, 2):
+        key = str(args[index] or '').strip()
+        value = args[index + 1]
+        if not key:
+            continue
+        if value in (None, ''):
+            querydict.pop(key, None)
+        else:
+            querydict[key] = value
+
+    encoded = querydict.urlencode()
+    return f'?{encoded}' if encoded else ''

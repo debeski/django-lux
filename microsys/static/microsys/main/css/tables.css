@@ -1,117 +1,576 @@
-
-.table>tbody>tr:nth-child(odd)>td, 
-.table>tbody>tr:nth-child(odd)>th {
-    --bs-table-bg-type: white;
+:root {
+    --ms-table-surface:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.032), transparent 64%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.97));
+    --ms-table-border: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    --ms-table-border-strong: rgba(var(--primal-rgb, 13, 110, 253), 0.2);
+    --ms-table-shadow: 0 14px 34px -24px rgba(15, 23, 42, 0.34);
+    --ms-table-header-surface: color-mix(in srgb, var(--table-row, #f7f8fa) 88%, white);
+    --ms-table-header-text: var(--title, #334155);
+    --ms-table-row-odd: rgba(255, 255, 255, 0.92);
+    --ms-table-row-even: color-mix(in srgb, var(--table-row, #f7f8fa) 82%, white);
+    --ms-table-row-hover: color-mix(in srgb, var(--table-row-hover, #f1f5f9) 84%, white);
+    --ms-table-cell-border: rgba(148, 163, 184, 0.18);
+    --ms-table-sort-muted: color-mix(in srgb, var(--bs-secondary-color, #64748b) 86%, white);
+    --ms-table-empty-muted: color-mix(in srgb, var(--bs-secondary-color, #64748b) 82%, white);
+    --ms-table-empty-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.86));
+    --ms-table-empty-icon-bg: color-mix(in srgb, var(--table-row-hover, #f1f5f9) 85%, white);
+    --ms-table-empty-icon-color: var(--primal, #475569);
+    --ms-table-empty-icon-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    --ms-table-footer-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.16));
+    --ms-table-footer-border: var(--ms-table-border);
+    --ms-table-footer-text: color-mix(in srgb, var(--bs-secondary-color, #64748b) 86%, white);
+    --ms-density-card-border: rgba(var(--primal-rgb, 13, 110, 253), 0.14);
+    --ms-density-card-surface:
+        radial-gradient(circle at top, rgba(var(--primal-rgb, 13, 110, 253), 0.03), transparent 68%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+    --ms-density-card-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.92),
+        0 8px 24px -22px rgba(15, 23, 42, 0.34);
+    --ms-density-card-hover-border: rgba(var(--primal-rgb, 13, 110, 253), 0.26);
+    --ms-density-card-hover-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.94),
+        0 14px 28px -24px rgba(15, 23, 42, 0.45);
+    --ms-density-card-active-border: rgba(var(--primal-rgb, 13, 110, 253), 0.34);
+    --ms-density-card-active-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.94),
+        0 0 0 0.18rem rgba(var(--primal-rgb, 13, 110, 253), 0.1);
+    --ms-density-card-icon-bg: color-mix(in srgb, var(--table-row-hover, #f1f5f9) 84%, white);
+    --ms-density-card-icon-color: var(--primal, #475569);
+    --ms-density-card-title: var(--title, #334155);
+    --ms-density-card-copy: color-mix(in srgb, var(--bs-secondary-color, #64748b) 84%, white);
+    --ms-table-chip-bg: rgba(255, 255, 255, 0.7);
+    --ms-table-chip-border: rgba(var(--primal-rgb, 13, 110, 253), 0.14);
+    --ms-table-chip-text: var(--ms-table-header-text);
+    --ms-table-chip-hover-bg: rgba(255, 255, 255, 0.94);
+    --ms-table-chip-active-bg: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    --ms-table-chip-active-border: rgba(var(--primal-rgb, 13, 110, 253), 0.28);
+    --ms-table-page-bg: rgba(255, 255, 255, 0.82);
+    --ms-table-page-border: rgba(var(--primal-rgb, 13, 110, 253), 0.14);
+    --ms-table-page-text: var(--ms-table-header-text);
+    --ms-table-page-hover-bg: rgba(255, 255, 255, 0.98);
+    --ms-table-page-hover-border: rgba(var(--primal-rgb, 13, 110, 253), 0.26);
+    --ms-table-page-active-bg: var(--bs-primary, var(--primal, #475569));
+    --ms-table-page-active-border: var(--bs-primary, var(--primal, #475569));
+    --ms-table-page-active-text: #fff;
+    --ms-table-page-disabled-bg: rgba(148, 163, 184, 0.08);
+    --ms-table-page-disabled-border: rgba(148, 163, 184, 0.12);
+    --ms-table-page-disabled-text: rgba(100, 116, 139, 0.75);
+    --ms-table-scroll-bg: transparent;
+    --ms-table-sticky-shadow: 8px 0 18px -18px rgba(15, 23, 42, 0.42);
+    --ms-table-row-deleted-bg: rgba(15, 23, 42, 0.03);
+    --ms-table-row-deleted-text: #94a3b8;
+    --ms-table-row-danger-bg: rgba(248, 215, 218, 0.86);
+    --ms-table-row-danger-hover-bg: rgba(248, 215, 218, 0.92);
+    --ms-table-density-header-y: 0.95rem;
+    --ms-table-density-cell-y: 0.9rem;
+    --ms-table-density-cell-x: 1rem;
+    --ms-table-density-font: 0.965rem;
+    --ms-table-density-head-font: 0.79rem;
 }
 
-.table>tbody>tr:nth-child(even)>td, 
-.table>tbody>tr:nth-child(even)>th {
-    --bs-table-bg-type: var(--table-row);
+.ms-table-shell {
+    position: relative;
+    border: 1px solid var(--ms-table-border);
+    border-radius: 1.35rem;
+    background: var(--ms-table-surface);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.92),
+        var(--ms-table-shadow);
+    overflow: hidden;
+    backdrop-filter: blur(8px);
 }
 
-.table thead th {
-    background-color: var(--table-row);
-    /* font-size: 20px; REMOVED to allow normal sizing */
-    transition: font-size 0.3s;
-}
-
-@media (max-width: 900px) {
-    .table thead th {
-        font-size: 13px;
-    }
-}
-
-@media (max-width: 900px) {
-    .table tbody tr td,
-    .table tbody tr th {
-        font-size: 15px !important;
-    }
-}
-
-/* Theme-based Hover State */
-.table-hover > tbody > tr:hover > * {
-    --bs-table-bg-state: var(--table-row-hover) !important;
-    background-color: var(--table-row-hover) !important;
-}
-
-.table tbody tr td,
-.table tbody tr th {
-    border-style: none;
-    font-size: 18px;
-    transition: font-size 0.3s;
-}
-
-th a {
-    text-decoration: none;
-    color: inherit;
-}
-
-th a::after {
-    font-family: "bootstrap-icons";
-    content: "\F238";
-    font-size: 14px;
-    margin-right: 3px;
-}
-
-th.asc a::after {
-    content: "\F235";
-}
-
-th.desc a::after {
-    content: "\F229";
-}
-
-/* Fix for table-danger row coloring to override nth-child striping */
-.table > tbody > tr.table-danger > td,
-.table > tbody > tr.table-danger > th {
-    --bs-table-bg-type: #f8d7da !important;
-}
-
-/* Specific hover state for table-danger (Disabled Hover) - Increased Specificity */
-.table-hover > tbody > tr.table-danger:hover > * {
-    --bs-table-accent-bg: #f8d7da !important;
-    background-color: #f8d7da !important;
-    color: inherit !important;
+.ms-table-card {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
-    border-color: inherit !important;
 }
 
-.sticky-col {
-    position: sticky;
-    left: 0;
-    background-color: var(--table-row) !important;
-    z-index: 100;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+.ms-table-card > .card-body {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
 }
 
-.table-striped > tbody > tr:nth-of-type(odd) > .sticky-col {
-    background-color: var(--bs-table-accent-bg) !important;
+.ms-table-scroll {
+    background: var(--ms-table-scroll-bg);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
-/* Strikethrough for deleted rows */
-tr.row-deleted {
-    color: #aeaeae !important;
+.ms-data-table {
+    width: 100%;
+    margin: 0;
+    color: var(--bs-body-color, #212529);
+    border-collapse: separate;
+    border-spacing: 0;
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: transparent;
+    --bs-table-striped-color: inherit;
+    --bs-table-active-bg: transparent;
+    --bs-table-active-color: inherit;
+    --bs-table-hover-bg: transparent;
+    --bs-table-hover-color: inherit;
 }
 
-/* Override bootstrap table striping for deleted rows */
-.table > tbody > tr.row-deleted > td,
-.table > tbody > tr.row-deleted > th {
-    --bs-table-bg-type: rgba(0, 0, 0, 0.02) !important;
-    color: #aeaeae !important;
+.ms-data-table > :not(caption) > * > * {
+    padding: var(--ms-table-density-cell-y) var(--ms-table-density-cell-x);
+    vertical-align: middle;
+    border-bottom: 1px solid var(--ms-table-cell-border);
+    box-shadow: none !important;
+    background: transparent;
+    font-size: var(--ms-table-density-font);
 }
 
-tr.row-deleted td {
+.ms-data-table > thead > tr > th {
+    position: relative;
+    padding: var(--ms-table-density-header-y) var(--ms-table-density-cell-x);
+    background: var(--ms-table-header-surface);
+    color: var(--ms-table-header-text);
+    font-size: var(--ms-table-density-head-font);
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--ms-table-border-strong);
+}
+
+@media (min-width: 992px) {
+    .ms-data-table > thead > tr > th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+}
+
+.ms-data-table > tbody > tr:nth-child(odd) > td,
+.ms-data-table > tbody > tr:nth-child(odd) > th {
+    background: var(--ms-table-row-odd);
+}
+
+.ms-data-table > tbody > tr:nth-child(even) > td,
+.ms-data-table > tbody > tr:nth-child(even) > th {
+    background: var(--ms-table-row-even);
+}
+
+.ms-data-table > tbody > tr:hover > td,
+.ms-data-table > tbody > tr:hover > th,
+.ms-data-table.table-hover > tbody > tr:hover > * {
+    background: var(--ms-table-row-hover) !important;
+}
+
+.ms-table-sort-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.ms-table-sort-link:hover {
+    color: var(--bs-primary, var(--primal, #475569));
+}
+
+.ms-table-head-label {
+    display: inline-flex;
+    align-items: center;
+}
+
+.ms-table-sort-icon {
+    font-size: 0.9rem;
+    color: var(--ms-table-sort-muted);
+    transition: transform 0.16s ease, color 0.16s ease, opacity 0.16s ease;
+    opacity: 0.7;
+}
+
+.ms-table-sort-link.is-ordered .ms-table-sort-icon {
+    color: var(--bs-primary, var(--primal, #475569));
+    opacity: 1;
+}
+
+.ms-table-sort-link.is-ordered.is-desc .ms-table-sort-icon {
+    transform: rotate(180deg);
+}
+
+.ms-table-empty-row > td {
+    padding: 2.25rem 1.25rem !important;
+    background: var(--ms-table-empty-surface) !important;
+    border-bottom: 0;
+}
+
+.ms-table-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    text-align: center;
+}
+
+.ms-table-empty-state__icon {
+    width: 3.2rem;
+    height: 3.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--ms-table-empty-icon-bg);
+    color: var(--ms-table-empty-icon-color);
+    font-size: 1.25rem;
+    box-shadow: var(--ms-table-empty-icon-shadow);
+}
+
+.ms-table-empty-state__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.ms-table-empty-state__copy strong {
+    font-size: 1rem;
+    color: var(--ms-table-header-text);
+}
+
+.ms-table-empty-state__copy span {
+    max-width: 34rem;
+    color: var(--ms-table-empty-muted);
+}
+
+.ms-table-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--ms-table-footer-surface);
+    border-top: 1px solid var(--ms-table-footer-border);
+}
+
+.ms-table-footer-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem 1.1rem;
+    color: var(--ms-table-footer-text);
+}
+
+.ms-table-page-size {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.ms-table-density-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.ms-table-page-size__label,
+.ms-table-density-inline__label,
+.ms-table-summary {
+    font-size: 0.88rem;
+}
+
+.ms-table-density-inline__label {
+    display: inline-flex;
+    align-items: center;
+    color: var(--ms-table-footer-text);
+}
+
+.ms-table-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+}
+
+.ms-table-summary strong {
+    color: var(--ms-table-header-text);
+    font-weight: 800;
+}
+
+.ms-table-page-size__options {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.ms-table-density-inline__options {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.ms-table-page-size__option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.4rem;
+    padding: 0.42rem 0.72rem;
+    border: 1px solid var(--ms-table-chip-border);
+    border-radius: 999px;
+    background: var(--ms-table-chip-bg);
+    color: var(--ms-table-chip-text);
+    font-size: 0.84rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.ms-table-density-inline__option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.4rem;
+    height: 2.4rem;
+    padding: 0.42rem 0.7rem;
+    border: 1px solid var(--ms-table-chip-border);
+    border-radius: 999px;
+    background: var(--ms-table-chip-bg);
+    color: var(--ms-table-chip-text);
+    font-size: 0.92rem;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.ms-table-page-size__option:hover {
+    background: var(--ms-table-chip-hover-bg);
+    border-color: var(--ms-table-page-hover-border);
+    color: var(--bs-primary, var(--primal, #475569));
+    transform: translateY(-1px);
+}
+
+.ms-table-density-inline__option:hover,
+.ms-table-density-inline__option:focus-visible {
+    background: var(--ms-table-chip-hover-bg);
+    border-color: var(--ms-table-page-hover-border);
+    color: var(--bs-primary, var(--primal, #475569));
+    transform: translateY(-1px);
+}
+
+.ms-table-page-size__option.is-active {
+    background: var(--ms-table-chip-active-bg);
+    border-color: var(--ms-table-chip-active-border);
+    color: var(--bs-primary, var(--primal, #475569));
+}
+
+.ms-table-density-inline__option.is-active {
+    background: var(--ms-table-chip-active-bg);
+    border-color: var(--ms-table-chip-active-border);
+    color: var(--bs-primary, var(--primal, #475569));
+}
+
+.ms-table-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    max-width: 100%;
+}
+
+.ms-table-pagination .pagination {
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.ms-table-pagination .page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.38rem;
+    min-width: 2.5rem;
+    padding: 0.55rem 0.82rem;
+    border-radius: 0.9rem;
+    border: 1px solid var(--ms-table-page-border);
+    background: var(--ms-table-page-bg);
+    color: var(--ms-table-page-text);
+    box-shadow: none;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.ms-table-pagination .page-link:hover {
+    background: var(--ms-table-page-hover-bg);
+    border-color: var(--ms-table-page-hover-border);
+    color: var(--bs-primary, var(--primal, #475569));
+}
+
+.ms-table-pagination .page-item.active .page-link {
+    background: var(--ms-table-page-active-bg);
+    border-color: var(--ms-table-page-active-border);
+    color: var(--ms-table-page-active-text);
+}
+
+.ms-table-pagination .page-item.disabled .page-link {
+    background: var(--ms-table-page-disabled-bg);
+    border-color: var(--ms-table-page-disabled-border);
+    color: var(--ms-table-page-disabled-text);
+    opacity: 1;
+}
+
+[dir="rtl"] .ms-table-pagination .ms-page-prev .bi-chevron-left,
+[dir="rtl"] .ms-table-pagination .ms-page-next .bi-chevron-right {
+    display: inline-block;
+    transform: scaleX(-1);
+}
+
+.ms-table-shell[data-ms-table-density="dense"] {
+    --ms-table-density-header-y: 0.75rem;
+    --ms-table-density-cell-y: 0.62rem;
+    --ms-table-density-cell-x: 0.82rem;
+    --ms-table-density-font: 0.91rem;
+    --ms-table-density-head-font: 0.72rem;
+}
+
+.ms-table-shell[data-ms-table-density="roomy"] {
+    --ms-table-density-header-y: 1.08rem;
+    --ms-table-density-cell-y: 1.04rem;
+    --ms-table-density-cell-x: 1.15rem;
+    --ms-table-density-font: 1rem;
+    --ms-table-density-head-font: 0.83rem;
+}
+
+.ms-table-shell .table > tbody > tr.table-danger > td,
+.ms-table-shell .table > tbody > tr.table-danger > th {
+    background: var(--ms-table-row-danger-bg) !important;
+}
+
+.ms-table-shell .table-hover > tbody > tr.table-danger:hover > * {
+    background: var(--ms-table-row-danger-hover-bg) !important;
+    color: inherit !important;
+}
+
+.ms-table-shell tr.row-deleted > td,
+.ms-table-shell tr.row-deleted > th {
+    color: var(--ms-table-row-deleted-text) !important;
+    background: var(--ms-table-row-deleted-bg) !important;
+}
+
+.ms-table-shell tr.row-deleted td {
     position: relative;
 }
 
-tr.row-deleted td::after {
+.ms-table-shell tr.row-deleted td::after {
     content: '';
     position: absolute;
+    inset-inline: 0;
     top: 50%;
-    left: 0;
-    width: 100%;
     height: 1px;
-    background: #aeaeae;
-    z-index: 1;
+    background: color-mix(in srgb, var(--ms-table-row-deleted-text) 96%, white);
     pointer-events: none;
+}
+
+.ms-table-shell .sticky-col {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+    background: inherit !important;
+    box-shadow: var(--ms-table-sticky-shadow);
+}
+
+.ms-table-density-picker {
+    width: 100%;
+}
+
+.ms-density-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.85rem;
+}
+
+.ms-density-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    width: 100%;
+    padding: 0.95rem 1rem;
+    border: 1px solid var(--ms-density-card-border);
+    border-radius: 1.1rem;
+    background: var(--ms-density-card-surface);
+    color: inherit;
+    text-align: start;
+    box-shadow: var(--ms-density-card-shadow);
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.ms-density-option:hover,
+.ms-density-option:focus-visible {
+    border-color: var(--ms-density-card-hover-border);
+    transform: translateY(-1px);
+    box-shadow: var(--ms-density-card-hover-shadow);
+}
+
+.ms-density-option.is-active {
+    border-color: var(--ms-density-card-active-border);
+    box-shadow: var(--ms-density-card-active-shadow);
+}
+
+.ms-density-option__icon {
+    flex: 0 0 auto;
+    width: 2.3rem;
+    height: 2.3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.9rem;
+    background: var(--ms-density-card-icon-bg);
+    color: var(--ms-density-card-icon-color);
+    font-size: 1rem;
+}
+
+.ms-density-option__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.ms-density-option__copy strong {
+    font-size: 0.94rem;
+    color: var(--ms-density-card-title);
+}
+
+.ms-density-option__copy small {
+    color: var(--ms-density-card-copy);
+    line-height: 1.4;
+}
+
+@media (max-width: 991.98px) {
+    .ms-table-shell {
+        border-radius: 1.05rem;
+    }
+
+    .ms-table-footer {
+        align-items: stretch;
+    }
+
+    .ms-table-footer-meta,
+    .ms-table-pagination {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .ms-data-table > :not(caption) > * > * {
+        min-width: max-content;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .ms-density-options {
+        grid-template-columns: 1fr;
+    }
+
+    .ms-table-page-size,
+    .ms-table-density-inline,
+    .ms-table-summary {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
 }

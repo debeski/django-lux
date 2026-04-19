@@ -1,0 +1,51 @@
+<div
+    class="ms-table-density-picker"
+    {% if picker_mode == 'setup' %}data-setup-table-density-picker data-table-density-input="{{ input_id }}"{% endif %}
+>
+    {% if label %}
+    <label class="form-label d-block">{{ label }}</label>
+    {% endif %}
+    {% if help_text %}
+    <p class="text-muted small mb-3">{{ help_text }}</p>
+    {% endif %}
+    <div class="ms-density-options" role="group" aria-label="{{ label|default:'Table density' }}">
+        {% for value, _choice_label in density_choices %}
+        <button
+            type="button"
+            class="ms-density-option{% if selected_density == value %} is-active{% endif %}"
+            data-table-density="{{ value }}"
+            {% if picker_mode == 'setup' %}data-setup-table-density-choice="{{ value }}"{% endif %}
+        >
+            <span class="ms-density-option__icon" aria-hidden="true">
+                {% if value == 'dense' %}
+                <i class="bi bi-list"></i>
+                {% elif value == 'roomy' %}
+                <i class="bi bi-layout-text-window-reverse"></i>
+                {% else %}
+                <i class="bi bi-table"></i>
+                {% endif %}
+            </span>
+            <span class="ms-density-option__copy">
+                <strong>
+                    {% if value == 'dense' %}
+                    {{ MS_TRANS.table_density_dense|default:"Dense" }}
+                    {% elif value == 'roomy' %}
+                    {{ MS_TRANS.table_density_roomy|default:"Roomy" }}
+                    {% else %}
+                    {{ MS_TRANS.table_density_balanced|default:"Balanced" }}
+                    {% endif %}
+                </strong>
+                <small>
+                    {% if value == 'dense' %}
+                    {{ MS_TRANS.table_density_dense_desc|default:"More rows per screen with tighter spacing." }}
+                    {% elif value == 'roomy' %}
+                    {{ MS_TRANS.table_density_roomy_desc|default:"Larger rows with more breathing room." }}
+                    {% else %}
+                    {{ MS_TRANS.table_density_balanced_desc|default:"Comfortable default for everyday admin work." }}
+                    {% endif %}
+                </small>
+            </span>
+        </button>
+        {% endfor %}
+    </div>
+</div>

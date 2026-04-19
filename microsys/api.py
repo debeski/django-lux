@@ -7,6 +7,7 @@ import json
 from datetime import date, datetime
 import logging
 # Project imports
+from .constants import TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
 from .utils import log_user_action
 
 def _can_view_model(user, app_label, model_name):
@@ -181,6 +182,20 @@ def update_preferences(request):
             
             for key, value in data.items():
                 if key != 'csrfmiddlewaretoken':
+                    if key == 'table_density':
+                        if value not in TABLE_DENSITY_VALUES:
+                            prefs.pop('table_density', None)
+                            continue
+                    if key == 'table_page_size':
+                        try:
+                            coerced_value = int(value)
+                        except (TypeError, ValueError):
+                            prefs.pop('table_page_size', None)
+                            continue
+                        if coerced_value not in TABLE_PAGE_SIZE_VALUES:
+                            prefs.pop('table_page_size', None)
+                            continue
+                        value = coerced_value
                     prefs[key] = value
                     
                     # Sync sidebar state to session for server-side consistency

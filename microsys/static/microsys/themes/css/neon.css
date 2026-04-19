@@ -68,6 +68,68 @@
     --ms-setup-badge-color: #e0e0ff;
     --ms-setup-text: var(--title);
     --ms-setup-muted: #a0a0c0;
+    /* Microsys Table Tokens */
+    --ms-table-surface:
+        radial-gradient(circle at top, rgba(0, 255, 255, 0.12), transparent 64%),
+        linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(5, 5, 8, 0.99));
+    --ms-table-border: rgba(0, 255, 255, 0.18);
+    --ms-table-border-strong: rgba(255, 0, 255, 0.28);
+    --ms-table-shadow: 0 22px 46px -30px rgba(0, 0, 0, 0.76);
+    --ms-table-header-surface: linear-gradient(180deg, rgba(25, 18, 40, 0.98), rgba(20, 18, 34, 0.98));
+    --ms-table-header-text: #f7fbff;
+    --ms-table-row-odd: rgba(10, 10, 15, 0.98);
+    --ms-table-row-even: rgba(18, 18, 31, 0.98);
+    --ms-table-row-hover: rgba(30, 30, 51, 0.98);
+    --ms-table-cell-border: rgba(0, 255, 255, 0.12);
+    --ms-table-sort-muted: rgba(224, 224, 255, 0.76);
+    --ms-table-empty-muted: rgba(159, 176, 203, 0.88);
+    --ms-table-empty-surface: linear-gradient(180deg, rgba(15, 15, 26, 0.98), rgba(5, 5, 8, 0.99));
+    --ms-table-empty-icon-bg: rgba(0, 255, 255, 0.08);
+    --ms-table-empty-icon-color: #efffff;
+    --ms-table-empty-icon-shadow: inset 0 0 0 1px rgba(0, 255, 255, 0.16);
+    --ms-table-footer-surface: linear-gradient(180deg, rgba(10, 10, 15, 0.96), rgba(5, 5, 8, 0.98));
+    --ms-table-footer-text: rgba(224, 224, 255, 0.82);
+    --ms-density-card-border: rgba(0, 255, 255, 0.16);
+    --ms-density-card-surface:
+        radial-gradient(circle at top, rgba(0, 255, 255, 0.09), transparent 68%),
+        linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(5, 5, 8, 0.99));
+    --ms-density-card-shadow:
+        inset 0 1px 0 rgba(224, 224, 255, 0.04),
+        0 18px 34px -28px rgba(0, 0, 0, 0.76);
+    --ms-density-card-hover-border: rgba(0, 255, 255, 0.26);
+    --ms-density-card-hover-shadow:
+        inset 0 1px 0 rgba(224, 224, 255, 0.05),
+        0 20px 36px -28px rgba(0, 0, 0, 0.8);
+    --ms-density-card-active-border: rgba(0, 255, 255, 0.32);
+    --ms-density-card-active-shadow:
+        inset 0 1px 0 rgba(224, 224, 255, 0.05),
+        0 0 0 0.18rem rgba(0, 255, 255, 0.14);
+    --ms-density-card-icon-bg: rgba(0, 255, 255, 0.08);
+    --ms-density-card-icon-color: #efffff;
+    --ms-density-card-title: #f7fbff;
+    --ms-density-card-copy: rgba(159, 176, 203, 0.92);
+    --ms-table-chip-bg: rgba(0, 255, 255, 0.06);
+    --ms-table-chip-border: rgba(0, 255, 255, 0.18);
+    --ms-table-chip-text: #f3f9ff;
+    --ms-table-chip-hover-bg: rgba(0, 255, 255, 0.14);
+    --ms-table-chip-active-bg: rgba(255, 0, 255, 0.18);
+    --ms-table-chip-active-border: rgba(255, 0, 255, 0.34);
+    --ms-table-page-bg: rgba(0, 255, 255, 0.05);
+    --ms-table-page-border: rgba(0, 255, 255, 0.18);
+    --ms-table-page-text: #f5fbff;
+    --ms-table-page-hover-bg: rgba(0, 255, 255, 0.12);
+    --ms-table-page-hover-border: rgba(255, 0, 255, 0.28);
+    --ms-table-page-active-bg: rgba(0, 255, 255, 0.92);
+    --ms-table-page-active-border: rgba(0, 255, 255, 0.92);
+    --ms-table-page-active-text: #050508;
+    --ms-table-page-disabled-bg: rgba(255, 255, 255, 0.02);
+    --ms-table-page-disabled-border: rgba(0, 255, 255, 0.08);
+    --ms-table-page-disabled-text: rgba(224, 224, 255, 0.46);
+    --ms-table-sticky-shadow: 10px 0 26px -20px rgba(0, 255, 255, 0.22);
+    --ms-table-row-deleted-bg: rgba(255, 255, 255, 0.03);
+    --ms-table-row-deleted-text: #8f9eb8;
+    --ms-table-row-danger-bg: rgba(92, 20, 52, 0.84);
+    --ms-table-row-danger-hover-bg: rgba(118, 28, 66, 0.92);
 }
 
 /* Animated Background Effect */
@@ -548,7 +610,7 @@
 }
 
 :root.theme-neon .table thead th {
-    background-color: var(--cyber-dark) !important;
+    background: var(--ms-table-header-surface) !important;
     color: var(--neon-cyan) !important;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
     border-color: rgba(0, 255, 255, 0.2) !important;
@@ -594,10 +656,70 @@
     color: var(--htitle) !important;
 }
 
-:root.theme-neon .dropdown-item:hover {
-    background-color: rgba(0, 255, 255, 0.15) !important;
+:root.theme-neon .dropdown-item:hover,
+:root.theme-neon .dropdown-item:focus,
+:root.theme-neon .dropdown-item:active,
+:root.theme-neon .dropdown-item.active {
+    background-color: rgba(0, 255, 255, 0.08) !important;
+    color: #eaffff !important;
+    border-color: transparent !important;
+    box-shadow:
+        inset 3px 0 0 rgba(0, 255, 255, 0.92),
+        inset 0 0 0 1px rgba(0, 255, 255, 0.18) !important;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.38) !important;
+}
+
+:root.theme-neon .dropdown-item:hover i,
+:root.theme-neon .dropdown-item:focus i,
+:root.theme-neon .dropdown-item:active i,
+:root.theme-neon .dropdown-item.active i {
     color: var(--neon-cyan) !important;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
+    opacity: 1 !important;
+}
+
+:root.theme-neon .context-menu {
+    background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(5, 5, 8, 0.99)) !important;
+    border: 1px solid rgba(0, 255, 255, 0.22) !important;
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.42),
+        0 0 24px rgba(0, 255, 255, 0.12) !important;
+}
+
+:root.theme-neon .context-menu-item {
+    color: var(--title) !important;
+}
+
+:root.theme-neon .context-menu-item:hover,
+:root.theme-neon .context-menu-item:focus,
+:root.theme-neon .context-menu-item:active {
+    background-color: rgba(0, 255, 255, 0.08) !important;
+    color: #eaffff !important;
+    box-shadow:
+        inset 3px 0 0 rgba(0, 255, 255, 0.92),
+        inset 0 0 0 1px rgba(0, 255, 255, 0.18) !important;
+    text-shadow: 0 0 8px rgba(0, 255, 255, 0.38) !important;
+}
+
+:root.theme-neon .context-menu-item:hover i,
+:root.theme-neon .context-menu-item:focus i,
+:root.theme-neon .context-menu-item:active i {
+    color: var(--neon-cyan) !important;
+    opacity: 1 !important;
+}
+
+:root.theme-neon .context-menu-item.text-danger:hover,
+:root.theme-neon .context-menu-item.text-danger:focus,
+:root.theme-neon .context-menu-item.text-danger:active {
+    background-color: rgba(255, 0, 255, 0.18) !important;
+    color: #ffd4ff !important;
+    box-shadow:
+        inset 3px 0 0 rgba(255, 0, 255, 0.88),
+        inset 0 0 0 1px rgba(255, 0, 255, 0.2) !important;
+    text-shadow: 0 0 8px rgba(255, 0, 255, 0.34) !important;
+}
+
+:root.theme-neon .context-menu-divider {
+    border-top-color: rgba(0, 255, 255, 0.14) !important;
 }
 
 /* 5b. Buttons - Glowing Primary */
@@ -651,9 +773,9 @@
 }
 
 :root.theme-neon .sidebar .list-group-item.active,
-:root.theme-neon .sidebar .accordion-button:not(.collapsed),
 .theme-neon .sidebar .list-group-item.active,
-.theme-neon .sidebar .accordion-button:not(.collapsed) {
+:root.theme-neon .sidebar.collapsed .accordion-button.has-active-child,
+.theme-neon .sidebar.collapsed .accordion-button.has-active-child {
     color: var(--neon-cyan) !important;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.5) !important;
     background: rgba(0, 255, 255, 0.08) !important;
@@ -1539,12 +1661,39 @@
 
 :root.theme-neon .sidebar .list-group-item.active,
 :root.theme-neon .sidebar .accordion-button:not(.collapsed),
-:root.theme-neon .sidebar .accordion-button.has-active-child,
 .theme-neon .sidebar .list-group-item.active,
-.theme-neon .sidebar .accordion-button:not(.collapsed),
-.theme-neon .sidebar .accordion-button.has-active-child {
+.theme-neon .sidebar .accordion-button:not(.collapsed) {
     border-left: none !important;
     box-shadow: none !important;
+}
+
+:root.theme-neon .sidebar.collapsed .accordion-button.has-active-child,
+.theme-neon .sidebar.collapsed .accordion-button.has-active-child,
+:root.theme-neon .sidebar .list-group-item.active,
+.theme-neon .sidebar .list-group-item.active {
+    border-left: none !important;
+    box-shadow: none !important;
+}
+
+:root.theme-neon .sidebar .accordion-button:not(.collapsed),
+.theme-neon .sidebar .accordion-button:not(.collapsed) {
+    background:
+        linear-gradient(180deg, rgba(224, 224, 255, 0.02), rgba(224, 224, 255, 0.006)),
+        rgba(255, 255, 255, 0.016) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(224, 224, 255, 0.045),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.16) !important;
+}
+
+:root.theme-neon .sidebar.collapsed .accordion-button.has-active-child,
+.theme-neon .sidebar.collapsed .accordion-button.has-active-child {
+    background:
+        linear-gradient(180deg, rgba(224, 224, 255, 0.03), rgba(224, 224, 255, 0.008)),
+        rgba(0, 255, 255, 0.05) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(224, 224, 255, 0.03),
+        inset 0 -1px 0 rgba(0, 255, 255, 0.06),
+        0 0 14px rgba(0, 255, 255, 0.03) !important;
 }
 
 /* 33. Floating Scan Lines Effect (Subtle) */

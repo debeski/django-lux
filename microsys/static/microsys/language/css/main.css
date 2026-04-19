@@ -35,6 +35,27 @@
     text-align: right;
 }
 
+/* Keep LTR content while aligning it to the page's inline end */
+.dir-ltr-inline-end {
+    direction: ltr;
+}
+
+[dir="ltr"] .dir-ltr-inline-end {
+    text-align: right;
+}
+
+[dir="rtl"] .dir-ltr-inline-end {
+    text-align: left;
+}
+
+[dir="ltr"] .dir-ltr-inline-end.d-flex {
+    justify-content: flex-end !important;
+}
+
+[dir="rtl"] .dir-ltr-inline-end.d-flex {
+    justify-content: flex-start !important;
+}
+
 /* ─── LTR-specific adjustments ─── */
 /* Fix any custom CSS that uses physical properties instead of logical ones */
 [dir="ltr"] .sidebar-toggle {

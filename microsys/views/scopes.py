@@ -28,8 +28,8 @@ def manage_scopes(request):
 
     Scope = apps.get_model('microsys', 'Scope')
     ScopeTable = import_string('microsys.tables.ScopeTable')
-    table = ScopeTable(Scope.objects.all())
-    RequestConfig(request, paginate={'per_page': 5}).configure(table)
+    table = ScopeTable(Scope.objects.all(), request=request)
+    RequestConfig(request).configure(table)
     
     context = {'table': table}
     html = render_to_string('microsys/scopes/scope_manager.html', context, request=request)
@@ -74,8 +74,8 @@ def save_scope(request, pk=None):
         if form.is_valid():
             form.save()
             # Return updated table
-            table = ScopeTable(Scope.objects.all())
-            RequestConfig(request, paginate={'per_page': 5}).configure(table)
+            table = ScopeTable(Scope.objects.all(), request=request)
+            RequestConfig(request).configure(table)
             html = render_to_string('microsys/scopes/scope_manager.html', {'table': table}, request=request)
             return JsonResponse({'success': True, 'html': html})
         else:

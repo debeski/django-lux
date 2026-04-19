@@ -51,6 +51,7 @@ from django.db import models
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from microsys.constants import DEFAULT_TABLE_DENSITY
 from microsys.models import (
     SystemSettings, Scope, ScopeSettings, Profile, UserActivityLog,
     ScopedModel, TranslationMixin, Section
@@ -80,6 +81,7 @@ class SystemSettingsTests(TestCase):
         instance = SystemSettings.load()
         self.assertEqual(instance.default_language, 'en')
         self.assertEqual(instance.default_theme, 'light')
+        self.assertEqual(instance.default_table_density, DEFAULT_TABLE_DENSITY)
         self.assertFalse(instance.is_configured)
 
     def test_system_settings_caching(self):

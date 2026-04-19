@@ -9,6 +9,19 @@
     if (window.__msWizardInitialized) return;
     window.__msWizardInitialized = true;
 
+    function resolveWizardForm(container) {
+        if (!container) {
+            return null;
+        }
+        if (container.matches && container.matches('form')) {
+            return container;
+        }
+        if (container.querySelector) {
+            return container.querySelector('form');
+        }
+        return null;
+    }
+
     function initWizard(container) {
         const steps = container.querySelectorAll('.wizard-step');
         if (steps.length < 2) return;
@@ -24,16 +37,26 @@
         container.dataset.msWizardBound = 'true';
 
         let currentStep = 0;
+        let resolvedStep = null;
+        const wizardForm = resolveWizardForm(container);
         if (typeof window.__msGetWizardInitialStep === 'function') {
-            const resolvedStep = Number(window.__msGetWizardInitialStep(container));
-            if (Number.isInteger(resolvedStep) && resolvedStep >= 0 && resolvedStep < steps.length) {
-                currentStep = resolvedStep;
+            const setupStep = window.__msGetWizardInitialStep(container);
+            if (setupStep !== null && setupStep !== undefined && setupStep !== '') {
+                const candidate = Number(setupStep);
+                if (Number.isInteger(candidate) && candidate >= 0 && candidate < steps.length) {
+                    resolvedStep = candidate;
+                }
             }
-        } else if (container.dataset.msWizardInitialStep) {
-            const resolvedStep = Number(container.dataset.msWizardInitialStep);
-            if (Number.isInteger(resolvedStep) && resolvedStep >= 0 && resolvedStep < steps.length) {
-                currentStep = resolvedStep;
+        }
+        if (resolvedStep === null) {
+            const initialStepSource = container.dataset.msWizardInitialStep || (wizardForm && wizardForm.dataset.msWizardInitialStep);
+            const candidate = Number(initialStepSource);
+            if (Number.isInteger(candidate) && candidate >= 0 && candidate < steps.length) {
+                resolvedStep = candidate;
             }
+        }
+        if (resolvedStep !== null) {
+            currentStep = resolvedStep;
         }
 
         function showStep(index) {

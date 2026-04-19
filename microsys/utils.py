@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -17,14 +18,37 @@ from django.forms import modelform_factory
 from django.http import JsonResponse
 from django.utils.module_loading import import_string
 
-from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
+from .constants import (
+    DEFAULT_HOME_URL,
+    DEFAULT_TABLE_DENSITY,
+    LEGACY_HOME_URL,
+    TABLE_DENSITY_VALUES,
+)
 from .themes import is_valid_theme
-from .translations import get_strings
+from .translations import get_current_language_code, get_strings
 # try-except for django_filters as it might not be installed (though likely is)
 try:
     import django_filters
 except ImportError:
     django_filters = None
+
+
+SENSITIVE_ACTIVITY_MASK = "********"
+_SENSITIVE_ACTIVITY_FIELD_NAMES = {
+    "password",
+    "secret",
+    "secretkey",
+    "totpsecret",
+    "otpsecret",
+    "otpkey",
+    "otpbase32",
+    "backupcode",
+    "backupcodes",
+    "token",
+    "accesstoken",
+    "refreshtoken",
+    "apitoken",
+}
 
 
 def _coerce_list_setting(scope, key):
@@ -58,6 +82,30 @@ def get_secret(secret_name, env_var):
             return secret_file.read().strip()
     except OSError:
         return os.getenv(env_var)
+
+
+def is_sensitive_activity_field_name(field_name):
+    """Return True when an activity-log field should be masked before display/storage."""
+    if not field_name:
+        return False
+
+    normalized = re.sub(r"[^a-z0-9]+", "", str(field_name).lower())
+    if not normalized:
+        return False
+
+    if normalized in _SENSITIVE_ACTIVITY_FIELD_NAMES:
+        return True
+    if "password" in normalized:
+        return True
+    if "backup" in normalized and "code" in normalized:
+        return True
+    if ("otp" in normalized or "totp" in normalized) and any(
+        marker in normalized for marker in ("secret", "key", "token", "base32")
+    ):
+        return True
+    if normalized.endswith("secret") or normalized.endswith("secretkey"):
+        return True
+    return False
 
 def microsys_settings(scope):
     """
@@ -293,6 +341,7 @@ def get_system_config():
         'home_url': DEFAULT_HOME_URL,
         'default_language': 'en',
         'default_theme': 'light',
+        'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
         'public_root': False,
         'languages': {
@@ -345,6 +394,8 @@ def get_system_config():
             db_config['default_language'] = sys_settings.default_language
         if getattr(sys_settings, 'default_theme', None):
             db_config['default_theme'] = sys_settings.default_theme
+        if getattr(sys_settings, 'default_table_density', None):
+            db_config['default_table_density'] = sys_settings.default_table_density
         if isinstance(sys_settings.languages, dict) and sys_settings.languages:
             db_config['languages'] = sys_settings.languages
         if isinstance(sys_settings.translations_override, dict) and sys_settings.translations_override:
@@ -405,6 +456,8 @@ def get_system_config():
         final_config['name_en'] = user_config.get('name_en') or default_config['name_en']
     if not is_valid_theme(final_config.get('default_theme')):
         final_config['default_theme'] = default_config['default_theme']
+    if final_config.get('default_table_density') not in TABLE_DENSITY_VALUES:
+        final_config['default_table_density'] = default_config['default_table_density']
 
     final_config['logo_url'] = _normalize_asset_url(
         final_config.get('logo_url') or final_config.get('logo') or default_config['logo']
@@ -844,12 +897,8 @@ def _build_generic_detail_context(instance, request=None):
     Respects translations and the 'is_scope_enabled' global setting.
     """
     from microsys.utils import is_scope_enabled
-    from microsys.translations import get_strings
 
-    s = get_strings()
-    if request and request.user.is_authenticated and hasattr(request.user, 'profile'):
-        lang = request.user.profile.preferences.get('language', 'en') if request.user.profile.preferences else 'en'
-        s = get_strings(lang)
+    s = get_strings(get_current_language_code(request))
 
     fields_data = []
     
@@ -893,7 +942,7 @@ def _build_generic_detail_context(instance, request=None):
                 if display_func:
                     value = display_func()
             
-            label = getattr(field, 'verbose_name', field.name)
+            label = resolve_detail_field_label(instance, field, request=request, strings=s)
             
             fields_data.append({
                 'label': str(label).capitalize(),
@@ -906,14 +955,45 @@ def _build_generic_detail_context(instance, request=None):
     return fields_data
 
 
+def resolve_detail_field_label(instance, field, request=None, strings=None):
+    """Resolve a translated display label for generic detail views."""
+    s = strings or get_strings(get_current_language_code(request))
+    raw_label = str(getattr(field, 'verbose_name', '') or getattr(field, 'name', '')).strip()
+    field_name = str(getattr(field, 'name', '') or '').strip()
+    model_name = ''
+
+    try:
+        model_name = instance._meta.model_name
+    except Exception:
+        try:
+            model_name = instance.__class__.__name__.lower()
+        except Exception:
+            model_name = ''
+
+    keys = []
+    if model_name and field_name:
+        keys.append(f"label_{model_name}_{field_name}")
+    if field_name:
+        keys.extend([f"label_{field_name}", field_name])
+    if raw_label:
+        keys.extend([f"label_{raw_label}", raw_label])
+
+    for key in keys:
+        translated = s.get(key)
+        if translated:
+            return translated
+
+    return raw_label or field_name
+
+
 # Dynamic Table Builder — Generates a django-tables2 Table class at runtime
 def _build_generic_table_class(model):
     """
     Build a minimal django-tables2 Table for a model.
     Build Meta dynamically so django-tables2 sees Meta.model at class creation.
-    Includes row_attrs for context menu support.
+    Generated tables inherit the full Microsys table platform by default.
     """
-    import django_tables2 as tables
+    from microsys.tables import MicrosysTable
     
     raw_exclude = getattr(model, "table_exclude", None)
     if raw_exclude is None:
@@ -932,80 +1012,20 @@ def _build_generic_table_class(model):
     except Exception:
         has_scope_field = False
 
-    # Scope exclusion deferred to runtime in __init__
-
     meta_attrs = {
         "model": model,
-        "template_name": "django_tables2/bootstrap5.html",
-        "attrs": {'class': 'table table-hover align-middle'},
         "row_attrs": {
             'class': 'section-row',
             'data-pk': lambda record: record.pk,
             'data-name': lambda record: str(record),
-            
-            # Context Menu Injection
             'data-micro-context': 'true',
         },
     }
-    def __init__(self, *args, translations=None, request=None, **kwargs):
-        if has_scope_field and not is_scope_enabled():
-            exclude_kwargs = kwargs.get('exclude', tuple(raw_exclude))
-            if isinstance(exclude_kwargs, list):
-                exclude_kwargs = tuple(exclude_kwargs)
-            if 'scope' not in exclude_kwargs:
-                kwargs['exclude'] = exclude_kwargs + ('scope',)
-                
-        model_name = kwargs.pop('model_name', None)
-        super(self.__class__, self).__init__(*args, **kwargs)
-        if model_name:
-            self.model_name = model_name
-        self.request = request
-        
-        s = translations or get_strings()
-        
-        # Context Menu Helper
-        def get_actions(record):
-            actions = [
-                {
-                    "label": s.get('view_label', 'عرض المحتوى'), # View Details
-                    "icon": "bi bi-eye",
-                    "type": "event",
-                    "event": "micro:record:view", 
-                    "data": {"model": model._meta.model_name, "id": record.pk, "name": str(record)},
-                    "dblclick": True
-                },
-                {"type": "divider"},
-                {
-                    "label": s.get('edit_label', 'تعديل'), # Edit
-                    "icon": "bi bi-pencil",
-                    "type": "event",
-                    "event": "micro:record:edit",
-                    "data": {"model": model._meta.model_name, "id": record.pk, "name": str(record)},
-                    "permissions": [f"microsys.change_{model._meta.model_name}"]
-                },
-                {
-                    "label": s.get('delete_label', 'حذف'), # Delete
-                    "icon": "bi bi-trash",
-                    "type": "event",
-                    "event": "micro:record:delete", 
-                    "data": {"model": model._meta.model_name, "id": record.pk, "name": str(record)},
-                    "textClass": "text-danger",
-                    "permissions": [f"microsys.delete_{model._meta.model_name}"]
-                }
-            ]
-            
-            if self.request and self.request.user:
-                actions = filter_context_actions(self.request.user, actions)
-
-            return json.dumps(actions)
-        
-        self.row_attrs["data-micro-actions"] = get_actions
-
     if raw_exclude:
         meta_attrs["exclude"] = list(dict.fromkeys(raw_exclude))
     Meta = type("Meta", (), meta_attrs)
-    table_attrs = {"Meta": Meta, "__init__": __init__}
-    return type(f"{model.__name__}AutoTable", (tables.Table,), table_attrs)
+    table_attrs = {"Meta": Meta}
+    return type(f"{model.__name__}AutoTable", (MicrosysTable,), table_attrs)
 
 # Dynamic Filter Builder — Generates a django-filters FilterSet class at runtime
 def _build_generic_filter_class(model):
@@ -1535,8 +1555,8 @@ def toggle_sidebar(request):
     return JsonResponse({"status": "error"}, status=400)
 
 
-# Form Helper — Automatically sets placeholders and direction based on language
-def set_field_attrs(form, request=None):
+# Form Helper — Applies shared field classes, direction, and optional inline labels
+def set_field_attrs(form, request=None, inline_labels=False):
     """Set common attributes for all fields in the form."""
     from microsys.translations import get_current_language_code
 
@@ -1614,24 +1634,34 @@ def set_field_attrs(form, request=None):
                 
                 label = f"{base_label}{suffix}"
 
-        # Common attributes
         if label:
-            field.label = False # standard microsys: use placeholder instead for clean UI
-            
-        field.widget.attrs['placeholder'] = label
+            field.label = label
+
+        widget = field.widget
+        is_select_multiple = isinstance(widget, forms.SelectMultiple)
+        is_select = isinstance(widget, (forms.Select, forms.NullBooleanSelect)) and not is_select_multiple
+        is_check_like = isinstance(widget, (forms.CheckboxInput, forms.CheckboxSelectMultiple, forms.RadioSelect))
+        is_hidden = isinstance(widget, (forms.HiddenInput, forms.MultipleHiddenInput))
+
+        if label and inline_labels and not is_hidden:
+            if is_select:
+                set_first_choice(field, label)
+                field.label = ''
+            elif not is_select_multiple and not is_check_like:
+                field.widget.attrs.setdefault('placeholder', label)
+                field.label = ''
+
         field.widget.attrs['dir'] = direction  # Set text direction dynamically
         
         # Inject Bootstrap classes based on widget type
         existing_class = field.widget.attrs.get('class', '')
-        if isinstance(field.widget, (forms.Select, forms.NullBooleanSelect)):
+        if is_select:
             if 'form-select' not in existing_class:
                 field.widget.attrs['class'] = f"{existing_class} form-select".strip()
-            # Automatically apply label as first choice (placeholder) for dropdowns
-            set_first_choice(field, label)
-        elif isinstance(field.widget, (forms.SelectMultiple)):
+        elif is_select_multiple:
             if 'form-select' not in existing_class:
                 field.widget.attrs['class'] = f"{existing_class} form-select".strip()
-        elif isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect)):
+        elif is_check_like:
             if 'form-check-input' not in existing_class:
                 field.widget.attrs['class'] = f"{existing_class} form-check-input".strip()
         else:
@@ -1641,9 +1671,9 @@ def set_field_attrs(form, request=None):
         # 3. Inject the shared microSYS datepicker hook for real date/datetime inputs.
         # Keep legacy .flatpickr compatibility so host apps do not need an immediate markup sweep.
         # Do not attach the picker to selects such as date__year choice filters.
-        is_select_like = isinstance(field.widget, (forms.Select, forms.SelectMultiple, forms.NullBooleanSelect))
+        is_select_like = isinstance(widget, (forms.Select, forms.SelectMultiple, forms.NullBooleanSelect))
         is_date = (
-            isinstance(field.widget, (forms.DateInput, forms.DateTimeInput)) or
+            isinstance(widget, (forms.DateInput, forms.DateTimeInput)) or
             'datetimeinput' in existing_class or
             (
                 not is_select_like and
@@ -1657,10 +1687,8 @@ def set_field_attrs(form, request=None):
         if is_date:
             field.widget.attrs['autocomplete'] = 'off'
 
-        field.label = ''  # Clear the label for crispy layouts that use placeholders
 
-
-def setup_filter_helper(filter_instance, request=None, preserve_keys=None):
+def setup_filter_helper(filter_instance, request=None, preserve_keys=None, inline_labels=True):
     """
     Sets up a modern, responsive Crispy layout for a django-filter FilterSet.
     Aligns fields dynamically using Bootstrap 5 flexbox and appends a filter button.
@@ -1729,11 +1757,11 @@ def setup_filter_helper(filter_instance, request=None, preserve_keys=None):
     )
     filter_instance.form.helper = helper
     
-    # Apply set_field_attrs for placeholders and translation
-    set_field_attrs(filter_instance.form, request)
+    # Apply shared field attrs, defaulting filters to inline placeholder labels.
+    set_field_attrs(filter_instance.form, request, inline_labels=inline_labels)
 
 
-def advanced_filter_helper(filter_instance, config=None, request=None, preserve_keys=None):
+def advanced_filter_helper(filter_instance, config=None, request=None, preserve_keys=None, inline_labels=True):
     """
     Build an "advanced" filter helper with:
     - a primary row of fields
@@ -1817,7 +1845,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
     lang = get_current_language_code(request)
     s = get_strings(lang)
 
-    set_field_attrs(filter_instance.form, request)
+    set_field_attrs(filter_instance.form, request, inline_labels=inline_labels)
 
     hidden_layout = []
     if request and request.GET:

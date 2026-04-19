@@ -64,12 +64,12 @@
                 <table class="table table-sm table-borderless mt-4">
                     <tr>
                         <th width="40%">{{ MS_TRANS.server_time }}:</th>
-                        <td class="text-end dir-ltr font-monospace">{{ current_time|date }}</td>
+                        <td class="dir-ltr-inline-end font-monospace">{{ current_time|date }}</td>
                     </tr>
                     <tr>
                         <th width="40%">{{ MS_TRANS.storage }}:</th>
                         <td class="dir-ltr font-monospace">
-                            <div class="d-flex justify-content-end align-items-center gap-2" style="white-space: nowrap;">
+                            <div class="d-flex dir-ltr-inline-end align-items-center gap-2" style="white-space: nowrap;">
                                 <span>{{ disk_used }}GB / {{ disk_total }}GB</span>
                                 <div class="progress flex-shrink-0" style="width: 90px; height: 6px;">
                                     <div class="progress-bar {% if disk_percent > 90 %}bg-danger{% elif disk_percent > 70 %}bg-warning{% else %}bg-success{% endif %}"
@@ -92,6 +92,12 @@
                         <th>{{ MS_TRANS.django_version }}:</th>
                         <td class="text-end font-monospace">{{ django_version }}</td>
                     </tr>
+                    {% if decrypter_version %}
+                    <tr>
+                        <th>{{ MS_TRANS.decrypter_version }}:</th>
+                        <td class="text-end font-monospace">{{ decrypter_version }}</td>
+                    </tr>
+                    {% endif %}
                     {% if drf_service %}
                     <tr>
                         <th>{{ MS_TRANS.drf_version }}:</th>
@@ -162,7 +168,7 @@
                     {% endif %}
                     <tr>
                         <th>{{ MS_TRANS.microsys_version }}:</th>
-                        <td class="text-end"><span class="badge bg-primary">v{{ version }}</span></td>
+                        <td class="text-end"><span class="badge bg-success">v{{ version }}</span></td>
                     </tr>
                 </table>
             </div>
@@ -202,10 +208,17 @@
     </div>
 
     <div class="row">
-
+        <!-- Table Density -->
+        <div class="col-lg-3 col-md-6 flex-fill mb-4 no-print">
+            <div class="glass-profile option-section h-100">
+                <h4 class="mb-3"><i class="bi bi-table me-2"></i> {{ MS_TRANS.table_density|default:"Table Density" }}</h4>
+                <p class="text-muted small mb-4">{{ MS_TRANS.table_density_desc|default:"Control how much vertical space data tables use while you work." }}</p>
+                {% include 'microsys/includes/table_density_previews.html' with selected_density=user_preferences.table_density|default:APP_CONFIG.default_table_density picker_mode='options' density_choices=MICROSYS_TABLE_DENSITIES MS_TRANS=MS_TRANS %}
+            </div>
+        </div>
 
         <!-- Autofill -->
-        <div class="col-md-4 flex-fill mb-4 no-print">
+        <div class="col-lg-3 col-md-6 flex-fill mb-4 no-print">
             <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-magic me-2"></i> {{ MS_TRANS.autofill }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.autofill_desc }}</p>
@@ -220,7 +233,7 @@
         </div>
 
         <!-- Reset Defaults -->
-        <div class="col-md-4 flex-fill mb-4 no-print">
+        <div class="col-lg-3 col-md-6 flex-fill mb-4 no-print">
             <div class="glass-profile option-section h-100 border-danger">
                 <h4 class="mb-3 text-danger"><i class="bi bi-exclamation-triangle me-2"></i> {{ MS_TRANS.reset_defaults }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.reset_desc }}</p>
@@ -250,7 +263,7 @@
 
         {% if user.is_superuser %}
         <!-- System Settings -->
-        <div class="col-md-4 mb-4">
+        <div class="col-lg-3 col-md-6 mb-4">
             <div class="card h-100 p-4 border-0 ms-card shadow-sm blur">
                 <div class="d-flex align-items-center mb-3">
                     <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3 ms-icon-box">
@@ -260,12 +273,24 @@
                         {{ MS_TRANS.system_settings_label }}
                     </h5>
                 </div>
-                <!-- Dynamic Modal Trigger -->
-                <button class="btn btn-warning w-100 rounded-pill fw-bold"
-                        data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}"
-                        data-modal-title="{{ MS_TRANS.system_settings_title }}">
-                    <i class="bi bi-gear-fill me-2"></i> {{ MS_TRANS.system_settings_btn }}
-                </button>
+                <p class="text-muted small mb-3">{{ MS_TRANS.system_settings_desc }}</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-warning rounded-pill fw-bold"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=0"
+                            data-modal-title="{{ MS_TRANS.system_settings_branding }}">
+                        <i class="bi bi-palette-fill me-2"></i> {{ MS_TRANS.system_settings_branding }}
+                    </button>
+                    <button class="btn btn-outline-warning rounded-pill fw-bold"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=1"
+                            data-modal-title="{{ MS_TRANS.system_settings_languages }}">
+                        <i class="bi bi-translate me-2"></i> {{ MS_TRANS.system_settings_languages }}
+                    </button>
+                    <button class="btn btn-outline-warning rounded-pill fw-bold"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=2"
+                            data-modal-title="{{ MS_TRANS.system_settings_sidebar }}">
+                        <i class="bi bi-layout-sidebar-inset me-2"></i> {{ MS_TRANS.system_settings_sidebar }}
+                    </button>
+                </div>
             </div>
         </div>
         {% endif %}
@@ -274,6 +299,17 @@
             document.addEventListener('DOMContentLoaded', () => {
                 // --- Autofill Logic ---
                 const toggle = document.getElementById('autofillToggle');
+                const densityPicker = document.querySelector('.ms-table-density-picker:not([data-setup-table-density-picker])');
+                const densityOptions = densityPicker ? Array.from(densityPicker.querySelectorAll('.ms-density-option[data-table-density]')) : [];
+                const currentDensity = (window.USER_PREFS && window.USER_PREFS.table_density) || '{{ user_preferences.table_density|default:APP_CONFIG.default_table_density }}';
+
+                function updateTableDensityUI(activeDensity) {
+                    densityOptions.forEach((option) => {
+                        option.classList.toggle('is-active', option.getAttribute('data-table-density') === activeDensity);
+                    });
+                }
+
+                updateTableDensityUI(currentDensity);
                 
                 function toggleAutofill() {
                     const isEnabled = toggle.checked; // true or false
@@ -347,6 +383,20 @@
                         const lang = this.getAttribute('data-lang');
                         if (window.setLanguage) {
                             window.setLanguage(lang);
+                        }
+                    });
+                });
+
+                // --- Table Density Logic ---
+                densityOptions.forEach((option) => {
+                    option.addEventListener('click', function() {
+                        const density = this.getAttribute('data-table-density') || 'balanced';
+                        updateTableDensityUI(density);
+                        if (window.USER_PREFS) {
+                            window.USER_PREFS.table_density = density;
+                        }
+                        if (window.updatePreferences) {
+                            window.updatePreferences({ table_density: density });
                         }
                     });
                 });

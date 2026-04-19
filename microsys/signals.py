@@ -8,7 +8,12 @@ from django.conf import settings
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.contrib.auth import get_user_model
 from .middleware import get_current_user, get_current_request
-from .utils import log_user_action, get_client_ip
+from .utils import (
+    SENSITIVE_ACTIVITY_MASK,
+    get_client_ip,
+    is_sensitive_activity_field_name,
+    log_user_action,
+)
 
 # Models to exclude from activity logging (e.g., internal Django models with non-integer PKs)
 EXCLUDED_MODELS = [
@@ -103,10 +108,12 @@ def log_save(sender, instance, created, **kwargs):
                 new_val = getattr(instance, field_name)
                 old_val = original.get(field_name)
                 
-                # Handle Password and Backup Codes
-                if field_name == 'password' or field_name == 'backup_codes':
+                if is_sensitive_activity_field_name(field_name):
                     if new_val != old_val:
-                         details[field_name] = {'old': '********', 'new': '********'}
+                        details[field_name] = {
+                            'old': SENSITIVE_ACTIVITY_MASK,
+                            'new': SENSITIVE_ACTIVITY_MASK,
+                        }
                     continue
 
                 if new_val != old_val:
@@ -150,7 +157,10 @@ def log_save(sender, instance, created, **kwargs):
                 continue
             val = getattr(instance, field.name)
             if val is not None and val != '':
-                details[field.name] = {'old': None, 'new': str(val)}
+                if is_sensitive_activity_field_name(field.name):
+                    details[field.name] = {'old': None, 'new': SENSITIVE_ACTIVITY_MASK}
+                else:
+                    details[field.name] = {'old': None, 'new': str(val)}
 
     # Aggressive Grouping: Look for log in the SAME SECOND
     if is_user_entry:
@@ -374,4 +384,3 @@ def create_user_connected_profiles(sender, instance, created, **kwargs):
         except Exception as e:
             # Silently fail if creation is impossible (e.g. strict DB constraints we couldn't bypass)
             pass
-

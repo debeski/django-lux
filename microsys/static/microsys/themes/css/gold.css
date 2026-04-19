@@ -26,6 +26,11 @@
     --bs-btn-hover-border-color: var(--primal_dark);
     --bs-link-color: var(--primal);
     --bs-link-hover-color: var(--primal_dark);
+    --ms-table-header-surface: linear-gradient(180deg, rgba(217, 119, 6, 0.08), rgba(255, 255, 255, 0.975));
+    --ms-table-border-strong: rgba(217, 119, 6, 0.22);
+    --ms-table-row-odd: rgba(255, 253, 246, 0.98);
+    --ms-table-row-even: rgba(254, 249, 228, 0.98);
+    --ms-table-row-hover: rgba(250, 239, 190, 0.98);
 }
 :root.theme-gold .titlebar {
     background: linear-gradient(90deg, #ffffff 10%, #fef9e7 90%) !important;

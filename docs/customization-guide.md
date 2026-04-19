@@ -617,6 +617,33 @@ If a page is primarily a list/filter surface, prefer the dedicated list base:
 
 That is the supported page-level entrypoint for Crispy filter helpers such as `setup_filter_helper()` and `advanced_filter_helper()`.
 
+For `django_tables2` usage on those pages, Microsys now auto-adopts the stock table rendering path and wraps the table in its own responsive shell. In practice that means:
+
+- prefer `{% render_table table %}` directly instead of wrapping it in another `.table-responsive`
+- stock templates such as `django_tables2/bootstrap5.html` are treated as framework-managed defaults
+- explicit custom non-stock templates stay untouched unless you intentionally point them at the Microsys template
+- built-in pagination, per-page controls, and translated empty states come from the framework-owned table template
+
+Per-table escape hatches:
+
+- set `microsys_table = False` in `Table.Meta` to opt out of the Microsys renderer
+- set `microsys_density = "dense"`, `"balanced"`, or `"roomy"` in `Table.Meta` to force a specific density for one table
+
+Preferred custom-table path:
+
+```python
+from microsys.tables import MicrosysTable
+
+
+class InvoiceTable(MicrosysTable):
+    class Meta(MicrosysTable.Meta):
+        model = Invoice
+        fields = ("number", "customer", "status", "created_at")
+        microsys_per_page = 50
+```
+
+`MicrosysTable` gives handwritten tables the same renderer, sorting affordances, page-size controls, and default `micro:record:view|edit|delete` row actions used by the generated Microsys tables. To customize the default actions, override `get_microsys_row_actions(self, record, base_actions)`. To disable them entirely, set `microsys_actions = False` in `Meta`.
+
 If a page mixes list/filter and full form behavior, either:
 
 - extend `microsys/form_base.html` and include `microsys/forms/filter_assets_head.html` in `extra_head`, or

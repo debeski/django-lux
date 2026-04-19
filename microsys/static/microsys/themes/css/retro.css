@@ -69,6 +69,70 @@
     --ms-setup-badge-color: #e8ddd4;
     --ms-setup-text: var(--title);
     --ms-setup-muted: #a09084;
+    /* Microsys Table Tokens */
+    --ms-table-surface:
+        radial-gradient(circle at top, rgba(212, 165, 116, 0.08), transparent 66%),
+        linear-gradient(180deg, rgba(29, 24, 21, 0.98), rgba(13, 11, 10, 0.99));
+    --ms-table-border: rgba(212, 165, 116, 0.16);
+    --ms-table-border-strong: rgba(212, 165, 116, 0.28);
+    --ms-table-shadow: 0 18px 42px -28px rgba(0, 0, 0, 0.66);
+    --ms-table-header-surface: linear-gradient(180deg, rgba(34, 28, 24, 0.98), rgba(28, 24, 22, 0.98));
+    --ms-table-header-text: #f5ebe0;
+    --ms-table-row-odd: rgba(13, 11, 10, 0.98);
+    --ms-table-row-even: rgba(26, 22, 20, 0.98);
+    --ms-table-row-hover: rgba(37, 31, 27, 0.98);
+    --ms-table-cell-border: rgba(212, 165, 116, 0.12);
+    --ms-table-sort-muted: rgba(232, 221, 212, 0.74);
+    --ms-table-empty-muted: rgba(183, 164, 143, 0.86);
+    --ms-table-empty-surface: linear-gradient(180deg, rgba(21, 18, 16, 0.98), rgba(13, 11, 10, 0.99));
+    --ms-table-empty-icon-bg: rgba(212, 165, 116, 0.08);
+    --ms-table-empty-icon-color: #f0dfcf;
+    --ms-table-empty-icon-shadow: inset 0 0 0 1px rgba(212, 165, 116, 0.14);
+    --ms-table-footer-surface: linear-gradient(180deg, rgba(18, 15, 13, 0.98), rgba(10, 8, 7, 0.99));
+    --ms-table-footer-border: rgba(212, 165, 116, 0.2);
+    --ms-table-footer-text: rgba(216, 196, 175, 0.82);
+    --ms-density-card-border: rgba(212, 165, 116, 0.16);
+    --ms-density-card-surface:
+        radial-gradient(circle at top, rgba(212, 165, 116, 0.08), transparent 68%),
+        linear-gradient(180deg, rgba(26, 22, 20, 0.98), rgba(13, 11, 10, 0.99));
+    --ms-density-card-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.04),
+        0 18px 34px -28px rgba(0, 0, 0, 0.7);
+    --ms-density-card-hover-border: rgba(212, 165, 116, 0.24);
+    --ms-density-card-hover-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.05),
+        0 20px 36px -28px rgba(0, 0, 0, 0.74);
+    --ms-density-card-active-border: rgba(212, 165, 116, 0.3);
+    --ms-density-card-active-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.05),
+        0 0 0 0.18rem rgba(212, 165, 116, 0.12);
+    --ms-density-card-icon-bg: rgba(212, 165, 116, 0.08);
+    --ms-density-card-icon-color: #f3e2d1;
+    --ms-density-card-title: #f5ebe0;
+    --ms-density-card-copy: rgba(183, 164, 143, 0.9);
+    --ms-table-chip-bg: rgba(212, 165, 116, 0.06);
+    --ms-table-chip-border: rgba(212, 165, 116, 0.18);
+    --ms-table-chip-text: #f1e5d9;
+    --ms-table-chip-hover-bg: rgba(212, 165, 116, 0.14);
+    --ms-table-chip-active-bg: rgba(212, 165, 116, 0.2);
+    --ms-table-chip-active-border: rgba(212, 165, 116, 0.34);
+    --ms-table-page-bg: rgba(212, 165, 116, 0.05);
+    --ms-table-page-border: rgba(212, 165, 116, 0.16);
+    --ms-table-page-text: #f3e9df;
+    --ms-table-page-hover-bg: rgba(212, 165, 116, 0.12);
+    --ms-table-page-hover-border: rgba(212, 165, 116, 0.28);
+    --ms-table-page-active-bg: rgba(212, 165, 116, 0.94);
+    --ms-table-page-active-border: rgba(212, 165, 116, 0.94);
+    --ms-table-page-active-text: #120f0d;
+    --ms-table-page-disabled-bg: rgba(255, 255, 255, 0.02);
+    --ms-table-page-disabled-border: rgba(212, 165, 116, 0.08);
+    --ms-table-page-disabled-text: rgba(216, 196, 175, 0.4);
+    --ms-table-scroll-bg: rgba(13, 11, 10, 0.72);
+    --ms-table-sticky-shadow: 10px 0 24px -20px rgba(0, 0, 0, 0.76);
+    --ms-table-row-deleted-bg: rgba(255, 255, 255, 0.03);
+    --ms-table-row-deleted-text: #a08a75;
+    --ms-table-row-danger-bg: rgba(78, 28, 28, 0.82);
+    --ms-table-row-danger-hover-bg: rgba(98, 36, 36, 0.9);
 }
 
 /* Cinematic Vignette Effect */
@@ -333,6 +397,51 @@
     outline: none !important;
 }
 
+:root.theme-retro .microsys-filter .form-control,
+:root.theme-retro .microsys-filter .form-select,
+:root.theme-retro .microsys-filter textarea {
+    background: var(--archive-form-surface) !important;
+    border-color: rgba(212, 165, 116, 0.18) !important;
+    color: #f3e7db !important;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.04),
+        0 10px 22px -18px rgba(0, 0, 0, 0.38) !important;
+}
+
+:root.theme-retro .microsys-filter .form-control::placeholder,
+:root.theme-retro .microsys-filter textarea::placeholder {
+    color: rgba(183, 164, 143, 0.88) !important;
+}
+
+:root.theme-retro .microsys-filter .form-control:hover,
+:root.theme-retro .microsys-filter .form-select:hover,
+:root.theme-retro .microsys-filter textarea:hover {
+    border-color: rgba(212, 165, 116, 0.28) !important;
+}
+
+:root.theme-retro .microsys-filter .form-control:focus,
+:root.theme-retro .microsys-filter .form-select:focus,
+:root.theme-retro .microsys-filter textarea:focus {
+    background: linear-gradient(180deg, rgba(33, 27, 24, 0.98), rgba(19, 16, 14, 0.96)) !important;
+    color: #fff8ef !important;
+}
+
+:root.theme-retro .microsys-filter .btn.microsys-filter-submit.btn-secondary {
+    background:
+        radial-gradient(circle at top, rgba(212, 165, 116, 0.12), transparent 58%),
+        linear-gradient(180deg, rgba(29, 24, 21, 0.98), rgba(16, 13, 12, 0.96)) !important;
+    border-color: rgba(212, 165, 116, 0.24) !important;
+    color: var(--retro-amber) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.04),
+        0 12px 24px -18px rgba(0, 0, 0, 0.4) !important;
+}
+
+:root.theme-retro .microsys-filter .btn.microsys-filter-submit.btn-secondary i {
+    color: var(--retro-amber) !important;
+    text-shadow: none !important;
+}
+
 :root.theme-retro .form-control[type="file"]::file-selector-button {
     background: linear-gradient(135deg, var(--retro-amber) 0%, var(--retro-copper) 100%) !important;
     color: var(--retro-black) !important;
@@ -359,7 +468,7 @@
 }
 
 :root.theme-retro .table thead th {
-    background-color: var(--retro-shadow) !important;
+    background: var(--ms-table-header-surface) !important;
     color: var(--retro-amber) !important;
     border-color: rgba(212, 165, 116, 0.15) !important;
     border-bottom: 2px solid var(--retro-amber) !important;
@@ -387,9 +496,71 @@
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
 }
 
-:root.theme-retro .dropdown-item:hover {
-    background-color: rgba(212, 165, 116, 0.1) !important;
+:root.theme-retro .dropdown-item {
+    color: var(--title) !important;
+}
+
+:root.theme-retro .dropdown-item:hover,
+:root.theme-retro .dropdown-item:focus,
+:root.theme-retro .dropdown-item:active,
+:root.theme-retro .dropdown-item.active {
+    background-color: rgba(212, 165, 116, 0.09) !important;
+    color: #f0d6ba !important;
+    border-color: transparent !important;
+    box-shadow:
+        inset 3px 0 0 rgba(212, 165, 116, 0.82),
+        inset 0 0 0 1px rgba(212, 165, 116, 0.18) !important;
+    text-shadow: none !important;
+}
+
+:root.theme-retro .dropdown-item:hover i,
+:root.theme-retro .dropdown-item:focus i,
+:root.theme-retro .dropdown-item:active i,
+:root.theme-retro .dropdown-item.active i {
     color: var(--retro-amber) !important;
+    opacity: 1 !important;
+}
+
+:root.theme-retro .context-menu {
+    background: linear-gradient(180deg, rgba(26, 22, 20, 0.98), rgba(13, 11, 10, 0.99)) !important;
+    border: 1px solid rgba(212, 165, 116, 0.2) !important;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38) !important;
+}
+
+:root.theme-retro .context-menu-item {
+    color: var(--title) !important;
+}
+
+:root.theme-retro .context-menu-item:hover,
+:root.theme-retro .context-menu-item:focus,
+:root.theme-retro .context-menu-item:active {
+    background-color: rgba(212, 165, 116, 0.09) !important;
+    color: #f0d6ba !important;
+    box-shadow:
+        inset 3px 0 0 rgba(212, 165, 116, 0.82),
+        inset 0 0 0 1px rgba(212, 165, 116, 0.18) !important;
+    text-shadow: none !important;
+}
+
+:root.theme-retro .context-menu-item:hover i,
+:root.theme-retro .context-menu-item:focus i,
+:root.theme-retro .context-menu-item:active i {
+    color: var(--retro-amber) !important;
+    opacity: 1 !important;
+}
+
+:root.theme-retro .context-menu-item.text-danger:hover,
+:root.theme-retro .context-menu-item.text-danger:focus,
+:root.theme-retro .context-menu-item.text-danger:active {
+    background-color: rgba(139, 58, 58, 0.24) !important;
+    color: #f2b9b0 !important;
+    box-shadow:
+        inset 3px 0 0 rgba(201, 107, 107, 0.76),
+        inset 0 0 0 1px rgba(201, 107, 107, 0.16) !important;
+}
+
+:root.theme-retro .context-menu-divider {
+    border-top-color: rgba(212, 165, 116, 0.14) !important;
 }
 
 /* 6. Buttons - Warm Primary */
@@ -410,6 +581,33 @@
     box-shadow: 0 0 20px rgba(212, 165, 116, 0.3) !important;
 }
 
+:root.theme-retro .btn-secondary,
+:root.theme-retro .btn-success,
+:root.theme-retro .btn-info,
+:root.theme-retro .btn-warning,
+:root.theme-retro .btn-danger,
+:root.theme-retro .btn-light {
+    color: var(--retro-black) !important;
+    font-weight: 600 !important;
+}
+
+:root.theme-retro .btn-secondary .bi,
+:root.theme-retro .btn-success .bi,
+:root.theme-retro .btn-info .bi,
+:root.theme-retro .btn-warning .bi,
+:root.theme-retro .btn-danger .bi,
+:root.theme-retro .btn-light .bi {
+    color: inherit !important;
+}
+
+:root.theme-retro .glass-profile .action-btn,
+:root.theme-retro .glass-card .action-btn {
+    min-height: 42px;
+    padding: 10px 20px;
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+
 /* 7. Sidebar Active State */
 :root.theme-retro .sidebar,
 .theme-retro .sidebar {
@@ -422,9 +620,9 @@
 }
 
 :root.theme-retro .sidebar .list-group-item.active,
-:root.theme-retro .sidebar .accordion-button:not(.collapsed),
 .theme-retro .sidebar .list-group-item.active,
-.theme-retro .sidebar .accordion-button:not(.collapsed) {
+:root.theme-retro .sidebar.collapsed .accordion-button.has-active-child,
+.theme-retro .sidebar.collapsed .accordion-button.has-active-child {
     color: var(--retro-amber) !important;
     background: rgba(212, 165, 116, 0.08) !important;
     border-left: 3px solid var(--retro-amber) !important;
@@ -883,12 +1081,38 @@
 
 :root.theme-retro .sidebar .list-group-item.active,
 :root.theme-retro .sidebar .accordion-button:not(.collapsed),
-:root.theme-retro .sidebar .accordion-button.has-active-child,
 .theme-retro .sidebar .list-group-item.active,
-.theme-retro .sidebar .accordion-button:not(.collapsed),
-.theme-retro .sidebar .accordion-button.has-active-child {
+.theme-retro .sidebar .accordion-button:not(.collapsed) {
     border-left: none !important;
     box-shadow: none !important;
+}
+
+:root.theme-retro .sidebar.collapsed .accordion-button.has-active-child,
+.theme-retro .sidebar.collapsed .accordion-button.has-active-child,
+:root.theme-retro .sidebar .list-group-item.active,
+.theme-retro .sidebar .list-group-item.active {
+    border-left: none !important;
+    box-shadow: none !important;
+}
+
+:root.theme-retro .sidebar .accordion-button:not(.collapsed),
+.theme-retro .sidebar .accordion-button:not(.collapsed) {
+    background:
+        linear-gradient(180deg, rgba(245, 235, 224, 0.02), rgba(245, 235, 224, 0.006)),
+        rgba(255, 255, 255, 0.018) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.04),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.16) !important;
+}
+
+:root.theme-retro .sidebar.collapsed .accordion-button.has-active-child,
+.theme-retro .sidebar.collapsed .accordion-button.has-active-child {
+    background:
+        linear-gradient(180deg, rgba(245, 235, 224, 0.03), rgba(245, 235, 224, 0.008)),
+        rgba(212, 165, 116, 0.055) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.04),
+        inset 0 -1px 0 rgba(212, 165, 116, 0.055) !important;
 }
 
 /* 23. Tutorial Controls Bar */

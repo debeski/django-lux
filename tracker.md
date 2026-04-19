@@ -4,8 +4,9 @@
 
 ### Current Verified Snapshot and current project overview:
 
-- Verified on: `2026-04-16`
+- Verified on: `2026-04-20`
 - Project: `django-microsys` framework package
+- Package version: `1.20.4b0` from `microsys/VERSION`
 - Current framework state:
   - `microsys_settings(globals())` in `microsys.utils` is the supported low-friction settings integration path
   - `python -m microsys startproject` is the preferred greenfield MicroSys project scaffold entrypoint
@@ -28,14 +29,71 @@
   - `microsys/forms/assets_head.html` and `microsys/forms/assets_scripts.html` remain the supported embedded-form asset includes
   - `microsys/forms/filter_assets_head.html` is the lightweight filter/list asset include for pages that cannot extend `microsys/list_base.html`
   - `setup_filter_helper()` and `advanced_filter_helper()` emit Microsys filter classes so the shared modern field/button surface applies automatically on pages using the list base or filter asset include
+  - `set_field_attrs()` now keeps real field labels by default; placeholder-style inline labels are an explicit opt-in via `inline_labels=True`
+  - `setup_filter_helper()` and `advanced_filter_helper()` now default `inline_labels=True`, so list filters intentionally stay placeholder-first without forcing that mode onto normal forms
+  - the activity-log page now follows the same `FilterView + SingleTableView` plus fresh `get_filterset()` render path as the working users list, instead of the older `SingleTableMixin + FilterView` composition
+  - stock and no-template `django_tables2` tables are now auto-remapped at runtime to the framework-owned `microsys/tables/table.html` renderer through `microsys.patches._patch_table_init()`
+  - the public handwritten-table entrypoint is now `microsys.tables.MicrosysTable`, which now points directly at `microsys/tables/table.html` and includes `ms-data-table` in its base attrs instead of relying on stock-template remapping for the framework renderer
   - the shared datepicker standard is `vanillajs-datepicker`, with legacy `.flatpickr` compatibility preserved
   - the shared modern form surface lives under `microsys/static/microsys/forms/`
+  - the shared table surface now lives in `microsys/static/microsys/main/css/tables.css` plus `microsys/templates/microsys/tables/table.html`, with a framework-owned responsive shell, pagination, empty state, sort affordances, and density-aware styling aligned to the modern form surface
+  - `SystemSettings.default_table_density` now sets the system default table density, while `Profile.preferences["table_density"]` provides the per-user override and `Table.Meta.microsys_density` / `Table.Meta.microsys_table` provide per-table control
+  - Microsys-managed paginated tables now expose a compact in-footer density switcher beside the per-page control, using a plain text label plus dense/balanced/roomy icon chips so the label does not read like an extra clickable control; unlocked tables restyle immediately and persist the user preference through the existing preferences API
+  - tables with `Meta.microsys_density` forced now mark the shell as density-locked and intentionally suppress the footer density switcher so the UI does not imply that a hard-set table density can be changed from the page
+  - `Profile.preferences["table_page_size"]` now persists the global per-user page-size choice, while `Table.Meta.microsys_per_page`, `Table.Meta.microsys_per_page_options`, and `Table.Meta.microsys_actions` extend the framework-owned table contract
+  - `django_tables2.RequestConfig.configure()` is now patched so Microsys-managed tables resolve page size centrally from table override, request `per_page`, saved user preference, then the `20` fallback without manual per-view wiring
+  - captured stock-template host tables and generic auto-built tables now receive default `micro:record:view|edit|delete` row actions with permission filtering and divider cleanup unless explicitly disabled
+  - table footer previous/next chevrons now flip automatically in RTL layouts through the shared table CSS
+  - the Options view now exposes per-user table density, and System Settings now exposes the default table density in the normal admin flow
+  - the dark-oriented themes `dark`, `gothic`, and `neon` now ship explicit `--ms-table-*` token overrides for the new Microsys table shell
+  - the Retro theme now also ships explicit `--ms-table-*` token overrides so the shell, scroll area, and footer border match the framework-owned table platform
+  - the light/color themes `light`, `blue`, `red`, `green`, `gold`, and `mono` now set their own `--ms-table-header-surface` / `--ms-table-border-strong` tokens so table headers read clearly through theme-owned tinting instead of a shared default override
+  - table header gradients have been softened across all shipped themes by reducing the stop contrast in `--ms-table-header-surface`; legacy themed `.table thead th` fallbacks now also read from that same token so both table paths stay aligned
+  - those same light/color themes now also own `--ms-table-row-odd` / `--ms-table-row-even` / `--ms-table-row-hover`, with both odd and even rows theme-tinted instead of leaving the odd stripe plain white; the body tint has been softened through repeated follow-up tuning, except `green` and `gold`, which were intentionally rolled back one step stronger
+  - the shared table shell now owns the outer top/bottom curve by itself; per-header-cell top radii and last-row bottom radii were removed to avoid header gaps and double-curved bottoms above the footer
+  - main list pages now mark the surrounding Bootstrap card as `ms-table-card`, and `tables.css` neutralizes that wrapper’s own background/border/radius/shadow so the framework-owned `ms-table-shell` is the only visible rounded container
+  - user corrected the earlier table-corner report: the remaining visible underlay issue is mono-specific, and `mono.css` now explicitly excludes `ms-table-card` wrappers from the theme’s generic card surface/shadow paint
+  - the filter search submit button now has theme-specific icon/button overrides in `gothic`, `retro`, and `mono` so the search icon no longer inherits broken generic button contrast
+  - the `gothic` and `retro` themes now also override `.microsys-filter` field surfaces directly, so the shared filter search input keeps the intended theme-aligned background, placeholder, hover, and focus states instead of falling back to the broader theme `.form-control` paint
+  - the `gothic` and `retro` themes now also normalize non-primary Bootstrap buttons plus profile-page `.action-btn` sizing, because those themes were only styling `.btn-primary` while the profile page relies on `btn-success` / `btn-danger` action pills
+  - `CHANGELOG.md` now carries a `v1.20.5` release entry that summarizes the post-`1.20.4` table, filter, activity-log, options, and sidebar polish batch
+  - the top-level `README.md` now includes a dedicated vNext table/filter quick-reference covering `MicrosysTable`, renderer auto-adoption, density/page-size precedence, default row actions, and the current filter-helper `inline_labels` contract; the deeper details remain in `docs/reference.md` and `docs/customization-guide.md`
+  - the shared table empty state now resolves through explicit `--ms-table-empty-*` tokens; dark-based themes (`dark`, `gothic`, `retro`, `neon`) override those tokens so empty rows/icons no longer inherit the light default surface
+  - the density picker cards in `tables.css` now also resolve through explicit `--ms-density-card-*` tokens; dark-based themes (`dark`, `gothic`, `retro`, `neon`) override those tokens so the density cards no longer inherit the light default surface, icon chip, and copy colors
   - theme handling now runs through `microsys/themes.py`, with the official discovered order `light`, `blue`, `gold`, `green`, `red`, `mono`, `dark`, `gothic`, `retro`, `neon`
   - setup, options, base template CSS inclusion, runtime validation, and the sidebar toolbar picker all read from that shared theme registry path
   - setup step 3 persists sidebar runtime flags for `enable_reorder` and `show_toolbar`, and disabling the toolbar shows the Dynamic Sections Manager access warning
+  - the sidebar builder now receives both the active-language catalog and an English fallback catalog; selected items/groups are rehydrated against the current catalog so framework-default labels do not stay stuck in English when editing in Arabic, while real custom renames stay preserved
+  - the sidebar builder now also supports cross-pane drag and drop: discovered items/groups can be dragged into the selected tree, and selected entries can be dragged back into the available pane to remove them, while the existing in-tree reorder behavior stays intact
+  - auto-generated detail modals and the section-details JSON path now resolve field labels through the same `label_<model>_<field>` then `label_<field>` translation contract used by Microsys forms, instead of rendering raw English `field.verbose_name` values
+  - `SystemSettingsForm` translation coverage now explicitly includes the `email_2fa` and `public_root` labels/help text keys in both Arabic and English, so those fields no longer fall back to raw English defaults in non-English UI
+  - `SystemSettingsForm.logo` and `favicon` now use the preexisting Microsys archive-file input contract directly (`microsys/forms/file_input.html` + `file_field.css` + `file_field.js`) instead of plain browser file inputs; no dedicated new widget class is required for that wiring
+  - dynamic modal forms now emit `enctype="multipart/form-data"` automatically when `form.is_multipart`, fixing modal file-upload flows such as System Settings branding uploads
   - the shared sidebar now uses a flat edge-to-edge rail layout with unified geometry, a non-arrow folder marker, explicit root/child active treatments, collapsed-mode icon centering, and a flush sidebar-width theme picker popup
+  - the sidebar items wrapper now starts flush at the top, and active accordion child items use the same left-edge active rail treatment as root items instead of the old underline
+  - expanded parent accordion buttons no longer use the page-item left rail/tint language; they now read as open folder headers through a contained folder-surface treatment that inherits each theme
+  - that folder-header treatment was then softened further so expanded parents stay clearly grouped without pulling too much attention from the actual active child/page item
+  - expanded accordion parents now keep only the open-folder treatment; the `has-active-child` active cue is now scoped to collapsed sidebar mode so expanded parents do not read as selected pages
+  - follow-up sidebar audit found earlier theme-specific “Sidebar Active State” blocks in `gothic`, `retro`, and `neon` were still styling `.sidebar .accordion-button:not(.collapsed)` as active; those early blocks are now also scoped back to collapsed `has-active-child`
   - the sidebar theme indicator updates when theme changes come from Options via the shared `microsys:theme-changed` event
   - `mono`, `gothic`, `retro`, and `neon` now carry framework-level conformance overrides for shared surfaces such as user hub, profile, activity log, tutorial popovers, dashboard/module cards, toolbar controls, options pickers, and system-settings badges
+  - the row-level Microsys context menu is implemented by `microsys/static/microsys/helpers/context_menu/js/main.js` plus `microsys/static/microsys/helpers/context_menu/css/main.css`, and it renders `.context-menu` / `.context-menu-item` rather than Bootstrap dropdown classes
+  - `gothic`, `retro`, and `neon` now theme those real `.context-menu` / `.context-menu-item` selectors directly with dark accent surfaces, accent rails, and matching divider/danger states; earlier `.dropdown-item` edits were the wrong path for the row context menu
+  - `microsys/static/microsys/language/css/main.css` now includes a `dir-ltr-inline-end` helper for LTR numbers/metrics that still need to align to the page inline-end logically across LTR/RTL pages; the Options diagnostics rows use this instead of mixing `dir-ltr` with fixed `justify-content-end`
+  - the Options system-info section now reads `DECRYPTER_VERSION` directly from the runtime environment in `microsys.views.general.options_view` and shows it only when present, so deployments launched via Decrypter can expose the exact launcher version used
+  - activity-log detail modal rendering is now split from the compact timeline formatter: `render_log_details_panel` renders structured field/status/value cards in the modal, while `format_log_details` stays compact for profile timelines
+  - activity-log diff masking now runs through `microsys.utils.is_sensitive_activity_field_name()`, so password, backup-code, and OTP/TOTP secret-like fields are masked both when logs are saved and when older detail payloads are rendered
+  - user-management forms now set explicit browser `autocomplete` metadata for username/name/email/phone/password fields, and the manage-users reset-password modal now binds through a prefixed form plus scoped input lookup instead of assuming a page-global `id_username`
+  - the generic multi-step form controller has been moved from `microsys/static/microsys/users/js/wizard.js` to `microsys/static/microsys/helpers/wizard/js/main.js`; shared loading now happens from `base.html`, and the redundant page-local include was removed from `manage_users.html`
+  - the Options System Settings card is now split into three modal entrypoints for branding, languages, and sidebar; each opens the same `SystemSettings` wizard with `?step=0|1|2`, and the modal form now preserves that step query so validation rerenders stay on the requested section
+  - when a split System Settings modal entrypoint is used, `SystemSettingsForm` now renders as a single-step editor for that section only: no Next/Prev controls, only Save, while first-launch setup still uses the full three-step wizard
+  - root-cause fix for the split modal path: `DynamicModalManagerView` now passes `request`/`user` into forms that accept `**kwargs`, which is required for `SystemSettingsForm` to see `request.GET["step"]` and activate single-step mode inside the dynamic modal
+  - follow-up fix: the shared wizard helper now falls back to `data-ms-wizard-initial-step` when the setup-page session helper returns no step, which unblocks the split System Settings modal entrypoints in Options
+  - second follow-up fix: the shared wizard helper now resolves `data-ms-wizard-initial-step` from the inner form when the bound wizard container is the modal body, which is the actual dynamic-modal case for System Settings
+  - root-cause fix: the shared wizard helper now treats `__msGetWizardInitialStep()` returning `null` as “no setup step” instead of coercing it through `Number(null) == 0`; that coercion was forcing the System Settings modal back to step 1 on every open
+  - cache-bust follow-up: `base.html` now bumps the shared wizard helper asset version so mounted host projects and browsers stop serving the stale pre-fix wizard script after the step-routing changes
+  - the live package does not currently include `microsys/sso/` or any active SSO/OIDC provider integration
+  - older SSO work exists only in the sibling reference tree `/home/debeski/depy/projects/microsys-pkg(SSO)/microsys`; it predates current scaffold additions and should not be treated as verified live state
 - Important framework caveat:
   - the framework `templates/bootstrap5/layout/field_file.html` override exists, but whether it beats `crispy_bootstrap5` still depends on template lookup / `INSTALLED_APPS` order in the host project
 
@@ -59,9 +117,12 @@
 - Preferred filter surface:
   - `setup_filter_helper()` for basic list filters
   - `advanced_filter_helper()` for multi-row advanced filters and action rows
+  - use `set_field_attrs(..., inline_labels=True)` only when the UI should intentionally replace external labels with inline placeholders; checkbox/radio-style widgets keep real labels
 - Preferred extension hooks:
   - `microsys/includes/custom_head.html`
   - `microsys/includes/custom_scripts.html`
+- Current activation path standard for framework-owned admin features:
+  - superuser-facing toggles should be exposed through the normal System Settings flow from Options (`modal_manager` on `microsys.SystemSettings`) unless the framework intentionally documents another entrypoint
 
 ### Standards' rules and policies:
 
@@ -82,6 +143,13 @@
   - form base exists
   - list base now exists
   - dark-mode support for the shared modern surface is now partially framework-owned
+- Table surface audit:
+  - framework-owned table rendering now ships through `microsys/tables/table.html` and the startup table patch
+  - stock `django_tables2` templates and no-template tables are auto-captured, while explicit custom non-stock templates remain untouched unless deliberately switched
+  - shared entrypoint templates no longer double-wrap `render_table` in nested `.table-responsive` containers
+  - built-in pagination, per-page controls, and row CRUD actions now live in the framework-owned table platform instead of per-view manual wiring
+  - scaffolded app tables now inherit from `MicrosysTable`, and scaffolded list views now use the framework default page size instead of a hardcoded `25`
+  - browser validation is still pending for dense/balanced/roomy modes across light, dark, and specialty themes
 - Scaffold surface audit:
   - project and app scaffolds now exist under `python -m microsys ...`, with `ms` kept only as a short alias
   - app registration patching is marker-based and idempotent on rerun
@@ -101,6 +169,10 @@
   - scaffold `req.txt` now includes `django-csp`, and the project settings use the django-csp 4.x dictionary-based `CONTENT_SECURITY_POLICY` format
 - Template override audit:
   - Crispy precedence still depends on host project app order and should not be assumed blindly
+- SSO audit:
+  - current repo has no `microsys/sso/` package, no SSO URL mounting in `microsys/urls.py`, and no SSO controls in the live options/profile templates
+  - the sibling `microsys-pkg(SSO)` tree used `django-oauth-toolkit`, conditional URL mounting behind `MICROSYS_SSO_ENABLED`, an options-page SSO card, custom authorization checks, and profile token revocation UI
+  - user reported that old SSO work was problematic and that this repo has diverged since then, including scaffold work, so SSO should be rebuilt against the current package rather than treated as already completed
 
 ### Current Project's Known Bugs:
 
@@ -109,31 +181,63 @@
 - generated Docker dev flow is now structurally aligned with `../min_survey`, but still needs one end-to-end validation with the decrypter wrapper using `./start.sh -d`
 - generated Celery and health-check scaffold wiring is verified by file-generation tests, but still needs one live compose boot to confirm worker startup and `/health/` readiness behavior
 - generated `.secrets/.env` plus restored compose pattern is verified by scaffold tests, but still needs one live run through the decrypter/startup flow
+- SSO server capability is not present in the live package; the only implementation attempt is an older divergent sibling tree with known issues
 - ~~Root URL always redirects anonymous users to login~~ — **Fixed** (added `public_root` config flag and `LOGIN_REDIRECT_URL` detection to allow host projects to have public root pages)
 - host projects that override `extra_head` without `{{ block.super }}` can accidentally drop base-provided asset includes
 - automatic framework takeover of Crispy file fields is still not guaranteed unless template resolution order favors Microsys over `crispy_bootstrap5`
 - the latest theme/surface/sidebar CSS refinements are verified statically and through Django checks, but still need manual browser confirmation across the newer dark themes and the updated sidebar picker/runtime combinations
+- the new in-footer table density switcher is verified statically, but still needs browser confirmation in at least one light theme and one dark theme to tune spacing, chip contrast, and multi-table sync feel if needed
+- the remaining visible table underlay/curve issue appears to be mono-specific: the shared `ms-table-card` wrapper neutralization is in place, and `mono.css` now explicitly opts table wrappers out of the theme’s generic card paint; browser confirmation is still needed on a mono page after the user’s correction that other themes were fine
+- browser accessibility/autofill nags on `manage_users` were partly real framework issues: user forms lacked `autocomplete`, and the reset-password modal relied on generic ids; those code paths are now tightened, but any remaining “autofocus processing was blocked” message should be treated as a browser/modal-focus warning unless a concrete UX break is observed
+- the refreshed activity-log detail modal is verified statically, but still needs browser confirmation in at least one light theme and one dark theme to tune spacing and contrast if needed
+- the activity-log filter label regression is now addressed in two places: filter helpers explicitly support inline placeholder labels, and the activity-log view has been aligned with the working users-list filter/table composition; it still needs browser confirmation on first load plus follow-up GET interactions (search, pagination, scope/year changes)
+- the latest filter-theme fixes for `gothic`, `retro`, and `mono` are CSS-only and still need browser confirmation on a real filter bar to verify icon contrast plus search-field surface/focus behavior
+- the latest `gothic` / `retro` profile-button sizing fix is CSS-only and still needs browser confirmation on the profile page to verify the action pills no longer read smaller than the same controls in other themes
+- the sidebar-builder Arabic selected-label fix is verified statically and through form-side regression coverage, but still needs one browser confirmation in the Options > System Settings > Sidebar modal to confirm add/add-all existing-config paths all stay localized
+- the new sidebar-builder cross-pane drag/drop behavior is wired statically, but still needs browser confirmation for available->selected item/group drops, selected->available removal, and coexistence with the existing reorder flow
+- the auto-generated detail-label translation fix is verified statically and through utility regression coverage, but still needs one browser confirmation on a generated `micro:record:view` modal in Arabic to confirm live host-project labels now resolve correctly
+- the System Settings branding file-field modernization is verified statically, but still needs one browser confirmation in the Options > System Settings modal to confirm `logo` / `favicon` both render with the shared modern file-input treatment and submit correctly
 - ~~Email 2FA option not appearing in deployments~~ — **Fixed in v1.19.4** (`get_2fa_config()` now reads explicit `email_2fa` flag from system config)
 - ~~Anonymous users receiving 404 on root URL instead of redirect to login~~ — **Fixed in v1.19.4b4** (removed `is_authenticated` check from `_should_redirect_missing_root()` in `middleware.py`)
 
 ### Tasks:
 
 - Priority 1:
+  - [ ] Verify the vNext Microsys table platform on users/activity log plus at least one generic auto-built section table across light, dark, and one specialty theme
+  - [ ] Run the new table/config test slice in a Django-capable environment and confirm runtime remap, page-size precedence, density precedence, and default row-action behavior end to end
+  - [ ] Browser-check the new built-in per-page footer and pagination controls in `dark`, `gothic`, and `neon`
+  - [ ] Browser-check the new in-footer density icon chips beside per-page controls in at least one light theme and one dark theme, including pages with multiple tables
+  - [ ] Browser-check the table shell in `mono` on users/activity log after the mono-specific `ms-table-card` opt-out and confirm the top and bottom no longer show an underlay card
+  - [ ] Reintroduce SSO as a Microsys-hosted SSO server option for the live package, activated through System Settings in the usual framework flow
+  - [ ] Re-audit the old sibling implementation in `/home/debeski/depy/projects/microsys-pkg(SSO)/microsys` and salvage only the parts that still fit the current package architecture
+  - [ ] Define the current SSO extension points: SystemSettings flag/form wiring, dependency guard, URL mount, options UI, provider endpoints, and profile session revocation
+  - [ ] Reconcile SSO with current scaffold-era package state so it does not regress newer settings helpers, setup flow, or generated project defaults
+  - [ ] Add tests, docs, and changelog coverage for the new SSO activation path and provider behavior
+- Priority 2:
+  - [ ] Browser-check the refreshed activity-log detail modal in one light theme and one dark theme and tune spacing/contrast only if an actual issue shows up
+  - [ ] Browser-check the activity-log and manage-users filter bars on first load plus follow-up GET interactions and confirm labels stay inline/placeholders instead of reappearing externally
+  - [ ] Browser-check filter bars in `gothic`, `retro`, and `mono` and confirm the search submit icon stays visible; also confirm the `gothic` and `retro` search field surface/placeholder/focus states match the rest of the theme
+  - [ ] Browser-check the profile page action buttons in `gothic` and `retro` and confirm the `Edit` / `Change Password` pills match the expected size and weight instead of reading smaller than other themes
+  - [ ] If the activity-log labels still reappear after the view-alignment fix, inspect rendered HTML for duplicate filter forms or host-project template overrides before changing shared helper behavior again
   - [ ] Run an end-to-end validation of `python -m microsys startproject` inside a real Django environment and confirm the generated project boots cleanly
   - [ ] Run an end-to-end validation of `python -m microsys startapp --register` inside a generated project and confirm the generated app imports, migrates, and loads its starter routes
-  - [ ] Add explicit tests for `setup_filter_helper()` / `advanced_filter_helper()` class output so the new filter surface does not regress silently
   - [ ] Add explicit tests for `microsys/list_base.html` and `microsys/forms/filter_assets_head.html`
   - [ ] Add explicit tests for the shared theme registry helpers and the official discovered theme ordering
   - [ ] Add explicit tests for setup/runtime handling of `sidebar.enable_reorder` and `sidebar.show_toolbar`
-- Priority 2:
   - [ ] Decide whether a dedicated mixed `form_list_base.html` is worth adding for pages like `manage_sections`
   - [ ] Revisit the global Crispy file-field override story and either harden it or document its host-project dependency more prominently
   - [ ] Extend the docs with a migration example showing a host project moving from manual Microsys settings to `microsys_settings(globals())`
   - [ ] Consider whether `python -m microsys startapp` should also generate starter templates for dynamic modal or sections-first flows
-  - [ ] Manually verify `mono`, `gothic`, `retro`, and `neon` across sidebar rail states, options selectors, toolbar controls, and framework-owned cards/popovers
+  - [x] Manually verify `mono`, `gothic`, `retro`, and `neon` across sidebar rail states, options selectors, toolbar controls, and framework-owned cards/popovers
 - Completed Recently:
+  - [x] Add `v1.20.5` changelog coverage for the latest table/filter/theme/activity-log/options/sidebar refinement batch
+  - [x] Expand the top-level README with a concise vNext table/filter contract summary and links to the deeper reference/customization docs
   - [x] Add generated Docker baseline files `.dockerignore`, `Dockerfile`, `compose.yml`, `entrypoint.sh`, `gunicorn.py`, and `req.txt` to `python -m microsys startproject`
   - [x] Remove generated `micro.txt`; scaffolded projects now pin `django-microsys==<generated version>` directly in `req.txt` and rely on package dependency resolution for framework extras
+  - [x] Add helper regression coverage for `set_field_attrs()` default-label mode versus `inline_labels=True`, plus `setup_filter_helper()` inline-label defaults and opt-out path
+  - [x] Align `UserActivityLogView` with the working users-list filter/table composition and add GET-bound regression assertions for inline filter labels
+  - [x] Neutralize the rounded Bootstrap card wrapper around framework-owned tables on the main list pages so the `ms-table-shell` is the only visible curved container
+  - [x] Add a mono-only `ms-table-card` override so the theme’s generic `.card` / `.card-body` paint no longer shows beneath the framework-owned table shell
   - [x] Add generated `.secrets/.env` with only the six bootstrap secret values and keep compose on the pre-existing inline env pattern
   - [x] Add generated `compose.dev.yml` and `.nginx/nginx.conf`, switch nginx to official image + mounted config, and remove the Debeski-owned default web image requirement from the project scaffold
   - [x] Add scaffolded Celery baseline: `config/celery.py`, `celery` compose service, Celery settings defaults, and `django-health-check` `/health/` routing
@@ -171,20 +275,67 @@
   - [x] Add `email_2fa` BooleanField to SystemSettings model + migration `0002`
   - [x] Add `email_2fa` toggle to SystemSettingsForm (Step 1)
   - [x] Wire `email_2fa` through `get_system_config()` default + DB read + MICROSYS_CONFIG seed
+  - [x] Replace the legacy CSS-only table polish with a framework-owned `microsys/tables/table.html` renderer and density-aware `tables.css`
+  - [x] Auto-remap stock/no-template `django_tables2` tables to the Microsys renderer while preserving explicit custom templates and `Meta.microsys_table = False` opt-outs
+  - [x] Add `SystemSettings.default_table_density`, per-user `Profile.preferences["table_density"]`, and per-table `Meta.microsys_density` support with Options/System Settings UI wiring
+  - [x] Remove nested `.table-responsive` wrappers from the main shared table entrypoints so the framework-owned shell is the only responsive wrapper
+  - [x] Add docs/changelog coverage for the framework-owned table surface and bump package version to `1.20.3`
+  - [x] Add `MicrosysTable` as the public base class for handwritten Microsys tables
+  - [x] Centralize table page-size resolution and persistence with built-in per-page options `10`, `20`, `50`, `100` and global user preference key `Profile.preferences["table_page_size"]`
+  - [x] Add framework-owned pagination/per-page footer controls to `microsys/tables/table.html` and wire built-in Microsys views away from hardcoded `per_page` values
+  - [x] Add compact in-footer table density chips beside the per-page controls and suppress them automatically on tables with forced `Meta.microsys_density`
+  - [x] Add explicit `autocomplete` metadata to user-management/profile/reset-password forms and remove the manage-users reset-password modal’s dependency on a page-global `id_username`
+  - [x] Add default `micro:record:view|edit|delete` row actions for Microsys-managed tables, with `Meta.microsys_actions` opt-out and `get_microsys_row_actions()` extension hook
+  - [x] Update scaffolded app table/list templates to use `MicrosysTable` and the framework default page size
+  - [x] Add dark-theme table-token overrides for `dark`, `gothic`, and `neon`
+  - [x] Add docs/changelog coverage for the vNext table platform and bump package version to `1.20.4b0`
+  - [x] Rework the activity-log detail modal into structured field/status/value cards while leaving the profile timeline formatter compact
+  - [x] Mask OTP/TOTP secret-like fields in saved activity-log diffs and in rendered legacy detail payloads through a shared helper
+  - [x] Move the generic wizard controller out of `users/` into `helpers/wizard/` and rewire shared template loading
+  - [x] Split the Options System Settings entry into branding/languages/sidebar step launchers without changing first-launch setup flow
+  - [x] Fix sidebar-builder localization drift so selected entries in Arabic no longer fall back to English framework-default labels
+  - [x] Add cross-pane sidebar-builder drag/drop so discovered entries can be dragged into the selected tree and selected entries can be dragged back out for removal
+  - [x] Fix auto-generated detail modals so field labels follow current-language translations instead of raw English `verbose_name` values
+  - [x] Add missing `email_2fa` and `public_root` translation keys for the System Settings form
+  - [x] Fix System Settings `logo` / `favicon` to use the actual Microsys archive-file widget and enable multipart submission in dynamic modals
   - [x] Add `auto_create_user_scope` toggle to ScopeSettings for per-user automatic scope creation (v1.19.4b1)
   - [x] Fix transaction handling and error reporting for auto_create_user_scope (v1.19.4b2)
   - [x] Restore missing users views module lost due to gitignore `users/` folder pattern (v1.19.4b3)
   - [x] Fix anonymous root redirect (removed `is_authenticated` check from middleware) (v1.19.4b4)
 
 - SSO / OIDC:
-  - [x] Phase 1: Core OIDC Provider via `django-oauth-toolkit` — `microsys/sso/` sub-package
-  - [x] Phase 2: SSO Admin Card + Modal for client app management
-  - [x] Phase 3: Connected Devices UI in Profile for Token Revocation
-  - [x] Phase 4: Separate `django-microsys-sso-client` package
+  - [ ] Re-establish a current design baseline for Microsys-as-SSO-server in this repo
+  - [ ] Confirm whether `django-oauth-toolkit` remains the intended provider base or whether the old implementation exposed blockers that require a different shape
+  - [ ] Rebuild the server-side capability against the current package instead of assuming the sibling implementation is merge-ready
+  - [ ] If client-package work is still desired later, keep it downstream from a verified server implementation in this repo
 
 ### Tests:
 
 - Verified recently:
+  - no automated checks run for the latest `CHANGELOG.md` / `README.md` update because it was documentation-only
+  - `python -m compileall -f microsys/views/activitylog.py microsys/tests/test_views.py` after aligning the activity-log page to the working `FilterView + SingleTableView` composition and adding inline-label regression assertions for bound GET requests
+  - `python -m compileall microsys/utils.py microsys/tests/test_utils.py` after adding explicit `inline_labels` handling to `set_field_attrs()` and default inline placeholder mode to filter helpers
+  - attempted `python -m unittest microsys.tests.test_utils`, but the available interpreter does not have `django` installed in this shell (`ModuleNotFoundError: No module named 'django'`)
+  - `python -m compileall microsys/forms.py` after wiring System Settings branding fields onto the shared modern file-input surface
+  - `python -m compileall microsys/translations.py` after adding the missing `form_sys_email_2fa` / `help_sys_email_2fa` / `form_sys_public_root` / `help_sys_public_root` translation keys
+  - `python -m compileall microsys/utils.py microsys/views/sections.py microsys/tests/test_utils.py` after wiring translated field-label resolution into the auto-generated detail modal/context path
+  - `python -m compileall microsys/forms.py microsys/tests/test_defaults_and_urls.py` after wiring sidebar-builder cross-pane drag/drop alongside the earlier Arabic label rehydration work
+  - attempted `node --check microsys/static/microsys/main/js/system_setup.js`, but `node` is not installed in this shell
+  - `python -m compileall microsys/forms.py microsys/tests/test_defaults_and_urls.py` after adding sidebar-builder fallback-catalog wiring and Arabic selected-label rehydration
+  - attempted `./venv/bin/python -m unittest microsys.tests.test_defaults_and_urls`, but no local `./venv` exists in this workspace
+  - attempted `python -m unittest microsys.tests.test_defaults_and_urls`, but the available interpreter does not have `django` installed in this shell (`ModuleNotFoundError: No module named 'django'`)
+  - `python -m compileall microsys/views/sections.py microsys/tests/test_views.py` after splitting the Options System Settings entrypoints and preserving wizard `step` through modal form submissions
+  - `python -m compileall microsys/forms.py` after changing split System Settings modal entrypoints to render as single-step Save-only editors instead of full wizard navigation
+  - `python -m compileall microsys/views/sections.py` after fixing `DynamicModalManagerView` to pass `request`/`user` into forms that accept `**kwargs`, which unblocked `SystemSettingsForm` single-step mode in the modal path
+  - `python -m compileall microsys/utils.py microsys/signals.py microsys/templatetags/microsys_translation.py microsys/tests/test_signals.py microsys/tests/test_views.py` after adding structured activity-log detail rendering and OTP/TOTP secret masking
+  - attempted `./venv/bin/python -m unittest microsys.tests.test_signals microsys.tests.test_views`, but no local `./venv` exists in this workspace
+  - attempted `python -m unittest microsys.tests.test_signals microsys.tests.test_views`, but the available interpreter does not have `django` installed in this shell (`ModuleNotFoundError: No module named 'django'`)
+  - `python -m compileall microsys/patches.py microsys/views/users.py microsys/views/activitylog.py microsys/views/sections.py microsys/views/scopes.py microsys/tests/test_tables.py microsys/tests/test_api.py` after finishing the vNext table-platform patch, page-size centralization, and default row-action wiring
+  - attempted `python -m unittest microsys.tests.test_tables microsys.tests.test_api`, but the system `python` in this workspace does not have Django installed (`ModuleNotFoundError: No module named 'django'`)
+  - `python -m compileall /home/debeski/depy/projects/microsys-pkg/microsys/templatetags/microsys_tags.py /home/debeski/depy/projects/microsys-pkg/microsys/tests/test_tables.py` after replacing the invalid dynamic `querystring` usage in `microsys/templates/microsys/tables/table.html` with the Microsys-owned `ms_querystring` tag
+  - `python -m compileall /home/debeski/depy/projects/microsys-pkg/microsys/constants.py /home/debeski/depy/projects/microsys-pkg/microsys/models.py /home/debeski/depy/projects/microsys-pkg/microsys/utils.py /home/debeski/depy/projects/microsys-pkg/microsys/context_processors.py /home/debeski/depy/projects/microsys-pkg/microsys/api.py /home/debeski/depy/projects/microsys-pkg/microsys/forms.py /home/debeski/depy/projects/microsys-pkg/microsys/patches.py /home/debeski/depy/projects/microsys-pkg/microsys/views/scopes.py /home/debeski/depy/projects/microsys-pkg/microsys/tests/test_models.py /home/debeski/depy/projects/microsys-pkg/microsys/tests/test_utils.py /home/debeski/depy/projects/microsys-pkg/microsys/tests/test_context_processors.py /home/debeski/depy/projects/microsys-pkg/microsys/tests/test_defaults_and_urls.py /home/debeski/depy/projects/microsys-pkg/microsys/tests/test_api.py /home/debeski/depy/projects/microsys-pkg/microsys/tests/test_tables.py`
+  - updated `README.md`, `docs/reference.md`, `docs/customization-guide.md`, `docs/admin-guide.md`, and `CHANGELOG.md` for the new framework-owned table renderer and density controls
+  - bumped package version from `1.20.2` to `1.20.3` in `microsys/VERSION`
   - added a new `v1.20.2` changelog entry documenting the Windows Docker Desktop path-translation fix, Compose bind-mount compatibility fix, and LF newline safeguard for generated shell files
   - corrected `CHANGELOG.md` so `v1.20.1` is a separate patch entry for the Windows scaffold fixes, with the larger scaffold/settings release restored under `v1.20.0`
   - `python -m microsys.tests.test_scaffold` after forcing LF newlines in generated scaffold files and asserting `entrypoint.sh` / `start.sh` contain no CRLF bytes
@@ -221,11 +372,17 @@
   - `docker compose exec -T web python manage.py shell -c "from microsys.themes import get_theme_names; print(get_theme_names())"`
   - `docker compose exec -T web python manage.py test microsys.tests.test_context_processors.ContextProcessorsTests.test_microsys_context_theme_options microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_form_surfaces_neon_and_sidebar_behavior_flags microsys.tests.test_utils.UtilsTests.test_get_system_config_rejects_unknown_default_theme`
   - `python -m py_compile` passed for `models.py`, `views/twofa.py`, `utils.py`, `forms.py`, `migrations/0002_systemsettings_email_2fa.py` (email 2FA fix)
+  - attempted `./venv/bin/python -m unittest microsys.tests.test_models microsys.tests.test_utils microsys.tests.test_context_processors microsys.tests.test_defaults_and_urls microsys.tests.test_api microsys.tests.test_tables`, but no local `./venv` exists in this workspace
+  - attempted `python -m unittest microsys.tests.test_models microsys.tests.test_utils microsys.tests.test_context_processors microsys.tests.test_defaults_and_urls microsys.tests.test_api microsys.tests.test_tables`, but the available interpreter does not have `django` installed in this shell
 - Recommended next validation:
   - run `python -m microsys startproject` in a fresh directory inside a real Django environment and boot the generated project
   - run `docker compose -f compose.yml -f compose.dev.yml up` in a generated scaffold and confirm `web`, `celery`, and `/health/` all become healthy
   - confirm the generated `.secrets/.env` works correctly with the decrypter/startup flow without importing it directly in compose
   - run `python -m microsys startapp --register` in that generated project and confirm the app imports, migrates, and its starter URLs render
+  - visually confirm the refreshed shared table surface on users/activity log and at least one generic section table in light, dark, and one specialty theme
+  - run `microsys.tests.test_tables` plus the related config/API tests in a Django-capable environment and confirm the new framework-owned renderer, density precedence, and settings persistence
+  - implement and verify the SSO System Settings activation path, then boot a host project with SSO disabled and enabled
+  - verify authorization, token issuance, connected-session revocation, and access-control rules for the rebuilt SSO provider flow
   - Deploy updated microsys to finestor compose and confirm email 2FA toggle appears in system settings
   - Enable email_2fa toggle, verify email 2FA option appears in profile page
   - Send test OTP email to confirm email delivery works
@@ -234,6 +391,23 @@
   - visually confirm the latest dark-theme and sidebar-runtime refinements in the browser
 
 ### Docs:
+
+- Public table-platform contract:
+  - `microsys.tables.MicrosysTable`
+  - `Profile.preferences["table_page_size"]`
+  - `Table.Meta.microsys_per_page`
+  - `Table.Meta.microsys_per_page_options`
+  - `Table.Meta.microsys_actions`
+  - `get_microsys_row_actions(self, record, base_actions)`
+- Updated docs now live in:
+  - `README.md`
+  - `docs/reference.md`
+  - `docs/customization-guide.md`
+  - `docs/admin-guide.md`
+  - `CHANGELOG.md`
+- Latest docs audit conclusion:
+  - `docs/reference.md` and `docs/customization-guide.md` already cover the detailed vNext table contract
+  - the landing `README.md` previously under-documented those latest table/filter behaviors, so it now includes a concise quick-reference instead of relying only on deeper docs
 
 - Primary references:
   - `README.md`
@@ -255,11 +429,24 @@
   - `microsys/forms/assets_head.html`
   - `microsys/forms/assets_scripts.html`
   - `microsys/forms/filter_assets_head.html`
+  - `set_field_attrs(form, request=None, inline_labels=False)`
+  - `setup_filter_helper(filter_instance, request=None, preserve_keys=None, inline_labels=True)`
+  - `advanced_filter_helper(filter_instance, config=None, request=None, preserve_keys=None, inline_labels=True)`
+  - `microsys/static/microsys/main/css/tables.css`
+  - `microsys/templates/microsys/tables/table.html`
   - `microsys/themes.py`
   - sidebar config keys `enable_reorder` and `show_toolbar`
   - options-page `.theme-preview` and sidebar `.theme-option-circle` theme-picking surfaces
   - `email_2fa` config flag (via `MICROSYS_CONFIG` or System Settings UI)
   - `public_root` config flag (via `MICROSYS_CONFIG` or System Settings UI) to allow anonymous root access
+  - `SystemSettings.default_table_density`
+  - `Profile.preferences["table_density"]`
+  - table Meta controls `microsys_table` and `microsys_density`
+  - `microsys.templatetags.microsys_translation.render_log_details_panel`
+  - `microsys.utils.is_sensitive_activity_field_name`
+  - `microsys/templates/microsys/activitylog/activity_log_detail_modal.html`
+  - `microsys/static/microsys/helpers/wizard/js/main.js`
+  - split System Settings modal entrypoints via `modal_manager` with `?step=0|1|2`
 
 ## Part 2: Global
 
@@ -287,6 +474,7 @@
 - Prefer framework-owned entrypoints over project-specific copy-paste integrations
 - Prefer the `python -m microsys` scaffold flow over starting from raw Django defaults when building new MicroSys projects or apps; treat `ms` as a convenience alias only
 - Prefer documented helper paths over clever but implicit runtime magic
+- Treat user-confirmed activation requirements as standards: SSO should be enabled through System Settings in the same normal admin flow as other framework toggles unless the user explicitly changes that direction
 - Keep defaults safe and additive
 - Keep docs and changelog in sync with new supported surfaces
 
@@ -295,12 +483,15 @@
 - Read this tracker before changing Microsys integration behavior
 - Re-validate the live command behavior after changing `microsys_setup` or `microsys_check`
 - Re-check host-project implications when changing shared templates, helper defaults, or template override precedence
+- Do not assume SSO is implemented just because the sibling `microsys-pkg(SSO)` tree exists; verify against the live repo first
+- Treat `/home/debeski/depy/projects/microsys-pkg(SSO)/microsys` as reference-only until its pieces are re-audited against the current package
 - Update README, customization docs, reference docs, and changelog for any new supported integration surface
 
 ### Links To Possibly Helpful Tools and Projects if any:
 
 - Archive host project: `/home/debeski/depy/projects/archive`
 - DNgine tracker reference: `/home/debeski/depy/tools/DNgine/tracker.md`
+- Older SSO reference tree: `/home/debeski/depy/projects/microsys-pkg(SSO)/microsys`
 
 ### References:
 

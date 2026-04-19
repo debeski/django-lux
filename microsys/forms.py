@@ -1,6 +1,7 @@
 # Imports of the required python modules and libraries
 ######################################################
 import json
+from types import MethodType
 
 from django import forms
 from django.contrib.auth.models import Permission as Permissions
@@ -20,7 +21,13 @@ from django.forms.widgets import ChoiceWidget
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
-from .constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
+from .constants import (
+    DEFAULT_HOME_URL,
+    DEFAULT_TABLE_DENSITY,
+    LEGACY_HOME_URL,
+    TABLE_DENSITY_CHOICES,
+    TABLE_DENSITY_VALUES,
+)
 from .translations import get_strings, get_current_language_code
 from .themes import get_theme_choices, get_theme_options, is_valid_theme
 
@@ -149,6 +156,48 @@ def _build_submit_actions(strings, submit_label, submit_icon, submit_class='btn 
 
 class ProfileImageWidget(forms.ClearableFileInput):
     template_name = 'microsys/widgets/profile_image_widget.html'
+
+
+def _apply_autocomplete_attrs(form, mapping):
+    for field_name, autocomplete in mapping.items():
+        field = form.fields.get(field_name)
+        if field is None or not autocomplete:
+            continue
+        field.widget.attrs['autocomplete'] = autocomplete
+
+
+def _build_archive_file_widget(field_label="", show_scan=False, attrs=None):
+    widget = forms.ClearableFileInput(attrs=attrs or {})
+    widget.template_name = 'microsys/forms/file_input.html'
+
+    widget_attrs = dict(widget.attrs or {})
+    existing_class = str(widget_attrs.get('class', '') or '').strip()
+    widget_attrs['class'] = f"{existing_class} archive-file-input".strip()
+    widget.attrs = widget_attrs
+
+    def _get_context(self, name, value, attrs):
+        context = forms.ClearableFileInput.get_context(self, name, value, attrs)
+        data = context["widget"]
+        data["field_label"] = field_label
+        data["show_scan"] = show_scan
+
+        if value and hasattr(value, "url"):
+            data["file_url"] = value.url
+            data["display_name"] = getattr(value, "name", "").split("/")[-1] or str(value)
+            display_name = data["display_name"].lower()
+            if display_name.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico")):
+                data["icon_class"] = "bi bi-file-earmark-image-fill"
+            else:
+                data["icon_class"] = "bi bi-file-earmark-fill"
+        else:
+            data["file_url"] = ""
+            data["display_name"] = ""
+            data["icon_class"] = "bi bi-file-earmark-arrow-up-fill"
+
+        return context
+
+    widget.get_context = MethodType(_get_context, widget)
+    return widget
 
 class GroupedPermissionWidget(ChoiceWidget):
     template_name = 'microsys/users/grouped_permissions.html'
@@ -419,6 +468,18 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields["password1"].help_text = s.get('help_password_common', "كلمة المرور يجب ألا تكون مشابهة...")
         self.fields["password2"].help_text = s.get('help_password_match', "أدخل نفس كلمة المرور السابقة للتحقق.")
         self.fields["phone"].help_text = s.get('help_phone', "أدخل رقم الهاتف الصحيح...")
+        _apply_autocomplete_attrs(
+            self,
+            {
+                'username': 'username',
+                'password1': 'new-password',
+                'password2': 'new-password',
+                'first_name': 'given-name',
+                'last_name': 'family-name',
+                'email': 'email',
+                'phone': 'tel',
+            },
+        )
 
         # can_manage_staff logic message update
         if self.user_context and not self.user_context.is_superuser:
@@ -537,6 +598,16 @@ class CustomUserChangeForm(UserChangeForm):
         self.fields["is_active"].help_text = s.get('help_is_active', "يحدد ما إذا كان يجب اعتبار هذا الحساب نشطًا.")
         self.fields["phone"].help_text = s.get('help_phone', "أدخل رقم الهاتف الصحيح...")
         self.fields["scope"].help_text = ""
+        _apply_autocomplete_attrs(
+            self,
+            {
+                'username': 'username',
+                'first_name': 'given-name',
+                'last_name': 'family-name',
+                'email': 'email',
+                'phone': 'tel',
+            },
+        )
 
         if self.user_context and not self.user_context.is_superuser:
             if self.user_context == user_instance:
@@ -735,6 +806,14 @@ class ResetPasswordForm(SetPasswordForm):
 
         self.fields["new_password2"].label = s.get('form_confirm_new_password', "Confirm New Password")
         self.fields['new_password2'].help_text = s.get('help_password_match', "Enter the same password as...")
+        _apply_autocomplete_attrs(
+            self,
+            {
+                'username': 'username',
+                'new_password1': 'new-password',
+                'new_password2': 'new-password',
+            },
+        )
         self.helper.layout = Layout(
             Div(
                 Field('username', css_class='col-md-12'),
@@ -786,6 +865,16 @@ class UserProfileEditForm(forms.ModelForm):
 
         
         self.fields["email"].required = False
+        _apply_autocomplete_attrs(
+            self,
+            {
+                'username': 'username',
+                'first_name': 'given-name',
+                'last_name': 'family-name',
+                'email': 'email',
+                'phone': 'tel',
+            },
+        )
 
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -875,6 +964,14 @@ class CustomPasswordChangeForm(PasswordChangeForm):
         self.fields['new_password2'].label = s.get('form_confirm_new_password', "Confirm New Password")
         self.fields['new_password2'].help_text = s.get('help_password_match', "Enter the same password as...")
         self.fields['new_password2'].widget.attrs.pop('dir', None)
+        _apply_autocomplete_attrs(
+            self,
+            {
+                'old_password': 'current-password',
+                'new_password1': 'new-password',
+                'new_password2': 'new-password',
+            },
+        )
 
 class ScopeForm(forms.ModelForm):
     class Meta:
@@ -909,6 +1006,11 @@ class SystemSettingsForm(forms.ModelForm):
         choices=[(value, value) for value, _, _ in THEME_CHOICES],
         widget=forms.HiddenInput(),
     )
+    default_table_density = forms.ChoiceField(
+        required=True,
+        choices=TABLE_DENSITY_CHOICES,
+        widget=forms.HiddenInput(),
+    )
     languages = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 4}),
         required=False,
@@ -940,7 +1042,21 @@ class SystemSettingsForm(forms.ModelForm):
 
     class Meta:
         model = apps.get_model('microsys', 'SystemSettings')
-        fields = ['name', 'name_en', 'logo', 'favicon', 'home_url', 'default_language', 'default_theme', 'languages', 'translations_override', 'sidebar_config']
+        fields = [
+            'name',
+            'name_en',
+            'logo',
+            'favicon',
+            'home_url',
+            'default_language',
+            'default_theme',
+            'default_table_density',
+            'email_2fa',
+            'public_root',
+            'languages',
+            'translations_override',
+            'sidebar_config',
+        ]
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
@@ -948,9 +1064,21 @@ class SystemSettingsForm(forms.ModelForm):
         self.mode = kwargs.pop('mode', 'modal')
         super().__init__(*args, **kwargs)
         self.refresh_parent = True
+        self.single_step_mode = False
+        self.single_step_index = None
         s = get_strings()
         if hasattr(self, 'translations') and self.translations:
             s = self.translations
+
+        if self.mode != 'setup' and self.request is not None:
+            raw_step = self.request.GET.get('step')
+            try:
+                parsed_step = int(raw_step)
+            except (TypeError, ValueError):
+                parsed_step = None
+            if parsed_step in (0, 1, 2):
+                self.single_step_mode = True
+                self.single_step_index = parsed_step
 
         from microsys.discovery import discover_sidebar_catalog, sanitize_sidebar_config
         from microsys.utils import get_system_config
@@ -996,8 +1124,21 @@ class SystemSettingsForm(forms.ModelForm):
         })
         self.fields['default_language'].label = s.get('form_sys_default_lang', "اللغة الافتراضية")
         self.fields['default_theme'].label = s.get('form_sys_default_theme', "المظهر الافتراضي")
+        self.fields['default_table_density'].label = s.get('form_sys_default_table_density', "الكثافة الافتراضية للجداول")
+        self.fields['default_table_density'].help_text = s.get(
+            'help_sys_default_table_density',
+            'اختر كثافة الجداول الافتراضية للمستخدمين الجدد، مع إمكانية تجاوزها لاحقاً من صفحة الخيارات.',
+        )
         self.fields['logo'].label = s.get('form_sys_logo', "الشعار (Logo)")
         self.fields['favicon'].label = s.get('form_sys_favicon', "أيقونة الموقع (Favicon)")
+        self.fields['logo'].widget = _build_archive_file_widget(
+            attrs={'accept': 'image/*'},
+            field_label=self.fields['logo'].label,
+        )
+        self.fields['favicon'].widget = _build_archive_file_widget(
+            attrs={'accept': 'image/*'},
+            field_label=self.fields['favicon'].label,
+        )
         self.fields['sidebar_config'].label = s.get('form_sys_sidebar', "إعدادات الشريط الجانبي")
         self.fields['sidebar_enable_reorder'].label = s.get('form_sys_sidebar_enable_reorder', 'Enable sidebar reorder')
         self.fields['sidebar_enable_reorder'].help_text = s.get(
@@ -1035,6 +1176,9 @@ class SystemSettingsForm(forms.ModelForm):
         if not getattr(self.instance, 'default_theme', None):
              self.instance.default_theme = config.get('default_theme', 'light')
         self.initial['default_theme'] = self.instance.default_theme or config.get('default_theme', 'light')
+        if getattr(self.instance, 'default_table_density', None) not in TABLE_DENSITY_VALUES:
+             self.instance.default_table_density = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
+        self.initial['default_table_density'] = self.instance.default_table_density or config.get('default_table_density', DEFAULT_TABLE_DENSITY)
         instance_home_url = str(self.instance.home_url or '').strip()
         if (
             not getattr(self.instance, 'is_configured', False)
@@ -1068,6 +1212,8 @@ class SystemSettingsForm(forms.ModelForm):
             self.initial['default_language'] = config.get('default_language', 'en')
         if not self.initial.get('default_theme'):
             self.initial['default_theme'] = config.get('default_theme', 'light')
+        if self.initial.get('default_table_density') not in TABLE_DENSITY_VALUES:
+            self.initial['default_table_density'] = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
         self.initial['email_2fa'] = bool(
             getattr(self.instance, 'email_2fa', False)
             or config.get('email_2fa', False)
@@ -1106,6 +1252,7 @@ class SystemSettingsForm(forms.ModelForm):
         catalog_lang = self.initial.get('default_language') or self.instance.default_language or config.get('default_language', 'en')
         public_sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang)
         self.sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=True)
+        self.sidebar_catalog_fallback = discover_sidebar_catalog(lang_code='en', include_system_items=True)
         seen_home_urls = set()
         home_url_choices = [('', s.get('form_sys_home_url_custom', 'Use a custom URL'))]
         for entry in public_sidebar_catalog:
@@ -1147,12 +1294,25 @@ class SystemSettingsForm(forms.ModelForm):
                 'label': self.fields['default_theme'].label,
             },
         )
+        self.table_density_picker_html = render_to_string(
+            'microsys/includes/table_density_previews.html',
+            {
+                'selected_density': self.initial.get('default_table_density', DEFAULT_TABLE_DENSITY),
+                'picker_mode': 'setup',
+                'input_id': 'id_default_table_density',
+                'MS_TRANS': s,
+                'label': self.fields['default_table_density'].label,
+                'help_text': self.fields['default_table_density'].help_text,
+                'density_choices': TABLE_DENSITY_CHOICES,
+            },
+        )
 
         self.sidebar_builder_html = render_to_string(
             'microsys/includes/sidebar_builder.html',
             {
                 'sidebar_catalog': self.sidebar_catalog,
                 'sidebar_catalog_json': _json_dump(self.sidebar_catalog, ensure_ascii=False),
+                'sidebar_catalog_fallback_json': _json_dump(self.sidebar_catalog_fallback, ensure_ascii=False),
                 'sidebar_config_json': self.initial.get('sidebar_config', '{}'),
                 'mode': self.mode,
                 'MS_TRANS': s,
@@ -1170,6 +1330,14 @@ class SystemSettingsForm(forms.ModelForm):
 
         self.helper = FormHelper()
         self.helper.form_tag = False
+
+        def _step_style(index):
+            if self.single_step_mode and self.single_step_index != index:
+                return 'display: none;'
+            if not self.single_step_mode and index > 0:
+                return 'display: none;'
+            return None
+
         self.helper.layout = Layout(
             HTML(
                 (
@@ -1197,6 +1365,13 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(HTML(self.theme_picker_html), Field('default_theme'), css_class='col-lg-6'),
                 ),
                 Row(
+                    Div(
+                        HTML(self.table_density_picker_html),
+                        Field('default_table_density'),
+                        css_class='col-12'
+                    ),
+                ),
+                Row(
                     Div(Field('home_url_discovered', css_class='col-lg-6'), css_class='col-lg-6'),
                     Div(Field('home_url', css_class='col-lg-6', dir='ltr'), css_class='col-lg-6'),
                 ),
@@ -1204,13 +1379,15 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('email_2fa'), css_class='col-lg-6'),
                     Div(Field('public_root'), css_class='col-lg-6'),
                 ),
-                css_class='wizard-step'
+                css_class='wizard-step',
+                style=_step_style(0),
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step2', 'الخطوة 2')}</span></div>"),
                 Row(Field('languages', css_class='col-12 font-monospace', dir='ltr')),
                 Row(Field('translations_override', css_class='col-12 font-monospace', dir='ltr')),
-                css_class='wizard-step'
+                css_class='wizard-step',
+                style=_step_style(1),
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'الخطوة 3')}</span></div>"),
@@ -1226,9 +1403,21 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 HTML(self.sidebar_builder_html),
                 Field('sidebar_config'),
-                css_class='wizard-step'
+                css_class='wizard-step',
+                style=_step_style(2),
             ),
             FormActions(
+                Submit(
+                    'submit',
+                    s.get('btn_save', 'حفظ التعديلات'),
+                    css_class='btn btn-primary px-5 rounded-pill fw-bold ms-btn-submit'
+                ),
+                css_class=(
+                    'd-flex justify-content-end align-items-center gap-2 mt-4'
+                    if self.single_step_mode
+                    else 'd-flex justify-content-between align-items-center gap-2 mt-4'
+                ),
+            ) if self.single_step_mode else FormActions(
                 HTML(
                     f"<button type='button' class='btn btn-outline-secondary rounded-pill px-4 ms-btn-prev'>"
                     f"{s.get('btn_prev', 'السابق')}</button>"
@@ -1275,6 +1464,12 @@ class SystemSettingsForm(forms.ModelForm):
         value = self.cleaned_data.get('default_theme') or 'light'
         if not is_valid_theme(value):
             raise ValidationError("Invalid theme choice.")
+        return value
+
+    def clean_default_table_density(self):
+        value = self.cleaned_data.get('default_table_density') or DEFAULT_TABLE_DENSITY
+        if value not in TABLE_DENSITY_VALUES:
+            raise ValidationError("Invalid table density choice.")
         return value
 
     def clean_home_url(self):

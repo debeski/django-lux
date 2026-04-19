@@ -278,6 +278,35 @@ class SignalTests(TestCase):
             if hasattr(_thread_locals, 'request'):
                 del _thread_locals.request
 
+    def test_totp_secret_masking_in_details(self):
+        """Test that TOTP secret changes are masked in activity log details."""
+        from microsys.middleware import _thread_locals
+
+        request = self.factory.get('/')
+        request.user = self.user
+        _thread_locals.user = self.user
+        _thread_locals.request = request
+
+        try:
+            profile = self.user.profile
+            profile.totp_secret = 'JBSWY3DPEHPK3PXP'
+            profile.save()
+
+            log = UserActivityLog.objects.filter(
+                created_by=self.user,
+                action='UPDATE',
+            ).order_by('-created_at').first()
+
+            self.assertIsNotNone(log)
+            self.assertIn('totp_secret', log.details)
+            self.assertEqual(log.details['totp_secret']['old'], '********')
+            self.assertEqual(log.details['totp_secret']['new'], '********')
+        finally:
+            if hasattr(_thread_locals, 'user'):
+                del _thread_locals.user
+            if hasattr(_thread_locals, 'request'):
+                del _thread_locals.request
+
     def test_user_profile_unification_in_logs(self):
         """Test that User and Profile logs are unified under 'User Profile'."""
         from microsys.signals import log_save

@@ -52,9 +52,9 @@ if not settings.configured:
 from django.test import Client, SimpleTestCase, override_settings
 from django.urls import clear_url_caches
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import call, patch
 
-from microsys.constants import DEFAULT_HOME_URL, LEGACY_HOME_URL
+from microsys.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, LEGACY_HOME_URL
 from microsys.forms import SystemSettingsForm
 from microsys.models import SystemSettings
 from microsys.themes import get_theme_names
@@ -121,6 +121,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
     @override_settings(MICROSYS_CONFIG={
         'default_theme': 'neon',
+        'default_table_density': 'roomy',
         'sidebar': {
             'entries': [],
             'enable_reorder': False,
@@ -137,8 +138,41 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('neon', theme_choices)
         self.assertEqual(theme_choices, list(get_theme_names()))
         self.assertEqual(form.initial['default_theme'], 'neon')
+        self.assertEqual(form.initial['default_table_density'], 'roomy')
         self.assertFalse(form.initial['sidebar_enable_reorder'])
         self.assertFalse(form.initial['sidebar_enable_toolbar'])
+
+    @override_settings(MICROSYS_CONFIG={'default_table_density': 'invalid-choice'})
+    def test_setup_form_falls_back_to_balanced_table_density(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(default_table_density='invalid-choice', is_configured=False),
+        )
+
+        self.assertEqual(form.initial['default_table_density'], DEFAULT_TABLE_DENSITY)
+
+    @override_settings(MICROSYS_CONFIG={'default_language': 'ar'})
+    @patch('microsys.discovery.discover_sidebar_catalog')
+    def test_setup_form_provides_sidebar_builder_with_language_catalog_and_english_fallback(self, mock_discover_sidebar_catalog):
+        mock_discover_sidebar_catalog.side_effect = [
+            [{'id': 'demo:list', 'url_name': 'demo:list', 'label': 'القائمة', 'group_label': 'التجريبي'}],
+            [{'id': 'demo:list', 'url_name': 'demo:list', 'label': 'القائمة', 'group_label': 'التجريبي'}],
+            [{'id': 'demo:list', 'url_name': 'demo:list', 'label': 'List', 'group_label': 'Demo'}],
+        ]
+
+        form = SystemSettingsForm(
+            instance=SystemSettings(default_language='ar', is_configured=False),
+        )
+
+        self.assertEqual(
+            mock_discover_sidebar_catalog.call_args_list,
+            [
+                call(lang_code='ar', include_system_items=False),
+                call(lang_code='ar', include_system_items=True),
+                call(lang_code='en', include_system_items=True),
+            ],
+        )
+        self.assertIn('ms-sidebar-catalog-fallback-data', form.sidebar_builder_html)
+        self.assertIn('Demo', form.sidebar_builder_html)
 
     @override_settings(MICROSYS_CONFIG={}, MEDIA_URL='')
     def test_uploaded_branding_urls_fall_back_to_absolute_media_paths(self):

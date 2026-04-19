@@ -42,12 +42,12 @@
     </div>
 
     <h6 class="fw-bold mb-3 text-secondary border-bottom pb-2"><i class="bi bi-pencil-square me-1"></i> {{ MS_TRANS.label_changes|default:"Changes / Details" }}</h6>
-    <div class="bg-light p-3 rounded mb-3" style="max-height: 300px; overflow-y: auto;">
-        {% format_log_details object.details as details_html %}
+    <div class="ms-log-detail-panel mb-3">
+        {% render_log_details_panel object.details as details_html %}
         {% if details_html %}
             {{ details_html|safe }}
         {% else %}
-            <p class="text-muted mb-0 small">{{ MS_TRANS.no_details|default:"No specific details recorded." }}</p>
+            <p class="ms-log-detail-empty mb-0">{{ MS_TRANS.no_details|default:"No specific details recorded." }}</p>
         {% endif %}
     </div>
 

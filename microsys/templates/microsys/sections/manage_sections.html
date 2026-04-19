@@ -103,9 +103,7 @@
                 {% crispy filter.form %}
             </div>
             {% endif %}
-            <div class="table-responsive">
-                {% render_table table %}
-            </div>
+            {% render_table table %}
         </div>
     </div>
     {% elif not error %}

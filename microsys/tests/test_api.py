@@ -147,7 +147,7 @@ class APIEndpointsTests(TestCase):
         """Test update_preferences with POST."""
         response = self.client.post(
             reverse('update_preferences'),
-            json.dumps({'theme': 'dark', 'language': 'en'}),
+            json.dumps({'theme': 'dark', 'language': 'en', 'table_density': 'dense', 'table_page_size': 50}),
             content_type='application/json'
         )
         self.assertEqual(response.status_code, 200)
@@ -157,6 +157,22 @@ class APIEndpointsTests(TestCase):
         # Verify preference was saved
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.preferences.get('theme'), 'dark')
+        self.assertEqual(self.user.profile.preferences.get('table_density'), 'dense')
+        self.assertEqual(self.user.profile.preferences.get('table_page_size'), 50)
+
+    def test_update_preferences_rejects_invalid_table_page_size(self):
+        self.user.profile.preferences = {'table_page_size': 20}
+        self.user.profile.save(update_fields=['preferences'])
+
+        response = self.client.post(
+            reverse('update_preferences'),
+            json.dumps({'table_page_size': 15}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertNotIn('table_page_size', self.user.profile.preferences)
 
     def test_update_preferences_with_form_data(self):
         """Test update_preferences with form data (not JSON)."""
@@ -182,7 +198,7 @@ class APIEndpointsTests(TestCase):
     def test_reset_preferences_post(self):
         """Test reset_preferences with POST."""
         # Set some preferences first
-        self.user.profile.preferences = {'theme': 'dark', 'language': 'en'}
+        self.user.profile.preferences = {'theme': 'dark', 'language': 'en', 'table_density': 'roomy'}
         self.user.profile.save()
         
         response = self.client.post(reverse('reset_preferences'))

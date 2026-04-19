@@ -856,7 +856,102 @@
             }));
     }
 
-    function normalizeSidebarConfig(config) {
+    function buildCatalogLookup(catalog) {
+        const lookup = new Map();
+        (catalog || []).forEach((entry) => {
+            if (!entry || typeof entry !== 'object') {
+                return;
+            }
+            const id = String(entry.id || '').trim();
+            const urlName = String(entry.url_name || '').trim();
+            if (id) {
+                lookup.set(id, entry);
+            }
+            if (urlName) {
+                lookup.set(urlName, entry);
+            }
+        });
+        return lookup;
+    }
+
+    function findCatalogEntry(entry, catalogLookup) {
+        if (!entry || typeof entry !== 'object' || !catalogLookup) {
+            return null;
+        }
+        const id = String(entry.id || '').trim();
+        const urlName = String(entry.url_name || '').trim();
+        return catalogLookup.get(id) || catalogLookup.get(urlName) || null;
+    }
+
+    function frameworkDefaultLabels(entry, discovered) {
+        const labels = new Set();
+        const candidates = [
+            entry && entry.id,
+            entry && entry.url_name,
+            discovered && discovered.label,
+            discovered && discovered.group_label,
+            discovered && discovered.id,
+            discovered && discovered.url_name,
+        ];
+
+        candidates.forEach((candidate) => {
+            const value = String(candidate || '').trim();
+            if (value) {
+                labels.add(value);
+            }
+        });
+
+        const humanized = humanizeKey((entry && (entry.url_name || entry.id)) || (discovered && (discovered.url_name || discovered.id)) || '');
+        if (humanized) {
+            labels.add(humanized);
+        }
+
+        if (discovered) {
+            const displayLabel = availableItemDisplayLabel(discovered);
+            if (displayLabel) {
+                labels.add(displayLabel);
+            }
+        }
+
+        return labels;
+    }
+
+    function resolveBuilderItemLabel(entry, currentDiscovered, fallbackDiscovered) {
+        const savedLabel = String(entry && entry.label ? entry.label : '').trim();
+        const localizedLabel = currentDiscovered ? availableItemDisplayLabel(currentDiscovered) : '';
+        const defaultLabels = new Set([
+            ...frameworkDefaultLabels(entry, currentDiscovered),
+            ...frameworkDefaultLabels(entry, fallbackDiscovered),
+        ]);
+
+        if (!savedLabel || defaultLabels.has(savedLabel)) {
+            return localizedLabel || savedLabel || String(entry && (entry.url_name || entry.id) ? (entry.url_name || entry.id) : '').trim();
+        }
+
+        return savedLabel;
+    }
+
+    function resolveBuilderGroupLabel(entry, items, fallbackCatalogLookup) {
+        const savedLabel = String(entry && entry.label ? entry.label : '').trim();
+        const localizedLabel = String(
+            (items || []).find((item) => String(item && item.group_label ? item.group_label : '').trim())?.group_label || ''
+        ).trim();
+        const fallbackReference = findCatalogEntry(((entry && entry.items) || []).find((item) => item && (item.id || item.url_name)), fallbackCatalogLookup);
+        const fallbackGroupLabel = String(fallbackReference && fallbackReference.group_label ? fallbackReference.group_label : '').trim();
+        const defaultLabels = new Set([
+            fallbackGroupLabel,
+            t('sidebar_group_label', 'Group'),
+            'Group',
+        ]);
+
+        if (!savedLabel || (localizedLabel && defaultLabels.has(savedLabel))) {
+            return localizedLabel || savedLabel || t('sidebar_group_label', 'Group');
+        }
+
+        return savedLabel;
+    }
+
+    function normalizeSidebarConfig(config, catalogLookup, fallbackCatalogLookup) {
         if (!config || typeof config !== 'object') {
             return { home_url_name: null, entries: [] };
         }
@@ -864,35 +959,40 @@
         const entries = Array.isArray(config.entries) ? config.entries : [];
         return {
             home_url_name: config.home_url_name || null,
-            entries: entries.map(normalizeEntry).filter(Boolean),
+            entries: entries.map(entry => normalizeEntry(entry, catalogLookup, fallbackCatalogLookup)).filter(Boolean),
         };
     }
 
-    function normalizeEntry(entry) {
+    function normalizeEntry(entry, catalogLookup, fallbackCatalogLookup) {
         if (!entry || typeof entry !== 'object') {
             return null;
         }
         if ((entry.kind || 'item') === 'group') {
+            const items = Array.isArray(entry.items)
+                ? entry.items.map(item => normalizeEntry(item, catalogLookup, fallbackCatalogLookup)).filter(Boolean)
+                : [];
             return {
                 kind: 'group',
                 id: entry.id || `group-${Date.now()}`,
-                label: entry.label || t('sidebar_group_label', 'Group'),
+                label: resolveBuilderGroupLabel(entry, items, fallbackCatalogLookup),
                 icon: entry.icon || 'bi-folder2-open',
-                items: Array.isArray(entry.items) ? entry.items.map(normalizeEntry).filter(Boolean) : [],
+                items,
             };
         }
         if (!entry.id && !entry.url_name) {
             return null;
         }
+        const currentDiscovered = findCatalogEntry(entry, catalogLookup);
+        const fallbackDiscovered = findCatalogEntry(entry, fallbackCatalogLookup);
         return {
             kind: 'item',
             id: entry.id || entry.url_name,
             url_name: entry.url_name || entry.id,
-            label: entry.label || entry.url_name || entry.id,
-            icon: entry.icon || 'bi-link-45deg',
-            permissions: Array.isArray(entry.permissions) ? entry.permissions : [],
-            group_key: entry.group_key || '',
-            group_label: entry.group_label || '',
+            label: resolveBuilderItemLabel(entry, currentDiscovered, fallbackDiscovered),
+            icon: entry.icon || (currentDiscovered && currentDiscovered.icon) || 'bi-link-45deg',
+            permissions: Array.isArray(entry.permissions) ? entry.permissions : ((currentDiscovered && currentDiscovered.permissions) || []),
+            group_key: entry.group_key || (currentDiscovered && currentDiscovered.group_key) || '',
+            group_label: entry.group_label || (currentDiscovered && currentDiscovered.group_label) || '',
         };
     }
 
@@ -980,6 +1080,49 @@
         return null;
     }
 
+    function insertEntryIntoConfig(configEntries, entry, target) {
+        if (target.type === 'root-container') {
+            configEntries.push(entry);
+            return;
+        }
+
+        if (target.type === 'group-container') {
+            const groupLocation = findEntryLocation(configEntries, target.groupId, 'group');
+            if (groupLocation && groupLocation.entry.kind === 'group') {
+                groupLocation.entry.items.push(entry);
+            } else {
+                configEntries.push(entry);
+            }
+            return;
+        }
+
+        if (target.type === 'root-node') {
+            const targetLocation = findEntryLocation(configEntries, target.targetId, target.targetKind);
+            if (!targetLocation) {
+                configEntries.push(entry);
+            } else {
+                const insertIndex = target.before ? targetLocation.index : targetLocation.index + 1;
+                configEntries.splice(insertIndex, 0, entry);
+            }
+            return;
+        }
+
+        if (target.type === 'group-node') {
+            const groupLocation = findEntryLocation(configEntries, target.parentGroupId, 'group');
+            if (!groupLocation || groupLocation.entry.kind !== 'group') {
+                configEntries.push(entry);
+                return;
+            }
+            const targetLocation = findEntryLocation(groupLocation.entry.items, target.targetId, target.targetKind);
+            if (!targetLocation) {
+                groupLocation.entry.items.push(entry);
+            } else {
+                const insertIndex = target.before ? targetLocation.index : targetLocation.index + 1;
+                groupLocation.entry.items.splice(insertIndex, 0, entry);
+            }
+        }
+    }
+
     function topLevelItems(entries) {
         return (entries || []).filter(entry => entry.kind === 'item' && entry.url_name);
     }
@@ -997,10 +1140,19 @@
         }
 
         const catalogData = builder.querySelector('.ms-sidebar-catalog-data');
+        const fallbackCatalogData = builder.querySelector('.ms-sidebar-catalog-fallback-data');
         const configData = builder.querySelector('.ms-sidebar-config-data');
+        const catalog = normalizeCatalog(parseJson(catalogData ? catalogData.value : '[]', []));
+        const fallbackCatalog = normalizeCatalog(parseJson(fallbackCatalogData ? fallbackCatalogData.value : '[]', []));
+        const catalogLookup = buildCatalogLookup(catalog);
+        const fallbackCatalogLookup = buildCatalogLookup(fallbackCatalog);
         const state = {
-            catalog: normalizeCatalog(parseJson(catalogData ? catalogData.value : '[]', [])),
-            config: normalizeSidebarConfig(parseJson(hiddenInput.value || (configData ? configData.value : '{}'), {})),
+            catalog,
+            config: normalizeSidebarConfig(
+                parseJson(hiddenInput.value || (configData ? configData.value : '{}'), {}),
+                catalogLookup,
+                fallbackCatalogLookup
+            ),
             selected: null,
             selectedTargetGroup: null,
             search: '',
@@ -1022,6 +1174,13 @@
             iconSuggestions: builder.querySelector('[data-builder-icon-suggestions]'),
             iconSearch: builder.querySelector('[data-builder-icon-search]'),
         };
+
+        function clearDragFeedback() {
+            builder.querySelectorAll('.ms-builder-drop-target').forEach(el => el.classList.remove('ms-builder-drop-target'));
+            builder.querySelectorAll('.ms-builder-drop-before').forEach(el => el.classList.remove('ms-builder-drop-before'));
+            builder.querySelectorAll('.ms-builder-drop-after').forEach(el => el.classList.remove('ms-builder-drop-after'));
+            builder.querySelectorAll('.is-dragging').forEach(el => el.classList.remove('is-dragging'));
+        }
 
         function serialize() {
             hiddenInput.value = JSON.stringify(state.config);
@@ -1057,6 +1216,15 @@
                 groupButton.addEventListener('dblclick', () => {
                     addSelectedAvailableItem();
                 });
+                groupButton.draggable = true;
+                groupButton.addEventListener('dragstart', () => {
+                    state.dragging = { pane: 'available', id: group.id, kind: 'group' };
+                    groupButton.classList.add('is-dragging');
+                });
+                groupButton.addEventListener('dragend', () => {
+                    state.dragging = null;
+                    clearDragFeedback();
+                });
                 section.appendChild(groupButton);
 
                 const children = document.createElement('div');
@@ -1088,6 +1256,15 @@
                     });
                     button.addEventListener('dblclick', () => {
                         addSelectedAvailableItem();
+                    });
+                    button.draggable = true;
+                    button.addEventListener('dragstart', () => {
+                        state.dragging = { pane: 'available', id: item.id, kind: 'item' };
+                        button.classList.add('is-dragging');
+                    });
+                    button.addEventListener('dragend', () => {
+                        state.dragging = null;
+                        clearDragFeedback();
                     });
                     children.appendChild(button);
                 });
@@ -1121,15 +1298,13 @@
             });
 
             wrapper.addEventListener('dragstart', () => {
-                state.dragging = { id: entry.id, kind: entry.kind };
+                state.dragging = { pane: 'selected', id: entry.id, kind: entry.kind };
                 wrapper.classList.add('is-dragging');
             });
 
             wrapper.addEventListener('dragend', () => {
                 state.dragging = null;
-                builder.querySelectorAll('.ms-builder-drop-target').forEach(el => el.classList.remove('ms-builder-drop-target'));
-                builder.querySelectorAll('.ms-builder-drop-before').forEach(el => el.classList.remove('ms-builder-drop-before'));
-                builder.querySelectorAll('.ms-builder-drop-after').forEach(el => el.classList.remove('ms-builder-drop-after'));
+                clearDragFeedback();
             });
 
             wrapper.addEventListener('dragover', (event) => {
@@ -1280,6 +1455,11 @@
                 const sourceGroup = groupedAvailableItems(state).find(group => group.id === state.selected.id);
                 if (!sourceGroup || !sourceGroup.items.length) return;
                 const nextGroup = cloneGroupEntry(sourceGroup);
+                nextGroup.items = nextGroup.items.map((item) => ({
+                    ...item,
+                    label: resolveBuilderItemLabel(item, findCatalogEntry(item, catalogLookup), findCatalogEntry(item, fallbackCatalogLookup)),
+                }));
+                nextGroup.label = resolveBuilderGroupLabel(nextGroup, nextGroup.items, fallbackCatalogLookup);
                 state.config.entries.push(nextGroup);
                 state.selected = { pane: 'selected', id: nextGroup.id, kind: 'group' };
                 renderAll();
@@ -1289,6 +1469,7 @@
             const source = state.catalog.find(item => item.id === state.selected.id);
             if (!source) return;
             const nextItem = cloneEntry(source);
+            nextItem.label = resolveBuilderItemLabel(nextItem, source, findCatalogEntry(source, fallbackCatalogLookup));
             state.config.entries.push(nextItem);
 
             state.selected = { pane: 'selected', id: nextItem.id, kind: 'item' };
@@ -1296,7 +1477,17 @@
         }
 
         function addAllAvailableItems() {
-            const groups = groupedAvailableItems(state).map(cloneGroupEntry).filter(group => group.items.length);
+            const groups = groupedAvailableItems(state)
+                .map((group) => {
+                    const nextGroup = cloneGroupEntry(group);
+                    nextGroup.items = nextGroup.items.map((item) => ({
+                        ...item,
+                        label: resolveBuilderItemLabel(item, findCatalogEntry(item, catalogLookup), findCatalogEntry(item, fallbackCatalogLookup)),
+                    }));
+                    nextGroup.label = resolveBuilderGroupLabel(nextGroup, nextGroup.items, fallbackCatalogLookup);
+                    return nextGroup;
+                })
+                .filter(group => group.items.length);
             if (!groups.length) return;
             state.config.entries = state.config.entries.concat(groups);
             state.selected = null;
@@ -1362,6 +1553,11 @@
             const dragging = state.dragging;
             if (!dragging) return;
 
+            if (dragging.pane === 'available') {
+                addDraggedAvailableEntry(target);
+                return;
+            }
+
             const source = findEntryLocation(state.config.entries, dragging.id, dragging.kind);
             if (!source) return;
             if (dragging.kind === 'group' && target.type !== 'root-container' && target.type !== 'root-node') {
@@ -1369,40 +1565,52 @@
             }
 
             const [entry] = source.parent.splice(source.index, 1);
-
-            if (target.type === 'root-container') {
-                state.config.entries.push(entry);
-            } else if (target.type === 'group-container') {
-                const groupLocation = findEntryLocation(state.config.entries, target.groupId, 'group');
-                if (groupLocation && groupLocation.entry.kind === 'group') {
-                    groupLocation.entry.items.push(entry);
-                } else {
-                    state.config.entries.push(entry);
-                }
-            } else if (target.type === 'root-node') {
-                const targetLocation = findEntryLocation(state.config.entries, target.targetId, target.targetKind);
-                if (!targetLocation) {
-                    state.config.entries.push(entry);
-                } else {
-                    const insertIndex = target.before ? targetLocation.index : targetLocation.index + 1;
-                    state.config.entries.splice(insertIndex, 0, entry);
-                }
-            } else if (target.type === 'group-node') {
-                const groupLocation = findEntryLocation(state.config.entries, target.parentGroupId, 'group');
-                if (!groupLocation || groupLocation.entry.kind !== 'group') {
-                    state.config.entries.push(entry);
-                } else {
-                    const targetLocation = findEntryLocation(groupLocation.entry.items, target.targetId, target.targetKind);
-                    if (!targetLocation) {
-                        groupLocation.entry.items.push(entry);
-                    } else {
-                        const insertIndex = target.before ? targetLocation.index : targetLocation.index + 1;
-                        groupLocation.entry.items.splice(insertIndex, 0, entry);
-                    }
-                }
-            }
+            insertEntryIntoConfig(state.config.entries, entry, target);
 
             state.selected = { pane: 'selected', id: entry.id, kind: entry.kind };
+            state.dragging = null;
+            renderAll();
+        }
+
+        function addDraggedAvailableEntry(target) {
+            const dragging = state.dragging;
+            if (!dragging || dragging.pane !== 'available') return;
+
+            if (dragging.kind === 'group') {
+                if (target.type !== 'root-container' && target.type !== 'root-node') {
+                    return;
+                }
+                const sourceGroup = groupedAvailableItems(state).find(group => group.id === dragging.id);
+                if (!sourceGroup || !sourceGroup.items.length) return;
+                const nextGroup = cloneGroupEntry(sourceGroup);
+                nextGroup.items = nextGroup.items.map((item) => ({
+                    ...item,
+                    label: resolveBuilderItemLabel(item, findCatalogEntry(item, catalogLookup), findCatalogEntry(item, fallbackCatalogLookup)),
+                }));
+                nextGroup.label = resolveBuilderGroupLabel(nextGroup, nextGroup.items, fallbackCatalogLookup);
+                insertEntryIntoConfig(state.config.entries, nextGroup, target);
+                state.selected = { pane: 'selected', id: nextGroup.id, kind: 'group' };
+            } else {
+                const source = state.catalog.find(item => item.id === dragging.id);
+                if (!source) return;
+                const nextItem = cloneEntry(source);
+                nextItem.label = resolveBuilderItemLabel(nextItem, source, findCatalogEntry(source, fallbackCatalogLookup));
+                insertEntryIntoConfig(state.config.entries, nextItem, target);
+                state.selected = { pane: 'selected', id: nextItem.id, kind: 'item' };
+            }
+
+            state.dragging = null;
+            renderAll();
+        }
+
+        function removeDraggedSelectedEntry() {
+            const dragging = state.dragging;
+            if (!dragging || dragging.pane !== 'selected') return;
+            const location = findEntryLocation(state.config.entries, dragging.id, dragging.kind);
+            if (!location) return;
+            location.parent.splice(location.index, 1);
+            state.selected = null;
+            state.selectedTargetGroup = null;
             state.dragging = null;
             renderAll();
         }
@@ -1470,6 +1678,21 @@
             event.preventDefault();
             event.stopPropagation();
             moveDraggedEntry({ type: 'root-container' });
+        });
+
+        refs.availableList.addEventListener('dragover', (event) => {
+            if (!state.dragging || state.dragging.pane !== 'selected') return;
+            event.preventDefault();
+            refs.availableList.classList.add('ms-builder-drop-target');
+        });
+        refs.availableList.addEventListener('dragleave', () => {
+            refs.availableList.classList.remove('ms-builder-drop-target');
+        });
+        refs.availableList.addEventListener('drop', (event) => {
+            if (!state.dragging || state.dragging.pane !== 'selected') return;
+            event.preventDefault();
+            event.stopPropagation();
+            removeDraggedSelectedEntry();
         });
 
         builder.querySelectorAll('[data-builder-action]').forEach(button => {
@@ -1602,6 +1825,37 @@
         });
     }
 
+    function initSetupTableDensityPicker(root) {
+        root.querySelectorAll('[data-setup-table-density-picker]').forEach((picker) => {
+            if (picker.dataset.bound === 'true') return;
+            picker.dataset.bound = 'true';
+
+            const inputId = picker.getAttribute('data-table-density-input');
+            const input = inputId ? document.getElementById(inputId) : null;
+            if (!input) return;
+
+            const options = Array.from(picker.querySelectorAll('[data-setup-table-density-choice]'));
+
+            function syncActive() {
+                const activeDensity = input.value || 'balanced';
+                options.forEach((option) => {
+                    option.classList.toggle('is-active', option.getAttribute('data-setup-table-density-choice') === activeDensity);
+                });
+            }
+
+            options.forEach((option) => {
+                option.addEventListener('click', () => {
+                    const density = option.getAttribute('data-setup-table-density-choice') || 'balanced';
+                    input.value = density;
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    syncActive();
+                });
+            });
+
+            syncActive();
+        });
+    }
+
     function initSidebarBehaviorOptions(root) {
         root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
             if (form.dataset.sidebarBehaviorBound === 'true') {
@@ -1631,6 +1885,7 @@
         root.querySelectorAll('.ms-setup-builder').forEach(initBuilder);
         initSetupLanguagePicker(root);
         initSetupThemePicker(root);
+        initSetupTableDensityPicker(root);
         initSidebarBehaviorOptions(root);
     }
 
@@ -1648,7 +1903,8 @@
                     node.matches && (
                         node.matches('.ms-setup-builder') ||
                         node.querySelector('.ms-setup-builder') ||
-                        node.querySelector('[data-setup-language-picker]')
+                        node.querySelector('[data-setup-language-picker]') ||
+                        node.querySelector('[data-setup-table-density-picker]')
                     )
                 ) {
                     scan(node);

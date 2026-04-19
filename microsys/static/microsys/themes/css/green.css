@@ -26,6 +26,11 @@
     --bs-btn-hover-border-color: var(--primal_dark);
     --bs-link-color: var(--primal);
     --bs-link-hover-color: var(--primal_dark);
+    --ms-table-header-surface: linear-gradient(180deg, rgba(16, 185, 129, 0.075), rgba(255, 255, 255, 0.975));
+    --ms-table-border-strong: rgba(16, 185, 129, 0.22);
+    --ms-table-row-odd: rgba(248, 255, 250, 0.98);
+    --ms-table-row-even: rgba(239, 253, 244, 0.98);
+    --ms-table-row-hover: rgba(220, 249, 230, 0.98);
 }
 :root.theme-green .titlebar {
     background: linear-gradient(90deg, #ffffff 10%, #e9fdf0 90%) !important;

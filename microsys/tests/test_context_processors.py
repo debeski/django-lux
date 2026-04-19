@@ -194,6 +194,13 @@ class ContextProcessorsTests(TestCase):
         self.assertEqual(context['MICROSYS_THEME_NAMES'], theme_names)
         self.assertEqual([theme['slug'] for theme in context['MICROSYS_THEMES']], theme_names)
 
+    def test_microsys_context_includes_table_density_defaults(self):
+        request = self.factory.get('/')
+        context = microsys_context(request)
+
+        self.assertIn('default_table_density', context['config'])
+        self.assertEqual(context['user_preferences']['table_density'], context['config']['default_table_density'])
+
     def test_microsys_context_home_url(self):
         """Test that home_url is properly set."""
         request = self.factory.get('/')

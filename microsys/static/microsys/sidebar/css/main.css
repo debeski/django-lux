@@ -19,6 +19,12 @@
     --sidebar-folder-bg: rgba(255, 255, 255, 0.18);
     --sidebar-folder-active-bg: rgba(var(--primal-rgb, 35, 99, 195), 0.11);
     --sidebar-folder-active-edge: rgba(var(--primal-rgb, 35, 99, 195), 0.9);
+    --sidebar-folder-open-surface:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.08)),
+        rgba(255, 255, 255, 0.04);
+    --sidebar-folder-open-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -1px 0 rgba(15, 23, 42, 0.04);
     --sidebar-root-active-bg: rgba(var(--primal-rgb, 35, 99, 195), 0.14);
     --sidebar-active-color: var(--primal, #2363c3);
     --sidebar-active-underline: linear-gradient(
@@ -73,7 +79,7 @@
     overflow-x: hidden;
     scrollbar-width: thin;
     scrollbar-color: rgba(0,0,0,0.1) transparent;
-    padding: 10px 0 82px;
+    padding: 0 0 82px;
 }
 
 .sidebar-items-wrapper::-webkit-scrollbar {
@@ -252,26 +258,18 @@
     font-weight: 560 !important;
 }
 
-.sidebar .sidebar-group-item span {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    padding-bottom: 4px;
-}
-
 .sidebar .sidebar-group-item.active {
     background:
-        linear-gradient(90deg, rgba(var(--primal-rgb, 35, 99, 195), 0.05) 0, rgba(var(--primal-rgb, 35, 99, 195), 0.015) 48%, transparent 100%) !important;
+        linear-gradient(90deg, var(--sidebar-root-active-bg) 0, rgba(var(--primal-rgb, 35, 99, 195), 0.04) 38%, transparent 100%) !important;
 }
 
-.sidebar .sidebar-group-item.active span::after {
+.sidebar .sidebar-group-item.active::after {
     content: "";
     position: absolute;
-    inset-inline: 0;
-    inset-block-end: 0;
-    height: 3px;
-    background: var(--sidebar-active-underline);
+    inset-block: 9px;
+    inset-inline-start: 0;
+    width: var(--sidebar-accent-rail-width);
+    background: linear-gradient(180deg, rgba(var(--primal-rgb, 35, 99, 195), 0.35), var(--sidebar-folder-active-edge), rgba(var(--primal-rgb, 35, 99, 195), 0.35));
     pointer-events: none;
 }
 
@@ -289,8 +287,7 @@
 .sidebar .list-group-item:hover i,
 .sidebar .list-group-item.active i,
 .sidebar .accordion-button:hover i,
-.sidebar .accordion-button:not(.collapsed) i,
-.sidebar .accordion-button.has-active-child i {
+.sidebar.collapsed .accordion-button.has-active-child i {
     color: var(--sidebar-active-color);
 }
 
@@ -322,28 +319,40 @@
     transform: none !important;
 }
 
-.sidebar .accordion-button:not(.collapsed),
-.sidebar .accordion-button.has-active-child {
-    background:
-        linear-gradient(90deg, rgba(var(--primal-rgb, 35, 99, 195), 0.18) 0, rgba(var(--primal-rgb, 35, 99, 195), 0.055) 38%, transparent 100%),
-        var(--sidebar-folder-active-bg) !important;
+.sidebar .accordion-button:not(.collapsed) {
+    background: var(--sidebar-folder-open-surface) !important;
+    color: #5a6474 !important;
+    box-shadow: var(--sidebar-folder-open-shadow) !important;
+}
+
+.sidebar.collapsed .accordion-button.has-active-child {
+    background: var(--sidebar-folder-active-bg) !important;
     color: var(--sidebar-active-color) !important;
+    box-shadow:
+        inset var(--sidebar-accent-rail-width) 0 0 var(--sidebar-folder-active-edge),
+        var(--sidebar-folder-open-shadow) !important;
 }
 
 .sidebar .accordion-button:not(.collapsed)::after,
-.sidebar .accordion-button.has-active-child::after,
+.sidebar.collapsed .accordion-button.has-active-child::after,
 .sidebar .accordion-button:hover::after {
     opacity: 1;
 }
 
-.sidebar .accordion-button:not(.collapsed)::before,
-.sidebar .accordion-button.has-active-child::before {
-    height: auto;
-    inset-block: 7px;
+.sidebar .accordion-button:not(.collapsed)::before {
+    inset-inline: 0;
+    inset-block-end: 0;
+    height: var(--sidebar-row-divider-width);
+    width: auto;
+    background: var(--sidebar-divider-color);
+}
+
+.sidebar.collapsed .accordion-button.has-active-child::before {
     inset-inline-start: 0;
-    inset-inline-end: auto;
+    inset-block: 10px 10px;
     width: var(--sidebar-accent-rail-width);
-    background: linear-gradient(180deg, rgba(var(--primal-rgb, 35, 99, 195), 0.25), var(--sidebar-folder-active-edge), rgba(var(--primal-rgb, 35, 99, 195), 0.25));
+    height: auto;
+    background: var(--sidebar-folder-active-edge);
 }
 
 .sidebar .accordion-item,
