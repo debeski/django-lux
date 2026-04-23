@@ -183,6 +183,52 @@ microSYS also includes a few subsystems that make it feel larger than a normal "
 
 That cluster of subsystems is a big part of why microSYS should be treated like an internal platform layer, not just a widget library.
 
+## vNext Tables and Filter Pages
+
+If you are wiring a normal list screen today, the supported path is:
+
+- extend `microsys/list_base.html`
+- call `setup_filter_helper()` or `advanced_filter_helper()` in the view
+- render the table with `{% render_table table %}` and do not wrap it in another `.table-responsive`
+- prefer `microsys.tables.MicrosysTable` for handwritten tables
+
+The current table contract is:
+
+- stock `django_tables2` templates and no-template tables are auto-adopted into the Microsys renderer
+- explicit non-stock custom templates are left alone unless you point them at the Microsys template yourself
+- density precedence is `Table.Meta.microsys_density` -> `Profile.preferences["table_density"]` -> `SystemSettings.default_table_density` -> `balanced`
+- page-size precedence is `Table.Meta.microsys_per_page` -> request `per_page` -> `Profile.preferences["table_page_size"]` -> `20`
+- built-in per-page controls and the density switcher live in the framework-owned footer
+- tables with forced `microsys_density` intentionally hide the footer density switcher
+- default row actions are `micro:record:view`, `micro:record:edit`, and `micro:record:delete`
+- disable default row actions with `Meta.microsys_actions = False`
+- customize the action list with `get_microsys_row_actions(self, record, base_actions)`
+
+Typical handwritten table:
+
+```python
+from microsys.tables import MicrosysTable
+
+
+class InvoiceTable(MicrosysTable):
+    class Meta(MicrosysTable.Meta):
+        model = Invoice
+        fields = ("number", "customer", "status", "created_at")
+        microsys_density = "balanced"
+        microsys_per_page = 50
+```
+
+Filter pages also have a clearer contract now:
+
+- `setup_filter_helper()` and `advanced_filter_helper()` default to inline placeholder labels for filter bars
+- if you want normal external labels instead, pass `inline_labels=False`
+- if a page cannot extend `microsys/list_base.html`, include `microsys/forms/filter_assets_head.html`
+
+For the full contract and more examples, use:
+
+- [Reference](docs/reference.md)
+- [Customization Guide](docs/customization-guide.md)
+
 ## Where to Go Next
 
 - Use the [Customization Guide](customization-guide.md) when you are ready to wire your own translations, sections, modals, or template overrides.

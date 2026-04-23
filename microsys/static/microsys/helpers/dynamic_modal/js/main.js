@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.__microDynamicModalsInitialized) return;
     window.__microDynamicModalsInitialized = true;
 
+    const MODAL_STATE_KEY = 'microsys.dynamicModalState';
     const modalEl = document.getElementById('universalDynamicModal');
     if (!modalEl) return;
 
@@ -18,6 +19,32 @@ document.addEventListener('DOMContentLoaded', function() {
     if (footer) footer.style.display = 'none';
 
     let currentBaseUrl = '';
+
+    function persistModalState() {
+        if (!currentBaseUrl) {
+            return;
+        }
+        try {
+            sessionStorage.setItem(MODAL_STATE_KEY, JSON.stringify({
+                url: currentBaseUrl,
+                title: titleText ? titleText.textContent : '',
+            }));
+        } catch (error) {
+            console.warn('Failed to persist dynamic modal state:', error);
+        }
+    }
+
+    function clearModalState() {
+        try {
+            sessionStorage.removeItem(MODAL_STATE_KEY);
+        } catch (error) {
+            console.warn('Failed to clear dynamic modal state:', error);
+        }
+    }
+
+    window.persistCurrentDynamicModalState = function() {
+        persistModalState();
+    };
 
     // Initialize modal instance safely
     const dynamicModal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -46,6 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
+        clearModalState();
     });
 
     // 1. Listen for clicks on buttons with data-dynamic-modal attribute
@@ -244,6 +272,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 if (data.refresh_parent) {
+                    clearModalState();
                     window.location.reload();
                     return;
                 }
@@ -360,5 +389,18 @@ document.addEventListener('DOMContentLoaded', function() {
             currentBaseUrl + '/' + data.id + '/?action=view';
         openModalAndLoad(viewUrl);
     });
+
+    try {
+        const savedState = JSON.parse(sessionStorage.getItem(MODAL_STATE_KEY) || 'null');
+        if (savedState && savedState.url) {
+            currentBaseUrl = savedState.url;
+            if (titleText && savedState.title) {
+                titleText.textContent = savedState.title;
+            }
+            openModalAndLoad(savedState.url);
+        }
+    } catch (error) {
+        clearModalState();
+    }
 
 });

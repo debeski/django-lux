@@ -62,6 +62,10 @@
         }
     }
 
+    window.applyMicrosysTableDensityPreview = function(activeDensity) {
+        applyDensity(activeDensity, false);
+    };
+
     document.addEventListener('click', (event) => {
         const option = event.target.closest('[data-ms-table-density-option]');
         if (!option) {

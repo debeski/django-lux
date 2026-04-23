@@ -7,7 +7,6 @@ import urllib.request
 import uuid
 
 import django
-import psutil
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -21,6 +20,11 @@ from django.utils.module_loading import import_string
 from microsys import __version__
 from microsys.constants import DEFAULT_HOME_URL
 from microsys.translations import get_current_language_code, get_strings
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 try:
     import rest_framework
@@ -306,6 +310,8 @@ def options_view(request):
 
     # System Stats
     try:
+        if psutil is None:
+            raise RuntimeError("psutil is not installed")
         # RAM
         mem = psutil.virtual_memory()
         ram_total_gb = mem.total / (1024 ** 3)

@@ -99,8 +99,22 @@ def get_theme_choices():
     )
 
 
-def get_theme_options(strings=None):
-    names = set(get_theme_names())
+def normalize_allowed_themes(allowed_themes=None):
+    available_names = set(get_theme_names())
+    if allowed_themes is None:
+        return tuple(get_theme_names())
+
+    normalized = []
+    if isinstance(allowed_themes, (list, tuple, set)):
+        for theme in allowed_themes:
+            if theme in available_names and theme not in normalized:
+                normalized.append(theme)
+
+    return tuple(normalized or get_theme_names())
+
+
+def get_theme_options(strings=None, allowed_themes=None):
+    names = set(normalize_allowed_themes(allowed_themes))
     strings = strings or {}
     return [
         {

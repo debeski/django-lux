@@ -56,17 +56,19 @@ MICROSYS_STRINGS = {
         'system_settings_label': 'إعدادات النظام (System Settings)',
         'system_settings_btn': 'إدارة إعدادات النظام',
         'system_settings_desc': 'تهيئة إعدادات المنظومة العامة والافتراضيات.',
-        'system_settings_modal_desc': 'حدّث العلامة التجارية واللغات والشريط الجانبي من نافذة الإعدادات.',
+        'system_settings_modal_desc': 'حدّث الهوية واللغات والشريط الجانبي ومظهر الواجهة من نافذة الإعدادات.',
         'system_settings_branding': 'الهوية',
         'system_settings_languages': 'اللغات',
         'system_settings_sidebar': 'الشريط الجانبي',
+        'system_settings_appearance': 'المظهر وشريط العنوان',
         'system_setup_title': 'التهيئة الأولى للبرنامج',
         'system_setup_heading': 'ابدأ تهيئة Microsys',
-        'system_setup_desc': 'أكمل إعدادات الهوية واللغات والشريط الجانبي قبل البدء.',
-        'system_setup_page_desc': 'اضبط اسم البرنامج، اللغة الافتراضية، وبنية الشريط الجانبي من مكان واحد.',
-        'system_setup_step1': 'الخطوة 1: الهوية',
+        'system_setup_desc': 'أكمل إعدادات الهوية واللغات والشريط الجانبي والمظهر قبل البدء.',
+        'system_setup_page_desc': 'اضبط هوية النظام ولغاته وسلوك الشريط الجانبي ومظهر الواجهة من مكان واحد.',
+        'system_setup_step1': 'الخطوة 1: الهوية والافتراضيات',
         'system_setup_step2': 'الخطوة 2: اللغات والترجمات',
         'system_setup_step3': 'الخطوة 3: الشريط الجانبي',
+        'system_setup_step4': 'الخطوة 4: شريط العنوان والمظهر',
         'apply_language': 'تطبيق اللغة',
 
         # System Settings Form
@@ -77,8 +79,16 @@ MICROSYS_STRINGS = {
         'form_sys_home_url_discovered': 'اختر من الصفحات المكتشفة',
         'help_sys_home_url_discovered': 'اختياري: اختر صفحة مكتشفة لتعبئة الرابط الرئيسي تلقائياً، أو اتركه فارغاً واكتب رابطاً مخصصاً.',
         'form_sys_home_url_custom': 'استخدم رابطاً مخصصاً أو اترك القيمة الحالية',
+        'home_url_custom_desc': 'أبقِ زر الرئيسية موجهاً إلى رابط مخصص بدلاً من صفحة مكتشفة.',
+        'selector_search_pages': 'ابحث في الصفحات المكتشفة',
         'form_sys_default_lang': 'اللغة الافتراضية',
         'form_sys_default_theme': 'المظهر الافتراضي',
+        'form_sys_allowed_themes': 'المظاهر المسموح بها',
+        'help_sys_allowed_themes': 'اختر المظاهر التي تريد السماح بها داخل هذا المشروع. يجب أن يبقى المظهر الافتراضي ضمن القائمة.',
+        'form_sys_allow_user_theme_override': 'السماح للمستخدم بتغيير المظهر',
+        'help_sys_allow_user_theme_override': 'السماح للمستخدمين بالتبديل بين المظاهر المسموح بها من صفحة الخيارات ومن شريط أدوات الشريط الجانبي.',
+        'form_sys_allow_user_language_override': 'السماح للمستخدم بتغيير اللغة',
+        'help_sys_allow_user_language_override': 'السماح للمستخدمين باختيار لغة العرض من صفحة الخيارات. عند التعطيل سيتم فرض اللغة الافتراضية للنظام.',
         'form_sys_default_table_density': 'الكثافة الافتراضية للجداول',
         'help_sys_default_table_density': 'اختر كثافة الجداول الافتراضية للمستخدمين الجدد، مع إمكانية تجاوزها لاحقاً من صفحة الخيارات.',
         'form_sys_logo': 'الشعار (Logo)',
@@ -92,6 +102,62 @@ MICROSYS_STRINGS = {
         'help_sys_sidebar_enable_reorder': 'إظهار زر إعادة الترتيب السريع في شريط أدوات الشريط الجانبي حتى يتمكن المستخدم من تغيير ترتيب العناصر من الواجهة.',
         'form_sys_sidebar_enable_toolbar': 'تفعيل شريط أدوات الشريط الجانبي',
         'help_sys_sidebar_enable_toolbar': 'إظهار شريط أدوات الشريط الجانبي الذي يحتوي على مبدّل الألوان السريع وزر إعادة الترتيب واختصار مدير الأقسام الديناميكي.',
+        'form_sys_sidebar_show_icons': 'إظهار أيقونات الشريط الجانبي',
+        'help_sys_sidebar_show_icons': 'إظهار الأيقونات بجانب عناصر ومجلدات الشريط الجانبي عند كونه موسعاً.',
+        'form_sys_sidebar_density': 'كثافة الشريط الجانبي',
+        'help_sys_sidebar_density': 'اختر الكثافة الافتراضية لعناصر الشريط الجانبي.',
+        'form_sys_sidebar_allow_user_density': 'السماح للمستخدم بتغيير كثافة الشريط الجانبي',
+        'help_sys_sidebar_allow_user_density': 'السماح للمستخدمين بتغيير كثافة الشريط الجانبي من شريط الأدوات أثناء العمل.',
+        'form_sys_sidebar_collapse_mode': 'سلوك الطي على الشاشات الكبيرة',
+        'help_sys_sidebar_collapse_mode': 'اختر كيف يتصرف الشريط الجانبي عند طيه على الشاشات الكبيرة.',
+        'sidebar_collapse_icons': 'أيقونات فقط',
+        'sidebar_collapse_icons_desc': 'يطوي الشريط إلى مسار أيقونات على سطح المكتب.',
+        'sidebar_collapse_hidden': 'إخفاء كامل',
+        'sidebar_collapse_hidden_desc': 'يطوي الشريط إلى حالة مخفية بالكامل على سطح المكتب.',
+        'sidebar_collapse_locked_expanded': 'يبقى موسعاً دائماً',
+        'sidebar_collapse_locked_expanded_desc': 'يعطّل طي الشريط الجانبي ويُبقيه موسعاً دائماً.',
+        'form_sys_titlebar_show_title': 'إظهار عنوان شريط العنوان',
+        'help_sys_titlebar_show_title': 'إظهار اسم النظام داخل شريط العنوان.',
+        'form_sys_titlebar_show_logo': 'إظهار شعار شريط العنوان',
+        'help_sys_titlebar_show_logo': 'إظهار شعار الهوية بجانب العنوان.',
+        'form_sys_titlebar_show_home_button': 'إظهار زر الرئيسية في شريط العنوان',
+        'help_sys_titlebar_show_home_button': 'إظهار زر اختصار الرئيسية في شريط العنوان.',
+        'form_sys_titlebar_home_shape': 'شكل زر الرئيسية',
+        'form_sys_titlebar_title_align': 'محاذاة العنوان',
+        'form_sys_titlebar_title_size': 'حجم العنوان',
+        'form_sys_titlebar_height': 'ارتفاع شريط العنوان',
+        'form_sys_titlebar_surface': 'سطح شريط العنوان',
+        'titlebar_settings_title': 'إعدادات شريط العنوان',
+        'titlebar_home_shape_circle': 'دائري',
+        'titlebar_home_shape_circle_desc': 'حواف دائرية بالكامل.',
+        'titlebar_home_shape_square': 'مربع',
+        'titlebar_home_shape_square_desc': 'حواف مستقيمة وحادة.',
+        'titlebar_home_shape_squircle': 'مربع بحواف دائرية',
+        'titlebar_home_shape_squircle_desc': 'حواف ناعمة بين الدائري والمربع.',
+        'titlebar_align_start': 'البداية',
+        'titlebar_align_start_desc': 'ثبّت العنوان عند بداية الشريط.',
+        'titlebar_align_center': 'الوسط',
+        'titlebar_align_center_desc': 'اجعل العنوان في المنتصف بصرياً.',
+        'titlebar_align_end': 'النهاية',
+        'titlebar_align_end_desc': 'ثبّت العنوان عند نهاية الشريط.',
+        'titlebar_size_sm': 'صغير',
+        'titlebar_size_sm_desc': 'حجم مدمج للعنوان.',
+        'titlebar_size_md': 'متوسط',
+        'titlebar_size_md_desc': 'الحجم الافتراضي المتوازن.',
+        'titlebar_size_lg': 'كبير',
+        'titlebar_size_lg_desc': 'عنوان أكبر وأكثر بروزاً.',
+        'titlebar_height_dense': 'مضغوط',
+        'titlebar_height_dense_desc': 'ارتفاع أقل ومساحة رأسية أصغر.',
+        'titlebar_height_balanced': 'متوازن',
+        'titlebar_height_balanced_desc': 'الارتفاع الافتراضي المتوازن.',
+        'titlebar_height_roomy': 'مريح',
+        'titlebar_height_roomy_desc': 'مساحة داخلية أكبر لشريط العنوان.',
+        'titlebar_surface_default': 'افتراضي',
+        'titlebar_surface_default_desc': 'السطح الافتراضي لشريط العنوان.',
+        'titlebar_surface_muted': 'هادئ',
+        'titlebar_surface_muted_desc': 'سطح أقل تبايناً وأكثر هدوءاً.',
+        'titlebar_surface_glass': 'زجاجي',
+        'titlebar_surface_glass_desc': 'سطح زجاجي مع ضبابية خفيفة.',
         'form_sys_email_2fa': 'تفعيل التحقق الثنائي عبر البريد الإلكتروني',
         'help_sys_email_2fa': 'السماح للمستخدمين بتفعيل التحقق الثنائي عبر البريد الإلكتروني. يتطلب إعداد EMAIL_HOST بشكل صحيح في إعدادات Django.',
         'form_sys_public_root': 'السماح بالوصول العام للصفحة الرئيسية',
@@ -167,12 +233,17 @@ MICROSYS_STRINGS = {
         'themes_desc': 'اختر مظهر الألوان المفضل لديك لواجهة المنظومة.',
         'table_density': 'كثافة الجداول',
         'table_density_desc': 'تحكم في مقدار المساحة الرأسية التي تستخدمها الجداول أثناء العمل.',
+        'sidebar_density': 'كثافة الشريط الجانبي',
+        'sidebar_density_desc': 'تحكم في مقدار المساحة الرأسية التي يستخدمها الشريط الجانبي أثناء العمل.',
         'table_density_balanced': 'متوازن',
         'table_density_balanced_desc': 'الوضع الافتراضي المريح لمعظم شاشات الإدارة.',
         'table_density_dense': 'مضغوط',
         'table_density_dense_desc': 'يعرض عدداً أكبر من السجلات على الشاشة بمسافات أقل.',
         'table_density_roomy': 'مريح',
         'table_density_roomy_desc': 'صفوف أكبر ومسافات أوسع لقراءة أسهل.',
+        'sidebar_density_balanced_desc': 'التوازن الافتراضي بين الكثافة وسهولة القراءة.',
+        'sidebar_density_dense_desc': 'صفوف ومسافات أكثر تقارباً لإظهار عناصر أكثر في الشريط الجانبي.',
+        'sidebar_density_roomy_desc': 'ارتفاعات ومسافات أكبر لواجهة تنقل أكثر راحة.',
         'table_empty_title': 'لا توجد سجلات',
         'table_empty_desc': 'لا توجد بيانات مطابقة لعرضها حالياً.',
         'table_rows_per_page': 'عدد الصفوف',
@@ -306,6 +377,7 @@ MICROSYS_STRINGS = {
         # Theme picker
         'theme_pick_color': 'اختر اللون',
         'theme_change': 'تغيير المظهر',
+        'sidebar_density_runtime': 'كثافة الشريط الجانبي',
         'theme_light': 'أبيض',
         'theme_blue': 'ملكي',
         'theme_gold': 'ذهبي',
@@ -621,17 +693,19 @@ MICROSYS_STRINGS = {
         'system_settings_label': 'System Settings',
         'system_settings_btn': 'Manage System Settings',
         'system_settings_desc': 'Configure global system settings and defaults.',
-        'system_settings_modal_desc': 'Update branding, languages, and the sidebar from the settings modal.',
+        'system_settings_modal_desc': 'Update branding, languages, the sidebar, and shell appearance from the settings modal.',
         'system_settings_branding': 'Branding',
         'system_settings_languages': 'Languages',
         'system_settings_sidebar': 'Sidebar',
+        'system_settings_appearance': 'Appearance & Titlebar',
         'system_setup_title': 'Initial System Setup',
         'system_setup_heading': 'Set up Microsys',
-        'system_setup_desc': 'Complete branding, languages, and sidebar setup before you begin.',
-        'system_setup_page_desc': 'Configure your system name, default language, and sidebar structure from one place.',
-        'system_setup_step1': 'Step 1: Branding',
+        'system_setup_desc': 'Complete branding, languages, sidebar, and appearance setup before you begin.',
+        'system_setup_page_desc': 'Configure your system identity, languages, sidebar behavior, and shell appearance from one place.',
+        'system_setup_step1': 'Step 1: Identity & Defaults',
         'system_setup_step2': 'Step 2: Languages & Overrides',
         'system_setup_step3': 'Step 3: Sidebar',
+        'system_setup_step4': 'Step 4: Titlebar & Appearance',
         'apply_language': 'Apply language',
 
         # System Settings Form
@@ -644,8 +718,16 @@ MICROSYS_STRINGS = {
         'form_sys_home_url_discovered': 'Choose From Discovered Pages',
         'help_sys_home_url_discovered': 'Optional: choose a discovered page to fill the Home URL automatically, or leave it blank and type a custom URL.',
         'form_sys_home_url_custom': 'Use a custom URL or keep the current one',
+        'home_url_custom_desc': 'Keep a custom Home URL instead of pointing the titlebar button at a discovered page.',
+        'selector_search_pages': 'Search discovered pages',
         'form_sys_default_lang': 'Default Language',
         'form_sys_default_theme': 'Default Theme',
+        'form_sys_allowed_themes': 'Allowed Themes',
+        'help_sys_allowed_themes': 'Choose which themes are available in this project. The default theme must remain enabled.',
+        'form_sys_allow_user_theme_override': 'Allow User Theme Override',
+        'help_sys_allow_user_theme_override': 'Allow users to switch between the allowed themes from Options and the sidebar toolbar.',
+        'form_sys_allow_user_language_override': 'Allow User Language Override',
+        'help_sys_allow_user_language_override': 'Allow users to change their display language from Options. When disabled, the system default language is enforced.',
         'form_sys_default_table_density': 'Default Table Density',
         'help_sys_default_table_density': 'Choose the default table density for new users; each user can still override it later from Options.',
         'form_sys_logo': 'System Logo (Logo)',
@@ -659,6 +741,62 @@ MICROSYS_STRINGS = {
         'help_sys_sidebar_enable_reorder': 'Show the quick reorder control in the sidebar toolbar so users can rearrange sidebar items from the UI.',
         'form_sys_sidebar_enable_toolbar': 'Enable sidebar toolbar',
         'help_sys_sidebar_enable_toolbar': 'Show the sidebar toolbar that contains the quick theme picker, reorder toggle, and dynamic section manager shortcut.',
+        'form_sys_sidebar_show_icons': 'Show Sidebar Icons',
+        'help_sys_sidebar_show_icons': 'Show icons beside sidebar items and folders when the sidebar is expanded.',
+        'form_sys_sidebar_density': 'Sidebar Density',
+        'help_sys_sidebar_density': 'Choose the default density for sidebar rows.',
+        'form_sys_sidebar_allow_user_density': 'Allow User Sidebar Density Override',
+        'help_sys_sidebar_allow_user_density': 'Allow users to change sidebar density from the sidebar toolbar at runtime.',
+        'form_sys_sidebar_collapse_mode': 'Desktop Collapse Mode',
+        'help_sys_sidebar_collapse_mode': 'Choose how the sidebar behaves when collapsed on large screens.',
+        'sidebar_collapse_icons': 'Icons Only',
+        'sidebar_collapse_icons_desc': 'Collapse to an icon rail on desktop.',
+        'sidebar_collapse_hidden': 'Hide Completely',
+        'sidebar_collapse_hidden_desc': 'Collapse to a fully hidden desktop sidebar.',
+        'sidebar_collapse_locked_expanded': 'Always Expanded',
+        'sidebar_collapse_locked_expanded_desc': 'Disable desktop collapsing and keep the sidebar open.',
+        'form_sys_titlebar_show_title': 'Show Titlebar Title',
+        'help_sys_titlebar_show_title': 'Show the system title inside the titlebar.',
+        'form_sys_titlebar_show_logo': 'Show Titlebar Logo',
+        'help_sys_titlebar_show_logo': 'Show the configured branding logo beside the title.',
+        'form_sys_titlebar_show_home_button': 'Show Titlebar Home Button',
+        'help_sys_titlebar_show_home_button': 'Show the quick Home button in the titlebar.',
+        'form_sys_titlebar_home_shape': 'Home Button Shape',
+        'form_sys_titlebar_title_align': 'Title Alignment',
+        'form_sys_titlebar_title_size': 'Title Size',
+        'form_sys_titlebar_height': 'Titlebar Height',
+        'form_sys_titlebar_surface': 'Titlebar Surface',
+        'titlebar_settings_title': 'Titlebar Settings',
+        'titlebar_home_shape_circle': 'Circle',
+        'titlebar_home_shape_circle_desc': 'Fully rounded button silhouette.',
+        'titlebar_home_shape_square': 'Square',
+        'titlebar_home_shape_square_desc': 'Sharp square edges.',
+        'titlebar_home_shape_squircle': 'Squircle',
+        'titlebar_home_shape_squircle_desc': 'Soft rounded-square edges.',
+        'titlebar_align_start': 'Start',
+        'titlebar_align_start_desc': 'Pin the title to the start side.',
+        'titlebar_align_center': 'Center',
+        'titlebar_align_center_desc': 'Keep the title visually centered.',
+        'titlebar_align_end': 'End',
+        'titlebar_align_end_desc': 'Pin the title to the end side.',
+        'titlebar_size_sm': 'Small',
+        'titlebar_size_sm_desc': 'Compact title sizing.',
+        'titlebar_size_md': 'Medium',
+        'titlebar_size_md_desc': 'Balanced default title sizing.',
+        'titlebar_size_lg': 'Large',
+        'titlebar_size_lg_desc': 'Larger, more prominent title sizing.',
+        'titlebar_height_dense': 'Dense',
+        'titlebar_height_dense_desc': 'Tighter vertical titlebar spacing.',
+        'titlebar_height_balanced': 'Balanced',
+        'titlebar_height_balanced_desc': 'Default titlebar spacing.',
+        'titlebar_height_roomy': 'Roomy',
+        'titlebar_height_roomy_desc': 'More breathing room inside the titlebar.',
+        'titlebar_surface_default': 'Default',
+        'titlebar_surface_default_desc': 'Standard titlebar surface styling.',
+        'titlebar_surface_muted': 'Muted',
+        'titlebar_surface_muted_desc': 'Lower-contrast titlebar surface styling.',
+        'titlebar_surface_glass': 'Glass',
+        'titlebar_surface_glass_desc': 'Blurred glass-style titlebar surface.',
         'form_sys_email_2fa': 'Enable Email 2FA',
         'help_sys_email_2fa': 'Allow users to enable two-factor authentication via email. Requires a working EMAIL_HOST in Django settings.',
         'form_sys_public_root': 'Public Root Access',
@@ -732,12 +870,17 @@ MICROSYS_STRINGS = {
         'themes_desc': 'Choose your preferred color scheme for the interface.',
         'table_density': 'Table Density',
         'table_density_desc': 'Control how much vertical space data tables use while you work.',
+        'sidebar_density': 'Sidebar Density',
+        'sidebar_density_desc': 'Control how much vertical space the sidebar navigation uses while you work.',
         'table_density_balanced': 'Balanced',
         'table_density_balanced_desc': 'Comfortable default for everyday admin work.',
         'table_density_dense': 'Dense',
         'table_density_dense_desc': 'Fits more rows on screen with tighter spacing.',
         'table_density_roomy': 'Roomy',
         'table_density_roomy_desc': 'Uses larger rows and more breathing room.',
+        'sidebar_density_balanced_desc': 'The default balance between density and readability.',
+        'sidebar_density_dense_desc': 'Tighter rows and spacing for a denser sidebar.',
+        'sidebar_density_roomy_desc': 'Larger row height and spacing for a more relaxed sidebar.',
         'table_empty_title': 'No records found',
         'table_empty_desc': 'There is no matching data to display right now.',
         'table_rows_per_page': 'Rows',
@@ -870,6 +1013,7 @@ MICROSYS_STRINGS = {
         # Theme picker
         'theme_pick_color': 'Pick Color',
         'theme_change': 'Change Theme',
+        'sidebar_density_runtime': 'Sidebar Density',
         'theme_light': 'Light',
         'theme_blue': 'Royal',
         'theme_gold': 'Gold',
@@ -1190,8 +1334,12 @@ def get_current_language_code(request=None):
         from microsys.utils import get_system_config
         sys_config = get_system_config()
         default_sys_lang = sys_config.get('default_language', 'en')
+        allow_user_language_override = bool(sys_config.get('allow_user_language_override', True))
+        available_languages = sys_config.get('languages', {}) or {}
     except Exception:
         default_sys_lang = 'en'
+        allow_user_language_override = True
+        available_languages = {}
         
     lang_code = None
     
@@ -1204,15 +1352,21 @@ def get_current_language_code(request=None):
             pass
 
     if request:
+        preview_lang = None
+        if hasattr(request, 'session'):
+            preview_lang = request.session.get('lang')
+            if request.session.get('ms_force_language_preview') and preview_lang:
+                lang_code = preview_lang
+
         # 2.A User Profile Preference
-        if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
+        if not lang_code and allow_user_language_override and hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
             profile = getattr(request.user, 'profile', None)
             if profile:
                 user_prefs = getattr(profile, 'preferences', None) or {}
                 lang_code = user_prefs.get('language')
         
         # 2.B Session
-        if not lang_code and hasattr(request, 'session'):
+        if not lang_code and allow_user_language_override and hasattr(request, 'session'):
             lang_code = request.session.get('lang') or request.session.get('django_language')
     
     # 2.C System Default Language
@@ -1224,6 +1378,8 @@ def get_current_language_code(request=None):
         lang_code = get_language()
         
     lang = lang_code or default_sys_lang
+    if available_languages and lang.split('-')[0] not in available_languages:
+        lang = default_sys_lang
     # handle en-us -> en
     return lang.split('-')[0]
 

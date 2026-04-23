@@ -23,7 +23,9 @@
      * Set the active language.
      * @param {string} langCode - The language code to switch to (e.g. 'en', 'ar', 'fr')
      */
-    window.setLanguage = function(langCode) {
+    window.setLanguage = function(langCode, options) {
+        const config = options && typeof options === 'object' ? options : {};
+        const previewOnly = Boolean(config.previewOnly);
         if (!langCode || langCode === currentLang) return;
 
         // 1. Immediately update HTML attributes for visual feedback
@@ -66,7 +68,10 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken,
             },
-            body: JSON.stringify({ language: langCode }),
+            body: JSON.stringify({
+                language: langCode,
+                __language_preview: previewOnly,
+            }),
         })
         .then(() => {
             // 6. Reload page for server-side string refresh

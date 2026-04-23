@@ -20,11 +20,20 @@ from django.utils.module_loading import import_string
 
 from .constants import (
     DEFAULT_HOME_URL,
+    DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
     LEGACY_HOME_URL,
+    SIDEBAR_COLLAPSE_MODE_VALUES,
+    SIDEBAR_DENSITY_VALUES,
     TABLE_DENSITY_VALUES,
+    TITLEBAR_ALIGN_VALUES,
+    TITLEBAR_HEIGHT_VALUES,
+    TITLEBAR_HOME_SHAPE_VALUES,
+    TITLEBAR_SIZE_VALUES,
+    TITLEBAR_SURFACE_VALUES,
 )
-from .themes import is_valid_theme
+from .themes import is_valid_theme, normalize_allowed_themes
 from .translations import get_current_language_code, get_strings
 # try-except for django_filters as it might not be installed (though likely is)
 try:
@@ -224,17 +233,23 @@ def _normalize_asset_url(value, fallback_base='/media/'):
     if not normalized:
         return normalized
 
-    if (
-        normalized.startswith(('http://', 'https://', '//', '/', 'data:'))
-        or ':' in normalized.split('/', 1)[0]
-    ):
-        return normalized
-
     base_url = str(getattr(settings, 'MEDIA_URL', '') or fallback_base).strip() or fallback_base
     if not base_url.startswith('/'):
         base_url = f'/{base_url}'
     if not base_url.endswith('/'):
         base_url = f'{base_url}/'
+
+    if (
+        normalized.startswith(('http://', 'https://', '//', 'data:'))
+        or ':' in normalized.split('/', 1)[0]
+    ):
+        return normalized
+
+    if normalized.startswith('/'):
+        if normalized.startswith(base_url) or normalized.startswith('/static/'):
+            return normalized
+        normalized = normalized.lstrip('/')
+
     return f"{base_url}{normalized.lstrip('/')}"
 
 # Auth Check — Staff permission test for @user_passes_test decorator
@@ -271,8 +286,16 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         number:     Optional override for the document number field
     """
     UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
+    user = getattr(request, 'user', None) if request else None
+    if not user or not getattr(user, 'is_authenticated', False):
+        try:
+            from .middleware import get_current_user
+            user = get_current_user()
+        except Exception:
+            user = None
+
     UserActivityLog.safe_log(
-        user=request.user,
+        user=user,
         action=action,
         model_name=model_name or (instance._meta.verbose_name if instance else None),
         object_id=instance.pk if instance else None,
@@ -322,6 +345,136 @@ def _dedupe_sidebar_entries(entries):
         deduped.append(entry)
     return deduped
 
+
+def default_titlebar_config():
+    return {
+        'show_title': True,
+        'show_logo': True,
+        'show_home_button': True,
+        'home_shape': 'circle',
+        'title_align': 'start',
+        'title_size': 'md',
+        'height': 'balanced',
+        'surface': 'default',
+    }
+
+
+def normalize_titlebar_config(titlebar_config):
+    config = titlebar_config if isinstance(titlebar_config, dict) else {}
+    normalized = default_titlebar_config()
+    normalized['show_title'] = bool(config.get('show_title', normalized['show_title']))
+    normalized['show_logo'] = bool(config.get('show_logo', normalized['show_logo']))
+    normalized['show_home_button'] = bool(config.get('show_home_button', normalized['show_home_button']))
+
+    home_shape = config.get('home_shape')
+    if home_shape in TITLEBAR_HOME_SHAPE_VALUES:
+        normalized['home_shape'] = home_shape
+
+    title_align = config.get('title_align')
+    if title_align in TITLEBAR_ALIGN_VALUES:
+        normalized['title_align'] = title_align
+
+    title_size = config.get('title_size')
+    if title_size in TITLEBAR_SIZE_VALUES:
+        normalized['title_size'] = title_size
+
+    height = config.get('height')
+    if height in TITLEBAR_HEIGHT_VALUES:
+        normalized['height'] = height
+
+    surface = config.get('surface')
+    if surface in TITLEBAR_SURFACE_VALUES:
+        normalized['surface'] = surface
+
+    return normalized
+
+
+def default_sidebar_config():
+    return {
+        'home_url_name': None,
+        'entries': [],
+        'enable_reorder': True,
+        'show_toolbar': True,
+        'show_icons': True,
+        'density': DEFAULT_SIDEBAR_DENSITY,
+        'allow_user_density': True,
+        'collapse_mode': DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    }
+
+
+def normalize_sidebar_behavior(sidebar_config):
+    config = sidebar_config if isinstance(sidebar_config, dict) else {}
+    normalized = default_sidebar_config()
+    normalized['home_url_name'] = config.get('home_url_name') if config.get('home_url_name') else None
+    if isinstance(config.get('entries'), list):
+        normalized['entries'] = [entry for entry in config.get('entries', []) if isinstance(entry, dict)]
+    normalized['enable_reorder'] = bool(config.get('enable_reorder', normalized['enable_reorder']))
+    normalized['show_toolbar'] = bool(config.get('show_toolbar', normalized['show_toolbar']))
+    normalized['show_icons'] = bool(config.get('show_icons', normalized['show_icons']))
+    normalized['allow_user_density'] = bool(config.get('allow_user_density', normalized['allow_user_density']))
+
+    density = config.get('density')
+    if density in SIDEBAR_DENSITY_VALUES:
+        normalized['density'] = density
+
+    collapse_mode = config.get('collapse_mode')
+    if collapse_mode in SIDEBAR_COLLAPSE_MODE_VALUES:
+        normalized['collapse_mode'] = collapse_mode
+
+    if not normalized['show_icons'] and normalized['collapse_mode'] == 'icons':
+        normalized['collapse_mode'] = 'hidden'
+
+    return normalized
+
+
+def get_effective_allowed_themes(config):
+    if not isinstance(config, dict):
+        return tuple(normalize_allowed_themes())
+    return tuple(normalize_allowed_themes(config.get('allowed_themes')))
+
+
+def resolve_user_theme_preference(user_prefs, config):
+    prefs = dict(user_prefs or {})
+    allowed_themes = set(get_effective_allowed_themes(config))
+    default_theme = config.get('default_theme', 'light')
+    if default_theme not in allowed_themes:
+        default_theme = next(iter(allowed_themes), 'light')
+
+    if not config.get('allow_user_theme_override', True):
+        prefs.pop('theme', None)
+        prefs['theme'] = default_theme
+        return prefs
+
+    if prefs.get('theme') not in allowed_themes:
+        prefs['theme'] = default_theme
+    return prefs
+
+
+def resolve_sidebar_density_preference(user_prefs, config):
+    prefs = dict(user_prefs or {})
+    sidebar_config = normalize_sidebar_behavior(config.get('sidebar', {}))
+    if not sidebar_config.get('allow_user_density', True):
+        prefs.pop('sidebar_density', None)
+        prefs['sidebar_density'] = sidebar_config.get('density', DEFAULT_SIDEBAR_DENSITY)
+        return prefs
+
+    if prefs.get('sidebar_density') not in SIDEBAR_DENSITY_VALUES:
+        prefs['sidebar_density'] = sidebar_config.get('density', DEFAULT_SIDEBAR_DENSITY)
+    return prefs
+
+
+def resolve_sidebar_collapsed_preference(user_prefs, config, session_collapsed=False):
+    prefs = dict(user_prefs or {})
+    collapse_mode = normalize_sidebar_behavior(config.get('sidebar', {})).get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+    if collapse_mode == 'locked_expanded':
+        prefs.pop('sidebar_collapsed', None)
+        return False, prefs
+
+    raw_value = prefs.get('sidebar_collapsed', session_collapsed)
+    if isinstance(raw_value, str):
+        raw_value = raw_value.lower() == 'true'
+    return bool(raw_value), prefs
+
 def get_system_config():
     """
     Returns the deeply merged system configuration.
@@ -341,6 +494,9 @@ def get_system_config():
         'home_url': DEFAULT_HOME_URL,
         'default_language': 'en',
         'default_theme': 'light',
+        'allowed_themes': list(normalize_allowed_themes()),
+        'allow_user_theme_override': True,
+        'allow_user_language_override': True,
         'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
         'public_root': False,
@@ -349,12 +505,8 @@ def get_system_config():
             'en': {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'},
         },
         'translations': {},
-        'sidebar': {
-            'home_url_name': None,
-            'entries': [],
-            'enable_reorder': True,
-            'show_toolbar': True,
-        },
+        'sidebar': default_sidebar_config(),
+        'titlebar': default_titlebar_config(),
         'is_configured': False,
     }
 
@@ -394,6 +546,12 @@ def get_system_config():
             db_config['default_language'] = sys_settings.default_language
         if getattr(sys_settings, 'default_theme', None):
             db_config['default_theme'] = sys_settings.default_theme
+        if isinstance(getattr(sys_settings, 'allowed_themes', None), list) and sys_settings.allowed_themes:
+            db_config['allowed_themes'] = sys_settings.allowed_themes
+        if hasattr(sys_settings, 'allow_user_theme_override'):
+            db_config['allow_user_theme_override'] = bool(sys_settings.allow_user_theme_override)
+        if hasattr(sys_settings, 'allow_user_language_override'):
+            db_config['allow_user_language_override'] = bool(sys_settings.allow_user_language_override)
         if getattr(sys_settings, 'default_table_density', None):
             db_config['default_table_density'] = sys_settings.default_table_density
         if isinstance(sys_settings.languages, dict) and sys_settings.languages:
@@ -402,6 +560,15 @@ def get_system_config():
             db_config['translations'] = sys_settings.translations_override
         if isinstance(getattr(sys_settings, 'sidebar_config', None), dict) and sys_settings.sidebar_config:
             db_config['sidebar'] = sys_settings.sidebar_config
+        if (
+            isinstance(getattr(sys_settings, 'titlebar_config', None), dict)
+            and sys_settings.titlebar_config
+            and (
+                getattr(sys_settings, 'is_configured', False)
+                or sys_settings.titlebar_config != default_titlebar_config()
+            )
+        ):
+            db_config['titlebar'] = sys_settings.titlebar_config
         if hasattr(sys_settings, 'is_configured'):
             db_config['is_configured'] = bool(sys_settings.is_configured)
         if hasattr(sys_settings, 'email_2fa'):
@@ -417,11 +584,17 @@ def get_system_config():
     db_sidebar = db_config.get('sidebar', {})
     if not isinstance(db_sidebar, dict):
         db_sidebar = {}
+    user_titlebar = user_config.get('titlebar', {})
+    if not isinstance(user_titlebar, dict):
+        user_titlebar = {}
+    db_titlebar = db_config.get('titlebar', {})
+    if not isinstance(db_titlebar, dict):
+        db_titlebar = {}
 
     final_config = deepcopy(default_config)
     for layer in (user_config, db_config):
         for key, value in layer.items():
-            if key in ['languages', 'translations', 'sidebar']:
+            if key in ['languages', 'translations', 'sidebar', 'titlebar']:
                 continue
             final_config[key] = value
 
@@ -448,14 +621,24 @@ def get_system_config():
         list(db_sidebar.get('entries', [])) + list(user_sidebar.get('entries', []))
     )
     merged_sidebar = sanitize_sidebar_config(merged_sidebar, allow_system_items=True)
-    final_config['sidebar'] = merged_sidebar
+    final_config['sidebar'] = normalize_sidebar_behavior(merged_sidebar)
+    merged_titlebar = deepcopy(default_config['titlebar'])
+    for layer in (user_titlebar, db_titlebar):
+        for key, value in layer.items():
+            merged_titlebar[key] = value
+    final_config['titlebar'] = normalize_titlebar_config(merged_titlebar)
 
     if 'name_ar' not in final_config or not final_config.get('name_ar'):
         final_config['name_ar'] = final_config.get('name_en') or final_config.get('name') or default_config['name_en']
     if not final_config.get('name_en'):
         final_config['name_en'] = user_config.get('name_en') or default_config['name_en']
-    if not is_valid_theme(final_config.get('default_theme')):
-        final_config['default_theme'] = default_config['default_theme']
+    final_config['allowed_themes'] = list(normalize_allowed_themes(final_config.get('allowed_themes')))
+    if final_config.get('default_theme') not in set(final_config['allowed_themes']):
+        final_config['default_theme'] = final_config['allowed_themes'][0]
+    elif not is_valid_theme(final_config.get('default_theme')):
+        final_config['default_theme'] = final_config['allowed_themes'][0]
+    final_config['allow_user_theme_override'] = bool(final_config.get('allow_user_theme_override', True))
+    final_config['allow_user_language_override'] = bool(final_config.get('allow_user_language_override', True))
     if final_config.get('default_table_density') not in TABLE_DENSITY_VALUES:
         final_config['default_table_density'] = default_config['default_table_density']
 

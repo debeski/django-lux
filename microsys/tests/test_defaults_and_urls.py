@@ -49,7 +49,8 @@ if not settings.configured:
 
     django.setup()
 
-from django.test import Client, SimpleTestCase, override_settings
+from django.test import Client, RequestFactory, SimpleTestCase, override_settings
+from django.template import Context, Template
 from django.urls import clear_url_caches
 from types import SimpleNamespace
 from unittest.mock import call, patch
@@ -142,6 +143,137 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertFalse(form.initial['sidebar_enable_reorder'])
         self.assertFalse(form.initial['sidebar_enable_toolbar'])
 
+    @override_settings(MICROSYS_CONFIG={
+        'default_theme': 'retro',
+        'allowed_themes': ['retro', 'dark'],
+        'allow_user_theme_override': False,
+        'allow_user_language_override': False,
+        'sidebar': {
+            'entries': [],
+            'show_icons': False,
+            'density': 'roomy',
+            'allow_user_density': False,
+            'collapse_mode': 'icons',
+        },
+        'titlebar': {
+            'show_logo': False,
+            'show_home_button': False,
+            'home_shape': 'square',
+            'title_align': 'center',
+            'title_size': 'lg',
+            'height': 'roomy',
+            'surface': 'glass',
+        },
+    })
+    def test_setup_form_surfaces_allowed_themes_sidebar_and_titlebar_defaults(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(default_theme='retro', is_configured=False),
+        )
+
+        self.assertEqual(form.initial['allowed_themes'], ['retro', 'dark'])
+        self.assertFalse(form.initial['allow_user_theme_override'])
+        self.assertFalse(form.initial['allow_user_language_override'])
+        self.assertFalse(form.initial['sidebar_show_icons'])
+        self.assertEqual(form.initial['sidebar_density'], 'roomy')
+        self.assertFalse(form.initial['sidebar_allow_user_density'])
+        self.assertEqual(form.initial['sidebar_collapse_mode'], 'hidden')
+        self.assertFalse(form.initial['titlebar_show_logo'])
+        self.assertFalse(form.initial['titlebar_show_home_button'])
+        self.assertEqual(form.initial['titlebar_home_shape'], 'square')
+        self.assertEqual(form.initial['titlebar_title_align'], 'center')
+        self.assertEqual(form.initial['titlebar_title_size'], 'lg')
+        self.assertEqual(form.initial['titlebar_height'], 'roomy')
+        self.assertEqual(form.initial['titlebar_surface'], 'glass')
+
+    @override_settings(MICROSYS_CONFIG={
+        'titlebar': {
+            'show_title': False,
+        },
+    })
+    def test_setup_form_surfaces_titlebar_toggle_widgets_and_step_four(self):
+        request = RequestFactory().get('/sys/modals/microsys/systemsettings/1/?step=3')
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            request=request,
+        )
+
+        self.assertTrue(form.single_step_mode)
+        self.assertEqual(form.single_step_index, 3)
+        self.assertFalse(form.initial['titlebar_show_title'])
+        self.assertIn('data-ms-selector-variant="toggle"', str(form['default_table_density']))
+        self.assertIn('lang-option', str(form['default_table_density']))
+        self.assertIn('data-ms-selector-variant="toggle"', str(form['sidebar_density']))
+        self.assertIn('ms-choice-option', str(form['sidebar_collapse_mode']))
+        self.assertIn('lang-option', str(form['sidebar_collapse_mode']))
+        self.assertIn('ms-choice-option', str(form['titlebar_title_align']))
+        self.assertIn('data-ms-selector-variant="toggle"', str(form['titlebar_title_align']))
+        self.assertIn('ms-choice-option', str(form['titlebar_surface']))
+        self.assertIn('<select', str(form['home_url_discovered']))
+        self.assertNotIn('data-ms-selector-search', str(form['home_url_discovered']))
+
+    def test_setup_theme_picker_keeps_allow_checkboxes_separate_from_default_selector(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
+        self.assertIn('data-setup-theme-allowed="light"', form.theme_picker_html)
+        self.assertIn('ms-theme-settings-option__checkbox', form.theme_picker_html)
+
+    def test_crispy_setup_render_uses_custom_toggle_markup_for_choice_fields(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('ms-choice-selector--toggle', html)
+        self.assertIn('id="id_default_table_density"', html)
+        self.assertIn('id="id_titlebar_title_align"', html)
+        self.assertNotIn('<fieldset aria-describedby="id_default_table_density_helptext">', html)
+        self.assertNotIn('<fieldset> <legend', html)
+
+    def test_setup_form_rejects_empty_allowed_themes(self):
+        form = SystemSettingsForm(
+            data={
+                'name': 'System',
+                'name_en': 'System',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('allowed_themes', form.errors)
+
+    def test_setup_form_rejects_default_theme_outside_allowlist(self):
+        form = SystemSettingsForm(
+            data={
+                'name': 'System',
+                'name_en': 'System',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['dark'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('default_theme', form.errors)
+
     @override_settings(MICROSYS_CONFIG={'default_table_density': 'invalid-choice'})
     def test_setup_form_falls_back_to_balanced_table_density(self):
         form = SystemSettingsForm(
@@ -196,3 +328,20 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(config['logo_url'], '/media/microsys/branding/logo.png')
         self.assertEqual(config['login_logo_url'], '/media/microsys/branding/logo.png')
         self.assertEqual(config['favicon_url'], '/media/microsys/branding/favicon.ico')
+
+    @override_settings(MICROSYS_CONFIG={
+        'default_theme': 'neon',
+        'allowed_themes': ['missing-theme'],
+        'sidebar': {
+            'entries': [],
+            'show_icons': False,
+            'collapse_mode': 'icons',
+        },
+    })
+    def test_system_config_normalizes_allowed_themes_and_sidebar_collapse(self):
+        config = get_system_config()
+
+        self.assertEqual(config['default_theme'], 'neon')
+        self.assertEqual(config['allowed_themes'], list(get_theme_names()))
+        self.assertFalse(config['sidebar']['show_icons'])
+        self.assertEqual(config['sidebar']['collapse_mode'], 'hidden')

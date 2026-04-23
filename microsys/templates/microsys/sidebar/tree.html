@@ -14,7 +14,7 @@
                     data-bs-target="#{{ entry.id }}"
                     aria-expanded="{% if entry.is_open %}true{% else %}false{% endif %}"
                     aria-controls="{{ entry.id }}">
-                <i class="bi {{ entry.icon }} me-2" style="font-size: 24px;"></i>
+                <i class="bi {{ entry.icon }} me-2"></i>
                 <span class="flex-grow-1 text-start">{{ entry.label }}</span>
             </button>
             {% if entry.url and entry.url != '#' %}
@@ -31,7 +31,7 @@
                    data-entry-kind="item"
                    data-entry-id="{{ item.id }}"
                    data-url-name="{{ item.url_name }}">
-                    <i class="bi {{ item.icon }} me-2" style="font-size: 24px;"></i>
+                    <i class="bi {{ item.icon }} me-2"></i>
                     <span>{{ item.label }}</span>
                 </a>
                 {% endfor %}
@@ -44,13 +44,13 @@
        data-entry-kind="item"
        data-entry-id="{{ entry.id }}"
        data-url-name="{{ entry.url_name }}">
-        <i class="bi {{ entry.icon }} me-2" style="font-size: 24px;"></i>
+        <i class="bi {{ entry.icon }} me-2"></i>
         <span>{{ entry.label }}</span>
     </a>
     {% endif %}
 {% empty %}
     <div class="p-3 text-center text-muted small">
-        <i class="bi bi-inbox mb-2" style="font-size: 24px;"></i>
+        <i class="bi bi-inbox mb-2"></i>
         <p class="mb-0">{{ MS_TRANS.no_items }}</p>
     </div>
 {% endfor %}

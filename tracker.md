@@ -4,7 +4,7 @@
 
 ### Current Verified Snapshot and current project overview:
 
-- Verified on: `2026-04-20`
+- Verified on: `2026-04-23`
 - Project: `django-microsys` framework package
 - Package version: `1.20.4b0` from `microsys/VERSION`
 - Current framework state:
@@ -58,10 +58,36 @@
   - the `gothic` and `retro` themes now also normalize non-primary Bootstrap buttons plus profile-page `.action-btn` sizing, because those themes were only styling `.btn-primary` while the profile page relies on `btn-success` / `btn-danger` action pills
   - `CHANGELOG.md` now carries a `v1.20.5` release entry that summarizes the post-`1.20.4` table, filter, activity-log, options, and sidebar polish batch
   - the top-level `README.md` now includes a dedicated vNext table/filter quick-reference covering `MicrosysTable`, renderer auto-adoption, density/page-size precedence, default row actions, and the current filter-helper `inline_labels` contract; the deeper details remain in `docs/reference.md` and `docs/customization-guide.md`
+  - user corrected the setup/options UX contract for the new shell controls: discovered `home_url` selection should stay a standard dropdown, titlebar enum fields should render as Microsys toggle selectors, and theme allow checkboxes must stay separate from choosing the default theme
+  - setup/System Settings choice fields now split into three UI contracts: theme stays on its custom allowlist/default matrix, `home_url` stays a standard dropdown, and the remaining enum/radio-style fields use a shared lang-style toggle selector surface
+  - the lang-style toggle selector fix required changing the custom selector widget to stop subclassing `RadioSelect`, because Crispy Bootstrap 5 was detecting it as a stock radio field and replacing the custom markup with `<fieldset>` radio groups at render time
+  - the lang-style toggle selector layout now uses count-aware stretched columns instead of `auto-fit`, so 2-choice and 3-choice widgets fill their available width with equal-size options rather than leaving gap space or reading as content-sized cards
+  - `SystemSettings` now also governs language switching through `allow_user_language_override`; runtime language resolution ignores saved user/session language overrides unless the admin left them enabled or a superuser explicitly triggered a temporary System Settings preview reload
+  - the split System Settings modal now uses the same `ms-system-setup-form` class and live-preview JS path as the first-launch setup page, so sidebar/titlebar warnings and immediate-preview behavior bind inside Options as well
+  - changing the default language from setup/System Settings now preserves and reopens the active dynamic modal after the preview-triggered reload, while normal successful saves still clear that resume state and do not reopen the modal
+  - the Options page cards now reflow through a shared grid layout instead of fixed Bootstrap rows, so hidden theme/language/sidebar-density cards no longer leave awkward lone-card rows; theme/language/sidebar-density card wrappers stay in the DOM and toggle visibility live for unsaved preview changes
+  - the theme allowlist matrix now suppresses the duplicate slug line when the translated label already matches the slug, and long theme names are truncated inside the card instead of overflowing the selector surface
+  - the first setup step no longer includes `default_table_density`; that field now lives in step 4 alongside titlebar/appearance controls
+  - immediate unsaved preview now covers titlebar attributes/visibility, sidebar density/icon/collapse/tool visibility, home URL, table density, title text, and branding file previews from the System Settings/setup form
+  - the default-language preview path now uses a preview-only preferences payload plus a temporary `ms_force_language_preview` session key, so admins can see the language switch immediately without persisting a per-user override when language changes are locked
+  - the dynamic modal helper now persists modal state only for explicit preview-reload flows, preventing accidental modal reopen after normal successful saves while still restoring the active System Settings step after a language-preview reload
+  - the Options/runtime language card now follows `allow_user_language_override` through `language_picker_enabled`, so the user-facing language switch can be hidden live during unsaved preview and hard-disabled at runtime once the admin saves the lock
   - the shared table empty state now resolves through explicit `--ms-table-empty-*` tokens; dark-based themes (`dark`, `gothic`, `retro`, `neon`) override those tokens so empty rows/icons no longer inherit the light default surface
   - the density picker cards in `tables.css` now also resolve through explicit `--ms-density-card-*` tokens; dark-based themes (`dark`, `gothic`, `retro`, `neon`) override those tokens so the density cards no longer inherit the light default surface, icon chip, and copy colors
   - theme handling now runs through `microsys/themes.py`, with the official discovered order `light`, `blue`, `gold`, `green`, `red`, `mono`, `dark`, `gothic`, `retro`, `neon`
   - setup, options, base template CSS inclusion, runtime validation, and the sidebar toolbar picker all read from that shared theme registry path
+  - `SystemSettings` now governs theme exposure through `allowed_themes` and `allow_user_theme_override`, and runtime theme pickers/context only expose the approved theme subset
+  - sidebar runtime behavior now supports `show_icons`, `density`, `allow_user_density`, and desktop `collapse_mode` (`icons`, `hidden`, `locked_expanded`), with per-user sidebar density persistence only when explicitly allowed
+  - titlebar runtime styling is now admin-configurable through `titlebar_config` with logo/home visibility, home shape, title alignment, title size, bar height, and surface presets
+  - `titlebar_config` now also supports `show_title`, and the runtime titlebar/sidebar templates now respect saved `False` values instead of treating them as truthy defaults
+  - setup/System Settings now render a theme allowlist matrix, sidebar density previews, and titlebar controls; Options/runtime sidebar controls now respect the new theme/sidebar locks
+  - user preferences now hard-enforce allowed themes, sidebar density validation, and locked-expanded sidebar behavior; disallowed saved themes fall back to the system default
+  - the runtime sidebar save->render chain is repaired: `get_system_config()` now preserves `sidebar.entries` and `home_url_name` through behavior normalization, so sidebar items/groups saved from setup or System Settings render again at runtime
+  - stale or corrupt per-user `sidebar_tree` overrides now fall back to the latest system sidebar instead of rendering an empty runtime sidebar
+  - System Settings now ships a reusable selector-widget surface in `microsys/widgets.py` (`MicrosysChoiceSelectorWidget` / `MicrosysMultipleChoiceSelectorWidget`), and the remaining System Settings dropdown-style choice fields now render as selector cards/chips/searchable lists
+  - the initial setup/System Settings flow is now split into four steps: identity/defaults, languages, sidebar, and titlebar/appearance; the Options launcher mirrors the same four `?step=` entrypoints
+  - sidebar toolbar visibility is now derived from both admin intent and live tool availability (theme picker, sidebar density picker, reorder, Sections Manager), and the setup form auto-unchecks/disables the toolbar toggle when no live tool can exist
+  - branding URL normalization now repairs stored uploaded-logo paths that lack the media prefix, and optional runtime dependencies (`psutil`, `pyotp`, `qrcode`) now degrade cleanly instead of breaking imports
   - setup step 3 persists sidebar runtime flags for `enable_reorder` and `show_toolbar`, and disabling the toolbar shows the Dynamic Sections Manager access warning
   - the sidebar builder now receives both the active-language catalog and an English fallback catalog; selected items/groups are rehydrated against the current catalog so framework-default labels do not stay stuck in English when editing in Arabic, while real custom renames stay preserved
   - the sidebar builder now also supports cross-pane drag and drop: discovered items/groups can be dragged into the selected tree, and selected entries can be dragged back into the available pane to remove them, while the existing in-tree reorder behavior stays intact
@@ -85,8 +111,8 @@
   - activity-log diff masking now runs through `microsys.utils.is_sensitive_activity_field_name()`, so password, backup-code, and OTP/TOTP secret-like fields are masked both when logs are saved and when older detail payloads are rendered
   - user-management forms now set explicit browser `autocomplete` metadata for username/name/email/phone/password fields, and the manage-users reset-password modal now binds through a prefixed form plus scoped input lookup instead of assuming a page-global `id_username`
   - the generic multi-step form controller has been moved from `microsys/static/microsys/users/js/wizard.js` to `microsys/static/microsys/helpers/wizard/js/main.js`; shared loading now happens from `base.html`, and the redundant page-local include was removed from `manage_users.html`
-  - the Options System Settings card is now split into three modal entrypoints for branding, languages, and sidebar; each opens the same `SystemSettings` wizard with `?step=0|1|2`, and the modal form now preserves that step query so validation rerenders stay on the requested section
-  - when a split System Settings modal entrypoint is used, `SystemSettingsForm` now renders as a single-step editor for that section only: no Next/Prev controls, only Save, while first-launch setup still uses the full three-step wizard
+  - the Options System Settings card is now split into four modal entrypoints for branding, languages, sidebar, and titlebar/appearance; each opens the same `SystemSettings` wizard with `?step=0|1|2|3`, and the modal form now preserves that step query so validation rerenders stay on the requested section
+  - when a split System Settings modal entrypoint is used, `SystemSettingsForm` now renders as a single-step editor for that section only: no Next/Prev controls, only Save, while first-launch setup now uses the full four-step wizard
   - root-cause fix for the split modal path: `DynamicModalManagerView` now passes `request`/`user` into forms that accept `**kwargs`, which is required for `SystemSettingsForm` to see `request.GET["step"]` and activate single-step mode inside the dynamic modal
   - follow-up fix: the shared wizard helper now falls back to `data-ms-wizard-initial-step` when the setup-page session helper returns no step, which unblocks the split System Settings modal entrypoints in Options
   - second follow-up fix: the shared wizard helper now resolves `data-ms-wizard-initial-step` from the inner form when the bound wizard container is the modal body, which is the actual dynamic-modal case for System Settings
@@ -197,12 +223,25 @@
 - the new sidebar-builder cross-pane drag/drop behavior is wired statically, but still needs browser confirmation for available->selected item/group drops, selected->available removal, and coexistence with the existing reorder flow
 - the auto-generated detail-label translation fix is verified statically and through utility regression coverage, but still needs one browser confirmation on a generated `micro:record:view` modal in Arabic to confirm live host-project labels now resolve correctly
 - the System Settings branding file-field modernization is verified statically, but still needs one browser confirmation in the Options > System Settings modal to confirm `logo` / `favicon` both render with the shared modern file-input treatment and submit correctly
+- the new theme allowlist, sidebar density/collapse controls, and titlebar layout controls are verified through focused Django tests and static review, but still need browser confirmation in setup, Options, and live sidebar/titlebar flows across one light theme and one dark theme
+- the repaired runtime sidebar save->render chain, derived sidebar-toolbar visibility, selector widgets, and split titlebar/appearance step are verified through focused Django tests and static review, but still need browser confirmation in setup, Options, and the live shell
+- the lang-style toggle selectors now tag their full Crispy field wrapper and apply a faint bordered container around the label plus toggle grid, but this latest wrapper styling is CSS/JS-only and still needs browser confirmation in setup and the System Settings modal
+- the new language-governance lock, modal-reopen-on-language-preview flow, live unsaved shell preview, Options grid reflow, and theme-card overflow cleanup are verified statically and through focused Django tests where applicable, but still need browser confirmation in setup and in Options > System Settings
 - ~~Email 2FA option not appearing in deployments~~ — **Fixed in v1.19.4** (`get_2fa_config()` now reads explicit `email_2fa` flag from system config)
 - ~~Anonymous users receiving 404 on root URL instead of redirect to login~~ — **Fixed in v1.19.4b4** (removed `is_authenticated` check from `_should_redirect_missing_root()` in `middleware.py`)
 
 ### Tasks:
 
 - Priority 1:
+  - [ ] Browser-check the repaired setup/System Settings sidebar save -> runtime sidebar render path for plain items, grouped items, and a user with an older saved reorder tree
+  - [ ] Browser-check the new appearance-governance flow in setup and Options: allowed themes matrix, disabled theme picker states, sidebar density runtime control, and titlebar layout controls
+  - [ ] Browser-check desktop sidebar collapse modes `icons`, `hidden`, and `locked_expanded`, including the `show_icons=false` normalization path and mobile fallback behavior
+  - [ ] Browser-check the lang-style toggle selectors in setup and split System Settings modals, including table density, sidebar density/collapse, titlebar enums, the restored `home_url` dropdown, the separated theme allow/default controls, and step 4 Titlebar/Appearance
+  - [ ] Browser-check the new faint wrapper border/background around each lang-style toggle field so adjacent titlebar/sidebar controls read as distinct groups without looking too heavy
+  - [ ] Browser-check `allow_user_language_override` in setup and Options, including hidden Options language card state, enforced default-language fallback, preview-only reload behavior, and modal-step restoration after changing the default language from the split Options modal
+  - [ ] Browser-check the live unsaved preview path from setup/System Settings for titlebar visibility/shape/alignment, home URL, sidebar runtime flags, table density, branding file previews, and the sidebar-toolbar warning immediately after toggling the toolbar off
+  - [ ] Browser-check the Options card grid after toggling theme/language/sidebar-density availability so no lone-card rows or empty gaps remain
+  - [ ] Browser-check titlebar `show_title`, `show_logo`, and `show_home_button` combinations plus the sidebar-toolbar auto-hide/disable rules in one light theme and one dark theme
   - [ ] Verify the vNext Microsys table platform on users/activity log plus at least one generic auto-built section table across light, dark, and one specialty theme
   - [ ] Run the new table/config test slice in a Django-capable environment and confirm runtime remap, page-size precedence, density precedence, and default row-action behavior end to end
   - [ ] Browser-check the new built-in per-page footer and pagination controls in `dark`, `gothic`, and `neon`
@@ -230,6 +269,32 @@
   - [ ] Consider whether `python -m microsys startapp` should also generate starter templates for dynamic modal or sections-first flows
   - [x] Manually verify `mono`, `gothic`, `retro`, and `neon` across sidebar rail states, options selectors, toolbar controls, and framework-owned cards/popovers
 - Completed Recently:
+  - [x] Add `allow_user_language_override` across `SystemSettings`, config merging, runtime language resolution, and preference validation so admins can lock the UI language to the system default
+  - [x] Reuse the setup-page `ms-system-setup-form` class inside dynamic System Settings modals so all setup/sidebar/titlebar live-behavior JS runs there too
+  - [x] Preserve and reopen the active dynamic modal only for explicit language-preview reloads from System Settings, while clearing that resume state on real saves
+  - [x] Route default-language preview through a temporary session-backed preview state so admins can preview a locked language change immediately without silently storing a user override
+  - [x] Reflow Options cards through a shared CSS grid and keep theme/language/sidebar-density card wrappers toggleable for immediate preview changes
+  - [x] Remove duplicate theme-name copy from the theme matrix when the label already matches the slug, and truncate long theme labels inside the selector card
+  - [x] Move `default_table_density` from setup step 1 into step 4 alongside titlebar/appearance controls
+  - [x] Add immediate unsaved preview from setup/System Settings for titlebar attributes/visibility, sidebar runtime flags, home URL, table density, and branding assets
+  - [x] Add a faint bordered wrapper around each lang-style toggle field by tagging the Crispy field container from the selector JS and styling the label + toggle group together
+  - [x] Force the inner lang-style toggle surface and caption stack to fill the full equal-width column so the icon square no longer shrink-wraps to the text width
+  - [x] Change the lang-style toggle selector layout from `auto-fit` to count-aware stretched columns so option widths stay equal and fill the available row
+  - [x] Normalize the lang-style toggle selector card heights so option sizes no longer vary with description length
+  - [x] Fix the real setup/modal render path for lang-style toggle selectors by removing `RadioSelect` inheritance so Crispy no longer downgrades them to stock `<fieldset>` radio groups
+  - [x] Replace the chip-style System Settings choice widgets with a shared lang-style toggle selector surface for table density, sidebar density/collapse, and titlebar enum fields
+  - [x] Restore `home_url_discovered` to a standard dropdown instead of the selector-card widget after the user correction on the setup/options UX
+  - [x] Fix empty sidebar/titlebar selector cards by binding field choices when attaching `MicrosysChoiceSelectorWidget`
+  - [x] Separate theme allow checkboxes from default-theme selection in the setup/options theme matrix so admins can change the default theme reliably again
+  - [x] Repair the runtime sidebar save->render chain so `SystemSettings.sidebar_config.entries` survive config normalization and render again at runtime
+  - [x] Add fallback-to-system behavior when a saved user `sidebar_tree` override becomes stale or corrupt
+  - [x] Add `titlebar_config.show_title`, fix boolean-unsafe runtime checks in titlebar/sidebar templates, and make title/logo/home controls respect saved `False` values
+  - [x] Add public selector widgets plus shared selector CSS/JS, and migrate the remaining System Settings dropdown-style controls onto that surface
+  - [x] Reorganize the setup/System Settings flow into four steps and add the fourth Options modal launcher for Titlebar/Appearance
+  - [x] Derive sidebar-toolbar visibility from live tools at runtime and auto-disable/uncheck the setup toggle when no runtime tool can exist
+  - [x] Implement governed theme allowlists, sidebar density/collapse controls, and titlebar layout controls across `SystemSettings`, setup, runtime context, templates, CSS, and JS
+  - [x] Add migration `0004_systemsettings_theme_sidebar_titlebar_customization.py` for the new `SystemSettings` fields and defaults
+  - [x] Add focused regression coverage for allowed-theme filtering, empty allowlist rejection, sidebar density validation, locked-expanded collapse behavior, and sidebar config normalization
   - [x] Add `v1.20.5` changelog coverage for the latest table/filter/theme/activity-log/options/sidebar refinement batch
   - [x] Expand the top-level README with a concise vNext table/filter contract summary and links to the deeper reference/customization docs
   - [x] Add generated Docker baseline files `.dockerignore`, `Dockerfile`, `compose.yml`, `entrypoint.sh`, `gunicorn.py`, and `req.txt` to `python -m microsys startproject`
@@ -312,6 +377,51 @@
 ### Tests:
 
 - Verified recently:
+  - `python -m compileall microsys`
+  - focused Django verification via `./.venv/bin/python - <<'PY' ... import microsys.tests.test_defaults_and_urls; TestRunner = get_runner(settings); runner.run_tests([...]) ... PY` covering:
+    - `MicrosysDefaultRouteTests.test_setup_form_surfaces_allowed_themes_sidebar_and_titlebar_defaults`
+    - `ContextProcessorsTests.test_microsys_context_falls_back_to_default_language_when_override_disabled`
+    - `APIEndpointsTests.test_update_preferences_rejects_language_when_override_disabled`
+    - `GeneralViewsTests.test_options_view_exposes_split_system_settings_entrypoints`
+    - `GeneralViewsTests.test_system_settings_modal_uses_setup_form_class_for_live_behavior`
+    - `UtilsTests.test_get_system_config_default`
+    - `SystemSettingsTests.test_system_settings_defaults`
+  - no automated checks run for the latest `selectors.css` inner-stretch adjustment because it was a CSS-only fix to the shared toggle surface; browser confirmation is still needed on the setup/System Settings toggle selectors
+  - no automated checks run for the latest `selectors.css` / `selectors.js` toggle-column stretch adjustment because it was a shared CSS/JS layout fix; browser confirmation is still needed on the setup/System Settings toggle selectors
+  - no automated checks run for the latest `selectors.css` sizing adjustment because it was a CSS-only normalization; browser confirmation is still needed on the setup/System Settings toggle selectors
+  - `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_crispy_setup_render_uses_custom_toggle_markup_for_choice_fields microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_form_surfaces_titlebar_toggle_widgets_and_step_four microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_theme_picker_keeps_allow_checkboxes_separate_from_default_selector microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_form_surfaces_allowed_themes_sidebar_and_titlebar_defaults`
+  - `python -m compileall microsys`
+  - `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_form_surfaces_titlebar_toggle_widgets_and_step_four microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_theme_picker_keeps_allow_checkboxes_separate_from_default_selector microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_form_surfaces_allowed_themes_sidebar_and_titlebar_defaults`
+  - `python -m compileall microsys`
+  - `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_form_surfaces_titlebar_toggle_widgets_and_step_four microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_theme_picker_keeps_allow_checkboxes_separate_from_default_selector microsys.tests.test_defaults_and_urls.MicrosysDefaultRouteTests.test_setup_form_surfaces_allowed_themes_sidebar_and_titlebar_defaults`
+  - attempted `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls`; the file still has unrelated pre-existing failures in root-route/media-path coverage, so only the setup-selector regression slice should be treated as verified for this turn
+  - `python -m compileall microsys`
+  - focused Django verification via `./.venv/bin/python -c '... get_runner(settings) ... run_tests([...])'` covering:
+    - `MicrosysDefaultRouteTests.test_setup_form_surfaces_allowed_themes_sidebar_and_titlebar_defaults`
+    - `MicrosysDefaultRouteTests.test_setup_form_surfaces_titlebar_toggle_widgets_and_step_four`
+    - `MicrosysDefaultRouteTests.test_system_config_normalizes_allowed_themes_and_sidebar_collapse`
+    - `SidebarDiscoveryTests.test_build_sidebar_navigation_renders_saved_system_sidebar_items`
+    - `SidebarDiscoveryTests.test_build_sidebar_navigation_renders_saved_grouped_sidebar_items`
+    - `SidebarDiscoveryTests.test_build_sidebar_navigation_falls_back_to_system_sidebar_for_stale_override`
+    - `SidebarDiscoveryTests.test_discovery_can_include_only_configurable_system_items`
+    - `SidebarDiscoveryTests.test_sanitize_sidebar_config_preserves_sidebar_behavior_flags`
+    - `UtilsTests.test_get_system_config_preserves_sidebar_entries_and_titlebar_show_title`
+  - focused Django verification via `./.venv/bin/python -c '... get_runner(settings) ... run_tests([...])'` covering:
+    - `ContextProcessorsTests.test_microsys_context_hides_sidebar_toolbar_when_no_live_tools_exist`
+    - `ContextProcessorsTests.test_microsys_context_keeps_sidebar_toolbar_when_any_live_tool_exists`
+    - `ContextProcessorsTests.test_microsys_context_falls_back_from_disallowed_theme_and_locked_sidebar`
+    - `APIEndpointsTests.test_update_preferences_rejects_sidebar_density_when_override_disabled`
+    - `APIEndpointsTests.test_update_preferences_rejects_sidebar_collapsed_when_locked_expanded`
+  - focused Django verification via `./.venv/bin/python -c '... get_runner(settings) ... run_tests([...])'` covering:
+    - `MicrosysDefaultRouteTests.test_setup_form_surfaces_allowed_themes_sidebar_and_titlebar_defaults`
+    - `MicrosysDefaultRouteTests.test_setup_form_rejects_empty_allowed_themes`
+    - `MicrosysDefaultRouteTests.test_system_config_normalizes_allowed_themes_and_sidebar_collapse`
+    - `ContextProcessorsTests.test_microsys_context_filters_theme_options_to_allowed_list`
+    - `ContextProcessorsTests.test_microsys_context_falls_back_from_disallowed_theme_and_locked_sidebar`
+    - `APIEndpointsTests.test_update_preferences_rejects_disallowed_theme`
+    - `APIEndpointsTests.test_update_preferences_validates_sidebar_density`
+    - `APIEndpointsTests.test_update_preferences_rejects_sidebar_collapsed_when_locked_expanded`
+    - `SidebarDiscoveryTests.test_sanitize_sidebar_config_preserves_sidebar_behavior_flags`
   - no automated checks run for the latest `CHANGELOG.md` / `README.md` update because it was documentation-only
   - `python -m compileall -f microsys/views/activitylog.py microsys/tests/test_views.py` after aligning the activity-log page to the working `FilterView + SingleTableView` composition and adding inline-label regression assertions for bound GET requests
   - `python -m compileall microsys/utils.py microsys/tests/test_utils.py` after adding explicit `inline_labels` handling to `set_field_attrs()` and default inline placeholder mode to filter helpers
@@ -375,6 +485,7 @@
   - attempted `./venv/bin/python -m unittest microsys.tests.test_models microsys.tests.test_utils microsys.tests.test_context_processors microsys.tests.test_defaults_and_urls microsys.tests.test_api microsys.tests.test_tables`, but no local `./venv` exists in this workspace
   - attempted `python -m unittest microsys.tests.test_models microsys.tests.test_utils microsys.tests.test_context_processors microsys.tests.test_defaults_and_urls microsys.tests.test_api microsys.tests.test_tables`, but the available interpreter does not have `django` installed in this shell
 - Recommended next validation:
+  - browser-check the new theme allowlist, sidebar density/collapse modes, and titlebar layout controls in setup, Options, and the live shell on at least one light theme and one dark theme
   - run `python -m microsys startproject` in a fresh directory inside a real Django environment and boot the generated project
   - run `docker compose -f compose.yml -f compose.dev.yml up` in a generated scaffold and confirm `web`, `celery`, and `/health/` all become healthy
   - confirm the generated `.secrets/.env` works correctly with the decrypter/startup flow without importing it directly in compose
@@ -416,6 +527,19 @@
   - `docs/reference.md`
   - `CHANGELOG.md`
 - Current key integration surfaces to keep documented:
+  - `SystemSettings.allowed_themes`
+  - `SystemSettings.allow_user_theme_override`
+  - `SystemSettings.allow_user_language_override`
+  - `SystemSettings.titlebar_config`
+  - `SystemSettings.titlebar_config["show_title"|"show_logo"|"show_home_button"|"home_shape"|"title_align"|"title_size"|"height"|"surface"]`
+  - `MICROSYS_CONFIG["allowed_themes"]`
+  - `MICROSYS_CONFIG["allow_user_theme_override"]`
+  - `MICROSYS_CONFIG["allow_user_language_override"]`
+  - `MICROSYS_CONFIG["sidebar"]["show_icons"|"density"|"allow_user_density"|"collapse_mode"]`
+  - `MICROSYS_CONFIG["titlebar"]`
+  - `language_picker_enabled`
+  - `microsys.widgets.MicrosysChoiceSelectorWidget`
+  - `microsys.widgets.MicrosysMultipleChoiceSelectorWidget`
   - `python -m microsys startproject`
   - `python -m microsys startapp`
   - `python -m microsys startapp --register`
@@ -432,6 +556,7 @@
   - `set_field_attrs(form, request=None, inline_labels=False)`
   - `setup_filter_helper(filter_instance, request=None, preserve_keys=None, inline_labels=True)`
   - `advanced_filter_helper(filter_instance, config=None, request=None, preserve_keys=None, inline_labels=True)`
+  - `microsys/static/microsys/main/css/selectors.css`
   - `microsys/static/microsys/main/css/tables.css`
   - `microsys/templates/microsys/tables/table.html`
   - `microsys/themes.py`
@@ -445,8 +570,8 @@
   - `microsys.templatetags.microsys_translation.render_log_details_panel`
   - `microsys.utils.is_sensitive_activity_field_name`
   - `microsys/templates/microsys/activitylog/activity_log_detail_modal.html`
+  - split System Settings modal entrypoints via `modal_manager` with `?step=0|1|2|3`
   - `microsys/static/microsys/helpers/wizard/js/main.js`
-  - split System Settings modal entrypoints via `modal_manager` with `?step=0|1|2`
 
 ## Part 2: Global
 

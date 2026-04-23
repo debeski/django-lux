@@ -49,6 +49,7 @@ if not settings.configured:
     django.setup()
 
 from django.test import TestCase, RequestFactory, override_settings
+from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from microsys.context_processors import microsys_context
@@ -200,6 +201,130 @@ class ContextProcessorsTests(TestCase):
 
         self.assertIn('default_table_density', context['config'])
         self.assertEqual(context['user_preferences']['table_density'], context['config']['default_table_density'])
+
+    def test_microsys_context_filters_theme_options_to_allowed_list(self):
+        from microsys.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_theme = 'dark'
+        settings_obj.allowed_themes = ['dark', 'retro']
+        settings_obj.allow_user_theme_override = True
+        settings_obj.save()
+
+        request = self.factory.get('/')
+        request.user = self.user
+        self.user.profile.preferences = {'theme': 'retro'}
+        self.user.profile.save(update_fields=['preferences'])
+
+        context = microsys_context(request)
+
+        self.assertEqual(context['MICROSYS_THEME_NAMES'], ['dark', 'retro'])
+        self.assertEqual([theme['slug'] for theme in context['MICROSYS_THEMES']], ['dark', 'retro'])
+        self.assertEqual(context['user_preferences']['theme'], 'retro')
+
+    def test_microsys_context_falls_back_from_disallowed_theme_and_locked_sidebar(self):
+        from microsys.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_theme = 'dark'
+        settings_obj.allowed_themes = ['dark']
+        settings_obj.allow_user_theme_override = False
+        settings_obj.sidebar_config = {
+            'entries': [],
+            'density': 'roomy',
+            'allow_user_density': False,
+            'collapse_mode': 'locked_expanded',
+        }
+        settings_obj.save()
+
+        request = self.factory.get('/')
+        request.user = self.user
+        request.session['sidebarCollapsed'] = True
+        self.user.profile.preferences = {
+            'theme': 'retro',
+            'sidebar_density': 'dense',
+            'sidebar_collapsed': True,
+        }
+        self.user.profile.save(update_fields=['preferences'])
+
+        context = microsys_context(request)
+
+        self.assertEqual(context['user_preferences']['theme'], 'dark')
+        self.assertEqual(context['user_preferences']['sidebar_density'], 'roomy')
+        self.assertFalse(context['sidebar_collapsed'])
+        self.assertEqual(context['sidebar_density'], 'roomy')
+        self.assertEqual(context['sidebar']['collapse_mode'], 'locked_expanded')
+        self.assertEqual(context['titlebar']['home_shape'], 'circle')
+
+    def test_microsys_context_hides_sidebar_toolbar_when_no_live_tools_exist(self):
+        from microsys.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_theme = 'dark'
+        settings_obj.allowed_themes = ['dark']
+        settings_obj.allow_user_theme_override = False
+        settings_obj.sidebar_config = {
+            'entries': [],
+            'show_toolbar': True,
+            'enable_reorder': False,
+            'allow_user_density': False,
+        }
+        settings_obj.save()
+
+        request = self.factory.get('/')
+        request.user = self.user
+
+        with patch('microsys.context_processors.has_section_models', return_value=False):
+            context = microsys_context(request)
+
+        self.assertFalse(context['sidebar_theme_picker_enabled'])
+        self.assertFalse(context['sidebar_density_picker_enabled'])
+        self.assertFalse(context['sidebar_reorder_enabled'])
+        self.assertFalse(context['sidebar_toolbar_enabled'])
+
+    def test_microsys_context_keeps_sidebar_toolbar_when_any_live_tool_exists(self):
+        from microsys.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_theme = 'dark'
+        settings_obj.allowed_themes = ['dark']
+        settings_obj.allow_user_theme_override = False
+        settings_obj.sidebar_config = {
+            'entries': [],
+            'show_toolbar': True,
+            'enable_reorder': False,
+            'allow_user_density': True,
+        }
+        settings_obj.save()
+
+        request = self.factory.get('/')
+        request.user = self.user
+
+        with patch('microsys.context_processors.has_section_models', return_value=False):
+            context = microsys_context(request)
+
+        self.assertTrue(context['sidebar_density_picker_enabled'])
+        self.assertTrue(context['sidebar_toolbar_enabled'])
+
+    def test_microsys_context_falls_back_to_default_language_when_override_disabled(self):
+        from microsys.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.default_language = 'en'
+        settings_obj.allow_user_language_override = False
+        settings_obj.save()
+
+        request = self.factory.get('/')
+        request.user = self.user
+        request.session['lang'] = 'ar'
+        self.user.profile.preferences = {'language': 'ar'}
+        self.user.profile.save(update_fields=['preferences'])
+
+        context = microsys_context(request)
+
+        self.assertEqual(context['CURRENT_LANG'], 'en')
+        self.assertFalse(context['language_picker_enabled'])
+        self.assertNotIn('language', context['user_preferences'])
 
     def test_microsys_context_home_url(self):
         """Test that home_url is properly set."""

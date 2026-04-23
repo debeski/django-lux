@@ -408,13 +408,13 @@ def _sanitize_sidebar_entry(entry, allow_system_items=False):
 
 
 def sanitize_sidebar_config(sidebar_config, allow_system_items=False):
+    from .utils import normalize_sidebar_behavior
+
     if not isinstance(sidebar_config, dict):
-        return {
+        return normalize_sidebar_behavior({
             'home_url_name': None,
             'entries': [],
-            'enable_reorder': True,
-            'show_toolbar': True,
-        }
+        })
 
     sanitized = dict(sidebar_config)
     sanitized_entries = []
@@ -437,8 +437,9 @@ def sanitize_sidebar_config(sidebar_config, allow_system_items=False):
 
     sanitized['home_url_name'] = home_url_name
     sanitized['entries'] = sanitized_entries
-    sanitized['enable_reorder'] = bool(sidebar_config.get('enable_reorder', True))
-    sanitized['show_toolbar'] = bool(sidebar_config.get('show_toolbar', True))
+    sanitized.update(normalize_sidebar_behavior(sidebar_config))
+    sanitized['home_url_name'] = home_url_name
+    sanitized['entries'] = sanitized_entries
     return sanitized
 
 
@@ -737,50 +738,56 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
     else:
         sidebar = base_sidebar
 
-    entries = sidebar.get('entries', []) if isinstance(sidebar, dict) else []
-    if not isinstance(entries, list):
-        entries = []
     open_accordions = set(open_accordions or [])
 
     catalog = {entry['id']: entry for entry in discover_sidebar_catalog(lang_code=lang_code, include_system_items=True)}
 
-    render_entries = []
+    def render_sidebar_entries(raw_entries):
+        if not isinstance(raw_entries, list):
+            return []
 
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
+        render_entries = []
+        for entry in raw_entries:
+            if not isinstance(entry, dict):
+                continue
 
-        kind = entry.get('kind', 'item')
-        if kind == 'group':
-            items = []
-            for raw_item in entry.get('items', []):
-                resolved_item = _resolve_sidebar_item(raw_item, catalog)
-                if resolved_item and _user_has_sidebar_permission(user, resolved_item.get('permissions')):
-                    resolved_item['active'] = _is_active_path(request_path, resolved_item.get('url'))
-                    items.append(resolved_item)
-            if items:
-                group_id = entry.get('id') or f"group-{len(render_entries) + 1}"
-                has_active = any(item.get('active') for item in items)
-                inferred_group_label = next((item.get('group_label') for item in items if item.get('group_label')), None)
-                inferred_group_icon = next((item.get('group_icon') for item in items if item.get('group_icon')), None)
-                render_entries.append({
-                    'kind': 'group',
-                    'id': group_id,
-                    'label': inferred_group_label or entry.get('label') or 'Group',
-                    'icon': inferred_group_icon or entry.get('icon') or 'bi-folder2-open',
-                    'url': _resolve_group_url(entry),
-                    'url_name': entry.get('url_name'),
-                    'items': items,
-                    'has_active': has_active,
-                    'is_open': (group_id in open_accordions) or has_active,
-                    'raw_name': entry.get('id') or group_id,
-                })
-            continue
+            kind = entry.get('kind', 'item')
+            if kind == 'group':
+                items = []
+                for raw_item in entry.get('items', []):
+                    resolved_item = _resolve_sidebar_item(raw_item, catalog)
+                    if resolved_item and _user_has_sidebar_permission(user, resolved_item.get('permissions')):
+                        resolved_item['active'] = _is_active_path(request_path, resolved_item.get('url'))
+                        items.append(resolved_item)
+                if items:
+                    group_id = entry.get('id') or f"group-{len(render_entries) + 1}"
+                    has_active = any(item.get('active') for item in items)
+                    inferred_group_label = next((item.get('group_label') for item in items if item.get('group_label')), None)
+                    inferred_group_icon = next((item.get('group_icon') for item in items if item.get('group_icon')), None)
+                    render_entries.append({
+                        'kind': 'group',
+                        'id': group_id,
+                        'label': inferred_group_label or entry.get('label') or 'Group',
+                        'icon': inferred_group_icon or entry.get('icon') or 'bi-folder2-open',
+                        'url': _resolve_group_url(entry),
+                        'url_name': entry.get('url_name'),
+                        'items': items,
+                        'has_active': has_active,
+                        'is_open': (group_id in open_accordions) or has_active,
+                        'raw_name': entry.get('id') or group_id,
+                    })
+                continue
 
-        resolved = _resolve_sidebar_item(entry, catalog)
-        if resolved and _user_has_sidebar_permission(user, resolved.get('permissions')):
-            resolved['active'] = _is_active_path(request_path, resolved.get('url'))
-            render_entries.append(resolved)
+            resolved = _resolve_sidebar_item(entry, catalog)
+            if resolved and _user_has_sidebar_permission(user, resolved.get('permissions')):
+                resolved['active'] = _is_active_path(request_path, resolved.get('url'))
+                render_entries.append(resolved)
+        return render_entries
+
+    render_entries = render_sidebar_entries(sidebar.get('entries', []) if isinstance(sidebar, dict) else [])
+    if override_sidebar and override_sidebar.get('entries') and not render_entries and base_sidebar.get('entries'):
+        sidebar = base_sidebar
+        render_entries = render_sidebar_entries(base_sidebar.get('entries', []))
 
     return {
         'entries': render_entries,

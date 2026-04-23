@@ -11,6 +11,24 @@ import io
 from PIL import Image
 
 
+def default_allowed_themes():
+    from .themes import get_theme_names
+    return list(get_theme_names())
+
+
+def default_titlebar_config():
+    return {
+        'show_title': True,
+        'show_logo': True,
+        'show_home_button': True,
+        'home_shape': 'circle',
+        'title_align': 'start',
+        'title_size': 'md',
+        'height': 'balanced',
+        'surface': 'default',
+    }
+
+
 class Scope(models.Model):
     name = models.CharField(max_length=100, verbose_name="النطاق")
 
@@ -88,6 +106,14 @@ class SingletonModel(models.Model):
                     obj.translations_override = config.get('translations')
                 if hasattr(obj, 'sidebar_config') and isinstance(config.get('sidebar'), dict):
                     obj.sidebar_config = config.get('sidebar')
+                if hasattr(obj, 'allowed_themes') and isinstance(config.get('allowed_themes'), (list, tuple, set)):
+                    obj.allowed_themes = list(config.get('allowed_themes'))
+                if hasattr(obj, 'allow_user_theme_override') and 'allow_user_theme_override' in config:
+                    obj.allow_user_theme_override = bool(config.get('allow_user_theme_override'))
+                if hasattr(obj, 'allow_user_language_override') and 'allow_user_language_override' in config:
+                    obj.allow_user_language_override = bool(config.get('allow_user_language_override'))
+                if hasattr(obj, 'titlebar_config') and isinstance(config.get('titlebar'), dict):
+                    obj.titlebar_config = config.get('titlebar')
                 if hasattr(obj, 'email_2fa') and 'email_2fa' in config:
                     obj.email_2fa = bool(config.get('email_2fa'))
                 if hasattr(obj, 'public_root') and 'public_root' in config:
@@ -113,6 +139,9 @@ class SystemSettings(SingletonModel):
         choices=TABLE_DENSITY_CHOICES,
         verbose_name="الكثافة الافتراضية للجداول",
     )
+    allowed_themes = models.JSONField(default=default_allowed_themes, blank=True, verbose_name="المظاهر المسموح بها")
+    allow_user_theme_override = models.BooleanField(default=True, verbose_name="السماح للمستخدم بتغيير المظهر")
+    allow_user_language_override = models.BooleanField(default=True, verbose_name="السماح للمستخدم بتغيير اللغة")
     home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="الرابط الرئيسي")
     is_configured = models.BooleanField(default=False, verbose_name="تم الضبط")
     email_2fa = models.BooleanField(default=False, verbose_name="Enable Email 2FA")
@@ -120,6 +149,7 @@ class SystemSettings(SingletonModel):
     languages = models.JSONField(default=dict, blank=True, verbose_name="اللغات المتوفرة")
     translations_override = models.JSONField(default=dict, blank=True, verbose_name="تجاوز الترجمات")
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="إعدادات الشريط الجانبي")
+    titlebar_config = models.JSONField(default=default_titlebar_config, blank=True, verbose_name="إعدادات شريط العنوان")
 
     class Meta:
         verbose_name = "System Settings"

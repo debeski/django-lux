@@ -7,8 +7,8 @@ import json
 from datetime import date, datetime
 import logging
 # Project imports
-from .constants import TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
-from .utils import log_user_action
+from .constants import SIDEBAR_DENSITY_VALUES, TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
+from .utils import get_effective_allowed_themes, get_system_config, log_user_action, normalize_sidebar_behavior
 
 def _can_view_model(user, app_label, model_name):
     """Check if user has permission to view the model."""
@@ -179,12 +179,55 @@ def update_preferences(request):
             
             # 3. Update with new data
             logger = logging.getLogger('microsys')
+            system_config = get_system_config()
+            allowed_themes = set(get_effective_allowed_themes(system_config))
+            sidebar_config = normalize_sidebar_behavior(system_config.get('sidebar', {}))
             
+            language_preview_requested = bool(data.get('__language_preview'))
+
             for key, value in data.items():
                 if key != 'csrfmiddlewaretoken':
+                    if key == '__language_preview':
+                        continue
+                    if key == 'theme':
+                        if not system_config.get('allow_user_theme_override', True):
+                            prefs.pop('theme', None)
+                            continue
+                        if value not in allowed_themes:
+                            prefs.pop('theme', None)
+                            continue
+                    if key == 'language':
+                        available_languages = system_config.get('languages', {}) or {}
+                        if value not in available_languages:
+                            prefs.pop('language', None)
+                            request.session.pop('lang', None)
+                            request.session.pop('django_language', None)
+                            request.session.pop('ms_force_language_preview', None)
+                            continue
+                        if language_preview_requested and request.user.is_superuser:
+                            request.session['lang'] = value
+                            request.session['django_language'] = value
+                            request.session['ms_force_language_preview'] = True
+                            continue
+                        if not system_config.get('allow_user_language_override', True):
+                            prefs.pop('language', None)
+                            request.session.pop('lang', None)
+                            request.session.pop('django_language', None)
+                            request.session.pop('ms_force_language_preview', None)
+                            continue
+                        request.session['lang'] = value
+                        request.session['django_language'] = value
+                        request.session.pop('ms_force_language_preview', None)
                     if key == 'table_density':
                         if value not in TABLE_DENSITY_VALUES:
                             prefs.pop('table_density', None)
+                            continue
+                    if key == 'sidebar_density':
+                        if not sidebar_config.get('allow_user_density', True):
+                            prefs.pop('sidebar_density', None)
+                            continue
+                        if value not in SIDEBAR_DENSITY_VALUES:
+                            prefs.pop('sidebar_density', None)
                             continue
                     if key == 'table_page_size':
                         try:
@@ -196,6 +239,10 @@ def update_preferences(request):
                             prefs.pop('table_page_size', None)
                             continue
                         value = coerced_value
+                    if key == 'sidebar_collapsed' and sidebar_config.get('collapse_mode') == 'locked_expanded':
+                        prefs.pop('sidebar_collapsed', None)
+                        request.session['sidebarCollapsed'] = False
+                        continue
                     prefs[key] = value
                     
                     # Sync sidebar state to session for server-side consistency

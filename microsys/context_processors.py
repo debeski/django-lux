@@ -1,5 +1,13 @@
 from .constants import DEFAULT_TABLE_DENSITY, TABLE_DENSITY_CHOICES, TABLE_DENSITY_VALUES
-from .utils import has_section_models, is_scope_enabled
+from .utils import (
+    get_effective_allowed_themes,
+    has_section_models,
+    is_scope_enabled,
+    normalize_sidebar_behavior,
+    resolve_sidebar_collapsed_preference,
+    resolve_sidebar_density_preference,
+    resolve_user_theme_preference,
+)
 from django.conf import settings
 import hashlib
 import json
@@ -169,20 +177,27 @@ def microsys_context(request):
     }
     languages = final_config.get('languages', default_languages)
 
-    # Resolve active language: user pref → session → config default → 'en'
+    # Resolve active language: preview session → user pref/session override → config default → 'en'
     default_lang = final_config.get('default_language', 'en')
+    allow_user_language_override = bool(final_config.get('allow_user_language_override', True))
     
     current_lang = None
+    preview_lang = request.session.get('lang')
+    if request.session.get('ms_force_language_preview') and preview_lang in languages:
+        current_lang = preview_lang
+
     # 1. User Preference
-    if request.user.is_authenticated and hasattr(request.user, 'profile'):
+    if not current_lang and request.user.is_authenticated and hasattr(request.user, 'profile'):
         user_prefs = request.user.profile.preferences or {}
-        if 'language' in user_prefs:
+        if not allow_user_language_override:
+            user_prefs = {key: value for key, value in user_prefs.items() if key != 'language'}
+        elif 'language' in user_prefs:
             current_lang = user_prefs.get('language')
     else:
         user_prefs = {}
     
     # 2. Session Preference (for anonymous users or overrides)
-    if not current_lang:
+    if not current_lang and allow_user_language_override:
         current_lang = request.session.get('lang')
         
     # 3. Default
@@ -214,15 +229,15 @@ def microsys_context(request):
         user_prefs = request.user.profile.preferences or {}
     if not isinstance(user_prefs, dict):
         user_prefs = {}
-    default_theme = final_config.get('default_theme', 'light')
-    allowed_themes = set(get_theme_names())
-    if user_prefs.get('theme') not in allowed_themes:
-        user_prefs = {**user_prefs, 'theme': default_theme}
+    if not allow_user_language_override and not request.session.get('ms_force_language_preview'):
+        user_prefs = {key: value for key, value in user_prefs.items() if key != 'language'}
+    user_prefs = resolve_user_theme_preference(user_prefs, final_config)
     default_table_density = final_config.get('default_table_density', DEFAULT_TABLE_DENSITY)
     if default_table_density not in TABLE_DENSITY_VALUES:
         default_table_density = DEFAULT_TABLE_DENSITY
     if user_prefs.get('table_density') not in TABLE_DENSITY_VALUES:
         user_prefs = {**user_prefs, 'table_density': default_table_density}
+    user_prefs = resolve_sidebar_density_preference(user_prefs, final_config)
     context['user_preferences'] = user_prefs # Injected for JS use
 
     lang_config = languages.get(current_lang, {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'})
@@ -231,8 +246,9 @@ def microsys_context(request):
     # Get translated strings (with project-level overrides from config)
     project_overrides = final_config.get('translations', None)
     ms_trans = get_strings(current_lang, overrides=project_overrides)
-    context['MICROSYS_THEME_NAMES'] = list(get_theme_names())
-    context['MICROSYS_THEMES'] = get_theme_options(ms_trans)
+    allowed_theme_names = list(get_effective_allowed_themes(final_config))
+    context['MICROSYS_THEME_NAMES'] = allowed_theme_names
+    context['MICROSYS_THEMES'] = get_theme_options(ms_trans, allowed_themes=allowed_theme_names)
     context['MICROSYS_TABLE_DENSITIES'] = list(TABLE_DENSITY_CHOICES)
 
     context['CURRENT_LANG'] = current_lang
@@ -267,10 +283,14 @@ def microsys_context(request):
     context['sidebar_tree_state'] = navigation.get('entries', [])
     context['sidebar_auto_items'] = navigation.get('auto_items', [])
     context['sidebar_extra_groups'] = navigation.get('extra_groups', [])
-    sidebar_runtime_config = final_config.get('sidebar', {})
-    if not isinstance(sidebar_runtime_config, dict):
-        sidebar_runtime_config = {}
-    context['sidebar_toolbar_enabled'] = bool(sidebar_runtime_config.get('show_toolbar', True))
+    sidebar_runtime_config = normalize_sidebar_behavior(final_config.get('sidebar', {}))
+    context['sidebar_theme_picker_enabled'] = bool(
+        final_config.get('allow_user_theme_override', True) and len(allowed_theme_names) > 1
+    )
+    context['language_picker_enabled'] = bool(
+        final_config.get('allow_user_language_override', True) and len(languages) > 1
+    )
+    context['sidebar_density_picker_enabled'] = bool(sidebar_runtime_config.get('allow_user_density', True))
     context['sidebar_reorder_enabled'] = bool(sidebar_runtime_config.get('enable_reorder', True))
     context['sidebar_has_sections_manager'] = bool(
         request.user.is_authenticated and
@@ -280,12 +300,20 @@ def microsys_context(request):
             SYSTEM_ROUTE_META.get('manage_sections', {}).get('permissions', []),
         )
     )
+    context['sidebar_toolbar_enabled'] = bool(sidebar_runtime_config.get('show_toolbar', True)) and any([
+        context['sidebar_theme_picker_enabled'],
+        context['sidebar_density_picker_enabled'],
+        context['sidebar_reorder_enabled'],
+        context['sidebar_has_sections_manager'],
+    ])
 
     # 7. Sidebar State (Collapsed/Expanded)
     # Prioritize DB preference if available, else session, else default
     session_collapsed = request.session.get('sidebarCollapsed', False)
-    db_collapsed = user_prefs.get('sidebar_collapsed', session_collapsed)
+    db_collapsed, user_prefs = resolve_sidebar_collapsed_preference(user_prefs, final_config, session_collapsed=session_collapsed)
     context['sidebar_collapsed'] = db_collapsed
+    context['sidebar_density'] = user_prefs.get('sidebar_density', sidebar_runtime_config.get('density', 'balanced'))
+    context['user_preferences'] = user_prefs
     context['config'] = final_config
     context['user'] = request.user
     context['languages'] = languages
@@ -296,6 +324,7 @@ def microsys_context(request):
         'auto_items': context['sidebar_auto_items'],
         'extra_groups': context['sidebar_extra_groups'],
     }
+    context['titlebar'] = final_config.get('titlebar', {})
 
     return context
 

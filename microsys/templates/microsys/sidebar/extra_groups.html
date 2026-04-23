@@ -10,7 +10,7 @@
                     data-bs-target="#{{ group.id }}" 
                     aria-expanded="{% if group.is_open %}true{% else %}false{% endif %}" 
                     aria-controls="{{ group.id }}">
-                <i class="bi {{ group.icon }} me-2" style="font-size: 24px;"></i>
+                <i class="bi {{ group.icon }} me-2"></i>
                 <span class="flex-grow-1 text-start">{{ group.label }}</span>
             </button>
             {% if group.url and group.url != '#' %}
@@ -26,7 +26,7 @@
                 <a href="{{ item.url }}" 
                    class="list-group-item list-group-item-action sidebar-tree-node sidebar-group-item{% if item.active %} active{% endif %}"
                    data-url-name="{{ item.url_name }}">
-                    <i class="bi {{ item.icon }} me-2" style="font-size: 24px;"></i>
+                    <i class="bi {{ item.icon }} me-2"></i>
                     <span>{{ item.label }}</span>
                 </a>
                 {% endfor %}

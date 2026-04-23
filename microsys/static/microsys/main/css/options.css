@@ -1,0 +1,30 @@
+.ms-options-grid.row {
+  --bs-gutter-x: 0;
+  --bs-gutter-y: 0;
+  margin: 0 0 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.ms-options-grid.row > [class*="col-"] {
+  margin: 0 !important;
+  padding: 0;
+}
+
+.ms-options-grid .option-section,
+.ms-options-grid .ms-card {
+  height: auto !important;
+}
+
+.ms-options-grid .glass-profile.option-section,
+.ms-options-grid .card.ms-card {
+  min-height: 100%;
+}
+
+@media (max-width: 575.98px) {
+  .ms-options-grid.row {
+    grid-template-columns: 1fr;
+  }
+}

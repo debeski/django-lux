@@ -1,13 +1,13 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'microsys/sidebar/css/main.css' %}?v=20260412c">
-{% if sidebar_toolbar_enabled %}
+<link rel="stylesheet" href="{% static 'microsys/sidebar/css/main.css' %}?v=20260422a">
+{% if sidebar_toolbar_enabled and sidebar_theme_picker_enabled %}
 <link rel="stylesheet" href="{% static 'microsys/sidebar/css/theme_picker.css' %}?v=20260412c">
 {% endif %}
 {% if sidebar_toolbar_enabled and sidebar_reorder_enabled %}
 <link rel="stylesheet" href="{% static 'microsys/sidebar/css/reorder.css' %}?v=20260402k">
 {% endif %}
 <script src="{% static 'microsys/sidebar/js/main.js' %}?v=20260402k" nonce="{{ request.csp_nonce }}" defer></script>
-{% if sidebar_toolbar_enabled %}
+{% if sidebar_toolbar_enabled and sidebar_theme_picker_enabled %}
 <script src="{% static 'microsys/sidebar/js/theme_picker.js' %}?v=20260412c" nonce="{{ request.csp_nonce }}" defer></script>
 {% endif %}
 {% if sidebar_toolbar_enabled and sidebar_reorder_enabled %}
@@ -21,7 +21,12 @@
 <div class="col-auto flex-column shadow-sm sidebar {% if sidebar_collapsed %}collapsed{% endif %} no-print" 
      id="sidebar" 
      data-toggle-url="{% url 'toggle_sidebar' %}"
-     data-session-collapsed="{{ sidebar_collapsed|yesno:'true,false' }}">
+     data-session-collapsed="{{ sidebar_collapsed|yesno:'true,false' }}"
+     data-sidebar-density="{{ sidebar_density|default:sidebar.density|default:'balanced' }}"
+     data-sidebar-default-density="{{ sidebar.density|default:'balanced' }}"
+     data-sidebar-show-icons="{% if sidebar.show_icons %}true{% else %}false{% endif %}"
+     data-sidebar-collapse-mode="{{ sidebar.collapse_mode|default:'icons' }}"
+     data-sidebar-allow-user-density="{% if sidebar.allow_user_density %}true{% else %}false{% endif %}">
     <script nonce="{{ request.csp_nonce }}">
         // Immediate FOUC fix for small screens
         (function() {
@@ -72,6 +77,30 @@
             <i class="bi bi-arrows-move"></i>
         </button>
         {% endif %}
+        {% if sidebar_density_picker_enabled %}
+        <div class="sidebar-density-control">
+            <button type="button" class="sidebar-density-indicator" id="sidebarDensityIndicator" title="{{ MS_TRANS.sidebar_density_runtime|default:MS_TRANS.sidebar_density|default:'Sidebar density' }}" aria-label="{{ MS_TRANS.sidebar_density_runtime|default:MS_TRANS.sidebar_density|default:'Sidebar density' }}">
+                <i class="bi bi-layout-sidebar-inset"></i>
+            </button>
+            <div class="sidebar-density-popup" id="sidebarDensityPopup">
+                <div class="small fw-bold mb-2 text-center border-bottom pb-1">{{ MS_TRANS.sidebar_density_runtime|default:MS_TRANS.sidebar_density|default:'Sidebar density' }}</div>
+                <div class="sidebar-density-popup__options">
+                    {% for value, _label in MICROSYS_TABLE_DENSITIES %}
+                    <button type="button" class="sidebar-density-chip{% if sidebar_density == value %} is-active{% endif %}" data-sidebar-density-choice="{{ value }}">
+                        {% if value == 'dense' %}
+                        <i class="bi bi-list-ul"></i>
+                        {% elif value == 'roomy' %}
+                        <i class="bi bi-distribute-vertical"></i>
+                        {% else %}
+                        <i class="bi bi-layout-sidebar-inset"></i>
+                        {% endif %}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if sidebar_theme_picker_enabled %}
         <i class="bi bi-chevron-up theme-arrow" id="sidebarThemeArrow"></i>
         <div class="current-theme-indicator" id="sidebarThemeIndicator" title="{{ MS_TRANS.theme_change }}"></div>
         <div class="theme-popup" id="sidebarThemePopup">
@@ -82,6 +111,7 @@
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
     </div>
     {% endif %}
 </div>

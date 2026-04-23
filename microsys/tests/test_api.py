@@ -52,6 +52,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.core.cache import cache
 import json
+from microsys.models import SystemSettings
 
 User = get_user_model()
 
@@ -183,6 +184,102 @@ class APIEndpointsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
         self.assertEqual(data['status'], 'success')
+
+    def test_update_preferences_rejects_disallowed_theme(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.allowed_themes = ['dark']
+        settings_obj.default_theme = 'dark'
+        settings_obj.save()
+
+        response = self.client.post(
+            reverse('update_preferences'),
+            json.dumps({'theme': 'retro'}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertNotIn('theme', self.user.profile.preferences)
+
+    def test_update_preferences_rejects_theme_when_override_disabled(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.allowed_themes = ['dark', 'retro']
+        settings_obj.default_theme = 'dark'
+        settings_obj.allow_user_theme_override = False
+        settings_obj.save()
+
+        response = self.client.post(
+            reverse('update_preferences'),
+            json.dumps({'theme': 'retro'}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertNotIn('theme', self.user.profile.preferences)
+
+    def test_update_preferences_rejects_language_when_override_disabled(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.allow_user_language_override = False
+        settings_obj.save()
+
+        response = self.client.post(
+            reverse('update_preferences'),
+            json.dumps({'language': 'ar'}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertNotIn('language', self.user.profile.preferences)
+
+    def test_update_preferences_validates_sidebar_density(self):
+        response = self.client.post(
+            reverse('update_preferences'),
+            json.dumps({'sidebar_density': 'invalid'}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertNotIn('sidebar_density', self.user.profile.preferences)
+
+    def test_update_preferences_rejects_sidebar_density_when_override_disabled(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.sidebar_config = {
+            'entries': [],
+            'allow_user_density': False,
+            'density': 'roomy',
+        }
+        settings_obj.save()
+
+        response = self.client.post(
+            reverse('update_preferences'),
+            json.dumps({'sidebar_density': 'dense'}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertNotIn('sidebar_density', self.user.profile.preferences)
+
+    def test_update_preferences_rejects_sidebar_collapsed_when_locked_expanded(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.sidebar_config = {
+            'entries': [],
+            'collapse_mode': 'locked_expanded',
+        }
+        settings_obj.save()
+
+        response = self.client.post(
+            reverse('update_preferences'),
+            json.dumps({'sidebar_collapsed': True}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertNotIn('sidebar_collapsed', self.user.profile.preferences)
 
     def test_update_preferences_invalid_method(self):
         """Test update_preferences with invalid method."""

@@ -6,6 +6,7 @@
 {% block extra_head %}
     {% include "microsys/forms/assets_head.html" %}
     <link rel="stylesheet" href="{% static 'microsys/accessibility/css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/options.css' %}?v=20260423a">
 {% endblock %}
 
 {% block content %}
@@ -15,7 +16,7 @@
         </div>
     </div>
 
-    <div class="row">
+    <div class="row ms-options-grid ms-options-grid--summary">
         <!-- Accessibility Section -->
         <div class="col-md-6 mb-4 no-print">
             <div class="glass-profile option-section h-100">
@@ -175,9 +176,9 @@
         </div>
     </div>
 
-    <div class="row">
+    <div class="row ms-options-grid ms-options-grid--appearance">
         <!-- Theme Selection -->
-        <div class="col-md-6 mb-4 no-print">
+        <div class="col-md-6 mb-4 no-print{% if not config.allow_user_theme_override or MICROSYS_THEMES|length <= 1 %} d-none{% endif %}" data-options-card="theme">
             <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
@@ -186,34 +187,33 @@
         </div>
 
         <!-- Language Selection -->
-        <div class="col-md-6 mb-4 no-print">
+        <div class="{% if config.allow_user_theme_override and MICROSYS_THEMES|length > 1 %}col-md-6{% else %}col-12{% endif %} mb-4 no-print{% if not language_picker_enabled %} d-none{% endif %}" data-options-card="language">
             <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ MS_TRANS.language }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.language_desc }}</p>
                 
                 {% if LANGUAGES|length > 1 %}
                 {% include 'microsys/includes/language_previews.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
-                {% else %}
-                <div class="text-muted small">
-                    <i class="bi bi-info-circle me-1"></i>
-                    {% if CURRENT_LANG == 'ar' %}
-                    أضف لغات إضافية عبر إعدادات النظام في الصلاحيات
-                    <br>
-                    Add more languages via System Settings
-                    {% endif %}
-                </div>
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <div class="row">
+    <div class="row ms-options-grid ms-options-grid--controls">
         <!-- Table Density -->
         <div class="col-lg-3 col-md-6 flex-fill mb-4 no-print">
             <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-table me-2"></i> {{ MS_TRANS.table_density|default:"Table Density" }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.table_density_desc|default:"Control how much vertical space data tables use while you work." }}</p>
                 {% include 'microsys/includes/table_density_previews.html' with selected_density=user_preferences.table_density|default:APP_CONFIG.default_table_density picker_mode='options' density_choices=MICROSYS_TABLE_DENSITIES MS_TRANS=MS_TRANS %}
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 flex-fill mb-4 no-print{% if not config.sidebar.allow_user_density %} d-none{% endif %}" data-options-card="sidebar-density">
+            <div class="glass-profile option-section h-100">
+                <h4 class="mb-3"><i class="bi bi-layout-sidebar-inset me-2"></i> {{ MS_TRANS.sidebar_density|default:"Sidebar Density" }}</h4>
+                <p class="text-muted small mb-4">{{ MS_TRANS.sidebar_density_desc|default:"Control how much vertical space the sidebar navigation uses while you work." }}</p>
+                {% include 'microsys/includes/sidebar_density_previews.html' with selected_density=user_preferences.sidebar_density|default:sidebar_density|default:config.sidebar.density picker_mode='options' density_choices=MICROSYS_TABLE_DENSITIES MS_TRANS=MS_TRANS %}
             </div>
         </div>
 
@@ -290,6 +290,11 @@
                             data-modal-title="{{ MS_TRANS.system_settings_sidebar }}">
                         <i class="bi bi-layout-sidebar-inset me-2"></i> {{ MS_TRANS.system_settings_sidebar }}
                     </button>
+                    <button class="btn btn-outline-warning rounded-pill fw-bold"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=3"
+                            data-modal-title="{{ MS_TRANS.system_settings_appearance }}">
+                        <i class="bi bi-window-stack me-2"></i> {{ MS_TRANS.system_settings_appearance }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -299,9 +304,12 @@
             document.addEventListener('DOMContentLoaded', () => {
                 // --- Autofill Logic ---
                 const toggle = document.getElementById('autofillToggle');
-                const densityPicker = document.querySelector('.ms-table-density-picker:not([data-setup-table-density-picker])');
+                const densityPicker = document.querySelector('.ms-table-density-picker:not([data-setup-table-density-picker]):not(.ms-sidebar-density-picker)');
                 const densityOptions = densityPicker ? Array.from(densityPicker.querySelectorAll('.ms-density-option[data-table-density]')) : [];
+                const sidebarDensityPicker = document.querySelector('.ms-sidebar-density-picker');
+                const sidebarDensityOptions = sidebarDensityPicker ? Array.from(sidebarDensityPicker.querySelectorAll('.ms-density-option[data-sidebar-density]')) : [];
                 const currentDensity = (window.USER_PREFS && window.USER_PREFS.table_density) || '{{ user_preferences.table_density|default:APP_CONFIG.default_table_density }}';
+                const currentSidebarDensity = (window.USER_PREFS && window.USER_PREFS.sidebar_density) || '{{ user_preferences.sidebar_density|default:sidebar_density|default:config.sidebar.density }}';
 
                 function updateTableDensityUI(activeDensity) {
                     densityOptions.forEach((option) => {
@@ -309,7 +317,14 @@
                     });
                 }
 
+                function updateSidebarDensityUI(activeDensity) {
+                    sidebarDensityOptions.forEach((option) => {
+                        option.classList.toggle('is-active', option.getAttribute('data-sidebar-density') === activeDensity);
+                    });
+                }
+
                 updateTableDensityUI(currentDensity);
+                updateSidebarDensityUI(currentSidebarDensity);
                 
                 function toggleAutofill() {
                     const isEnabled = toggle.checked; // true or false
@@ -397,6 +412,23 @@
                         }
                         if (window.updatePreferences) {
                             window.updatePreferences({ table_density: density });
+                        }
+                    });
+                });
+
+                sidebarDensityOptions.forEach((option) => {
+                    option.addEventListener('click', function() {
+                        const density = this.getAttribute('data-sidebar-density') || 'balanced';
+                        updateSidebarDensityUI(density);
+                        if (window.USER_PREFS) {
+                            window.USER_PREFS.sidebar_density = density;
+                        }
+                        const sidebar = document.getElementById('sidebar');
+                        if (sidebar) {
+                            sidebar.setAttribute('data-sidebar-density', density);
+                        }
+                        if (window.updatePreferences) {
+                            window.updatePreferences({ sidebar_density: density });
                         }
                     });
                 });

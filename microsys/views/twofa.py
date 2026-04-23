@@ -6,8 +6,15 @@ import secrets
 import base64
 from io import BytesIO
 
-import pyotp
-import qrcode
+try:
+    import pyotp
+except ImportError:
+    pyotp = None
+
+try:
+    import qrcode
+except ImportError:
+    qrcode = None
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login
@@ -90,7 +97,7 @@ def get_2fa_config():
     return {
         'email': bool(config.get('email_2fa', False)),
         'phone': bool(os.getenv('SMS_BACKEND')),  # Placeholder check
-        'totp': True  # Always available if lib installed
+        'totp': bool(pyotp and qrcode),
     }
 
 # 2FA View — Handles OTP verification for login and method activation
@@ -131,7 +138,7 @@ def verify_otp_view(request, intent='login'):
 
         # TOTP Validation
         if intent == 'enable_totp' or (intent == 'login' and method == 'totp'):
-            if user.profile.totp_secret:
+            if pyotp and user.profile.totp_secret:
                 totp = pyotp.TOTP(user.profile.totp_secret)
                 if totp.verify(code, valid_window=1):
                     is_valid = True
@@ -224,6 +231,9 @@ def verify_otp_view(request, intent='login'):
 @login_required
 def setup_totp(request):
     """Generates secret and QR code."""
+    if not pyotp or not qrcode:
+        return JsonResponse({'status': 'error', 'message': 'TOTP is unavailable'}, status=503)
+
     if not request.user.profile.totp_secret:
         request.user.profile.totp_secret = pyotp.random_base32()
         request.user.profile.save()

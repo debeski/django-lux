@@ -51,7 +51,7 @@ if not settings.configured:
 
     django.setup()
 
-from microsys.discovery import _is_candidate, discover_sidebar_catalog, sanitize_sidebar_config
+from microsys.discovery import _is_candidate, build_sidebar_navigation, discover_sidebar_catalog, sanitize_sidebar_config
 
 
 class SidebarDiscoveryTests(SimpleTestCase):
@@ -122,12 +122,20 @@ class SidebarDiscoveryTests(SimpleTestCase):
             "entries": [],
             "enable_reorder": False,
             "show_toolbar": False,
+            "show_icons": False,
+            "density": "roomy",
+            "allow_user_density": False,
+            "collapse_mode": "icons",
         }
 
         sanitized = sanitize_sidebar_config(sidebar, allow_system_items=True)
 
         self.assertFalse(sanitized["enable_reorder"])
         self.assertFalse(sanitized["show_toolbar"])
+        self.assertFalse(sanitized["show_icons"])
+        self.assertEqual(sanitized["density"], "roomy")
+        self.assertFalse(sanitized["allow_user_density"])
+        self.assertEqual(sanitized["collapse_mode"], "hidden")
 
     @patch("microsys.utils.get_system_config", return_value={"default_language": "en", "translations": {}})
     def test_discovery_can_include_only_configurable_system_items(self, _mock_get_system_config):
@@ -143,6 +151,144 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         self.assertNotIn("manage_sections", default_ids)
         self.assertTrue(
-            {"manage_sections", "manage_users", "user_activity_log", "options_view"}.issubset(system_ids)
+            {"manage_sections", "user_activity_log", "options_view"}.issubset(system_ids)
         )
         self.assertNotIn("user_profile", system_ids)
+
+    @patch("microsys.discovery.discover_sidebar_catalog")
+    @patch("microsys.utils.get_system_config")
+    def test_build_sidebar_navigation_renders_saved_system_sidebar_items(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {
+                        "kind": "item",
+                        "id": "options_view",
+                        "url_name": "options_view",
+                        "label": "Options",
+                        "icon": "bi-gear",
+                        "group_key": "microsys",
+                    }
+                ],
+            },
+        }
+        mock_discover_sidebar_catalog.return_value = [
+            {
+                "kind": "item",
+                "id": "options_view",
+                "url_name": "options_view",
+                "url": "/sys/options/",
+                "label": "Options",
+                "icon": "bi-gear",
+                "permissions": [],
+                "group_key": "microsys",
+                "group_label": "System",
+                "group_icon": "bi-sliders",
+            }
+        ]
+
+        navigation = build_sidebar_navigation(lang_code="en", request_path="/sys/options/")
+
+        self.assertEqual([entry["url_name"] for entry in navigation["entries"]], ["options_view"])
+        self.assertTrue(navigation["entries"][0]["active"])
+
+    @patch("microsys.discovery.discover_sidebar_catalog")
+    @patch("microsys.utils.get_system_config")
+    def test_build_sidebar_navigation_renders_saved_grouped_sidebar_items(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {
+                        "kind": "group",
+                        "id": "admin-group",
+                        "label": "Admin",
+                        "icon": "bi-folder2-open",
+                        "items": [
+                            {
+                                "kind": "item",
+                                "id": "options_view",
+                                "url_name": "options_view",
+                                "label": "Options",
+                                "icon": "bi-gear",
+                                "group_key": "microsys",
+                            }
+                        ],
+                    }
+                ],
+            },
+        }
+        mock_discover_sidebar_catalog.return_value = [
+            {
+                "kind": "item",
+                "id": "options_view",
+                "url_name": "options_view",
+                "url": "/sys/options/",
+                "label": "Options",
+                "icon": "bi-gear",
+                "permissions": [],
+                "group_key": "microsys",
+                "group_label": "System",
+                "group_icon": "bi-sliders",
+            }
+        ]
+
+        navigation = build_sidebar_navigation(lang_code="en", request_path="/sys/options/")
+
+        self.assertEqual(len(navigation["entries"]), 1)
+        self.assertEqual(navigation["entries"][0]["kind"], "group")
+        self.assertEqual(navigation["entries"][0]["items"][0]["url_name"], "options_view")
+
+    @patch("microsys.discovery.discover_sidebar_catalog")
+    @patch("microsys.utils.get_system_config")
+    def test_build_sidebar_navigation_falls_back_to_system_sidebar_for_stale_override(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {
+                        "kind": "item",
+                        "id": "options_view",
+                        "url_name": "options_view",
+                        "label": "Options",
+                        "icon": "bi-gear",
+                        "group_key": "microsys",
+                    }
+                ],
+            },
+        }
+        mock_discover_sidebar_catalog.return_value = [
+            {
+                "kind": "item",
+                "id": "options_view",
+                "url_name": "options_view",
+                "url": "/sys/options/",
+                "label": "Options",
+                "icon": "bi-gear",
+                "permissions": [],
+                "group_key": "microsys",
+                "group_label": "System",
+                "group_icon": "bi-sliders",
+            }
+        ]
+
+        navigation = build_sidebar_navigation(
+            lang_code="en",
+            sidebar_override={
+                "entries": [
+                    {
+                        "kind": "item",
+                        "id": "options_view",
+                        "url_name": "missing:view",
+                        "label": "Broken override",
+                        "icon": "bi-exclamation-triangle",
+                    }
+                ]
+            },
+        )
+
+        self.assertEqual([entry["url_name"] for entry in navigation["entries"]], ["options_view"])

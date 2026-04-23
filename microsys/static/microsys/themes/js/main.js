@@ -3,15 +3,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const themes = Array.isArray(window.MICROSYS_THEME_NAMES) && window.MICROSYS_THEME_NAMES.length
         ? window.MICROSYS_THEME_NAMES
         : ['light'];
+    const defaultTheme = (window.MICROSYS_CONFIG && window.MICROSYS_CONFIG.default_theme) || themes[0] || 'light';
 
     // Load saved theme
-    const savedTheme = ((window.USER_PREFS && window.USER_PREFS.theme) || localStorage.getItem('appTheme') || 'light');
+    const savedTheme = ((window.USER_PREFS && window.USER_PREFS.theme) || localStorage.getItem('appTheme') || defaultTheme);
     themes.forEach(t => root.classList.remove(`theme-${t}`));
-    root.classList.add(`theme-${themes.includes(savedTheme) ? savedTheme : 'light'}`);
+    root.classList.add(`theme-${themes.includes(savedTheme) ? savedTheme : defaultTheme}`);
 
     // Global function to set theme
     window.setTheme = function(theme) {
-        const resolvedTheme = theme && themes.includes(theme) ? theme : 'light';
+        const resolvedTheme = theme && themes.includes(theme) ? theme : defaultTheme;
 
         // Remove all current theme classes
         themes.forEach(t => root.classList.remove(`theme-${t}`));
@@ -41,5 +42,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Initialize UI on load
-    updateActiveThemeUI(savedTheme || 'light');
+    updateActiveThemeUI(themes.includes(savedTheme) ? savedTheme : defaultTheme);
 });

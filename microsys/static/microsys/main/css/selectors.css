@@ -1,0 +1,330 @@
+.ms-choice-selector {
+  --ms-choice-surface: var(--ms-setup-item-bg, rgba(255, 255, 255, 0.88));
+  --ms-choice-surface-hover: var(--ms-setup-item-hover-bg, rgba(var(--primal-rgb, 35, 99, 195), 0.06));
+  --ms-choice-surface-active: var(--ms-setup-item-active-bg, rgba(var(--primal-rgb, 35, 99, 195), 0.1));
+  --ms-choice-border: var(--ms-setup-item-border, rgba(148, 163, 184, 0.3));
+  --ms-choice-border-active: var(--primal, #2363c3);
+  --ms-choice-ring: var(--ms-setup-item-active-ring, rgba(var(--primal-rgb, 35, 99, 195), 0.16));
+  --ms-choice-shadow: var(--ms-setup-item-shadow, 0 10px 26px rgba(15, 23, 42, 0.08));
+  --ms-choice-text: var(--ms-setup-text, var(--title, #1f2937));
+  --ms-choice-muted: var(--ms-setup-muted, #64748b);
+}
+
+.ms-choice-selector-field--toggle {
+  padding: 1rem 1rem 1.05rem;
+  border: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.12);
+  border-radius: 1.15rem;
+  background: rgba(var(--primal-rgb, 35, 99, 195), 0.03);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.ms-choice-selector-field--toggle > .form-label,
+.ms-choice-selector-field--toggle > legend {
+  display: block;
+  margin-bottom: 0.9rem;
+}
+
+.ms-choice-selector-field--toggle > .ms-choice-selector--toggle {
+  margin-bottom: 0;
+}
+
+.ms-choice-selector-field--toggle > .form-text {
+  margin-top: 0.8rem;
+  margin-bottom: 0;
+}
+
+.ms-choice-selector__search {
+  margin-bottom: 0.9rem;
+}
+
+.ms-choice-selector__options {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.ms-choice-selector--chip .ms-choice-selector__options,
+.ms-choice-selector--swatch .ms-choice-selector__options {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.ms-choice-selector--toggle .ms-choice-selector__options {
+  grid-template-columns: repeat(var(--ms-choice-toggle-columns, 3), minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+}
+
+.ms-choice-selector--searchable-list .ms-choice-selector__options {
+  grid-template-columns: 1fr;
+  max-height: 18rem;
+  overflow-y: auto;
+  padding-inline-end: 0.1rem;
+}
+
+.ms-choice-selector__group-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ms-choice-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ms-choice-option {
+  display: block;
+  margin: 0;
+  cursor: pointer;
+}
+
+.ms-choice-option__input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ms-choice-option__surface {
+  min-height: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--ms-choice-border);
+  background: var(--ms-choice-surface);
+  color: var(--ms-choice-text);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.ms-choice-option:hover .ms-choice-option__surface {
+  background: var(--ms-choice-surface-hover);
+  border-color: rgba(var(--primal-rgb, 35, 99, 195), 0.35);
+  box-shadow: var(--ms-choice-shadow);
+  transform: translateY(-1px);
+}
+
+.ms-choice-option__input:checked + .ms-choice-option__surface {
+  background: var(--ms-choice-surface-active);
+  border-color: var(--ms-choice-border-active);
+  box-shadow: 0 0 0 3px var(--ms-choice-ring);
+}
+
+.ms-choice-option__input:focus-visible + .ms-choice-option__surface {
+  box-shadow: 0 0 0 3px var(--ms-choice-ring);
+  border-color: var(--ms-choice-border-active);
+}
+
+.ms-choice-option.is-disabled,
+.ms-choice-selector.is-readonly .ms-choice-option {
+  cursor: default;
+}
+
+.ms-choice-option.is-disabled .ms-choice-option__surface,
+.ms-choice-selector.is-readonly .ms-choice-option__surface {
+  opacity: 0.62;
+}
+
+.ms-choice-selector.is-readonly .ms-choice-option__surface {
+  pointer-events: none;
+}
+
+.ms-choice-option__icon,
+.ms-choice-option__swatch {
+  width: 2.35rem;
+  height: 2.35rem;
+  min-width: 2.35rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--primal-rgb, 35, 99, 195), 0.08);
+  color: var(--primal, #2363c3);
+  box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb, 35, 99, 195), 0.12);
+}
+
+.ms-choice-option__icon i {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.ms-choice-option__swatch {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.ms-choice-option__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.ms-choice-option__label {
+  font-weight: 650;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ms-choice-option__meta {
+  color: var(--ms-choice-muted);
+  font-size: 0.8rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.ms-choice-option__meta--secondary {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.75rem;
+}
+
+.ms-choice-selector--chip .ms-choice-option__surface {
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+}
+
+.ms-choice-selector--chip .ms-choice-option__label {
+  font-size: 0.95rem;
+}
+
+.ms-choice-selector--searchable-list .ms-choice-option__surface {
+  border-radius: 0.9rem;
+}
+
+.ms-choice-selector--swatch .ms-choice-option__surface {
+  align-items: center;
+}
+
+.ms-choice-option--toggle .ms-choice-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  min-height: 9.75rem;
+  height: 100%;
+  width: 100%;
+  flex: 1 1 auto;
+  align-self: stretch;
+}
+
+.ms-choice-option--toggle {
+  height: 100%;
+  min-width: 0;
+  width: 100%;
+  justify-self: stretch;
+}
+
+.ms-choice-option--toggle .ms-choice-option__surface--toggle {
+  min-height: 5.4rem;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem;
+  border: 2px solid transparent !important;
+  background: var(--bs-light, rgba(0, 0, 0, 0.02));
+  box-shadow: none !important;
+  gap: 0;
+  margin-bottom: 0 !important;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+
+.ms-choice-option--toggle .ms-choice-toggle__surface-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+.ms-choice-option--toggle .ms-choice-option__icon {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.ms-choice-option--toggle .ms-choice-option__icon i {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.ms-choice-toggle__surface-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.ms-choice-toggle__caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+  min-height: 3.5rem;
+  width: 100%;
+}
+
+.ms-choice-toggle__caption-label {
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--ms-choice-text);
+  width: 100%;
+}
+
+.ms-choice-toggle__caption-meta {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  color: var(--ms-choice-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  max-width: 100%;
+  width: 100%;
+}
+
+.ms-choice-option--toggle:hover .ms-choice-option__surface--toggle {
+  transform: translateY(-2px);
+}
+
+.ms-choice-option--toggle .ms-choice-option__input:checked + .ms-choice-toggle .ms-choice-option__surface--toggle,
+.ms-choice-option--toggle .ms-choice-option__surface--toggle.lang-active {
+  border-color: var(--bs-primary, var(--primal, #2363c3)) !important;
+  background: rgba(var(--bs-primary-rgb, var(--primal-rgb, 35, 99, 195)), 0.08);
+  box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb, var(--primal-rgb, 35, 99, 195)), 0.15) !important;
+}
+
+.ms-choice-option--toggle .ms-choice-option__input:focus-visible + .ms-choice-toggle .ms-choice-option__surface--toggle {
+  box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb, var(--primal-rgb, 35, 99, 195)), 0.15) !important;
+  border-color: var(--bs-primary, var(--primal, #2363c3)) !important;
+}
+
+.ms-choice-selector.is-readonly .ms-choice-option--toggle .ms-choice-toggle,
+.ms-choice-option--toggle.is-disabled .ms-choice-toggle {
+  opacity: 0.62;
+}
+
+.ms-choice-selector.is-readonly .ms-choice-option--toggle .ms-choice-option__surface--toggle {
+  pointer-events: none;
+}
+
+@media (max-width: 767.98px) {
+  .ms-choice-selector-field--toggle {
+    padding: 0.9rem;
+  }
+
+  .ms-choice-selector__options {
+    grid-template-columns: 1fr;
+  }
+
+  .ms-choice-selector--toggle .ms-choice-selector__options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 479.98px) {
+  .ms-choice-selector--toggle .ms-choice-selector__options {
+    grid-template-columns: 1fr;
+  }
+}

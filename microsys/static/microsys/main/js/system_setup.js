@@ -821,6 +821,278 @@
             .trim();
     }
 
+    function namedFieldSelector(name) {
+        return `[name="${String(name || '').replace(/"/g, '\\"')}"]`;
+    }
+
+    function getNamedFieldInputs(form, name) {
+        return Array.from(form.querySelectorAll(namedFieldSelector(name)));
+    }
+
+    function getNamedFieldValue(form, name) {
+        const inputs = getNamedFieldInputs(form, name);
+        if (!inputs.length) {
+            return '';
+        }
+
+        if (inputs[0].type === 'radio') {
+            const checked = inputs.find((input) => input.checked);
+            return checked ? checked.value : '';
+        }
+
+        return inputs[0].value;
+    }
+
+    function setNamedFieldValue(form, name, value) {
+        const inputs = getNamedFieldInputs(form, name);
+        if (!inputs.length) {
+            return;
+        }
+
+        if (inputs[0].type === 'radio') {
+            inputs.forEach((input) => {
+                input.checked = String(input.value) === String(value);
+            });
+            return;
+        }
+
+        inputs[0].value = value;
+    }
+
+    function setNamedFieldReadonly(form, name, isReadonly) {
+        const inputs = getNamedFieldInputs(form, name);
+        if (!inputs.length) {
+            return;
+        }
+
+        const selectorRoot = inputs[0].closest('[data-ms-selector]');
+        if (selectorRoot) {
+            selectorRoot.classList.toggle('is-readonly', Boolean(isReadonly));
+        }
+
+        inputs.forEach((input) => {
+            if (isReadonly) {
+                input.setAttribute('tabindex', '-1');
+                input.setAttribute('aria-disabled', 'true');
+            } else {
+                input.removeAttribute('tabindex');
+                input.removeAttribute('aria-disabled');
+            }
+        });
+    }
+
+    function setPreviewVisibility(element, isVisible) {
+        if (!element) {
+            return;
+        }
+        element.classList.toggle('d-none', !isVisible);
+        element.style.display = isVisible ? '' : 'none';
+    }
+
+    function readBooleanField(form, selector, fallback) {
+        const field = form.querySelector(selector);
+        if (!field) {
+            return Boolean(fallback);
+        }
+        return Boolean(field.checked);
+    }
+
+    function readTrimmedValue(form, selector, fallback) {
+        const field = form.querySelector(selector);
+        if (!field) {
+            return fallback || '';
+        }
+        return String(field.value || fallback || '').trim();
+    }
+
+    function getSetupAllowedThemeCount(form) {
+        return Array.from(form.querySelectorAll('[data-setup-theme-allowed]')).filter((checkbox) => checkbox.checked).length;
+    }
+
+    function applyTitlebarPreview(form) {
+        const titlebar = document.querySelector('.titlebar');
+        if (!titlebar) {
+            return;
+        }
+
+        const showTitle = readBooleanField(form, '#id_titlebar_show_title', true);
+        const showLogo = readBooleanField(form, '#id_titlebar_show_logo', true);
+        const showHome = readBooleanField(form, '#id_titlebar_show_home_button', true);
+        const titleAlign = getNamedFieldValue(form, 'titlebar_title_align') || 'start';
+        const titleSize = getNamedFieldValue(form, 'titlebar_title_size') || 'md';
+        const height = getNamedFieldValue(form, 'titlebar_height') || 'balanced';
+        const surface = getNamedFieldValue(form, 'titlebar_surface') || 'default';
+        const homeShape = getNamedFieldValue(form, 'titlebar_home_shape') || 'circle';
+        const homeUrl = readTrimmedValue(form, '#id_home_url', titlebar.querySelector('[data-titlebar-home]')?.getAttribute('href') || '/');
+        const scopeName = String(titlebar.dataset.titlebarScopeName || '').trim();
+        const titleAr = readTrimmedValue(form, '#id_name', '');
+        const titleEn = readTrimmedValue(form, '#id_name_en', '');
+        const htmlLang = (document.documentElement.getAttribute('lang') || (window.USER_PREFS && window.USER_PREFS._lang) || 'en').split('-')[0];
+        const resolvedName = htmlLang === 'ar' ? (titleAr || titleEn || 'microSYS') : (titleEn || titleAr || 'microSYS');
+        const resolvedTitle = scopeName ? `${resolvedName} - ${scopeName}` : resolvedName;
+
+        titlebar.dataset.titleAlign = titleAlign;
+        titlebar.dataset.titleSize = titleSize;
+        titlebar.dataset.titlebarHeight = height;
+        titlebar.dataset.titlebarSurface = surface;
+        titlebar.dataset.titlebarHomeShape = homeShape;
+        titlebar.dataset.titlebarShowTitle = showTitle ? 'true' : 'false';
+        titlebar.dataset.titlebarShowLogo = showLogo ? 'true' : 'false';
+        titlebar.dataset.titlebarShowHome = showHome ? 'true' : 'false';
+
+        const homeButton = titlebar.querySelector('[data-titlebar-home]');
+        if (homeButton && homeUrl) {
+            homeButton.setAttribute('href', homeUrl);
+        }
+
+        const titleTarget = titlebar.querySelector('[data-titlebar-title-text]');
+        if (titleTarget) {
+            titleTarget.textContent = resolvedTitle;
+        }
+    }
+
+    function applyBrandingFilePreviews(form) {
+        const logoInput = form.querySelector('#id_logo');
+        const faviconInput = form.querySelector('#id_favicon');
+
+        if (logoInput && logoInput.files && logoInput.files[0]) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                document.querySelectorAll('.titlebar__logo, .ms-setup-page-logo').forEach((image) => {
+                    image.setAttribute('src', reader.result);
+                });
+            };
+            reader.readAsDataURL(logoInput.files[0]);
+        }
+
+        if (faviconInput && faviconInput.files && faviconInput.files[0]) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                document.querySelectorAll('link[rel="icon"]').forEach((favicon) => {
+                    favicon.setAttribute('href', reader.result);
+                });
+            };
+            reader.readAsDataURL(faviconInput.files[0]);
+        }
+    }
+
+    function applySidebarPreview(form) {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) {
+            return;
+        }
+
+        const showIcons = readBooleanField(form, '#id_sidebar_show_icons', true);
+        const collapseMode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
+        const density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
+        const allowUserDensity = readBooleanField(form, '#id_sidebar_allow_user_density', true);
+        const enableToolbar = readBooleanField(form, '#id_sidebar_enable_toolbar', true);
+        const enableReorder = readBooleanField(form, '#id_sidebar_enable_reorder', true);
+        const allowThemeOverride = readBooleanField(form, '#id_allow_user_theme_override', true);
+        const allowUserLanguage = readBooleanField(form, '#id_allow_user_language_override', true);
+        const allowedThemeCount = getSetupAllowedThemeCount(form);
+        const languageCount = form.querySelectorAll('[data-setup-language-choice]').length;
+        const themeToolVisible = allowThemeOverride && allowedThemeCount > 1;
+        const densityToolVisible = allowUserDensity;
+        const reorderToolVisible = enableReorder;
+
+        sidebar.dataset.sidebarShowIcons = showIcons ? 'true' : 'false';
+        sidebar.dataset.sidebarCollapseMode = collapseMode;
+        sidebar.dataset.sidebarDensity = density;
+        sidebar.dataset.sidebarDefaultDensity = density;
+        sidebar.dataset.sidebarAllowUserDensity = allowUserDensity ? 'true' : 'false';
+
+        if (collapseMode === 'locked_expanded') {
+            sidebar.classList.remove('collapsed');
+        }
+
+        const titlebar = document.querySelector('.titlebar');
+        if (titlebar) {
+            titlebar.dataset.sidebarCollapseMode = collapseMode;
+        }
+
+        const toolbar = sidebar.querySelector('.sidebar-toolbar');
+        const themeArrow = document.getElementById('sidebarThemeArrow');
+        const themeIndicator = document.getElementById('sidebarThemeIndicator');
+        const themePopup = document.getElementById('sidebarThemePopup');
+        const densityControl = sidebar.querySelector('.sidebar-density-control');
+        const reorderToggle = document.getElementById('sidebarReorderToggle') || sidebar.querySelector('.reorder-toggle');
+        const sectionsManagerLink = sidebar.querySelector('.sidebar-toolbar-link');
+        const toolbarVisible = enableToolbar && Boolean(themeToolVisible || densityToolVisible || reorderToolVisible || sectionsManagerLink);
+
+        setPreviewVisibility(themeArrow, themeToolVisible);
+        setPreviewVisibility(themeIndicator, themeToolVisible);
+        setPreviewVisibility(densityControl, densityToolVisible);
+        setPreviewVisibility(reorderToggle, reorderToolVisible);
+        setPreviewVisibility(toolbar, toolbarVisible);
+
+        if (!themeToolVisible && themePopup) {
+            themePopup.classList.remove('show');
+        }
+
+        if (!densityToolVisible) {
+            const densityPopup = document.getElementById('sidebarDensityPopup');
+            if (densityPopup) {
+                densityPopup.classList.remove('show');
+            }
+        }
+
+        sidebar.querySelectorAll('[data-sidebar-density-choice]').forEach((option) => {
+            option.classList.toggle('is-active', option.getAttribute('data-sidebar-density-choice') === density);
+        });
+
+        const themeCard = document.querySelector('[data-options-card="theme"]');
+        const languageCard = document.querySelector('[data-options-card="language"]');
+        const sidebarDensityCard = document.querySelector('[data-options-card="sidebar-density"]');
+
+        setPreviewVisibility(themeCard, themeToolVisible);
+        setPreviewVisibility(languageCard, allowUserLanguage && languageCount > 1);
+        setPreviewVisibility(sidebarDensityCard, allowUserDensity);
+    }
+
+    function applyTableDensityPreview(form) {
+        const density = getNamedFieldValue(form, 'default_table_density') || 'balanced';
+        if (typeof window.applyMicrosysTableDensityPreview === 'function') {
+            window.applyMicrosysTableDensityPreview(density);
+        }
+    }
+
+    function applyImmediateSystemSettingsPreview(form) {
+        if (!form || !form.classList.contains('ms-system-setup-form')) {
+            return;
+        }
+        applyTitlebarPreview(form);
+        applyBrandingFilePreviews(form);
+        applySidebarPreview(form);
+        applyTableDensityPreview(form);
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    function initImmediateSystemSettingsPreview(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.immediatePreviewBound === 'true') {
+                applyImmediateSystemSettingsPreview(form);
+                return;
+            }
+
+            form.dataset.immediatePreviewBound = 'true';
+
+            form.querySelectorAll('input[name], select[name], textarea[name]').forEach((field) => {
+                const eventName = field.type === 'text' || field.tagName === 'TEXTAREA' ? 'input' : 'change';
+                field.addEventListener(eventName, () => {
+                    applyImmediateSystemSettingsPreview(form);
+                });
+                if (eventName !== 'change') {
+                    field.addEventListener('change', () => {
+                        applyImmediateSystemSettingsPreview(form);
+                    });
+                }
+            });
+
+            applyImmediateSystemSettingsPreview(form);
+        });
+    }
+
     function availableItemDisplayLabel(item) {
         const label = String(item && item.label ? item.label : '').trim();
         const groupLabel = String(item && item.group_label ? item.group_label : '').trim();
@@ -1718,32 +1990,64 @@
                 return;
             }
 
-            const routeSelect = form.querySelector('[name="home_url_discovered"]');
+            const routeFields = getNamedFieldInputs(form, 'home_url_discovered');
             const urlInput = form.querySelector('[name="home_url"]');
-            if (!routeSelect || !urlInput) {
+            if (!routeFields.length || !urlInput) {
                 return;
             }
 
             form.dataset.setupHomeFieldsBound = 'true';
 
-            const selectableValues = new Set(
-                Array.from(routeSelect.options || [])
-                    .map((option) => option.value)
-                    .filter(Boolean)
-            );
+            const routeSelect = routeFields.find((field) => field.tagName === 'SELECT');
+            const routeRadios = routeFields.filter((field) => field.type === 'radio');
+
+            function selectableValues() {
+                if (routeSelect) {
+                    return new Set(
+                        Array.from(routeSelect.options || [])
+                            .map((option) => option.value)
+                            .filter(Boolean)
+                    );
+                }
+                return new Set(routeRadios.map((field) => field.value).filter(Boolean));
+            }
 
             function syncSelectFromInput() {
                 const currentValue = (urlInput.value || '').trim();
-                routeSelect.value = selectableValues.has(currentValue) ? currentValue : '';
-            }
-
-            routeSelect.addEventListener('change', () => {
-                if (!routeSelect.value) {
+                const values = selectableValues();
+                if (routeSelect) {
+                    routeSelect.value = values.has(currentValue) ? currentValue : '';
                     return;
                 }
-                urlInput.value = routeSelect.value;
-                urlInput.dispatchEvent(new Event('input', { bubbles: true }));
-                urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+                routeRadios.forEach((field) => {
+                    if (!currentValue && !field.value) {
+                        field.checked = true;
+                        return;
+                    }
+                    field.checked = values.has(currentValue) && field.value === currentValue;
+                });
+            }
+
+            if (routeSelect) {
+                routeSelect.addEventListener('change', () => {
+                    if (!routeSelect.value) {
+                        return;
+                    }
+                    urlInput.value = routeSelect.value;
+                    urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            }
+
+            routeRadios.forEach((field) => {
+                field.addEventListener('change', () => {
+                    if (!field.checked || !field.value) {
+                        return;
+                    }
+                    urlInput.value = field.value;
+                    urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+                });
             });
 
             urlInput.addEventListener('input', syncSelectFromInput);
@@ -1782,8 +2086,11 @@
                         return;
                     }
                     persistSetupFormState(form);
+                    if (typeof window.persistCurrentDynamicModalState === 'function') {
+                        window.persistCurrentDynamicModalState();
+                    }
                     if (window.setLanguage) {
-                        window.setLanguage(language);
+                        window.setLanguage(language, { previewOnly: true });
                     }
                 });
             });
@@ -1801,23 +2108,69 @@
             const input = inputId ? document.getElementById(inputId) : null;
             if (!input) return;
 
-            const options = Array.from(picker.querySelectorAll('.theme-preview[data-theme]'));
+            const options = Array.from(picker.querySelectorAll('[data-setup-theme-choice]'));
+            const allowedCheckboxes = Array.from(picker.querySelectorAll('[data-setup-theme-allowed]'));
+
+            function getAllowedThemes() {
+                return allowedCheckboxes
+                    .filter((checkbox) => checkbox.checked)
+                    .map((checkbox) => checkbox.getAttribute('data-setup-theme-allowed'));
+            }
 
             function syncActive() {
-                const activeTheme = input.value || 'light';
-                options.forEach((option) => {
-                    option.classList.toggle('active', option.getAttribute('data-theme') === activeTheme);
+                const allowedThemes = getAllowedThemes();
+                if (!allowedThemes.length && allowedCheckboxes.length) {
+                    allowedCheckboxes[0].checked = true;
+                }
+                const resolvedAllowedThemes = getAllowedThemes();
+                const activeTheme = resolvedAllowedThemes.includes(input.value) ? input.value : (resolvedAllowedThemes[0] || 'light');
+                input.value = activeTheme;
+                allowedCheckboxes.forEach((checkbox) => {
+                    const theme = checkbox.getAttribute('data-setup-theme-allowed');
+                    checkbox.disabled = checkbox.checked && resolvedAllowedThemes.length === 1;
+                    const container = checkbox.closest('[data-theme-option]');
+                    if (!container) {
+                        return;
+                    }
+                    const isAllowed = resolvedAllowedThemes.includes(theme);
+                    const isDefault = theme === activeTheme;
+                    container.classList.toggle('opacity-50', !isAllowed);
+                    container.classList.toggle('is-default', isDefault);
+                    const button = container.querySelector('[data-setup-theme-choice]');
+                    const preview = container.querySelector('.theme-preview[data-theme]');
+                    if (button) {
+                        button.setAttribute('aria-pressed', isDefault ? 'true' : 'false');
+                    }
+                    if (preview) {
+                        preview.classList.toggle('active', isDefault);
+                    }
                 });
             }
 
             options.forEach((option) => {
-                option.addEventListener('click', () => {
-                    const theme = option.getAttribute('data-theme') || 'light';
+                option.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    const theme = option.getAttribute('data-setup-theme-choice') || 'light';
+                    const checkbox = picker.querySelector(`[data-setup-theme-allowed="${theme}"]`);
+                    if (checkbox && !checkbox.checked) {
+                        checkbox.checked = true;
+                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                     input.value = theme;
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
                     syncActive();
                     if (window.setTheme) {
                         window.setTheme(theme);
                     }
+                });
+            });
+
+            allowedCheckboxes.forEach((checkbox) => {
+                checkbox.addEventListener('change', () => {
+                    if (!getAllowedThemes().length) {
+                        checkbox.checked = true;
+                    }
+                    syncActive();
                 });
             });
 
@@ -1856,6 +2209,37 @@
         });
     }
 
+    function initSetupSidebarDensityPicker(root) {
+        root.querySelectorAll('[data-setup-sidebar-density-picker]').forEach((picker) => {
+            if (picker.dataset.bound === 'true') return;
+            picker.dataset.bound = 'true';
+
+            const inputId = picker.getAttribute('data-sidebar-density-input');
+            const input = inputId ? document.getElementById(inputId) : null;
+            if (!input) return;
+
+            const options = Array.from(picker.querySelectorAll('[data-setup-sidebar-density-choice]'));
+
+            function syncActive() {
+                const activeDensity = input.value || 'balanced';
+                options.forEach((option) => {
+                    option.classList.toggle('is-active', option.getAttribute('data-setup-sidebar-density-choice') === activeDensity);
+                });
+            }
+
+            options.forEach((option) => {
+                option.addEventListener('click', () => {
+                    const density = option.getAttribute('data-setup-sidebar-density-choice') || 'balanced';
+                    input.value = density;
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    syncActive();
+                });
+            });
+
+            syncActive();
+        });
+    }
+
     function initSidebarBehaviorOptions(root) {
         root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
             if (form.dataset.sidebarBehaviorBound === 'true') {
@@ -1864,18 +2248,105 @@
 
             const toolbarToggle = form.querySelector('#id_sidebar_enable_toolbar');
             const toolbarNote = form.querySelector('[data-sidebar-toolbar-note]');
+            const showIconsToggle = form.querySelector('#id_sidebar_show_icons');
+            const allowThemeOverrideToggle = form.querySelector('#id_allow_user_theme_override');
+            const reorderToggle = form.querySelector('#id_sidebar_enable_reorder');
+            const allowUserDensityToggle = form.querySelector('#id_sidebar_allow_user_density');
+            const sectionsToolState = form.querySelector('[data-sidebar-tooling-state]');
+            const themeAllowCheckboxes = Array.from(form.querySelectorAll('[data-setup-theme-allowed]'));
             if (!toolbarToggle || !toolbarNote) {
                 return;
             }
 
             form.dataset.sidebarBehaviorBound = 'true';
 
-            function syncToolbarNote() {
-                toolbarNote.classList.toggle('d-none', Boolean(toolbarToggle.checked));
+            function getAllowedThemeCount() {
+                return themeAllowCheckboxes.filter((checkbox) => checkbox.checked).length;
             }
 
-            toolbarToggle.addEventListener('change', syncToolbarNote);
-            syncToolbarNote();
+            function hasLiveToolbarTool() {
+                const themePickerEnabled = Boolean(
+                    allowThemeOverrideToggle &&
+                    allowThemeOverrideToggle.checked &&
+                    getAllowedThemeCount() > 1
+                );
+                const densityPickerEnabled = Boolean(allowUserDensityToggle && allowUserDensityToggle.checked);
+                const reorderEnabled = Boolean(reorderToggle && reorderToggle.checked);
+                const sectionsManagerEnabled = Boolean(
+                    sectionsToolState &&
+                    sectionsToolState.getAttribute('data-sections-manager-available') === 'true'
+                );
+                return themePickerEnabled || densityPickerEnabled || reorderEnabled || sectionsManagerEnabled;
+            }
+
+            function syncToolbarAvailability() {
+                const available = hasLiveToolbarTool();
+                toolbarToggle.disabled = !available;
+                if (!available) {
+                    toolbarToggle.checked = false;
+                }
+                toolbarNote.classList.toggle('d-none', !available || Boolean(toolbarToggle.checked));
+                applyImmediateSystemSettingsPreview(form);
+            }
+
+            function syncCollapseMode() {
+                if (!showIconsToggle) {
+                    applyImmediateSystemSettingsPreview(form);
+                    return;
+                }
+                if (!showIconsToggle.checked && getNamedFieldValue(form, 'sidebar_collapse_mode') === 'icons') {
+                    setNamedFieldValue(form, 'sidebar_collapse_mode', 'hidden');
+                }
+                applyImmediateSystemSettingsPreview(form);
+            }
+
+            toolbarToggle.addEventListener('change', syncToolbarAvailability);
+            if (showIconsToggle) {
+                showIconsToggle.addEventListener('change', syncCollapseMode);
+            }
+            getNamedFieldInputs(form, 'sidebar_collapse_mode').forEach((field) => {
+                field.addEventListener('change', syncCollapseMode);
+            });
+            themeAllowCheckboxes.forEach((checkbox) => {
+                checkbox.addEventListener('change', syncToolbarAvailability);
+            });
+            [allowThemeOverrideToggle, reorderToggle, allowUserDensityToggle].forEach((field) => {
+                if (field) {
+                    field.addEventListener('change', syncToolbarAvailability);
+                }
+            });
+            if (showIconsToggle) {
+                showIconsToggle.addEventListener('change', syncToolbarAvailability);
+            }
+            syncCollapseMode();
+            syncToolbarAvailability();
+        });
+    }
+
+    function initTitlebarBehaviorOptions(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.titlebarBehaviorBound === 'true') {
+                return;
+            }
+
+            const showTitleToggle = form.querySelector('#id_titlebar_show_title');
+            const showHomeButtonToggle = form.querySelector('#id_titlebar_show_home_button');
+            if (!showTitleToggle || !showHomeButtonToggle) {
+                return;
+            }
+
+            form.dataset.titlebarBehaviorBound = 'true';
+
+            function syncTitlebarDependencies() {
+                setNamedFieldReadonly(form, 'titlebar_title_align', !showTitleToggle.checked);
+                setNamedFieldReadonly(form, 'titlebar_title_size', !showTitleToggle.checked);
+                setNamedFieldReadonly(form, 'titlebar_home_shape', !showHomeButtonToggle.checked);
+                applyImmediateSystemSettingsPreview(form);
+            }
+
+            showTitleToggle.addEventListener('change', syncTitlebarDependencies);
+            showHomeButtonToggle.addEventListener('change', syncTitlebarDependencies);
+            syncTitlebarDependencies();
         });
     }
 
@@ -1886,7 +2357,10 @@
         initSetupLanguagePicker(root);
         initSetupThemePicker(root);
         initSetupTableDensityPicker(root);
+        initSetupSidebarDensityPicker(root);
         initSidebarBehaviorOptions(root);
+        initTitlebarBehaviorOptions(root);
+        initImmediateSystemSettingsPreview(root);
     }
 
     if (document.readyState === 'loading') {
@@ -1901,10 +2375,15 @@
                 if (node.nodeType !== 1) continue;
                 if (
                     node.matches && (
+                        node.matches('form.ms-system-setup-form') ||
                         node.matches('.ms-setup-builder') ||
+                        node.matches('[data-ms-selector]') ||
                         node.querySelector('.ms-setup-builder') ||
+                        node.querySelector('form.ms-system-setup-form') ||
+                        node.querySelector('[data-ms-selector]') ||
                         node.querySelector('[data-setup-language-picker]') ||
-                        node.querySelector('[data-setup-table-density-picker]')
+                        node.querySelector('[data-setup-table-density-picker]') ||
+                        node.querySelector('[data-setup-sidebar-density-picker]')
                     )
                 ) {
                     scan(node);

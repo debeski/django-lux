@@ -45,7 +45,7 @@
         });
 
         function updateCurrentThemeIndicator(theme) {
-            const resolvedTheme = theme || 'light';
+            const resolvedTheme = theme || (window.MICROSYS_CONFIG && window.MICROSYS_CONFIG.default_theme) || 'light';
             const activeOption = Array.from(options).find(
                 (opt) => opt.getAttribute('data-theme') === resolvedTheme
             );
@@ -67,12 +67,12 @@
         }
 
         window.addEventListener('microsys:theme-changed', (event) => {
-            const theme = event?.detail?.theme || window.USER_PREFS?.theme || localStorage.getItem('appTheme') || 'light';
+            const theme = event?.detail?.theme || window.USER_PREFS?.theme || localStorage.getItem('appTheme') || (window.MICROSYS_CONFIG && window.MICROSYS_CONFIG.default_theme) || 'light';
             updateCurrentThemeIndicator(theme);
         });
 
         // Initialize indicator color
-        const savedTheme = window.USER_PREFS?.theme || localStorage.getItem('appTheme') || 'light';
+        const savedTheme = window.USER_PREFS?.theme || localStorage.getItem('appTheme') || (window.MICROSYS_CONFIG && window.MICROSYS_CONFIG.default_theme) || 'light';
         updateCurrentThemeIndicator(savedTheme);
     });
 })();

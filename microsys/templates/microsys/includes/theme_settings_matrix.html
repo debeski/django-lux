@@ -1,0 +1,60 @@
+<div data-setup-theme-picker data-theme-input="{{ input_id }}">
+    {% if label %}
+    <label class="form-label d-block">{{ label }}</label>
+    {% endif %}
+    {% if help_text %}
+    <p class="text-muted small mb-3">{{ help_text }}</p>
+    {% endif %}
+    <div class="ms-choice-selector ms-choice-selector--swatch ms-theme-settings-matrix">
+    <div class="ms-choice-selector__options">
+        {% for theme in MICROSYS_THEMES %}
+        <div
+            class="ms-choice-option ms-choice-option--swatch ms-theme-settings-option{% if selected_theme == theme.slug %} is-default{% endif %}"
+            data-ms-selector-option
+            data-ms-selector-text="{{ theme.label }} {{ theme.slug }}"
+            data-theme-option="{{ theme.slug }}"
+        >
+            <div class="ms-choice-option__surface">
+                <div class="ms-theme-settings-option__header">
+                    <label class="ms-theme-settings-option__allow" for="id_allowed_theme_{{ forloop.counter0 }}">
+                        <input
+                            type="checkbox"
+                            class="form-check-input ms-theme-settings-option__checkbox"
+                            id="id_allowed_theme_{{ forloop.counter0 }}"
+                            name="{{ allowed_input_name }}"
+                            value="{{ theme.slug }}"
+                            aria-label="{{ theme.label }}: {{ MS_TRANS.form_sys_allowed_themes|default:'Allowed Themes' }}"
+                            data-setup-theme-allowed="{{ theme.slug }}"
+                            {% if theme.slug in allowed_themes %}checked{% endif %}
+                        >
+                    </label>
+                    <span class="ms-theme-settings-option__default-indicator" title="{{ MS_TRANS.form_sys_default_theme|default:'Default Theme' }}">
+                        <i class="bi bi-check2-circle"></i>
+                    </span>
+                </div>
+                <button
+                    type="button"
+                    class="ms-theme-settings-option__select"
+                    data-setup-theme-choice="{{ theme.slug }}"
+                    aria-pressed="{% if selected_theme == theme.slug %}true{% else %}false{% endif %}"
+                    title="{{ MS_TRANS.form_sys_default_theme|default:'Default Theme' }}: {{ theme.label }}"
+                >
+                <span
+                    class="ms-choice-option__swatch theme-preview{% if selected_theme == theme.slug %} active{% endif %}"
+                    style="{{ theme.preview_style }}"
+                    data-theme="{{ theme.slug }}"
+                    title="{{ theme.label }}"
+                ></span>
+                    <span class="ms-choice-option__copy">
+                        <span class="ms-choice-option__label">{{ theme.label }}</span>
+                        {% if theme.label|lower != theme.slug|lower %}
+                        <span class="ms-choice-option__meta">{{ theme.slug }}</span>
+                        {% endif %}
+                    </span>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    </div>
+</div>

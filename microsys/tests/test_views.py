@@ -60,6 +60,8 @@ User = get_user_model()
 class GeneralViewsTests(TestCase):
     def setUp(self):
         cache.clear()
+        from microsys.models import SystemSettings
+
         self.user = User.objects.create_superuser(
             username='admin',
             email='admin@example.com',
@@ -67,6 +69,9 @@ class GeneralViewsTests(TestCase):
         )
         self.client = Client()
         self.client.login(username='admin', password='adminpass123')
+        settings = SystemSettings.load()
+        settings.is_configured = True
+        settings.save()
 
     def test_options_view_requires_login(self):
         """Test that options_view requires authentication."""
@@ -100,6 +105,7 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, '?step=0')
         self.assertContains(response, '?step=1')
         self.assertContains(response, '?step=2')
+        self.assertContains(response, '?step=3')
 
     def test_system_settings_modal_honors_requested_wizard_step(self):
         response = self.client.get(
@@ -111,6 +117,16 @@ class GeneralViewsTests(TestCase):
         payload = json.loads(response.content)
         self.assertIn('data-ms-wizard-initial-step="2"', payload['html'])
         self.assertIn('?step=2', payload['html'])
+
+    def test_system_settings_modal_uses_setup_form_class_for_live_behavior(self):
+        response = self.client.get(
+            reverse('modal_manager', args=['microsys', 'SystemSettings', 1]) + '?step=1',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIn('class="microsys-form ms-system-setup-form"', payload['html'])
 
     def test_system_setup_view_requires_superuser(self):
         """Test that system_setup_view requires superuser status."""

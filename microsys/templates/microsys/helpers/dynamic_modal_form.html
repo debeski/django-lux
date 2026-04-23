@@ -1,7 +1,7 @@
 {% load crispy_forms_tags %}
 
 <form method="post"
-      class="microsys-form"
+      class="microsys-form{% if form.extra_form_class %} {{ form.extra_form_class }}{% endif %}"
       action="{{ request.path }}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
       {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}
       {% if wizard_initial_step is not None %}data-ms-wizard-initial-step="{{ wizard_initial_step }}"{% endif %}>

@@ -245,6 +245,91 @@
   line-height: 1;
 }
 
+.ms-theme-settings-option .ms-choice-option__surface {
+  padding: 0.85rem;
+}
+
+.ms-theme-settings-option__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.ms-theme-settings-option__allow {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+.ms-theme-settings-option__checkbox {
+  margin: 0;
+}
+
+.ms-theme-settings-option__default-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: var(--ms-choice-muted, #64748b);
+  background: rgba(var(--primal-rgb), 0.08);
+  box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.12);
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ms-theme-settings-option.is-default .ms-theme-settings-option__default-indicator {
+  color: #fff;
+  background: var(--primal);
+  box-shadow: 0 0 0 3px rgba(var(--primal-rgb), 0.16);
+}
+
+.ms-theme-settings-option__select {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: inherit;
+  min-width: 0;
+}
+
+.ms-theme-settings-option__select:focus-visible {
+  outline: none;
+}
+
+.ms-theme-settings-option__select:focus-visible .theme-preview {
+  box-shadow: 0 0 0 3px rgba(var(--primal-rgb), 0.16);
+}
+
+.ms-theme-settings-option.is-default .ms-choice-option__surface {
+  background: var(--ms-choice-surface-active, rgba(var(--primal-rgb, 35, 99, 195), 0.1));
+  border-color: var(--ms-choice-border-active, var(--primal, #2363c3));
+  box-shadow: 0 0 0 3px var(--ms-choice-ring, rgba(var(--primal-rgb, 35, 99, 195), 0.16));
+}
+
+.ms-theme-settings-option .ms-choice-option__copy {
+  min-width: 0;
+}
+
+.ms-theme-settings-option .ms-choice-option__label,
+.ms-theme-settings-option .ms-choice-option__meta {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-theme-settings-option:not(.is-default) .theme-preview.active {
+  box-shadow: none;
+}
+
 @media (max-width: 991.98px) {
   .ms-sidebar-tree,
   .ms-sidebar-available {

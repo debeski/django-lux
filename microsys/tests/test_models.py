@@ -81,6 +81,7 @@ class SystemSettingsTests(TestCase):
         instance = SystemSettings.load()
         self.assertEqual(instance.default_language, 'en')
         self.assertEqual(instance.default_theme, 'light')
+        self.assertTrue(instance.allow_user_language_override)
         self.assertEqual(instance.default_table_density, DEFAULT_TABLE_DENSITY)
         self.assertFalse(instance.is_configured)
 

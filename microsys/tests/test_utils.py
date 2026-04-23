@@ -255,9 +255,11 @@ class UtilsTests(TestCase):
         self.assertIn('name', config)
         self.assertIn('default_language', config)
         self.assertIn('default_theme', config)
+        self.assertIn('allow_user_language_override', config)
         self.assertIn('default_table_density', config)
         self.assertIn('languages', config)
         self.assertEqual(config['default_language'], 'en')
+        self.assertTrue(config['allow_user_language_override'])
         self.assertEqual(config['default_table_density'], DEFAULT_TABLE_DENSITY)
 
     def test_get_system_config_with_settings_override(self):
@@ -327,6 +329,30 @@ class UtilsTests(TestCase):
 
         self.assertFalse(config['sidebar']['enable_reorder'])
         self.assertFalse(config['sidebar']['show_toolbar'])
+
+    @override_settings(MICROSYS_CONFIG={
+        'sidebar': {
+            'entries': [
+                {
+                    'kind': 'item',
+                    'id': 'options_view',
+                    'url_name': 'options_view',
+                    'label': 'Options',
+                    'icon': 'bi-gear',
+                    'group_key': 'microsys',
+                }
+            ],
+        },
+        'titlebar': {
+            'show_title': False,
+        },
+    })
+    def test_get_system_config_preserves_sidebar_entries_and_titlebar_show_title(self):
+        config = get_system_config()
+
+        self.assertEqual(len(config['sidebar']['entries']), 1)
+        self.assertEqual(config['sidebar']['entries'][0]['url_name'], 'options_view')
+        self.assertFalse(config['titlebar']['show_title'])
 
     def test_get_system_config_with_database_override(self):
         """Test get_system_config with database override."""

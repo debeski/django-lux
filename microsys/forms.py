@@ -23,13 +23,31 @@ from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
 from .constants import (
     DEFAULT_HOME_URL,
+    DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
     LEGACY_HOME_URL,
+    SIDEBAR_COLLAPSE_MODE_CHOICES,
+    SIDEBAR_COLLAPSE_MODE_VALUES,
+    SIDEBAR_DENSITY_CHOICES,
+    SIDEBAR_DENSITY_VALUES,
     TABLE_DENSITY_CHOICES,
     TABLE_DENSITY_VALUES,
+    TITLEBAR_ALIGN_CHOICES,
+    TITLEBAR_ALIGN_VALUES,
+    TITLEBAR_HEIGHT_CHOICES,
+    TITLEBAR_HEIGHT_VALUES,
+    TITLEBAR_HOME_SHAPE_CHOICES,
+    TITLEBAR_HOME_SHAPE_VALUES,
+    TITLEBAR_SIZE_CHOICES,
+    TITLEBAR_SIZE_VALUES,
+    TITLEBAR_SURFACE_CHOICES,
+    TITLEBAR_SURFACE_VALUES,
 )
 from .translations import get_strings, get_current_language_code
-from .themes import get_theme_choices, get_theme_options, is_valid_theme
+from .themes import get_theme_choices, get_theme_options, is_valid_theme, normalize_allowed_themes
+from .utils import default_titlebar_config, has_section_models, normalize_sidebar_behavior, normalize_titlebar_config
+from .widgets import MicrosysChoiceSelectorWidget
 
 User = get_user_model()
 
@@ -38,6 +56,19 @@ THEME_CHOICES = get_theme_choices()
 
 def _json_dump(value, **kwargs):
     return json.dumps(value, cls=DjangoJSONEncoder, **kwargs)
+
+
+def _system_settings_sidebar_tools_available(cleaned_data):
+    allowed_themes = cleaned_data.get('allowed_themes') or []
+    theme_picker_enabled = bool(cleaned_data.get('allow_user_theme_override', True)) and len(allowed_themes) > 1
+    density_picker_enabled = bool(cleaned_data.get('sidebar_allow_user_density', True))
+    reorder_enabled = bool(cleaned_data.get('sidebar_enable_reorder', True))
+    return bool(theme_picker_enabled or density_picker_enabled or reorder_enabled or has_section_models())
+
+
+def _bind_choice_selector_widget(field, widget):
+    widget.choices = field.choices
+    field.widget = widget
 
 
 
@@ -1006,6 +1037,18 @@ class SystemSettingsForm(forms.ModelForm):
         choices=[(value, value) for value, _, _ in THEME_CHOICES],
         widget=forms.HiddenInput(),
     )
+    allowed_themes = forms.MultipleChoiceField(
+        required=False,
+        choices=[(value, value) for value, _, _ in THEME_CHOICES],
+    )
+    allow_user_theme_override = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    allow_user_language_override = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
     default_table_density = forms.ChoiceField(
         required=True,
         choices=TABLE_DENSITY_CHOICES,
@@ -1031,6 +1074,61 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=True,
     )
+    sidebar_show_icons = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    sidebar_density = forms.ChoiceField(
+        required=False,
+        choices=SIDEBAR_DENSITY_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    sidebar_allow_user_density = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    sidebar_collapse_mode = forms.ChoiceField(
+        required=False,
+        choices=SIDEBAR_COLLAPSE_MODE_CHOICES,
+        initial=DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    )
+    titlebar_show_logo = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    titlebar_show_title = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    titlebar_show_home_button = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    titlebar_home_shape = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_HOME_SHAPE_CHOICES,
+        initial='circle',
+    )
+    titlebar_title_align = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_ALIGN_CHOICES,
+        initial='start',
+    )
+    titlebar_title_size = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_SIZE_CHOICES,
+        initial='md',
+    )
+    titlebar_height = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_HEIGHT_CHOICES,
+        initial='balanced',
+    )
+    titlebar_surface = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_SURFACE_CHOICES,
+        initial='default',
+    )
     email_2fa = forms.BooleanField(
         required=False,
         initial=False,
@@ -1050,12 +1148,16 @@ class SystemSettingsForm(forms.ModelForm):
             'home_url',
             'default_language',
             'default_theme',
+            'allowed_themes',
+            'allow_user_theme_override',
+            'allow_user_language_override',
             'default_table_density',
             'email_2fa',
             'public_root',
             'languages',
             'translations_override',
             'sidebar_config',
+            'titlebar_config',
         ]
 
     def __init__(self, *args, **kwargs):
@@ -1064,6 +1166,7 @@ class SystemSettingsForm(forms.ModelForm):
         self.mode = kwargs.pop('mode', 'modal')
         super().__init__(*args, **kwargs)
         self.refresh_parent = True
+        self.extra_form_class = 'ms-system-setup-form'
         self.single_step_mode = False
         self.single_step_index = None
         s = get_strings()
@@ -1076,7 +1179,7 @@ class SystemSettingsForm(forms.ModelForm):
                 parsed_step = int(raw_step)
             except (TypeError, ValueError):
                 parsed_step = None
-            if parsed_step in (0, 1, 2):
+            if parsed_step in (0, 1, 2, 3):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
 
@@ -1102,6 +1205,9 @@ class SystemSettingsForm(forms.ModelForm):
             (code, payload.get('name', code) if isinstance(payload, dict) else str(payload))
             for code, payload in current_languages.items()
         ]
+        discovered_theme_choices = [(value, value) for value, _, _ in get_theme_choices()]
+        self.fields['default_theme'].choices = discovered_theme_choices
+        self.fields['allowed_themes'].choices = discovered_theme_choices
 
         self.fields['languages'].label = s.get('form_sys_languages', "اللغات المتوفرة (JSON)")
         self.fields['languages'].help_text = s.get('help_sys_languages', 'مثال: {"ar": "العربية", "en": "English"}')
@@ -1124,6 +1230,21 @@ class SystemSettingsForm(forms.ModelForm):
         })
         self.fields['default_language'].label = s.get('form_sys_default_lang', "اللغة الافتراضية")
         self.fields['default_theme'].label = s.get('form_sys_default_theme', "المظهر الافتراضي")
+        self.fields['allowed_themes'].label = s.get('form_sys_allowed_themes', 'Allowed themes')
+        self.fields['allowed_themes'].help_text = s.get(
+            'help_sys_allowed_themes',
+            'Choose which themes are available in this project. The default theme must remain enabled.',
+        )
+        self.fields['allow_user_theme_override'].label = s.get('form_sys_allow_user_theme_override', 'Allow user theme override')
+        self.fields['allow_user_theme_override'].help_text = s.get(
+            'help_sys_allow_user_theme_override',
+            'Allow users to switch between the allowed themes at runtime from Options and the sidebar toolbar.',
+        )
+        self.fields['allow_user_language_override'].label = s.get('form_sys_allow_user_language_override', 'Allow user language override')
+        self.fields['allow_user_language_override'].help_text = s.get(
+            'help_sys_allow_user_language_override',
+            'Allow users to change their display language from Options. When disabled, the system default language is enforced.',
+        )
         self.fields['default_table_density'].label = s.get('form_sys_default_table_density', "الكثافة الافتراضية للجداول")
         self.fields['default_table_density'].help_text = s.get(
             'help_sys_default_table_density',
@@ -1150,6 +1271,81 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_sidebar_enable_toolbar',
             'Show the sidebar toolbar that contains the quick theme picker, reorder toggle, and dynamic section manager shortcut.',
         )
+        self.fields['sidebar_show_icons'].label = s.get('form_sys_sidebar_show_icons', 'Show sidebar icons')
+        self.fields['sidebar_show_icons'].help_text = s.get(
+            'help_sys_sidebar_show_icons',
+            'Show icons beside sidebar items and folders in the expanded sidebar.',
+        )
+        self.fields['sidebar_density'].label = s.get('form_sys_sidebar_density', 'Sidebar density')
+        self.fields['sidebar_density'].help_text = s.get(
+            'help_sys_sidebar_density',
+            'Choose the default row density for the sidebar.',
+        )
+        self.fields['sidebar_density'].choices = (
+            ('dense', s.get('table_density_dense', 'Dense')),
+            (DEFAULT_SIDEBAR_DENSITY, s.get('table_density_balanced', 'Balanced')),
+            ('roomy', s.get('table_density_roomy', 'Roomy')),
+        )
+        self.fields['sidebar_allow_user_density'].label = s.get('form_sys_sidebar_allow_user_density', 'Allow user sidebar density override')
+        self.fields['sidebar_allow_user_density'].help_text = s.get(
+            'help_sys_sidebar_allow_user_density',
+            'Allow users to change sidebar density from the sidebar toolbar at runtime.',
+        )
+        self.fields['sidebar_collapse_mode'].label = s.get('form_sys_sidebar_collapse_mode', 'Desktop collapse mode')
+        self.fields['sidebar_collapse_mode'].help_text = s.get(
+            'help_sys_sidebar_collapse_mode',
+            'Choose how the sidebar behaves when collapsed on large screens.',
+        )
+        self.fields['sidebar_collapse_mode'].choices = (
+            ('icons', s.get('sidebar_collapse_icons', 'Icons only')),
+            ('hidden', s.get('sidebar_collapse_hidden', 'Hide completely')),
+            ('locked_expanded', s.get('sidebar_collapse_locked_expanded', 'Always expanded')),
+        )
+        self.fields['titlebar_show_title'].label = s.get('form_sys_titlebar_show_title', 'Show titlebar title')
+        self.fields['titlebar_show_logo'].label = s.get('form_sys_titlebar_show_logo', 'Show titlebar logo')
+        self.fields['titlebar_show_home_button'].label = s.get('form_sys_titlebar_show_home_button', 'Show titlebar home button')
+        self.fields['titlebar_home_shape'].label = s.get('form_sys_titlebar_home_shape', 'Home button shape')
+        self.fields['titlebar_title_align'].label = s.get('form_sys_titlebar_title_align', 'Title alignment')
+        self.fields['titlebar_title_size'].label = s.get('form_sys_titlebar_title_size', 'Title size')
+        self.fields['titlebar_height'].label = s.get('form_sys_titlebar_height', 'Titlebar height')
+        self.fields['titlebar_surface'].label = s.get('form_sys_titlebar_surface', 'Titlebar surface')
+        self.fields['titlebar_show_title'].help_text = s.get(
+            'help_sys_titlebar_show_title',
+            'Show the system title in the titlebar.',
+        )
+        self.fields['titlebar_show_logo'].help_text = s.get(
+            'help_sys_titlebar_show_logo',
+            'Show the configured branding logo beside the title.',
+        )
+        self.fields['titlebar_show_home_button'].help_text = s.get(
+            'help_sys_titlebar_show_home_button',
+            'Show the quick Home button in the titlebar.',
+        )
+        self.fields['titlebar_home_shape'].choices = (
+            ('circle', s.get('titlebar_home_shape_circle', 'Circle')),
+            ('square', s.get('titlebar_home_shape_square', 'Square')),
+            ('squircle', s.get('titlebar_home_shape_squircle', 'Squircle')),
+        )
+        self.fields['titlebar_title_align'].choices = (
+            ('start', s.get('titlebar_align_start', 'Start')),
+            ('center', s.get('titlebar_align_center', 'Center')),
+            ('end', s.get('titlebar_align_end', 'End')),
+        )
+        self.fields['titlebar_title_size'].choices = (
+            ('sm', s.get('titlebar_size_sm', 'Small')),
+            ('md', s.get('titlebar_size_md', 'Medium')),
+            ('lg', s.get('titlebar_size_lg', 'Large')),
+        )
+        self.fields['titlebar_height'].choices = (
+            ('dense', s.get('titlebar_height_dense', 'Dense')),
+            ('balanced', s.get('titlebar_height_balanced', 'Balanced')),
+            ('roomy', s.get('titlebar_height_roomy', 'Roomy')),
+        )
+        self.fields['titlebar_surface'].choices = (
+            ('default', s.get('titlebar_surface_default', 'Default')),
+            ('muted', s.get('titlebar_surface_muted', 'Muted')),
+            ('glass', s.get('titlebar_surface_glass', 'Glass')),
+        )
         self.fields['email_2fa'].label = s.get('form_sys_email_2fa', 'Enable Email 2FA')
         self.fields['email_2fa'].help_text = s.get(
             'help_sys_email_2fa',
@@ -1159,6 +1355,167 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['public_root'].help_text = s.get(
             'help_sys_public_root',
             'Allow anonymous (non-logged-in) users to access the root URL (/). When enabled, the system will not force-redirect to login.',
+        )
+        self.sidebar_sections_manager_available = bool(has_section_models())
+        _bind_choice_selector_widget(
+            self.fields['default_table_density'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'dense': {
+                        'icon': 'bi-list',
+                        'description': s.get('table_density_dense_desc', 'Fits more rows on screen with tighter spacing.'),
+                    },
+                    'balanced': {
+                        'icon': 'bi-table',
+                        'description': s.get('table_density_balanced_desc', 'Comfortable default for everyday admin work.'),
+                    },
+                    'roomy': {
+                        'icon': 'bi-layout-text-window-reverse',
+                        'description': s.get('table_density_roomy_desc', 'Uses larger rows and more breathing room.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['sidebar_density'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'dense': {
+                        'icon': 'bi-list-ul',
+                        'description': s.get('sidebar_density_dense_desc', 'Tighter rows and spacing for a denser sidebar.'),
+                    },
+                    'balanced': {
+                        'icon': 'bi-layout-sidebar-inset',
+                        'description': s.get('sidebar_density_balanced_desc', 'The default balance between density and readability.'),
+                    },
+                    'roomy': {
+                        'icon': 'bi-distribute-vertical',
+                        'description': s.get('sidebar_density_roomy_desc', 'Larger row height and spacing for a more relaxed sidebar.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['sidebar_collapse_mode'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'icons': {
+                        'icon': 'bi-layout-sidebar-inset',
+                        'description': s.get('sidebar_collapse_icons_desc', 'Collapse to an icon rail on desktop.'),
+                    },
+                    'hidden': {
+                        'icon': 'bi-eye-slash',
+                        'description': s.get('sidebar_collapse_hidden_desc', 'Collapse to a fully hidden desktop sidebar.'),
+                    },
+                    'locked_expanded': {
+                        'icon': 'bi-lock',
+                        'description': s.get('sidebar_collapse_locked_expanded_desc', 'Disable desktop collapsing and keep the sidebar open.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['titlebar_home_shape'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'circle': {
+                        'icon': 'bi-circle',
+                        'description': s.get('titlebar_home_shape_circle_desc', 'Round button silhouette.'),
+                    },
+                    'square': {
+                        'icon': 'bi-square',
+                        'description': s.get('titlebar_home_shape_square_desc', 'Sharp square edges.'),
+                    },
+                    'squircle': {
+                        'icon': 'bi-app-indicator',
+                        'description': s.get('titlebar_home_shape_squircle_desc', 'Soft rounded square edges.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['titlebar_title_align'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'start': {
+                        'icon': 'bi-text-left',
+                        'description': s.get('titlebar_align_start_desc', 'Pin the title to the start side.'),
+                    },
+                    'center': {
+                        'icon': 'bi-text-center',
+                        'description': s.get('titlebar_align_center_desc', 'Keep the title visually centered.'),
+                    },
+                    'end': {
+                        'icon': 'bi-text-right',
+                        'description': s.get('titlebar_align_end_desc', 'Pin the title to the end side.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['titlebar_title_size'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'sm': {
+                        'surface_label': 'S',
+                        'description': s.get('titlebar_size_sm_desc', 'Compact title sizing.'),
+                    },
+                    'md': {
+                        'surface_label': 'M',
+                        'description': s.get('titlebar_size_md_desc', 'Balanced default title sizing.'),
+                    },
+                    'lg': {
+                        'surface_label': 'L',
+                        'description': s.get('titlebar_size_lg_desc', 'Larger, more prominent title sizing.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['titlebar_height'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'dense': {
+                        'surface_label': 'D',
+                        'description': s.get('titlebar_height_dense_desc', 'Tighter vertical titlebar spacing.'),
+                    },
+                    'balanced': {
+                        'surface_label': 'B',
+                        'description': s.get('titlebar_height_balanced_desc', 'Default titlebar spacing.'),
+                    },
+                    'roomy': {
+                        'surface_label': 'R',
+                        'description': s.get('titlebar_height_roomy_desc', 'More breathing room inside the titlebar.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['titlebar_surface'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'default': {
+                        'surface_label': 'Df',
+                        'description': s.get('titlebar_surface_default_desc', 'Standard titlebar surface styling.'),
+                    },
+                    'muted': {
+                        'surface_label': 'Mu',
+                        'description': s.get('titlebar_surface_muted_desc', 'Lower-contrast titlebar surface.'),
+                    },
+                    'glass': {
+                        'surface_label': 'Gl',
+                        'description': s.get('titlebar_surface_glass_desc', 'Blurred glass-style surface effect.'),
+                    },
+                },
+            ),
         )
         project_config = getattr(settings, 'MICROSYS_CONFIG', {})
         if (not getattr(self.instance, 'is_configured', False)) and (not self.instance.name or self.instance.name in {'ادارة النظام', 'إدارة النظام'}):
@@ -1173,11 +1530,34 @@ class SystemSettingsForm(forms.ModelForm):
         if not self.instance.default_language:
              self.instance.default_language = config.get('default_language', 'en')
         self.initial['default_language'] = self.instance.default_language or config.get('default_language', 'en')
-        if not getattr(self.instance, 'default_theme', None):
-             self.instance.default_theme = config.get('default_theme', 'light')
+        if not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False):
+            self.instance.default_theme = config.get('default_theme', 'light')
+        elif not getattr(self.instance, 'default_theme', None):
+            self.instance.default_theme = config.get('default_theme', 'light')
         self.initial['default_theme'] = self.instance.default_theme or config.get('default_theme', 'light')
-        if getattr(self.instance, 'default_table_density', None) not in TABLE_DENSITY_VALUES:
-             self.instance.default_table_density = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
+        initial_allowed_themes = normalize_allowed_themes(
+            (
+                config.get('allowed_themes')
+                if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+                else getattr(self.instance, 'allowed_themes', None)
+            ) or config.get('allowed_themes')
+        )
+        self.initial['allowed_themes'] = list(initial_allowed_themes)
+        self.initial['allow_user_theme_override'] = bool(
+            config.get('allow_user_theme_override', True)
+            if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+            else getattr(self.instance, 'allow_user_theme_override', config.get('allow_user_theme_override', True))
+        )
+        self.initial['allow_user_language_override'] = bool(
+            config.get('allow_user_language_override', True)
+            if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+            else getattr(self.instance, 'allow_user_language_override', config.get('allow_user_language_override', True))
+        )
+        if (
+            not getattr(self.instance, 'pk', None)
+            and not getattr(self.instance, 'is_configured', False)
+        ) or getattr(self.instance, 'default_table_density', None) not in TABLE_DENSITY_VALUES:
+            self.instance.default_table_density = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
         self.initial['default_table_density'] = self.instance.default_table_density or config.get('default_table_density', DEFAULT_TABLE_DENSITY)
         instance_home_url = str(self.instance.home_url or '').strip()
         if (
@@ -1203,6 +1583,13 @@ class SystemSettingsForm(forms.ModelForm):
             sidebar_config = sanitize_sidebar_config(self.instance.sidebar_config, allow_system_items=True)
             sidebar_config['home_url_name'] = None
             self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
+        initial_titlebar_config = normalize_titlebar_config(
+            (
+                config.get('titlebar', {})
+                if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+                else getattr(self.instance, 'titlebar_config', None)
+            ) or config.get('titlebar', {})
+        )
 
         if not self.initial.get('languages'):
             self.initial['languages'] = _json_dump(config.get('languages', {}), ensure_ascii=False, indent=2)
@@ -1212,6 +1599,8 @@ class SystemSettingsForm(forms.ModelForm):
             self.initial['default_language'] = config.get('default_language', 'en')
         if not self.initial.get('default_theme'):
             self.initial['default_theme'] = config.get('default_theme', 'light')
+        if not self.initial.get('allowed_themes'):
+            self.initial['allowed_themes'] = list(normalize_allowed_themes(config.get('allowed_themes')))
         if self.initial.get('default_table_density') not in TABLE_DENSITY_VALUES:
             self.initial['default_table_density'] = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
         self.initial['email_2fa'] = bool(
@@ -1227,15 +1616,12 @@ class SystemSettingsForm(forms.ModelForm):
         if not self.initial.get('sidebar_config'):
             sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}), allow_system_items=True)
             if not isinstance(sidebar_config, dict):
-                sidebar_config = {
+                sidebar_config = normalize_sidebar_behavior({
                     'home_url_name': None,
                     'entries': [],
-                    'enable_reorder': True,
-                    'show_toolbar': True,
-                }
+                })
             sidebar_config.setdefault('entries', [])
-            sidebar_config.setdefault('enable_reorder', True)
-            sidebar_config.setdefault('show_toolbar', True)
+            sidebar_config = normalize_sidebar_behavior(sidebar_config)
             sidebar_config['home_url_name'] = None
             self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
 
@@ -1248,13 +1634,30 @@ class SystemSettingsForm(forms.ModelForm):
 
         self.initial['sidebar_enable_reorder'] = bool(initial_sidebar_config.get('enable_reorder', True))
         self.initial['sidebar_enable_toolbar'] = bool(initial_sidebar_config.get('show_toolbar', True))
+        self.initial['sidebar_show_icons'] = bool(initial_sidebar_config.get('show_icons', True))
+        self.initial['sidebar_density'] = initial_sidebar_config.get('density', DEFAULT_SIDEBAR_DENSITY)
+        self.initial['sidebar_allow_user_density'] = bool(initial_sidebar_config.get('allow_user_density', True))
+        self.initial['sidebar_collapse_mode'] = initial_sidebar_config.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+        self.initial['titlebar_show_title'] = bool(initial_titlebar_config.get('show_title', True))
+        self.initial['titlebar_show_logo'] = bool(initial_titlebar_config.get('show_logo', True))
+        self.initial['titlebar_show_home_button'] = bool(initial_titlebar_config.get('show_home_button', True))
+        self.initial['titlebar_home_shape'] = initial_titlebar_config.get('home_shape', 'circle')
+        self.initial['titlebar_title_align'] = initial_titlebar_config.get('title_align', 'start')
+        self.initial['titlebar_title_size'] = initial_titlebar_config.get('title_size', 'md')
+        self.initial['titlebar_height'] = initial_titlebar_config.get('height', 'balanced')
+        self.initial['titlebar_surface'] = initial_titlebar_config.get('surface', 'default')
 
         catalog_lang = self.initial.get('default_language') or self.instance.default_language or config.get('default_language', 'en')
-        public_sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang)
+        public_sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=False)
         self.sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=True)
         self.sidebar_catalog_fallback = discover_sidebar_catalog(lang_code='en', include_system_items=True)
         seen_home_urls = set()
         home_url_choices = [('', s.get('form_sys_home_url_custom', 'Use a custom URL'))]
+        home_url_option_meta = {
+            '': {
+                'description': s.get('home_url_custom_desc', 'Keep a custom titlebar home URL instead of a discovered page.'),
+            }
+        }
         for entry in public_sidebar_catalog:
             url_name = entry.get('url_name')
             if not url_name:
@@ -1267,8 +1670,14 @@ class SystemSettingsForm(forms.ModelForm):
                 continue
             seen_home_urls.add(resolved_url)
             entry_label = str(entry.get('label') or entry.get('group_label') or url_name).strip()
-            home_url_choices.append((resolved_url, f"{entry_label} ({url_name})"))
+            home_url_choices.append((resolved_url, entry_label))
+            home_url_option_meta[resolved_url] = {
+                'description': str(entry.get('group_label') or '').strip(),
+                'secondary': url_name,
+                'search_text': f"{entry_label} {url_name} {resolved_url}",
+            }
         self.fields['home_url_discovered'].choices = home_url_choices
+        self.fields['home_url_discovered'].widget.option_meta = home_url_option_meta
         self.initial['home_url_discovered'] = current_home_url if current_home_url in seen_home_urls else ''
 
         self.language_picker_html = render_to_string(
@@ -1284,26 +1693,17 @@ class SystemSettingsForm(forms.ModelForm):
         )
 
         self.theme_picker_html = render_to_string(
-            'microsys/includes/theme_previews.html',
+            'microsys/includes/theme_settings_matrix.html',
             {
                 'selected_theme': self.initial.get('default_theme', 'light'),
                 'picker_mode': 'setup',
                 'input_id': 'id_default_theme',
+                'allowed_input_name': 'allowed_themes',
+                'allowed_themes': set(self.initial.get('allowed_themes', [])),
                 'MS_TRANS': s,
                 'MICROSYS_THEMES': get_theme_options(s),
                 'label': self.fields['default_theme'].label,
-            },
-        )
-        self.table_density_picker_html = render_to_string(
-            'microsys/includes/table_density_previews.html',
-            {
-                'selected_density': self.initial.get('default_table_density', DEFAULT_TABLE_DENSITY),
-                'picker_mode': 'setup',
-                'input_id': 'id_default_table_density',
-                'MS_TRANS': s,
-                'label': self.fields['default_table_density'].label,
-                'help_text': self.fields['default_table_density'].help_text,
-                'density_choices': TABLE_DENSITY_CHOICES,
+                'help_text': self.fields['allowed_themes'].help_text,
             },
         )
 
@@ -1362,21 +1762,21 @@ class SystemSettingsForm(forms.ModelForm):
                         Field('default_language'),
                         css_class='col-lg-6'
                     ),
-                    Div(HTML(self.theme_picker_html), Field('default_theme'), css_class='col-lg-6'),
-                ),
-                Row(
                     Div(
-                        HTML(self.table_density_picker_html),
-                        Field('default_table_density'),
-                        css_class='col-12'
+                        HTML(self.theme_picker_html),
+                        Field('default_theme'),
+                        css_class='col-lg-6'
                     ),
                 ),
                 Row(
-                    Div(Field('home_url_discovered', css_class='col-lg-6'), css_class='col-lg-6'),
-                    Div(Field('home_url', css_class='col-lg-6', dir='ltr'), css_class='col-lg-6'),
+                    Div(Field('allow_user_theme_override'), css_class='col-lg-6'),
+                    Div(Field('home_url_discovered'), css_class='col-lg-6'),
                 ),
                 Row(
+                    Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
                     Div(Field('email_2fa'), css_class='col-lg-6'),
+                ),
+                Row(
                     Div(Field('public_root'), css_class='col-lg-6'),
                 ),
                 css_class='wizard-step',
@@ -1384,6 +1784,9 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step2', 'الخطوة 2')}</span></div>"),
+                Row(
+                    Div(Field('allow_user_language_override'), css_class='col-lg-6'),
+                ),
                 Row(Field('languages', css_class='col-12 font-monospace', dir='ltr')),
                 Row(Field('translations_override', css_class='col-12 font-monospace', dir='ltr')),
                 css_class='wizard-step',
@@ -1391,9 +1794,21 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'الخطوة 3')}</span></div>"),
+                HTML(
+                    f"<div class='d-none' data-sidebar-tooling-state "
+                    f"data-sections-manager-available=\"{'true' if self.sidebar_sections_manager_available else 'false'}\"></div>"
+                ),
                 Row(
                     Div(Field('sidebar_enable_reorder'), css_class='col-lg-6'),
                     Div(Field('sidebar_enable_toolbar'), css_class='col-lg-6'),
+                ),
+                Row(
+                    Div(Field('sidebar_show_icons'), css_class='col-lg-6'),
+                    Div(Field('sidebar_allow_user_density'), css_class='col-lg-6'),
+                ),
+                Row(
+                    Div(Field('sidebar_density'), css_class='col-lg-6'),
+                    Div(Field('sidebar_collapse_mode'), css_class='col-lg-6'),
                 ),
                 HTML(
                     f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enable_toolbar', True) else ''}' "
@@ -1405,6 +1820,31 @@ class SystemSettingsForm(forms.ModelForm):
                 Field('sidebar_config'),
                 css_class='wizard-step',
                 style=_step_style(2),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'الخطوة 4')}</span></div>"),
+                Row(
+                    Div(Field('default_table_density'), css_class='col-lg-6'),
+                ),
+                HTML(f"<h6 class='fw-bold mb-3'>{s.get('titlebar_settings_title', 'إعدادات شريط العنوان')}</h6>"),
+                Row(
+                    Div(Field('titlebar_show_title'), css_class='col-lg-4'),
+                    Div(Field('titlebar_show_logo'), css_class='col-lg-4'),
+                    Div(Field('titlebar_show_home_button'), css_class='col-lg-4'),
+                ),
+                Row(
+                    Div(Field('titlebar_title_align'), css_class='col-lg-6'),
+                    Div(Field('titlebar_title_size'), css_class='col-lg-6'),
+                ),
+                Row(
+                    Div(Field('titlebar_home_shape'), css_class='col-lg-6'),
+                    Div(Field('titlebar_height'), css_class='col-lg-6'),
+                ),
+                Row(
+                    Div(Field('titlebar_surface'), css_class='col-lg-12'),
+                ),
+                css_class='wizard-step',
+                style=_step_style(3),
             ),
             FormActions(
                 Submit(
@@ -1466,10 +1906,61 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Invalid theme choice.")
         return value
 
+    def clean_allowed_themes(self):
+        values = self.cleaned_data.get('allowed_themes') or []
+        if not values:
+            raise ValidationError("At least one theme must remain enabled.")
+        normalized = list(normalize_allowed_themes(values))
+        if not normalized:
+            raise ValidationError("At least one theme must remain enabled.")
+        return normalized
+
     def clean_default_table_density(self):
         value = self.cleaned_data.get('default_table_density') or DEFAULT_TABLE_DENSITY
         if value not in TABLE_DENSITY_VALUES:
             raise ValidationError("Invalid table density choice.")
+        return value
+
+    def clean_sidebar_density(self):
+        value = self.cleaned_data.get('sidebar_density') or DEFAULT_SIDEBAR_DENSITY
+        if value not in SIDEBAR_DENSITY_VALUES:
+            raise ValidationError("Invalid sidebar density choice.")
+        return value
+
+    def clean_sidebar_collapse_mode(self):
+        value = self.cleaned_data.get('sidebar_collapse_mode') or DEFAULT_SIDEBAR_COLLAPSE_MODE
+        if value not in SIDEBAR_COLLAPSE_MODE_VALUES:
+            raise ValidationError("Invalid sidebar collapse mode.")
+        return value
+
+    def clean_titlebar_home_shape(self):
+        value = self.cleaned_data.get('titlebar_home_shape') or 'circle'
+        if value not in TITLEBAR_HOME_SHAPE_VALUES:
+            raise ValidationError("Invalid titlebar home shape.")
+        return value
+
+    def clean_titlebar_title_align(self):
+        value = self.cleaned_data.get('titlebar_title_align') or 'start'
+        if value not in TITLEBAR_ALIGN_VALUES:
+            raise ValidationError("Invalid title alignment.")
+        return value
+
+    def clean_titlebar_title_size(self):
+        value = self.cleaned_data.get('titlebar_title_size') or 'md'
+        if value not in TITLEBAR_SIZE_VALUES:
+            raise ValidationError("Invalid title size.")
+        return value
+
+    def clean_titlebar_height(self):
+        value = self.cleaned_data.get('titlebar_height') or 'balanced'
+        if value not in TITLEBAR_HEIGHT_VALUES:
+            raise ValidationError("Invalid titlebar height.")
+        return value
+
+    def clean_titlebar_surface(self):
+        value = self.cleaned_data.get('titlebar_surface') or 'default'
+        if value not in TITLEBAR_SURFACE_VALUES:
+            raise ValidationError("Invalid titlebar surface.")
         return value
 
     def clean_home_url(self):
@@ -1499,16 +1990,45 @@ class SystemSettingsForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        allowed_themes = cleaned.get('allowed_themes') or []
+        default_theme = cleaned.get('default_theme') or 'light'
+        if allowed_themes and default_theme not in allowed_themes:
+            self.add_error('default_theme', "Default theme must remain allowed.")
+
         sidebar = cleaned.get('sidebar_config')
         if isinstance(sidebar, dict):
             sidebar['enable_reorder'] = bool(cleaned.get('sidebar_enable_reorder', True))
             sidebar['show_toolbar'] = bool(cleaned.get('sidebar_enable_toolbar', True))
+            sidebar['show_icons'] = bool(cleaned.get('sidebar_show_icons', True))
+            sidebar['density'] = cleaned.get('sidebar_density', DEFAULT_SIDEBAR_DENSITY)
+            sidebar['allow_user_density'] = bool(cleaned.get('sidebar_allow_user_density', True))
+            sidebar['collapse_mode'] = cleaned.get('sidebar_collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+            if not _system_settings_sidebar_tools_available(cleaned):
+                sidebar['show_toolbar'] = False
+                cleaned['sidebar_enable_toolbar'] = False
+            sidebar = normalize_sidebar_behavior(sidebar)
+            cleaned['sidebar_config'] = sidebar
+            cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+        cleaned['titlebar_config'] = normalize_titlebar_config({
+            'show_title': bool(cleaned.get('titlebar_show_title', True)),
+            'show_logo': bool(cleaned.get('titlebar_show_logo', True)),
+            'show_home_button': bool(cleaned.get('titlebar_show_home_button', True)),
+            'home_shape': cleaned.get('titlebar_home_shape', 'circle'),
+            'title_align': cleaned.get('titlebar_title_align', 'start'),
+            'title_size': cleaned.get('titlebar_title_size', 'md'),
+            'height': cleaned.get('titlebar_height', 'balanced'),
+            'surface': cleaned.get('titlebar_surface', 'default'),
+        })
         return cleaned
 
     def save(self, commit=True):
         instance = super().save(commit=False)
         instance.is_configured = True
         instance.sidebar_config = self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []})
+        instance.allowed_themes = self.cleaned_data.get('allowed_themes', list(normalize_allowed_themes()))
+        instance.allow_user_theme_override = bool(self.cleaned_data.get('allow_user_theme_override', True))
+        instance.allow_user_language_override = bool(self.cleaned_data.get('allow_user_language_override', True))
+        instance.titlebar_config = self.cleaned_data.get('titlebar_config', default_titlebar_config())
         fallback_home = getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
         instance.home_url = self.cleaned_data.get('home_url') or fallback_home
         if isinstance(instance.sidebar_config, dict):

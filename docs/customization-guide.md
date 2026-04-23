@@ -51,8 +51,36 @@ For sidebar behavior defaults, the code-owned `MICROSYS_CONFIG["sidebar"]` layer
 
 - `enable_reorder`
 - `show_toolbar`
+- `show_icons`
+- `density`
+- `allow_user_density`
+- `collapse_mode`
 
 Those defaults are then layered with runtime System Settings edits in the normal configuration flow.
+
+The system config layer now also supports governed theme exposure and titlebar layout defaults:
+
+- `allowed_themes`: list of shipped theme slugs that remain selectable at runtime
+- `allow_user_theme_override`: hides runtime theme pickers and ignores saved user theme preferences when false
+- `titlebar.show_logo`
+- `titlebar.show_home_button`
+- `titlebar.home_shape`: `circle`, `square`, or `squircle`
+- `titlebar.title_align`: `start`, `center`, or `end`
+- `titlebar.title_size`: `sm`, `md`, or `lg`
+- `titlebar.height`: `dense`, `balanced`, or `roomy`
+- `titlebar.surface`: `default`, `muted`, or `glass`
+
+Runtime precedence for the new appearance controls is:
+
+- theme: saved `Profile.preferences["theme"]` only when the theme is allowed and user overrides are enabled, otherwise the system `default_theme`
+- sidebar density: saved `Profile.preferences["sidebar_density"]` only when `sidebar.allow_user_density` is enabled, otherwise the system sidebar density
+- sidebar collapsed state: ignored on desktop when `sidebar.collapse_mode` is `locked_expanded`
+
+Sidebar collapse modes now mean:
+
+- `icons`: desktop collapse keeps the icon rail
+- `hidden`: desktop collapse fully hides the sidebar, similar to the mobile overlay behavior
+- `locked_expanded`: desktop collapse is disabled and the titlebar toggle is suppressed on large screens
 
 When adding or refining a theme, treat these as one framework surface:
 

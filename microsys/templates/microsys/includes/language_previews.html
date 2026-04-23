@@ -2,11 +2,12 @@
     {% if label %}
     <label class="form-label d-block">{{ label }}</label>
     {% endif %}
-    <div class="d-flex flex-wrap gap-3">
+    <div class="ms-choice-selector ms-choice-selector--swatch">
+    <div class="ms-choice-selector__options">
         {% for code, lang in languages.items %}
-        <div class="text-center">
+        <div>
             <div
-                class="lang-option rounded border shadow-sm p-2 mb-1{% if code == selected_language %} lang-active{% endif %}"
+                class="lang-option ms-choice-option__surface rounded border shadow-sm p-2 mb-1{% if code == selected_language %} lang-active{% endif %}"
                 {% if picker_mode == 'options' %}data-lang="{{ code }}"{% endif %}
                 {% if picker_mode == 'setup' %}data-setup-language-choice="{{ code }}"{% endif %}
                 data-dir="{{ lang.dir|default:'ltr' }}"
@@ -18,5 +19,6 @@
             <small class="text-muted">{{ lang.name|default:code }}</small>
         </div>
         {% endfor %}
+    </div>
     </div>
 </div>

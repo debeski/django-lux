@@ -15,6 +15,13 @@ This file owns the release history for `django-microsys`.
 - **Options and System Settings Refinements**: Split the Options entry for System Settings into focused branding/languages/sidebar launches, restored missing `email_2fa` and `public_root` translation coverage, and modernized System Settings branding uploads onto the shared Microsys file-input path with automatic multipart modal submission.
 - **Sidebar Builder Runtime Polish**: Fixed selected-entry localization drift in Arabic and added cross-pane drag/drop so discovered entries can be moved into or back out of the selected tree without leaving the builder flow.
 
+## Unreleased
+
+- **Governed Theme Allowlist**: Added `SystemSettings.allowed_themes` plus `allow_user_theme_override`, wired setup/System Settings to a theme-allowlist matrix, filtered runtime theme exposure to the approved set, and forced saved disallowed themes back to the system default.
+- **Sidebar Density and Collapse Modes**: Expanded sidebar config with `show_icons`, `density`, `allow_user_density`, and `collapse_mode`, added density controls to setup, Options, and the live sidebar toolbar, and normalized `show_icons=false` away from the icon-rail collapse mode.
+- **Titlebar Layout Controls**: Added admin-owned titlebar controls for logo/home visibility, home-button shape, title alignment, title size, bar height, and surface style, with data-driven template/CSS wiring and a mobile-safe alignment fallback.
+- **Config and Preference Hardening**: Extended `get_system_config()`, context, and preferences persistence to respect theme allowlists, sidebar density locks, locked-expanded sidebars, branding URL normalization, and optional `psutil` / TOTP dependencies in lean environments.
+
 ## v1.20.4
 
 - **Microsys Table Platform vNext**: Added the public `MicrosysTable` base class and aligned generic auto-built tables with the same renderer, density handling, default attrs, sorting, pagination, and row-action contract.
