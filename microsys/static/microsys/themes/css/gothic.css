@@ -850,6 +850,11 @@
 }
 
 /* 16. Form Check */
+:root.theme-gothic .form-check-input {
+    background-color: var(--gothic-panel) !important;
+    border-color: rgba(0, 180, 216, 0.3) !important;
+}
+
 :root.theme-gothic .form-check-input:checked {
     background-color: var(--gothic-teal) !important;
     border-color: var(--gothic-teal) !important;
@@ -1098,6 +1103,50 @@
 
 :root.theme-gothic .theme-arrow {
     color: var(--gothic-teal) !important;
+}
+
+:root.theme-gothic .sidebar-density-indicator {
+    color: rgba(224, 224, 255, 0.8) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(0, 180, 216, 0.18) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(224, 170, 255, 0.04),
+        0 5px 14px rgba(0, 0, 0, 0.22) !important;
+}
+
+:root.theme-gothic .sidebar-density-indicator:hover {
+    color: var(--gothic-teal) !important;
+    background:
+        radial-gradient(circle at top, rgba(0, 180, 216, 0.14), transparent 70%),
+        rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(0, 180, 216, 0.32) !important;
+}
+
+:root.theme-gothic .sidebar-density-popup {
+    background: linear-gradient(180deg, rgba(26, 16, 37, 0.98), rgba(10, 5, 16, 0.98)) !important;
+    border-color: rgba(0, 180, 216, 0.2) !important;
+    color: var(--title) !important;
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.48),
+        0 0 20px rgba(0, 180, 216, 0.08) !important;
+}
+
+:root.theme-gothic .sidebar-density-popup .small {
+    color: var(--gothic-cyan) !important;
+    border-bottom-color: rgba(0, 180, 216, 0.12) !important;
+}
+
+:root.theme-gothic .sidebar-density-chip {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(0, 180, 216, 0.18) !important;
+    color: rgba(224, 224, 255, 0.55) !important;
+}
+
+:root.theme-gothic .sidebar-density-chip.is-active,
+:root.theme-gothic .sidebar-density-chip:hover {
+    color: var(--gothic-teal) !important;
+    border-color: rgba(0, 180, 216, 0.32) !important;
+    background: rgba(0, 180, 216, 0.1) !important;
 }
 
 :root.theme-gothic .current-theme-indicator {

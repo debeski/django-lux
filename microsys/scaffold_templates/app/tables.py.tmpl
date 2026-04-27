@@ -6,3 +6,4 @@ class ExampleRecordTable(MicrosysTable):
     class Meta(MicrosysTable.Meta):
         model = ExampleRecord
         fields = ("name", "is_active", "created_at")
+        microsys_actions = True  # Enable context menu actions (view, edit, delete)

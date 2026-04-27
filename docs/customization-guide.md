@@ -8,8 +8,10 @@ This guide focuses on the extension points you are most likely to use in a real 
 
 ```python
 MICROSYS_CONFIG = {
-    "name_en": "microSYS",
-    "name_ar": "النظام",
+    "system_names": {
+        "en": "microSYS",
+        "ar": "النظام",
+    },
     "default_language": "en",
     "default_theme": "light",
     "home_url": "/accounts/profile/",
@@ -141,8 +143,25 @@ Template usage:
 Important behavior:
 
 - microSYS auto-discovers `translations.py` across installed apps
+- discovered translation languages are suggestions only; a language becomes available to users only after it is added to the language catalog in setup/System Settings
+- setup/System Settings provides a source-tabbed translation matrix editor that groups keys by Microsys, installed app, project translations, or settings-only overrides
+- the translation matrix saves only admin edits into `SystemSettings.translations_override`
 - forms, filters, tables, and some context-menu labels are translated automatically by startup patches
 - language resolution is layered, so user preference and runtime defaults matter
+
+## Setup Import and Export
+
+Superusers can export the current System Settings payload from the Options System Settings card. The exported JSON uses the `django-microsys.system-settings` format and is meant to be imported from step 1 of the setup/System Settings wizard in another development, staging, or local environment.
+
+The file contains the stable DB-backed setup fields:
+
+- `system_names`
+- `languages`
+- `translations_override`
+- `home_url`
+- theme, density, security, sidebar, and titlebar settings
+
+Logo and favicon values are exported as stored file names only. The JSON file does not embed binary media content, so those media files must already exist in the target environment if you want the imported file names to resolve.
 
 ## Sections and Generated Components
 

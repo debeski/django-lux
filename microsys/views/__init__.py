@@ -2,7 +2,7 @@
 # so that `from . import views` and `views.XYZ` in urls.py keeps working.
 
 # General / Dashboard / Preferences
-from .general import options_view, system_setup_view
+from .general import export_system_settings_view, options_view, system_setup_view
 
 # Authentication & User Management
 from .users import (

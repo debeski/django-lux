@@ -44,9 +44,19 @@ from .constants import (
     TITLEBAR_SURFACE_CHOICES,
     TITLEBAR_SURFACE_VALUES,
 )
-from .translations import get_strings, get_current_language_code
+from .translations import build_translation_matrix_groups, discover_translation_languages, get_strings, get_current_language_code
 from .themes import get_theme_choices, get_theme_options, is_valid_theme, normalize_allowed_themes
-from .utils import default_titlebar_config, has_section_models, normalize_sidebar_behavior, normalize_titlebar_config
+from .utils import (
+    default_titlebar_config,
+    has_section_models,
+    is_central_staff,
+    is_global_staff,
+    normalize_system_settings_import_payload,
+    normalize_language_catalog,
+    normalize_sidebar_behavior,
+    normalize_system_names,
+    normalize_titlebar_config,
+)
 from .widgets import MicrosysChoiceSelectorWidget
 
 User = get_user_model()
@@ -104,7 +114,7 @@ def _attach_is_staff_permission(form, widget_id=None):
     option = {
         'name': 'is_staff',
         'value': 'on',
-        'label': staff_field.label or s.get('form_is_staff', "مسؤول"),
+        'label': staff_field.label or s.get('form_is_staff', "Staff"),
         'selected': current_value,
         'help_text': staff_field.help_text,
         'attrs': {
@@ -119,7 +129,7 @@ def _attach_is_staff_permission(form, widget_id=None):
         app_label='microsys',
         app_name=app_name,
         model_key='staff_access',
-        model_name=s.get('perm_staff_access', 'صلاحيات الإدارة'),
+        model_name=s.get('perm_staff_access', 'Staff Permissions'),
         option=option,
     )
 
@@ -257,9 +267,12 @@ class GroupedPermissionWidget(ChoiceWidget):
             value = []
         str_values = set(str(v) for v in value)
         
-        # Access the queryset directly
+        # Access the queryset directly - prioritize field's current queryset over cached choices
         qs = None
-        if hasattr(self.choices, 'queryset'):
+        if hasattr(self, '_filtered_queryset'):
+            # Use the explicitly set filtered queryset from the form
+            qs = self._filtered_queryset.select_related('content_type').order_by('content_type__app_label', 'codename')
+        elif hasattr(self.choices, 'queryset'):
             qs = self.choices.queryset.select_related('content_type').order_by('content_type__app_label', 'codename')
         else:
              choices = list(self.choices)
@@ -273,17 +286,17 @@ class GroupedPermissionWidget(ChoiceWidget):
             model_name = perm.content_type.model
             codename = perm.codename
 
-            # --- Mapping manage_staff and view_activity_log to is_staff UI ---
-            if app_label == 'microsys' and codename in ['manage_staff', 'view_activity_log']:
+            # --- Mapping manage_staff to the dedicated staff-access UI ---
+            if app_label == 'microsys' and codename == 'manage_staff':
                 model_name = 'staff_access'
                 # Force model_verbose_name to match what _attach_is_staff_permission uses
-                # "perm_staff_access" string usually "صلاحيات الإدارة"
+                # "perm_staff_access" string usually "Staff Permissions"
                 
             # Use real verbose name from model class if available
             if app_label == 'microsys' and model_name == 'staff_access':
-                model_verbose_name = s.get('perm_staff_access', "صلاحيات الإدارة")
+                model_verbose_name = s.get('perm_staff_access', "Staff Permissions")
             elif app_label == 'microsys' and model_name == 'profile':
-                model_verbose_name = s.get('perm_manage_users', "إدارة المستخدمين")
+                model_verbose_name = s.get('perm_manage_users', "User Management")
             # elif app_label == 'auth' and model_name == 'section':
             #     model_verbose_name = "إدارة الأقسام الفرعية"
             # else:
@@ -417,7 +430,7 @@ class CustomUserCreationForm(UserCreationForm):
 
     # Added fields from Profile
     phone = forms.CharField(max_length=15, required=False)
-    scope = forms.ModelChoiceField(queryset=None, required=False, label="النطاق")
+    scope = forms.ModelChoiceField(queryset=None, required=False, label="Scope")
     
     permissions = forms.ModelMultipleChoiceField(
         queryset=Permissions.objects.exclude(
@@ -428,12 +441,12 @@ class CustomUserCreationForm(UserCreationForm):
                 'sessions',
                 'django_celery_beat',
             ]) |
-            (Q(content_type__app_label='microsys') & ~Q(codename='manage_staff') & ~Q(codename='view_activity_log') & ~Q(content_type__model='section')) |
+            (Q(content_type__app_label='microsys') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'view_activitylog']) & ~Q(content_type__model='section')) |
             Q(content_type__app_label='auth', content_type__model__in=['group', 'user', 'permission'])
         ),
         required=False,
         widget=GroupedPermissionWidget,
-        label="الصلاحيات"
+        label="Permissions"
     )
 
     class Meta:
@@ -441,7 +454,7 @@ class CustomUserCreationForm(UserCreationForm):
         fields = ["username", "password1", "password2", "first_name", "last_name", "email", "is_staff", "is_active"]
 
     def __init__(self, *args, **kwargs):
-        self.user_context = kwargs.pop('user', None) # Renamed to avoid calling it self.user which conflicts with instance in some contexts? No wait, self.user in init usually refers to request.user passed in view
+        self.user_context = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
         Scope = apps.get_model('microsys', 'Scope')
@@ -450,7 +463,10 @@ class CustomUserCreationForm(UserCreationForm):
         # Permission check: Non-superusers can only assign permissions they already have
         if self.user_context and not self.user_context.is_superuser:
             user_perms = self.user_context.user_permissions.all() | Permissions.objects.filter(group__user=self.user_context)
-            self.fields['permissions'].queryset = self.fields['permissions'].queryset.filter(id__in=user_perms.values_list('id', flat=True))
+            filtered_qs = self.fields['permissions'].queryset.filter(id__in=user_perms.values_list('id', flat=True))
+            self.fields['permissions'].queryset = filtered_qs
+            # Store filtered queryset for widget to use
+            self.fields['permissions'].widget._filtered_queryset = filtered_qs
 
         lock_scope = bool(
             self.user_context
@@ -461,7 +477,24 @@ class CustomUserCreationForm(UserCreationForm):
 
         if lock_scope:
             # Security Fix: Hide manage_staff
-            self.fields['permissions'].queryset = self.fields['permissions'].queryset.exclude(codename='manage_staff')
+            filtered_qs = self.fields['permissions'].queryset.exclude(codename='manage_staff')
+            self.fields['permissions'].queryset = filtered_qs
+            self.fields['permissions'].widget._filtered_queryset = filtered_qs
+        
+        # Central Staff restrictions: cannot assign scopes, cannot see manage_scopes permission
+        # Also apply to any non-superuser without manage_scopes permission
+        if self.user_context and not self.user_context.is_superuser:
+            if not self.user_context.has_perm('microsys.manage_scopes'):
+                # Hide scope field completely - Central Staff can only create scopeless users
+                self.fields['scope'].widget = forms.HiddenInput()
+                self.fields['scope'].required = False
+                self.fields['scope'].initial = None
+                self.fields['scope'].queryset = Scope.objects.none()
+                # Hide manage_scopes permission - only superusers can create Global Staff
+                filtered_qs = self.fields['permissions'].queryset.exclude(codename='manage_scopes')
+                self.fields['permissions'].queryset = filtered_qs
+                # Store filtered queryset for widget to use
+                self.fields['permissions'].widget._filtered_queryset = filtered_qs
         
         self.fields["email"].required = False
 
@@ -470,7 +503,7 @@ class CustomUserCreationForm(UserCreationForm):
             if not self.user_context.has_perm('microsys.manage_staff'):
                 self.fields['is_staff'].disabled = True
                 self.fields['is_staff'].initial = False
-                self.fields['is_staff'].help_text = "ليس لديك صلاحية لتعيين هذا المستخدم كمسؤول."
+                self.fields['is_staff'].help_text = "You don't have permission to assign this user as staff."
 
         # Load translations
         s = get_strings()
@@ -479,26 +512,26 @@ class CustomUserCreationForm(UserCreationForm):
         # Inject translations into widget
         self.fields['permissions'].widget.translations = s
 
-        self.fields["username"].label = s.get('form_username', "اسم المستخدم")
-        self.fields["email"].label = s.get('form_email', "البريد الإلكتروني")
-        self.fields["first_name"].label = s.get('form_firstname', "الاسم")
-        self.fields["last_name"].label = s.get('form_lastname', "اللقب")
-        self.fields["is_staff"].label = s.get('form_is_staff', "صلاحيات انشاء و تعديل المستخدمين")
-        self.fields["password1"].label = s.get('form_password', "كلمة المرور")
-        self.fields["password2"].label = s.get('form_password_confirm', "تأكيد كلمة المرور")
-        self.fields["is_active"].label = s.get('form_is_active', "تفعيل الحساب")
-        self.fields["phone"].label = s.get('form_phone', "رقم الهاتف")
-        self.fields["scope"].label = s.get('form_scope', "النطاق")
-        self.fields["permissions"].label = s.get('form_permissions', "الصلاحيات")
+        self.fields["username"].label = s.get('form_username', "Username")
+        self.fields["email"].label = s.get('form_email', "Email")
+        self.fields["first_name"].label = s.get('form_firstname', "First Name")
+        self.fields["last_name"].label = s.get('form_lastname', "Last Name")
+        self.fields["is_staff"].label = s.get('form_is_staff', "Staff Status")
+        self.fields["password1"].label = s.get('form_password', "Password")
+        self.fields["password2"].label = s.get('form_password_confirm', "Confirm Password")
+        self.fields["is_active"].label = s.get('form_is_active', "Active")
+        self.fields["phone"].label = s.get('form_phone', "Phone Number")
+        self.fields["scope"].label = s.get('form_scope', "Scope")
+        self.fields["permissions"].label = s.get('form_permissions', "Permissions")
 
         # Help Texts
-        self.fields["username"].help_text = s.get('help_username', "اسم المستخدم يجب أن يكون فريدًا...")
-        self.fields["email"].help_text = s.get('help_email', "أدخل عنوان البريد الإلكتروني الصحيح (اختياري)")
-        self.fields["is_active"].help_text = s.get('help_is_active', "يحدد ما إذا كان يجب اعتبار هذا الحساب نشطًا.")
-        self.fields["is_staff"].help_text = s.get('help_is_staff', "يحدد ما إذا كان يمكن للمستخدم تسجيل الدخول إلى هذا الموقع الإداري.")
-        self.fields["password1"].help_text = s.get('help_password_common', "كلمة المرور يجب ألا تكون مشابهة...")
-        self.fields["password2"].help_text = s.get('help_password_match', "أدخل نفس كلمة المرور السابقة للتحقق.")
-        self.fields["phone"].help_text = s.get('help_phone', "أدخل رقم الهاتف الصحيح...")
+        self.fields["username"].help_text = s.get('help_username', "Username must be unique. 150 characters or fewer. Letters, digits and @/./+/-/_ only.")
+        self.fields["email"].help_text = s.get('help_email', "Enter a valid email address (optional).")
+        self.fields["is_active"].help_text = s.get('help_is_active', "Designates whether this user should be treated as active.")
+        self.fields["is_staff"].help_text = s.get('help_is_staff', "Designates whether the user can log into this admin site.")
+        self.fields["password1"].help_text = s.get('help_password_common', "Your password can't be too similar to your other personal information.")
+        self.fields["password2"].help_text = s.get('help_password_match', "Enter the same password as before, for verification.")
+        self.fields["phone"].help_text = s.get('help_phone', "Enter a valid phone number (optional).")
         _apply_autocomplete_attrs(
             self,
             {
@@ -516,7 +549,7 @@ class CustomUserCreationForm(UserCreationForm):
         if self.user_context and not self.user_context.is_superuser:
             if not self.user_context.has_perm('microsys.manage_staff'):
                  # ... existing disabled logic ...
-                 self.fields['is_staff'].help_text = s.get('help_is_staff_no_perm', "ليس لديك صلاحية لتعيين هذا المستخدم كمسؤول.")
+                 self.fields['is_staff'].help_text = s.get('help_is_staff_no_perm', "You don't have permission to assign this user as staff.")
 
         _attach_is_staff_permission(self, self.fields['permissions'].widget.attrs.get('id'))
 
@@ -558,7 +591,7 @@ class CustomUserCreationForm(UserCreationForm):
 
         actions = _build_wizard_actions(
             s,
-            submit_label=s.get('btn_add', 'إضافة'),
+            submit_label=s.get('btn_add', 'Add'),
             submit_icon='bi-person-plus-fill',
         )
 
@@ -570,7 +603,22 @@ class CustomUserCreationForm(UserCreationForm):
         if commit:
             user.save()
             # Manually set permissions
-            user.user_permissions.set(self.cleaned_data["permissions"])
+            permissions = list(self.cleaned_data["permissions"])
+            
+            # Auto-grant auth.view_user permission when user is staff
+            if user.is_staff:
+                from django.contrib.auth.models import Permission
+                try:
+                    view_user_perm = Permission.objects.get(
+                        content_type__app_label='auth',
+                        codename='view_user'
+                    )
+                    if view_user_perm not in permissions:
+                        permissions.append(view_user_perm)
+                except Permission.DoesNotExist:
+                    pass
+            
+            user.user_permissions.set(permissions)
             
             # Save Profile fields
             Profile = apps.get_model('microsys', 'Profile')
@@ -593,7 +641,7 @@ class CustomUserChangeForm(UserChangeForm):
     refresh_parent = True
 
     phone = forms.CharField(max_length=15, required=False)
-    scope = forms.ModelChoiceField(queryset=None, required=False, label="النطاق")
+    scope = forms.ModelChoiceField(queryset=None, required=False, label="Scope")
 
     class Meta:
         model = User
@@ -616,18 +664,18 @@ class CustomUserChangeForm(UserChangeForm):
         s = get_strings()
         self.modal_heading = s.get('edit_user_label', 'Edit User')
 
-        self.fields["username"].label = s.get('form_username', "اسم المستخدم")
-        self.fields["email"].label = s.get('form_email', "البريد الإلكتروني")
-        self.fields["first_name"].label = s.get('form_firstname', "الاسم الاول")
-        self.fields["last_name"].label = s.get('form_lastname', "اللقب")
-        self.fields["is_active"].label = s.get('form_is_active', "الحساب مفعل")
-        self.fields["phone"].label = s.get('form_phone', "رقم الهاتف")
-        self.fields["scope"].label = s.get('form_scope', "النطاق")
+        self.fields["username"].label = s.get('form_username', "Username")
+        self.fields["email"].label = s.get('form_email', "Email")
+        self.fields["first_name"].label = s.get('form_firstname', "First Name")
+        self.fields["last_name"].label = s.get('form_lastname', "Last Name")
+        self.fields["is_active"].label = s.get('form_is_active', "Active")
+        self.fields["phone"].label = s.get('form_phone', "Phone Number")
+        self.fields["scope"].label = s.get('form_scope', "Scope")
         
-        self.fields["username"].help_text = s.get('help_username', "اسم المستخدم يجب أن يكون فريدًا...")
-        self.fields["email"].help_text = s.get('help_email', "أدخل عنوان البريد الإلكتروني الصحيح (اختياري)")
-        self.fields["is_active"].help_text = s.get('help_is_active', "يحدد ما إذا كان يجب اعتبار هذا الحساب نشطًا.")
-        self.fields["phone"].help_text = s.get('help_phone', "أدخل رقم الهاتف الصحيح...")
+        self.fields["username"].help_text = s.get('help_username', "Username must be unique. 150 characters or fewer. Letters, digits and @/./+/-/_ only.")
+        self.fields["email"].help_text = s.get('help_email', "Enter a valid email address (optional).")
+        self.fields["is_active"].help_text = s.get('help_is_active', "Designates whether this user should be treated as active.")
+        self.fields["phone"].help_text = s.get('help_phone', "Enter a valid phone number (optional).")
         self.fields["scope"].help_text = ""
         _apply_autocomplete_attrs(
             self,
@@ -645,7 +693,18 @@ class CustomUserChangeForm(UserChangeForm):
                 if self.user_context.is_staff:
                     self.fields['scope'].disabled = True
                     self.fields['is_active'].disabled = True
-                    self.fields['scope'].help_text = s.get('help_scope_self', "لا يمكنك تغيير نطاقك الخاص لمنع تجريد نفسك من صلاحيات المدير العام.")
+                    self.fields['scope'].help_text = s.get('help_scope_self', "You cannot change your own scope to prevent removing your own admin access.")
+            
+            # Central Staff: cannot edit scope of any user (can only edit scopeless users)
+            if is_central_staff(self.user_context):
+                target_scope = getattr(user_instance.profile, 'scope', None) if user_instance and hasattr(user_instance, 'profile') else None
+                if target_scope is not None:
+                    # Cannot edit scoped users at all - hide scope field
+                    self.fields['scope'].widget = forms.HiddenInput()
+                else:
+                    # Can edit scopeless user but cannot assign a scope - hide scope field
+                    self.fields['scope'].widget = forms.HiddenInput()
+                    self.fields['scope'].initial = None
 
         self.fields["email"].required = False
 
@@ -676,7 +735,7 @@ class CustomUserChangeForm(UserChangeForm):
 
         actions = _build_submit_actions(
             s,
-            submit_label=s.get('btn_update', 'تحديث'),
+            submit_label=s.get('btn_update', 'Update'),
             submit_icon='bi-person-check-fill',
         )
         
@@ -714,12 +773,12 @@ class CustomUserPermissionsForm(UserChangeForm):
                 'sessions',
                 'django_celery_beat',
             ]) |
-            (Q(content_type__app_label='microsys') & ~Q(codename='manage_staff') & ~Q(codename='view_activity_log') & ~Q(content_type__model='section')) |
+            (Q(content_type__app_label='microsys') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'view_activitylog']) & ~Q(content_type__model='section')) |
             Q(content_type__app_label='auth', content_type__model__in=['group', 'user', 'permission'])
         ),
         required=False,
         widget=GroupedPermissionWidget,
-        label="الصلاحيات"
+        label="Permissions"
     )
 
     class Meta:
@@ -737,13 +796,16 @@ class CustomUserPermissionsForm(UserChangeForm):
 
         if self.user_context and not self.user_context.is_superuser:
             user_perms = self.user_context.user_permissions.all() | Permissions.objects.filter(group__user=self.user_context)
-            self.fields['permissions'].queryset = self.fields['permissions'].queryset.filter(
+            filtered_qs = self.fields['permissions'].queryset.filter(
                 id__in=user_perms.values_list('id', flat=True)
             )
+            self.fields['permissions'].queryset = filtered_qs
+            # Store filtered queryset for widget to use
+            self.fields['permissions'].widget._filtered_queryset = filtered_qs
 
-        self.fields["is_staff"].label = s.get('form_is_staff', "صلاحيات انشاء و تعديل المستخدمين")
-        self.fields["is_staff"].help_text = s.get('help_is_staff', "يحدد ما إذا كان يمكن للمستخدم عرض وادارة المستخدمين.")
-        self.fields["permissions"].label = s.get('form_permissions', "الصلاحيات")
+        self.fields["is_staff"].label = s.get('form_is_staff', "Staff Status")
+        self.fields["is_staff"].help_text = s.get('help_is_staff', "Designates whether the user can manage other users.")
+        self.fields["permissions"].label = s.get('form_permissions', "Permissions")
 
         if user_instance:
             self.fields["permissions"].initial = user_instance.user_permissions.all()
@@ -758,17 +820,30 @@ class CustomUserPermissionsForm(UserChangeForm):
         if self.user_context and not self.user_context.is_superuser:
             if self.user_context == user_instance and self.user_context.is_staff:
                 self.fields['is_staff'].disabled = True
-                self.fields['permissions'].queryset = self.fields['permissions'].queryset.exclude(codename='manage_staff')
+                filtered_qs = self.fields['permissions'].queryset.exclude(codename='manage_staff')
+                self.fields['permissions'].queryset = filtered_qs
+                self.fields['permissions'].widget._filtered_queryset = filtered_qs
 
             if not self.user_context.has_perm('microsys.manage_staff'):
                 self.fields['is_staff'].disabled = True
                 self.fields['is_staff'].help_text = s.get(
                     'help_is_staff_no_perm',
-                    "ليس لديك صلاحية لتغيير وضع هذا المستخدم لمسؤول .",
+                    "You don't have permission to change this user's staff status.",
                 )
 
         if lock_scope:
-            self.fields['permissions'].queryset = self.fields['permissions'].queryset.exclude(codename='manage_staff')
+            filtered_qs = self.fields['permissions'].queryset.exclude(codename='manage_staff')
+            self.fields['permissions'].queryset = filtered_qs
+            self.fields['permissions'].widget._filtered_queryset = filtered_qs
+        
+        # Central Staff (and any non-superuser without manage_scopes): cannot assign manage_scopes permission
+        # Only superusers can create Global Staff by assigning manage_scopes
+        if self.user_context and not self.user_context.is_superuser:
+            if not self.user_context.has_perm('microsys.manage_scopes'):
+                filtered_qs = self.fields['permissions'].queryset.exclude(codename='manage_scopes')
+                self.fields['permissions'].queryset = filtered_qs
+                # Store filtered queryset for widget to use
+                self.fields['permissions'].widget._filtered_queryset = filtered_qs
 
         _attach_is_staff_permission(self, self.fields['permissions'].widget.attrs.get('id'))
 
@@ -778,7 +853,7 @@ class CustomUserPermissionsForm(UserChangeForm):
             Field("permissions", css_class="col-12"),
             _build_submit_actions(
                 s,
-                submit_label=s.get('btn_update', 'تحديث'),
+                submit_label=s.get('btn_update', 'Update'),
                 submit_icon='bi-shield-check',
             ),
         )
@@ -787,7 +862,35 @@ class CustomUserPermissionsForm(UserChangeForm):
         user = super().save(commit=False)
         if commit:
             user.save()
-            user.user_permissions.set(self.cleaned_data["permissions"])
+            permissions = list(self.cleaned_data["permissions"])
+            
+            # Central Staff cannot assign manage_scopes permission
+            if self.user_context and is_central_staff(self.user_context):
+                from django.contrib.auth.models import Permission
+                try:
+                    manage_scopes_perm = Permission.objects.get(
+                        content_type__app_label='microsys',
+                        codename='manage_scopes'
+                    )
+                    if manage_scopes_perm in permissions:
+                        permissions.remove(manage_scopes_perm)
+                except Permission.DoesNotExist:
+                    pass
+            
+            # Auto-grant auth.view_user permission when user is staff
+            if user.is_staff:
+                from django.contrib.auth.models import Permission
+                try:
+                    view_user_perm = Permission.objects.get(
+                        content_type__app_label='auth',
+                        codename='view_user'
+                    )
+                    if view_user_perm not in permissions:
+                        permissions.append(view_user_perm)
+                except Permission.DoesNotExist:
+                    pass
+            
+            user.user_permissions.set(permissions)
         return user
 
 
@@ -864,8 +967,8 @@ class ResetPasswordForm(SetPasswordForm):
 
 class UserProfileEditForm(forms.ModelForm):
     # Add fields from profile
-    phone = forms.CharField(max_length=15, required=False, label="رقم الهاتف")
-    profile_picture = forms.ImageField(required=False, label="الصورة الشخصية", widget=ProfileImageWidget)
+    phone = forms.CharField(max_length=15, required=False, label="Phone Number")
+    profile_picture = forms.ImageField(required=False, label="Profile Picture", widget=ProfileImageWidget)
 
     handles_save = True  # Indicate to DynamicModalManagerView to call save(commit=True) directly
     refresh_parent = True # Force page reload on success
@@ -887,12 +990,12 @@ class UserProfileEditForm(forms.ModelForm):
             self.fields['profile_picture'].initial = user_instance.profile.profile_picture
 
         self.fields['username'].disabled = True
-        self.fields['username'].label = s.get('form_username', "اسم المستخدم")
-        self.fields['first_name'].label = s.get('form_firstname', "الاسم الاول")
-        self.fields['last_name'].label = s.get('form_lastname', "اللقب")
-        self.fields['email'].label = s.get('form_email', "البريد الالكتروني")
-        self.fields['phone'].label = s.get('form_phone', "رقم الهاتف")
-        self.fields['profile_picture'].label = s.get('form_profile_pic', "الصورة الشخصية")
+        self.fields['username'].label = s.get('form_username', "Username")
+        self.fields['first_name'].label = s.get('form_firstname', "First Name")
+        self.fields['last_name'].label = s.get('form_lastname', "Last Name")
+        self.fields['email'].label = s.get('form_email', "Email")
+        self.fields['phone'].label = s.get('form_phone', "Phone Number")
+        self.fields['profile_picture'].label = s.get('form_profile_pic', "Profile Picture")
 
         
         self.fields["email"].required = False
@@ -930,14 +1033,14 @@ class UserProfileEditForm(forms.ModelForm):
                     f"""
                     <button type="submit" class="btn btn-success rounded-pill">
                         <i class="bi bi-save text-light me-1 h4"></i>
-                        {s.get('btn_update', 'تحديث')}
+                        {s.get('btn_update', 'Update')}
                     </button>
                     """
                 ),
                 HTML(
                     f"""
                     <button type="button" class="btn btn-danger rounded-pill" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle text-light me-1 h4"></i> {s.get('btn_cancel', 'إلغـــاء')}
+                        <i class="bi bi-x-circle text-light me-1 h4"></i> {s.get('btn_cancel', 'Cancel')}
                     </button>
                     """
                 )
@@ -1015,7 +1118,7 @@ class ScopeForm(forms.ModelForm):
         # But scope form often used in modals?
         # If we have request in kwargs we can use it, but typically ModelForms don't get request.
         # Fallback to default is okay for now or we can inject request if needed.
-        self.fields['name'].label = s.get('form_scope_name', "اسم النطاق")
+        self.fields['name'].label = s.get('form_scope_name', "Scope Name")
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
@@ -1028,9 +1131,21 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         choices=(),
     )
-    default_language = forms.ChoiceField(
+    settings_import_file = forms.FileField(
+        required=False,
+    )
+    settings_import_processed = forms.BooleanField(
+        required=False,
+        initial=False,
+        widget=forms.HiddenInput(),
+    )
+    default_language = forms.CharField(
         required=True,
         widget=forms.HiddenInput(),
+    )
+    system_names = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
     )
     default_theme = forms.ChoiceField(
         required=True,
@@ -1055,11 +1170,11 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.HiddenInput(),
     )
     languages = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 4}),
+        widget=forms.HiddenInput(),
         required=False,
     )
     translations_override = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 4}),
+        widget=forms.HiddenInput(),
         required=False,
     )
     sidebar_config = forms.CharField(
@@ -1141,8 +1256,7 @@ class SystemSettingsForm(forms.ModelForm):
     class Meta:
         model = apps.get_model('microsys', 'SystemSettings')
         fields = [
-            'name',
-            'name_en',
+            'system_names',
             'logo',
             'favicon',
             'home_url',
@@ -1179,7 +1293,7 @@ class SystemSettingsForm(forms.ModelForm):
                 parsed_step = int(raw_step)
             except (TypeError, ValueError):
                 parsed_step = None
-            if parsed_step in (0, 1, 2, 3):
+            if parsed_step in (0, 1, 2, 3, 4):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
 
@@ -1187,49 +1301,41 @@ class SystemSettingsForm(forms.ModelForm):
         from microsys.utils import get_system_config
 
         config = get_system_config()
-        current_languages = dict(config.get('languages', {}))
+        current_languages = normalize_language_catalog(config.get('languages', {}))
         if isinstance(getattr(self.instance, 'languages', None), dict):
-            current_languages.update(self.instance.languages)
-        current_languages = {
-            code: payload if isinstance(payload, dict) else {'name': str(payload)}
-            for code, payload in current_languages.items()
-            if payload
-        }
-        if not current_languages:
-            current_languages = {
-                'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
-                'en': {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'},
-            }
-
-        self.fields['default_language'].choices = [
-            (code, payload.get('name', code) if isinstance(payload, dict) else str(payload))
-            for code, payload in current_languages.items()
-        ]
+            current_languages = normalize_language_catalog(current_languages, self.instance.languages)
         discovered_theme_choices = [(value, value) for value, _, _ in get_theme_choices()]
         self.fields['default_theme'].choices = discovered_theme_choices
         self.fields['allowed_themes'].choices = discovered_theme_choices
 
-        self.fields['languages'].label = s.get('form_sys_languages', "اللغات المتوفرة (JSON)")
-        self.fields['languages'].help_text = s.get('help_sys_languages', 'مثال: {"ar": "العربية", "en": "English"}')
-        self.fields['translations_override'].label = s.get('form_sys_translations', "تجاوز الترجمات (JSON)")
-        self.fields['translations_override'].help_text = s.get('help_sys_translations', 'مثال: {"ar": {"app_microsys": "النظام"}}')
-        self.fields['name'].label = s.get('form_sys_name_ar', "اسم النظام (عربي)")
-        self.fields['name_en'].label = s.get('form_sys_name_en', "اسم النظام (إنجليزي)")
+        self.fields['system_names'].label = s.get('form_sys_system_names', "System names")
+        self.fields['settings_import_file'].label = s.get('form_sys_import_config', "Import system setup file")
+        self.fields['settings_import_file'].help_text = s.get(
+            'help_sys_import_config',
+            'Optional: choose a Microsys-exported JSON setup file to populate these settings.',
+        )
+        self.fields['settings_import_file'].widget.attrs.update({
+            'class': 'form-control glass-input',
+            'accept': 'application/json,.json',
+            'data-settings-import-file': 'true',
+        })
+        self.fields['languages'].label = s.get('form_sys_languages', "Available languages")
+        self.fields['translations_override'].label = s.get('form_sys_translations', "Translation overrides")
         self.fields['home_url'].required = False
-        self.fields['home_url'].label = s.get('form_sys_home_url', "الرابط الرئيسي")
-        self.fields['home_url'].help_text = s.get('help_sys_home_url', 'يمكنك كتابة مسار مخصص مثل / أو /finance/ أو رابط كامل إذا أردت.')
+        self.fields['home_url'].label = s.get('form_sys_home_url', "Home URL")
+        self.fields['home_url'].help_text = s.get('help_sys_home_url', 'You can write a custom path like / or /finance/ or a full URL if desired.')
         self.fields['home_url'].widget.attrs.update({
             'class': 'form-control glass-input',
             'dir': 'ltr',
             'placeholder': DEFAULT_HOME_URL,
         })
-        self.fields['home_url_discovered'].label = s.get('form_sys_home_url_discovered', "اختر من الصفحات المكتشفة")
-        self.fields['home_url_discovered'].help_text = s.get('help_sys_home_url_discovered', 'اختياري: اختر صفحة مكتشفة لتعبئة الرابط الرئيسي تلقائياً، أو اتركه فارغاً واكتب رابطاً مخصصاً.')
+        self.fields['home_url_discovered'].label = s.get('form_sys_home_url_discovered', "Select from discovered pages")
+        self.fields['home_url_discovered'].help_text = s.get('help_sys_home_url_discovered', 'Optional: Select a discovered page to auto-fill the home URL, or leave blank and enter a custom URL.')
         self.fields['home_url_discovered'].widget.attrs.update({
             'class': 'form-select glass-input',
         })
-        self.fields['default_language'].label = s.get('form_sys_default_lang', "اللغة الافتراضية")
-        self.fields['default_theme'].label = s.get('form_sys_default_theme', "المظهر الافتراضي")
+        self.fields['default_language'].label = s.get('form_sys_default_lang', "Default Language")
+        self.fields['default_theme'].label = s.get('form_sys_default_theme', "Default Theme")
         self.fields['allowed_themes'].label = s.get('form_sys_allowed_themes', 'Allowed themes')
         self.fields['allowed_themes'].help_text = s.get(
             'help_sys_allowed_themes',
@@ -1245,13 +1351,13 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_allow_user_language_override',
             'Allow users to change their display language from Options. When disabled, the system default language is enforced.',
         )
-        self.fields['default_table_density'].label = s.get('form_sys_default_table_density', "الكثافة الافتراضية للجداول")
+        self.fields['default_table_density'].label = s.get('form_sys_default_table_density', "Default Table Density")
         self.fields['default_table_density'].help_text = s.get(
             'help_sys_default_table_density',
-            'اختر كثافة الجداول الافتراضية للمستخدمين الجدد، مع إمكانية تجاوزها لاحقاً من صفحة الخيارات.',
+            'Choose the default table density for new users; each user can still override it later from Options.',
         )
-        self.fields['logo'].label = s.get('form_sys_logo', "الشعار (Logo)")
-        self.fields['favicon'].label = s.get('form_sys_favicon', "أيقونة الموقع (Favicon)")
+        self.fields['logo'].label = s.get('form_sys_logo', "System Logo (Logo)")
+        self.fields['favicon'].label = s.get('form_sys_favicon', "Site Icon (Favicon)")
         self.fields['logo'].widget = _build_archive_file_widget(
             attrs={'accept': 'image/*'},
             field_label=self.fields['logo'].label,
@@ -1260,7 +1366,7 @@ class SystemSettingsForm(forms.ModelForm):
             attrs={'accept': 'image/*'},
             field_label=self.fields['favicon'].label,
         )
-        self.fields['sidebar_config'].label = s.get('form_sys_sidebar', "إعدادات الشريط الجانبي")
+        self.fields['sidebar_config'].label = s.get('form_sys_sidebar', "Sidebar Configuration")
         self.fields['sidebar_enable_reorder'].label = s.get('form_sys_sidebar_enable_reorder', 'Enable sidebar reorder')
         self.fields['sidebar_enable_reorder'].help_text = s.get(
             'help_sys_sidebar_enable_reorder',
@@ -1518,15 +1624,12 @@ class SystemSettingsForm(forms.ModelForm):
             ),
         )
         project_config = getattr(settings, 'MICROSYS_CONFIG', {})
-        if (not getattr(self.instance, 'is_configured', False)) and (not self.instance.name or self.instance.name in {'ادارة النظام', 'إدارة النظام'}):
-             seeded_name_ar = project_config.get('name_ar', '')
-             if seeded_name_ar in {'ادارة النظام', 'إدارة النظام'}:
-                 seeded_name_ar = ''
-             self.instance.name = seeded_name_ar
-        self.initial['name'] = self.instance.name or ''
-        if not self.instance.name_en:
-             self.instance.name_en = project_config.get('name_en', '')
-        self.initial['name_en'] = self.instance.name_en or ''
+        instance_system_names = normalize_system_names(getattr(self.instance, 'system_names', {}))
+        if not instance_system_names:
+            instance_system_names = normalize_system_names(
+                project_config.get('system_names', config.get('system_names', {}))
+            )
+        self.initial['system_names'] = _json_dump(instance_system_names, ensure_ascii=False)
         if not self.instance.default_language:
              self.instance.default_language = config.get('default_language', 'en')
         self.initial['default_language'] = self.instance.default_language or config.get('default_language', 'en')
@@ -1594,7 +1697,7 @@ class SystemSettingsForm(forms.ModelForm):
         if not self.initial.get('languages'):
             self.initial['languages'] = _json_dump(config.get('languages', {}), ensure_ascii=False, indent=2)
         if not self.initial.get('translations_override'):
-            self.initial['translations_override'] = _json_dump(config.get('translations', {}), ensure_ascii=False, indent=2)
+            self.initial['translations_override'] = _json_dump({}, ensure_ascii=False, indent=2)
         if not self.initial.get('default_language'):
             self.initial['default_language'] = config.get('default_language', 'en')
         if not self.initial.get('default_theme'):
@@ -1611,8 +1714,6 @@ class SystemSettingsForm(forms.ModelForm):
             getattr(self.instance, 'public_root', False)
             or config.get('public_root', False)
         )
-        self.fields['name'].widget.attrs['placeholder'] = ''
-
         if not self.initial.get('sidebar_config'):
             sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}), allow_system_items=True)
             if not isinstance(sidebar_config, dict):
@@ -1680,15 +1781,77 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['home_url_discovered'].widget.option_meta = home_url_option_meta
         self.initial['home_url_discovered'] = current_home_url if current_home_url in seen_home_urls else ''
 
-        self.language_picker_html = render_to_string(
-            'microsys/includes/language_previews.html',
+        try:
+            initial_languages = json.loads(self.initial.get('languages') or '{}')
+        except (TypeError, ValueError):
+            initial_languages = {}
+        current_languages = normalize_language_catalog(initial_languages)
+        self.initial['languages'] = _json_dump(current_languages, ensure_ascii=False)
+        if self.initial.get('default_language') not in current_languages:
+            self.initial['default_language'] = 'en' if 'en' in current_languages else next(iter(current_languages), 'en')
+
+        try:
+            initial_system_names = json.loads(self.initial.get('system_names') or '{}')
+        except (TypeError, ValueError):
+            initial_system_names = {}
+        initial_system_names = normalize_system_names(initial_system_names)
+        self.initial['system_names'] = _json_dump(initial_system_names, ensure_ascii=False)
+
+        try:
+            initial_translation_overrides = json.loads(self.initial.get('translations_override') or '{}')
+        except (TypeError, ValueError):
+            initial_translation_overrides = {}
+        if not isinstance(initial_translation_overrides, dict):
+            initial_translation_overrides = {}
+        suggested_languages = [
+            code for code in discover_translation_languages(config.get('translations', {}), initial_translation_overrides)
+            if code not in current_languages
+        ]
+
+        self.language_catalog_html = render_to_string(
+            'microsys/includes/language_catalog_editor.html',
             {
-                'selected_language': self.initial.get('default_language', 'en'),
-                'picker_mode': 'setup',
-                'input_id': 'id_default_language',
+                'language_rows': [
+                    {
+                        'code': code,
+                        'name': payload.get('name', code),
+                        'dir': payload.get('dir', 'ltr'),
+                        'flag': payload.get('flag', ''),
+                        'system_name': initial_system_names.get(code, ''),
+                    }
+                    for code, payload in current_languages.items()
+                ],
+                'default_language': self.initial.get('default_language', 'en'),
+                'suggested_languages': suggested_languages,
                 'MS_TRANS': s,
+            },
+        )
+        self.system_names_html = render_to_string(
+            'microsys/includes/system_names_editor.html',
+            {
+                'language_rows': [
+                    {
+                        'code': code,
+                        'name': payload.get('name', code),
+                        'system_name': initial_system_names.get(code, ''),
+                    }
+                    for code, payload in current_languages.items()
+                ],
+                'MS_TRANS': s,
+            },
+        )
+        translation_groups = build_translation_matrix_groups(current_languages, initial_translation_overrides)
+        for group in translation_groups:
+            if group.get('id') == 'project':
+                group['label'] = s.get('translation_matrix_group_project', group.get('label') or 'Project translations')
+            elif group.get('id') == 'runtime':
+                group['label'] = s.get('translation_matrix_group_runtime', group.get('label') or 'Settings overrides')
+        self.translation_matrix_html = render_to_string(
+            'microsys/includes/translation_matrix_editor.html',
+            {
                 'languages': current_languages,
-                'label': self.fields['default_language'].label,
+                'translation_groups': translation_groups,
+                'MS_TRANS': s,
             },
         )
 
@@ -1738,6 +1901,23 @@ class SystemSettingsForm(forms.ModelForm):
                 return 'display: none;'
             return None
 
+        # Build step 1 fields dynamically - import only shown in initial setup
+        step_1_fields = [
+            HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step1', 'Step 1: Identity')}</span></div>"),
+        ]
+        if self.mode == 'setup':
+            step_1_fields.append(Field('settings_import_file'))
+            step_1_fields.append(Field('settings_import_processed'))
+        step_1_fields.extend([
+            HTML(self.system_names_html),
+            Field('system_names'),
+            Row(
+                Div(Field('logo', css_class='col-md-6'), css_class='col-md-6'),
+                Div(Field('favicon', css_class='col-md-6'), css_class='col-md-6'),
+                css_class='row'
+            ),
+        ])
+
         self.helper.layout = Layout(
             HTML(
                 (
@@ -1746,54 +1926,38 @@ class SystemSettingsForm(forms.ModelForm):
                 )
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step1', 'الخطوة 1')}</span></div>"),
-                Row(
-                    Div(Field('name', css_class='col-md-6'), css_class='col-md-6'),
-                    Div(Field('name_en', css_class='col-md-6'), css_class='col-md-6'),
-                ),
-                Row(
-                    Div(Field('logo', css_class='col-md-6'), css_class='col-md-6'),
-                    Div(Field('favicon', css_class='col-md-6'), css_class='col-md-6'),
-                    css_class='row'
-                ),
-                Row(
-                    Div(
-                        HTML(self.language_picker_html),
-                        Field('default_language'),
-                        css_class='col-lg-6'
-                    ),
-                    Div(
-                        HTML(self.theme_picker_html),
-                        Field('default_theme'),
-                        css_class='col-lg-6'
-                    ),
-                ),
-                Row(
-                    Div(Field('allow_user_theme_override'), css_class='col-lg-6'),
-                    Div(Field('home_url_discovered'), css_class='col-lg-6'),
-                ),
-                Row(
-                    Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
-                    Div(Field('email_2fa'), css_class='col-lg-6'),
-                ),
-                Row(
-                    Div(Field('public_root'), css_class='col-lg-6'),
-                ),
+                *step_1_fields,
                 css_class='wizard-step',
                 style=_step_style(0),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step2', 'الخطوة 2')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step2', 'Step 2: Languages')}</span></div>"),
+                HTML(self.language_catalog_html),
                 Row(
+                    Div(Field('default_language'), css_class='d-none'),
                     Div(Field('allow_user_language_override'), css_class='col-lg-6'),
                 ),
-                Row(Field('languages', css_class='col-12 font-monospace', dir='ltr')),
-                Row(Field('translations_override', css_class='col-12 font-monospace', dir='ltr')),
+                HTML(self.translation_matrix_html),
+                Field('languages'),
+                Field('translations_override'),
                 css_class='wizard-step',
                 style=_step_style(1),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'الخطوة 3')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'Step 3: Security')}</span></div>"),
+                Row(
+                    Div(Field('public_root'), css_class='col-lg-6'),
+                    Div(Field('email_2fa'), css_class='col-lg-6'),
+                ),
+                css_class='wizard-step',
+                style=_step_style(2),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'Step 4: Sidebar')}</span></div>"),
+                Row(
+                    Div(Field('home_url_discovered'), css_class='col-lg-6'),
+                    Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
+                ),
                 HTML(
                     f"<div class='d-none' data-sidebar-tooling-state "
                     f"data-sections-manager-available=\"{'true' if self.sidebar_sections_manager_available else 'false'}\"></div>"
@@ -1806,31 +1970,85 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('sidebar_show_icons'), css_class='col-lg-6'),
                     Div(Field('sidebar_allow_user_density'), css_class='col-lg-6'),
                 ),
-                Row(
-                    Div(Field('sidebar_density'), css_class='col-lg-6'),
-                    Div(Field('sidebar_collapse_mode'), css_class='col-lg-6'),
-                ),
                 HTML(
                     f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enable_toolbar', True) else ''}' "
                     f"data-sidebar-toolbar-note>"
                     f"{s.get('sidebar_toolbar_disable_note', 'Disabling the sidebar toolbar also removes the only built-in shortcut to Dynamic Sections Manager. If you still want UI access, enable system items in the sidebar builder and add Section Management to your sidebar.')}"
                     f"</div>"
                 ),
+                Row(
+                    Div(Field('sidebar_density'), css_class='col-lg-6'),
+                    Div(Field('sidebar_collapse_mode'), css_class='col-lg-6'),
+                ),
                 HTML(self.sidebar_builder_html),
                 Field('sidebar_config'),
                 css_class='wizard-step',
-                style=_step_style(2),
+                style=_step_style(3),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'الخطوة 4')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Appearance')}</span></div>"),
                 Row(
-                    Div(Field('default_table_density'), css_class='col-lg-6'),
+                    Div(
+                        HTML(self.theme_picker_html),
+                        Field('default_theme'),
+                        css_class='mb-3'
+                    ),
                 ),
-                HTML(f"<h6 class='fw-bold mb-3'>{s.get('titlebar_settings_title', 'إعدادات شريط العنوان')}</h6>"),
                 Row(
-                    Div(Field('titlebar_show_title'), css_class='col-lg-4'),
-                    Div(Field('titlebar_show_logo'), css_class='col-lg-4'),
-                    Div(Field('titlebar_show_home_button'), css_class='col-lg-4'),
+                    Div(
+                        HTML(
+                            f"<div class='d-flex justify-content-between align-items-center p-3 border rounded bg-light mb-2'>"
+                            f"<span>{self.fields['allow_user_theme_override'].label}</span>"
+                            f"<div class='form-check form-switch'>"
+                            f"<input class='form-check-input' type='checkbox' id='id_allow_user_theme_override' name='allow_user_theme_override'"
+                            f"{' checked' if self.initial.get('allow_user_theme_override', True) else ''}>"
+                            f"</div>"
+                            f"</div>"
+                        ),
+                    )
+                ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
+                Row(
+                    Div(Field('default_table_density'), css_class='col'),
+                ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
+                Row(
+                    Div(
+                        HTML(
+                            f"<div class='d-flex justify-content-between align-items-center p-3 border rounded bg-light mb-2'>"
+                            f"<span>{self.fields['titlebar_show_title'].label}</span>"
+                            f"<div class='form-check form-switch'>"
+                            f"<input class='form-check-input' type='checkbox' id='id_titlebar_show_title' name='titlebar_show_title'"
+                            f"{' checked' if self.initial.get('titlebar_show_title', True) else ''}>"
+                            f"</div>"
+                            f"</div>"
+                        ),
+                        css_class='col-lg-4'
+                    ),
+                    Div(
+                        HTML(
+                            f"<div class='d-flex justify-content-between align-items-center p-3 border rounded bg-light mb-2'>"
+                            f"<span>{self.fields['titlebar_show_logo'].label}</span>"
+                            f"<div class='form-check form-switch'>"
+                            f"<input class='form-check-input' type='checkbox' id='id_titlebar_show_logo' name='titlebar_show_logo'"
+                            f"{' checked' if self.initial.get('titlebar_show_logo', True) else ''}>"
+                            f"</div>"
+                            f"</div>"
+                        ),
+                        css_class='col-lg-4'
+                    ),
+                    Div(
+                        HTML(
+                            f"<div class='d-flex justify-content-between align-items-center p-3 border rounded bg-light mb-2'>"
+                            f"<span>{self.fields['titlebar_show_home_button'].label}</span>"
+                            f"<div class='form-check form-switch'>"
+                            f"<input class='form-check-input' type='checkbox' id='id_titlebar_show_home_button' name='titlebar_show_home_button'"
+                            f"{' checked' if self.initial.get('titlebar_show_home_button', True) else ''}>"
+                            f"</div>"
+                            f"</div>"
+                        ),
+                        css_class='col-lg-4'
+                    ), css_class='mb-2'
                 ),
                 Row(
                     Div(Field('titlebar_title_align'), css_class='col-lg-6'),
@@ -1844,12 +2062,12 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('titlebar_surface'), css_class='col-lg-12'),
                 ),
                 css_class='wizard-step',
-                style=_step_style(3),
+                style=_step_style(4),
             ),
             FormActions(
                 Submit(
                     'submit',
-                    s.get('btn_save', 'حفظ التعديلات'),
+                    s.get('btn_save', 'Save'),
                     css_class='btn btn-primary px-5 rounded-pill fw-bold ms-btn-submit'
                 ),
                 css_class=(
@@ -1860,15 +2078,15 @@ class SystemSettingsForm(forms.ModelForm):
             ) if self.single_step_mode else FormActions(
                 HTML(
                     f"<button type='button' class='btn btn-outline-secondary rounded-pill px-4 ms-btn-prev'>"
-                    f"{s.get('btn_prev', 'السابق')}</button>"
+                    f"{s.get('btn_prev', 'Previous')}</button>"
                 ),
                 HTML(
                     f"<button type='button' class='btn btn-outline-primary rounded-pill px-4 ms-btn-next'>"
-                    f"{s.get('btn_next', 'التالي')}</button>"
+                    f"{s.get('btn_next', 'Next')}</button>"
                 ),
                 Submit(
                     'submit',
-                    s.get('btn_save', 'حفظ التعديلات'),
+                    s.get('btn_save', 'Save'),
                     css_class='btn btn-primary px-5 rounded-pill fw-bold ms-btn-submit'
                 ),
                 css_class='d-flex justify-content-between align-items-center gap-2 mt-4',
@@ -1876,15 +2094,27 @@ class SystemSettingsForm(forms.ModelForm):
             HTML("</div>")
         )
 
-    def clean_languages(self):
-        data = self.cleaned_data.get('languages')
+    def clean_system_names(self):
+        data = self.cleaned_data.get('system_names')
         if not data:
             return {}
         try:
-            parsed = json.loads(data)
+            parsed = json.loads(data) if isinstance(data, str) else data
+        except json.JSONDecodeError:
+            raise ValidationError("Invalid system names JSON format.")
+        if not isinstance(parsed, dict):
+            raise ValidationError("System names must be a valid JSON object.")
+        return normalize_system_names(parsed)
+
+    def clean_languages(self):
+        data = self.cleaned_data.get('languages')
+        if not data:
+            return normalize_language_catalog()
+        try:
+            parsed = json.loads(data) if isinstance(data, str) else data
             if not isinstance(parsed, dict):
                 raise ValidationError("Must be a valid JSON dictionary.")
-            return parsed
+            return normalize_language_catalog(parsed)
         except json.JSONDecodeError:
             raise ValidationError("Invalid JSON format.")
 
@@ -1893,12 +2123,26 @@ class SystemSettingsForm(forms.ModelForm):
         if not data:
             return {}
         try:
-            parsed = json.loads(data)
+            parsed = json.loads(data) if isinstance(data, str) else data
             if not isinstance(parsed, dict):
                 raise ValidationError("Must be a valid JSON dictionary.")
-            return parsed
+            cleaned = {}
+            for lang, values in parsed.items():
+                if not isinstance(values, dict):
+                    continue
+                lang_values = {}
+                for key, value in values.items():
+                    text = str(value or '').strip()
+                    if key and text:
+                        lang_values[str(key)] = text
+                if lang_values:
+                    cleaned[str(lang).split('-')[0].lower()] = lang_values
+            return cleaned
         except json.JSONDecodeError:
             raise ValidationError("Invalid JSON format.")
+
+    def clean_default_language(self):
+        return str(self.cleaned_data.get('default_language') or 'en').strip().lower().replace('_', '-')
 
     def clean_default_theme(self):
         value = self.cleaned_data.get('default_theme') or 'light'
@@ -1988,12 +2232,80 @@ class SystemSettingsForm(forms.ModelForm):
             'entries': entries,
         }, allow_system_items=True)
 
+    def _read_imported_settings(self):
+        uploaded = self.cleaned_data.get('settings_import_file')
+        if not uploaded:
+            return {}
+        try:
+            if hasattr(uploaded, 'seek'):
+                uploaded.seek(0)
+            raw = uploaded.read()
+            if isinstance(raw, bytes):
+                raw = raw.decode('utf-8')
+            parsed = json.loads(raw or '{}')
+            return normalize_system_settings_import_payload(parsed)
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            self.add_error('settings_import_file', str(exc) or "Invalid setup import file.")
+            return {}
+
+    def _apply_imported_settings(self, cleaned, imported):
+        if not imported:
+            return
+        # Skip re-applying import if JS already populated the form (user may have edited values)
+        if cleaned.get('settings_import_processed'):
+            return
+        direct_fields = (
+            'system_names',
+            'languages',
+            'translations_override',
+            'home_url',
+            'default_language',
+            'default_theme',
+            'allowed_themes',
+            'allow_user_theme_override',
+            'allow_user_language_override',
+            'default_table_density',
+            'email_2fa',
+            'public_root',
+        )
+        for field_name in direct_fields:
+            if field_name in imported:
+                cleaned[field_name] = imported[field_name]
+
+        sidebar = imported.get('sidebar_config')
+        if isinstance(sidebar, dict):
+            cleaned['sidebar_config'] = sidebar
+            cleaned['sidebar_enable_reorder'] = bool(sidebar.get('enable_reorder', True))
+            cleaned['sidebar_enable_toolbar'] = bool(sidebar.get('show_toolbar', True))
+            cleaned['sidebar_show_icons'] = bool(sidebar.get('show_icons', True))
+            cleaned['sidebar_density'] = sidebar.get('density', DEFAULT_SIDEBAR_DENSITY)
+            cleaned['sidebar_allow_user_density'] = bool(sidebar.get('allow_user_density', True))
+            cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+
+        titlebar = imported.get('titlebar_config')
+        if isinstance(titlebar, dict):
+            cleaned['titlebar_show_title'] = bool(titlebar.get('show_title', True))
+            cleaned['titlebar_show_logo'] = bool(titlebar.get('show_logo', True))
+            cleaned['titlebar_show_home_button'] = bool(titlebar.get('show_home_button', True))
+            cleaned['titlebar_home_shape'] = titlebar.get('home_shape', 'circle')
+            cleaned['titlebar_title_align'] = titlebar.get('title_align', 'start')
+            cleaned['titlebar_title_size'] = titlebar.get('title_size', 'md')
+            cleaned['titlebar_height'] = titlebar.get('height', 'balanced')
+            cleaned['titlebar_surface'] = titlebar.get('surface', 'default')
+
     def clean(self):
         cleaned = super().clean()
+        self._imported_settings = self._read_imported_settings()
+        self._apply_imported_settings(cleaned, self._imported_settings)
         allowed_themes = cleaned.get('allowed_themes') or []
         default_theme = cleaned.get('default_theme') or 'light'
         if allowed_themes and default_theme not in allowed_themes:
             self.add_error('default_theme', "Default theme must remain allowed.")
+        languages = cleaned.get('languages') or normalize_language_catalog()
+        default_language = cleaned.get('default_language') or 'en'
+        if default_language not in languages:
+            fallback_language = 'en' if 'en' in languages else next(iter(languages), 'en')
+            cleaned['default_language'] = fallback_language
 
         sidebar = cleaned.get('sidebar_config')
         if isinstance(sidebar, dict):
@@ -2025,10 +2337,18 @@ class SystemSettingsForm(forms.ModelForm):
         instance = super().save(commit=False)
         instance.is_configured = True
         instance.sidebar_config = self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []})
+        instance.system_names = self.cleaned_data.get('system_names', {})
+        instance.languages = self.cleaned_data.get('languages', normalize_language_catalog())
+        instance.translations_override = self.cleaned_data.get('translations_override', {})
         instance.allowed_themes = self.cleaned_data.get('allowed_themes', list(normalize_allowed_themes()))
         instance.allow_user_theme_override = bool(self.cleaned_data.get('allow_user_theme_override', True))
         instance.allow_user_language_override = bool(self.cleaned_data.get('allow_user_language_override', True))
         instance.titlebar_config = self.cleaned_data.get('titlebar_config', default_titlebar_config())
+        imported = getattr(self, '_imported_settings', {}) or {}
+        if imported.get('logo') and not self.files.get('logo'):
+            instance.logo = str(imported.get('logo'))
+        if imported.get('favicon') and not self.files.get('favicon'):
+            instance.favicon = str(imported.get('favicon'))
         fallback_home = getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
         instance.home_url = self.cleaned_data.get('home_url') or fallback_home
         if isinstance(instance.sidebar_config, dict):

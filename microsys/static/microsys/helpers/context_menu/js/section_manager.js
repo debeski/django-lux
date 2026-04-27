@@ -97,6 +97,9 @@
             // Ignore events that originated from inside a dynamic modal (handled by dynamic_modals.js)
             if (e.target.closest('.modal')) return;
 
+            // Stop propagation to prevent fallback handler in main.js from running
+            e.stopImmediatePropagation();
+
             const data = e.detail.data;
             if (!confirm('هل أنت متأكد من حذف: ' + data.name + ' ؟')) return;
 
@@ -154,6 +157,9 @@
             // Ignore events that originated from inside a dynamic modal
             if (e.target.closest('.modal')) return;
 
+            // Stop propagation to prevent fallback handler in main.js from running
+            e.stopImmediatePropagation();
+
             const data = e.detail.data;
             const url = `${sectionData.detailsUrl}?model=${data.model}&pk=${data.id}`;
 
@@ -210,6 +216,9 @@
         document.body.addEventListener('micro:record:edit', function(e) {
             // Ignore events that originated from inside a dynamic modal
             if (e.target.closest('.modal')) return;
+
+            // Stop propagation to prevent fallback handler in main.js from running
+            e.stopImmediatePropagation();
 
             const data = e.detail.data;
             if (sectionData && sectionData.editUrlTemplate) {

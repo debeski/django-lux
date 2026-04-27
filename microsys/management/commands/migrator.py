@@ -65,7 +65,9 @@ class Command(BaseCommand):
             self.stdout.write(out.getvalue().splitlines()[-1] if out.getvalue() else "Static files collected.")
         except Exception as e:
             self.stdout.write(out.getvalue())
-            raise e
+            self.stderr.write(self.style.ERROR(f"STATIC FILES COLLECTION FAILED: {e}"))
+            self.stderr.write("Check that your STATIC_ROOT is configured and writable.")
+            raise
 
         # 1. Migration Checks
         self.stdout.write("Checking migrations...")
@@ -100,11 +102,22 @@ class Command(BaseCommand):
         if apps_needing_migrations:
             for app_label in apps_needing_migrations:
                 self.stdout.write(f"Running makemigrations for {app_label}...")
-                call_command('makemigrations', app_label, '--noinput')
-        
+                try:
+                    call_command('makemigrations', app_label, '--noinput')
+                except Exception as e:
+                    self.stderr.write(self.style.ERROR(f"MAKEMIGRATIONS FAILED for '{app_label}': {e}"))
+                    self.stderr.write("Check that the app is properly configured and models are valid.")
+                    raise
+
         # Run migrate
         self.stdout.write("Running migrate...")
-        call_command('migrate', '--noinput')
+        try:
+            call_command('migrate', '--noinput')
+        except Exception as e:
+            self.stderr.write(self.style.ERROR(f"MIGRATE FAILED: {e}"))
+            self.stderr.write("Common causes: database unavailable, migration conflicts, or invalid SQL.")
+            self.stderr.write("Run 'python manage.py migrate --verbosity 2' for more details.")
+            raise
 
         # Create superuser if it doesn't exist
         User = get_user_model()
@@ -125,7 +138,9 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.WARNING(f'Superuser {username} already exists.'))
         except Exception as e:
-             self.stdout.write(self.style.ERROR(f"Error checking/creating superuser: {e}"))
+            self.stderr.write(self.style.ERROR(f"SUPERUSER CREATION FAILED: {e}"))
+            self.stderr.write("Check that AUTH_USER_MODEL is correctly configured and the user model has is_superuser field.")
+            raise
 
         # Microsys Setup
         if apps.is_installed('microsys'):
@@ -134,7 +149,9 @@ class Command(BaseCommand):
                 call_command('microsys_setup')
                 self.stdout.write(self.style.SUCCESS("microsys_setup completed successfully."))
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Error running microsys_setup: {e}"))
+                self.stderr.write(self.style.ERROR(f"MICROSYS_SETUP FAILED: {e}"))
+                self.stderr.write("Check that microsys is in INSTALLED_APPS and the database is migrated.")
+                raise
         
         # Population Check
         # Check if ANY logic app has data.
@@ -150,7 +167,11 @@ class Command(BaseCommand):
                         data_exists = True
                         self.stdout.write(f"Data found in {app_config.name}.{model.__name__}.")
                         break
-                except (ProgrammingError, OperationalError):
+                except (ProgrammingError, OperationalError) as db_err:
+                    # Log the specific model that failed but continue checking others
+                    self.stdout.write(self.style.WARNING(
+                        f"  Could not query {app_config.name}.{model.__name__}: {db_err}"
+                    ))
                     continue
             if data_exists:
                 break
@@ -160,8 +181,10 @@ class Command(BaseCommand):
             try:
                 call_command('populate')
             except Exception as e:
-                 self.stdout.write(self.style.ERROR(f"Failed to run populate command: {e}"))
-                 self.stdout.write("Ensure the 'populate' management command exists.")
+                self.stderr.write(self.style.ERROR(f"POPULATE FAILED: {e}"))
+                self.stderr.write("Ensure a 'populate' management command exists in one of your apps.")
+                self.stderr.write("The populate command should be defined at: <app>/management/commands/populate.py")
+                raise
         else:
             self.stdout.write("Initial data already exists. Skipping population.")
 

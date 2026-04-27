@@ -1261,14 +1261,14 @@
 }
 
 :root.theme-neon .form-check-input {
-    background-color: var(--cyber-panel) !important;
-    border-color: rgba(0, 255, 255, 0.3) !important;
+    background-color: rgba(30, 30, 50, 0.8) !important;
+    border-color: rgba(0, 255, 255, 0.4) !important;
 }
 
 :root.theme-neon .form-check-input:checked {
-    background-color: var(--neon-cyan) !important;
-    border-color: var(--neon-cyan) !important;
-    box-shadow: 0 0 10px rgba(0, 255, 255, 0.4) !important;
+    background-color: rgba(0, 200, 200, 0.85) !important;
+    border-color: rgba(0, 255, 255, 0.6) !important;
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.35) !important;
 }
 
 :root.theme-neon .permissions-card-header h5.app-title {
@@ -1602,6 +1602,94 @@
 :root.theme-neon .offcanvas-title {
     color: var(--neon-cyan) !important;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
+}
+
+:root.theme-neon .sidebar-toolbar {
+    border-top-color: rgba(0, 255, 255, 0.08) !important;
+    background:
+        linear-gradient(180deg, rgba(0, 255, 255, 0.02), rgba(0, 255, 255, 0)),
+        linear-gradient(to top, rgba(0, 255, 255, 0.12), rgba(10, 10, 15, 0.94)) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(0, 255, 255, 0.06),
+        0 -10px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+:root.theme-neon .sidebar-toolbar::before {
+    border-color: rgba(0, 255, 255, 0.08) !important;
+    background:
+        linear-gradient(180deg, rgba(0, 255, 255, 0.04), rgba(0, 255, 255, 0.01)),
+        repeating-linear-gradient(
+            90deg,
+            rgba(0, 255, 255, 0.04) 0 1px,
+            transparent 1px 24px
+        ) !important;
+    box-shadow: inset 0 1px 0 rgba(0, 255, 255, 0.04) !important;
+}
+
+:root.theme-neon .sidebar-toolbar-link,
+:root.theme-neon .reorder-toggle {
+    color: rgba(0, 255, 255, 0.7) !important;
+    background: rgba(0, 255, 255, 0.04) !important;
+    border-color: rgba(0, 255, 255, 0.12) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(0, 255, 255, 0.06),
+        0 0 10px rgba(0, 255, 255, 0.06) !important;
+}
+
+:root.theme-neon .sidebar-toolbar-link:hover,
+:root.theme-neon .reorder-toggle:hover {
+    color: var(--neon-cyan) !important;
+    background:
+        radial-gradient(circle at top, rgba(0, 255, 255, 0.14), transparent 70%),
+        rgba(0, 255, 255, 0.08) !important;
+    border-color: rgba(0, 255, 255, 0.28) !important;
+    box-shadow: 0 0 16px rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .sidebar-density-indicator {
+    color: rgba(0, 255, 255, 0.7) !important;
+    background: rgba(0, 255, 255, 0.04) !important;
+    border-color: rgba(0, 255, 255, 0.18) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(0, 255, 255, 0.06),
+        0 0 10px rgba(0, 255, 255, 0.08) !important;
+}
+
+:root.theme-neon .sidebar-density-indicator:hover {
+    color: var(--neon-cyan) !important;
+    background:
+        radial-gradient(circle at top, rgba(0, 255, 255, 0.12), transparent 70%),
+        rgba(0, 255, 255, 0.08) !important;
+    border-color: rgba(0, 255, 255, 0.32) !important;
+    box-shadow: 0 0 18px rgba(0, 255, 255, 0.2) !important;
+}
+
+:root.theme-neon .sidebar-density-popup {
+    background: var(--cyber-panel) !important;
+    border: 1px solid rgba(0, 255, 255, 0.3) !important;
+    color: var(--title) !important;
+    box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(0, 255, 255, 0.08) !important;
+}
+
+:root.theme-neon .sidebar-density-popup .small {
+    color: var(--neon-cyan) !important;
+    border-bottom-color: rgba(0, 255, 255, 0.15) !important;
+}
+
+:root.theme-neon .sidebar-density-chip {
+    background: rgba(0, 255, 255, 0.04) !important;
+    border-color: rgba(0, 255, 255, 0.18) !important;
+    color: rgba(0, 255, 255, 0.5) !important;
+}
+
+:root.theme-neon .sidebar-density-chip.is-active,
+:root.theme-neon .sidebar-density-chip:hover {
+    color: var(--neon-cyan) !important;
+    border-color: rgba(0, 255, 255, 0.4) !important;
+    background: rgba(0, 255, 255, 0.1) !important;
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.15) !important;
 }
 
 /* 32. Theme Picker - Neon Circle */

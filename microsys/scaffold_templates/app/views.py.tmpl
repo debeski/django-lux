@@ -1,5 +1,5 @@
-from django.urls import reverse_lazy
-from django.views.generic import CreateView, UpdateView
+from django.urls import reverse, reverse_lazy
+from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 from django_filters.views import FilterView
 from django_tables2 import SingleTableMixin
 
@@ -28,15 +28,34 @@ class ExampleRecordListView(SingleTableMixin, FilterView):
         return filterset
 
 
+class ExampleRecordDetailView(DetailView):
+    model = ExampleRecord
+    template_name = "{{ app_name }}/example_record_detail.html"
+    context_object_name = "record"
+
+
 class ExampleRecordCreateView(CreateView):
     model = ExampleRecord
     form_class = ExampleRecordForm
     template_name = "{{ app_name }}/example_record_form.html"
-    success_url = reverse_lazy("{{ app_name }}:example_record_list")
+
+    def get_success_url(self):
+        return reverse("{{ app_name }}:example_record_list")
 
 
 class ExampleRecordUpdateView(UpdateView):
     model = ExampleRecord
     form_class = ExampleRecordForm
     template_name = "{{ app_name }}/example_record_form.html"
-    success_url = reverse_lazy("{{ app_name }}:example_record_list")
+
+    def get_success_url(self):
+        return reverse("{{ app_name }}:example_record_list")
+
+
+class ExampleRecordDeleteView(DeleteView):
+    model = ExampleRecord
+    template_name = "{{ app_name }}/example_record_confirm_delete.html"
+    context_object_name = "record"
+
+    def get_success_url(self):
+        return reverse("{{ app_name }}:example_record_list")

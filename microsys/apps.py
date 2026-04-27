@@ -29,7 +29,7 @@ def custom_permission_str(self):
 class MicrosysConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'microsys'
-    verbose_name = "ادارة النظام"
+    verbose_name = "System Management"
 
     def ready(self):
         # Runtime configuration validation

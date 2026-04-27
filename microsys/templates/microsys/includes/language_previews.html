@@ -1,24 +1,30 @@
-<div{% if picker_mode == 'setup' %} data-setup-language-picker data-language-input="{{ input_id }}"{% endif %}>
+<div
+    class="ms-language-picker"
+    {% if picker_mode == 'setup' %}data-setup-language-picker data-language-input="{{ input_id }}"{% endif %}
+>
     {% if label %}
     <label class="form-label d-block">{{ label }}</label>
     {% endif %}
-    <div class="ms-choice-selector ms-choice-selector--swatch">
-    <div class="ms-choice-selector__options">
+    {% if help_text %}
+    <p class="text-muted small mb-3">{{ help_text }}</p>
+    {% endif %}
+    <div class="ms-density-options" role="group" aria-label="{{ label|default:'Language' }}">
         {% for code, lang in languages.items %}
-        <div>
-            <div
-                class="lang-option ms-choice-option__surface rounded border shadow-sm p-2 mb-1{% if code == selected_language %} lang-active{% endif %}"
-                {% if picker_mode == 'options' %}data-lang="{{ code }}"{% endif %}
-                {% if picker_mode == 'setup' %}data-setup-language-choice="{{ code }}"{% endif %}
-                data-dir="{{ lang.dir|default:'ltr' }}"
-                style="cursor: pointer; min-width: 80px;"
-                title="{{ lang.name|default:code }}"
-            >
-                <span style="font-size: 1.5rem;">{{ lang.flag|default:"🌐" }}</span>
-            </div>
-            <small class="text-muted">{{ lang.name|default:code }}</small>
-        </div>
+        <button
+            type="button"
+            class="ms-density-option{% if code == selected_language %} is-active{% endif %}"
+            {% if picker_mode == 'options' %}data-lang="{{ code }}"{% endif %}
+            {% if picker_mode == 'setup' %}data-setup-language-choice="{{ code }}"{% endif %}
+            data-dir="{{ lang.dir|default:'ltr' }}"
+        >
+            <span class="ms-density-option__icon" aria-hidden="true">
+                <span style="font-size: 1.25rem; line-height: 1;">{{ lang.flag|default:"🌐" }}</span>
+            </span>
+            <span class="ms-density-option__copy">
+                <strong>{{ lang.name|default:code }}</strong>
+                <small>{{ lang.desc|default:code|upper }}</small>
+            </span>
+        </button>
         {% endfor %}
-    </div>
     </div>
 </div>

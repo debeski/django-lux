@@ -141,7 +141,7 @@
                                 <!-- <a href="{{ APP_CONFIG.home_url }}" class="btn btn-sm btn-light rounded-pill border action-btn" title="{{ MS_TRANS.btn_home }}">
                                     <i class="bi bi-house-door"></i> {{ MS_TRANS.btn_home }}
                                 </a> -->
-                                <button type="button" class="btn btn-sm btn-success rounded-pill action-btn" data-dynamic-modal="{% url 'modal_profile_edit' pk=user.pk %}" data-modal-title="{{ MS_TRANS.btn_edit_profile|default:'تعديل الملف الشخصي' }}" title="{{ MS_TRANS.btn_update_data }}">
+                                <button type="button" class="btn btn-sm btn-success rounded-pill action-btn" data-dynamic-modal="{% url 'modal_profile_edit' pk=user.pk %}" data-modal-title="{{ MS_TRANS.btn_edit_profile|default:'Edit Profile' }}" title="{{ MS_TRANS.btn_update_data }}">
                                     <i class="bi bi-pencil-square"></i> {{ MS_TRANS.btn_edit }}
                                 </button>
                                 <button type="button" class="btn btn-sm btn-danger rounded-pill action-btn" data-bs-toggle="modal" data-bs-target="#resetPasswordModal" title="{{ MS_TRANS.btn_change_password }}">

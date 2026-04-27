@@ -52,19 +52,30 @@ def _get_user_from_kwargs(kwargs):
 
 
 def _should_lock_scope(user):
-    """Check if scope should be locked for this user."""
-    if not user or not hasattr(user, 'is_authenticated'):
+    """
+    Check if scope should be locked for this user.
+    Locked means the user cannot see or change the scope field in forms.
+    Only superusers are exempt from locking.
+    """
+    if not user or not hasattr(user, 'is_authenticated') or not user.is_authenticated:
         return False
-    if not user.is_authenticated or user.is_superuser:
-        return False
-    return bool(
-        hasattr(user, 'profile')
-        and user.profile.scope_id
-    )
+    return not user.is_superuser
 
 
 def _table_meta_value(table_meta, name, default=None):
     if table_meta is None:
+        return default
+    if isinstance(table_meta, type):
+        meta = getattr(table_meta, 'Meta', None)
+        if meta is not None and hasattr(meta, name):
+            return getattr(meta, name)
+        runtime_meta = getattr(table_meta, '_meta', None)
+        if runtime_meta is not None and hasattr(runtime_meta, name):
+            return getattr(runtime_meta, name)
+        if hasattr(table_meta, name):
+            value = getattr(table_meta, name)
+            if not isinstance(value, property):
+                return value
         return default
     if hasattr(table_meta, name):
         return getattr(table_meta, name)
@@ -312,11 +323,8 @@ def _patch_modelform_init():
 
         # Fallback: check if subclass stored user on self
         if not user:
-            user = getattr(self, 'user_context', None)
-        if not user:
-            req = getattr(self, 'request', None)
-            if req:
-                user = getattr(req, 'user', None)
+            from microsys.middleware import get_current_user
+            user = get_current_user()
 
         # Determine model
         meta = getattr(self, 'Meta', None) or getattr(type(self), 'Meta', None)
@@ -369,7 +377,7 @@ def _patch_modelform_init():
 
         if not scope_enabled or lock_scope:
             if lock_scope and user:
-                self.fields['scope'].initial = user.profile.scope
+                self.fields['scope'].initial = getattr(getattr(user, 'profile', None), 'scope', None)
             self.fields['scope'].disabled = True
             self.fields['scope'].widget = django_forms.HiddenInput()
             self.fields['scope'].required = False
@@ -381,6 +389,21 @@ def _patch_modelform_init():
         s = get_strings(overrides=config.get('translations'))
 
         for name, field in self.fields.items():
+            # ── Auto-Scope Logic ──
+            # If the field is a ModelChoiceField and uses a ScopedManager, refresh its queryset
+            # so that ScopedManager.get_queryset() is re-evaluated with the current user.
+            if isinstance(field, (django_forms.ModelChoiceField, django_forms.ModelMultipleChoiceField)):
+                try:
+                    # Refresh the queryset to trigger ScopedManager filtering with the current user context
+                    if hasattr(field.queryset.model, 'objects') and hasattr(field.queryset.model.objects, 'apply_scoping'):
+                        field.queryset = field.queryset.model.objects.apply_scoping(field.queryset)
+                    else:
+                        # Calling .all() on a ScopedManager queryset will re-trigger our filtering
+                        field.queryset = field.queryset.all()
+                except Exception:
+                    pass
+
+            # ── Universal Translation Logic ──
             # Try prefixes: 1. label_[name], 2. label_[raw_label], 3. [name], 4. [raw_label]
             raw_label = str(field.label) if field.label else name
             
@@ -435,10 +458,12 @@ def _patch_filterset_init():
         scope_enabled = is_scope_enabled()
 
         request = getattr(self, 'request', None) or kwargs.get('request')
-        lock_scope = bool(
-            request and hasattr(request, 'user')
-            and _should_lock_scope(request.user)
-        )
+        user = getattr(request, 'user', None) if request else None
+        if not user:
+            from microsys.middleware import get_current_user
+            user = get_current_user()
+
+        lock_scope = bool(user and _should_lock_scope(user))
 
         if not scope_enabled or lock_scope:
             if 'scope' in self.filters:
@@ -450,7 +475,26 @@ def _patch_filterset_init():
         config = get_system_config()
         s = get_strings(overrides=config.get('translations'))
 
+        from django import forms
+        from django_filters import ModelChoiceFilter, ModelMultipleChoiceFilter
         for name, filt in self.filters.items():
+            # ── Auto-Scope Logic ──
+            # If the filter is a ModelChoiceFilter, refresh its queryset
+            if isinstance(filt, (ModelChoiceFilter, ModelMultipleChoiceFilter)):
+                try:
+                    # Refresh the queryset to trigger ScopedManager filtering with the current user context
+                    target_qs = filt.extra.get('queryset')
+                    if target_qs is not None and hasattr(target_qs.model, 'objects') and hasattr(target_qs.model.objects, 'apply_scoping'):
+                        filt.extra['queryset'] = target_qs.model.objects.apply_scoping(target_qs)
+                    elif target_qs is not None:
+                        filt.extra['queryset'] = target_qs.all()
+                    
+                    if hasattr(filt, 'field') and hasattr(filt.field, 'queryset'):
+                         filt.field.queryset = filt.field.queryset.all()
+                except Exception:
+                    pass
+
+            # ── Universal Translation Logic ──
             # Try prefixes: 1. label_[name], 2. label_[raw_label], 3. [name], 4. [raw_label]
             raw_label = str(filt.label) if filt.label else name
             
@@ -484,8 +528,8 @@ def _patch_table_init():
         model_name = kwargs.pop('model_name', None)
 
         # Determine model BEFORE calling original (need to modify kwargs)
-        table_meta = getattr(type(self), '_meta', None) or getattr(type(self), 'Meta', None)
-        model = getattr(table_meta, 'model', None)
+        table_cls = type(self)
+        model = _table_meta_value(table_cls, 'model')
 
         if _is_scoped_model(model):
             from microsys.utils import is_scope_enabled
@@ -493,16 +537,15 @@ def _patch_table_init():
 
             if not scope_enabled:
                 # Add 'scope' to exclude
-                exclude = kwargs.get('exclude', getattr(table_meta, 'exclude', ()) or ())
+                exclude = kwargs.get('exclude', _table_meta_value(table_cls, 'exclude', ()) or ())
                 if isinstance(exclude, list):
                     exclude = tuple(exclude)
                 if 'scope' not in exclude:
                     kwargs['exclude'] = exclude + ('scope',)
             else:
                 # Auto-add scope column if not already defined on the class
-                has_scope_col = hasattr(type(self), 'scope') or (
-                    hasattr(table_meta, 'fields') and table_meta.fields
-                    and 'scope' in (table_meta.fields if table_meta.fields else ())
+                has_scope_col = hasattr(table_cls, 'scope') or (
+                    'scope' in (_table_meta_value(table_cls, 'fields', ()) or ())
                 )
                 if not has_scope_col:
                     extra = list(kwargs.get('extra_columns', []))
@@ -515,7 +558,7 @@ def _patch_table_init():
 
         # Framework-owned rendering path: adopt the Microsys template unless
         # the table explicitly points at a non-stock custom template or opts out.
-        if _should_use_microsys_table(table_meta):
+        if _should_use_microsys_table(table_cls):
             try:
                 self.template_name = _MICROSYS_TABLE_TEMPLATE
             except Exception:
@@ -528,12 +571,12 @@ def _patch_table_init():
         self.request = request
         if model_name:
             self.model_name = model_name
-        self.microsys_density_locked = _is_valid_table_density(_table_meta_value(table_meta, 'microsys_density'))
-        self.microsys_density = _resolve_table_density(request, table_meta)
-        self.microsys_table_enabled = bool(_should_use_microsys_table(table_meta))
-        self.microsys_per_page_options = _resolve_table_page_size_options(table_meta)
+        self.microsys_density_locked = _is_valid_table_density(_table_meta_value(table_cls, 'microsys_density'))
+        self.microsys_density = _resolve_table_density(request, table_cls)
+        self.microsys_table_enabled = bool(_should_use_microsys_table(table_cls))
+        self.microsys_per_page_options = _resolve_table_page_size_options(table_cls)
         self.microsys_per_page_field = _resolve_table_per_page_field(self)
-        self.microsys_per_page = _resolve_table_page_size(request, self, table_meta)
+        self.microsys_per_page = _resolve_table_page_size(request, self, table_cls)
 
         if self.microsys_table_enabled:
             try:
@@ -547,7 +590,7 @@ def _patch_table_init():
             except Exception:
                 pass
 
-        if self.microsys_table_enabled and _should_enable_microsys_actions(table_meta):
+        if self.microsys_table_enabled and _should_enable_microsys_actions(table_cls):
             try:
                 if getattr(self, 'row_attrs', None) is None:
                     self.row_attrs = {}
@@ -636,12 +679,12 @@ def _patch_requestconfig_configure():
     _original_configure = tables.RequestConfig.configure
 
     def _patched_configure(self, table):
-        table_meta = getattr(type(table), '_meta', None) or getattr(type(table), 'Meta', None)
+        table_cls = type(table)
         request = getattr(self, 'request', None)
         if getattr(table, 'request', None) is None:
             table.request = request
 
-        table.microsys_per_page_options = getattr(table, 'microsys_per_page_options', None) or _resolve_table_page_size_options(table_meta)
+        table.microsys_per_page_options = getattr(table, 'microsys_per_page_options', None) or _resolve_table_page_size_options(table_cls)
         table.microsys_per_page_field = getattr(table, 'microsys_per_page_field', None) or _resolve_table_per_page_field(table)
 
         original_paginate = getattr(self, 'paginate', None)
@@ -659,7 +702,7 @@ def _patch_requestconfig_configure():
         table.microsys_per_page = _resolve_table_page_size(
             request,
             table,
-            table_meta,
+            table_cls,
             explicit_default=paginate.get('per_page'),
         )
         paginate['per_page'] = table.microsys_per_page

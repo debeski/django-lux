@@ -384,7 +384,7 @@ form label {
 }
 
 .nav-link {
-    color: black;
+    /* Removed hardcoded color: black; to support theme inheritance */
 }
 
 #mainContent {

@@ -27,7 +27,7 @@
                    data-sub-id="{{ checkbox.data.value }}"
                    data-sub-name="{{ checkbox.choice_label }}"
                    data-micro-context="true"
-                   data-micro-actions='[{"label": "{{ MS_TRANS.edit_label|default:"تعديل" }}", "icon": "bi bi-pencil", "type": "event", "event": "micro:subsection:edit"}, {"type": "divider"}, {"label": "{{ MS_TRANS.delete_label|default:"حذف" }}", "icon": "bi bi-trash", "textClass": "text-danger", "type": "event", "event": "micro:subsection:delete", "disabled": true}]'
+                   data-micro-actions='[{"label": "{{ MS_TRANS.edit_label|default:"Edit" }}", "icon": "bi bi-pencil", "type": "event", "event": "micro:subsection:edit"}, {"type": "divider"}, {"label": "{{ MS_TRANS.delete_label|default:"Delete" }}", "icon": "bi bi-trash", "textClass": "text-danger", "type": "event", "event": "micro:subsection:delete", "disabled": true}]'
                    data-locked="true">
               {{ checkbox.choice_label }} <i class="bi bi-lock-fill small ms-1"></i>
             </label>
@@ -47,7 +47,7 @@
                data-sub-id="{{ checkbox.data.value }}"
                data-sub-name="{{ checkbox.choice_label }}"
                data-micro-context="true"
-               data-micro-actions='[{"label": "{{ MS_TRANS.edit_label|default:"تعديل" }}", "icon": "bi bi-pencil", "type": "event", "event": "micro:subsection:edit"}, {"type": "divider"}, {"label": "{{ MS_TRANS.delete_label|default:"حذف" }}", "icon": "bi bi-trash", "textClass": "text-danger", "type": "event", "event": "micro:subsection:delete"}]'
+               data-micro-actions='[{"label": "{{ MS_TRANS.edit_label|default:"Edit" }}", "icon": "bi bi-pencil", "type": "event", "event": "micro:subsection:edit"}, {"type": "divider"}, {"label": "{{ MS_TRANS.delete_label|default:"Delete" }}", "icon": "bi bi-trash", "textClass": "text-danger", "type": "event", "event": "micro:subsection:delete"}]'
                data-locked="false">
           {{ checkbox.choice_label }}
         </label>

@@ -123,7 +123,8 @@ class ContextProcessorsTests(TestCase):
         config = context['config']
         
         required_keys = [
-            'name', 'name_en', 'logo', 'login_logo', 'favicon',
+            'system_names', 'identity', 'localization', 'security', 'navigation', 'appearance', 'personalization',
+            'logo', 'login_logo', 'favicon',
             'home_url', 'default_language', 'default_theme',
             'languages', 'is_configured'
         ]
@@ -151,7 +152,7 @@ class ContextProcessorsTests(TestCase):
     def test_microsys_context_with_custom_config(self):
         """Test microsys_context with custom MICROSYS_CONFIG."""
         with override_settings(MICROSYS_CONFIG={
-            'name': 'Custom System',
+            'system_names': {'en': 'Custom System', 'ar': 'نظام مخصص'},
             'default_language': 'ar',
             'default_theme': 'dark'
         }):
@@ -159,7 +160,7 @@ class ContextProcessorsTests(TestCase):
             context = microsys_context(request)
             config = context['config']
             
-            self.assertEqual(config['name'], 'Custom System')
+            self.assertEqual(config['identity']['display_name'], 'نظام مخصص')
             self.assertEqual(config['default_language'], 'ar')
             self.assertEqual(config['default_theme'], 'dark')
 
@@ -349,7 +350,7 @@ class ContextProcessorsTests(TestCase):
         from microsys.models import SystemSettings
         
         settings = SystemSettings.load()
-        settings.name = 'DB Override System'
+        settings.system_names = {'en': 'DB Override System'}
         settings.is_configured = True
         settings.save()
         
@@ -357,7 +358,7 @@ class ContextProcessorsTests(TestCase):
         context = microsys_context(request)
         config = context['config']
         
-        self.assertEqual(config['name'], 'DB Override System')
+        self.assertEqual(config['identity']['display_name'], 'DB Override System')
         self.assertTrue(config['is_configured'])
 
     def test_microsys_context_media_urls(self):

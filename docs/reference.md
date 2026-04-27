@@ -36,10 +36,21 @@ Generated project baseline:
 | `/sys/setup/` | First-launch system setup |
 | `/sys/options/` | Options view |
 | `/sys/users/` | User management |
+| `/sys/reset_password/<int:pk>/` | Staff password-reset endpoint for a target user |
 | `/sys/logs/` | Activity log |
 | `/sys/logs/<int:pk>/details/` | Activity log detail modal |
 | `/sys/scopes/manage/` | Scope management |
 | `/sys/sections/` | Section management |
+
+Section security contract:
+
+- `/sys/sections/`, `/sys/section/details/`, `/sys/section/delete/`, and subsection CRUD endpoints require the existing section permissions
+- section detail/delete and subsection CRUD no longer accept arbitrary `model=` tokens; the target must be a discovered Microsys section or discovered section child model
+- `/sys/users/` plus the user-detail page/modal require `auth.view_user` for staff users (superusers still bypass)
+- `/sys/reset_password/<int:pk>/` now requires `auth.change_user` and the same staff/scope/superuser target checks as the hardened user-management modal routes
+- `/sys/logs/` and `/sys/logs/<int:pk>/details/` now require the explicit `microsys.view_activitylog` permission or superuser status rather than plain `is_staff`
+- embedded activity snippets on user-detail surfaces only render when the caller also has `microsys.view_activitylog`
+- sidebar-discovered system routes plus the built-in dashboard/user-hub shortcuts now mirror those same helper-backed checks instead of older template-only `is_staff` assumptions
 
 ## 2FA Routes
 
@@ -53,6 +64,12 @@ Generated project baseline:
 | `/sys/2fa/backup-codes/generate/` | Generate backup codes |
 | `/sys/2fa/resend/<intent>/` | Resend an OTP |
 
+2FA security contract:
+
+- `/sys/2fa/enable/`, `/sys/2fa/setup/totp/`, `/sys/2fa/disable/`, `/sys/2fa/backup-codes/generate/`, and resend endpoints are POST-only mutators
+- backup codes are stored hashed in `Profile.backup_codes`
+- login 2FA redirects validate `next` against allowed hosts before redirecting
+
 ## API Endpoints
 
 ### Autofill
@@ -62,6 +79,12 @@ Generated project baseline:
 | `/sys/api/last-entry/<app>/<model>/` | `GET` | Return the most recent record for sticky-form cloning |
 | `/sys/api/details/<app>/<model>/empty_schema/` | `GET` | Return an empty field structure for clearing autofill targets |
 | `/sys/api/details/<app>/<model>/<pk>/` | `GET` | Return serialized model details for autofill |
+
+Autofill security contract:
+
+- detail/autofill serialization now returns only direct fields of the requested model
+- reverse OneToOne expansion such as `user.profile.*` is intentionally excluded
+- reads use the model default manager so scoped query behavior is preserved
 
 ### Preferences
 
@@ -196,6 +219,9 @@ The system records several action families out of the box, including:
 | `get_user_linked_models()` | Find all models with a OneToOneField to the User model |
 | `resolve_model_by_name()` | Find a model class dynamically by name |
 | `filter_context_actions()` | Hide context-menu actions the current user should not see |
+| `is_global_staff(user)` | Returns `True` if user is non-scoped staff with `manage_scopes` permission (can manage ALL users and scopes) |
+| `is_central_staff(user)` | Returns `True` if user is non-scoped staff WITHOUT `manage_scopes` permission (can only manage scopeless users) |
+| `can_manage_target_user(actor, target)` | Returns `True` if actor can manage target user, respecting superuser self-only rules, scope boundaries, and Central Staff restrictions |
 | `collect_related_objects()` | Inspect reverse and related objects for reporting or delete warnings |
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
@@ -205,6 +231,25 @@ The system records several action families out of the box, including:
 | `log_user_action()` | Create consistent audit log entries |
 | `fetch_file()` | Download one file, many files, or ZIP bundles from model instances |
 | `fetch_excel()` | Export queryset data to Excel with hidden system/file columns |
+
+## Authorization Contracts
+
+- `DynamicModalManagerView` and `DynamicModalDeleteView` are backend-authorized surfaces, not login-only helpers
+- `accounts/profile/edit/<pk>/modal/` is self-only
+- dedicated user-management modals follow the same staff/scope/superuser rules as `microsys/views/users.py`
+- `/sys/users/` and user-detail surfaces require `auth.view_user` OR `microsys.manage_staff` for staff callers (superusers still bypass)
+- **Staff Tier System**: Three non-superuser staff tiers exist:
+  - **Global Staff** (`is_global_staff`): Non-scoped staff with `microsys.manage_scopes` permission — can create scopes, assign any scope, and manage ALL users
+  - **Central Staff** (`is_central_staff`): Non-scoped staff WITHOUT `manage_scopes` — can only create/manage scopeless users, completely blind to scoped users
+  - **Scoped Staff**: Staff assigned to a specific scope — can only manage users within that scope
+- Only **superusers** can create Global Staff users (assign `manage_scopes` permission)
+- Global Staff and superusers can create Central Staff
+- Central Staff cannot see scoped users in `/sys/users/`, cannot assign scopes, and cannot access scope management
+- user-detail activity snippets require `microsys.view_activitylog`
+- sidebar system items, dashboard cards, and user-hub shortcuts for Users / Sections / Activity Log follow the same helper-backed authorization rules
+- section-management routes require `microsys.view_sections` or `microsys.manage_sections`
+- `filter_context_actions()` now properly respects `manage_sections` permission for section-related context menu actions
+- Options diagnostics are privileged-only; personal preference controls remain available to authenticated users
 
 ## Codebase Entry Points
 

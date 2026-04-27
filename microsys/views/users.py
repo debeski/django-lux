@@ -1,4 +1,6 @@
 # Fundemental imports
+import logging
+
 from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
@@ -6,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
+from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
@@ -16,12 +19,12 @@ from django.views.generic.detail import DetailView
 
 # Project imports
 from ..constants import DEFAULT_HOME_URL, DEFAULT_TABLE_PAGE_SIZE
-from ..utils import is_scope_enabled, is_staff, is_superuser, log_user_action, get_client_ip, get_user_linked_models
+from ..utils import is_scope_enabled, is_staff, is_superuser, is_global_staff, is_central_staff, log_user_action, get_client_ip, get_user_linked_models, can_manage_target_user, user_can_view_user_directory, user_can_view_activity_log
 from ..translations import get_strings
 from .twofa import send_otp
 
 
-
+logger = logging.getLogger('microsys')
 User = get_user_model() # Use custom user model
 
 
@@ -100,9 +103,8 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
     template_name = "microsys/users/manage_users.html"
     paginate_by = DEFAULT_TABLE_PAGE_SIZE
     
-    # Restrict access to only staff users
     def test_func(self):
-        return self.request.user.is_staff
+        return user_can_view_user_directory(self.request.user)
 
     
     def get_queryset(self):
@@ -111,12 +113,29 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
         # Exclude soft-deleted users by checking profile's deleted_at
         qs = qs.filter(profile__deleted_at__isnull=True)
         
+        user = self.request.user
+        
         # Hide superuser entries from non-superusers
-        if not self.request.user.is_superuser:
+        if not user.is_superuser:
             qs = qs.exclude(is_superuser=True)
-            # Restrict to same scope
-            if hasattr(self.request.user, 'profile') and self.request.user.profile.scope:
-                qs = qs.filter(profile__scope=self.request.user.profile.scope)
+            
+            # Central Staff: can ONLY see scopeless users who are NOT Global Staff
+            if is_central_staff(user):
+                qs = qs.filter(profile__scope__isnull=True)
+                # Exclude users with manage_scopes permission (Global Staff)
+                from django.contrib.auth.models import Permission
+                try:
+                    manage_scopes_perm = Permission.objects.get(
+                        content_type__app_label='microsys',
+                        codename='manage_scopes'
+                    )
+                    qs = qs.exclude(user_permissions=manage_scopes_perm)
+                except Permission.DoesNotExist:
+                    pass
+            # Scoped staff: can only see same scope
+            elif hasattr(user, 'profile') and user.profile.scope:
+                qs = qs.filter(profile__scope=user.profile.scope)
+            # Global Staff: sees all users (no scope filter)
         return qs
 
     def get_table_kwargs(self):
@@ -179,8 +198,27 @@ def create_user(request):
             # Auto-assign scope for non-superusers
             if not request.user.is_superuser and hasattr(request.user, 'profile') and request.user.profile.scope:
                 # This logic is handled inside form.save via passed params.
-                pass 
-                
+                pass
+            
+            # Central Staff cannot create Global Staff - strip manage_scopes permission
+            if is_central_staff(request.user):
+                from django.contrib.auth.models import Permission
+                try:
+                    manage_scopes_perm = Permission.objects.get(
+                        content_type__app_label='microsys',
+                        codename='manage_scopes'
+                    )
+                    # Remove from cleaned_data so it doesn't get saved
+                    perms = list(form.cleaned_data.get('permissions', []))
+                    if manage_scopes_perm in perms:
+                        perms.remove(manage_scopes_perm)
+                        form.cleaned_data['permissions'] = perms
+                except Permission.DoesNotExist:
+                    pass
+                # Ensure scope is NULL (scopeless user)
+                if hasattr(user, 'profile') and user.profile:
+                    user.profile.scope = None
+            
             user = form.save() # Saves user + profile
             
             # --- Dynamic Profile Auto-Enrollment ---
@@ -227,6 +265,12 @@ def edit_user(request, pk):
         if requester_scope and user_scope != requester_scope:
              messages.error(request, "ليس لديك صلاحية لتعديل هذا المستخدم!")
              return redirect('manage_users')
+        
+        # Central Staff: cannot edit Global Staff users (those with manage_scopes permission)
+        if is_central_staff(request.user):
+            if user.has_perm('microsys.manage_scopes'):
+                messages.error(request, "Central Staff cannot edit Global Staff users.")
+                return redirect('manage_users')
 
     form_reset = ResetPasswordForm(user, data=request.POST or None, prefix='reset_password')
 
@@ -312,23 +356,15 @@ def delete_user(request, pk):
 
 
 # User Management — Resets a user's password with superuser/scope protection
+@permission_required('auth.change_user', raise_exception=True)
 @user_passes_test(is_staff)
 def reset_password(request, pk):
     user = get_object_or_404(User, id=pk)
     ResetPasswordForm = import_string('microsys.forms.ResetPasswordForm')
 
-    # 🚫 Superusers can only have their password reset by THEMSELVES
-    if user.is_superuser and request.user != user:
-        messages.error(request, "ليس لديك صلاحية لتعديل هذا الحساب!")
+    if not can_manage_target_user(request.user, user):
+        messages.error(request, "ليس لديك صلاحية لتعديل هذا المستخدم!", fail_silently=True)
         return redirect('manage_users')
-
-    # Restrict to same scope
-    if not request.user.is_superuser:
-        user_scope = user.profile.scope if hasattr(user, 'profile') else None
-        requester_scope = request.user.profile.scope if hasattr(request.user, 'profile') else None
-        if requester_scope and user_scope != requester_scope:
-             messages.error(request, "ليس لديك صلاحية لتعديل هذا المستخدم!")
-             return redirect('manage_users')
 
     if request.method == "POST":
         form = ResetPasswordForm(user=user, data=request.POST, prefix='reset_password')  # ✅ Correct usage with SetPasswordForm
@@ -337,8 +373,8 @@ def reset_password(request, pk):
             log_user_action(request, "RESET", instance=user, model_name="password")
             return redirect("manage_users")
         else:
-            print("Form errors:", form.errors)
-            return redirect("edit_user", pk=pk)
+            logger.warning("Password reset validation failed for target user pk=%s", user.pk)
+            return redirect("manage_users")
     
     return redirect("manage_users")  # Fallback redirect
 
@@ -349,21 +385,27 @@ class UserDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     template_name = "microsys/users/user_detail.html"
 
     def test_func(self):
-        # only staff can view user detail page
-        return self.request.user.is_staff
+        return user_can_view_user_directory(self.request.user)
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if not can_manage_target_user(self.request.user, obj):
+            raise PermissionDenied
+        return obj
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # self.object is the User instance
-        UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
-        logs_qs = UserActivityLog.objects.filter(created_by=self.object).order_by('-created_at')
-        
-        # Create table manually
-        UserActivityLogTableNoUser = import_string('microsys.tables.UserActivityLogTableNoUser')
-        table = UserActivityLogTableNoUser(logs_qs, translations=get_strings(), request=self.request)
-        RequestConfig(self.request).configure(table)
-        
+        table = None
+        can_view_activity_logs = user_can_view_activity_log(self.request.user)
+        if can_view_activity_logs:
+            UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
+            logs_qs = UserActivityLog._default_manager.filter(created_by=self.object).order_by('-created_at')
+
+            UserActivityLogTableNoUser = import_string('microsys.tables.UserActivityLogTableNoUser')
+            table = UserActivityLogTableNoUser(logs_qs, translations=get_strings(), request=self.request)
+            RequestConfig(self.request).configure(table)
+
+        context['can_view_activity_logs'] = can_view_activity_logs
         context['table'] = table
         return context
 
@@ -375,14 +417,22 @@ class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     template_name = 'microsys/users/user_detail_modal.html'
 
     def test_func(self):
-        # only staff can view user detail
-        return self.request.user.is_staff
+        return user_can_view_user_directory(self.request.user)
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        if not can_manage_target_user(self.request.user, obj):
+            raise PermissionDenied
+        return obj
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.object
-        UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
-        
-        # Get last 10 logs for this user
-        context['recent_logs'] = UserActivityLog.objects.filter(created_by=user).order_by('-created_at')[:10]
+        can_view_activity_logs = user_can_view_activity_log(self.request.user)
+        recent_logs = []
+        if can_view_activity_logs:
+            UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
+            recent_logs = UserActivityLog._default_manager.filter(created_by=user).order_by('-created_at')[:10]
+        context['can_view_activity_logs'] = can_view_activity_logs
+        context['recent_logs'] = recent_logs
         return context

@@ -7,6 +7,10 @@ from .utils import (
     resolve_sidebar_collapsed_preference,
     resolve_sidebar_density_preference,
     resolve_user_theme_preference,
+    user_can_view_activity_log,
+    user_can_view_user_directory,
+    user_has_any_permission_tokens,
+    user_has_section_view_permission,
 )
 from django.conf import settings
 import hashlib
@@ -65,17 +69,7 @@ def _process_extra_items(config, request, user_prefs=None, ms_trans=None):
             permission = item.get('permission')
             if permission:
                 perms = permission if isinstance(permission, (list, tuple, set)) else [permission]
-                allowed = False
-                for perm in perms:
-                    if perm == 'is_staff':
-                        allowed = request.user.is_staff
-                    elif perm == 'is_superuser':
-                        allowed = request.user.is_superuser
-                    else:
-                        allowed = request.user.has_perm(perm)
-                    if allowed:
-                        break
-                if not allowed:
+                if not user_has_any_permission_tokens(request.user, perms):
                     continue
             
             # Resolve URL
@@ -137,20 +131,19 @@ def _sort_sidebar(items, order, id_field='url_name'):
     return sorted_items
 
 def _user_has_sidebar_permission(user, permissions):
-    permissions = permissions or []
-    if not permissions:
-        return True
-    if getattr(user, 'is_superuser', False):
-        return True
+    from .utils import user_has_any_permission_tokens
 
-    for permission in permissions:
-        if permission == 'is_staff' and getattr(user, 'is_staff', False):
-            return True
-        if permission == 'is_superuser' and getattr(user, 'is_superuser', False):
-            return True
-        if permission not in ['is_staff', 'is_superuser'] and user.has_perm(permission):
-            return True
-    return False
+    # Superusers can see all sidebar items
+    if user and getattr(user, 'is_superuser', False):
+        return True
+    
+    # If no permissions could be inferred (e.g., function-based views),
+    # allow staff users to see the item (they'll be blocked at view level if needed)
+    if not permissions:
+        return user and getattr(user, 'is_staff', False)
+    
+    # For items with inferred permissions, check them
+    return user_has_any_permission_tokens(user, permissions or [], default_visible_to_all=False)
 
 def microsys_context(request):
     """
@@ -164,22 +157,23 @@ def microsys_context(request):
     context = {}
 
     # 1. Branding / App Config
-    from .utils import get_system_config
+    from .utils import build_config_groups, get_system_config
     final_config = get_system_config()
 
     # 4. Language / i18n (resolved BEFORE branding overrides so we know current_lang)
     from .translations import get_strings
 
     # Available languages from config (default: English and Arabic)
-    default_languages = {
-        'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
-        'en': {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'},
-    }
-    languages = final_config.get('languages', default_languages)
+    languages = final_config.get('localization', {}).get('languages') or final_config.get('languages', {})
 
     # Resolve active language: preview session → user pref/session override → config default → 'en'
-    default_lang = final_config.get('default_language', 'en')
-    allow_user_language_override = bool(final_config.get('allow_user_language_override', True))
+    default_lang = final_config.get('localization', {}).get('default_language') or final_config.get('default_language', 'en')
+    allow_user_language_override = bool(
+        final_config.get('localization', {}).get(
+            'allow_user_language_override',
+            final_config.get('allow_user_language_override', True),
+        )
+    )
     
     current_lang = None
     preview_lang = request.session.get('lang')
@@ -208,13 +202,7 @@ def microsys_context(request):
     if current_lang not in languages:
         current_lang = default_lang if default_lang in languages else 'en'
 
-    # DYNAMIC BRANDING: Look for [key]_[lang] overrides in final_config
-    # (e.g. name_en, logo_ar) and promote them to the base keys
-    for key in list(final_config.keys()):
-        lang_suffix = f"_{current_lang}"
-        if key.endswith(lang_suffix):
-            base_key = key[:-len(lang_suffix)]
-            final_config[base_key] = final_config[key]
+    final_config.update(build_config_groups(final_config, current_lang))
 
     context['APP_CONFIG'] = final_config
 
@@ -222,6 +210,9 @@ def microsys_context(request):
     # 2. Scope Settings
     # We add this boolean so templates know if the scope feature is ON globally
     context['scope_settings'] = {'is_enabled': is_scope_enabled()}
+    context['can_view_user_directory'] = user_can_view_user_directory(request.user)
+    context['can_view_activity_log'] = user_can_view_activity_log(request.user)
+    context['can_view_sections'] = user_has_section_view_permission(request.user)
 
     # 3. User Preferences (for JS injection & server-side logic)
     user_prefs = {}
@@ -244,7 +235,7 @@ def microsys_context(request):
     current_dir = lang_config.get('dir', 'ltr')
 
     # Get translated strings (with project-level overrides from config)
-    project_overrides = final_config.get('translations', None)
+    project_overrides = final_config.get('localization', {}).get('translations', final_config.get('translations', None))
     ms_trans = get_strings(current_lang, overrides=project_overrides)
     allowed_theme_names = list(get_effective_allowed_themes(final_config))
     context['MICROSYS_THEME_NAMES'] = allowed_theme_names
@@ -295,10 +286,7 @@ def microsys_context(request):
     context['sidebar_has_sections_manager'] = bool(
         request.user.is_authenticated and
         has_section_models() and
-        _user_has_sidebar_permission(
-            request.user,
-            SYSTEM_ROUTE_META.get('manage_sections', {}).get('permissions', []),
-        )
+        context['can_view_sections']
     )
     context['sidebar_toolbar_enabled'] = bool(sidebar_runtime_config.get('show_toolbar', True)) and any([
         context['sidebar_theme_picker_enabled'],
@@ -324,7 +312,7 @@ def microsys_context(request):
         'auto_items': context['sidebar_auto_items'],
         'extra_groups': context['sidebar_extra_groups'],
     }
-    context['titlebar'] = final_config.get('titlebar', {})
+    context['titlebar'] = final_config.get('appearance', {}).get('titlebar', final_config.get('titlebar', {}))
 
     return context
 

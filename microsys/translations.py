@@ -56,24 +56,27 @@ MICROSYS_STRINGS = {
         'system_settings_label': 'إعدادات النظام (System Settings)',
         'system_settings_btn': 'إدارة إعدادات النظام',
         'system_settings_desc': 'تهيئة إعدادات المنظومة العامة والافتراضيات.',
+        'system_settings_export': 'تصدير ملف التهيئة',
         'system_settings_modal_desc': 'حدّث الهوية واللغات والشريط الجانبي ومظهر الواجهة من نافذة الإعدادات.',
         'system_settings_branding': 'الهوية',
         'system_settings_languages': 'اللغات',
+        'system_settings_security': 'الوصول والأمان',
         'system_settings_sidebar': 'الشريط الجانبي',
         'system_settings_appearance': 'المظهر وشريط العنوان',
         'system_setup_title': 'التهيئة الأولى للبرنامج',
         'system_setup_heading': 'ابدأ تهيئة Microsys',
         'system_setup_desc': 'أكمل إعدادات الهوية واللغات والشريط الجانبي والمظهر قبل البدء.',
         'system_setup_page_desc': 'اضبط هوية النظام ولغاته وسلوك الشريط الجانبي ومظهر الواجهة من مكان واحد.',
-        'system_setup_step1': 'الخطوة 1: الهوية والافتراضيات',
+        'system_setup_step1': 'الخطوة 1: الهوية',
         'system_setup_step2': 'الخطوة 2: اللغات والترجمات',
-        'system_setup_step3': 'الخطوة 3: الشريط الجانبي',
-        'system_setup_step4': 'الخطوة 4: شريط العنوان والمظهر',
+        'system_setup_step3': 'الخطوة 3: الوصول والأمان',
+        'system_setup_step4': 'الخطوة 4: الشريط الجانبي والتنقل',
+        'system_setup_step5': 'الخطوة 5: المظهر والتخصيص',
         'apply_language': 'تطبيق اللغة',
 
         # System Settings Form
-        'form_sys_name_ar': 'اسم النظام (عربي)',
-        'form_sys_name_en': 'اسم النظام (إنجليزي)',
+        'form_sys_system_names': 'أسماء النظام حسب اللغة',
+        'form_sys_system_name_placeholder': 'اسم النظام',
         'form_sys_home_url': 'الرابط الرئيسي العام',
         'help_sys_home_url': 'يمكنك كتابة مسار مخصص مثل / أو /finance/ أو رابط كامل إذا أردت.',
         'form_sys_home_url_discovered': 'اختر من الصفحات المكتشفة',
@@ -93,10 +96,27 @@ MICROSYS_STRINGS = {
         'help_sys_default_table_density': 'اختر كثافة الجداول الافتراضية للمستخدمين الجدد، مع إمكانية تجاوزها لاحقاً من صفحة الخيارات.',
         'form_sys_logo': 'الشعار (Logo)',
         'form_sys_favicon': 'أيقونة الموقع (Favicon)',
-        'form_sys_languages': 'اللغات الاضافية المتوفرة (JSON)',
-        'help_sys_languages': 'مثال: {"fr": "francais", "de": "Deutsch"}',
-        'form_sys_translations': 'تعديل واضافة ترجمات النظام (JSON)',
-        'help_sys_translations': 'مثال: {"fr": {"app_microsys": "paramètres système"}, {"model_password": "mot de passe"},<br>"ar": {"app_microsys": "النظام"}}',
+        'form_sys_import_config': 'استيراد ملف إعدادات النظام',
+        'help_sys_import_config': 'اختياري: اختر ملف JSON مُصدّراً من Microsys لتعبئة إعدادات التهيئة الحالية.',
+        'form_sys_languages': 'اللغات المتاحة',
+        'help_sys_languages': 'أضف اللغات التي تريد إتاحتها للمستخدمين.',
+        'form_sys_translations': 'ترجمات الواجهة',
+        'help_sys_translations': 'عدّل الترجمات من جدول المفاتيح حسب اللغة.',
+        'language_catalog_add_code': 'رمز اللغة',
+        'language_catalog_add_name': 'اسم العرض',
+        'language_catalog_add_dir': 'الاتجاه',
+        'language_catalog_add_flag': 'العلم',
+        'language_catalog_suggestions': 'ملفات الترجمة تحتوي أيضاً على هذه اللغات. أضف لغة لإتاحتها للمستخدمين.',
+        'translation_matrix_search': 'بحث في الترجمات',
+        'translation_matrix_search_placeholder': 'مفتاح أو قيمة',
+        'translation_matrix_filter': 'تصفية',
+        'translation_matrix_all': 'الكل',
+        'translation_matrix_missing': 'الناقصة',
+        'translation_matrix_overrides': 'المعدلة',
+        'translation_matrix_key': 'المفتاح',
+        'translation_matrix_group_all': 'كل الأجزاء',
+        'translation_matrix_group_project': 'ترجمات المشروع',
+        'translation_matrix_group_runtime': 'تعديلات الإعدادات',
         'form_sys_sidebar': 'إعدادات الشريط الجانبي',
         'form_sys_sidebar_enable_reorder': 'تفعيل إعادة ترتيب الشريط الجانبي',
         'help_sys_sidebar_enable_reorder': 'إظهار زر إعادة الترتيب السريع في شريط أدوات الشريط الجانبي حتى يتمكن المستخدم من تغيير ترتيب العناصر من الواجهة.',
@@ -296,7 +316,9 @@ MICROSYS_STRINGS = {
         'tbl_action': 'الإجراء',
         'tbl_object_id': 'رقم العنصر',
         'tbl_number': 'الهدف',
+        'tbl_name': 'الاسم',
         'tbl_created_by': 'أنشئ بواسطة',
+        'tbl_created_at': 'أنشئ في',
         'tbl_scope_default': 'عام',
 
         # Filter placeholders
@@ -446,6 +468,7 @@ MICROSYS_STRINGS = {
         'perm_manage_staff': 'صلاحيات مستخدم مسؤول',
         'help_perm_manage_staff': 'يمنح المستخدم صلاحية تعيين مستخدمين آخرين كمسؤولين.',
         'perm_view_activity_log': 'عرض سجل النشاط',
+        'perm_view_activitylog': 'عرض سجل النشاط',
 
         # Activity Log Actions
         'action_login': 'تسجيل دخول',
@@ -693,24 +716,27 @@ MICROSYS_STRINGS = {
         'system_settings_label': 'System Settings',
         'system_settings_btn': 'Manage System Settings',
         'system_settings_desc': 'Configure global system settings and defaults.',
+        'system_settings_export': 'Export setup file',
         'system_settings_modal_desc': 'Update branding, languages, the sidebar, and shell appearance from the settings modal.',
         'system_settings_branding': 'Branding',
         'system_settings_languages': 'Languages',
+        'system_settings_security': 'Access & Security',
         'system_settings_sidebar': 'Sidebar',
         'system_settings_appearance': 'Appearance & Titlebar',
         'system_setup_title': 'Initial System Setup',
         'system_setup_heading': 'Set up Microsys',
         'system_setup_desc': 'Complete branding, languages, sidebar, and appearance setup before you begin.',
         'system_setup_page_desc': 'Configure your system identity, languages, sidebar behavior, and shell appearance from one place.',
-        'system_setup_step1': 'Step 1: Identity & Defaults',
-        'system_setup_step2': 'Step 2: Languages & Overrides',
-        'system_setup_step3': 'Step 3: Sidebar',
-        'system_setup_step4': 'Step 4: Titlebar & Appearance',
+        'system_setup_step1': 'Step 1: Identity',
+        'system_setup_step2': 'Step 2: Localization',
+        'system_setup_step3': 'Step 3: Access & Security',
+        'system_setup_step4': 'Step 4: Navigation',
+        'system_setup_step5': 'Step 5: Appearance & Personalization',
         'apply_language': 'Apply language',
 
         # System Settings Form
-        'form_sys_name_ar': 'System Name (Arabic)',
-        'form_sys_name_en': 'System Name (English)',
+        'form_sys_system_names': 'System Names by Language',
+        'form_sys_system_name_placeholder': 'System name',
         'form_sys_home_url': 'Global Home URL',
         'help_sys_home_url': 'Enter a custom path like / or /finance/ or a full URL if you want.',
         'enable_scopes': 'Enable Scopes',
@@ -732,10 +758,27 @@ MICROSYS_STRINGS = {
         'help_sys_default_table_density': 'Choose the default table density for new users; each user can still override it later from Options.',
         'form_sys_logo': 'System Logo (Logo)',
         'form_sys_favicon': 'Site Icon (Favicon)',
-        'form_sys_languages': 'Available Languages (JSON)',
-        'help_sys_languages': 'Example: {"ar": "العربية", "en": "English"}',
-        'form_sys_translations': 'Translations Override (JSON)',
-        'help_sys_translations': 'Example: {"ar": {"app_microsys": "System"}}',
+        'form_sys_import_config': 'Import system setup file',
+        'help_sys_import_config': 'Optional: choose a Microsys-exported JSON setup file to populate these settings.',
+        'form_sys_languages': 'Available Languages',
+        'help_sys_languages': 'Add languages that should be available to users.',
+        'form_sys_translations': 'Interface Translations',
+        'help_sys_translations': 'Edit translations from the language-key matrix.',
+        'language_catalog_add_code': 'Language Code',
+        'language_catalog_add_name': 'Display Name',
+        'language_catalog_add_dir': 'Direction',
+        'language_catalog_add_flag': 'Flag',
+        'language_catalog_suggestions': 'Translation files also contain these languages. Add one to publish it to users.',
+        'translation_matrix_search': 'Search Translations',
+        'translation_matrix_search_placeholder': 'Key or value',
+        'translation_matrix_filter': 'Filter',
+        'translation_matrix_all': 'All',
+        'translation_matrix_missing': 'Missing',
+        'translation_matrix_overrides': 'Overrides',
+        'translation_matrix_key': 'Key',
+        'translation_matrix_group_all': 'All parts',
+        'translation_matrix_group_project': 'Project translations',
+        'translation_matrix_group_runtime': 'Settings overrides',
         'form_sys_sidebar': 'Sidebar Configuration',
         'form_sys_sidebar_enable_reorder': 'Enable sidebar reorder',
         'help_sys_sidebar_enable_reorder': 'Show the quick reorder control in the sidebar toolbar so users can rearrange sidebar items from the UI.',
@@ -933,7 +976,9 @@ MICROSYS_STRINGS = {
         'tbl_action': 'Action',
         'tbl_object_id': 'Object ID',
         'tbl_number': 'Target',
+        "tbl_name": 'Name',
         'tbl_created_by': 'Created By',
+        'tbl_created_at': 'Created At',
         'tbl_scope_default': 'General',
 
         # Filter placeholders
@@ -1082,6 +1127,7 @@ MICROSYS_STRINGS = {
         'perm_manage_staff': 'Can manage staff',
         'help_perm_manage_staff': 'Grants the user permission to assign other users as staff.',
         'perm_view_activity_log': 'View activity log',
+        'perm_view_activitylog': 'View activity log',
 
         # Activity Log Actions
         'action_login': 'Login',
@@ -1282,6 +1328,7 @@ MICROSYS_STRINGS = {
 
 
 from django.apps import apps
+from django.conf import settings
 from importlib import import_module
 from functools import lru_cache
 import logging
@@ -1325,6 +1372,192 @@ def _discover_and_merge_translations():
             continue
             
     return merged_strings
+
+
+@lru_cache(maxsize=1)
+def _discover_translation_source_layers():
+    """
+    Return source-aware translation layers for matrix grouping.
+    The merged runtime catalog still uses _discover_and_merge_translations().
+    """
+    sources = [
+        {
+            'id': 'microsys',
+            'label': 'Microsys',
+            'type': 'core',
+            'translations': MICROSYS_STRINGS,
+        }
+    ]
+
+    for app_config in apps.get_app_configs():
+        if app_config.name == 'microsys':
+            continue
+
+        try:
+            module = import_module(f"{app_config.name}.translations")
+            app_strings = getattr(module, 'MS_TRANSLATIONS', None)
+        except ImportError:
+            continue
+        except Exception as e:
+            logger.warning(f"Error loading translations from {app_config.name}: {e}")
+            continue
+
+        if not isinstance(app_strings, dict) or not app_strings:
+            continue
+
+        sources.append({
+            'id': str(app_config.label or app_config.name).replace('.', '_'),
+            'label': str(getattr(app_config, 'verbose_name', '') or app_config.label or app_config.name),
+            'type': 'app',
+            'translations': app_strings,
+        })
+
+    return sources
+
+
+def _translation_layer_keys(layer):
+    keys = set()
+    if not isinstance(layer, dict):
+        return keys
+    for values in layer.values():
+        if isinstance(values, dict):
+            keys.update(str(key) for key in values.keys())
+    return keys
+
+
+def discover_translation_languages(*extra_layers):
+    """Return language codes that have translation strings, without enabling them."""
+    languages = set()
+    for layer in (_discover_and_merge_translations(), *extra_layers):
+        if not isinstance(layer, dict):
+            continue
+        for code, values in layer.items():
+            if isinstance(values, dict) and values:
+                languages.add(str(code).split('-')[0].lower())
+    return sorted(languages)
+
+
+def _build_translation_matrix_row(key, enabled_codes, base_strings, project_strings, overrides):
+    values = {}
+    base_values = {}
+    override_values = {}
+    sources = {}
+    for lang in enabled_codes:
+        core_value = MICROSYS_STRINGS.get(lang, {}).get(key)
+        discovered_value = base_strings.get(lang, {}).get(key)
+        project_value = project_strings.get(lang, {}).get(key) if isinstance(project_strings.get(lang), dict) else None
+        override_value = overrides.get(lang, {}).get(key) if isinstance(overrides.get(lang), dict) else None
+
+        base_value = project_value if project_value is not None else discovered_value
+        value = override_value if override_value is not None else base_value
+        values[lang] = '' if value is None else str(value)
+        base_values[lang] = '' if base_value is None else str(base_value)
+        override_values[lang] = '' if override_value is None else str(override_value)
+        if override_value is not None:
+            sources[lang] = 'override'
+        elif project_value is not None:
+            sources[lang] = 'project'
+        elif core_value is not None:
+            sources[lang] = 'core'
+        elif discovered_value is not None:
+            sources[lang] = 'app'
+        else:
+            sources[lang] = 'missing'
+
+    cells = [
+        {
+            'language': lang,
+            'value': values.get(lang, ''),
+            'base_value': base_values.get(lang, ''),
+            'override_value': override_values.get(lang, ''),
+            'source': sources.get(lang, 'missing'),
+        }
+        for lang in enabled_codes
+    ]
+    return {
+        'key': key,
+        'values': values,
+        'base_values': base_values,
+        'override_values': override_values,
+        'sources': sources,
+        'cells': cells,
+    }
+
+
+def _enabled_language_codes(enabled_languages):
+    return [
+        str(code).split('-')[0].lower()
+        for code in (enabled_languages or {})
+        if str(code or '').strip()
+    ]
+
+
+def build_translation_matrix_groups(enabled_languages, overrides=None):
+    """
+    Build grouped editor data. Groups are used as UI tabs: Microsys, each app,
+    project settings translations, and override-only keys.
+    """
+    enabled_codes = _enabled_language_codes(enabled_languages)
+    base_strings = _discover_and_merge_translations()
+    project_config = getattr(settings, 'MICROSYS_CONFIG', {})
+    project_strings = project_config.get('translations', {}) if isinstance(project_config, dict) else {}
+    overrides = overrides if isinstance(overrides, dict) else {}
+
+    groups = []
+    claimed_keys = set()
+    for source in _discover_translation_source_layers():
+        source_keys = sorted(_translation_layer_keys(source.get('translations')))
+        rows = []
+        for key in source_keys:
+            if key in claimed_keys:
+                continue
+            claimed_keys.add(key)
+            rows.append(_build_translation_matrix_row(key, enabled_codes, base_strings, project_strings, overrides))
+        if rows:
+            groups.append({
+                'id': source['id'],
+                'label': source['label'],
+                'type': source['type'],
+                'rows': rows,
+            })
+
+    project_keys = sorted(_translation_layer_keys(project_strings) - claimed_keys)
+    if project_keys:
+        groups.append({
+            'id': 'project',
+            'label': 'Project translations',
+            'type': 'project',
+            'rows': [
+                _build_translation_matrix_row(key, enabled_codes, base_strings, project_strings, overrides)
+                for key in project_keys
+            ],
+        })
+        claimed_keys.update(project_keys)
+
+    override_only_keys = sorted(_translation_layer_keys(overrides) - claimed_keys)
+    if override_only_keys:
+        groups.append({
+            'id': 'runtime',
+            'label': 'Settings overrides',
+            'type': 'override',
+            'rows': [
+                _build_translation_matrix_row(key, enabled_codes, base_strings, project_strings, overrides)
+                for key in override_only_keys
+            ],
+        })
+
+    return groups
+
+
+def build_translation_matrix(enabled_languages, overrides=None):
+    """
+    Build editor data for enabled languages.
+    Existing code/app/project values prefill cells; overrides remain the only saved layer.
+    """
+    rows = []
+    for group in build_translation_matrix_groups(enabled_languages, overrides):
+        rows.extend(group.get('rows', []))
+    return rows
 
 def get_current_language_code(request=None):
     from django.utils.translation import get_language

@@ -54,6 +54,18 @@ if not settings.configured:
 from microsys.discovery import _is_candidate, build_sidebar_navigation, discover_sidebar_catalog, sanitize_sidebar_config
 
 
+class _StubUser:
+    def __init__(self, *, is_authenticated=True, is_staff=False, is_superuser=False, permissions=None, scope=None):
+        self.is_authenticated = is_authenticated
+        self.is_staff = is_staff
+        self.is_superuser = is_superuser
+        self._permissions = set(permissions or [])
+        self.scope = scope
+
+    def has_perm(self, permission):
+        return permission in self._permissions
+
+
 class SidebarDiscoveryTests(SimpleTestCase):
     def test_discovery_excludes_ajax_and_add_edit_route_names(self):
         self.assertFalse(_is_candidate("ajax_search_decrees", "/ajax/search/decrees/", callback=None))
@@ -182,16 +194,108 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-gear",
-                "permissions": [],
+                "permissions": ["__ms_options_view__"],
+                "permissions_explicit": True,
                 "group_key": "microsys",
                 "group_label": "System",
                 "group_icon": "bi-sliders",
             }
         ]
 
-        navigation = build_sidebar_navigation(lang_code="en", request_path="/sys/options/")
+        navigation = build_sidebar_navigation(
+            lang_code="en",
+            user=_StubUser(is_staff=True, permissions={"__ms_options_view__"}),
+            request_path="/sys/options/",
+        )
 
         self.assertEqual([entry["url_name"] for entry in navigation["entries"]], ["options_view"])
+        self.assertTrue(navigation["entries"][0]["active"])
+
+    @patch("microsys.discovery.discover_sidebar_catalog")
+    @patch("microsys.utils.get_system_config")
+    def test_build_sidebar_navigation_hides_manage_users_without_directory_access(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {
+                        "kind": "item",
+                        "id": "manage_users",
+                        "url_name": "manage_users",
+                        "label": "Users",
+                        "icon": "bi-people",
+                        "group_key": "microsys",
+                    }
+                ],
+            },
+        }
+        mock_discover_sidebar_catalog.return_value = [
+            {
+                "kind": "item",
+                "id": "manage_users",
+                "url_name": "manage_users",
+                "url": "/sys/users/",
+                "label": "Users",
+                "icon": "bi-people",
+                "permissions": ["__ms_user_directory__"],
+                "permissions_explicit": True,
+                "group_key": "microsys",
+                "group_label": "System",
+                "group_icon": "bi-sliders",
+            }
+        ]
+
+        navigation = build_sidebar_navigation(
+            lang_code="en",
+            user=_StubUser(is_staff=True, permissions=set(), scope="test-scope"),
+            request_path="/sys/users/",
+        )
+
+        self.assertEqual(navigation["entries"], [])
+
+    @patch("microsys.discovery.discover_sidebar_catalog")
+    @patch("microsys.utils.get_system_config")
+    def test_build_sidebar_navigation_shows_manage_users_for_staff_with_view_permission(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {
+                        "kind": "item",
+                        "id": "manage_users",
+                        "url_name": "manage_users",
+                        "label": "Users",
+                        "icon": "bi-people",
+                        "group_key": "microsys",
+                    }
+                ],
+            },
+        }
+        mock_discover_sidebar_catalog.return_value = [
+            {
+                "kind": "item",
+                "id": "manage_users",
+                "url_name": "manage_users",
+                "url": "/sys/users/",
+                "label": "Users",
+                "icon": "bi-people",
+                "permissions": ["__ms_user_directory__"],
+                "permissions_explicit": True,
+                "group_key": "microsys",
+                "group_label": "System",
+                "group_icon": "bi-sliders",
+            }
+        ]
+
+        navigation = build_sidebar_navigation(
+            lang_code="en",
+            user=_StubUser(is_staff=True, permissions={"auth.view_user"}),
+            request_path="/sys/users/",
+        )
+
+        self.assertEqual([entry["url_name"] for entry in navigation["entries"]], ["manage_users"])
         self.assertTrue(navigation["entries"][0]["active"])
 
     @patch("microsys.discovery.discover_sidebar_catalog")
@@ -229,14 +333,19 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-gear",
-                "permissions": [],
+                "permissions": ["__ms_options_view__"],
+                "permissions_explicit": True,
                 "group_key": "microsys",
                 "group_label": "System",
                 "group_icon": "bi-sliders",
             }
         ]
 
-        navigation = build_sidebar_navigation(lang_code="en", request_path="/sys/options/")
+        navigation = build_sidebar_navigation(
+            lang_code="en",
+            user=_StubUser(is_staff=True, permissions={"__ms_options_view__"}),
+            request_path="/sys/options/",
+        )
 
         self.assertEqual(len(navigation["entries"]), 1)
         self.assertEqual(navigation["entries"][0]["kind"], "group")
@@ -269,7 +378,8 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-gear",
-                "permissions": [],
+                "permissions": ["__ms_options_view__"],
+                "permissions_explicit": True,
                 "group_key": "microsys",
                 "group_label": "System",
                 "group_icon": "bi-sliders",
@@ -278,6 +388,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         navigation = build_sidebar_navigation(
             lang_code="en",
+            user=_StubUser(is_staff=True, permissions={"__ms_options_view__"}),
             sidebar_override={
                 "entries": [
                     {
@@ -292,3 +403,48 @@ class SidebarDiscoveryTests(SimpleTestCase):
         )
 
         self.assertEqual([entry["url_name"] for entry in navigation["entries"]], ["options_view"])
+
+    @patch("microsys.discovery.discover_sidebar_catalog")
+    @patch("microsys.utils.get_system_config")
+    def test_build_sidebar_navigation_hides_explicit_empty_permission_items_from_staff(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        """Items with explicitly empty permissions are hidden from non-superusers."""
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {
+                        "kind": "item",
+                        "id": "no_perms_view",
+                        "url_name": "no_perms_view",
+                        "label": "No Perms View",
+                        "icon": "bi-lock",
+                        "group_key": "app",
+                    }
+                ],
+            },
+        }
+        mock_discover_sidebar_catalog.return_value = [
+            {
+                "kind": "item",
+                "id": "no_perms_view",
+                "url_name": "no_perms_view",
+                "url": "/no-perms/",
+                "label": "No Perms View",
+                "icon": "bi-lock",
+                "permissions": [],
+                "permissions_explicit": True,  # Explicitly set to empty
+                "group_key": "app",
+                "group_label": "App",
+                "group_icon": "bi-grid-1x2",
+            }
+        ]
+
+        # Staff user should not see items with explicitly empty permissions
+        navigation = build_sidebar_navigation(
+            lang_code="en",
+            user=_StubUser(is_staff=True, permissions=set()),
+            request_path="/no-perms/",
+        )
+
+        self.assertEqual(navigation["entries"], [])

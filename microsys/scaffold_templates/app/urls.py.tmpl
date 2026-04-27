@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     ExampleRecordCreateView,
+    ExampleRecordDeleteView,
+    ExampleRecordDetailView,
     ExampleRecordListView,
     ExampleRecordUpdateView,
 )
@@ -12,5 +14,7 @@ app_name = "{{ app_name }}"
 urlpatterns = [
     path("", ExampleRecordListView.as_view(), name="example_record_list"),
     path("add/", ExampleRecordCreateView.as_view(), name="example_record_add"),
+    path("<int:pk>/", ExampleRecordDetailView.as_view(), name="example_record_detail"),
     path("<int:pk>/edit/", ExampleRecordUpdateView.as_view(), name="example_record_edit"),
+    path("<int:pk>/delete/", ExampleRecordDeleteView.as_view(), name="example_record_delete"),
 ]

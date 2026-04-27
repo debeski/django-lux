@@ -1,0 +1,64 @@
+<div class="ms-translation-matrix" data-translation-matrix>
+  <div class="nav nav-pills flex-wrap gap-2 mb-3 ms-translation-tabs" role="tablist" data-translation-group-tabs>
+    <button type="button" class="nav-link active" data-translation-group-tab="all">
+      {{ MS_TRANS.translation_matrix_group_all|default:"All parts" }}
+    </button>
+    {% for group in translation_groups %}
+    <button type="button" class="nav-link" data-translation-group-tab="{{ group.id }}">
+      {{ group.label }} <span class="badge text-bg-light ms-1">{{ group.rows|length }}</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <div class="flex-grow-1">
+      <label class="form-label fw-semibold" for="ms-translation-search">{{ MS_TRANS.translation_matrix_search|default:"Search translations" }}</label>
+      <input id="ms-translation-search" type="search" class="form-control glass-input" data-translation-search placeholder="{{ MS_TRANS.translation_matrix_search_placeholder|default:'Key or value' }}">
+    </div>
+    <div>
+      <label class="form-label fw-semibold" for="ms-translation-status">{{ MS_TRANS.translation_matrix_filter|default:"Filter" }}</label>
+      <select id="ms-translation-status" class="form-select glass-input" data-translation-status>
+        <option value="all">{{ MS_TRANS.translation_matrix_all|default:"All" }}</option>
+        <option value="missing">{{ MS_TRANS.translation_matrix_missing|default:"Missing" }}</option>
+        <option value="override">{{ MS_TRANS.translation_matrix_overrides|default:"Overrides" }}</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="ms-translation-table-wrap">
+    <table class="table table-sm align-middle ms-translation-table">
+      <thead>
+        <tr>
+          <th class="ms-translation-key-col">{{ MS_TRANS.translation_matrix_key|default:"Key" }}</th>
+          {% for code, lang in languages.items %}
+          <th data-translation-lang-header="{{ code }}">{{ lang.name|default:code }} <span class="text-muted">({{ code }})</span></th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody data-translation-body>
+        {% for group in translation_groups %}
+        {% for row in group.rows %}
+        <tr data-translation-row data-translation-key="{{ row.key }}" data-translation-group="{{ group.id }}">
+          <th scope="row" class="ms-translation-key">{{ row.key }}</th>
+          {% for cell in row.cells %}
+          <td data-translation-cell data-source="{{ cell.source }}">
+            <textarea
+              class="form-control form-control-sm glass-input"
+              rows="2"
+              data-translation-input
+              data-lang="{{ cell.language }}"
+              data-key="{{ row.key }}"
+              data-base-value="{{ cell.base_value }}"
+              data-override-value="{{ cell.override_value }}"
+              placeholder="{{ cell.base_value }}"
+            >{{ cell.value }}</textarea>
+            <span class="badge ms-translation-source">{{ cell.source }}</span>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

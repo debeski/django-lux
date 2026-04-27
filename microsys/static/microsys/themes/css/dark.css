@@ -930,8 +930,8 @@
     border-color: #495057 !important;
 }
 :root.theme-dark .form-check-input:checked {
-    background-color: var(--primal) !important;
-    border-color: var(--primal) !important;
+    background-color: var(--primal_dark) !important;
+    border-color: var(--primal_dark) !important;
 }
 
 :root.theme-dark .permissions-card-header h5.app-title {
@@ -1223,40 +1223,40 @@ html[dir="rtl"] :root.theme-dark .activity-timeline {
 
 /* Dark Mode Overrides for the Popup */
 :root.theme-dark .theme-popup {
-    background: #1e293b;
-    border-color: rgba(255, 255, 255, 0.1);
+    background: #1a1a2a;
+    border-color: rgba(255, 255, 255, 0.08);
     color: white;
 }
 :root.theme-dark .sidebar-toolbar {
-    border-top-color: rgba(255, 255, 255, 0.06);
+    border-top-color: rgba(255, 255, 255, 0.04);
     background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
-        linear-gradient(to top, rgba(var(--primal-rgb), 0.18), rgba(13, 18, 29, 0.92)) !important;
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
+        linear-gradient(to top, rgba(var(--primal-rgb), 0.14), rgba(8, 12, 21, 0.96)) !important;
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.04),
-        0 -10px 20px rgba(0, 0, 0, 0.24) !important;
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 -10px 20px rgba(0, 0, 0, 0.32) !important;
 }
 
 :root.theme-dark .sidebar-toolbar::before {
-    border-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.04);
     background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.005)),
         repeating-linear-gradient(
             90deg,
-            rgba(var(--primal-rgb), 0.05) 0 1px,
+            rgba(var(--primal-rgb), 0.035) 0 1px,
             transparent 1px 24px
         );
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
 :root.theme-dark .sidebar-toolbar-link,
 :root.theme-dark .reorder-toggle {
-    color: rgba(255, 255, 255, 0.72);
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.65);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.06);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.04),
-        0 4px 12px rgba(0, 0, 0, 0.18);
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 4px 12px rgba(0, 0, 0, 0.22);
 }
 
 :root.theme-dark .sidebar-toolbar-link:hover,
@@ -1266,6 +1266,48 @@ html[dir="rtl"] :root.theme-dark .activity-timeline {
         radial-gradient(circle at top, rgba(var(--primal-rgb), 0.18), transparent 70%),
         rgba(255, 255, 255, 0.08);
     border-color: rgba(var(--primal-rgb), 0.26);
+}
+
+:root.theme-dark .sidebar-density-indicator {
+    color: rgba(255, 255, 255, 0.65);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+:root.theme-dark .sidebar-density-indicator:hover {
+    color: #f4f8ff;
+    background:
+        radial-gradient(circle at top, rgba(var(--primal-rgb), 0.18), transparent 70%),
+        rgba(255, 255, 255, 0.08);
+    border-color: rgba(var(--primal-rgb), 0.26);
+}
+
+:root.theme-dark .sidebar-density-popup {
+    background: #1a1a2a;
+    border-color: rgba(255, 255, 255, 0.08);
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+:root.theme-dark .sidebar-density-popup .small {
+    color: rgba(255, 255, 255, 0.7);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+:root.theme-dark .sidebar-density-chip {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+:root.theme-dark .sidebar-density-chip.is-active,
+:root.theme-dark .sidebar-density-chip:hover {
+    color: var(--primal, #3b82f6);
+    border-color: rgba(var(--primal-rgb), 0.32);
+    background: rgba(var(--primal-rgb), 0.12);
 }
 
 :root.theme-dark .current-theme-indicator {

@@ -233,7 +233,11 @@ def _normalize_asset_url(value, fallback_base='/media/'):
     if not normalized:
         return normalized
 
-    base_url = str(getattr(settings, 'MEDIA_URL', '') or fallback_base).strip() or fallback_base
+    configured_media_url = str(getattr(settings, 'MEDIA_URL', '') or '').strip()
+    if configured_media_url in {'', '/'}:
+        base_url = fallback_base
+    else:
+        base_url = configured_media_url
     if not base_url.startswith('/'):
         base_url = f'/{base_url}'
     if not base_url.endswith('/'):
@@ -272,8 +276,196 @@ def get_client_ip(request):
         ip = request.META.get("REMOTE_ADDR")
     return ip
 
+
+def get_user_scope(user):
+    """Return the user's scope from profile first, then direct attribute."""
+    if not user:
+        return None
+    profile = getattr(user, 'profile', None)
+    if profile and getattr(profile, 'scope', None):
+        return profile.scope
+    return getattr(user, 'scope', None)
+
+
+def can_manage_target_user(actor, target_user=None):
+    """
+    Reuse the existing user-management guardrails:
+    - actor must be staff
+    - superuser targets are self-only
+    - scoped non-superusers can only manage users in their own scope
+    - Central Staff (non-scoped without manage_scopes) can ONLY manage scopeless users
+    - Global Staff (non-scoped with manage_scopes) can manage ALL users
+    """
+    if not actor or not getattr(actor, 'is_authenticated', False) or not getattr(actor, 'is_staff', False):
+        return False
+
+    if target_user is None:
+        return True
+
+    if getattr(target_user, 'is_superuser', False) and actor != target_user:
+        return False
+
+    # Central Staff: can only manage scopeless (NULL scope) users
+    if is_central_staff(actor):
+        target_scope = get_user_scope(target_user)
+        if target_scope is not None:
+            return False
+        return True
+
+    # Global Staff: can manage all users (fall through to default logic)
+    # Scoped staff: can only manage same scope
+    if not getattr(actor, 'is_superuser', False) and not is_global_staff(actor):
+        actor_scope = get_user_scope(actor)
+        target_scope = get_user_scope(target_user)
+        if actor_scope and actor_scope != target_scope:
+            return False
+
+    return True
+
+
+def is_global_staff(user):
+    """
+    Global Staff tier: Non-scoped staff with manage_scopes permission.
+    Can create/manage scopes and ALL users (scoped and scopeless).
+    Only superusers can create Global Staff.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    if not getattr(user, 'is_staff', False):
+        return False
+    # Must have no scope and have manage_scopes permission
+    user_scope = get_user_scope(user)
+    if user_scope is not None:
+        return False
+    return user.has_perm('microsys.manage_scopes')
+
+
+def is_central_staff(user):
+    """
+    Central Staff tier: Non-scoped staff WITHOUT manage_scopes permission.
+    Can only create/manage scopeless (NULL scope) users.
+    Cannot view scoped users, manage scopes, or assign scopes.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return False  # Superuser is not Central Staff
+    if not getattr(user, 'is_staff', False):
+        return False
+    # Must have no scope and NOT have manage_scopes permission
+    user_scope = get_user_scope(user)
+    if user_scope is not None:
+        return False
+    return not user.has_perm('microsys.manage_scopes')
+
+
+def user_can_view_user_directory(user):
+    """
+    The full user-management surfaces stay staff-only.
+    Global Staff and Central Staff can access the directory (with different visibility).
+    Scoped staff can also access if they have view_user or manage_staff.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    if not getattr(user, 'is_staff', False):
+        return False
+    # Global Staff and Central Staff (both non-scoped) can access
+    if get_user_scope(user) is None:
+        return True
+    # Scoped staff need explicit permissions
+    return user.has_perm('auth.view_user') or user.has_perm('microsys.manage_staff')
+
+
+def user_can_view_activity_log(user):
+    """
+    Activity-log access is explicit.
+    Keep a legacy alias check for the old typo'd codename while the package
+    finishes converging on `view_activitylog`.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    return user.has_perm('microsys.view_activitylog') or user.has_perm('microsys.view_activity_log')
+
+
+def user_has_section_view_permission(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    return user.has_perm('microsys.view_sections') or user.has_perm('microsys.manage_sections')
+
+
+def user_has_section_manage_permission(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    return user.has_perm('microsys.manage_sections')
+
+
+def user_has_model_permission(user, model, action):
+    """Return True when the user has the Django model permission for the given action."""
+    if not user or not getattr(user, 'is_authenticated', False) or not model or not action:
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    permission = f'{model._meta.app_label}.{action}_{model._meta.model_name}'
+    return user.has_perm(permission)
+
+
+def user_matches_permission_token(user, permission):
+    """
+    Resolve Microsys-internal permission tokens plus normal Django permission strings.
+
+    Internal tokens are used by discovery/sidebar/template-adjacent code so those
+    surfaces can stay aligned with the newer MSRP authorization helpers.
+    """
+    if not permission:
+        return True
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+
+    if permission == 'is_staff':
+        return bool(getattr(user, 'is_staff', False))
+    if permission == 'is_superuser':
+        return bool(getattr(user, 'is_superuser', False))
+    if permission == '__ms_user_directory__':
+        return user_can_view_user_directory(user)
+    if permission == '__ms_activity_log__':
+        return user_can_view_activity_log(user)
+    if permission == '__ms_sections_view__':
+        return user_has_section_view_permission(user)
+    if permission == '__ms_sections_manage__':
+        return user_has_section_manage_permission(user)
+
+    return bool(user.has_perm(permission))
+
+
+def user_has_any_permission_tokens(user, permissions, default_visible_to_all=False):
+    """
+    Check if user has any of the given permissions.
+    
+    Args:
+        user: The user to check
+        permissions: List or string of permissions
+        default_visible_to_all: If True and permissions is empty, returns True (backward compatible).
+                              If False and permissions is empty, returns False (secure default).
+    """
+    if not permissions:
+        return default_visible_to_all
+    if isinstance(permissions, str):
+        permissions = [permissions]
+    return any(user_matches_permission_token(user, p) for p in permissions)
+
+
 # Activity Logging — Universal logging utility for user actions
-def log_user_action(request, action, instance=None, model_name=None, details=None, number=None):
+def log_user_action(request, action, instance=None, model_name=None, details=None, number=None, object_id=None):
     """
     Centralized activity logging. All manual UserActivityLog creation should go through here.
     
@@ -298,7 +490,7 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         user=user,
         action=action,
         model_name=model_name or (instance._meta.verbose_name if instance else None),
-        object_id=instance.pk if instance else None,
+        object_id=object_id if object_id is not None else (instance.pk if instance else None),
         number=number or (getattr(instance, 'number', '') if instance else None),
         details=details,
         ip_address=get_client_ip(request),
@@ -330,6 +522,122 @@ def _merge_language_layers(*layers):
             elif payload:
                 merged[code] = {'name': str(payload)}
     return merged
+
+
+DEFAULT_LANGUAGE_CATALOG = {
+    'en': {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'},
+    'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
+}
+
+
+def _normalize_language_code(code):
+    normalized = str(code or '').strip().lower().replace('_', '-')
+    if not normalized:
+        return ''
+    if not re.match(r'^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$', normalized):
+        return ''
+    return normalized
+
+
+def normalize_language_catalog(*layers):
+    """Normalize explicitly enabled UI languages without enabling discovered translations."""
+    merged = deepcopy(DEFAULT_LANGUAGE_CATALOG)
+    for layer in layers:
+        if not isinstance(layer, dict):
+            continue
+        for raw_code, payload in layer.items():
+            code = _normalize_language_code(raw_code)
+            if not code:
+                continue
+            if isinstance(payload, dict):
+                name = str(payload.get('name') or code).strip() or code
+                direction = str(payload.get('dir') or '').strip().lower()
+                if direction not in {'ltr', 'rtl'}:
+                    direction = 'rtl' if code.startswith(('ar', 'fa', 'he', 'ur')) else 'ltr'
+                merged[code] = {
+                    'name': name,
+                    'dir': direction,
+                    'flag': str(payload.get('flag') or '').strip(),
+                }
+            elif payload:
+                merged[code] = {
+                    'name': str(payload).strip() or code,
+                    'dir': 'rtl' if code.startswith(('ar', 'fa', 'he', 'ur')) else 'ltr',
+                    'flag': '',
+                }
+    return merged
+
+
+def normalize_system_names(value):
+    names = {}
+    if isinstance(value, dict):
+        for raw_code, raw_name in value.items():
+            code = _normalize_language_code(raw_code)
+            name = str(raw_name or '').strip()
+            if code and name:
+                names[code] = name
+    return names
+
+
+def resolve_system_name(system_names, lang_code=None, default_language='en'):
+    names = normalize_system_names(system_names)
+    lang = _normalize_language_code(lang_code) or _normalize_language_code(default_language) or 'en'
+    default_lang = _normalize_language_code(default_language) or 'en'
+    for code in (lang, default_lang):
+        if code in names and names[code]:
+            return names[code]
+    for value in names.values():
+        if value:
+            return value
+    return 'microSYS'
+
+
+def build_config_groups(config, current_language=None):
+    languages = normalize_language_catalog(config.get('languages', {}))
+    default_language = _normalize_language_code(config.get('default_language')) or 'en'
+    if default_language not in languages:
+        default_language = 'en' if 'en' in languages else next(iter(languages), 'en')
+    display_language = _normalize_language_code(current_language) or default_language
+    if display_language not in languages:
+        display_language = default_language
+    system_names = normalize_system_names(config.get('system_names'))
+    display_name = resolve_system_name(system_names, display_language, default_language)
+    return {
+        'identity': {
+            'system_names': system_names,
+            'display_name': display_name,
+            'logo_url': config.get('logo_url'),
+            'login_logo_url': config.get('login_logo_url'),
+            'favicon_url': config.get('favicon_url'),
+        },
+        'localization': {
+            'languages': languages,
+            'default_language': default_language,
+            'translations': config.get('translations', {}),
+            'allow_user_language_override': bool(config.get('allow_user_language_override', True)),
+        },
+        'security': {
+            'public_root': bool(config.get('public_root', False)),
+            'email_2fa': bool(config.get('email_2fa', False)),
+        },
+        'navigation': {
+            'home_url': config.get('home_url') or DEFAULT_HOME_URL,
+            'sidebar': config.get('sidebar', default_sidebar_config()),
+        },
+        'appearance': {
+            'default_theme': config.get('default_theme', 'light'),
+            'allowed_themes': list(config.get('allowed_themes', [])),
+            'default_table_density': config.get('default_table_density', DEFAULT_TABLE_DENSITY),
+            'titlebar': config.get('titlebar', default_titlebar_config()),
+        },
+        'personalization': {
+            'allow_user_theme_override': bool(config.get('allow_user_theme_override', True)),
+            'allow_user_language_override': bool(config.get('allow_user_language_override', True)),
+            'allow_user_sidebar_density': bool(
+                normalize_sidebar_behavior(config.get('sidebar', {})).get('allow_user_density', True)
+            ),
+        },
+    }
 
 # Sidebar Helper — Removes duplicate sidebar entries by id/url_name/label
 def _dedupe_sidebar_entries(entries):
@@ -475,6 +783,123 @@ def resolve_sidebar_collapsed_preference(user_prefs, config, session_collapsed=F
         raw_value = raw_value.lower() == 'true'
     return bool(raw_value), prefs
 
+
+SYSTEM_SETTINGS_EXPORT_FORMAT = 'django-microsys.system-settings'
+SYSTEM_SETTINGS_EXPORT_VERSION = 1
+
+
+SYSTEM_SETTINGS_EXPORT_FIELDS = (
+    'system_names',
+    'logo',
+    'favicon',
+    'home_url',
+    'default_language',
+    'default_theme',
+    'allowed_themes',
+    'allow_user_theme_override',
+    'allow_user_language_override',
+    'default_table_density',
+    'email_2fa',
+    'public_root',
+    'languages',
+    'translations_override',
+    'sidebar_config',
+    'titlebar_config',
+)
+
+
+def _field_file_name(value):
+    if isinstance(value, FieldFile):
+        return value.name or ''
+    return str(value or '')
+
+
+def _coerce_import_bool(value):
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(value)
+
+
+def export_system_settings_payload(instance=None):
+    """Return a portable JSON payload for DB-backed setup settings."""
+    if instance is None:
+        SystemSettings = apps.get_model('microsys', 'SystemSettings')
+        instance = SystemSettings.load()
+
+    from microsys import __version__
+
+    data = {}
+    for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
+        value = getattr(instance, field_name, None)
+        if field_name in {'logo', 'favicon'}:
+            data[field_name] = _field_file_name(value)
+        elif field_name == 'languages':
+            data[field_name] = normalize_language_catalog(value)
+        elif field_name == 'system_names':
+            data[field_name] = normalize_system_names(value)
+        elif field_name == 'sidebar_config':
+            data[field_name] = normalize_sidebar_behavior(value)
+        elif field_name == 'titlebar_config':
+            data[field_name] = normalize_titlebar_config(value)
+        elif field_name == 'allowed_themes':
+            data[field_name] = list(normalize_allowed_themes(value))
+        else:
+            data[field_name] = deepcopy(value)
+
+    return {
+        'format': SYSTEM_SETTINGS_EXPORT_FORMAT,
+        'version': SYSTEM_SETTINGS_EXPORT_VERSION,
+        'microsys_version': __version__,
+        'settings': data,
+    }
+
+
+def normalize_system_settings_import_payload(payload):
+    """Validate and normalize an exported setup payload or a direct settings dict."""
+    if not isinstance(payload, dict):
+        raise ValueError("Setup import must be a JSON object.")
+
+    raw_settings = payload.get('settings') if payload.get('format') == SYSTEM_SETTINGS_EXPORT_FORMAT else payload
+    if not isinstance(raw_settings, dict):
+        raise ValueError("Setup import is missing a valid settings object.")
+
+    normalized = {}
+    for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
+        if field_name in raw_settings:
+            normalized[field_name] = deepcopy(raw_settings[field_name])
+
+    if 'system_names' in normalized:
+        normalized['system_names'] = normalize_system_names(normalized['system_names'])
+    if 'languages' in normalized:
+        normalized['languages'] = normalize_language_catalog(normalized['languages'])
+    if 'translations_override' in normalized and not isinstance(normalized['translations_override'], dict):
+        normalized['translations_override'] = {}
+    if 'sidebar_config' in normalized:
+        normalized['sidebar_config'] = normalize_sidebar_behavior(normalized['sidebar_config'])
+    if 'titlebar_config' in normalized:
+        normalized['titlebar_config'] = normalize_titlebar_config(normalized['titlebar_config'])
+    if 'allowed_themes' in normalized:
+        normalized['allowed_themes'] = list(normalize_allowed_themes(normalized['allowed_themes']))
+    if 'default_theme' in normalized and not is_valid_theme(normalized['default_theme']):
+        normalized.pop('default_theme', None)
+    if 'default_table_density' in normalized and normalized['default_table_density'] not in TABLE_DENSITY_VALUES:
+        normalized.pop('default_table_density', None)
+    if 'default_language' in normalized:
+        normalized['default_language'] = _normalize_language_code(normalized['default_language']) or 'en'
+    if 'home_url' in normalized:
+        normalized['home_url'] = str(normalized['home_url'] or '').strip()
+    for bool_field in (
+        'allow_user_theme_override',
+        'allow_user_language_override',
+        'email_2fa',
+        'public_root',
+    ):
+        if bool_field in normalized:
+            normalized[bool_field] = _coerce_import_bool(normalized[bool_field])
+
+    return normalized
+
+
 def get_system_config():
     """
     Returns the deeply merged system configuration.
@@ -484,9 +909,10 @@ def get_system_config():
     """
     # Default configuration
     default_config = {
-        'name': 'microSYS',
-        'name_ar': '',
-        'name_en': 'microSYS',
+        'system_names': {
+            'en': 'microSYS',
+            'ar': 'microSYS',
+        },
         'verbose_name': 'microSYS',
         'logo': '/static/img/base_logo.webp',
         'login_logo': '/static/img/login_logo.webp',
@@ -500,10 +926,7 @@ def get_system_config():
         'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
         'public_root': False,
-        'languages': {
-            'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
-            'en': {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'},
-        },
+        'languages': deepcopy(DEFAULT_LANGUAGE_CATALOG),
         'translations': {},
         'sidebar': default_sidebar_config(),
         'titlebar': default_titlebar_config(),
@@ -520,15 +943,20 @@ def get_system_config():
     try:
         from microsys.models import SystemSettings
         sys_settings = SystemSettings.load()
-        legacy_unconfigured_name = (
-            not getattr(sys_settings, 'is_configured', False) and
-            getattr(sys_settings, 'name', '') in {'ادارة النظام', 'إدارة النظام', None}
-        )
-        if sys_settings.name and not legacy_unconfigured_name:
-            db_config['name'] = sys_settings.name
-            db_config['name_ar'] = sys_settings.name
-        if sys_settings.name_en:
-            db_config['name_en'] = sys_settings.name_en
+        system_is_configured = bool(getattr(sys_settings, 'is_configured', False))
+
+        def _should_apply_db_override(value, default):
+            return system_is_configured or value != default
+
+        if (
+            isinstance(getattr(sys_settings, 'system_names', None), dict)
+            and sys_settings.system_names
+            and _should_apply_db_override(
+                normalize_system_names(sys_settings.system_names),
+                default_config['system_names'],
+            )
+        ):
+            db_config['system_names'] = sys_settings.system_names
         if sys_settings.logo:
             db_config['logo'] = sys_settings.logo.url
             db_config['logo_url'] = sys_settings.logo.url
@@ -537,22 +965,54 @@ def get_system_config():
             db_config['favicon'] = sys_settings.favicon.url
             db_config['favicon_url'] = sys_settings.favicon.url
         legacy_unconfigured_home_url = (
-            not getattr(sys_settings, 'is_configured', False) and
+            not system_is_configured and
             getattr(sys_settings, 'home_url', '') == LEGACY_HOME_URL
         )
-        if sys_settings.home_url and not legacy_unconfigured_home_url:
+        if (
+            sys_settings.home_url
+            and not legacy_unconfigured_home_url
+            and _should_apply_db_override(sys_settings.home_url, default_config['home_url'])
+        ):
             db_config['home_url'] = sys_settings.home_url
-        if sys_settings.default_language:
+        if (
+            getattr(sys_settings, 'default_language', None)
+            and _should_apply_db_override(sys_settings.default_language, default_config['default_language'])
+        ):
             db_config['default_language'] = sys_settings.default_language
-        if getattr(sys_settings, 'default_theme', None):
+        if (
+            getattr(sys_settings, 'default_theme', None)
+            and _should_apply_db_override(sys_settings.default_theme, default_config['default_theme'])
+        ):
             db_config['default_theme'] = sys_settings.default_theme
-        if isinstance(getattr(sys_settings, 'allowed_themes', None), list) and sys_settings.allowed_themes:
+        if (
+            isinstance(getattr(sys_settings, 'allowed_themes', None), list)
+            and sys_settings.allowed_themes
+            and _should_apply_db_override(sys_settings.allowed_themes, default_config['allowed_themes'])
+        ):
             db_config['allowed_themes'] = sys_settings.allowed_themes
-        if hasattr(sys_settings, 'allow_user_theme_override'):
+        if (
+            hasattr(sys_settings, 'allow_user_theme_override')
+            and _should_apply_db_override(
+                bool(sys_settings.allow_user_theme_override),
+                default_config['allow_user_theme_override'],
+            )
+        ):
             db_config['allow_user_theme_override'] = bool(sys_settings.allow_user_theme_override)
-        if hasattr(sys_settings, 'allow_user_language_override'):
+        if (
+            hasattr(sys_settings, 'allow_user_language_override')
+            and _should_apply_db_override(
+                bool(sys_settings.allow_user_language_override),
+                default_config['allow_user_language_override'],
+            )
+        ):
             db_config['allow_user_language_override'] = bool(sys_settings.allow_user_language_override)
-        if getattr(sys_settings, 'default_table_density', None):
+        if (
+            getattr(sys_settings, 'default_table_density', None)
+            and _should_apply_db_override(
+                sys_settings.default_table_density,
+                default_config['default_table_density'],
+            )
+        ):
             db_config['default_table_density'] = sys_settings.default_table_density
         if isinstance(sys_settings.languages, dict) and sys_settings.languages:
             db_config['languages'] = sys_settings.languages
@@ -564,16 +1024,22 @@ def get_system_config():
             isinstance(getattr(sys_settings, 'titlebar_config', None), dict)
             and sys_settings.titlebar_config
             and (
-                getattr(sys_settings, 'is_configured', False)
+                system_is_configured
                 or sys_settings.titlebar_config != default_titlebar_config()
             )
         ):
             db_config['titlebar'] = sys_settings.titlebar_config
-        if hasattr(sys_settings, 'is_configured'):
-            db_config['is_configured'] = bool(sys_settings.is_configured)
-        if hasattr(sys_settings, 'email_2fa'):
+        if system_is_configured:
+            db_config['is_configured'] = True
+        if (
+            hasattr(sys_settings, 'email_2fa')
+            and _should_apply_db_override(bool(sys_settings.email_2fa), default_config['email_2fa'])
+        ):
             db_config['email_2fa'] = bool(sys_settings.email_2fa)
-        if hasattr(sys_settings, 'public_root'):
+        if (
+            hasattr(sys_settings, 'public_root')
+            and _should_apply_db_override(bool(sys_settings.public_root), default_config['public_root'])
+        ):
             db_config['public_root'] = bool(sys_settings.public_root)
     except Exception:
         pass
@@ -594,11 +1060,19 @@ def get_system_config():
     final_config = deepcopy(default_config)
     for layer in (user_config, db_config):
         for key, value in layer.items():
-            if key in ['languages', 'translations', 'sidebar', 'titlebar']:
+            if key in ['system_names', 'languages', 'translations', 'sidebar', 'titlebar']:
                 continue
             final_config[key] = value
 
-    final_config['languages'] = _merge_language_layers(
+    final_config['system_names'] = normalize_system_names(
+        {
+            **normalize_system_names(default_config.get('system_names', {})),
+            **normalize_system_names(user_config.get('system_names', {})),
+            **normalize_system_names(db_config.get('system_names', {})),
+        }
+    )
+
+    final_config['languages'] = normalize_language_catalog(
         default_config.get('languages', {}),
         user_config.get('languages', {}),
         db_config.get('languages', {}),
@@ -628,10 +1102,6 @@ def get_system_config():
             merged_titlebar[key] = value
     final_config['titlebar'] = normalize_titlebar_config(merged_titlebar)
 
-    if 'name_ar' not in final_config or not final_config.get('name_ar'):
-        final_config['name_ar'] = final_config.get('name_en') or final_config.get('name') or default_config['name_en']
-    if not final_config.get('name_en'):
-        final_config['name_en'] = user_config.get('name_en') or default_config['name_en']
     final_config['allowed_themes'] = list(normalize_allowed_themes(final_config.get('allowed_themes')))
     if final_config.get('default_theme') not in set(final_config['allowed_themes']):
         final_config['default_theme'] = final_config['allowed_themes'][0]
@@ -654,18 +1124,36 @@ def get_system_config():
 
     final_config['home_url_name'] = None
     final_config['home_url'] = final_config.get('home_url') or default_config['home_url']
+    if final_config.get('default_language') not in final_config['languages']:
+        final_config['default_language'] = 'en' if 'en' in final_config['languages'] else next(iter(final_config['languages']), 'en')
+
+    final_config.update(build_config_groups(final_config, final_config.get('default_language')))
 
     return final_config
 
 # Context Menu Helper — Filters context menu actions based on user permissions
-def filter_context_actions(user, actions):
+def filter_context_actions(user, actions, manage_sections_perm=None):
     """
     Filter a list of context menu actions based on user permissions.
     Each action can have a 'permissions' key (list of strings) or 'permission' (string).
     If user lacks any required permission, the action is excluded.
+
+    Args:
+        user: The user to check permissions for
+        actions: List of action dicts, each may contain 'permissions' or 'permission'
+        manage_sections_perm: Optional permission string (e.g., 'microsys.manage_sections')
+                             that grants full access to all section-related actions.
+                             Defaults to checking 'microsys.manage_sections' if None.
     """
     if not user or not user.is_authenticated:
         return []
+
+    # Determine the manage_sections permission to check
+    if manage_sections_perm is None:
+        manage_sections_perm = 'microsys.manage_sections'
+
+    # Check if user has manage_sections permission (grants full section access)
+    has_manage_sections = user.has_perm(manage_sections_perm)
 
     filtered = []
     for action in actions:
@@ -673,16 +1161,19 @@ def filter_context_actions(user, actions):
         required_perms = action.get('permissions', [])
         if not required_perms and 'permission' in action:
             required_perms = [action['permission']]
-        
+
         if required_perms:
             if user.is_superuser:
                 # Superuser sees all
                 pass
+            elif has_manage_sections:
+                # Users with manage_sections should see all section-related actions
+                pass
             elif not user.has_perms(required_perms):
                 continue
-        
+
         filtered.append(action)
-    
+
     return filtered
 
 # Model Introspection — Returns possible import base paths for a model's app
@@ -767,8 +1258,18 @@ class LazyModelClasses(dict):
             'verbose_name': model._meta.verbose_name,
             'verbose_name_plural': model._meta.verbose_name_plural,
         })
+
+    @staticmethod
+    def _normalize_key(key):
+        aliases = {
+            'form_class': 'form',
+            'table_class': 'table',
+            'filter_class': 'filter',
+        }
+        return aliases.get(key, key)
         
     def __getitem__(self, key):
+        key = self._normalize_key(key)
         if super().__contains__(key):
             return super().__getitem__(key)
             
@@ -791,6 +1292,7 @@ class LazyModelClasses(dict):
             return default
 
     def __contains__(self, key):
+        key = self._normalize_key(key)
         if super().__contains__(key):
             return True
         return key in ('form', 'table', 'filter')

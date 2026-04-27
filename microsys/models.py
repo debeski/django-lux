@@ -30,7 +30,7 @@ def default_titlebar_config():
 
 
 class Scope(models.Model):
-    name = models.CharField(max_length=100, verbose_name="النطاق")
+    name = models.CharField(max_length=100, verbose_name="Scope")
 
     def __str__(self):
         return self.name
@@ -41,8 +41,8 @@ class Scope(models.Model):
 
 
 class ScopeSettings(models.Model):
-    is_enabled = models.BooleanField(default=False, verbose_name="تفعيل النطاقات")
-    auto_create_user_scope = models.BooleanField(default=False, verbose_name="إنشاء نطاق تلقائي لكل مستخدم")
+    is_enabled = models.BooleanField(default=False, verbose_name="Enable Scopes")
+    auto_create_user_scope = models.BooleanField(default=False, verbose_name="Auto-create scope for each user")
 
     class Meta:
         verbose_name = "Scope Settings"
@@ -58,7 +58,7 @@ class ScopeSettings(models.Model):
         return obj
 
     def __str__(self):
-        return "إعدادات النطاق"
+        return "Scope Settings"
 
 
 class SingletonModel(models.Model):
@@ -86,18 +86,14 @@ class SingletonModel(models.Model):
             if created:
                 # Seed from codebase MICROSYS_CONFIG if available
                 config = getattr(settings, 'MICROSYS_CONFIG', {})
-                if 'name' in config:
-                    obj.name = config.get('name')
-                if 'name_ar' in config:
-                    obj.name = config.get('name_ar') or obj.name
+                if hasattr(obj, 'system_names') and isinstance(config.get('system_names'), dict):
+                    obj.system_names = config.get('system_names')
                 if 'default_language' in config:
                     obj.default_language = config.get('default_language')
                 if 'default_theme' in config:
                     obj.default_theme = config.get('default_theme')
                 if hasattr(obj, 'default_table_density') and config.get('default_table_density') in TABLE_DENSITY_VALUES:
                     obj.default_table_density = config.get('default_table_density')
-                if 'name_en' in config:
-                    obj.name_en = config.get('name_en')
                 if 'home_url' in config:
                     obj.home_url = config.get('home_url') or obj.home_url
                 if hasattr(obj, 'languages') and isinstance(config.get('languages'), dict):
@@ -127,36 +123,35 @@ class SingletonModel(models.Model):
 
 
 class SystemSettings(SingletonModel):
-    name = models.CharField(max_length=255, default='', verbose_name="اسم النظام (عربي)")
-    name_en = models.CharField(max_length=255, blank=True, null=True, verbose_name="اسم النظام (إنجليزي)")
-    logo = models.ImageField(upload_to='microsys/branding/', null=True, blank=True, verbose_name="شعار النظام (Logo)")
-    favicon = models.ImageField(upload_to='microsys/branding/', null=True, blank=True, verbose_name="أيقونة الموقع (Favicon)")
-    default_language = models.CharField(max_length=10, default='en', verbose_name="اللغة الافتراضية")
-    default_theme = models.CharField(max_length=20, default='light', verbose_name="المظهر الافتراضي")
+    system_names = models.JSONField(default=dict, blank=True, verbose_name="System Names by Language")
+    logo = models.ImageField(upload_to='microsys/branding/', null=True, blank=True, verbose_name="System Logo (Logo)")
+    favicon = models.ImageField(upload_to='microsys/branding/', null=True, blank=True, verbose_name="Site Icon (Favicon)")
+    default_language = models.CharField(max_length=10, default='en', verbose_name="Default Language")
+    default_theme = models.CharField(max_length=20, default='light', verbose_name="Default Theme")
     default_table_density = models.CharField(
         max_length=20,
         default=DEFAULT_TABLE_DENSITY,
         choices=TABLE_DENSITY_CHOICES,
-        verbose_name="الكثافة الافتراضية للجداول",
+        verbose_name="Default Table Density",
     )
-    allowed_themes = models.JSONField(default=default_allowed_themes, blank=True, verbose_name="المظاهر المسموح بها")
-    allow_user_theme_override = models.BooleanField(default=True, verbose_name="السماح للمستخدم بتغيير المظهر")
-    allow_user_language_override = models.BooleanField(default=True, verbose_name="السماح للمستخدم بتغيير اللغة")
-    home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="الرابط الرئيسي")
-    is_configured = models.BooleanField(default=False, verbose_name="تم الضبط")
+    allowed_themes = models.JSONField(default=default_allowed_themes, blank=True, verbose_name="Allowed Themes")
+    allow_user_theme_override = models.BooleanField(default=True, verbose_name="Allow User Theme Override")
+    allow_user_language_override = models.BooleanField(default=True, verbose_name="Allow User Language Override")
+    home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="Home URL")
+    is_configured = models.BooleanField(default=False, verbose_name="Is Configured")
     email_2fa = models.BooleanField(default=False, verbose_name="Enable Email 2FA")
     public_root = models.BooleanField(default=False, verbose_name="Public Root Access")
-    languages = models.JSONField(default=dict, blank=True, verbose_name="اللغات المتوفرة")
-    translations_override = models.JSONField(default=dict, blank=True, verbose_name="تجاوز الترجمات")
-    sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="إعدادات الشريط الجانبي")
-    titlebar_config = models.JSONField(default=default_titlebar_config, blank=True, verbose_name="إعدادات شريط العنوان")
+    languages = models.JSONField(default=dict, blank=True, verbose_name="Available Languages")
+    translations_override = models.JSONField(default=dict, blank=True, verbose_name="Translations Override")
+    sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="Sidebar Configuration")
+    titlebar_config = models.JSONField(default=default_titlebar_config, blank=True, verbose_name="Titlebar Configuration")
 
     class Meta:
         verbose_name = "System Settings"
         verbose_name_plural = "System Settings"
 
     def __str__(self):
-        return "إعدادات النظام العامة"
+        return "System Settings"
 
 
 class ScopeForeignKey(models.ForeignKey):
@@ -183,27 +178,27 @@ class ScopedModel(models.Model):
     Provides built-in audit trail (timestamps + actor tracking) and soft-delete.
     All audit fields are editable=False — auto-excluded from ModelForms.
     """
-    scope = ScopeForeignKey('microsys.Scope', on_delete=models.PROTECT, null=True, blank=True, verbose_name="النطاق")
+    scope = ScopeForeignKey('microsys.Scope', on_delete=models.PROTECT, null=True, blank=True, verbose_name="Scope")
 
     # Timestamps (auto-managed)
-    created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="تاريخ الإنشاء")
-    updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="تاريخ التعديل")
+    created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="Updated At")
 
     # Audit trail (auto-populated via save() override)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, related_name='+',
-        on_delete=models.SET_NULL, editable=False, verbose_name="أنشئ بواسطة"
+        on_delete=models.SET_NULL, editable=False, verbose_name="Created By"
     )
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, related_name='+',
-        on_delete=models.SET_NULL, editable=False, verbose_name="عدّل بواسطة"
+        on_delete=models.SET_NULL, editable=False, verbose_name="Updated By"
     )
 
     # Soft-delete
-    deleted_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="تاريخ الحذف")
+    deleted_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="Deleted At")
     deleted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, related_name='+',
-        on_delete=models.SET_NULL, editable=False, verbose_name="حذف بواسطة"
+        on_delete=models.SET_NULL, editable=False, verbose_name="Deleted By"
     )
 
     objects = ScopedManager()
@@ -253,11 +248,11 @@ class ScopedModel(models.Model):
 
 
 class Profile(ScopedModel):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile', verbose_name="المستخدم")
-    phone = models.CharField(max_length=15, blank=True, null=True, verbose_name="رقم الهاتف")
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile', verbose_name="User")
+    phone = models.CharField(max_length=15, blank=True, null=True, verbose_name="Phone Number")
     profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     # deleted_at is inherited from ScopedModel
-    preferences = models.JSONField(default=dict, blank=True, verbose_name="تفضيلات المستخدم")
+    preferences = models.JSONField(default=dict, blank=True, verbose_name="User Preferences")
     
     # 2FA Fields
     is_email_2fa_enabled = models.BooleanField(default=False, verbose_name="2FA via Email")
@@ -328,6 +323,8 @@ class Profile(ScopedModel):
         default_permissions = ()
         permissions = [
             ("manage_staff", "Can manage staff"),
+            ("view_activitylog", "View activity log"),
+            ("manage_scopes", "Can manage scopes and all users"),
         ]
 
 
@@ -339,13 +336,13 @@ class UserActivityLog(ScopedModel):
     """
     # created_by (inherited) → replaces old 'user' field
     # created_at (inherited) → replaces old 'timestamp' field
-    action = models.CharField(max_length=50, verbose_name="العملية")
-    model_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="القسم")
-    object_id = models.IntegerField(blank=True, null=True, verbose_name="ID")
-    number = models.CharField(max_length=50, null=True, blank=True, verbose_name="المستند")
-    ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name="عنوان IP")
-    user_agent = models.TextField(blank=True, null=True, verbose_name="agent")
-    details = models.JSONField(default=dict, blank=True, null=True, verbose_name="التفاصيل")
+    action = models.CharField(max_length=50, verbose_name="Action")
+    model_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="Model Name")
+    object_id = models.IntegerField(blank=True, null=True, verbose_name="Object ID")
+    number = models.CharField(max_length=50, null=True, blank=True, verbose_name="Document Number")
+    ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name="IP Address")
+    user_agent = models.TextField(blank=True, null=True, verbose_name="User Agent")
+    details = models.JSONField(default=dict, blank=True, null=True, verbose_name="Details")
 
     # Backward-compat properties for templates and tables
     @property
@@ -365,9 +362,6 @@ class UserActivityLog(ScopedModel):
         verbose_name = "Activity Log"
         verbose_name_plural = "Activity Logs"
         default_permissions = ()
-        permissions = [
-            ("view_activitylog", "View activity log"),
-        ]
 
     @classmethod
     def safe_log(cls, user, action, model_name=None, object_id=None, number=None, details=None, ip_address=None, user_agent=None, scope=None):
@@ -434,7 +428,7 @@ class UserActivityLog(ScopedModel):
                             break
                 if target_model:
                     try:
-                        related_object = target_model.objects.get(pk=self.object_id)
+                        related_object = target_model._default_manager.get(pk=self.object_id)
                     except target_model.DoesNotExist:
                         pass
             except Exception:

@@ -1,6 +1,7 @@
 # Fundemental imports
 import json
 import inspect
+import logging
 
 from django import forms
 from django.apps import apps
@@ -9,6 +10,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db.models import ProtectedError
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -30,14 +32,113 @@ from ..utils import (
     get_model_classes,
     _get_m2m_through_defaults,
     _create_minimal_instance_from_post,
+    can_manage_target_user,
     log_user_action,
     setup_filter_helper,
     has_submit_button,
+    user_has_model_permission,
+    user_has_section_manage_permission,
+    user_has_section_view_permission,
     resolve_detail_field_label,
 )
 from ..translations import get_strings
 
 User = get_user_model()
+logger = logging.getLogger('microsys')
+
+
+def _section_permission_denied(*, json_response=False):
+    if json_response:
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+    raise PermissionDenied
+
+
+def _normalize_section_model_token(value):
+    raw = str(value or '').strip().lower()
+    if not raw:
+        return ''
+    return raw
+
+
+def _definition_matches_model_token(definition, token):
+    if not definition or not token:
+        return False
+    model = definition['model']
+    candidates = {
+        _normalize_section_model_token(definition.get('model_name')),
+        _normalize_section_model_token(model._meta.label_lower),
+        _normalize_section_model_token(model.__name__),
+    }
+    return token in candidates
+
+
+def _get_section_registry():
+    sections_by_token = {}
+    subsections_by_token = {}
+    subsection_fields_by_parent = {}
+
+    for definition in discover_section_models(app_name=None, include_children=False):
+        model = definition['model']
+        section_tokens = {
+            _normalize_section_model_token(definition['model_name']),
+            _normalize_section_model_token(model._meta.label_lower),
+            _normalize_section_model_token(model.__name__),
+        }
+        for token in section_tokens:
+            if token:
+                sections_by_token[token] = definition
+
+        field_map = {}
+        for subsection in definition.get('subsections', []):
+            child_model = subsection['model']
+            child_tokens = {
+                _normalize_section_model_token(subsection['model_name']),
+                _normalize_section_model_token(child_model._meta.label_lower),
+                _normalize_section_model_token(child_model.__name__),
+            }
+            for token in child_tokens:
+                if token:
+                    subsections_by_token.setdefault(token, subsection)
+            field_map[subsection['related_field']] = subsection
+
+        for token in section_tokens:
+            if token:
+                subsection_fields_by_parent[token] = field_map
+
+    return sections_by_token, subsections_by_token, subsection_fields_by_parent
+
+
+def _resolve_allowed_section_definition(model_name):
+    token = _normalize_section_model_token(model_name)
+    sections_by_token, _, _ = _get_section_registry()
+    return sections_by_token.get(token)
+
+
+def _resolve_allowed_subsection_definition(model_name, parent_model_name=None, parent_field=None):
+    token = _normalize_section_model_token(model_name)
+    if not token:
+        return None
+
+    sections_by_token, subsections_by_token, subsection_fields_by_parent = _get_section_registry()
+    parent_token = _normalize_section_model_token(parent_model_name)
+    if parent_token:
+        parent_definition = sections_by_token.get(parent_token)
+        if not parent_definition:
+            return None
+
+        field_map = subsection_fields_by_parent.get(parent_token, {})
+        if parent_field:
+            subsection = field_map.get(parent_field)
+            if subsection and _definition_matches_model_token(subsection, token):
+                return subsection
+            return None
+
+        for subsection in field_map.values():
+            if _definition_matches_model_token(subsection, token):
+                return subsection
+        return None
+
+    return subsections_by_token.get(token)
 
 
 # Section Management — Main dynamic CRUD view for all section and subsection models
@@ -47,6 +148,12 @@ def core_models_view(request):
     Manages section models dynamically discovered from the app.
     Uses ?model= query param with session fallback for tab persistence.
     """
+    if request.method == 'POST':
+        if not user_has_section_manage_permission(request.user):
+            return _section_permission_denied()
+    elif not user_has_section_view_permission(request.user):
+        return _section_permission_denied()
+
     # Discover section models dynamically
     section_models = discover_section_models(app_name=None, include_children=False)
     
@@ -93,7 +200,7 @@ def core_models_view(request):
     instance = None
     if instance_id:
         try:
-            instance = selected_model.objects.get(pk=instance_id)
+            instance = selected_model._default_manager.get(pk=instance_id)
         except selected_model.DoesNotExist:
             instance = None
 
@@ -120,22 +227,8 @@ def core_models_view(request):
         if not getattr(form.helper, "inputs", None):
             form.helper.add_input(Submit("submit", save_label, css_class="btn btn-primary rounded-pill"))
 
-    user_scope = None
-    if hasattr(request.user, 'profile') and getattr(request.user.profile, 'scope', None):
-        user_scope = request.user.profile.scope
-    elif hasattr(request.user, 'scope') and getattr(request.user, 'scope', None):
-        user_scope = request.user.scope
-
-    if is_scope_enabled() and user_scope and not request.user.is_superuser:
-        scope_field = form.fields.get('scope')
-        if scope_field:
-            scope_field.initial = user_scope
-            scope_field.disabled = True
-            scope_field.widget = forms.HiddenInput()
-            scope_field.required = False
-    
     # Create filter and queryset
-    queryset = selected_model.objects.all()
+    queryset = selected_model._default_manager.all()
     if FilterClass:
         filter_obj = FilterClass(request.GET or None, queryset=queryset)
         setup_filter_helper(filter_obj, request)
@@ -162,8 +255,8 @@ def core_models_view(request):
             table.model_name = model_param
     RequestConfig(request).configure(table)
 
-    # Merge 'scope' into existing excludes without duplicates for scoped non-superusers
-    if is_scope_enabled() and user_scope and not request.user.is_superuser:
+    # Merge 'scope' into existing excludes without duplicates for non-superusers
+    if is_scope_enabled() and not request.user.is_superuser:
         existing_exclude = getattr(table, "exclude", None) or ()
         merged = list(dict.fromkeys(list(existing_exclude) + ["scope"]))
         table.exclude = tuple(merged)
@@ -179,14 +272,14 @@ def core_models_view(request):
         if related_field not in form.fields:
             # Use the normal manager which applies scope filtering when enabled
             form.fields[related_field] = forms.ModelMultipleChoiceField(
-                queryset=child_model.objects.all(),
+                queryset=child_model._default_manager.all(),
                 required=False,
                 label=sub['verbose_name_plural'],
                 widget=forms.CheckboxSelectMultiple(),
             )
         else:
             # Field exists - ensure it has the right queryset and widget
-            form.fields[related_field].queryset = child_model.objects.all()
+            form.fields[related_field].queryset = child_model._default_manager.all()
             form.fields[related_field].widget = forms.CheckboxSelectMultiple()
         
         # Sync widget choices with the field's queryset so CheckboxSelectMultiple renders correctly
@@ -252,14 +345,6 @@ def core_models_view(request):
         if not getattr(child_form_instance.helper, "inputs", None):
              child_form_instance.helper.add_input(Submit("submit", save_label, css_class="btn btn-primary rounded-pill"))
 
-        if is_scope_enabled() and user_scope and not request.user.is_superuser:
-            child_scope_field = child_form_instance.fields.get('scope')
-            if child_scope_field:
-                child_scope_field.initial = user_scope
-                child_scope_field.disabled = True
-                child_scope_field.widget = forms.HiddenInput()
-                child_scope_field.required = False
-        
         subsection_forms.append({
             'name': child_model_name,
             'verbose_name': sub['verbose_name'],
@@ -270,10 +355,6 @@ def core_models_view(request):
     if request.method == 'POST':
         if form.is_valid():
             saved_instance = form.save(commit=False)
-            # created_by/updated_by auto-populated by ScopedModel.save()
-            # Enforce scope for non-superusers with assigned scope
-            if is_scope_enabled() and user_scope and not request.user.is_superuser and hasattr(saved_instance, 'scope'):
-                saved_instance.scope = user_scope
             saved_instance.save()
             if hasattr(form, 'save_m2m'):
                 form.save_m2m()
@@ -376,7 +457,7 @@ def core_models_view(request):
             {
                 'name': sm['model_name'], 
                 'ar_names': sm['verbose_name_plural'],
-                'count': sm['model'].objects.count()
+                'count': sm['model']._default_manager.count()
             } 
             for sm in section_models
         ],
@@ -403,6 +484,16 @@ def add_subsection(request):
     Generic view to handle adding a new Subsection (child model) via modal.
     Expects ?model=child_model_name&parent=parent_model_name
     """
+    is_ajax = (
+        request.headers.get('x-requested-with') == 'XMLHttpRequest'
+        or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+    )
+
+    if not user_has_section_manage_permission(request.user):
+        return _section_permission_denied(
+            json_response=is_ajax
+        )
+
     child_model_name = request.GET.get('model')
     parent_model_name = request.GET.get('parent')
     parent_id = request.GET.get('parent_id')
@@ -413,10 +504,17 @@ def add_subsection(request):
          return redirect('manage_sections')
 
     # Resolve child model class
-    model = resolve_model_by_name(child_model_name)
-    if not model:
+    subsection_definition = _resolve_allowed_subsection_definition(
+        child_model_name,
+        parent_model_name=parent_model_name,
+        parent_field=parent_field,
+    )
+    if not subsection_definition:
+        if is_ajax:
+            return JsonResponse({'success': False, 'error': 'Subsection not found'}, status=404)
         messages.error(request, "القسم الفرعي غير موجود.")
         return redirect('manage_sections')
+    model = subsection_definition['model']
         
     # Resolve Form Class (consistent with discovery logic)
     form_class = resolve_form_class_for_model(model)
@@ -426,26 +524,14 @@ def add_subsection(request):
         if form.is_valid():
             instance = form.save(commit=False)
             # created_by/updated_by auto-populated by ScopedModel.save()
-            # Ensure scope is set for scoped models
-            if is_scope_enabled() and hasattr(instance, 'scope'):
-                try:
-                    user_scope = getattr(getattr(request.user, 'profile', None), 'scope', None)
-                    if not user_scope and hasattr(request.user, 'scope'):
-                        user_scope = request.user.scope
-                    if user_scope:
-                        if not request.user.is_superuser:
-                            instance.scope = user_scope
-                        elif not getattr(instance, 'scope', None):
-                            instance.scope = user_scope
-                except Exception:
-                    pass
             instance.save()
 
             if parent_model_name and parent_id and parent_field:
                 try:
-                    parent_model = resolve_model_by_name(parent_model_name)
-                    if parent_model:
-                        parent_instance = parent_model.objects.get(pk=parent_id)
+                    parent_definition = _resolve_allowed_section_definition(parent_model_name)
+                    if parent_definition:
+                        parent_model = parent_definition['model']
+                        parent_instance = parent_model._default_manager.get(pk=parent_id)
                         try:
                             rel_manager = getattr(parent_instance, parent_field)
                             through_defaults = _get_m2m_through_defaults(parent_model, parent_field, request)
@@ -459,41 +545,14 @@ def add_subsection(request):
                     pass
             
             # AJAX Response
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            if is_ajax:
                 return JsonResponse({'success': True, 'id': instance.pk, 'name': str(instance)})
                 
-            messages.success(request, f"تم إضافة {model._meta.verbose_name}: {instance}")
-        else:
-            # Fallback: try creating from raw POST data if form validation fails (e.g. simple name-only models)
-            instance, missing = _create_minimal_instance_from_post(model, request.POST, request)
-            if instance:
-                if parent_model_name and parent_id and parent_field:
-                    try:
-                        parent_model = resolve_model_by_name(parent_model_name)
-                        if parent_model:
-                            parent_instance = parent_model.objects.get(pk=parent_id)
-                            try:
-                                rel_manager = getattr(parent_instance, parent_field)
-                                through_defaults = _get_m2m_through_defaults(parent_model, parent_field, request)
-                                if through_defaults:
-                                    rel_manager.add(instance, through_defaults=through_defaults)
-                                else:
-                                    rel_manager.add(instance)
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
-
-                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                    return JsonResponse({'success': True, 'id': instance.pk, 'name': str(instance)})
                 messages.success(request, f"تم إضافة {model._meta.verbose_name}: {instance}")
-            else:
-                if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-                     err = form.errors.as_text()
-                     if missing:
-                         err = f"Missing required fields: {', '.join(missing)}"
-                     return JsonResponse({'success': False, 'error': err})
-                messages.error(request, f"خطأ في إضافة {model._meta.verbose_name}.")
+        else:
+            if is_ajax:
+                return JsonResponse({'success': False, 'error': form.errors.as_text()})
+            messages.error(request, f"خطأ في إضافة {model._meta.verbose_name}.")
     
     # Redirect back to parent tab
     redirect_url = reverse('manage_sections')
@@ -510,15 +569,22 @@ def edit_subsection(request, pk):
     Edit a subsection (child model) by pk.
     Expects ?model=child_model_name&parent=parent_model_name
     """
+    if not user_has_section_manage_permission(request.user):
+        return _section_permission_denied()
+
     child_model_name = request.GET.get('model', 'subaffiliate')
     parent_model_name = request.GET.get('parent', 'affiliate')
     
-    model = resolve_model_by_name(child_model_name)
-    if not model:
+    subsection_definition = _resolve_allowed_subsection_definition(
+        child_model_name,
+        parent_model_name=parent_model_name,
+    )
+    if not subsection_definition:
         messages.error(request, "القسم الفرعي غير موجود.")
         return redirect('manage_sections')
+    model = subsection_definition['model']
     try:
-        instance = model.objects.get(pk=pk)
+        instance = model._default_manager.get(pk=pk)
     except model.DoesNotExist:
         messages.error(request, "القسم الفرعي غير موجود.")
         return redirect('manage_sections')
@@ -555,15 +621,22 @@ def delete_subsection(request, pk):
     Delete a subsection (child model) by pk.
     Checks for related records before deletion.
     """    
+    if not user_has_section_manage_permission(request.user):
+        return _section_permission_denied()
+
     child_model_name = request.GET.get('model', 'subaffiliate')
     parent_model_name = request.GET.get('parent', 'affiliate')
     
-    model = resolve_model_by_name(child_model_name)
-    if not model:
+    subsection_definition = _resolve_allowed_subsection_definition(
+        child_model_name,
+        parent_model_name=parent_model_name,
+    )
+    if not subsection_definition:
         messages.error(request, "القسم الفرعي غير موجود.")
         return redirect('manage_sections')
+    model = subsection_definition['model']
     try:
-        instance = model.objects.get(pk=pk)
+        instance = model._default_manager.get(pk=pk)
     except model.DoesNotExist:
         messages.error(request, "القسم الفرعي غير موجود.")
         return redirect('manage_sections')
@@ -590,6 +663,9 @@ def delete_section(request):
     Delete a section (main model) by pk via AJAX.
     Returns JSON response.
     """
+    if not user_has_section_manage_permission(request.user):
+        return _section_permission_denied(json_response=True)
+
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'طريقة غير مسموحة'}, status=405)
     
@@ -603,12 +679,13 @@ def delete_section(request):
     if not model_name or not pk:
         return JsonResponse({'success': False, 'error': 'معلومات ناقصة'}, status=400)
     
-    model = resolve_model_by_name(model_name)
-    if not model:
+    section_definition = _resolve_allowed_section_definition(model_name)
+    if not section_definition:
         return JsonResponse({'success': False, 'error': 'القسم غير موجود'}, status=404)
+    model = section_definition['model']
     
     try:
-        instance = model.objects.get(pk=pk)
+        instance = model._default_manager.get(pk=pk)
     except model.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'العنصر غير موجود'}, status=404)
     
@@ -626,17 +703,18 @@ def delete_section(request):
     name = str(instance)
     try:
         instance.delete()
-    except ProtectedError as e:
+    except ProtectedError:
+        logger.exception("Protected delete blocked for section %s pk=%s", model_name, pk)
         # Fallback if collect_related_objects missed something
         return JsonResponse({
             'success': False, 
             'error': 'لا يمكن حذف هذا العنصر لارتباطه بسجلات محمية أخرى (لم يتم اكتشافها تلقائياً).',
-            'details': str(e)
         }, status=200)
-    except Exception as e:
+    except Exception:
+        logger.exception("Unexpected section delete failure for %s pk=%s", model_name, pk)
         return JsonResponse({
             'success': False, 
-            'error': f'حدث خطأ أثناء الحذف: {str(e)}'
+            'error': 'حدث خطأ أثناء الحذف.'
         }, status=200)
     
     return JsonResponse({'success': True, 'message': f"تم حذف: {name}"})
@@ -649,6 +727,9 @@ def get_section_details(request):
     Get section details and related objects via AJAX (Smart View).
     Returns JSON with fields and related lists.
     """
+    if not user_has_section_view_permission(request.user):
+        return _section_permission_denied(json_response=True)
+
     try:
         model_name = request.GET.get('model')
         pk = request.GET.get('pk')
@@ -656,12 +737,13 @@ def get_section_details(request):
         if not model_name or not pk:
             return JsonResponse({'success': False, 'error': 'معلومات ناقصة'}, status=400)
         
-        model = resolve_model_by_name(model_name)
-        if not model:
+        section_definition = _resolve_allowed_section_definition(model_name)
+        if not section_definition:
             return JsonResponse({'success': False, 'error': 'القسم غير موجود'}, status=404)
+        model = section_definition['model']
         
         try:
-            instance = model.objects.get(pk=pk)
+            instance = model._default_manager.get(pk=pk)
         except model.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'العنصر غير موجود'}, status=404)
         
@@ -690,13 +772,12 @@ def get_section_details(request):
             'fields': fields_data,
             'related': related_objects
         })
-    except Exception as e:
-        import traceback
+    except Exception:
+        logger.exception("Unexpected section details failure")
         return JsonResponse({
             'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        })
+            'error': 'Unable to load section details.',
+        }, status=500)
 
 
 # Dynamic Modal CRUD — Universal class-based view for managing any model via AJAX modals
@@ -735,11 +816,78 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             if 'user' in params or accepts_var_kwargs:
                 extra.setdefault('user', self.request.user)
 
-            # Pass request when explicitly named
-            if 'request' in params or accepts_var_kwargs:
+            # Pass request ONLY when explicitly named (not via **kwargs to avoid breaking forms)
+            if 'request' in params:
                 extra.setdefault('request', self.request)
 
         return extra
+
+    def _resolve_route_name(self):
+        match = getattr(self.request, 'resolver_match', None)
+        return getattr(match, 'url_name', None)
+
+    def _resolve_modal_surface(self, model):
+        action = self.request.GET.get('action')
+        show_table = self.show_table if action != 'view' else False
+        show_form = self.show_form if action != 'view' else False
+
+        if self._is_system_settings_model(model):
+            show_table = False
+            show_form = True
+
+        return action, show_table, show_form
+
+    def _is_user_model(self, model):
+        return bool(
+            model
+            and model._meta.app_label == User._meta.app_label
+            and model._meta.model_name == User._meta.model_name
+        )
+
+    def _is_profile_model(self, model):
+        return bool(
+            model
+            and model._meta.app_label == 'microsys'
+            and model._meta.model_name == 'profile'
+        )
+
+    def _resolve_target_user(self, model, instance=None):
+        if instance is None:
+            return None
+        if self._is_user_model(model):
+            return instance
+        if self._is_profile_model(model):
+            return getattr(instance, 'user', None)
+        return None
+
+    def _has_special_modal_access(self, model, instance=None):
+        route_name = self._resolve_route_name()
+        if self._is_system_settings_model(model):
+            return self.request.user.is_superuser
+
+        if route_name == 'modal_profile_edit':
+            return bool(instance and instance.pk == self.request.user.pk)
+        if route_name in {'modal_user', 'modal_user_edit', 'modal_user_permissions'} or self._is_user_model(model):
+            return can_manage_target_user(self.request.user, instance)
+
+        target_user = self._resolve_target_user(model, instance=instance)
+        if target_user is not None:
+            return can_manage_target_user(self.request.user, target_user)
+
+        return None
+
+    def _guard_model_access(self, model, instance=None, *, show_table=False, show_form=False, action=None):
+        special_access = self._has_special_modal_access(model, instance=instance)
+        if special_access is not None:
+            return special_access
+
+        required_actions = set()
+        if show_table or action == 'view' or (not show_form and not show_table):
+            required_actions.add('view')
+        if show_form:
+            required_actions.add('change' if instance else 'add')
+
+        return all(user_has_model_permission(self.request.user, model, perm_action) for perm_action in required_actions)
 
     def _build_form(self, form_class, *args, **kwargs):
         """
@@ -773,11 +921,6 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             return resolve_model_by_name(model_name)
         return None
 
-    def _guard_model_access(self, model):
-        if model and model._meta.app_label == 'microsys' and model.__name__ == 'SystemSettings':
-            return self.request.user.is_superuser
-        return True
-
     def _is_system_settings_model(self, model):
         return bool(model and model._meta.app_label == 'microsys' and model.__name__ == 'SystemSettings')
 
@@ -791,7 +934,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             return None
 
-        if 0 <= step <= 3:
+        if 0 <= step <= 4:
             return step
         return None
 
@@ -799,7 +942,14 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         model = self.get_model()
         if not model:
             return JsonResponse({'error': 'Model not found'}, status=404)
-        if not self._guard_model_access(model):
+
+        pk = kwargs.get('pk') or request.GET.get('id')
+        instance = None
+        if pk and pk != 'new':
+            instance = get_object_or_404(model._default_manager.all(), pk=pk)
+
+        action, show_table, show_form = self._resolve_modal_surface(model)
+        if not self._guard_model_access(model, instance=instance, show_table=show_table, show_form=show_form, action=action):
             return JsonResponse({'error': 'Permission denied'}, status=403)
 
         # 1. Resolve Classes
@@ -811,17 +961,8 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         table = None
         f = None
         
-        # Action override
-        action = request.GET.get('action')
-        show_table = self.show_table if action != 'view' else False
-        show_form = self.show_form if action != 'view' else False
-
-        if self._is_system_settings_model(model):
-            show_table = False
-            show_form = True
-
         if show_table:
-            queryset = model.objects.all()
+            queryset = model._default_manager.all()
             # Filter (optional)
             if classes['filter']:
                 f = classes['filter'](request.GET, queryset=queryset)
@@ -834,12 +975,6 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             table.is_dynamic_modal = True
             
             RequestConfig(request).configure(table)
-
-        # 3. Resolve instance (always — needed for form, detail, or table-edit)
-        instance = None
-        pk = kwargs.get('pk') or request.GET.get('id')
-        if pk and pk != 'new':
-            instance = get_object_or_404(model, pk=pk)
 
         # 4. Handle Form (Edit or Create)
         form = None
@@ -884,13 +1019,14 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         model = self.get_model()
         if not model:
             return JsonResponse({'error': 'Model not found'}, status=404)
-        if not self._guard_model_access(model):
-            return JsonResponse({'error': 'Permission denied'}, status=403)
 
         instance = None
         pk = kwargs.get('pk') or request.GET.get('id')
         if pk and pk != 'new':
-            instance = get_object_or_404(model, pk=pk)
+            instance = get_object_or_404(model._default_manager.all(), pk=pk)
+
+        if not self._guard_model_access(model, instance=instance, show_form=True):
+            return JsonResponse({'error': 'Permission denied'}, status=403)
 
         classes = get_model_classes(model._meta.model_name, app_label=model._meta.app_label)
         form_class = self.form_class or classes['form']
@@ -963,8 +1099,21 @@ class DynamicModalDeleteView(LoginRequiredMixin, View):
         pk = kwargs.get('pk')
         if not model_class or not pk:
             return JsonResponse({'error': 'Missing parameters'}, status=400)
+        if (
+            (
+                model_class._meta.app_label == User._meta.app_label
+                and model_class._meta.model_name == User._meta.model_name
+            )
+            or (
+                model_class._meta.app_label == 'microsys'
+                and model_class._meta.model_name == 'systemsettings'
+            )
+        ):
+            return JsonResponse({'error': 'Permission denied'}, status=403)
+        if not user_has_model_permission(request.user, model_class, 'delete'):
+            return JsonResponse({'error': 'Permission denied'}, status=403)
             
-        instance = get_object_or_404(model_class, pk=pk)
+        instance = get_object_or_404(model_class._default_manager.all(), pk=pk)
         
         # Protection check (Generic helper from utils)
         related = collect_related_objects(instance)

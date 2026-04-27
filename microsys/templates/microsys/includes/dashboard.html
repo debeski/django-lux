@@ -18,6 +18,7 @@
     </div>
 
     <div class="row g-4 justify-content-center mb-5">
+        {% if can_view_sections %}
         <!-- 1. SECTIONS -->
         <div class="col-xl-4 col-md-6 fade-in-up stagger-1">
             <a href="{% url 'manage_sections' %}" class="text-decoration-none h-100">
@@ -35,7 +36,9 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
+        {% if can_view_user_directory %}
         <!-- 2. USERS -->
         <div class="col-xl-4 col-md-6 fade-in-up stagger-2">
             <a href="{% url 'manage_users' %}" class="text-decoration-none h-100">
@@ -53,9 +56,10 @@
                 </div>
             </a>
         </div>
+        {% endif %}
 
         <!-- 3. LOG -->
-        {% if user.is_staff %}
+        {% if can_view_activity_log %}
         <div class="col-xl-4 col-md-6 fade-in-up stagger-3">
             <a href="{% url 'user_activity_log' %}" class="text-decoration-none h-100">
                 <div class="card module-card shadow-sm module-indigo">

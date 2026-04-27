@@ -58,6 +58,9 @@ document.addEventListener('DOMContentLoaded', function() {
 function initiate2FASetup(btn) {
     const method = btn.dataset.method;
     const url = btn.dataset.url;
+    const form = document.getElementById('otpSetupForm');
+    if (!form) return;
+    const csrfToken = form?.dataset.csrf || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
     
     // Reset Modal State
     const errorEl = document.getElementById('otpSetupError');
@@ -78,7 +81,6 @@ function initiate2FASetup(btn) {
         iconContainer.parentElement.classList.remove('d-none');
     }
 
-    const form = document.getElementById('otpSetupForm');
     const titleEl = document.querySelector('#otpSetupModal .modal-title');
     if (titleEl && form.dataset.transVerifyTitle) {
         titleEl.textContent = form.dataset.transVerifyTitle;
@@ -88,7 +90,13 @@ function initiate2FASetup(btn) {
     
     // Logic split for TOTP vs Email/Phone
     if (method === 'totp') {
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
         .then(res => res.json())
         .then(data => {
             if (data.status === 'success') {
@@ -111,7 +119,15 @@ function initiate2FASetup(btn) {
         .catch(err => console.error("Error fetching TOTP setup:", err));
     } else {
         // Email/Phone
-        fetch(`${url}?method=${method}&ajax=1`, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: `method=${encodeURIComponent(method)}`
+        })
         .then(res => res.json())
         .then(data => {
             if (data.status === 'success') {

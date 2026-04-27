@@ -330,6 +330,134 @@
   box-shadow: none;
 }
 
+.ms-language-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.ms-language-row {
+  display: grid;
+  grid-template-columns: minmax(3.5rem, 0.5fr) minmax(8rem, 1fr) minmax(5rem, 0.55fr) minmax(4rem, 0.45fr) minmax(7rem, 0.7fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.7rem;
+  border: 1px solid var(--ms-setup-item-border);
+  border-radius: 0.8rem;
+  background: var(--ms-setup-item-bg);
+}
+
+.ms-language-row__code {
+  font-weight: 700;
+  text-transform: lowercase;
+  color: var(--ms-setup-text);
+}
+
+.ms-system-names-editor {
+  margin-bottom: 1rem;
+}
+
+.ms-system-name-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.ms-system-name-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.5fr) minmax(14rem, 1.5fr);
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.7rem;
+  border: 1px solid var(--ms-setup-item-border);
+  border-radius: 0.8rem;
+  background: var(--ms-setup-item-bg);
+}
+
+.ms-system-name-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ms-system-name-row__code {
+  font-weight: 700;
+  text-transform: lowercase;
+  color: var(--ms-setup-text);
+}
+
+.ms-system-name-row__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ms-setup-muted);
+}
+
+.ms-language-flag-input {
+  max-width: 5rem;
+}
+
+.ms-language-default {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.ms-translation-table-wrap {
+  max-height: 30rem;
+  overflow: auto;
+  border: 1px solid var(--ms-setup-pane-border);
+  border-radius: 0.9rem;
+  background: var(--ms-setup-pane-bg);
+}
+
+.ms-translation-tabs .nav-link {
+  border: 1px solid var(--ms-setup-item-border);
+  border-radius: 999px;
+  color: var(--ms-setup-text);
+  background: var(--ms-setup-item-bg);
+}
+
+.ms-translation-tabs .nav-link.active {
+  color: #fff;
+  background: var(--primal);
+  border-color: var(--primal);
+}
+
+.ms-translation-table {
+  min-width: 780px;
+  margin: 0;
+}
+
+.ms-translation-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ms-setup-pane-bg);
+}
+
+.ms-translation-key-col,
+.ms-translation-key {
+  width: 14rem;
+}
+
+.ms-translation-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  color: var(--ms-setup-muted);
+}
+
+.ms-translation-source {
+  margin-top: 0.35rem;
+  text-transform: capitalize;
+  background: rgba(var(--primal-rgb), 0.1);
+  color: var(--ms-setup-text);
+}
+
 @media (max-width: 991.98px) {
   .ms-sidebar-tree,
   .ms-sidebar-available {
@@ -338,5 +466,13 @@
 
   .ms-builder-icon-suggestions {
     max-height: 14rem;
+  }
+
+  .ms-language-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ms-system-name-row {
+    grid-template-columns: 1fr;
   }
 }

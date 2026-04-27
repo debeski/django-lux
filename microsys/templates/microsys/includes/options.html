@@ -6,23 +6,18 @@
 {% block extra_head %}
     {% include "microsys/forms/assets_head.html" %}
     <link rel="stylesheet" href="{% static 'microsys/accessibility/css/main.css' %}">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/options.css' %}?v=20260423a">
 {% endblock %}
 
 {% block content %}
-    <div class="row">
-        <div class="col-12">
-            <h2 class="page-title"><i class="bi bi-gear me-2"></i> {{ MS_TRANS.options_title }}</h2>
-        </div>
-    </div>
+    <h2 class="page-title mb-4"><i class="bi bi-gear me-2"></i> {{ MS_TRANS.options_title }}</h2>
 
-    <div class="row ms-options-grid ms-options-grid--summary">
+    <div class="ms-options-grid">
         <!-- Accessibility Section -->
-        <div class="col-md-6 mb-4 no-print">
+        <div class="ms-options-card no-print">
             <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-eye me-2"></i> {{ MS_TRANS.accessibility }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.accessibility_desc }}</p>
-                
+
                 <div class="d-grid gap-3">
                     <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
                         <span>{{ MS_TRANS.high_contrast }}</span>
@@ -58,8 +53,9 @@
             </div>
         </div>
 
+        {% if show_system_diagnostics %}
         <!-- System Info Section -->
-        <div class="col-md-6 mb-4">
+        <div class="ms-options-card">
             <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-info-circle me-2"></i> {{ MS_TRANS.system_info }}</h4>
                 <table class="table table-sm table-borderless mt-4">
@@ -174,34 +170,75 @@
                 </table>
             </div>
         </div>
-    </div>
+        {% endif %}
 
-    <div class="row ms-options-grid ms-options-grid--appearance">
-        <!-- Theme Selection -->
-        <div class="col-md-6 mb-4 no-print{% if not config.allow_user_theme_override or MICROSYS_THEMES|length <= 1 %} d-none{% endif %}" data-options-card="theme">
-            <div class="glass-profile option-section h-100">
-                <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
-                {% include 'microsys/includes/theme_previews.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
-            </div>
-        </div>
+        <!-- Theme / Language Selection -->
+        {% if config.allow_user_theme_override and MICROSYS_THEMES|length > 1 or language_picker_enabled %}
 
-        <!-- Language Selection -->
-        <div class="{% if config.allow_user_theme_override and MICROSYS_THEMES|length > 1 %}col-md-6{% else %}col-12{% endif %} mb-4 no-print{% if not language_picker_enabled %} d-none{% endif %}" data-options-card="language">
-            <div class="glass-profile option-section h-100">
-                <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ MS_TRANS.language }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.language_desc }}</p>
-                
-                {% if LANGUAGES|length > 1 %}
-                {% include 'microsys/includes/language_previews.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
+            {% if MICROSYS_THEMES|length > 5 or LANGUAGES|length > 2 %}
+
+                {% if config.allow_user_theme_override and MICROSYS_THEMES|length > 1 %}
+                <div class="ms-options-card no-print" data-options-card="theme">
+                    <div class="glass-profile option-section h-100">
+                        <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
+                        <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
+                        {% include 'microsys/includes/theme_previews.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
+                    </div>
+                </div>
                 {% endif %}
-            </div>
-        </div>
-    </div>
 
-    <div class="row ms-options-grid ms-options-grid--controls">
+                {% if language_picker_enabled %}
+                <div class="ms-options-card no-print" data-options-card="language">
+                    <div class="glass-profile option-section h-100">
+                        <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ MS_TRANS.language }}</h4>
+                        <p class="text-muted small mb-4">{{ MS_TRANS.language_desc }}</p>
+
+                        {% if LANGUAGES|length > 1 %}
+                            {% include 'microsys/includes/language_previews.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+            {% else %}
+
+                <div class="ms-options-card no-print" data-options-card="theme-language">
+                    <div class="glass-profile option-section h-100">
+
+                        {% if config.allow_user_theme_override and MICROSYS_THEMES|length > 1 %}
+                            <div class="mb-4">
+                                <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
+                                <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
+                                {% include 'microsys/includes/theme_previews.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
+                            </div>
+                        {% endif %}
+
+                        {% if config.allow_user_theme_override and MICROSYS_THEMES|length > 1 %}
+                            {% if language_picker_enabled %}
+                                <hr class="my-4">
+                            {% endif %}
+                        {% endif %}
+
+                        {% if language_picker_enabled %}
+                            <div>
+                                <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ MS_TRANS.language }}</h4>
+                                <p class="text-muted small mb-4">{{ MS_TRANS.language_desc }}</p>
+
+                                {% if LANGUAGES|length > 1 %}
+                                    {% include 'microsys/includes/language_previews.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+
+            {% endif %}
+
+        {% endif %}
+
         <!-- Table Density -->
-        <div class="col-lg-3 col-md-6 flex-fill mb-4 no-print">
+        <div class="ms-options-card no-print">
             <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-table me-2"></i> {{ MS_TRANS.table_density|default:"Table Density" }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.table_density_desc|default:"Control how much vertical space data tables use while you work." }}</p>
@@ -209,20 +246,23 @@
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6 flex-fill mb-4 no-print{% if not config.sidebar.allow_user_density %} d-none{% endif %}" data-options-card="sidebar-density">
+        {% if config.sidebar.allow_user_density %}
+        <!-- Sidebar Density -->
+        <div class="ms-options-card no-print" data-options-card="sidebar-density">
             <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-layout-sidebar-inset me-2"></i> {{ MS_TRANS.sidebar_density|default:"Sidebar Density" }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.sidebar_density_desc|default:"Control how much vertical space the sidebar navigation uses while you work." }}</p>
                 {% include 'microsys/includes/sidebar_density_previews.html' with selected_density=user_preferences.sidebar_density|default:sidebar_density|default:config.sidebar.density picker_mode='options' density_choices=MICROSYS_TABLE_DENSITIES MS_TRANS=MS_TRANS %}
             </div>
         </div>
+        {% endif %}
 
         <!-- Autofill -->
-        <div class="col-lg-3 col-md-6 flex-fill mb-4 no-print">
+        <div class="ms-options-card no-print">
             <div class="glass-profile option-section h-100">
                 <h4 class="mb-3"><i class="bi bi-magic me-2"></i> {{ MS_TRANS.autofill }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.autofill_desc }}</p>
-                
+
                 <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
                     <span>{{ MS_TRANS.on_off }}</span>
                     <div class="form-check form-switch">
@@ -233,14 +273,14 @@
         </div>
 
         <!-- Reset Defaults -->
-        <div class="col-lg-3 col-md-6 flex-fill mb-4 no-print">
+        <div class="ms-options-card no-print">
             <div class="glass-profile option-section h-100 border-danger">
                 <h4 class="mb-3 text-danger"><i class="bi bi-exclamation-triangle me-2"></i> {{ MS_TRANS.reset_defaults }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.reset_desc }}</p>
-                
+
                 <div class="d-flex justify-content-end align-items-center p-3 border border-danger rounded bg-light">
                     <!-- <span class="text-danger fw-bold">{{ MS_TRANS.reset_btn }}</span> -->
-                    
+
                     <!-- Initial Reset Button -->
                     <button class="btn btn-outline-danger btn-sm" id="btnResetInit">
                         <i class="bi bi-arrow-counterclockwise me-1"></i> {{ MS_TRANS.reset_btn }}
@@ -263,7 +303,7 @@
 
         {% if user.is_superuser %}
         <!-- System Settings -->
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="ms-options-card">
             <div class="card h-100 p-4 border-0 ms-card shadow-sm blur">
                 <div class="d-flex align-items-center mb-3">
                     <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3 ms-icon-box">
@@ -287,19 +327,46 @@
                     </button>
                     <button class="btn btn-outline-warning rounded-pill fw-bold"
                             data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=2"
+                            data-modal-title="{{ MS_TRANS.system_settings_security|default:'Access & Security' }}">
+                        <i class="bi bi-shield-lock me-2"></i> {{ MS_TRANS.system_settings_security|default:'Access & Security' }}
+                    </button>
+                    <button class="btn btn-outline-warning rounded-pill fw-bold"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=3"
                             data-modal-title="{{ MS_TRANS.system_settings_sidebar }}">
                         <i class="bi bi-layout-sidebar-inset me-2"></i> {{ MS_TRANS.system_settings_sidebar }}
                     </button>
                     <button class="btn btn-outline-warning rounded-pill fw-bold"
-                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=3"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=4"
                             data-modal-title="{{ MS_TRANS.system_settings_appearance }}">
                         <i class="bi bi-window-stack me-2"></i> {{ MS_TRANS.system_settings_appearance }}
                     </button>
+                    <a class="btn btn-outline-secondary rounded-pill fw-bold"
+                       href="{% url 'system_settings_export' %}">
+                        <i class="bi bi-download me-2"></i> {{ MS_TRANS.system_settings_export|default:"Export setup file" }}
+                    </a>
                 </div>
             </div>
         </div>
         {% endif %}
     </div>
+
+    <style nonce="{{ request.csp_nonce }}">
+        .ms-options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+            align-items: stretch;
+        }
+        @media (max-width: 576px) {
+            .ms-options-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+        }
+        .ms-options-card {
+            min-width: 0; /* Prevent grid blowout */
+        }
+    </style>
         <script nonce="{{ request.csp_nonce }}">
             document.addEventListener('DOMContentLoaded', () => {
                 // --- Autofill Logic ---

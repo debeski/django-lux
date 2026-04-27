@@ -13,6 +13,10 @@
             const isOpen = popup.classList.toggle('show');
             indicator.classList.toggle('open', isOpen);
             if (arrow) arrow.classList.toggle('visible', isOpen);
+            if (isOpen) {
+                const densityPopup = document.getElementById('sidebarDensityPopup');
+                if (densityPopup) densityPopup.classList.remove('show');
+            }
         });
 
         // Close when clicking outside

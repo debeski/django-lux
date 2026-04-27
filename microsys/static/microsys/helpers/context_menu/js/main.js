@@ -625,11 +625,11 @@
                 const container = wrapper.parentElement;
                 const emptyMsg = container.querySelector('.subsection-empty');
                 if (emptyMsg) emptyMsg.remove();
-                
+
                 const checkboxId = `id_${fieldName}_new_${data.id}`;
                 const checkboxHTML = `
                     <input type="checkbox" name="${fieldName}" value="${data.id}" class="btn-check" id="${checkboxId}" checked>
-                    <label class="btn btn-outline-secondary subsection-checkbox-label" 
+                    <label class="btn btn-outline-secondary subsection-checkbox-label"
                            for="${checkboxId}" style="font-size: 1.1rem;"
                            data-sub-id="${data.id}" data-sub-name="${name}"
                            data-micro-context="true"
@@ -652,5 +652,72 @@
              delete input.dataset.saving;
         });
     }
+
+    // ============================================================
+    // Generic Handlers for Scaffolded App Tables
+    // These provide fallback handling when section_manager.js isn't loaded
+    // ============================================================
+
+    // Helper to build URL for scaffolded apps (assumes standard URL patterns)
+    function buildAppUrl(app, model, action, id) {
+        // Scaffolded apps use URL patterns like:
+        // - List: /{app}/
+        // - Add: /{app}/add/
+        // - Edit: /{app}/{pk}/edit/
+        // - View: /{app}/{pk}/ (needs to be added to scaffold)
+        // - Delete: /{app}/{pk}/delete/ (needs to be added to scaffold)
+        if (action === 'view') {
+            return `/${app}/${id}/`;
+        } else if (action === 'edit') {
+            return `/${app}/${id}/edit/`;
+        } else if (action === 'delete') {
+            return `/${app}/${id}/delete/`;
+        }
+        return null;
+    }
+
+    // Generic Handlers for Scaffolded App Tables
+    // These only run when section_manager.js is NOT active on the page.
+    // Detection: #sectionData element is present only on section manager pages.
+    function isSectionManagerActive() {
+        return !!document.getElementById('sectionData');
+    }
+
+    document.body.addEventListener('micro:record:view', function(e) {
+        if (isSectionManagerActive()) return;
+
+        const data = e.detail.data;
+        if (!data || !data.app || !data.model) return;
+
+        const url = buildAppUrl(data.app, data.model, 'view', data.id);
+        if (url) {
+            window.location.href = url;
+        }
+    });
+
+    document.body.addEventListener('micro:record:edit', function(e) {
+        if (isSectionManagerActive()) return;
+
+        const data = e.detail.data;
+        if (!data || !data.app || !data.model) return;
+
+        const url = buildAppUrl(data.app, data.model, 'edit', data.id);
+        if (url) {
+            window.location.href = url;
+        }
+    });
+
+    document.body.addEventListener('micro:record:delete', function(e) {
+        if (isSectionManagerActive()) return;
+
+        const data = e.detail.data;
+        if (!data || !data.app || !data.model) return;
+        if (!confirm('Are you sure you want to delete: ' + (data.name || data.id) + '?')) return;
+
+        const url = buildAppUrl(data.app, data.model, 'delete', data.id);
+        if (url) {
+            submitForm(url, { pk: data.id });
+        }
+    });
 
 })();

@@ -925,10 +925,15 @@
         const homeShape = getNamedFieldValue(form, 'titlebar_home_shape') || 'circle';
         const homeUrl = readTrimmedValue(form, '#id_home_url', titlebar.querySelector('[data-titlebar-home]')?.getAttribute('href') || '/');
         const scopeName = String(titlebar.dataset.titlebarScopeName || '').trim();
-        const titleAr = readTrimmedValue(form, '#id_name', '');
-        const titleEn = readTrimmedValue(form, '#id_name_en', '');
         const htmlLang = (document.documentElement.getAttribute('lang') || (window.USER_PREFS && window.USER_PREFS._lang) || 'en').split('-')[0];
-        const resolvedName = htmlLang === 'ar' ? (titleAr || titleEn || 'microSYS') : (titleEn || titleAr || 'microSYS');
+        let systemNames = {};
+        try {
+            systemNames = JSON.parse(getNamedFieldValue(form, 'system_names') || '{}') || {};
+        } catch (e) {
+            systemNames = {};
+        }
+        const defaultLanguage = getNamedFieldValue(form, 'default_language') || 'en';
+        const resolvedName = systemNames[htmlLang] || systemNames[defaultLanguage] || Object.values(systemNames).find(Boolean) || 'microSYS';
         const resolvedTitle = scopeName ? `${resolvedName} - ${scopeName}` : resolvedName;
 
         titlebar.dataset.titleAlign = titleAlign;
@@ -991,7 +996,7 @@
         const allowThemeOverride = readBooleanField(form, '#id_allow_user_theme_override', true);
         const allowUserLanguage = readBooleanField(form, '#id_allow_user_language_override', true);
         const allowedThemeCount = getSetupAllowedThemeCount(form);
-        const languageCount = form.querySelectorAll('[data-setup-language-choice]').length;
+        const languageCount = form.querySelectorAll('[data-language-row]').length || form.querySelectorAll('[data-setup-language-choice]').length;
         const themeToolVisible = allowThemeOverride && allowedThemeCount > 1;
         const densityToolVisible = allowUserDensity;
         const reorderToolVisible = enableReorder;
@@ -2099,6 +2104,557 @@
         });
     }
 
+    function normalizeLanguageCode(value) {
+        return String(value || '').trim().toLowerCase().replace(/_/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+
+    function escapeHtml(value) {
+        return String(value || '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char]);
+    }
+
+    function syncLanguageCatalog(form) {
+        if (!form) return;
+        const languagesField = form.querySelector('[name="languages"]');
+        const namesField = form.querySelector('[name="system_names"]');
+        const defaultField = form.querySelector('[name="default_language"]');
+        const languages = {};
+        let fallbackLanguage = 'en';
+        form.querySelectorAll('[data-language-row]').forEach((row, index) => {
+            const code = normalizeLanguageCode(row.dataset.languageCode);
+            if (!code) return;
+            if (index === 0) fallbackLanguage = code;
+            const nameInput = row.querySelector('[data-language-name]');
+            const dirInput = row.querySelector('[data-language-dir]');
+            const flagInput = row.querySelector('[data-language-flag]');
+            const defaultInput = row.querySelector('[data-language-default]');
+            languages[code] = {
+                name: String(nameInput && nameInput.value ? nameInput.value : code).trim() || code,
+                dir: dirInput && dirInput.value === 'rtl' ? 'rtl' : 'ltr',
+                flag: String(flagInput && flagInput.value ? flagInput.value : '').trim()
+            };
+            if (defaultInput && defaultInput.checked) {
+                fallbackLanguage = code;
+            }
+        });
+        syncSystemNameRows(form, languages);
+        const systemNames = readSystemNames(form);
+        if (languagesField) languagesField.value = JSON.stringify(languages);
+        if (namesField) namesField.value = JSON.stringify(systemNames);
+        if (defaultField) {
+            defaultField.value = fallbackLanguage;
+        }
+        syncTranslationOverrides(form);
+        applyImmediateSystemSettingsPreview(form);
+    }
+
+    function createLanguageRow(code, name, dir, flag) {
+        const row = document.createElement('div');
+        row.className = 'ms-language-row';
+        row.dataset.languageRow = 'true';
+        row.dataset.languageCode = code;
+        const locked = code === 'en' || code === 'ar';
+        row.innerHTML = `
+            <div class="ms-language-row__code">${code}</div>
+            <input type="text" class="form-control glass-input" data-language-name value="${escapeHtml(name || code)}">
+            <select class="form-select glass-input" data-language-dir>
+                <option value="ltr"${dir !== 'rtl' ? ' selected' : ''}>LTR</option>
+                <option value="rtl"${dir === 'rtl' ? ' selected' : ''}>RTL</option>
+            </select>
+            <input type="text" class="form-control glass-input ms-language-flag-input" data-language-flag value="${escapeHtml(flag || '')}">
+            <label class="ms-language-default">
+                <input type="radio" name="ms_language_default_choice" data-language-default value="${code}">
+                <span>Default</span>
+            </label>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-language-remove${locked ? ' disabled' : ''}>
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        return row;
+    }
+
+    function createSystemNameRow(code, label, value) {
+        const row = document.createElement('div');
+        row.className = 'ms-system-name-row';
+        row.dataset.systemNameRow = 'true';
+        row.dataset.languageCode = code;
+        row.innerHTML = `
+            <div class="ms-system-name-row__meta">
+                <span class="ms-system-name-row__code">${escapeHtml(code)}</span>
+                <span class="ms-system-name-row__label">${escapeHtml(label || code)}</span>
+            </div>
+            <input type="text" class="form-control glass-input" data-system-name-input value="${escapeHtml(value || '')}" placeholder="System name">
+        `;
+        return row;
+    }
+
+    function findSystemNameRow(form, code) {
+        return Array.from(form.querySelectorAll('[data-system-name-row]')).find((row) => {
+            return normalizeLanguageCode(row.dataset.languageCode) === code;
+        });
+    }
+
+    function ensureSystemNameRow(form, code, label, value) {
+        const list = form && form.querySelector('[data-system-name-list]');
+        if (!list || !code) return null;
+        let row = findSystemNameRow(form, code);
+        if (!row) {
+            row = createSystemNameRow(code, label, value);
+            list.appendChild(row);
+            bindSystemNameRow(form, row);
+        }
+        const labelTarget = row.querySelector('.ms-system-name-row__label');
+        if (labelTarget) {
+            labelTarget.textContent = label || code;
+        }
+        return row;
+    }
+
+    function bindSystemNameRow(form, row) {
+        if (!form || !row || row.dataset.bound === 'true') return;
+        row.dataset.bound = 'true';
+        row.querySelectorAll('[data-system-name-input]').forEach((input) => {
+            input.addEventListener('input', () => syncLanguageCatalog(form));
+            input.addEventListener('change', () => syncLanguageCatalog(form));
+        });
+    }
+
+    function syncSystemNameRows(form, languages) {
+        if (!form || !languages) return;
+        Object.entries(languages).forEach(([code, payload]) => {
+            ensureSystemNameRow(form, code, payload && payload.name ? payload.name : code, '');
+        });
+        form.querySelectorAll('[data-system-name-row]').forEach((row) => {
+            const code = normalizeLanguageCode(row.dataset.languageCode);
+            if (code && !languages[code]) {
+                row.remove();
+            }
+        });
+    }
+
+    function readSystemNames(form) {
+        const systemNames = {};
+        if (!form) return systemNames;
+        form.querySelectorAll('[data-system-name-row]').forEach((row) => {
+            const code = normalizeLanguageCode(row.dataset.languageCode);
+            const input = row.querySelector('[data-system-name-input]');
+            const value = String(input && input.value ? input.value : '').trim();
+            if (code && value) {
+                systemNames[code] = value;
+            }
+        });
+        return systemNames;
+    }
+
+    function ensureTranslationLanguageColumn(form, code, label) {
+        const matrix = form && form.querySelector('[data-translation-matrix]');
+        if (!matrix || !code || matrix.querySelector(`[data-translation-lang-header="${code}"]`)) return;
+        const headerRow = matrix.querySelector('thead tr');
+        if (headerRow) {
+            const header = document.createElement('th');
+            header.dataset.translationLangHeader = code;
+            header.innerHTML = `${label || code} <span class="text-muted">(${code})</span>`;
+            headerRow.appendChild(header);
+        }
+        matrix.querySelectorAll('[data-translation-row]').forEach((row) => {
+            const key = row.getAttribute('data-translation-key') || '';
+            const cell = document.createElement('td');
+            cell.dataset.translationCell = 'true';
+            cell.dataset.source = 'missing';
+            cell.innerHTML = `
+                <textarea class="form-control form-control-sm glass-input" rows="2" data-translation-input data-lang="${code}" data-key="${key}" data-base-value="" data-override-value="" placeholder=""></textarea>
+                <span class="badge ms-translation-source">missing</span>
+            `;
+            row.appendChild(cell);
+            const input = cell.querySelector('[data-translation-input]');
+            input.addEventListener('input', () => syncTranslationOverrides(form));
+        });
+    }
+
+    function removeTranslationLanguageColumn(form, code) {
+        const matrix = form && form.querySelector('[data-translation-matrix]');
+        if (!matrix || !code) return;
+        matrix.querySelectorAll(`[data-translation-lang-header="${code}"], [data-translation-input][data-lang="${code}"]`).forEach((node) => {
+            const cell = node.closest('[data-translation-cell]');
+            (cell || node).remove();
+        });
+    }
+
+    function syncTranslationOverrides(form) {
+        const field = form && form.querySelector('[name="translations_override"]');
+        if (!field) return;
+        const overrides = {};
+        form.querySelectorAll('[data-translation-input]').forEach((input) => {
+            const lang = normalizeLanguageCode(input.dataset.lang);
+            const key = String(input.dataset.key || '').trim();
+            if (!lang || !key) return;
+            const value = String(input.value || '').trim();
+            const baseValue = String(input.dataset.baseValue || '').trim();
+            if (value && value !== baseValue) {
+                if (!overrides[lang]) overrides[lang] = {};
+                overrides[lang][key] = value;
+            }
+        });
+        field.value = JSON.stringify(overrides);
+    }
+
+    function bindLanguageCatalogRow(form, row) {
+        if (!form || !row || row.dataset.languageBound === 'true') return;
+        row.dataset.languageBound = 'true';
+        row.querySelectorAll('input, select').forEach((input) => {
+            input.addEventListener('input', () => syncLanguageCatalog(form));
+            input.addEventListener('change', () => syncLanguageCatalog(form));
+        });
+        const removeButton = row.querySelector('[data-language-remove]');
+        if (removeButton) {
+            removeButton.addEventListener('click', () => {
+                if (removeButton.disabled) return;
+                const code = normalizeLanguageCode(row.dataset.languageCode);
+                row.remove();
+                removeTranslationLanguageColumn(form, code);
+                const systemNameRow = findSystemNameRow(form, code);
+                if (systemNameRow) systemNameRow.remove();
+                const defaultField = form.querySelector('[name="default_language"]');
+                if (defaultField && !form.querySelector(`[data-language-row][data-language-code="${defaultField.value}"]`)) {
+                    const firstDefault = form.querySelector('[data-language-default]');
+                    if (firstDefault) firstDefault.checked = true;
+                }
+                syncLanguageCatalog(form);
+            });
+        }
+    }
+
+    function addLanguageToCatalog(form, editor, code, name, dir, flag) {
+        const list = editor && editor.querySelector('[data-language-list]');
+        const normalizedCode = normalizeLanguageCode(code);
+        if (!form || !list || !normalizedCode || list.querySelector(`[data-language-code="${normalizedCode}"]`)) {
+            return null;
+        }
+        const label = name || normalizedCode;
+        const row = createLanguageRow(normalizedCode, label, dir || 'ltr', flag || '');
+        list.appendChild(row);
+        bindLanguageCatalogRow(form, row);
+        ensureSystemNameRow(form, normalizedCode, label, '');
+        ensureTranslationLanguageColumn(form, normalizedCode, label);
+        const defaultInput = row.querySelector('[data-language-default]');
+        if (defaultInput && !form.querySelector('[data-language-default]:checked')) {
+            defaultInput.checked = true;
+        }
+        syncLanguageCatalog(form);
+        return row;
+    }
+
+    function rebuildLanguageCatalog(form, languages, systemNames, defaultLanguage) {
+        const editor = form && form.querySelector('[data-language-catalog-editor]');
+        const list = editor && editor.querySelector('[data-language-list]');
+        if (!form || !editor || !list || !languages || typeof languages !== 'object') return;
+        list.innerHTML = '';
+        Object.entries(languages).forEach(([rawCode, payload]) => {
+            const code = normalizeLanguageCode(rawCode);
+            if (!code) return;
+            const meta = payload && typeof payload === 'object' ? payload : { name: String(payload || code) };
+            addLanguageToCatalog(form, editor, code, meta.name || code, meta.dir || 'ltr', meta.flag || '');
+        });
+        const defaultCode = normalizeLanguageCode(defaultLanguage);
+        const defaultInput = defaultCode ? form.querySelector(`[data-language-row][data-language-code="${defaultCode}"] [data-language-default]`) : null;
+        if (defaultInput) {
+            defaultInput.checked = true;
+        }
+        Object.entries(systemNames || {}).forEach(([rawCode, value]) => {
+            const code = normalizeLanguageCode(rawCode);
+            const row = ensureSystemNameRow(form, code, languages[code] && languages[code].name ? languages[code].name : code, value);
+            const input = row && row.querySelector('[data-system-name-input]');
+            if (input) {
+                input.value = value || '';
+            }
+        });
+        syncLanguageCatalog(form);
+    }
+
+    function applyTranslationOverridesToMatrix(form, overrides) {
+        if (!form || !overrides || typeof overrides !== 'object') return;
+        Object.entries(overrides).forEach(([rawLang, values]) => {
+            const lang = normalizeLanguageCode(rawLang);
+            if (!lang || !values || typeof values !== 'object') return;
+            Object.entries(values).forEach(([key, value]) => {
+                const input = Array.from(form.querySelectorAll(`[data-translation-input][data-lang="${lang}"]`)).find((candidate) => {
+                    return candidate.dataset.key === String(key);
+                });
+                if (input) {
+                    input.value = value || '';
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+        });
+        syncTranslationOverrides(form);
+    }
+
+    function initLanguageCatalogEditor(root) {
+        root.querySelectorAll('[data-language-catalog-editor]').forEach((editor) => {
+            if (editor.dataset.bound === 'true') return;
+            editor.dataset.bound = 'true';
+            const form = editor.closest('form');
+            const list = editor.querySelector('[data-language-list]');
+            const codeInput = editor.querySelector('[data-language-code-input]');
+            const nameInput = editor.querySelector('[data-language-name-input]');
+            const dirInput = editor.querySelector('[data-language-dir-input]');
+            const flagInput = editor.querySelector('[data-language-flag-input]');
+            const addButton = editor.querySelector('[data-language-add]');
+            if (!form || !list) return;
+
+            list.querySelectorAll('[data-language-row]').forEach((row) => bindLanguageCatalogRow(form, row));
+            form.querySelectorAll('[data-system-name-row]').forEach((row) => bindSystemNameRow(form, row));
+            if (addButton) {
+                addButton.addEventListener('click', () => {
+                    addLanguageToCatalog(form, editor, codeInput && codeInput.value, nameInput && nameInput.value, dirInput && dirInput.value, flagInput && flagInput.value);
+                    if (codeInput) codeInput.value = '';
+                    if (nameInput) nameInput.value = '';
+                    if (flagInput) flagInput.value = '';
+                });
+            }
+            editor.querySelectorAll('[data-language-suggestion]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const code = button.getAttribute('data-language-suggestion');
+                    addLanguageToCatalog(form, editor, code, code, 'ltr', '');
+                });
+            });
+            syncLanguageCatalog(form);
+        });
+    }
+
+    function initTranslationMatrixEditor(root) {
+        root.querySelectorAll('[data-translation-matrix]').forEach((matrix) => {
+            if (matrix.dataset.bound === 'true') return;
+            matrix.dataset.bound = 'true';
+            const form = matrix.closest('form');
+            const searchInput = matrix.querySelector('[data-translation-search]');
+            const statusInput = matrix.querySelector('[data-translation-status]');
+            const groupTabs = Array.from(matrix.querySelectorAll('[data-translation-group-tab]'));
+            let activeGroup = 'all';
+
+            function applyFilter() {
+                const needle = String(searchInput && searchInput.value ? searchInput.value : '').trim().toLowerCase();
+                const status = statusInput && statusInput.value ? statusInput.value : 'all';
+                matrix.querySelectorAll('[data-translation-row]').forEach((row) => {
+                    const text = row.textContent.toLowerCase();
+                    const hasStatus = status === 'all' || Boolean(row.querySelector(`[data-source="${status}"]`));
+                    const hasGroup = activeGroup === 'all' || row.getAttribute('data-translation-group') === activeGroup;
+                    row.classList.toggle('d-none', Boolean(needle && !text.includes(needle)) || !hasStatus || !hasGroup);
+                });
+            }
+
+            matrix.querySelectorAll('[data-translation-input]').forEach((input) => {
+                input.addEventListener('input', () => {
+                    syncTranslationOverrides(form);
+                    const cell = input.closest('[data-translation-cell]');
+                    if (cell) {
+                        const value = String(input.value || '').trim();
+                        const baseValue = String(input.dataset.baseValue || '').trim();
+                        cell.dataset.source = value && value !== baseValue ? 'override' : (value ? cell.dataset.source : 'missing');
+                    }
+                    applyFilter();
+                });
+            });
+            if (searchInput) searchInput.addEventListener('input', applyFilter);
+            if (statusInput) statusInput.addEventListener('change', applyFilter);
+            groupTabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    activeGroup = tab.getAttribute('data-translation-group-tab') || 'all';
+                    groupTabs.forEach((candidate) => {
+                        candidate.classList.toggle('active', candidate === tab);
+                    });
+                    applyFilter();
+                });
+            });
+            if (form) {
+                form.addEventListener('submit', () => {
+                    syncLanguageCatalog(form);
+                    syncTranslationOverrides(form);
+                });
+            }
+            syncTranslationOverrides(form);
+            applyFilter();
+        });
+    }
+
+    function isElementVisible(element) {
+        if (!element) return false;
+        return window.getComputedStyle(element).display !== 'none' && window.getComputedStyle(element).visibility !== 'hidden';
+    }
+
+    function initSystemSetupEnterBehavior(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.enterBehaviorBound === 'true') return;
+            form.dataset.enterBehaviorBound = 'true';
+
+            form.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter' || event.defaultPrevented || event.isComposing) {
+                    return;
+                }
+                const target = event.target;
+                const tagName = target && target.tagName ? target.tagName.toLowerCase() : '';
+                if (tagName === 'textarea') {
+                    return;
+                }
+
+                const languageEditor = target && target.closest && target.closest('[data-language-catalog-editor]');
+                if (languageEditor && target.matches('input, select')) {
+                    const addButton = languageEditor.querySelector('[data-language-add]');
+                    if (addButton) {
+                        event.preventDefault();
+                        addButton.click();
+                    }
+                    return;
+                }
+
+                const steps = Array.from(form.querySelectorAll('.wizard-step'));
+                if (steps.length < 2) {
+                    return;
+                }
+                const visibleStepIndex = steps.findIndex((step) => isElementVisible(step));
+                const nextButton = form.querySelector('.ms-btn-next');
+                if (visibleStepIndex >= 0 && visibleStepIndex < steps.length - 1 && nextButton && isElementVisible(nextButton)) {
+                    event.preventDefault();
+                    nextButton.click();
+                }
+            });
+        });
+    }
+
+    function extractImportedSettings(payload) {
+        if (!payload || typeof payload !== 'object') return null;
+        if (payload.format === 'django-microsys.system-settings' && payload.settings && typeof payload.settings === 'object') {
+            return payload.settings;
+        }
+        return payload;
+    }
+
+    function setCheckboxField(form, name, value) {
+        const field = form.querySelector(`[name="${name}"]`);
+        if (!field || field.type !== 'checkbox') return;
+        field.checked = Boolean(value);
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function setJsonField(form, name, value) {
+        const field = form.querySelector(`[name="${name}"]`);
+        if (!field) return;
+        field.value = JSON.stringify(value || {});
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function applyImportedSetupSettings(form, payload) {
+        const settings = extractImportedSettings(payload);
+        if (!form || !settings) return false;
+
+        const languages = settings.languages && typeof settings.languages === 'object' ? settings.languages : null;
+        const systemNames = settings.system_names && typeof settings.system_names === 'object' ? settings.system_names : {};
+        if (languages) {
+            rebuildLanguageCatalog(form, languages, systemNames, settings.default_language || getNamedFieldValue(form, 'default_language') || 'en');
+        } else if (Object.keys(systemNames).length) {
+            Object.entries(systemNames).forEach(([rawCode, value]) => {
+                const code = normalizeLanguageCode(rawCode);
+                const row = ensureSystemNameRow(form, code, code, value);
+                const input = row && row.querySelector('[data-system-name-input]');
+                if (input) input.value = value || '';
+            });
+        }
+
+        if (settings.system_names) setJsonField(form, 'system_names', settings.system_names);
+        if (settings.languages) setJsonField(form, 'languages', settings.languages);
+        if (settings.translations_override) {
+            setJsonField(form, 'translations_override', settings.translations_override);
+            applyTranslationOverridesToMatrix(form, settings.translations_override);
+        }
+
+        ['home_url', 'default_language', 'default_theme', 'default_table_density'].forEach((name) => {
+            if (Object.prototype.hasOwnProperty.call(settings, name)) {
+                setNamedFieldValue(form, name, settings[name]);
+                getNamedFieldInputs(form, name).forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
+            }
+        });
+
+        ['allow_user_theme_override', 'allow_user_language_override', 'email_2fa', 'public_root'].forEach((name) => {
+            if (Object.prototype.hasOwnProperty.call(settings, name)) {
+                setCheckboxField(form, name, settings[name]);
+            }
+        });
+
+        if (Array.isArray(settings.allowed_themes)) {
+            form.querySelectorAll('[data-setup-theme-allowed]').forEach((field) => {
+                field.checked = settings.allowed_themes.includes(field.value);
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+
+        const sidebar = settings.sidebar_config && typeof settings.sidebar_config === 'object' ? settings.sidebar_config : null;
+        if (sidebar) {
+            setJsonField(form, 'sidebar_config', sidebar);
+            setCheckboxField(form, 'sidebar_enable_reorder', sidebar.enable_reorder !== false);
+            setCheckboxField(form, 'sidebar_enable_toolbar', sidebar.show_toolbar !== false);
+            setCheckboxField(form, 'sidebar_show_icons', sidebar.show_icons !== false);
+            setCheckboxField(form, 'sidebar_allow_user_density', sidebar.allow_user_density !== false);
+            setNamedFieldValue(form, 'sidebar_density', sidebar.density || 'balanced');
+            setNamedFieldValue(form, 'sidebar_collapse_mode', sidebar.collapse_mode || 'icons');
+        }
+
+        const titlebar = settings.titlebar_config && typeof settings.titlebar_config === 'object' ? settings.titlebar_config : null;
+        if (titlebar) {
+            setCheckboxField(form, 'titlebar_show_title', titlebar.show_title !== false);
+            setCheckboxField(form, 'titlebar_show_logo', titlebar.show_logo !== false);
+            setCheckboxField(form, 'titlebar_show_home_button', titlebar.show_home_button !== false);
+            setNamedFieldValue(form, 'titlebar_home_shape', titlebar.home_shape || 'circle');
+            setNamedFieldValue(form, 'titlebar_title_align', titlebar.title_align || 'start');
+            setNamedFieldValue(form, 'titlebar_title_size', titlebar.title_size || 'md');
+            setNamedFieldValue(form, 'titlebar_height', titlebar.height || 'balanced');
+            setNamedFieldValue(form, 'titlebar_surface', titlebar.surface || 'default');
+        }
+
+        syncLanguageCatalog(form);
+        syncTranslationOverrides(form);
+        applyImmediateSystemSettingsPreview(form);
+        return true;
+    }
+
+    function initSystemSetupImportFile(root) {
+        root.querySelectorAll('form.ms-system-setup-form [data-settings-import-file]').forEach((input) => {
+            if (input.dataset.importBound === 'true') return;
+            input.dataset.importBound = 'true';
+            input.addEventListener('change', () => {
+                const form = input.closest('form');
+                const file = input.files && input.files[0];
+                if (!form || !file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const payload = JSON.parse(reader.result || '{}');
+                        if (!applyImportedSetupSettings(form, payload)) {
+                            throw new Error('Invalid setup file');
+                        }
+                        // Mark import as processed so server doesn't re-apply and override user edits
+                        const processedFlag = form.querySelector('input[name="settings_import_processed"]');
+                        if (processedFlag) {
+                            processedFlag.value = 'true';
+                        }
+                        if (typeof showToast === 'function') {
+                            showToast('System setup file imported.');
+                        }
+                    } catch (error) {
+                        if (typeof showToast === 'function') {
+                            showToast('Invalid system setup file.');
+                        }
+                    }
+                };
+                reader.readAsText(file);
+            });
+        });
+    }
+
     function initSetupThemePicker(root) {
         root.querySelectorAll('[data-setup-theme-picker]').forEach((picker) => {
             if (picker.dataset.bound === 'true') return;
@@ -2354,6 +2910,10 @@
         restoreSetupFormState(root);
         initSetupHomeFields(root);
         root.querySelectorAll('.ms-setup-builder').forEach(initBuilder);
+        initLanguageCatalogEditor(root);
+        initTranslationMatrixEditor(root);
+        initSystemSetupEnterBehavior(root);
+        initSystemSetupImportFile(root);
         initSetupLanguagePicker(root);
         initSetupThemePicker(root);
         initSetupTableDensityPicker(root);
@@ -2380,8 +2940,10 @@
                         node.matches('[data-ms-selector]') ||
                         node.querySelector('.ms-setup-builder') ||
                         node.querySelector('form.ms-system-setup-form') ||
-                        node.querySelector('[data-ms-selector]') ||
-                        node.querySelector('[data-setup-language-picker]') ||
+	                        node.querySelector('[data-ms-selector]') ||
+	                        node.querySelector('[data-language-catalog-editor]') ||
+	                        node.querySelector('[data-translation-matrix]') ||
+	                        node.querySelector('[data-setup-language-picker]') ||
                         node.querySelector('[data-setup-table-density-picker]') ||
                         node.querySelector('[data-setup-sidebar-density-picker]')
                     )

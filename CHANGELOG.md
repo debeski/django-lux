@@ -4,6 +4,63 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.0.0 *not backwards compatible*
+
+- **Sidebar Permission Inference for Function-Based Views**: Added URL pattern-based permission inference that correctly extracts permissions for function-based views. The logic now parses URL namespace as app label and URL name prefix as model name (e.g., `documents:outgoing_list` → `documents.view_outgoing`). This ensures sidebar items are only visible to users who have the actual view permission for the associated model.
+- **Strict Sidebar Permission Enforcement**: Simplified `_user_has_sidebar_permission` to strictly check permissions without staff fallback. Users must have the actual permission (e.g., `documents.view_outgoing`) to see the sidebar item. No implicit staff access - explicit permissions are required.
+- **System Route Permission Updates**: Added `__ms_options_view__` permission to `options_view` system route in `SYSTEM_ROUTE_META`, allowing proper permission control for the options/settings sidebar item.
+- **Breaking Change**: Staff users will no longer see sidebar items for models they don't have explicit view permissions for. Ensure users have the appropriate `app.view_model` permissions assigned.
+
+## v1.87.0b4 *not backwards compatible*
+
+- **Global Staff vs Central Staff Tier System**: Added new `manage_scopes` permission to separate non-scoped staff into two distinct authorization tiers. Global Staff (`is_staff=True, scope=NULL, manage_scopes permission`) can create/manage scopes and ALL users. Central Staff (`is_staff=True, scope=NULL, NO manage_scopes`) can only create/manage scopeless (NULL scope) users, completely blind to scoped users and their data. Only superusers can create Global Staff.
+- **Permission Widget Fix**: Fixed the queryset filter in `CustomUserCreationForm` and `CustomUserPermissionsForm` that was excluding `view_activitylog` and `manage_scopes` permissions from the permission widget. Now both activity log access and Global Staff assignment permissions appear correctly in the UI.
+- **Tier-Based User Management Enforcement**: Added `is_global_staff()` and `is_central_staff()` utility functions, updated `can_manage_target_user()` to reject Central Staff from managing scoped users, modified `UserListView` queryset filtering to hide Global Staff from Central Staff, added view-level enforcement in `create_user` and `edit_user` to prevent Central Staff from creating/editing Global Staff users, and added form-level enforcement in `CustomUserPermissionsForm` to strip `manage_scopes` from Central Staff submissions.
+- **UI: Hide Scope Field from Central Staff**: Changed from showing disabled scope field with help text to completely hiding it using `HiddenInput` widget. Central Staff users no longer see any scope-related UI when creating or editing users.
+
+## v1.87.0b3 *not backwards compatible*
+
+- **CRITICAL: Widget Queryset Caching Fix**: Fixed a security bug where the permission widget (`GroupedPermissionWidget`) was using the class-level cached queryset instead of the filtered queryset. This allowed non-superusers to see and assign permissions they didn't have. Fixed by storing `_filtered_queryset` on the widget and prioritizing it in `get_context()`. Now users can only see and assign permissions they possess.
+- **CRITICAL: Sidebar Permission Security Fix**: Fixed a critical security issue where sidebar items with no permissions were visible to ALL users. The `user_has_any_permission_tokens` function returned `True` for empty permissions, making items without explicit permissions visible to everyone. Fixed by adding `default_visible_to_all=False` parameter - now items MUST have explicit permissions to appear in sidebar. Superusers can see all sidebar items regardless of permissions.
+- **CRITICAL: Modal Form Parameter Fix**: Fixed `DynamicModalManagerView._get_form_kwargs()` which was passing `request` via `**kwargs` detection to forms. This caused `TypeError` in forms like `CustomUserCreationForm` that don't accept `request`. The fallback then stripped ALL kwargs including `user`, completely breaking permission filtering. Fixed by only passing `request` when explicitly named as a parameter (not via `**kwargs`).
+- **Section Manager Context Menu Fix**: Fixed the fallback navigation bug where clicking "view" on section manager entries redirected to `/${app}/${id}/` instead of opening the smart modal. Added `isSectionManagerActive()` detection to `main.js` fallback handlers so they bail out when `section_manager.js` is active.
+- **`manage_sections` Permission Integration**: Enhanced `filter_context_actions()` utility to properly respect `manage_sections` permission across all section-related context menu actions, ensuring consistent permission enforcement between server-side and client-side action filtering.
+- **Staff User Directory Authorization Fix**: Updated `user_can_view_user_directory()` to accept either `auth.view_user` OR `microsys.manage_staff` permission. Staff users granted via `manage_staff` permission can now access `/sys/users/` and see the manage users icon without requiring explicit `auth.view_user`.
+- **Auto-Grant `view_user` Permission**: `CustomUserCreationForm` and `CustomUserPermissionsForm` now automatically grant `auth.view_user` permission when saving a user with `is_staff=True`, ensuring backward compatibility and reducing manual permission management.
+- **Translation Fallback Hardening**: Updated form help text fallbacks to use English strings instead of Arabic, ensuring consistent UX when translations are missing.
+
+## v1.87.0b2 *not backwards compatible*
+
+- **Governed Theme Allowlist**: Added `SystemSettings.allowed_themes` plus `allow_user_theme_override`, wired setup/System Settings to a theme-allowlist matrix, filtered runtime theme exposure to the approved set, and forced saved disallowed themes back to the system default.
+- **Sidebar Density and Collapse Modes**: Expanded sidebar config with `show_icons`, `density`, `allow_user_density`, and `collapse_mode`, added density controls to setup, Options, and the live sidebar toolbar, and normalized `show_icons=false` away from the icon-rail collapse mode.
+- **Titlebar Layout Controls**: Added admin-owned titlebar controls for logo/home visibility, home-button shape, title alignment, title size, bar height, and surface style, with data-driven template/CSS wiring and a mobile-safe alignment fallback.
+- **Config and Preference Hardening**: Extended `get_system_config()`, context, and preferences persistence to respect theme allowlists, sidebar density locks, locked-expanded sidebars, branding URL normalization, and optional `psutil` / TOTP dependencies in lean environments.
+- **Migrator Error handling**: Added a clear visual error output to debug terminal when any of the migrator tasks fails.
+
+## v1.87.0b1 *not backwards compatible*
+
+- **System Navigation Authorization Cleanup**: The sidebar discovery layer, user hub, and dashboard now follow the same helper-backed MSRP authorization rules for Users, Sections, and Activity Log instead of older `is_staff`/typo’d-permission checks.
+- **Legacy User Reset Route Alignment**: `/sys/reset_password/<pk>/` now requires `auth.change_user` and the same `can_manage_target_user()` staff/scope/superuser target checks as the hardened user-management modal flows, and its invalid-form fallback no longer redirects to the removed `edit_user` route.
+- **Explicit Activity-Log Authorization**: The activity-log list/detail views now require the explicit `microsys.view_activitylog` permission (with a temporary legacy alias check) instead of granting access to every staff user by default.
+- **Scope View Authorization Cleanup**: The older scope-management AJAX endpoints now fail with `403` for non-superusers instead of redirecting, and the superuser-only manager stays reachable even when scopes are currently disabled.
+- **2FA State-Handling Rehab**: Converted 2FA mutators and resend flows to POST-only, switched backup codes to hashed-at-rest storage with legacy in-place migration, validated post-OTP redirects against allowed hosts, and removed secret-leaking debug prints from the 2FA flow.
+- **Autofill/API Exposure Reduction**: Stopped autofill/detail APIs from expanding reverse OneToOne relations such as `user.profile`, and routed those reads through the model default manager so scoped query behavior is preserved automatically.
+
+## v1.87.0b0 *not backwards compatible*
+
+- **Table Meta Contract Repair**: Fixed the `django_tables2` patch layer so host tables again honor `Meta`-level `microsys_table`, `microsys_density`, `microsys_per_page`, and `microsys_actions` settings instead of accidentally reading only the runtime `_meta` wrapper.
+- **Broad Suite Cleanup**: Removed the remaining stale failures in `test_utils_discovery`, `test_models`, and `test_tables`; the full `microsys.tests` suite now completes green at `247` passing tests.
+- **MSRP Security Hardening Phase 1**: Locked down dynamic modal CRUD and section-management routes with backend authorization, enforced self/staff/scope rules on profile and user modals, removed login-only access to operational diagnostics, and sanitized previously raw JSON error payloads.
+- **Section Route Model Allowlisting**: Tightened the section AJAX endpoints so `get_section_details`, `delete_section`, and subsection CRUD only operate on models discovered through the Microsys sections registry instead of accepting arbitrary `model=` tokens from the request.
+- **Privileged Detail Parity**: Aligned user-detail and activity-log detail views with the newer security contracts so user detail access follows the same staff/scope/superuser rules as user-management modals, while non-superusers cannot open superuser-created activity-log entries from the detail modal.
+- **User Directory Authorization Parity**: Embedded recent-activity snippets on user detail only render when the caller also has `microsys.view_activitylog`.
+
+## v1.20.6
+
+- **MSRP Stale-Code Compatibility Cleanup**: Normalized media URL fallback handling for uploaded branding assets, restored `get_system_config()` language-name fallback behavior when only a generic system name is provided, and added backward-compatible `form_class` / `table_class` / `filter_class` aliases to `LazyModelClasses`.
+- **Middleware and Root-Route Contract Cleanup**: Brought the setup/root middleware contract in line with the newer security-first behavior, including explicit setup redirect behavior for unconfigured anonymous root requests and test-backed thread-local handling through the actual middleware execution path.
+- **Legacy Test Harness Stabilization**: Guarded the optional external `storage` import in `microsys.tests.test_m2m`, updated stale middleware/IP-header expectations, and verified the refreshed utility/context/middleware/default-route slice against the current MSRP behavior.
+
 ## v1.20.5
 
 - **Table Surface and Theme Conformance**: Expanded the vNext table platform across the shipped themes by adding Retro table tokens, light/color theme-owned header and row tokens, dark-theme empty-state and density-card tokens, softer header gradients, and wrapper/shell curve fixes including the mono-specific table-card opt-out.
@@ -14,13 +71,6 @@ This file owns the release history for `django-microsys`.
 - **Activity Log and Detail UX Hardening**: Refreshed the activity-log detail modal into structured cards, masked OTP/TOTP secret-like values in saved diffs and rendered detail payloads, and made auto-generated detail labels follow the live MicroSys translation contract instead of raw English `verbose_name` values.
 - **Options and System Settings Refinements**: Split the Options entry for System Settings into focused branding/languages/sidebar launches, restored missing `email_2fa` and `public_root` translation coverage, and modernized System Settings branding uploads onto the shared Microsys file-input path with automatic multipart modal submission.
 - **Sidebar Builder Runtime Polish**: Fixed selected-entry localization drift in Arabic and added cross-pane drag/drop so discovered entries can be moved into or back out of the selected tree without leaving the builder flow.
-
-## Unreleased
-
-- **Governed Theme Allowlist**: Added `SystemSettings.allowed_themes` plus `allow_user_theme_override`, wired setup/System Settings to a theme-allowlist matrix, filtered runtime theme exposure to the approved set, and forced saved disallowed themes back to the system default.
-- **Sidebar Density and Collapse Modes**: Expanded sidebar config with `show_icons`, `density`, `allow_user_density`, and `collapse_mode`, added density controls to setup, Options, and the live sidebar toolbar, and normalized `show_icons=false` away from the icon-rail collapse mode.
-- **Titlebar Layout Controls**: Added admin-owned titlebar controls for logo/home visibility, home-button shape, title alignment, title size, bar height, and surface style, with data-driven template/CSS wiring and a mobile-safe alignment fallback.
-- **Config and Preference Hardening**: Extended `get_system_config()`, context, and preferences persistence to respect theme allowlists, sidebar density locks, locked-expanded sidebars, branding URL normalization, and optional `psutil` / TOTP dependencies in lean environments.
 
 ## v1.20.4
 

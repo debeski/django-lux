@@ -142,10 +142,22 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    const themePopup = document.getElementById('sidebarThemePopup');
+    const themeIndicator = document.getElementById('sidebarThemeIndicator');
+    const themeArrow = document.getElementById('sidebarThemeArrow');
+
+    function closeThemePopup() {
+        if (themePopup) themePopup.classList.remove('show');
+        if (themeIndicator) themeIndicator.classList.remove('open');
+        if (themeArrow) themeArrow.classList.remove('visible');
+    }
+
     if (densityIndicator && densityPopup) {
         densityIndicator.addEventListener('click', function(event) {
             event.stopPropagation();
+            const isOpening = !densityPopup.classList.contains('show');
             densityPopup.classList.toggle('show');
+            if (isOpening) closeThemePopup();
         });
 
         document.addEventListener('click', function(event) {

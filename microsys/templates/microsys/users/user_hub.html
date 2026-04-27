@@ -32,13 +32,13 @@
             </button>
         </div>
         <div class="ms-toolbar-right">
-            {% if user.is_staff %}
+            {% if can_view_user_directory %}
             <a href="{% url 'manage_users' %}" class="ms-tool-btn" data-ms-tooltip="{{ MS_TRANS.manage_users }}">
                 <i class="bi bi-people-fill"></i>
             </a>
             {% endif %}
             
-            {% if perms.microsys.view_useractivitylog or user.is_superuser %}
+            {% if can_view_activity_log %}
             <a href="{% url 'user_activity_log' %}" class="ms-tool-btn" data-ms-tooltip="{{ MS_TRANS.activity_log }}">
                 <i class="bi bi-clock-history"></i>
             </a>

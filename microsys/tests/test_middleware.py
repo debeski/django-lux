@@ -79,17 +79,37 @@ class ActivityLogMiddlewareTests(TestCase):
 
     def test_middleware_sets_thread_local_user(self):
         """Test that middleware sets thread-local user."""
-        request = self.factory.get('/')
+        seen = {}
+
+        def capture_response(request):
+            seen['user'] = get_current_user()
+            return HttpResponse()
+
+        middleware = ActivityLogMiddleware(capture_response)
+        request = self.factory.get('/some-page')
         request.user = self.user
-        self.middleware(request)
-        self.assertEqual(get_current_user(), self.user)
+        request.path = '/some-page'
+        with override_settings(MICROSYS_CONFIG={'is_configured': True}):
+            middleware(request)
+
+        self.assertEqual(seen.get('user'), self.user)
 
     def test_middleware_sets_thread_local_request(self):
         """Test that middleware sets thread-local request."""
-        request = self.factory.get('/')
+        seen = {}
+
+        def capture_response(request):
+            seen['request'] = get_current_request()
+            return HttpResponse()
+
+        middleware = ActivityLogMiddleware(capture_response)
+        request = self.factory.get('/some-page')
         request.user = self.user
-        self.middleware(request)
-        self.assertEqual(get_current_request(), request)
+        request.path = '/some-page'
+        with override_settings(MICROSYS_CONFIG={'is_configured': True}):
+            middleware(request)
+
+        self.assertEqual(seen.get('request'), request)
 
     def test_middleware_cleans_up_thread_locals(self):
         """Test that middleware cleans up thread-local variables."""
@@ -184,7 +204,7 @@ class ActivityLogMiddlewareTests(TestCase):
         
         response = self.middleware._missing_root_redirect(request)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/accounts/login/')
+        self.assertEqual(response.url, '/sys/setup/')
 
     def test_missing_root_redirect_for_superuser_unconfigured(self):
         """Test missing root redirect for superuser on unconfigured system."""

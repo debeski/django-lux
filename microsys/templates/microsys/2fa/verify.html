@@ -92,10 +92,10 @@
                 
                 <div class="d-flex justify-content-between mt-4">
                     {% if intent == 'login' %}
-                        <a href="{% url 'resend_otp_login' %}" class="text-muted text-decoration-none small">{{ MS_TRANS.2fa_resend_btn }}</a>
+                        <button type="submit" form="resendOtpLoginForm" class="btn btn-link text-muted text-decoration-none small p-0 border-0">{{ MS_TRANS.2fa_resend_btn }}</button>
                         <a href="{% url 'login' %}" class="text-muted text-decoration-none small">Back to Login</a>
                     {% else %}
-                        <a href="{% url 'resend_otp_enable' %}" class="text-muted text-decoration-none small">{{ MS_TRANS.2fa_resend_btn }}</a>
+                        <button type="submit" form="resendOtpEnableForm" class="btn btn-link text-muted text-decoration-none small p-0 border-0">{{ MS_TRANS.2fa_resend_btn }}</button>
                         <a href="{% url 'user_profile' %}" class="text-muted text-decoration-none small">Cancel</a>
                     {% endif %}
                 </div>
@@ -110,6 +110,17 @@
       </div>
     </div>
 </div>
+
+{% if intent == 'login' %}
+<form id="resendOtpLoginForm" method="post" action="{% url 'resend_otp_login' %}" class="d-none">
+    {% csrf_token %}
+</form>
+{% else %}
+<form id="resendOtpEnableForm" method="post" action="{% url 'resend_otp' intent %}" class="d-none">
+    {% csrf_token %}
+    <input type="hidden" name="intent" value="{{ intent }}">
+</form>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

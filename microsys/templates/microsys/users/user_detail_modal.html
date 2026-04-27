@@ -80,37 +80,39 @@
         </div>
     </div>
 
-    <!-- Activity Timeline -->
-    <h6 class="fw-bold mb-3 text-secondary border-bottom pb-2">
-        <i class="bi bi-clock-history me-1"></i> {{ MS_TRANS.activity_log|default:"Recent Activity" }}
-    </h6>
-    
-    <div class="activity-timeline mt-3" style="max-height: 250px; overflow-y: auto; overflow-x: hidden;">
-        {% for log in recent_logs %}
-            <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="timeline-content p-3 mb-3 glass-card border-0 shadow-sm" style="background: rgba(var(--bs-primary-rgb), 0.03);">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="badge bg-secondary-subtle text-secondary border-0 small">
-                            {{ log.action|translate_log:'action' }}
-                        </span>
-                        <small class="text-muted smaller">
-                            <i class="bi bi-clock me-1"></i>{{ log.timestamp|timesince }} {{ MS_TRANS.ago }}
-                        </small>
-                    </div>
-                    <div class="small fw-bold text-primary">
-                        {{ log.model_name|translate_log:'model' }} 
-                        {% if log.object_id %}<span class="text-muted opacity-50 ms-1">#{{ log.object_id }}</span>{% endif %}
+    {% if can_view_activity_logs %}
+        <!-- Activity Timeline -->
+        <h6 class="fw-bold mb-3 text-secondary border-bottom pb-2">
+            <i class="bi bi-clock-history me-1"></i> {{ MS_TRANS.activity_log|default:"Recent Activity" }}
+        </h6>
+        
+        <div class="activity-timeline mt-3" style="max-height: 250px; overflow-y: auto; overflow-x: hidden;">
+            {% for log in recent_logs %}
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content p-3 mb-3 glass-card border-0 shadow-sm" style="background: rgba(var(--bs-primary-rgb), 0.03);">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="badge bg-secondary-subtle text-secondary border-0 small">
+                                {{ log.action|translate_log:'action' }}
+                            </span>
+                            <small class="text-muted smaller">
+                                <i class="bi bi-clock me-1"></i>{{ log.timestamp|timesince }} {{ MS_TRANS.ago }}
+                            </small>
+                        </div>
+                        <div class="small fw-bold text-primary">
+                            {{ log.model_name|translate_log:'model' }} 
+                            {% if log.object_id %}<span class="text-muted opacity-50 ms-1">#{{ log.object_id }}</span>{% endif %}
+                        </div>
                     </div>
                 </div>
-            </div>
-        {% empty %}
-            <div class="text-center py-4 border rounded bg-light border-dashed">
-                <i class="bi bi-info-circle text-muted mb-2 d-block" style="font-size: 1.5rem;"></i>
-                <p class="text-muted mb-0 small italic">{{ MS_TRANS.no_activity_recorded }}</p>
-            </div>
-        {% endfor %}
-    </div>
+            {% empty %}
+                <div class="text-center py-4 border rounded bg-light border-dashed">
+                    <i class="bi bi-info-circle text-muted mb-2 d-block" style="font-size: 1.5rem;"></i>
+                    <p class="text-muted mb-0 small italic">{{ MS_TRANS.no_activity_recorded }}</p>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 </div>
 
 <div class="modal-footer border-0 pt-0">

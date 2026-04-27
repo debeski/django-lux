@@ -52,8 +52,10 @@ if not settings.configured:
 from django.test import Client, RequestFactory, SimpleTestCase, override_settings
 from django.template import Context, Template
 from django.urls import clear_url_caches
+from django.core.files.uploadedfile import SimpleUploadedFile
 from types import SimpleNamespace
 from unittest.mock import call, patch
+import json
 
 from microsys.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, LEGACY_HOME_URL
 from microsys.forms import SystemSettingsForm
@@ -221,6 +223,108 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-setup-theme-allowed="light"', form.theme_picker_html)
         self.assertIn('ms-theme-settings-option__checkbox', form.theme_picker_html)
 
+    @override_settings(MICROSYS_CONFIG={'system_names': {'en': 'Demo System', 'ar': 'نظام تجريبي'}})
+    def test_setup_identity_step_renders_language_keyed_system_names(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('data-system-names-editor', html)
+        self.assertIn('data-system-name-row data-language-code="en"', html)
+        self.assertIn('value="Demo System"', html)
+        self.assertIn('data-language-catalog-editor', html)
+        self.assertIn('data-translation-group-tab="microsys"', html)
+        self.assertNotIn('data-setup-language-picker', html)
+
+    def test_setup_form_import_file_overrides_posted_setup_values_on_initial_import(self):
+        """On initial import (JS populated, flag not set), import overrides posted defaults."""
+        payload = {
+            'format': 'django-microsys.system-settings',
+            'version': 1,
+            'settings': {
+                'system_names': {'en': 'Imported System', 'fr': 'Systeme Importe'},
+                'languages': {'fr': {'name': 'Francais', 'dir': 'ltr', 'flag': 'FR'}},
+                'default_language': 'fr',
+                'default_theme': 'dark',
+                'allowed_themes': ['dark'],
+                'translations_override': {'fr': {'app_microsys': 'Systeme'}},
+                'home_url': '/imported/',
+                'default_table_density': 'dense',
+                'sidebar_config': {'entries': [], 'density': 'dense', 'collapse_mode': 'hidden'},
+                'titlebar_config': {'show_title': False, 'title_align': 'center'},
+            },
+        }
+        import_file = SimpleUploadedFile(
+            'microsys-system-settings.json',
+            json.dumps(payload).encode('utf-8'),
+            content_type='application/json',
+        )
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "Posted"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'sidebar_config': '{"entries":[]}',
+            },
+            files={'settings_import_file': import_file},
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['system_names']['en'], 'Imported System')
+        self.assertIn('fr', form.cleaned_data['languages'])
+        self.assertEqual(form.cleaned_data['default_language'], 'fr')
+        self.assertEqual(form.cleaned_data['default_theme'], 'dark')
+        self.assertEqual(form.cleaned_data['home_url'], '/imported/')
+        self.assertEqual(form.cleaned_data['sidebar_config']['density'], 'dense')
+        self.assertFalse(form.cleaned_data['titlebar_config']['show_title'])
+
+    def test_setup_form_import_does_not_override_when_processed_flag_set(self):
+        """When import is marked as processed, user edits are preserved and import is skipped."""
+        payload = {
+            'format': 'django-microsys.system-settings',
+            'version': 1,
+            'settings': {
+                'system_names': {'en': 'Imported System'},
+                'default_language': 'fr',
+                'default_theme': 'dark',
+            },
+        }
+        import_file = SimpleUploadedFile(
+            'microsys-system-settings.json',
+            json.dumps(payload).encode('utf-8'),
+            content_type='application/json',
+        )
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "User Edited"}',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'sidebar_config': '{"entries":[]}',
+                'settings_import_processed': 'true',
+            },
+            files={'settings_import_file': import_file},
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        # User edits should be preserved, not overridden by import
+        self.assertEqual(form.cleaned_data['system_names']['en'], 'User Edited')
+        self.assertEqual(form.cleaned_data['default_language'], 'en')
+        self.assertEqual(form.cleaned_data['default_theme'], 'light')
+
     def test_crispy_setup_render_uses_custom_toggle_markup_for_choice_fields(self):
         form = SystemSettingsForm(
             instance=SystemSettings(is_configured=False),
@@ -238,8 +342,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
     def test_setup_form_rejects_empty_allowed_themes(self):
         form = SystemSettingsForm(
             data={
-                'name': 'System',
-                'name_en': 'System',
+                'system_names': '{"en": "System", "ar": "System"}',
                 'home_url': '/',
                 'default_language': 'en',
                 'default_theme': 'light',
@@ -257,8 +360,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
     def test_setup_form_rejects_default_theme_outside_allowlist(self):
         form = SystemSettingsForm(
             data={
-                'name': 'System',
-                'name_en': 'System',
+                'system_names': '{"en": "System", "ar": "System"}',
                 'home_url': '/',
                 'default_language': 'en',
                 'default_theme': 'light',
@@ -309,8 +411,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
     @override_settings(MICROSYS_CONFIG={}, MEDIA_URL='')
     def test_uploaded_branding_urls_fall_back_to_absolute_media_paths(self):
         fake_settings = SimpleNamespace(
-            name='',
-            name_en='',
+            system_names={},
             logo=SimpleNamespace(url='microsys/branding/logo.png'),
             favicon=SimpleNamespace(url='microsys/branding/favicon.ico'),
             home_url='',

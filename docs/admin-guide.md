@@ -18,18 +18,24 @@ The setup wizard lives at `/sys/setup/` and is only intended for the initial sys
 
 ![Setup wizard capture slot](assets/setup-wizard.webp)
 
-The wizard currently runs in three steps:
+The wizard currently runs in five steps:
 
-1. Branding and defaults
-   This step sets the Arabic and English system names, logo, favicon, default language, default theme, and the global home URL. The home URL can come from discovered pages or a typed custom path.
+1. Identity
+   This step sets language-keyed system names, logo, and favicon. It also includes the JSON setup import control, which can prefill the wizard from a previously exported Microsys setup file.
 
-2. Language catalog and translation overrides
-   This step manages the available languages JSON and the translation-override JSON.
+2. Localization
+   This step manages language-keyed system names, the explicit language catalog, default language, user language override policy, and the translation matrix editor. English and Arabic are built in; custom languages are available to users only after an admin adds them here.
 
-3. Sidebar structure
-   This step uses the sidebar builder to assemble the default navigation tree that the runtime UI will render. It also controls whether end users can reorder their own sidebar and whether the runtime sidebar toolbar is shown at all.
+3. Access and security
+   This step controls public root access and email 2FA.
 
-Useful JSON patterns:
+4. Navigation
+   This step manages the global home URL, sidebar builder, and sidebar behavior controls.
+
+5. Appearance and personalization
+   This step manages theme availability, default theme, theme override policy, table-density defaults, and titlebar controls.
+
+Useful language/system-name patterns:
 
 ```json
 {
@@ -40,10 +46,13 @@ Useful JSON patterns:
 
 ```json
 {
-  "en": { "app_microsys": "System" },
-  "ar": { "app_microsys": "النظام" }
+  "en": "System",
+  "ar": "النظام",
+  "fr": "Systeme"
 }
 ```
+
+The translation matrix shows keys from Microsys and installed app `translations.py` files. It is grouped by source tab, such as Microsys, each installed app, project-level translations, and settings-only override keys. Existing code-level translations prefill cells, but only admin edits are saved into the database override layer.
 
 When the wizard is saved:
 
@@ -52,6 +61,8 @@ When the wizard is saved:
 - the saved sidebar tree becomes the runtime base sidebar
 - the chosen home URL becomes the global titlebar Home destination
 - the sidebar reorder and toolbar flags become part of the runtime sidebar behavior
+
+Superusers can export the current setup from the Options System Settings card. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, sidebar, titlebar, security toggles, themes, and density defaults. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
 
 ## Sidebar Builder and Runtime Navigation
 
@@ -105,13 +116,19 @@ After first launch, day-to-day configuration continues in `/sys/options/`.
 The Options screen currently provides:
 
 - accessibility toggles such as high contrast, grayscale, invert, large text, and reduced animations
-- system information such as server time, storage usage, Python version, Django version, DRF version, and the current app version
+- privileged system information such as server time, storage usage, Python version, Django version, DRF version, and the current app version
 - theme switching
 - language switching
 - table-density switching for the current user
 - autofill enable or disable
 - reset-to-defaults for user preferences
 - a superuser-only System Settings button that opens the editable settings modal
+- a superuser-only setup export action for reusing System Settings across development environments
+
+Security note:
+
+- the diagnostics card is now staff/superuser-only
+- ordinary authenticated users still keep their personal preference controls in Options
 
 Operational note:
 
@@ -149,6 +166,10 @@ Other admin-facing runtime behaviors to expect:
 - profile pages expose 2FA controls and backup-code workflows
 - activity logs show diffs and download/export context
 
+2FA operational note:
+
+- enable, disable, backup-code generation, TOTP setup, and OTP resend flows are now POST-backed actions rather than GET-triggered links
+
 ## Activity Logs in Daily Use
 
 The activity log screen lives at `/sys/logs/` and is intended to be an operational audit surface, not just a developer debug page.
@@ -178,3 +199,72 @@ User preferences are stored in `Profile.preferences` and updated through the Pre
 - `autofill_enabled`
 
 Resetting preferences from the Options screen clears both the stored preference payload and the related session keys.
+
+## Staff Authorization Tiers
+
+microSYS distinguishes three staff authorization tiers for user management:
+
+| Tier | Scope | Requirements | User Management Powers |
+|------|-------|--------------|------------------------|
+| **Superuser** | None | `is_superuser=True` | Full god mode — create, edit, delete any user including other superusers |
+| **Global Staff** | None (NULL) | `is_staff=True` + `microsys.manage_scopes` permission | Create/manage scopes, assign users to any scope, view and edit ALL users (scoped and scopeless) |
+| **Central Staff** | None (NULL) | `is_staff=True` (NO `manage_scopes`) | Create/manage scopeless (NULL scope) users ONLY — completely blind to scoped users and their data |
+| **Scoped Staff** | Assigned scope | `is_staff=True` + scope assignment | Create/manage users within their assigned scope only |
+
+### Creating Global Staff
+
+Only **superusers** can create Global Staff users. To create a Global Staff member:
+
+1. Sign in as superuser
+2. Go to `/sys/users/` → Add User
+3. Check **Staff Status**
+4. In Permissions, select **"Can manage scopes and all users"** (`microsys.manage_scopes`)
+5. Leave **Scope** empty (NULL)
+
+Global Staff can then:
+- Create and manage scopes
+- Create users in any scope (or scopeless)
+- View and edit ALL users regardless of scope
+- Assign scopes to existing users
+
+### Creating Central Staff
+
+**Global Staff** or **superusers** can create Central Staff. To create a Central Staff member:
+
+1. Sign in as Global Staff or superuser
+2. Go to `/sys/users/` → Add User
+3. Check **Staff Status**
+4. In Permissions, select `microsys.manage_staff` (but NOT `microsys.manage_scopes`)
+5. Leave **Scope** empty (NULL)
+
+Central Staff can then:
+- Create and manage scopeless users only
+- Cannot see scoped users in the user list
+- Cannot assign scopes to any user
+- Cannot access scope management
+
+### Creating Scoped Staff
+
+Any staff member with `manage_staff` permission can create Scoped Staff. To create a Scoped Staff member:
+
+1. Sign in as staff with `manage_staff` permission
+2. Go to `/sys/users/` → Add User
+3. Check **Staff Status**
+4. Select a **Scope** for the user
+5. The new user will only be able to manage other users in that same scope
+
+This tier system ensures that:
+- Ministers and scoped users have privacy from Central Staff
+- Central Staff can handle routine user management for the core system without accessing private ministry data
+- Global Staff can administer the entire multi-tenant system without needing full superuser privileges
+
+### Permission Assignment Principle
+
+**Users can only assign permissions they themselves have.** This is enforced at the form level:
+
+- Non-superusers see ONLY the permissions they have been granted (directly or through groups)
+- `manage_staff` permission can only be assigned by users who have it
+- `manage_scopes` permission can only be assigned by superusers (who can create Global Staff)
+- `view_activitylog` permission can only be assigned by users who have it
+
+This prevents privilege escalation where a user could grant themselves or others permissions they don't possess.

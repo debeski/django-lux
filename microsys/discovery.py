@@ -75,19 +75,19 @@ SYSTEM_ROUTE_META = {
     'manage_sections': {
         'label_key': 'manage_sections',
         'icon': 'bi-diagram-3',
-        'permissions': ['is_staff', 'microsys.manage_sections', 'microsys.view_sections'],
+        'permissions': ['__ms_sections_view__'],
         'group_key': 'microsys',
     },
     'manage_users': {
         'label_key': 'manage_users',
         'icon': 'bi-people',
-        'permissions': ['is_staff'],
+        'permissions': ['__ms_user_directory__'],
         'group_key': 'microsys',
     },
     'user_activity_log': {
         'label_key': 'activity_log',
         'icon': 'bi-clock-history',
-        'permissions': ['microsys.view_activitylog', 'microsys.view_activity_log'],
+        'permissions': ['__ms_activity_log__'],
         'group_key': 'microsys',
     },
     'user_profile': {
@@ -98,6 +98,7 @@ SYSTEM_ROUTE_META = {
     'options_view': {
         'label_key': 'options_title',
         'icon': 'bi-gear',
+        'permissions': ['__ms_options_view__'],
         'group_key': 'microsys',
     },
 }
@@ -321,19 +322,64 @@ def _infer_label(url_name, strings, model=None, callback=None):
 def _infer_permissions(url_name, model, callback):
     explicit = _normalize_permissions(getattr(callback, 'sidebar_permissions', None))
     if explicit:
-        return explicit
+        return explicit, True
 
     explicit = _normalize_permissions(getattr(callback, 'permission_required', None))
     if explicit:
-        return explicit
+        return explicit, True
 
     if url_name in SYSTEM_ROUTE_META:
-        return list(SYSTEM_ROUTE_META[url_name].get('permissions', []))
+        perms = list(SYSTEM_ROUTE_META[url_name].get('permissions', []))
+        return perms, True
 
     if model is not None:
-        return [f'{model._meta.app_label}.view_{model._meta.model_name}']
+        perm = f'{model._meta.app_label}.view_{model._meta.model_name}'
+        return [perm], False
 
-    return []
+    # For function-based views, try to infer from URL namespace and name
+    app_label = None
+    model_name = None
+    
+    # Try to get app label from URL namespace
+    if ':' in url_name:
+        namespace = url_name.split(':')[0]
+        app_label = namespace
+        # Get the leaf part for model name
+        leaf = url_name.split(':')[-1]
+        # Extract model name from patterns like outgoing_list, incoming_list, etc.
+        if '_' in leaf:
+            parts = leaf.split('_')
+            # For patterns like outgoing_list, incoming_list, use the first part as model name
+            if parts[-1] in ['list', 'index', 'dashboard', 'home']:
+                model_name = parts[0]
+            else:
+                # For other patterns, use the first part as model name
+                model_name = parts[0]
+        else:
+            model_name = leaf
+    
+    # If no namespace, try to infer from callback module
+    if not app_label and callback:
+        module_name = getattr(callback, '__module__', '') or ''
+        if module_name:
+            # module_name is like 'documents.views' or 'documents'
+            app_label = module_name.split('.')[0]
+            # Try to get model name from URL name
+            leaf = url_name.split(':')[-1] if ':' in url_name else url_name
+            if '_' in leaf:
+                parts = leaf.split('_')
+                if parts[-1] in ['list', 'index', 'dashboard', 'home']:
+                    model_name = parts[0]
+                else:
+                    model_name = parts[0]
+            else:
+                model_name = leaf
+    
+    if app_label and model_name:
+        perm = f'{app_label}.view_{model_name}'
+        return [perm], False
+
+    return [], False
 
 
 def _is_hidden_sidebar_url(url_name, allow_system_items=False):
@@ -634,6 +680,7 @@ def discover_sidebar_catalog(lang_code=None, include_system_items=False):
         if group_key in HIDDEN_SIDEBAR_GROUP_KEYS and not (include_system_items and _is_configurable_system_url(url_name)):
             continue
         group_label = _group_label(group_key, strings, lang_code=lang_code)
+        permissions, permissions_explicit = _infer_permissions(url_name, model, callback)
         entry = {
             'kind': 'item',
             'id': url_name,
@@ -641,7 +688,8 @@ def discover_sidebar_catalog(lang_code=None, include_system_items=False):
             'url': url,
             'label': _infer_label(url_name, strings, model=model, callback=callback),
             'icon': _guess_icon(url_name, model=model, callback=callback),
-            'permissions': _infer_permissions(url_name, model, callback),
+            'permissions': permissions,
+            'permissions_explicit': permissions_explicit,
             'group_key': group_key,
             'group_label': group_label,
             'group_icon': _guess_group_icon(group_key),
@@ -696,23 +744,19 @@ def build_default_sidebar_config(lang_code=None):
     })
 
 
-def _user_has_sidebar_permission(user, permissions):
-    permissions = _normalize_permissions(permissions)
-    if not permissions:
-        return True
-    if not user or not getattr(user, 'is_authenticated', False):
-        return False
-    if getattr(user, 'is_superuser', False):
-        return True
+def _user_has_sidebar_permission(user, permissions, permissions_explicitly_set=False):
+    from .utils import user_has_any_permission_tokens
 
-    for permission in permissions:
-        if permission == 'is_staff' and getattr(user, 'is_staff', False):
-            return True
-        if permission == 'is_superuser' and getattr(user, 'is_superuser', False):
-            return True
-        if permission not in ['is_staff', 'is_superuser'] and user.has_perm(permission):
-            return True
-    return False
+    # Superusers can see all sidebar items
+    if user and getattr(user, 'is_superuser', False):
+        return True
+    
+    # If no permissions, hide from non-superusers
+    if not permissions:
+        return False
+    
+    # Check permissions strictly - user must have the permission
+    return user_has_any_permission_tokens(user, _normalize_permissions(permissions), default_visible_to_all=False)
 
 
 def _is_active_path(request_path, url):
@@ -756,7 +800,7 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
                 items = []
                 for raw_item in entry.get('items', []):
                     resolved_item = _resolve_sidebar_item(raw_item, catalog)
-                    if resolved_item and _user_has_sidebar_permission(user, resolved_item.get('permissions')):
+                    if resolved_item and _user_has_sidebar_permission(user, resolved_item.get('permissions'), resolved_item.get('permissions_explicit', False)):
                         resolved_item['active'] = _is_active_path(request_path, resolved_item.get('url'))
                         items.append(resolved_item)
                 if items:
@@ -779,7 +823,7 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
                 continue
 
             resolved = _resolve_sidebar_item(entry, catalog)
-            if resolved and _user_has_sidebar_permission(user, resolved.get('permissions')):
+            if resolved and _user_has_sidebar_permission(user, resolved.get('permissions'), resolved.get('permissions_explicit', False)):
                 resolved['active'] = _is_active_path(request_path, resolved.get('url'))
                 render_entries.append(resolved)
         return render_entries
@@ -814,12 +858,15 @@ def _resolve_sidebar_item(entry, catalog):
     discovered = catalog.get(item.get('id') or item.get('url_name') or '')
     if discovered:
         merged = dict(discovered)
+        # Preserve permissions_explicit from catalog (don't let sidebar override it)
+        catalog_permissions_explicit = discovered.get('permissions_explicit', False)
         merged.update({
             k: v
             for k, v in item.items()
-            if k not in {'label', 'group_label'}
+            if k not in {'label', 'group_label', 'permissions_explicit'}
             and v not in [None, '', [], {}]
         })
+        merged['permissions_explicit'] = catalog_permissions_explicit
         item = merged
 
     url_name = item.get('url_name')

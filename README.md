@@ -10,7 +10,7 @@ microSYS is a multilingual Django app that gives a project-level system layer fo
 
 ## What microSYS gives you
 
-- A first-launch setup wizard at `/sys/setup/` for branding, languages, themes, default table density, global home URL, and sidebar structure, including runtime sidebar-toolbar and user-reordering controls.
+- A first-launch setup wizard at `/sys/setup/` for identity, explicit language catalog management, translation-matrix overrides, access/security toggles, themes, default table density, global home URL, and sidebar structure, including runtime sidebar-toolbar and user-reordering controls.
 - A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
 - A database-backed `SystemSettings` singleton layered over `MICROSYS_CONFIG`, so projects can seed defaults in code and refine them in the UI later.
 - A framework-owned `django_tables2` platform that auto-adopts stock tables, ships built-in pagination and per-page controls, exposes a public `MicrosysTable` base class, and supports per-table `microsys_table`, `microsys_density`, `microsys_per_page`, and `microsys_actions` overrides.
@@ -97,9 +97,9 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 ## Key Capabilities
 
 - Onboarding and runtime configuration:
-  first-launch setup wizard, Options view, runtime System Settings modal, language/theme defaults, translation overrides, and a global Home destination.
+  first-launch setup wizard, Options view, runtime System Settings modal, source-tabbed translation overrides, setup import/export, language/theme defaults, and a global Home destination.
 - User and security operations:
-  interactive user wizard, grouped translated permissions, profile management, multiple 2FA flows, backup codes, and runtime preference persistence.
+  interactive user wizard, grouped translated permissions, three-tier staff authorization (superuser, Global Staff, Central Staff, Scoped Staff), profile management, multiple 2FA flows, backup codes, and runtime preference persistence.
 - Generic CRUD infrastructure:
   dynamic sections, AJAX-driven modal CRUD, automatic form/table/filter discovery, context-menu actions, and reusable event dispatch.
 - Navigation and UI infrastructure:
@@ -119,4 +119,5 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 - [Developer Guide](docs/developer-guide.md)
 - [Customization Guide](docs/customization-guide.md)
 - [Reference](docs/reference.md)
+- [Features](docs/FEATURES.md) — complete feature inventory
 - [Changelog](CHANGELOG.md)

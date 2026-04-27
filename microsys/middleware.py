@@ -29,6 +29,8 @@ class ActivityLogMiddleware:
             '/sys/setup/',
             '/sys/api/preferences/',
             '/sys/2fa/',
+            '/static/',
+            '/media/',
         ]
         return any(request.path.startswith(prefix) for prefix in allowed_prefixes)
 
@@ -36,34 +38,44 @@ class ActivityLogMiddleware:
         if self._setup_guard_allowed(request):
             return False
 
-        # Direct DB check to bypass any caching/merging bugs in get_system_config
         try:
-            from microsys.models import SystemSettings
-            # We use load() which we modified to check DB existence, but let's be even more direct here
-            # to be absolutely sure we don't return False if it's truly not configured.
-            s = SystemSettings.objects.filter(pk=1).first()
-            if s and s.is_configured:
+            from microsys.utils import get_system_config
+            config = get_system_config()
+            if config.get('is_configured', False):
                 return False
         except Exception:
-            # If DB is not ready, we can't redirect yet (prevents infinite loops during migrations)
             return False
+
+        if request.path == '/' and self._is_root_mounted_microsys():
+            return True
 
         user = getattr(request, 'user', None)
         if not user or not getattr(user, 'is_authenticated', False):
-            # Not logged in: go to setup (which redirects to login if @login_required)
-            return True
+            return False
 
         return bool(user.is_superuser)
 
     def _is_root_mounted_microsys(self):
         """Check if Microsys is mounted at the root URL."""
-        from django.urls import resolve, Resolver404
-        try:
-            match = resolve('/')
-            return (match.func.__module__.startswith('microsys.') or 
-                    getattr(match.func, '__module__', '').startswith('microsys.'))
-        except Resolver404:
-            return True 
+        from django.urls import URLPattern, URLResolver, get_resolver
+
+        resolver = get_resolver()
+        urlconf_name = getattr(resolver, 'urlconf_name', '')
+        if isinstance(urlconf_name, str) and urlconf_name == 'microsys.urls':
+            return True
+
+        for pattern in resolver.url_patterns:
+            route = getattr(pattern.pattern, '_route', str(pattern.pattern))
+            if isinstance(pattern, URLResolver):
+                nested = getattr(pattern, 'urlconf_name', None)
+                nested_name = nested if isinstance(nested, str) else getattr(nested, '__name__', '')
+                if route == '' and nested_name == 'microsys.urls':
+                    return True
+            elif isinstance(pattern, URLPattern):
+                callback = getattr(pattern, 'callback', None)
+                if route == '' and getattr(callback, '__module__', '').startswith('microsys.'):
+                    return True
+        return False
 
     def _should_redirect_missing_root(self, request, response):
         """Helper to check if we should redirect from / to dashboard/setup."""
@@ -80,9 +92,12 @@ class ActivityLogMiddleware:
         user = request.user
         
         config = get_system_config()
+        is_configured = bool(config.get('is_configured', False))
         
         # Anonymous users: check if public root is allowed
         if not getattr(user, 'is_authenticated', False):
+            if not is_configured:
+                return redirect('system_setup')
             # If host set explicit LOGIN_REDIRECT_URL, respect their routing intent
             has_custom_login_redirect = hasattr(settings, 'LOGIN_REDIRECT_URL') and settings.LOGIN_REDIRECT_URL != DEFAULT_HOME_URL
             # Or if public_root is explicitly enabled in config
@@ -93,14 +108,6 @@ class ActivityLogMiddleware:
                 return None
             # Otherwise, redirect to login
             return redirect('login')
-
-        # Direct check again for safety
-        try:
-            from microsys.models import SystemSettings
-            s = SystemSettings.objects.filter(pk=1).first()
-            is_configured = s.is_configured if s else False
-        except Exception:
-            is_configured = False
 
         if user.is_superuser and not is_configured:
             return redirect('system_setup')

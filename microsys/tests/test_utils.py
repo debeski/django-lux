@@ -105,6 +105,7 @@ class UtilsTests(TestCase):
     def test_get_client_ip_without_headers(self):
         """Test get_client_ip without IP headers."""
         request = self.factory.get('/')
+        request.META.pop('REMOTE_ADDR', None)
         ip = get_client_ip(request)
         self.assertIsNone(ip)
 
@@ -252,34 +253,36 @@ class UtilsTests(TestCase):
     def test_get_system_config_default(self):
         """Test get_system_config returns default config."""
         config = get_system_config()
-        self.assertIn('name', config)
+        self.assertIn('system_names', config)
+        self.assertIn('identity', config)
         self.assertIn('default_language', config)
         self.assertIn('default_theme', config)
         self.assertIn('allow_user_language_override', config)
         self.assertIn('default_table_density', config)
         self.assertIn('languages', config)
         self.assertEqual(config['default_language'], 'en')
+        self.assertEqual(config['identity']['display_name'], 'microSYS')
         self.assertTrue(config['allow_user_language_override'])
         self.assertEqual(config['default_table_density'], DEFAULT_TABLE_DENSITY)
 
     def test_get_system_config_with_settings_override(self):
         """Test get_system_config with MICROSYS_CONFIG override."""
         with override_settings(MICROSYS_CONFIG={
-            'name': 'Test System',
+            'system_names': {'en': 'Test System', 'ar': 'نظام الاختبار'},
             'default_language': 'ar',
             'default_theme': 'dark',
             'default_table_density': 'roomy',
         }):
             config = get_system_config()
-            self.assertEqual(config['name'], 'Test System')
+            self.assertEqual(config['system_names']['en'], 'Test System')
+            self.assertEqual(config['identity']['display_name'], 'نظام الاختبار')
             self.assertEqual(config['default_language'], 'ar')
             self.assertEqual(config['default_theme'], 'dark')
             self.assertEqual(config['default_table_density'], 'roomy')
 
     def test_get_system_config_rejects_unknown_default_theme(self):
         fake_settings = type('FakeSettings', (), {
-            'name': '',
-            'name_en': '',
+            'system_names': {},
             'logo': '',
             'favicon': '',
             'home_url': '',
@@ -298,8 +301,7 @@ class UtilsTests(TestCase):
 
     def test_get_system_config_rejects_unknown_default_table_density(self):
         fake_settings = type('FakeSettings', (), {
-            'name': '',
-            'name_en': '',
+            'system_names': {},
             'logo': '',
             'favicon': '',
             'home_url': '',
@@ -359,13 +361,57 @@ class UtilsTests(TestCase):
         from microsys.models import SystemSettings
         
         settings = SystemSettings.load()
-        settings.name = 'DB System'
+        settings.system_names = {'en': 'DB System', 'ar': 'نظام قاعدة البيانات'}
         settings.default_language = 'ar'
         settings.save()
         
         config = get_system_config()
-        self.assertEqual(config['name'], 'DB System')
+        self.assertEqual(config['identity']['display_name'], 'نظام قاعدة البيانات')
         self.assertEqual(config['default_language'], 'ar')
+
+    @override_settings(MICROSYS_CONFIG={
+        'translations': {
+            'fr': {
+                'app_microsys': 'Systeme',
+            },
+        },
+    })
+    def test_translation_languages_do_not_auto_enable_language_catalog(self):
+        config = get_system_config()
+
+        self.assertNotIn('fr', config['languages'])
+        self.assertNotIn('fr', config['localization']['languages'])
+
+    def test_translation_matrix_uses_enabled_languages_and_preserves_override_only_layer(self):
+        from microsys.translations import build_translation_matrix
+
+        rows = build_translation_matrix(
+            {'en': {'name': 'English'}, 'fr': {'name': 'Francais'}},
+            {'fr': {'app_microsys': 'Systeme personnalise'}},
+        )
+        app_row = next(row for row in rows if row['key'] == 'app_microsys')
+        fr_cell = next(cell for cell in app_row['cells'] if cell['language'] == 'fr')
+
+        self.assertEqual(fr_cell['value'], 'Systeme personnalise')
+        self.assertEqual(fr_cell['source'], 'override')
+
+    def test_translation_matrix_groups_core_and_project_override_keys(self):
+        from microsys.translations import build_translation_matrix_groups
+
+        with self.settings(MICROSYS_CONFIG={
+            'translations': {'en': {'project_only_key': 'Project only'}},
+        }):
+            groups = build_translation_matrix_groups(
+                {'en': {'name': 'English'}},
+                {'en': {'runtime_only_key': 'Runtime only'}},
+            )
+
+        group_ids = [group['id'] for group in groups]
+        self.assertIn('microsys', group_ids)
+        self.assertIn('project', group_ids)
+        self.assertIn('runtime', group_ids)
+        microsys_group = next(group for group in groups if group['id'] == 'microsys')
+        self.assertTrue(any(row['key'] == 'app_microsys' for row in microsys_group['rows']))
 
     @override_settings(MICROSYS_CONFIG={
         'default_language': 'en',

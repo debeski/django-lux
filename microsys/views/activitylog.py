@@ -10,7 +10,7 @@ from django_filters.views import FilterView
 
 # Project imports
 from ..constants import DEFAULT_TABLE_PAGE_SIZE
-from ..utils import is_scope_enabled
+from ..utils import is_scope_enabled, user_can_view_activity_log
 from ..translations import get_strings
 
 
@@ -23,7 +23,7 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
     paginate_by = DEFAULT_TABLE_PAGE_SIZE
 
     def test_func(self):
-        return self.request.user.is_staff  # Only staff can access logs
+        return user_can_view_activity_log(self.request.user)
     
     def get_queryset(self):
         # Order by timestamp descending by default
@@ -78,8 +78,13 @@ class ActivityLogDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView)
     template_name = 'microsys/activitylog/activity_log_detail_modal.html'
 
     def test_func(self):
-        # Allow superusers or users with specific permission
-        return self.request.user.is_superuser or self.request.user.has_perm('microsys.view_activity_log')
+        return user_can_view_activity_log(self.request.user)
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_superuser:
+            qs = qs.exclude(created_by__is_superuser=True)
+        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -114,7 +119,7 @@ class ActivityLogDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView)
                             
                 if target_model:
                     try:
-                        related_object = target_model.objects.get(pk=log.object_id)
+                        related_object = target_model._default_manager.get(pk=log.object_id)
                     except target_model.DoesNotExist:
                         pass
             except Exception:

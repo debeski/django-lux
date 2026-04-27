@@ -24,6 +24,7 @@ Use the sections below based on what you are trying to do.
 
 ## I Need Reference Material
 
+- [Features](FEATURES.md) — complete feature inventory covering every capability from scaffolding to security, tables, themes, and UI infrastructure.
 - [Reference](reference.md) for management commands, endpoints, template tags, helper utilities, and codebase entry points.
 - [Customization Guide](customization-guide.md#universal-fetcher-and-excel-export) for download/export helpers.
 - [Customization Guide](customization-guide.md#context-menu-integration) for action schema and integration patterns.

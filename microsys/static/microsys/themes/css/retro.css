@@ -770,6 +770,11 @@
 }
 
 /* 16. Form Check */
+:root.theme-retro .form-check-input {
+    background-color: var(--retro-panel) !important;
+    border-color: rgba(212, 165, 116, 0.3) !important;
+}
+
 :root.theme-retro .form-check-input:checked {
     background-color: var(--retro-amber) !important;
     border-color: var(--retro-amber) !important;
@@ -1014,6 +1019,50 @@
 
 :root.theme-retro .theme-arrow {
     color: var(--retro-amber) !important;
+}
+
+:root.theme-retro .sidebar-density-indicator {
+    color: rgba(232, 221, 212, 0.82) !important;
+    background: rgba(255, 255, 255, 0.045) !important;
+    border-color: rgba(212, 165, 116, 0.18) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(245, 235, 224, 0.04),
+        0 5px 14px rgba(0, 0, 0, 0.22) !important;
+}
+
+:root.theme-retro .sidebar-density-indicator:hover {
+    color: var(--retro-amber) !important;
+    background:
+        radial-gradient(circle at top, rgba(212, 165, 116, 0.14), transparent 70%),
+        rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(212, 165, 116, 0.32) !important;
+}
+
+:root.theme-retro .sidebar-density-popup {
+    background: linear-gradient(180deg, rgba(26, 22, 20, 0.98), rgba(13, 11, 10, 0.98)) !important;
+    border-color: rgba(212, 165, 116, 0.2) !important;
+    color: var(--title) !important;
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(212, 165, 116, 0.06) !important;
+}
+
+:root.theme-retro .sidebar-density-popup .small {
+    color: var(--retro-amber) !important;
+    border-bottom-color: rgba(212, 165, 116, 0.12) !important;
+}
+
+:root.theme-retro .sidebar-density-chip {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(212, 165, 116, 0.18) !important;
+    color: rgba(232, 221, 212, 0.55) !important;
+}
+
+:root.theme-retro .sidebar-density-chip.is-active,
+:root.theme-retro .sidebar-density-chip:hover {
+    color: var(--retro-amber) !important;
+    border-color: rgba(212, 165, 116, 0.32) !important;
+    background: rgba(212, 165, 116, 0.1) !important;
 }
 
 :root.theme-retro .current-theme-indicator {

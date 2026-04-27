@@ -14,3 +14,42 @@ class ExampleRecord(ScopedModel):
 
     def __str__(self):
         return self.name
+
+
+class SectionExample(ScopedModel):
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    is_section = True
+
+    class Meta:
+        default_permissions = ()
+        verbose_name = "Section Example"
+        verbose_name_plural = "Section Examples"
+
+    def __str__(self):
+        return self.name
+
+
+class ChildSectionExample(ScopedModel):
+    name = models.CharField(max_length=120)
+    # No is_section needed here
+
+    class Meta:
+        default_permissions = ()
+        verbose_name = "Section Example"
+        verbose_name_plural = "Section Examples"
+
+    def __str__(self):
+        return self.name
+
+
+class ParentSectionExample(ScopedModel):
+    is_section = True
+    name = models.CharField(max_length=120)
+    sub = models.ManyToManyField('{{ app_name }}.ChildSectionExample', blank=True, related_name='childparentexample', verbose_name='sub_sections')
+
+    class Meta:
+        default_permissions = ()
+
+    def __str__(self):
+        return self.name

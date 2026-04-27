@@ -1,4 +1,6 @@
 # Fundemental imports
+import logging
+
 from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
@@ -10,6 +12,8 @@ from django.utils.module_loading import import_string
 from ..utils import log_user_action
 from ..translations import get_strings
 from .twofa import get_2fa_config
+
+logger = logging.getLogger('microsys')
 
 
 # Profile View — Displays user profile with stats, activity timeline, and password change
@@ -29,12 +33,20 @@ def user_profile(request):
             log_user_action(request, "UPDATE", instance=user, model_name="password")
             update_session_auth_hash(request, password_form.user)
             s = get_strings()
-            messages.success(request, s.get('msg_password_changed', 'Password changed successfully!'))
+            messages.success(
+                request,
+                s.get('msg_password_changed', 'Password changed successfully!'),
+                fail_silently=True,
+            )
             return redirect('user_profile')
         else:
             s = get_strings()
-            messages.error(request, s.get('msg_form_error', "There was an error with the submitted data"))
-            print(password_form.errors)
+            messages.error(
+                request,
+                s.get('msg_form_error', "There was an error with the submitted data"),
+                fail_silently=True,
+            )
+            logger.warning("Password change validation failed for user pk=%s", user.pk)
 
     # --- Profile Stats & Activity ---
     UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
@@ -167,4 +179,3 @@ def user_profile(request):
     }
 
     return render(request, 'microsys/users/profile.html', context)
-

@@ -49,10 +49,14 @@ if not settings.configured:
 
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 from django.core.cache import cache
 import json
-from microsys.models import SystemSettings
+from unittest.mock import patch
+
+from microsys.models import Section, SystemSettings
 
 User = get_user_model()
 
@@ -72,7 +76,7 @@ class APIEndpointsTests(TestCase):
         """Test that get_last_entry requires authentication."""
         self.client.logout()
         response = self.client.get(
-            reverse('get_last_entry', args=['microsys', 'SystemSettings'])
+            reverse('api_get_last_entry', args=['microsys', 'SystemSettings'])
         )
         self.assertEqual(response.status_code, 302)  # Redirect to login
 
@@ -88,25 +92,18 @@ class APIEndpointsTests(TestCase):
         self.client.login(username='user2', password='userpass123')
         
         response = self.client.get(
-            reverse('get_last_entry', args=['microsys', 'SystemSettings'])
+            reverse('api_get_last_entry', args=['microsys', 'SystemSettings'])
         )
         self.assertEqual(response.status_code, 403)  # Permission denied
 
     def test_get_last_entry_with_permission(self):
         """Test get_last_entry with proper permissions."""
-        # Give the user permission
-        from django.contrib.auth.models import Permission
-        from django.contrib.contenttypes.models import ContentType
         ct = ContentType.objects.get_for_model(User)
-        perm = Permission.objects.create(
-            codename='view_user',
-            name='Can view user',
-            content_type=ct,
-        )
+        perm = Permission.objects.get(codename='view_user', content_type=ct)
         self.user.user_permissions.add(perm)
         
         response = self.client.get(
-            reverse('get_last_entry', args=['auth', 'User'])
+            reverse('api_get_last_entry', args=['auth', 'User'])
         )
         self.assertIn(response.status_code, [200, 404])  # 200 if exists, 404 if no entries
 
@@ -114,14 +111,18 @@ class APIEndpointsTests(TestCase):
         """Test that get_model_details requires authentication."""
         self.client.logout()
         response = self.client.get(
-            reverse('get_model_details', args=['microsys', 'SystemSettings', 'empty_schema'])
+            reverse('api_get_empty_schema', args=['microsys', 'SystemSettings'])
         )
         self.assertEqual(response.status_code, 302)  # Redirect to login
 
     def test_get_model_details_empty_schema(self):
         """Test get_model_details with empty_schema."""
+        settings_ct = ContentType.objects.get_for_model(SystemSettings)
+        perm = Permission.objects.get(codename='view_systemsettings', content_type=settings_ct)
+        self.user.user_permissions.add(perm)
+
         response = self.client.get(
-            reverse('get_model_details', args=['microsys', 'SystemSettings', 'empty_schema'])
+            reverse('api_get_empty_schema', args=['microsys', 'SystemSettings'])
         )
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -130,9 +131,24 @@ class APIEndpointsTests(TestCase):
     def test_get_model_details_invalid_model(self):
         """Test get_model_details with invalid model."""
         response = self.client.get(
-            reverse('get_model_details', args=['invalid', 'InvalidModel', '1'])
+            reverse('api_get_model_details', args=['invalid', 'InvalidModel', '1'])
         )
         self.assertEqual(response.status_code, 404)
+
+    def test_get_model_details_no_longer_expands_reverse_one_to_one_fields(self):
+        ct = ContentType.objects.get_for_model(User)
+        perm = Permission.objects.get(codename='view_user', content_type=ct)
+        self.user.user_permissions.add(perm)
+        self.user.profile.phone = '5551234'
+        self.user.profile.save(update_fields=['phone'])
+
+        response = self.client.get(
+            reverse('api_get_model_details', args=['auth', 'User', self.user.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertNotIn('phone', data)
 
     def test_update_preferences_requires_login(self):
         """Test that update_preferences requires authentication."""
@@ -286,6 +302,19 @@ class APIEndpointsTests(TestCase):
         response = self.client.get(reverse('update_preferences'))
         self.assertEqual(response.status_code, 405)  # Method not allowed
 
+    def test_update_preferences_returns_sanitized_error_payload(self):
+        with patch('microsys.api.get_system_config', side_effect=RuntimeError('secret backend failure')):
+            response = self.client.post(
+                reverse('update_preferences'),
+                json.dumps({'theme': 'dark'}),
+                content_type='application/json'
+            )
+
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['status'], 'error')
+        self.assertNotIn('secret backend failure', data['message'])
+
     def test_reset_preferences_requires_login(self):
         """Test that reset_preferences requires authentication."""
         self.client.logout()
@@ -327,3 +356,12 @@ class APIEndpointsTests(TestCase):
         """Test reset_preferences with invalid method."""
         response = self.client.get(reverse('reset_preferences'))
         self.assertEqual(response.status_code, 400)  # Bad request
+
+    def test_reset_preferences_returns_sanitized_error_payload(self):
+        with patch('microsys.api.log_user_action', side_effect=RuntimeError('sensitive failure')):
+            response = self.client.post(reverse('reset_preferences'))
+
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertFalse(data['success'])
+        self.assertNotIn('sensitive failure', data['error'])

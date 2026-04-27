@@ -3,7 +3,8 @@ import json
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -11,20 +12,23 @@ from django.utils.module_loading import import_string
 from django_tables2 import RequestConfig
 
 # Project imports
-from ..utils import is_scope_enabled, is_superuser
+from ..utils import is_scope_enabled
 
 User = get_user_model()
 
 
+def _require_superuser(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+
 # Scope Management — AJAX modal: returns scope table (superuser only)
 @login_required
-@user_passes_test(is_superuser)
 def manage_scopes(request):
     """
     Returns the initial modal content with the table.
     """
-    if not is_scope_enabled():
-         return JsonResponse({'error': 'Scope management is disabled.'}, status=403)
+    _require_superuser(request)
 
     Scope = apps.get_model('microsys', 'Scope')
     ScopeTable = import_string('microsys.tables.ScopeTable')
@@ -37,11 +41,11 @@ def manage_scopes(request):
 
 # Scope Management — AJAX: returns add/edit scope form partial
 @login_required
-@user_passes_test(is_superuser)
 def get_scope_form(request, pk=None):
     """
     Returns the Add/Edit form partial.
     """
+    _require_superuser(request)
     ScopeForm = import_string('microsys.forms.ScopeForm')
     Scope = apps.get_model('microsys', 'Scope')
 
@@ -55,11 +59,11 @@ def get_scope_form(request, pk=None):
     return JsonResponse({'html': html})
 
 @login_required
-@user_passes_test(is_superuser)
 def save_scope(request, pk=None):
     """
     Handles form submission. Returns updated table on success, or form with errors on failure.
     """
+    _require_superuser(request)
     ScopeForm = import_string('microsys.forms.ScopeForm')
     Scope = apps.get_model('microsys', 'Scope')
     ScopeTable = import_string('microsys.tables.ScopeTable')
@@ -87,14 +91,14 @@ def save_scope(request, pk=None):
 
 # Scope Management — Scope deletion endpoint (currently disabled for safety)
 @login_required
-@user_passes_test(is_superuser)
 def delete_scope(request, pk):
+    _require_superuser(request)
     return JsonResponse({'success': False, 'error': 'تم تعطيل حذف النطاقات لأسباب أمنية.'})
 
 # Scope Management — Toggles the scope system on/off with safety checks
 @login_required
-@user_passes_test(is_superuser)
 def toggle_scopes(request):
+    _require_superuser(request)
     if request.method == "POST":
         ScopeSettings = apps.get_model('microsys', 'ScopeSettings')
         settings = ScopeSettings.load()
@@ -126,8 +130,8 @@ def toggle_scopes(request):
 
 
 @login_required
-@user_passes_test(is_superuser)
 def toggle_auto_scopes(request):
+    _require_superuser(request)
     if request.method == "POST":
         ScopeSettings = apps.get_model('microsys', 'ScopeSettings')
         settings = ScopeSettings.load()

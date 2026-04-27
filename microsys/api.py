@@ -10,47 +10,26 @@ import logging
 from .constants import SIDEBAR_DENSITY_VALUES, TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
 from .utils import get_effective_allowed_themes, get_system_config, log_user_action, normalize_sidebar_behavior
 
-def _can_view_model(user, app_label, model_name):
+logger = logging.getLogger('microsys')
+
+def _can_view_model(user, model):
     """Check if user has permission to view the model."""
-    perm = f"{app_label}.view_{model_name}"
+    perm = f"{model._meta.app_label}.view_{model._meta.model_name}"
     return user.has_perm(perm)
 
 def _serialize_instance(instance, depth=0):
     """Serialize model instance to a dictionary for autofill."""
-    if depth > 1: return {} # Prevent infinite recursion
+    if depth > 1:
+        return {}
     
     data = {}
-    
-    # Iterate over model fields
-    # Iterate over model fields
+
     for field in instance._meta.get_fields():
         if field.auto_created and not field.concrete:
-             # Handle Reverse OneToOne (e.g. user.profile)
-             if field.one_to_one and field.related_model:
-                 try:
-                     # Check if instance is unsaved (empty_schema mode)
-                     if instance.pk is None:
-                         # Instantiate empty related model to discover fields
-                         related_obj = field.related_model()
-                     else:
-                         # Access related object via accessor
-                         # Note: field.name on Relation usually works, but get_accessor_name is safer
-                         # We stick to what worked for pk=1 (field.name or getattr logic)
-                         accessor_name = field.get_accessor_name() if hasattr(field, 'get_accessor_name') else field.name
-                         related_obj = getattr(instance, accessor_name, None)
-
-                     if related_obj:
-                         # Merge related data (e.g. profile.phone)
-                         related_data = _serialize_instance(related_obj, depth=depth+1)
-                         for k, v in related_data.items():
-                             if k not in data and k != '_pk':
-                                 data[k] = v
-                 except Exception as e:
-                     # print(f"Autofill serialization error for {field}: {e}")
-                     pass
              continue
 
-        if not field.concrete: continue
+        if not field.concrete:
+            continue
 
         try:
             field_name = field.name
@@ -84,8 +63,7 @@ def _serialize_instance(instance, depth=0):
                 
             else:
                 data[field_name] = value
-        except Exception as e:
-            # print(f"Autofill main serialization error for {field.name}: {e}")
+        except Exception:
             continue
             
     # Include metadata
@@ -94,16 +72,15 @@ def _serialize_instance(instance, depth=0):
 
 @login_required
 def get_last_entry(request, app_label, model_name):
-    # ... (same as before) ...
-    if not _can_view_model(request.user, app_label, model_name):
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-        
     try:
         model = apps.get_model(app_label, model_name)
     except LookupError:
         return JsonResponse({'error': 'Model not found'}, status=404)
+
+    if not _can_view_model(request.user, model):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
         
-    qs = model.objects.all().order_by('-pk')
+    qs = model._default_manager.all().order_by('-pk')
     before_id = request.GET.get('before_id')
     if before_id:
         try:
@@ -123,13 +100,13 @@ def get_model_details(request, app_label, model_name, pk):
     Fetch a specific model instance by PK.
     Pass pk='empty_schema' to get an empty structure (for clearing forms).
     """
-    if not _can_view_model(request.user, app_label, model_name):
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-
     try:
         model = apps.get_model(app_label, model_name)
     except LookupError:
         return JsonResponse({'error': 'Model not found'}, status=404)
+
+    if not _can_view_model(request.user, model):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
     
     if pk == 'empty_schema':
         # Create empty instance
@@ -145,7 +122,7 @@ def get_model_details(request, app_label, model_name, pk):
         # _serialize_instance handles None -> "".
         return JsonResponse(data)
 
-    instance = get_object_or_404(model, pk=pk)
+    instance = get_object_or_404(model._default_manager.all(), pk=pk)
     return JsonResponse(_serialize_instance(instance))
 
 # Preferences API — Updates user preferences (theme, sidebar, language, etc.)
@@ -178,7 +155,6 @@ def update_preferences(request):
             prefs = dict(current_prefs)
             
             # 3. Update with new data
-            logger = logging.getLogger('microsys')
             system_config = get_system_config()
             allowed_themes = set(get_effective_allowed_themes(system_config))
             sidebar_config = normalize_sidebar_behavior(system_config.get('sidebar', {}))
@@ -257,12 +233,11 @@ def update_preferences(request):
             profile.save(update_fields=['preferences'])
             request.session.modified = True
             
-            logger.debug(f"Preferences updated for {request.user.username}: {prefs}")
+            logger.debug("Preferences updated for user pk=%s", request.user.pk)
             return JsonResponse({'status': 'success', 'preferences': profile.preferences})
-        except Exception as e:
-            error_msg = f"Error updating preferences for {request.user.username}: {str(e)}"
-            logging.getLogger('microsys').error(error_msg)
-            return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
+        except Exception:
+            logger.exception("Failed to update preferences for user pk=%s", request.user.pk)
+            return JsonResponse({'status': 'error', 'message': 'Unable to update preferences.'}, status=400)
     return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
 
 # Preferences API — Resets all user preferences to defaults
@@ -290,7 +265,8 @@ def reset_preferences(request):
             log_user_action(request, "RESET", instance=request.user, model_name="preferences")
             
             return JsonResponse({'success': True})
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        except Exception:
+            logger.exception("Failed to reset preferences for user pk=%s", request.user.pk)
+            return JsonResponse({'success': False, 'error': 'Unable to reset preferences.'}, status=500)
     
     return JsonResponse({'success': False}, status=400)

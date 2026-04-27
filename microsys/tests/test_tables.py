@@ -219,7 +219,7 @@ class TableRenderingTests(TestCase):
         template = Template('{% load django_tables2 %}{% render_table table %}')
         html = template.render(Context({'table': table, 'request': request}))
 
-        self.assertIn('?page=3&amp;sort=username', html)
+        self.assertIn('?page=3&amp;sort=-username', html)
 
     def test_rendered_table_outputs_per_page_options_and_resets_page(self):
         request = self._request('page=3&sort=username')

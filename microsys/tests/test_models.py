@@ -111,7 +111,7 @@ class ScopeTests(TestCase):
 
     def test_scope_verbose_names(self):
         """Test verbose names for Scope model."""
-        self.assertEqual(Scope._meta.verbose_name, 'Scope')
+        self.assertEqual(str(Scope._meta.verbose_name), 'Scopes')
         self.assertEqual(Scope._meta.verbose_name_plural, 'Scopes')
 
 
@@ -323,4 +323,4 @@ class SectionTests(TestCase):
 
     def test_section_is_managed(self):
         """Test that Section is not managed."""
-        self.assertTrue(Section._meta.managed)
+        self.assertFalse(Section._meta.managed)

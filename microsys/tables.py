@@ -88,20 +88,20 @@ class MicrosysTable(tables.Table):
 
 
 class UserTable(MicrosysTable):
-    username = tables.Column(verbose_name="اسم المستخدم")
-    phone = tables.Column(verbose_name="رقم الهاتف", accessor='profile.phone', default='-')
-    email = tables.Column(verbose_name="البريد الالكتروني")
-    scope = tables.Column(verbose_name="النطاق", accessor='profile.scope.name', default='-')
+    username = tables.Column(verbose_name="Username")
+    phone = tables.Column(verbose_name="Phone Number", accessor='profile.phone', default='-')
+    email = tables.Column(verbose_name="Email")
+    scope = tables.Column(verbose_name="Scope", accessor='profile.scope.name', default='-')
     full_name = tables.Column(
-        verbose_name="الاسم الكامل",
+        verbose_name="Full Name",
         accessor='profile.full_name',
         order_by='first_name'
     )
-    is_staff = tables.BooleanColumn(verbose_name="مسؤول")
-    is_active = tables.BooleanColumn(verbose_name="نشط")
+    is_staff = tables.BooleanColumn(verbose_name="Staff")
+    is_active = tables.BooleanColumn(verbose_name="Active")
     last_login = tables.DateColumn(
         format="H:i Y-m-d ",
-        verbose_name="اخر دخول"
+        verbose_name="Last Login"
     )
 
     class Meta(MicrosysTable.Meta):
@@ -116,21 +116,21 @@ class UserTable(MicrosysTable):
 class UserActivityLogTable(MicrosysTable):
     timestamp = tables.DateColumn(
         format="H:i Y-m-d ",
-        verbose_name="وقت العملية",
+        verbose_name="Timestamp",
         accessor='created_at'
     )
     full_name = tables.Column(
-        verbose_name="الاسم الكامل",
+        verbose_name="Full Name",
         accessor='created_by.profile.full_name',
         order_by='created_by__first_name'
     )
     scope = tables.Column(
-        verbose_name="النطاق",
+        verbose_name="Scope",
         accessor='created_by.profile.scope.name',
-        default='عام'
+        default='Global'
     )
-    action = tables.Column(verbose_name="الإجراء")
-    model_name = tables.Column(verbose_name="النموذج")
+    action = tables.Column(verbose_name="Action")
+    model_name = tables.Column(verbose_name="Model")
 
     class Meta(MicrosysTable.Meta):
         model = apps.get_model('microsys', 'UserActivityLog')
@@ -205,6 +205,7 @@ def _build_user_row_actions(record):
             "event": "micro:view-user-details",
             "data": {"url": reverse('user_detail_modal', args=[record.pk])},
             "dblclick": True,
+            "permissions": ["auth.view_user"],
         },
         {"type": "divider"},
         {
@@ -216,6 +217,7 @@ def _build_user_row_actions(record):
                 "url": reverse('modal_user_edit', args=[record.pk]),
                 "title": f"{s.get('edit_user_label', 'Edit User')} {display_name}".strip(),
             },
+            "permissions": ["auth.change_user"],
         },
         {
             "label": s.get("edit_permissions_label", "Edit Permissions"),
@@ -226,6 +228,7 @@ def _build_user_row_actions(record):
                 "url": reverse('modal_user_permissions', args=[record.pk]),
                 "title": f"{s.get('edit_permissions_label', 'Edit Permissions')} {display_name}".strip(),
             },
+            "permissions": ["auth.change_user"],
         },
         {
             "label": s.get("reset_password", "Reset Password"),
@@ -237,5 +240,6 @@ def _build_user_row_actions(record):
                 "username": record.username,
                 "url": reverse('reset_password', args=[record.pk]),
             },
+            "permissions": ["auth.change_user"],
         },
     ]

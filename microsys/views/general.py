@@ -2,6 +2,7 @@
 import os
 import platform
 import sys
+import json
 import urllib.error
 import urllib.request
 import uuid
@@ -13,6 +14,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.cache import caches
 from django.contrib.auth.decorators import login_required
 from django.db import connection
+from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.module_loading import import_string
@@ -20,6 +22,7 @@ from django.utils.module_loading import import_string
 from microsys import __version__
 from microsys.constants import DEFAULT_HOME_URL
 from microsys.translations import get_current_language_code, get_strings
+from microsys.utils import export_system_settings_payload
 
 try:
     import psutil
@@ -302,37 +305,47 @@ def options_view(request):
     View for system options, accessibility settings, and live system info.
     """
     strings = get_strings(get_current_language_code(request))
-    db_service = _localize_service_status(_get_database_service(), strings)
-    cache_service = _localize_service_status(_get_cache_service(), strings)
-    api_service = _localize_service_status(_get_api_service(), strings)
-    celery_service = _localize_service_status(_get_celery_service(), strings)
-    drf_service = _get_drf_service()
+    show_system_diagnostics = bool(request.user.is_staff or request.user.is_superuser)
 
-    # System Stats
-    try:
-        if psutil is None:
-            raise RuntimeError("psutil is not installed")
-        # RAM
-        mem = psutil.virtual_memory()
-        ram_total_gb = mem.total / (1024 ** 3)
-        ram_used_gb = mem.used / (1024 ** 3)
-        ram_percent = mem.percent
-        
-        # Disk
-        disk = psutil.disk_usage('/')
-        disk_total_gb = disk.total / (1024 ** 3)
-        disk_used_gb = disk.used / (1024 ** 3)
-        disk_percent = disk.percent
-    except Exception as e:
-        ram_total_gb = ram_used_gb = ram_percent = 0
-        disk_total_gb = disk_used_gb = disk_percent = 0
+    db_service = cache_service = api_service = celery_service = drf_service = None
+    ram_total_gb = ram_used_gb = ram_percent = 0
+    disk_total_gb = disk_used_gb = disk_percent = 0
+    os_info = python_version = django_version = decrypter_version = None
+
+    if show_system_diagnostics:
+        db_service = _localize_service_status(_get_database_service(), strings)
+        cache_service = _localize_service_status(_get_cache_service(), strings)
+        api_service = _localize_service_status(_get_api_service(), strings)
+        celery_service = _localize_service_status(_get_celery_service(), strings)
+        drf_service = _get_drf_service()
+        os_info = f"{platform.system()} {platform.release()}"
+        python_version = sys.version.split()[0]
+        django_version = django.get_version()
+        decrypter_version = os.getenv('DECRYPTER_VERSION', '').strip()
+
+        try:
+            if psutil is None:
+                raise RuntimeError("psutil is not installed")
+            mem = psutil.virtual_memory()
+            ram_total_gb = mem.total / (1024 ** 3)
+            ram_used_gb = mem.used / (1024 ** 3)
+            ram_percent = mem.percent
+
+            disk = psutil.disk_usage('/')
+            disk_total_gb = disk.total / (1024 ** 3)
+            disk_used_gb = disk.used / (1024 ** 3)
+            disk_percent = disk.percent
+        except Exception:
+            ram_total_gb = ram_used_gb = ram_percent = 0
+            disk_total_gb = disk_used_gb = disk_percent = 0
 
     context = {
+        'show_system_diagnostics': show_system_diagnostics,
         'current_time': timezone.now(),
-        'os_info': f"{platform.system()} {platform.release()}",
-        'python_version': sys.version.split()[0],
-        'django_version': django.get_version(),
-        'decrypter_version': os.getenv('DECRYPTER_VERSION', '').strip(),
+        'os_info': os_info,
+        'python_version': python_version,
+        'django_version': django_version,
+        'decrypter_version': decrypter_version,
         'drf_service': drf_service,
         'api_service': api_service,
         'db_service': db_service,
@@ -390,3 +403,17 @@ def system_setup_view(request):
         'page_title': 'System Setup',
     }
     return render(request, 'microsys/includes/system_setup.html', context)
+
+
+@login_required
+def export_system_settings_view(request):
+    """Download the DB-backed Microsys setup settings as a portable JSON file."""
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    SystemSettings = apps.get_model('microsys', 'SystemSettings')
+    payload = export_system_settings_payload(SystemSettings.load())
+    content = json.dumps(payload, ensure_ascii=False, indent=2)
+    response = HttpResponse(content, content_type='application/json; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="microsys-system-settings.json"'
+    return response

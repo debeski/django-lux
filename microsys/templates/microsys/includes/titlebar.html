@@ -24,7 +24,7 @@
             <img src="{{ APP_CONFIG.logo_url|default:'/static/img/base_logo.webp' }}" alt="Logo" class="titlebar__logo flex-shrink-0" data-titlebar-logo>
             <div class="titlebar__heading">
                 <p class="ms-1 mb-0 align-items-center d-flex text-truncate titlebar__title" data-titlebar-title>
-                    <span class="text-truncate" data-titlebar-title-text>{{ APP_CONFIG.name|default:"microSYS" }}{% if user.scope %} - {{ user.scope.name }}{% endif %}</span>
+                    <span class="text-truncate" data-titlebar-title-text>{{ APP_CONFIG.identity.display_name|default:"microSYS" }}{% if user.scope %} - {{ user.scope.name }}{% endif %}</span>
                 </p>
                 <div class="titlebar__header-slot">{% block header %}{% endblock %}</div>
             </div>
