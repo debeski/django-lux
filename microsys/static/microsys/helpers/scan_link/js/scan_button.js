@@ -18,6 +18,37 @@
         };
     }
 
+    function widgetForButton(button) {
+        return button.closest("[data-archive-file-widget]");
+    }
+
+    function setWidgetStatus(button, message) {
+        const widget = widgetForButton(button);
+        if (!widget) return;
+
+        const meta = widget.querySelector("[data-archive-file-meta]");
+        if (!meta) return;
+
+        if (!button.dataset.scanOriginalMeta) {
+            button.dataset.scanOriginalMeta = meta.textContent || "";
+        }
+
+        meta.textContent = message;
+    }
+
+    function restoreWidgetStatus(button) {
+        const widget = widgetForButton(button);
+        if (!widget) return;
+
+        const meta = widget.querySelector("[data-archive-file-meta]");
+        if (!meta) return;
+
+        if (button.dataset.scanOriginalMeta !== undefined) {
+            meta.textContent = button.dataset.scanOriginalMeta;
+            delete button.dataset.scanOriginalMeta;
+        }
+    }
+
     function setVisualState(button, state, title) {
         const icons = {
             idle: '<i class="bi bi-printer"></i>',
@@ -37,12 +68,14 @@
         button.disabled = false;
         delete button.dataset.scanJobId;
         delete button.dataset.scanBusyFlag;
+        restoreWidgetStatus(button);
         setVisualState(button, "idle", messages.label);
     }
 
     function setWorkingState(button, message) {
         button.disabled = true;
         button.dataset.scanBusyFlag = "true";
+        setWidgetStatus(button, message);
         setVisualState(button, "working", message);
     }
 
@@ -50,6 +83,7 @@
         const messages = messagesFor(button);
         button.disabled = false;
         delete button.dataset.scanBusyFlag;
+        restoreWidgetStatus(button);
         setVisualState(button, "complete", messages.completed);
     }
 
@@ -99,10 +133,8 @@
     }
 
     function assignBlobToInput(fileInput, blob) {
-        const safeName = (fileInput.name || fileInput.id || "scanned_document")
-            .replace(/[^a-z0-9_-]+/gi, "_")
-            .replace(/^_+|_+$/g, "") || "scanned_document";
-        const file = new File([blob], `${safeName}.pdf`, { type: "application/pdf" });
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const file = new File([blob], `scanned-document-${timestamp}.pdf`, { type: "application/pdf" });
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
         fileInput.files = dataTransfer.files;
@@ -154,7 +186,13 @@
         document.querySelectorAll(".scan-btn").forEach((button) => {
             setVisualState(button, "idle", messagesFor(button).label);
 
-            button.addEventListener("click", async function () {
+            button.addEventListener("click", async function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (typeof event.stopImmediatePropagation === "function") {
+                    event.stopImmediatePropagation();
+                }
+
                 if (button.dataset.scanBusyFlag === "true") {
                     return;
                 }
@@ -191,12 +229,15 @@
                     button.dataset.scanJobId = jobId;
                     activeButtonsByJobId.set(jobId, button);
 
-                    const blob = await scanner.waitForResult(jobId);
+                    const blob = await scanner.waitForResult(jobId, {
+                        timeoutMs: 5 * 60 * 1000,
+                    });
                     assignBlobToInput(fileInput, blob);
                     setCompletedState(button);
                 } catch (error) {
                     const message = resolveErrorMessage(button, error);
                     resetButton(button);
+                    setWidgetStatus(button, message);
                     showButtonError(button, message);
                 } finally {
                     if (jobId) {
@@ -204,6 +245,7 @@
                     }
                     delete button.dataset.scanJobId;
                     if (button.innerHTML.indexOf("bi-check-lg") === -1) {
+                        button.disabled = false;
                         delete button.dataset.scanBusyFlag;
                     }
                 }

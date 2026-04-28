@@ -88,6 +88,7 @@
         const input = widget.querySelector('[data-archive-file-input="true"]');
         const drop = widget.querySelector("[data-archive-file-drop]");
         const uploadButton = widget.querySelector("[data-archive-file-upload]");
+        const scanButton = widget.querySelector("[data-archive-file-scan]");
         const clearButton = widget.querySelector("[data-archive-file-clear]");
         const clearCheckbox = widget.querySelector(".archive-file-clear-checkbox");
 
@@ -101,7 +102,23 @@
             });
         }
 
+        if (scanButton) {
+            ["pointerdown", "pointerup", "mousedown", "mouseup", "click", "dblclick"].forEach((eventName) => {
+                scanButton.addEventListener(eventName, function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (typeof event.stopImmediatePropagation === "function") {
+                        event.stopImmediatePropagation();
+                    }
+                });
+            });
+        }
+
         drop.addEventListener("click", function (event) {
+            if (event.target.closest("[data-archive-file-upload]")) return;
+            if (event.target.closest("[data-archive-file-scan]")) return;
+            if (event.target.closest("[data-archive-file-clear]")) return;
+            if (event.target.closest("[data-archive-file-link]")) return;
             if (event.target.closest("a, button")) return;
             input.click();
         });
