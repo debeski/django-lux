@@ -1,109 +1,213 @@
-/**
- * Scanner Button Integration
- * 
- * Handles the UI integration for scan buttons in forms.
- * Uses ScanLink class for communication with the desktop scanner app.
- */
+(function () {
+    function messagesFor(button) {
+        return {
+            label: button.dataset.scanLabel || "Scan",
+            preparing: button.dataset.scanPreparing || "Preparing scan",
+            selecting: button.dataset.scanSelecting || "Select a scanner",
+            processing: button.dataset.scanProcessing || "Scanning",
+            pageTemplate: button.dataset.scanPageTemplate || "Page {count} scanned",
+            generating: button.dataset.scanGenerating || "Generating PDF",
+            completed: button.dataset.scanCompleted || "Scanned",
+            helperUnavailable: button.dataset.scanHelperUnavailable || "ScanLink is not available on this computer.",
+            busy: button.dataset.scanBusy || "Another scan is already running.",
+            cancelled: button.dataset.scanCancelled || "The scan was cancelled.",
+            timeout: button.dataset.scanTimeout || "The scan took too long to finish.",
+            noScanners: button.dataset.scanNoScanners || "No TWAIN scanner is available on this computer.",
+            openSource: button.dataset.scanOpenSource || "The selected scanner could not be opened.",
+            failed: button.dataset.scanFailed || "The scan could not be completed.",
+        };
+    }
 
-document.addEventListener("DOMContentLoaded", function () {
-    // Initialize ScanLink with callbacks
-    const scanner = new ScanLink({
-        autoConnect: true,
-        onStatus: (data) => {
-            console.log('[DEBUG] ScanLink Status Update:', data);
+    function setVisualState(button, state, title) {
+        const icons = {
+            idle: '<i class="bi bi-printer"></i>',
+            working: '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>',
+            complete: '<i class="bi bi-check-lg"></i>',
+        };
 
-            const scanButtons = document.querySelectorAll('.scan-btn');
-            scanButtons.forEach(btn => {
-                if (btn.disabled) {
-                    if (data.status === 'processing' || data.status === 'scanning') {
-                        btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-2" role="status"></span>قيد المسح...';
-                    } else if (data.status === 'page_scanned') {
-                        btn.innerHTML = `<span class="spinner-grow spinner-grow-sm me-2" role="status"></span>مسح صفحة ${data.page_count || ''}...`;
-                    } else if (data.status === 'uploading' || data.status === 'generating_pdf') {
-                        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>جاري الرفع...';
-                    } else if (data.status === 'completed' || data.status === 'done') {
-                        btn.innerHTML = '<i class="bi bi-check-lg me-2"></i>اكتمل المسح';
-                        btn.classList.remove('btn-warning');
-                        btn.classList.add('btn-success');
+        const html = icons[state] || icons.idle;
+        button.innerHTML = html;
+        button.title = title;
+        button.setAttribute("aria-label", title);
+        button.dataset.bsTitle = title;
+    }
+
+    function resetButton(button) {
+        const messages = messagesFor(button);
+        button.disabled = false;
+        delete button.dataset.scanJobId;
+        delete button.dataset.scanBusyFlag;
+        setVisualState(button, "idle", messages.label);
+    }
+
+    function setWorkingState(button, message) {
+        button.disabled = true;
+        button.dataset.scanBusyFlag = "true";
+        setVisualState(button, "working", message);
+    }
+
+    function setCompletedState(button) {
+        const messages = messagesFor(button);
+        button.disabled = false;
+        delete button.dataset.scanBusyFlag;
+        setVisualState(button, "complete", messages.completed);
+    }
+
+    function showButtonError(button, message) {
+        button.title = message;
+        button.setAttribute("aria-label", message);
+        button.dataset.bsTitle = message;
+
+        if (window.bootstrap && typeof window.bootstrap.Tooltip === "function") {
+            const existing = window.bootstrap.Tooltip.getInstance(button);
+            if (existing) existing.dispose();
+
+            const tooltip = new window.bootstrap.Tooltip(button, {
+                title: message,
+                trigger: "manual",
+            });
+
+            tooltip.show();
+            window.setTimeout(() => tooltip.dispose(), 3000);
+        }
+    }
+
+    function resolveErrorMessage(button, error) {
+        const messages = messagesFor(button);
+        const code = error && error.code;
+
+        switch (code) {
+            case "helper_unavailable":
+                return messages.helperUnavailable;
+            case "busy":
+                return messages.busy;
+            case "scanner_selection_cancelled":
+                return messages.cancelled;
+            case "acquire_timeout":
+            case "scan_timeout":
+                return messages.timeout;
+            case "no_scanners":
+            case "twain_unavailable":
+                return messages.noScanners;
+            case "open_source_failed":
+                return messages.openSource;
+            case "cancelled":
+                return messages.cancelled;
+            default:
+                return (error && error.message) || messages.failed;
+        }
+    }
+
+    function assignBlobToInput(fileInput, blob) {
+        const safeName = (fileInput.name || fileInput.id || "scanned_document")
+            .replace(/[^a-z0-9_-]+/gi, "_")
+            .replace(/^_+|_+$/g, "") || "scanned_document";
+        const file = new File([blob], `${safeName}.pdf`, { type: "application/pdf" });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const activeButtonsByJobId = new Map();
+
+        const scanner = new ScanLink({
+            onStatus: function (data) {
+                const button = data && data.job_id ? activeButtonsByJobId.get(data.job_id) : null;
+                if (!button) return;
+
+                const messages = messagesFor(button);
+
+                switch (data.status) {
+                    case "queued":
+                        setWorkingState(button, messages.preparing);
+                        break;
+                    case "processing":
+                    case "acquiring":
+                        setWorkingState(button, messages.processing);
+                        break;
+                    case "selecting_scanner":
+                        setWorkingState(button, messages.selecting);
+                        break;
+                    case "page_scanned":
+                        setWorkingState(
+                            button,
+                            messages.pageTemplate.replace("{count}", String(data.page_count || 0))
+                        );
+                        break;
+                    case "generating_pdf":
+                        setWorkingState(button, messages.generating);
+                        break;
+                    case "completed":
+                        setCompletedState(button);
+                        break;
+                    default:
+                        break;
+                }
+            },
+            onError: function () {
+                return undefined;
+            },
+        });
+
+        document.querySelectorAll(".scan-btn").forEach((button) => {
+            setVisualState(button, "idle", messagesFor(button).label);
+
+            button.addEventListener("click", async function () {
+                if (button.dataset.scanBusyFlag === "true") {
+                    return;
+                }
+
+                const targetId = button.getAttribute("data-target");
+                const fileInput = targetId ? document.getElementById(targetId) : null;
+                if (!fileInput) {
+                    return;
+                }
+
+                setWorkingState(button, messagesFor(button).preparing);
+
+                let jobId = null;
+                try {
+                    const health = await scanner.checkHealth(true);
+                    if (!health) {
+                        throw new ScanLinkError(messagesFor(button).helperUnavailable, "helper_unavailable");
+                    }
+                    if (health.twain_available === false) {
+                        throw new ScanLinkError(messagesFor(button).noScanners, "twain_unavailable");
+                    }
+                    if (health.busy) {
+                        throw new ScanLinkError(messagesFor(button).busy, "busy");
+                    }
+
+                    const job = await scanner.startScan({
+                        metadata: {
+                            target_id: targetId,
+                            path: window.location.pathname,
+                        },
+                    });
+
+                    jobId = job.job_id;
+                    button.dataset.scanJobId = jobId;
+                    activeButtonsByJobId.set(jobId, button);
+
+                    const blob = await scanner.waitForResult(jobId);
+                    assignBlobToInput(fileInput, blob);
+                    setCompletedState(button);
+                } catch (error) {
+                    const message = resolveErrorMessage(button, error);
+                    resetButton(button);
+                    showButtonError(button, message);
+                } finally {
+                    if (jobId) {
+                        activeButtonsByJobId.delete(jobId);
+                    }
+                    delete button.dataset.scanJobId;
+                    if (button.innerHTML.indexOf("bi-check-lg") === -1) {
+                        delete button.dataset.scanBusyFlag;
                     }
                 }
             });
-        },
-        onError: (error) => {
-            console.error('[DEBUG] ScanLink Error:', error);
-            document.querySelectorAll('.scan-btn').forEach(btn => {
-                btn.disabled = false;
-            });
-        }
-    });
-
-    scanner.onConnectionChange = (connected) => {
-        console.log('[DEBUG] ScanLink Connection:', connected ? "Connected (WebSocket)" : "Disconnected");
-    };
-
-    // Scanner Button Integration
-    const scanButtons = document.querySelectorAll('.scan-btn');
-    scanButtons.forEach(btn => {
-        btn.addEventListener('click', async function () {
-            const targetId = this.getAttribute('data-target');
-            const fileInput = document.getElementById(targetId);
-
-            if (!fileInput) return;
-
-            console.log('[DEBUG] Scan button clicked, target:', targetId);
-
-            const originalText = this.innerHTML;
-            const originalClasses = this.className;
-
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>جاري التحضير...';
-
-            try {
-                console.log('[DEBUG] Checking health...');
-                const health = await scanner.checkHealth();
-                console.log('[DEBUG] Health check result:', health);
-
-                if (!health) {
-                    throw new Error('تطبيق الماسحة غير متاح. تأكد من تشغيله.');
-                }
-
-                console.log('[DEBUG] Starting scan...');
-                const scanResult = await scanner.startScan();
-                console.log('[DEBUG] Scan started, result:', scanResult);
-
-                const jobId = scanResult.job_id;
-                if (!jobId) throw new Error("No job_id received from server");
-
-                console.log('[DEBUG] Waiting for result for job:', jobId);
-                const blob = await scanner.waitForResult(jobId);
-                console.log('[DEBUG] Result received, blob size:', blob.size);
-
-                if (blob) {
-                    const file = new File([blob], "scanned_document.pdf", { type: "application/pdf" });
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(file);
-                    fileInput.files = dataTransfer.files;
-                    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-
-                    this.innerHTML = '<i class="bi bi-check-lg me-2"></i>تم الحفظ';
-                    this.classList.remove('btn-warning');
-                    this.classList.add('btn-success');
-                }
-
-            } catch (error) {
-                console.error('[DEBUG] Full Scan Error Stack:', error);
-                this.disabled = false;
-                this.innerHTML = originalText;
-                this.className = originalClasses;
-
-                let tooltipInstance = bootstrap.Tooltip.getInstance(this);
-                if (tooltipInstance) tooltipInstance.dispose();
-
-                this.setAttribute('title', error.message || 'Scan failed');
-                const tooltip = new bootstrap.Tooltip(this);
-                tooltip.show();
-                setTimeout(() => tooltip.dispose(), 3000);
-            }
         });
     });
-});
+})();

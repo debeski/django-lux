@@ -4,6 +4,13 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.0.1
+
+- **REST-First ScanLink Helper**: Refactored the shared ScanLink browser helper around the loopback REST contract so form pages probe helper health, start a scan job, poll status, and fetch the finished PDF without depending on Socket.IO.
+- **Per-Button Scan State**: Reworked the scan button controller to track the active job per clicked file widget instead of broadcasting status changes across every `.scan-btn` on the page.
+- **Translation-Backed Scan Messaging**: Extended the shared file input template with localized scan labels and error strings so helper availability, busy state, cancellation, timeout, and scanner failures surface through the normal Microsys translation layer.
+- **Direct File-Field Injection Flow**: Kept ScanLink scanning aligned with the shared Microsys archive file widget by attaching the scanned PDF directly to the target `<input type="file">` and dispatching the standard change event.
+
 ## v2.0.0 *not backwards compatible*
 
 - **Sidebar Permission Inference for Function-Based Views**: Added URL pattern-based permission inference that correctly extracts permissions for function-based views. The logic now parses URL namespace as app label and URL name prefix as model name (e.g., `documents:outgoing_list` → `documents.view_outgoing`). This ensures sidebar items are only visible to users who have the actual view permission for the associated model.
