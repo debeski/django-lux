@@ -93,12 +93,13 @@ SYSTEM_ROUTE_META = {
     'user_profile': {
         'label_key': 'profile',
         'icon': 'bi-person-badge',
+        'permissions': ['__ms_authenticated__'],
         'group_key': 'microsys',
     },
     'options_view': {
         'label_key': 'options_title',
         'icon': 'bi-gear',
-        'permissions': ['__ms_options_view__'],
+        'permissions': ['__ms_authenticated__'],
         'group_key': 'microsys',
     },
 }

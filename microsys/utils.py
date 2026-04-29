@@ -435,6 +435,8 @@ def user_matches_permission_token(user, permission):
         return bool(getattr(user, 'is_staff', False))
     if permission == 'is_superuser':
         return bool(getattr(user, 'is_superuser', False))
+    if permission == '__ms_authenticated__':
+        return True
     if permission == '__ms_user_directory__':
         return user_can_view_user_directory(user)
     if permission == '__ms_activity_log__':

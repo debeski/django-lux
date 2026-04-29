@@ -121,6 +121,26 @@ def _resolve_safe_login_redirect(request):
     return getattr(settings, 'LOGIN_REDIRECT_URL', DEFAULT_HOME_URL)
 
 
+def _resolve_totp_issuer_name():
+    try:
+        config = get_system_config()
+    except Exception:
+        config = {}
+
+    identity = config.get('identity') if isinstance(config, dict) else {}
+    if isinstance(identity, dict):
+        issuer_name = str(identity.get('display_name') or '').strip()
+        if issuer_name:
+            return issuer_name
+
+    if isinstance(config, dict):
+        issuer_name = str(config.get('display_name') or config.get('verbose_name') or '').strip()
+        if issuer_name:
+            return issuer_name
+
+    return 'microSYS'
+
+
 # 2FA Helper — Generates and emails a 6-digit OTP code
 def send_otp(request, user, intent='login'):
     """
@@ -298,7 +318,7 @@ def setup_totp(request):
 
     totp_uri = pyotp.totp.TOTP(profile.totp_secret).provisioning_uri(
         name=request.user.email,
-        issuer_name='FineStor'
+        issuer_name=_resolve_totp_issuer_name()
     )
 
     img = qrcode.make(totp_uri)

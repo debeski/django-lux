@@ -128,9 +128,22 @@ That same discovery model powers both sections and dynamic modal flows.
 It also connects to the surrounding UI systems:
 
 - sidebar discovery for runtime navigation
+- sidebar permission inference (see below)
 - context-menu actions attached to generated tables
 - autofill metadata attached to generated or patched form fields
 - generic modal/list/detail views that expect convention-friendly classes
+
+### Sidebar Permission Inference
+
+Sidebar items are only visible to users who have the required view permission. The permission for each item is inferred in this order:
+
+1. **Explicit decorator**: `sidebar_permissions` or `permission_required` on the view callback — used as-is.
+2. **System route meta**: items in `SYSTEM_ROUTE_META` (e.g., `manage_users`, `options_view`) use their declared `__ms_*` permission tokens.
+3. **Model-based inference**: for class-based views with a model, the permission is `app_label.view_model_name`.
+4. **URL pattern inference**: for function-based views without a model, the app label comes from the URL namespace (or callback module) and the model name from the URL name prefix (e.g., `documents:outgoing_list` → `documents.view_outgoing`).
+5. **No inference**: if none of the above produce a permission, the item is hidden from non-superusers.
+
+This means staff users will only see sidebar items for models they have explicit `app.view_model` permissions for. Ensure users are granted the appropriate permissions.
 
 ## Sections vs Dynamic Modals
 

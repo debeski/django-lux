@@ -51,6 +51,7 @@ Section security contract:
 - `/sys/logs/` and `/sys/logs/<int:pk>/details/` now require the explicit `microsys.view_activitylog` permission or superuser status rather than plain `is_staff`
 - embedded activity snippets on user-detail surfaces only render when the caller also has `microsys.view_activitylog`
 - sidebar-discovered system routes plus the built-in dashboard/user-hub shortcuts now mirror those same helper-backed checks instead of older template-only `is_staff` assumptions
+- sidebar items are only visible to users with the required view permission; no implicit staff fallback (see Sidebar Permission Inference below)
 
 ## 2FA Routes
 
@@ -250,6 +251,22 @@ The system records several action families out of the box, including:
 - section-management routes require `microsys.view_sections` or `microsys.manage_sections`
 - `filter_context_actions()` now properly respects `manage_sections` permission for section-related context menu actions
 - Options diagnostics are privileged-only; personal preference controls remain available to authenticated users
+
+### Sidebar Permission Inference
+
+Sidebar items are only visible to users who have the required view permission. The permission for each item is inferred in this order:
+
+1. **Explicit decorator**: `sidebar_permissions` or `permission_required` on the view callback — used as-is.
+2. **System route meta**: items in `SYSTEM_ROUTE_META` use their declared `__ms_*` permission tokens:
+   - `manage_users` → `__ms_user_directory__`
+   - `user_activity_log` → `__ms_activity_log__`
+   - `manage_sections` → `__ms_sections_view__`
+   - `options_view` → `__ms_authenticated__`
+3. **Model-based inference**: for class-based views with a model, the permission is `app_label.view_model_name`.
+4. **URL pattern inference**: for function-based views without a model, the app label comes from the URL namespace (or callback module) and the model name from the URL name prefix (e.g., `documents:outgoing_list` → `documents.view_outgoing`).
+5. **No inference**: if none of the above produce a permission, the item is hidden from non-superusers.
+
+Internal tokens are resolved by `user_matches_permission_token()` in `microsys/utils.py`.
 
 ## Codebase Entry Points
 

@@ -160,12 +160,14 @@ class SidebarDiscoveryTests(SimpleTestCase):
             for entry in catalog_with_system
             if entry.get("group_key") == "microsys"
         }
+        options_entry = next(entry for entry in catalog_with_system if entry["id"] == "options_view")
 
         self.assertNotIn("manage_sections", default_ids)
         self.assertTrue(
             {"manage_sections", "user_activity_log", "options_view"}.issubset(system_ids)
         )
         self.assertNotIn("user_profile", system_ids)
+        self.assertEqual(options_entry["permissions"], ["__ms_authenticated__"])
 
     @patch("microsys.discovery.discover_sidebar_catalog")
     @patch("microsys.utils.get_system_config")
@@ -194,7 +196,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-gear",
-                "permissions": ["__ms_options_view__"],
+                "permissions": ["__ms_authenticated__"],
                 "permissions_explicit": True,
                 "group_key": "microsys",
                 "group_label": "System",
@@ -204,7 +206,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         navigation = build_sidebar_navigation(
             lang_code="en",
-            user=_StubUser(is_staff=True, permissions={"__ms_options_view__"}),
+            user=_StubUser(),
             request_path="/sys/options/",
         )
 
@@ -333,7 +335,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-gear",
-                "permissions": ["__ms_options_view__"],
+                "permissions": ["__ms_authenticated__"],
                 "permissions_explicit": True,
                 "group_key": "microsys",
                 "group_label": "System",
@@ -343,7 +345,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         navigation = build_sidebar_navigation(
             lang_code="en",
-            user=_StubUser(is_staff=True, permissions={"__ms_options_view__"}),
+            user=_StubUser(),
             request_path="/sys/options/",
         )
 
@@ -378,7 +380,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-gear",
-                "permissions": ["__ms_options_view__"],
+                "permissions": ["__ms_authenticated__"],
                 "permissions_explicit": True,
                 "group_key": "microsys",
                 "group_label": "System",
@@ -388,7 +390,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         navigation = build_sidebar_navigation(
             lang_code="en",
-            user=_StubUser(is_staff=True, permissions={"__ms_options_view__"}),
+            user=_StubUser(),
             sidebar_override={
                 "entries": [
                     {

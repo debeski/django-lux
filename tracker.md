@@ -2,27 +2,17 @@
 
 ## Part 1: Project
 ### Current Verified Snapshot and current project overview:
-- Verified on: `2026-04-27`
+- Verified on: `2026-04-29`
 - Project: `django-microsys`
-- Current package version from codebase: `1.20.4b0` in `microsys/VERSION`
+- Current package version from codebase: `2.0.3` in `microsys/VERSION`
+- last migration file: `0001_initial.py`
 - Current verified state:
-  - ScopedManager now enforces isolation between Central (NULL scope) and Private (Scoped) records:
-    - Scoped users see only their own scope.
-    - Non-scoped users see only NULL-scope records (the Centralized pool).
-    - Superusers see everything.
-  - MSRP hardening is in place for dynamic modal CRUD, section management, user/profile modals, activity-log access, reset-password flow, diagnostics exposure, and 2FA mutators.
-  - Theme/sidebar/titlebar governance is live through `SystemSettings`, setup, runtime context, and preferences enforcement.
-  - System setup has been reorganized into five steps: Identity, Localization, Access & Security, Navigation, and Appearance & Personalization.
-  - `SystemSettings` now uses language-keyed `system_names`; the old `name` / `name_en` system-name fields are intentionally removed by migration `0007`.
-  - Localization setup now uses an explicit language catalog plus a translation matrix. Discovered app translations can suggest/prefill languages, but do not auto-enable languages for users.
-  - User-reported setup UI regressions from `2026-04-26` have code-level fixes: system names render in Identity, the old visual default-language picker is removed, Enter advances the multi-step setup wizard before final submit, and custom-language add/remove now keeps catalog, system-name rows, default language, and translation matrix columns synchronized.
-  - Translation matrix UI now has source tabs for Microsys, installed app translation layers, project translations, and settings-only override keys.
-  - System Settings can now be exported as a portable JSON setup file from Options and imported from step 1 of setup/System Settings. The export covers DB-backed operational setup fields; logo/favicon are stored as file names only, not embedded media content.
-  - `get_system_config()` now exposes nested public groups: `identity`, `localization`, `security`, `navigation`, `appearance`, and `personalization`, while retaining flat non-name keys for existing internal behavior.
-  - Runtime sidebar save->render is repaired and stale user sidebar trees now fall back to system sidebar.
-  - Selector-widget, setup split-step flow, and Options split System Settings entrypoints are implemented.
-  - Table platform is framework-owned through `microsys/tables/table.html`, `MicrosysTable`, and the `django_tables2` patch layer.
-  - Full Django test suite is currently green: `253` tests passing.
+  - Core framework areas: scoped data isolation, MSRP authorization hardening, managed table rendering, setup/System Settings, runtime sidebar/titlebar controls, and Options entrypoints are implemented in code.
+  - `SystemSettings` uses language-keyed `system_names`; `get_system_config()` exposes nested public groups (`identity`, `localization`, `security`, `navigation`, `appearance`, `personalization`) plus compatibility keys.
+  - Options sidebar visibility now matches direct `/sys/options/` access through `__ms_authenticated__`.
+  - TOTP provisioning uses configured system identity display name / neutral fallback, not the old project-specific `FineStor` issuer.
+  - Last known full-suite status before later focused fixes: `253` tests passing. More recent broad run is blocked by the tracked `view_activitylog` permission test drift.
+  - Browser/manual validation remains pending for UI-heavy setup, Options, sidebar/titlebar, and 2FA flows.
 
 ### Current Project Official Standards:
 - Preferred settings integration:
@@ -51,6 +41,11 @@
   - `APP_CONFIG.navigation`
   - `APP_CONFIG.appearance`
   - `APP_CONFIG.personalization`
+- Security:
+  - MSRP-1 "Microsys Secure Runtime Policy":
+    - The project authorization standard for runtime-exposed surfaces.
+    - Covers direct URL access, sidebar discovery/rendering, dashboard/user-hub shortcuts, modal CRUD, context actions, diagnostics, and state-changing security flows.
+    - UI visibility is never the only control; every protected behavior must have matching backend authorization.
 
 ### Standards' rules and policies:
 - Keep Microsys defaults framework-neutral unless the default is explicitly part of the framework contract.
@@ -58,9 +53,12 @@
 - Do not use `settings.configure()` as a host-project installation path.
 - Keep host-project-specific behavior out of Microsys defaults unless broadly reusable.
 - Document supported integration surfaces in `README.md` plus `docs/reference.md` or `docs/customization-guide.md`.
+- MSRP-1 is the active authorization policy: direct routes, sidebar/catalog visibility, dashboard/user-hub links, modal/context actions, diagnostics, and 2FA mutators must agree on who can access the behavior.
+- Prefer helper-backed permission checks and internal tokens resolved by `user_matches_permission_token()`; do not add ad hoc `is_staff` gates unless staff-only access is the explicit contract.
+- Any generated or scaffolded entrypoint exposed by URL registration must enforce login plus the relevant model/system permission on the backend, not only through sidebar hiding.
 
 ### Cross-Cutting Audits if any:
-- Security/MSRP audit:
+- Security/MSRP-1 audit:
   - backend permission enforcement now exists for modal CRUD, sections, user detail/modals, activity log, and reset-password flow
   - 2FA state mutators are POST-only and backup codes are hashed at rest
   - Options diagnostics are privileged-only
@@ -72,37 +70,22 @@
   - setup/System Settings localization now has an explicit add-language catalog and translation matrix; custom languages remain unavailable until explicitly added
 
 ### Current Project's Known Bugs:
-- **Fixed**: Context menu in section manager was redirecting to `/${app}/${id}/` instead of showing the smart view modal. Added `isSectionManagerActive()` check to main.js fallback handlers to prevent navigation when on section manager pages.
-- **Fixed**: Staff users not seeing manage users icon or getting 403 on `/sys/users/` because `user_can_view_user_directory()` required `auth.view_user` permission. Now it accepts either `auth.view_user` OR `microsys.manage_staff` permission. Forms still auto-grant `auth.view_user` for backward compatibility.
-- **Fixed**: `view_activitylog` and `manage_scopes` permissions not appearing in permission widget. The queryset filter in `CustomUserCreationForm` and `CustomUserPermissionsForm` was only allowing `manage_staff` and section-related microsys permissions.
-- **Fixed**: Sidebar permission inference for function-based views. Added URL pattern-based permission inference that extracts app label from namespace and model name from URL name (e.g., `documents:outgoing_list` → `documents.view_outgoing`). Simplified `_user_has_sidebar_permission` to strictly check permissions without staff fallback - users must have the actual permission to see the item. Added `__ms_options_view__` permission to `options_view` system route. Updated `_infer_permissions` to return `(permissions, permissions_explicit)` tuple. Updated `_resolve_sidebar_item` to preserve `permissions_explicit` from catalog. Updated tests to verify the new behavior.
-- **Implemented**: New permission tier system separating Global Staff from Central Staff:
-  - **Global Staff**: `is_staff=True, scope=NULL, manage_scopes permission` — Can create/manage scopes, assign users to any scope, view/edit ALL users. Only superusers can create Global Staff.
-  - **Central Staff**: `is_staff=True, scope=NULL, NO manage_scopes permission` — Can only create/manage scopeless (NULL scope) users. Cannot view scoped users, manage scopes, or assign scopes. Can be created by Global Staff or other Central Staff with `manage_staff` permission.
-  - **Server-side Enforcement**: Added view-level and form-level protection to prevent Central Staff from:
-    - Seeing Global Staff users in the user list (`UserListView.get_queryset()` now excludes users with `manage_scopes` permission)
-    - Editing Global Staff users (`edit_user` view blocks with error message)
-    - Creating Global Staff users (`create_user` view strips `manage_scopes` from submission)
-    - Assigning `manage_scopes` via permissions form (`CustomUserPermissionsForm.save()` strips the permission)
-  - **Permission Assignment Principle**: Users can only assign permissions they themselves have. Non-superusers see only their own permissions in the widget.
-  - **CRITICAL FIX**: Widget was using cached class-level queryset instead of filtered queryset. Fixed by storing `_filtered_queryset` on the widget and prioritizing it in `get_context()`. This prevents users from seeing/assigning permissions they don't have.
-  - **CRITICAL FIX**: `_get_form_kwargs()` was passing `request` via `**kwargs` detection, causing `TypeError` in forms that don't accept `request`. The fallback then stripped ALL kwargs including `user`, breaking permission filtering completely. Fixed by only passing `request` when explicitly named as a parameter.
-  - **CRITICAL SECURITY FIX**: Sidebar items with no permissions were visible to ALL users due to `user_has_any_permission_tokens` returning `True` for empty permissions. Fixed by adding `default_visible_to_all=False` parameter - now items MUST have explicit permissions to appear in sidebar. Superusers can see all sidebar items regardless of permissions.
-  - **UI Fix**: Scope field now completely hidden from Central Staff (using `HiddenInput` widget) instead of showing disabled field with message. Cleaner UX and prevents any confusion.
-- No currently verified critical authz/2FA/backdoor issue remains from the `2026-04-24` MSRP audit slice.
-- Browser/manual validation is still pending for several UI-heavy flows:
-  - setup and Options appearance/localization controls
-  - language catalog add/remove behavior and translation-matrix filtering/editing after the latest code-level fix
-  - live sidebar/titlebar behavior across light/dark themes
-  - sidebar collapsed icon-only mode: density control and sections manager should vanish (code fix applied, needs browser verification)
-  - sidebar expanded mode: toolbar icon accommodation when few sidebar items (code fix applied, needs browser verification)
-  - POST-only 2FA flows in the browser
-- Host projects that override `extra_head` without `{{ block.super }}` can still drop base asset includes.
-- Crispy file-field override precedence still depends on host `INSTALLED_APPS` / template lookup order.
-- SSO is not present in the live package; only an older sibling reference tree exists and should not be treated as live state.
+- **Verified bug/test drift**: Proper Django test runner currently fails `8` activity-log view tests because `ActivityLogViewsTests.setUp()` looks for `view_activitylog` on the `UserActivityLog` content type, while the live model/migration define that permission on `Profile`.
+- **Verified bug**: Scaffolded app CRUD views in `microsys/scaffold_templates/app/views.py.tmpl` do not use login or model-permission mixins, while `startapp --register` exposes the generated app URLs.
+- **Verified code smell**: `microsys/context_processors.py` still has a private `_user_has_sidebar_permission()` helper that runtime sidebar rendering does not use.
+- **Manual validation pending**: UI-heavy setup, Options, language matrix, sidebar/titlebar, and POST-only 2FA flows still need browser checks.
+- **Integration caveats**: host templates overriding `extra_head` without `{{ block.super }}` can drop base assets; crispy file-field override precedence depends on host app/template ordering.
 
 ### Tasks:
 - Priority 1:
+  - [ ] Resolve `view_activitylog` permission ownership/test drift:
+    - Decide whether the permission belongs to `UserActivityLog`, `Profile`, or a dedicated proxy/dummy permission model.
+    - Align model metadata/migrations/tests/forms with that decision.
+    - Re-run the proper Django test runner.
+  - [ ] Harden scaffolded app CRUD templates:
+    - Add login and model-permission enforcement to generated list/detail/create/update/delete views.
+    - Ensure generated tests cover direct URL access, not only sidebar visibility.
+  - [ ] Remove or reconcile the stale `_user_has_sidebar_permission()` helper in `microsys/context_processors.py`.
   - [ ] Browser-check POST-only 2FA flows: setup, verify, resend, disable, and backup-code usage.
   - [ ] Browser-check setup/System Settings appearance governance:
     - language catalog add/remove and default-language behavior after the `2026-04-26` UI wiring fix
@@ -123,6 +106,11 @@
   - [ ] Validate generated Docker/Celery/health-check baseline in a live boot.
   - [ ] Revisit SSO only as a fresh implementation against the current package, not the older sibling branch.
 - Completed Recently:
+  - [x] Fixed Options sidebar authorization contract with `__ms_authenticated__` and removed live fake Options-token references from code/docs/tests
+  - [x] Added sidebar discovery coverage proving `options_view` uses `__ms_authenticated__` and renders for a normal authenticated stub user
+  - [x] Normalized `docs/FEATURES.md` version header/footer to current package version `2.0.3`
+  - [x] Replaced hard-coded TOTP issuer `FineStor` with configured system identity display name / neutral fallback in `microsys/views/twofa.py`
+  - [x] Added regression coverage that `/sys/2fa/setup/totp/` passes the configured display name as the TOTP issuer
   - [x] Implemented Global Staff vs Central Staff tier system with `manage_scopes` permission
   - [x] Fixed section manager context menu view/edit/delete handlers by adding `isSectionManagerActive()` check to main.js fallbacks
   - [x] Fixed staff users getting 403 on `/sys/users/` — `user_can_view_user_directory()` now accepts `manage_staff` permission
@@ -158,64 +146,49 @@
 
 ### Tests:
 - Verified checks actually run:
-  - `python -m compileall microsys/models.py microsys/utils.py microsys/translations.py microsys/forms.py microsys/context_processors.py microsys/api.py`
-  - focused Django slice for setup/config/localization/runtime context:
-    - `UtilsTests`
-    - `ContextProcessorsTests`
-    - `MicrosysDefaultRouteTests`
-    - result: `83` tests passed
+  - `git diff --check -- tracker.md`
+    - result: passed after tracker trimming
+  - `./.venv/bin/python -m unittest microsys.tests.test_sidebar_discovery`
+    - result: `13` tests passed after the Options `__ms_authenticated__` fix
+  - `./.venv/bin/python -c "from microsys.tests import test_views; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests.test_views.GeneralViewsTests']); raise SystemExit(bool(failures))"`
+    - result: `12` tests passed after the Options sidebar/direct-access contract fix
+  - `./.venv/bin/python -c "import pathlib; files=['microsys/discovery.py','microsys/utils.py','microsys/tests/test_sidebar_discovery.py']; [compile(pathlib.Path(f).read_text(encoding='utf-8'), f, 'exec') for f in files]; print('syntax ok')"`
+    - result: syntax ok
+  - `rg -n "__ms_authenticated__" microsys docs README.md CHANGELOG.md tracker.md`
+    - result: `__ms_authenticated__` is used for Options route docs/tests/runtime
+  - search for the old fake Options-token literal across `microsys`, `docs`, `README.md`, and `CHANGELOG.md`
+    - result: no matches
+  - `rg -n "1\.20\.4b0|2\.0\.0|2\.0\.1|2\.0\.3|Version:|reflects package version" docs/FEATURES.md docs README.md tracker.md microsys/VERSION CHANGELOG.md`
+    - result: `docs/FEATURES.md` now has header/footer `2.0.3`; remaining `2.0.0`/`2.0.1` hits are changelog headings only
+  - `./.venv/bin/python -c "from microsys.tests import test_views; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests.test_views.TwoFactorSecurityViewTests']); raise SystemExit(bool(failures))"`
+    - result: `6` tests passed
+  - `./.venv/bin/python -c "import pathlib; files=['microsys/views/twofa.py','microsys/tests/test_views.py']; [compile(pathlib.Path(f).read_text(encoding='utf-8'), f, 'exec') for f in files]; print('syntax ok')"`
+    - result: syntax ok
+  - `./.venv/bin/python -c "from microsys.tests import test_views; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests']); raise SystemExit(bool(failures))"`
+    - result: `255` tests run, `8` errors
+    - all errors are `Permission.DoesNotExist` for `view_activitylog` on `UserActivityLog` content type in `ActivityLogViewsTests.setUp()`
   - full suite:
     - `./.venv/bin/python ... runner.run_tests(['microsys.tests'])`
     - result: `253` tests passed
-  - focused setup/config/views slice after translation tabs and setup import/export:
-    - `UtilsTests`
-    - `MicrosysDefaultRouteTests`
-    - `GeneralViewsTests`
-    - result: `74` tests passed
-  - focused regression slice for source tabs, import override, modal step 4, and export:
-    - result: `6` tests passed
-  - `python -m compileall microsys/translations.py microsys/forms.py microsys/utils.py microsys/views/general.py microsys/views/__init__.py microsys/views/sections.py microsys/urls.py microsys/tests/test_defaults_and_urls.py microsys/tests/test_utils.py microsys/tests/test_views.py`
-  - `git diff --check -- README.md docs/admin-guide.md docs/customization-guide.md microsys/translations.py microsys/forms.py microsys/utils.py microsys/views/general.py microsys/views/__init__.py microsys/views/sections.py microsys/urls.py microsys/templates/microsys/base.html microsys/templates/microsys/includes/system_setup.html microsys/templates/microsys/includes/options.html microsys/templates/microsys/includes/translation_matrix_editor.html microsys/static/microsys/main/js/system_setup.js microsys/static/microsys/main/css/system_setup.css microsys/tests/test_defaults_and_urls.py microsys/tests/test_utils.py microsys/tests/test_views.py tracker.md`
-    - passed with Git warning that `microsys/utils.py` CRLF will be replaced by LF when touched
-  - `python -m compileall microsys/forms.py microsys/tests/test_defaults_and_urls.py`
-  - focused Django setup/default-route slice after setup UI fix:
-    - `MicrosysDefaultRouteTests`
-    - result: `19` tests passed
-  - final post-asset-bump checks:
-    - `python -m compileall microsys/forms.py microsys/tests/test_defaults_and_urls.py`
-    - `MicrosysDefaultRouteTests.test_setup_identity_step_renders_language_keyed_system_names`: `1` test passed
-    - `git diff --check -- microsys/forms.py microsys/templates/microsys/base.html microsys/templates/microsys/includes/system_setup.html microsys/templates/microsys/includes/language_catalog_editor.html microsys/templates/microsys/includes/system_names_editor.html microsys/static/microsys/main/js/system_setup.js microsys/static/microsys/main/css/system_setup.css microsys/tests/test_defaults_and_urls.py tracker.md`
-  - attempted JS parser check:
-    - `node --check microsys/static/microsys/main/js/system_setup.js` could not run because `node` is not installed
-    - Python `esprima` parser check could not run because `esprima` is not installed
-  - `python -m compileall microsys/utils.py microsys/middleware.py microsys/views/profile.py microsys/context_processors.py microsys/discovery.py microsys/views/scopes.py microsys/tests/test_utils.py microsys/tests/test_context_processors.py microsys/tests/test_middleware.py microsys/tests/test_defaults_and_urls.py microsys/tests/test_sidebar_discovery.py microsys/tests/test_views.py microsys/tests/test_m2m.py`
-  - `python -m compileall microsys/patches.py microsys/tests/test_utils_discovery.py microsys/tests/test_models.py microsys/tests/test_tables.py`
-  - focused Django slice over stale utility/config/middleware/default-route fixes: `7` tests passed
-  - focused Django slice over remaining table/model/discovery regressions: `9` tests passed
-  - focused Django slice over generic auto-table + activity-log views after the table patch correction: `5` tests passed
-  - broader stale-code + MSRP-adjacent slice:
-    - `UtilsTests`
-    - `ContextProcessorsTests`
-    - `ActivityLogMiddlewareTests`
-    - `MicrosysDefaultRouteTests`
-    - `ScopeViewsTests`
-    - `SecurityHardeningViewTests`
-    - `ActivityLogViewsTests`
-    - `SidebarDiscoveryTests`
-    - result: `144` tests passed
+    - historical result before later activity-log test drift was introduced/observed
 - Recommended next validation:
+  - fix `view_activitylog` ownership/test drift, then rerun the proper Django full suite
   - browser validation for the UI-heavy setup, Options, language matrix, sidebar/titlebar, and 2FA flows
   - one live generated-project boot and one generated-app registration pass
 
 ### Docs:
 - Primary live docs:
   - `README.md`
-  - `docs/reference.md`
-  - `docs/customization-guide.md`
-  - `docs/admin-guide.md`
   - `CHANGELOG.md`
+  - `docs/README.md`
+  - `docs/FEATURES.md`
+  - `docs/reference.md`
+  - `docs/getting-started.md`
+  - `docs/admin-guide.md`
+  - `docs/customization-guide.md`
+  - `docs/developer-guide.md`
 - Key contracts to keep documented:
-  - MSRP authorization and 2FA contracts
+  - MSRP-1 authorization and 2FA contracts
   - `SystemSettings.allowed_themes`
   - `SystemSettings.allow_user_theme_override`
   - `SystemSettings.allow_user_language_override`

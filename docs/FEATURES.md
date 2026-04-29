@@ -1,7 +1,7 @@
 
 # Django-Microsys Complete Feature Reference
 
-**Version:** 1.20.4b0  
+**Version:** 2.0.3
 **Package:** `django-microsys` — A multilingual Django framework layer for internal systems
 
 ---
@@ -33,7 +33,7 @@
 - **Caching layer** (24h TTL) for performance
 - **Seeding from `MICROSYS_CONFIG`** — seed defaults in code, refine in UI
 - **Fields include:**
-  - System name (Arabic/English)
+  - System names (JSON dict keyed by language code, e.g. `{"en": "System", "ar": "النظام"}`)
   - Logo & favicon upload with image optimization
   - Default language & theme
   - Allowed themes list with user-override permissions
@@ -158,10 +158,12 @@
 - **User/Profile Modals** — self-or-staff/scope rules
 - **Activity Log Access** — `microsys.view_activitylog` permission (not just `is_staff`)
 - **Reset Password Flow** — requires `auth.change_user` + scope/staff/superuser checks
+- **Options View** — Every user can modify the system allowed options based on their preferences.
 - **Options Diagnostics** — superuser-only access
 - **AJAX Endpoints** — 403 for non-superusers on scope management
 - **Section Model Allowlisting** — only discovered section models accepted
 - **2FA State Mutators** — POST-only with hashed backup codes
+- **Sidebar Permission Enforcement** — items only visible to users with the required permission; no implicit staff access
 
 ### Activity Log Security
 - Superuser-created log entries hidden from non-superusers
@@ -186,8 +188,10 @@
 
 ### Permissions
 - Grouped translated permissions display
-- Custom permission: `manage_staff`
+- Custom permissions: `manage_staff`, `manage_scopes`
 - Scope-based permission filtering
+- Permission assignment principle: users can only assign permissions they themselves have
+- Four-tier staff authorization: Superuser, Global Staff, Central Staff, Scoped Staff
 
 ---
 
@@ -217,6 +221,10 @@
 ### Sidebar System
 - **Resolver-driven discovery** of valid URL candidates
 - **Auto-discovery** of list views from URL patterns
+- **Permission-based visibility** — each sidebar item requires the user to have the associated view permission
+- **Permission inference** — for class-based views, inferred from model (`app.view_model`); for function-based views, inferred from URL namespace and name pattern (`app:view_list` → `app.view_view`)
+- **Explicit permission decorators** — `sidebar_permissions` and `permission_required` on views take precedence
+- **Internal permission tokens** — `__ms_user_directory__`, `__ms_activity_log__`, `__ms_sections_view__`, and `__ms_authenticated__` for system routes.
 - **Drag-and-drop builder** with cross-pane support
 - **Runtime rendering** from stored JSON tree
 - **User-level reordering** (optional)
@@ -515,8 +523,10 @@ Provides to all templates:
 - **URL resolver scanning** for list views
 - **Name-based exclusion** (login, logout, modal, delete, etc.)
 - **Permission filtering** — only show routes user can access
+- **Permission inference** from model metadata, URL namespace/name patterns, and explicit decorators
 - **Auto-grouping** by app label
 - **Custom groups** via `EXTRA_ITEMS` config
+- **Internal tokens** — system routes use `__ms_*` tokens resolved by `user_matches_permission_token()`
 
 ### Section Discovery
 - Model registry for dynamic sections
@@ -585,5 +595,5 @@ Auto-handles:
 
 ---
 ```markdown
-*Generated from codebase analysis — reflects package version 1.20.4b0*
+*Generated from codebase analysis — reflects package version 2.0.3*
 ```

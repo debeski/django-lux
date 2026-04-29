@@ -21,7 +21,7 @@ The setup wizard lives at `/sys/setup/` and is only intended for the initial sys
 The wizard currently runs in five steps:
 
 1. Identity
-   This step sets language-keyed system names, logo, and favicon. It also includes the JSON setup import control, which can prefill the wizard from a previously exported Microsys setup file.
+   This step sets language-keyed system names (a JSON dict such as `{"en": "System", "ar": "النظام"}`), logo, and favicon. It also includes the JSON setup import control, which can prefill the wizard from a previously exported Microsys setup file.
 
 2. Localization
    This step manages language-keyed system names, the explicit language catalog, default language, user language override policy, and the translation matrix editor. English and Arabic are built in; custom languages are available to users only after an admin adds them here.
@@ -74,6 +74,7 @@ Important behaviors:
 
 - the builder uses discovered URLs instead of old suffix-only assumptions
 - hidden microsys, Django admin, and health-check routes are excluded from the public navigation catalog
+- **sidebar items are only visible to users who have the required view permission** — there is no implicit staff access; each item's permission is inferred from the model, URL pattern, or explicit decorator
 - icons, labels, and grouping can be curated in the inspector
 - the global Home URL is now independent from sidebar structure
 - runtime user reordering works as a personal override layered on top of the system base tree when reorder is enabled

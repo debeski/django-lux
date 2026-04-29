@@ -57,6 +57,7 @@ from django.urls import reverse
 from django.core.cache import cache
 from django.contrib.auth.hashers import identify_hasher
 import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from microsys.models import Scope, Section, SystemSettings
@@ -815,6 +816,43 @@ class TwoFactorSecurityViewTests(TestCase):
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.totp_secret, before_secret)
         self.assertEqual(self.user.profile.backup_codes, before_codes)
+
+    def test_setup_totp_uses_configured_system_name_as_issuer(self):
+        captured = {}
+
+        class FakeTOTP:
+            def __init__(self, secret):
+                self.secret = secret
+
+            def provisioning_uri(self, name, issuer_name):
+                captured['name'] = name
+                captured['issuer_name'] = issuer_name
+                return 'otpauth://totp/test'
+
+        class FakeQr:
+            def save(self, buffer, format):
+                buffer.write(b'png')
+
+        fake_pyotp = SimpleNamespace(
+            random_base32=lambda: 'JBSWY3DPEHPK3PXP',
+            totp=SimpleNamespace(TOTP=FakeTOTP),
+        )
+        fake_qrcode = SimpleNamespace(make=lambda uri: FakeQr())
+
+        with patch('microsys.views.twofa.pyotp', fake_pyotp), \
+             patch('microsys.views.twofa.qrcode', fake_qrcode), \
+             patch('microsys.views.twofa.get_system_config', return_value={
+                 'identity': {'display_name': 'Configured Portal'}
+             }):
+            response = self.client.post(
+                reverse('setup_totp'),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured['name'], self.user.email)
+        self.assertEqual(captured['issuer_name'], 'Configured Portal')
+        self.assertNotEqual(captured['issuer_name'], 'FineStor')
 
     def test_send_otp_no_longer_prints_live_codes(self):
         with patch('microsys.views.twofa.send_mail', return_value=1), \

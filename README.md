@@ -99,11 +99,11 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 - Onboarding and runtime configuration:
   first-launch setup wizard, Options view, runtime System Settings modal, source-tabbed translation overrides, setup import/export, language/theme defaults, and a global Home destination.
 - User and security operations:
-  interactive user wizard, grouped translated permissions, three-tier staff authorization (superuser, Global Staff, Central Staff, Scoped Staff), profile management, multiple 2FA flows, backup codes, and runtime preference persistence.
+  interactive user wizard, grouped translated permissions, four-tier staff authorization (superuser, Global Staff, Central Staff, Scoped Staff), permission-based sidebar visibility, profile management, multiple 2FA flows, backup codes, and runtime preference persistence.
 - Generic CRUD infrastructure:
   dynamic sections, AJAX-driven modal CRUD, automatic form/table/filter discovery, context-menu actions, and reusable event dispatch.
 - Navigation and UI infrastructure:
-  resolver-driven sidebar builder, runtime tree rendering, optional user-level reordering, configurable sidebar toolbar visibility, a shared theme registry, tutorial overlays, theme-aware system surfaces, and template injection hooks.
+  resolver-driven sidebar builder with permission-based visibility, runtime tree rendering, optional user-level reordering, configurable sidebar toolbar visibility, a shared theme registry, tutorial overlays, theme-aware system surfaces, and template injection hooks.
 - Data movement and productivity helpers:
   universal file download, Excel export, smart autofill, sticky-form cloning, and generic list/filter helpers.
 - Audit and governance:

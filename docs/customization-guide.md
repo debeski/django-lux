@@ -60,6 +60,17 @@ For sidebar behavior defaults, the code-owned `MICROSYS_CONFIG["sidebar"]` layer
 
 Those defaults are then layered with runtime System Settings edits in the normal configuration flow.
 
+### Sidebar Permission Enforcement
+
+Sidebar items are only visible to users who have the required view permission. There is no implicit staff fallback. Permissions are inferred automatically:
+
+- **Class-based views**: `app_label.view_model_name` from the model.
+- **Function-based views**: `app_label.view_model_name` from URL namespace and name pattern (e.g., `documents:file_list` → `documents.view_file`).
+- **Explicit decorators**: `sidebar_permissions` or `permission_required` on the view take precedence.
+- **System routes**: use internal tokens like `__ms_user_directory__`, `__ms_activity_log__`, and `__ms_sections_view__`; Options uses `__ms_authenticated__`.
+
+If a user lacks the required permission, the sidebar item is hidden. Ensure staff users are granted the appropriate `app.view_model` permissions.
+
 The system config layer now also supports governed theme exposure and titlebar layout defaults:
 
 - `allowed_themes`: list of shipped theme slugs that remain selectable at runtime
