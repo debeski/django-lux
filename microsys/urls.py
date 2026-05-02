@@ -10,7 +10,11 @@ urlpatterns = [
     # Auth URLs (Django defaults - no prefix needed when mounted at root)
     path('accounts/login/', views.CustomLoginView.as_view(), name='login'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('accounts/register/', views.register_view, name='register'),
+    path('accounts/register/sent/', views.register_sent_view, name='register_sent'),
+    path('accounts/register/verify/<str:token>/', views.register_verify_view, name='register_verify'),
     path('accounts/profile/', views.user_profile, name='user_profile'),
+    path('accounts/profile/sessions/<str:session_key>/revoke/', views.revoke_profile_session, name='revoke_profile_session'),
     path('accounts/profile/edit/<str:pk>/modal/', views.DynamicModalManagerView.as_view(
         model=views.User,
         form_class=views.UserProfileEditForm,
@@ -22,6 +26,9 @@ urlpatterns = [
     path('sys/setup/', views.system_setup_view, name='system_setup'),
     path('sys/settings/export/', views.export_system_settings_view, name='system_settings_export'),
     path('sys/users/', views.UserListView.as_view(), name='manage_users'),
+    path('sys/registrations/', views.pending_registrations_view, name='pending_registrations'),
+    path('sys/registrations/<int:pk>/approve/', views.approve_registration_view, name='approve_registration'),
+    path('sys/registrations/<int:pk>/reject/', views.reject_registration_view, name='reject_registration'),
 
     # User Modal CRUD (dedicated route with custom form)
     path('sys/modals/users/', views.DynamicModalManagerView.as_view(

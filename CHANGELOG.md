@@ -4,6 +4,32 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.1.0
+
+- **Public Registration Playground**: Added core public registration feature (disabled by default) with email-first signup, verification tokens, activation modes (`auto_login_after_verify` and `verified_pending_approval`), and superuser approval/rejection workflows. Includes provenance badges on user profiles and integration with Microsys mail delivery configuration.
+- **Optional SSO v1 Scaffolding**: Implemented separate provider and client packages under `optional_packages/` as `django-microsys-sso` and `django-microsys-sso-client`. OIDC-only with cross-platform flat claims (`microsys_sso_role`, `microsys_sso_client_id`) for generic PHP/.NET/JS/Java/Go/mobile/desktop clients.
+- **Microsys Email Delivery Configuration**: Added `SystemSettings.email_config` with `env` and `encrypted_db` modes for SMTP configuration. Supports secure secret storage via `cryptography`, export/import redaction, and gates public registration and email 2FA on mail readiness.
+- **Unified Login 2FA Challenge**: Consolidated TOTP, email OTP, and backup code entry into a single input field. Email OTP requires explicit user request to send; authenticator codes and backup codes work directly.
+- **Runtime Sidebar Controls**: Added `sidebar_config.enabled` to completely disable sidebar rendering and related UI controls. Added `sidebar_config.collapse_mode` with `locked_expanded` option that hides the desktop collapse toggle without reserving space.
+- **Signed-In Devices Management**: Added user profile view of active Django sessions (device, IP, last seen, expiry) with POST-only session revocation for non-current devices.
+- **Docker SMTP Relay**: Generated Docker projects now route email through an internal `smtp-relay` sidecar that joins both public and internal networks, keeping `web` and `celery` containers isolated while enabling upstream SMTP egress.
+- **Global Staff vs Central Staff Tiers**: Implemented `manage_scopes` permission to distinguish Global Staff (can manage scopes and all users) from Central Staff (scopeless-only user management). Added tier-based enforcement in user creation, editing, and queryset filtering.
+- **Table Platform Hardening**: Microsys-managed tables now respect `Meta.microsys_table`, `Meta.microsys_density`, `Meta.microsys_per_page`, `Meta.microsys_per_page_options`, and `Meta.microsys_actions`. Stock host tables auto-capture into the Microsys renderer with rounded corner clipping fixes.
+- **Options Security & UX**: Restricted diagnostics to superusers and Global Staff only. Fixed theme persistence without sidebar JS dependency. Modernized System Settings card styling with dark-theme action buttons and split-step modal save behavior.
+- **Security Hardening**: MSRP-1 enforcement for modal CRUD, sections, user management, activity log, and 2FA mutators. Backend backup codes now hashed at rest. POST-only enforcement for 2FA state changes.
+- **Theme & UI Polish**: Dark/retro/gothic/neon titlebar sidebar toggle transparency fixes. Non-primary button contrast improvements across all themes. Table card corner clipping fixes. Options and System Setup action button dark-theme styling.
+
+## v2.0.3
+
+- **Scan Button Event Isolation**: Stopped clicks and pointer events on the ScanLink button from bubbling into the archive file drop zone, preventing accidental native file-picker opens when starting a scan.
+- **Inline Scan Status Feedback**: Added per-widget status updates while a scan is running, restored the original file-widget metadata after completion/reset, and surfaced a specific stalled-helper message for long-running scan jobs.
+- **Scanned PDF Filename Stability**: Switched generated scan filenames to timestamped `scanned-document-...pdf` names instead of deriving names from the input field id/name.
+- **Scan Timeout Follow-Up**: Passed an explicit 5-minute timeout to the ScanLink result wait so stalled scanner/helper states fail with a clearer client-side message.
+
+## v2.0.2
+
+- **Packaging Republish**: Published a `2.0.2` package/version metadata update after `2.0.1`. The PyPI wheel contents are otherwise unchanged from `2.0.1`.
+
 ## v2.0.1
 
 - **REST-First ScanLink Helper**: Refactored the shared ScanLink browser helper around the loopback REST contract so form pages probe helper health, start a scan job, poll status, and fetch the finished PDF without depending on Socket.IO.

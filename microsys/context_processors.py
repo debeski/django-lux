@@ -275,15 +275,18 @@ def microsys_context(request):
     context['sidebar_auto_items'] = navigation.get('auto_items', [])
     context['sidebar_extra_groups'] = navigation.get('extra_groups', [])
     sidebar_runtime_config = normalize_sidebar_behavior(final_config.get('sidebar', {}))
+    sidebar_enabled = bool(sidebar_runtime_config.get('enabled', True))
+    context['sidebar_enabled'] = sidebar_enabled
     context['sidebar_theme_picker_enabled'] = bool(
-        final_config.get('allow_user_theme_override', True) and len(allowed_theme_names) > 1
+        sidebar_enabled and final_config.get('allow_user_theme_override', True) and len(allowed_theme_names) > 1
     )
     context['language_picker_enabled'] = bool(
         final_config.get('allow_user_language_override', True) and len(languages) > 1
     )
-    context['sidebar_density_picker_enabled'] = bool(sidebar_runtime_config.get('allow_user_density', True))
-    context['sidebar_reorder_enabled'] = bool(sidebar_runtime_config.get('enable_reorder', True))
+    context['sidebar_density_picker_enabled'] = bool(sidebar_enabled and sidebar_runtime_config.get('allow_user_density', True))
+    context['sidebar_reorder_enabled'] = bool(sidebar_enabled and sidebar_runtime_config.get('enable_reorder', True))
     context['sidebar_has_sections_manager'] = bool(
+        sidebar_enabled and
         request.user.is_authenticated and
         has_section_models() and
         context['can_view_sections']

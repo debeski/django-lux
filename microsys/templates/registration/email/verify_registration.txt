@@ -1,0 +1,5 @@
+Verify your account for {{ system_name }}:
+
+{{ verify_url }}
+
+This link expires automatically. If you did not request this account, ignore this email.

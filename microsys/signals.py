@@ -295,7 +295,8 @@ def create_user_profile(sender, instance, created, **kwargs):
         
         from .models import ScopeSettings, Scope
         settings_obj = ScopeSettings.load()
-        if settings_obj.is_enabled and getattr(settings_obj, 'auto_create_user_scope', False):
+        skip_scope = bool(getattr(instance, '_microsys_public_registration', False))
+        if not skip_scope and settings_obj.is_enabled and getattr(settings_obj, 'auto_create_user_scope', False):
             scope_name = instance.username
             scope, _ = Scope.objects.get_or_create(name=scope_name)
             profile.scope = scope

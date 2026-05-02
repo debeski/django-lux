@@ -3,8 +3,22 @@ set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-# Auto-update decrypter image before running
-docker pull debeski/decrypter:compose >/dev/null 2>&1 || true
+# Check for --update flag to pull latest decrypter image
+if [[ "${1:-}" == "--update" ]]; then
+    # Show current version from image's VERSION file
+    echo "=== Current Decrypter Version ==="
+    docker run --rm --entrypoint cat debeski/decrypter:compose /app/VERSION 2>/dev/null || echo "  (not present locally)"
+
+    echo ""
+    echo "Pulling latest decrypter image..."
+    docker pull debeski/decrypter:compose
+
+    echo ""
+    echo "=== Installed Version ==="
+    docker run --rm --entrypoint cat debeski/decrypter:compose /app/VERSION
+
+    exit 0
+fi
 
 docker run -it --rm \
   -v "${script_dir}:${script_dir}" \

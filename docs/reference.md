@@ -25,17 +25,63 @@ Generated project baseline:
 | `python manage.py microsys_setup --no-migrate` | Skip `makemigrations` and `migrate`. |
 | `python manage.py microsys_check` | Validate apps, middleware, context processors, URLs, and Crispy settings. |
 
+## Optional SSO Packages
+
+| Package | Purpose |
+| --- | --- |
+| `django-microsys-sso` | Optional OIDC provider plugin for a standalone Microsys SSO deployment. |
+| `django-microsys-sso-client` | Lightweight Django client SDK for connected projects; does not depend on `django-microsys`. |
+
+The provider is cross-platform OIDC. Non-Django projects should use their normal
+OIDC library and the provider discovery document:
+
+```text
+https://sso.example.com/o/.well-known/openid-configuration/
+```
+
+Portable client role claim: `microsys_sso_role`.
+
+Provider integration is explicit:
+
+```python
+from microsys_sso.settings import microsys_sso_settings
+
+microsys_sso_settings(globals())
+```
+
+Client integration is explicit:
+
+```python
+from microsys_sso_client.settings import configure_microsys_sso
+
+configure_microsys_sso(
+    globals(),
+    issuer_url="https://sso.example.com",
+    client_id="client-id",
+    client_secret="client-secret",
+)
+```
+
+See [Optional SSO Packages](sso.md), [Public Registration Playground](registration.md), and [MSRP-1 Security Standard](security-msrp-1.md).
+
 ## Core Routes
 
 | Route | Purpose |
 | --- | --- |
 | `/accounts/login/` | Login screen |
 | `/accounts/logout/` | Logout |
+| `/accounts/register/` | Public registration form; returns 404 unless enabled |
+| `/accounts/register/sent/` | Generic registration email-sent response |
+| `/accounts/register/verify/<token>/` | Email verification endpoint for hashed-token registrations |
 | `/accounts/profile/` | User profile |
+| `/accounts/profile/sessions/<session_key>/revoke/` | POST-only revocation for one of the current user’s signed-in sessions |
 | `/health/` | Django health-check endpoint for readiness checks |
 | `/sys/setup/` | First-launch system setup |
 | `/sys/options/` | Options view |
 | `/sys/users/` | User management |
+| `/sys/registrations/` | Superuser-only pending public registration approvals |
+| `/sys/registrations/<int:pk>/approve/` | POST-only public registration approval |
+| `/sys/registrations/<int:pk>/reject/` | POST-only public registration rejection |
 | `/sys/reset_password/<int:pk>/` | Staff password-reset endpoint for a target user |
 | `/sys/logs/` | Activity log |
 | `/sys/logs/<int:pk>/details/` | Activity log detail modal |
@@ -107,14 +153,26 @@ Common preference keys:
 
 Common runtime sidebar config keys in `get_system_config()["sidebar"]`:
 
+- `enabled`
 - `home_url_name`
 - `entries`
 - `enable_reorder`
 - `show_toolbar`
+- `show_icons`
+- `density`
+- `allow_user_density`
+- `collapse_mode`
+
+When `enabled` is `false`, Microsys does not render the runtime sidebar, ignores
+sidebar toolbar/reorder/density controls, and lets the main layout expand.
 
 Common runtime feature flags in `get_system_config()`:
 
 - `email_2fa` — Enable email-based 2FA (set via `MICROSYS_CONFIG['email_2fa']` or the System Settings UI)
+- `email_config` — Redacted Microsys email delivery config. Supports `env` and `encrypted_db`; exports never include SMTP secrets.
+- `public_registration_enabled` — Enable disabled-by-default public signup.
+- `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
+- `registration_throttle_enabled` — Enable cache throttles for public signup.
 - `default_table_density` — System default table density (`balanced`, `dense`, or `roomy`)
 
 Theme/runtime UI notes:

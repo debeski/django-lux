@@ -833,14 +833,20 @@
 }
 
 /* 14. Sidebar Toggle */
-:root.theme-dark .sidebar-toggle {
+:root.theme-dark .titlebar .sidebar-toggle {
     color: #e9ecef !important;
-    background-color: rgba(255, 255, 255, 0.06) !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
-:root.theme-dark .sidebar-toggle:hover {
-    background-color: rgba(255,255,255,0.12) !important;
+
+:root.theme-dark .titlebar .sidebar-toggle:hover,
+:root.theme-dark .titlebar .sidebar-toggle:focus,
+:root.theme-dark .titlebar .sidebar-toggle:focus-visible {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    border-color: transparent !important;
     color: #fff !important;
+    box-shadow: none !important;
 }
 
 /* 15. Login Screen Overrides ({% static 'users/css/login.css' %}) */

@@ -53,9 +53,10 @@ from django.test import TestCase, Client, RequestFactory
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.sessions.models import Session
 from django.urls import reverse
 from django.core.cache import cache
-from django.contrib.auth.hashers import identify_hasher
+from django.contrib.auth.hashers import check_password, identify_hasher, make_password
 import json
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -100,6 +101,26 @@ class GeneralViewsTests(TestCase):
         self.assertIn('django_version', response.context)
         self.assertIn('python_version', response.context)
 
+    def test_options_email_diagnostics_only_render_when_email_features_enabled(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.email_2fa = False
+        settings_obj.public_registration_enabled = False
+        settings_obj.save()
+
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context.get('email_service'))
+        self.assertNotContains(response, '<th>Email:</th>', html=True)
+
+        settings_obj.email_2fa = True
+        settings_obj.save()
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.context.get('email_service'))
+        self.assertContains(response, '<th>Email:</th>', html=True)
+
     def test_options_view_hides_runtime_diagnostics_for_non_staff_users(self):
         regular_user = User.objects.create_user(
             username='viewer',
@@ -115,6 +136,51 @@ class GeneralViewsTests(TestCase):
         self.assertFalse(response.context['show_system_diagnostics'])
         self.assertNotContains(response, 'bi-info-circle')
         self.assertNotContains(response, '?step=0')
+
+    def test_options_view_hides_diagnostics_for_central_and_scoped_staff(self):
+        central_staff = User.objects.create_user(
+            username='central',
+            email='central@example.com',
+            password='centralpass123',
+            is_staff=True,
+        )
+        scoped_staff = User.objects.create_user(
+            username='scoped',
+            email='scoped@example.com',
+            password='scopedpass123',
+            is_staff=True,
+        )
+        scoped_staff.profile.scope = Scope.objects.create(name='Scoped Office')
+        scoped_staff.profile.save(update_fields=['scope'])
+
+        for user, password in ((central_staff, 'centralpass123'), (scoped_staff, 'scopedpass123')):
+            self.client.logout()
+            self.client.login(username=user.username, password=password)
+            response = self.client.get(reverse('options_view'))
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(response.context['show_system_diagnostics'])
+            self.assertNotIn('version', response.context)
+            self.assertNotIn('python_version', response.context)
+
+    def test_options_view_shows_diagnostics_for_global_staff(self):
+        global_staff = User.objects.create_user(
+            username='global',
+            email='global@example.com',
+            password='globalpass123',
+            is_staff=True,
+        )
+        content_type = ContentType.objects.get(app_label='microsys', model='profile')
+        permission = Permission.objects.get(content_type=content_type, codename='manage_scopes')
+        global_staff.user_permissions.add(permission)
+
+        self.client.logout()
+        self.client.login(username='global', password='globalpass123')
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['show_system_diagnostics'])
+        self.assertIn('version', response.context)
+        self.assertIn('python_version', response.context)
 
     def test_options_view_reads_decrypter_version_from_env(self):
         with patch.dict('os.environ', {'DECRYPTER_VERSION': '2.4.1'}, clear=False):
@@ -143,6 +209,9 @@ class GeneralViewsTests(TestCase):
         payload = json.loads(response.content)
         self.assertIn('data-ms-wizard-initial-step="4"', payload['html'])
         self.assertIn('?step=4', payload['html'])
+        self.assertIn('ms-btn-submit', payload['html'])
+        self.assertNotIn('ms-btn-next', payload['html'])
+        self.assertNotIn('ms-btn-prev', payload['html'])
 
     def test_system_settings_export_downloads_setup_payload_for_superuser(self):
         settings_obj = SystemSettings.load()
@@ -169,6 +238,45 @@ class GeneralViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertIn('class="microsys-form ms-system-setup-form"', payload['html'])
+
+    def test_disabled_sidebar_hides_titlebar_toggle(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.sidebar_config = {
+            'enabled': False,
+            'entries': [],
+            'show_toolbar': False,
+            'enable_reorder': False,
+            'allow_user_density': False,
+            'collapse_mode': 'hidden',
+        }
+        settings_obj.save()
+
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'id="sidebarToggle"')
+        self.assertContains(response, 'titlebar__side--empty')
+        self.assertNotContains(response, 'titlebar__side--has-toggle')
+
+    def test_locked_expanded_sidebar_hides_desktop_toggle_without_reserved_space(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.sidebar_config = {
+            'enabled': True,
+            'entries': [],
+            'show_toolbar': False,
+            'enable_reorder': False,
+            'allow_user_density': False,
+            'collapse_mode': 'locked_expanded',
+        }
+        settings_obj.save()
+
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="sidebarToggle"')
+        self.assertContains(response, 'sidebar-toggle--desktop-disabled')
+        self.assertContains(response, 'titlebar__side--mobile-toggle')
+        self.assertNotContains(response, 'titlebar__side--has-toggle')
 
     def test_system_setup_view_requires_superuser(self):
         """Test that system_setup_view requires superuser status."""
@@ -855,13 +963,32 @@ class TwoFactorSecurityViewTests(TestCase):
         self.assertNotEqual(captured['issuer_name'], 'FineStor')
 
     def test_send_otp_no_longer_prints_live_codes(self):
-        with patch('microsys.views.twofa.send_mail', return_value=1), \
+        with patch('microsys.views.twofa.send_microsys_mail', return_value=1), \
              patch('builtins.print') as mocked_print:
             from microsys.views.twofa import send_otp
 
             self.assertTrue(send_otp(None, self.user, intent='login'))
 
         mocked_print.assert_not_called()
+
+    def test_email_otp_is_stored_hashed_in_cache(self):
+        captured = {}
+
+        def fake_send_microsys_mail(subject, body, recipients, fail_silently=False):
+            captured['body'] = body
+            return 1
+
+        with patch('microsys.views.twofa.send_microsys_mail', side_effect=fake_send_microsys_mail), \
+             patch('microsys.views.twofa._generate_email_otp_code', return_value='123456'):
+            from microsys.views.twofa import send_otp
+
+            self.assertTrue(send_otp(None, self.user, intent='login'))
+
+        cached = cache.get(f'otp_{self.user.pk}_login')
+        self.assertIsNone(cached.get('code'))
+        self.assertTrue(cached.get('code_hash'))
+        identify_hasher(cached['code_hash'])
+        self.assertTrue(check_password('123456', cached['code_hash']))
 
     def test_generated_backup_codes_are_hashed_at_rest(self):
         response = self.client.post(
@@ -901,7 +1028,11 @@ class TwoFactorSecurityViewTests(TestCase):
     def test_verify_otp_rejects_unsafe_next_redirects(self):
         from microsys.models import SystemSettings
 
-        cache.set(f'otp_{self.user.pk}_login', {'code': '123456', 'attempts': 0}, timeout=300)
+        cache.set(
+            f'otp_{self.user.pk}_login',
+            {'code_hash': make_password('123456'), 'attempts': 0},
+            timeout=300,
+        )
         self._prime_pre_2fa_session()
         settings_obj = SystemSettings.load()
         settings_obj.home_url = reverse('user_profile')
@@ -909,8 +1040,93 @@ class TwoFactorSecurityViewTests(TestCase):
 
         response = self.client.post(
             reverse('verify_otp_login'),
-            {'otp_code': '123456', 'method': 'email', 'next': 'https://evil.example/phish'},
+            {'otp_code': '123456', 'next': 'https://evil.example/phish'},
         )
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('user_profile'))
+
+    def test_login_two_factor_does_not_send_email_until_requested(self):
+        self.client.logout()
+
+        with patch('microsys.views.twofa.send_microsys_mail', return_value=1) as mocked_mail:
+            response = self.client.post(reverse('login'), {
+                'username': 'twofa',
+                'password': 'twofapass123',
+            })
+
+        self.assertRedirects(response, reverse('verify_otp_login'), fetch_redirect_response=False)
+        mocked_mail.assert_not_called()
+
+        with patch('microsys.views.twofa.send_microsys_mail', return_value=1) as mocked_mail:
+            response = self.client.post(
+                reverse('resend_otp_login'),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'success')
+        mocked_mail.assert_called_once()
+
+
+class ProfileSessionDeviceTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username='devices',
+            email='devices@example.com',
+            password='devicespass123',
+        )
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save()
+
+    def test_profile_lists_current_signed_in_session(self):
+        client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        client.login(username='devices', password='devicespass123')
+
+        response = client.get(reverse('user_profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Signed-in devices')
+        self.assertContains(response, 'Current session')
+        self.assertContains(response, 'Chrome on Linux')
+
+    def test_profile_falls_back_to_current_session_when_session_row_is_not_decodable(self):
+        from django.utils import timezone
+        from microsys.views.profile import _profile_sessions_for_user
+
+        sessions = _profile_sessions_for_user(
+            self.user,
+            current_session_key='missing-session-row',
+            current_session_data={
+                'microsys_device': {
+                    'user_agent': 'Mozilla/5.0 Chrome/122.0 Linux',
+                    'ip_address': '127.0.0.1',
+                    'first_seen': '2026-05-01T09:00:00+00:00',
+                    'last_seen': '2026-05-01T09:01:00+00:00',
+                },
+            },
+            current_expire_date=timezone.now(),
+        )
+
+        self.assertEqual(len(sessions), 1)
+        self.assertTrue(sessions[0]['is_current'])
+        self.assertEqual(sessions[0]['device_label'], 'Chrome on Linux')
+
+    def test_profile_can_revoke_another_own_session(self):
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        second_client.login(username='devices', password='devicespass123')
+        first_client.get(reverse('user_profile'))
+        second_client.get(reverse('user_profile'))
+        second_session_key = second_client.session.session_key
+
+        response = first_client.post(reverse('revoke_profile_session', args=[second_session_key]))
+
+        self.assertRedirects(response, reverse('user_profile'))
+        self.assertFalse(Session.objects.filter(session_key=second_session_key).exists())
+        second_response = second_client.get(reverse('user_profile'))
+        self.assertEqual(second_response.status_code, 302)

@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import json
 import os
 import re
@@ -16,6 +18,7 @@ from django.db.models.fields.files import FieldFile
 from django.db.models.fields.related import ManyToManyField
 from django.forms import modelform_factory
 from django.http import JsonResponse
+from django.core.mail import EmailMessage, get_connection, send_mail
 from django.utils.module_loading import import_string
 
 from .constants import (
@@ -24,6 +27,8 @@ from .constants import (
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
     LEGACY_HOME_URL,
+    REGISTRATION_ACTIVATION_AUTO_LOGIN,
+    REGISTRATION_ACTIVATION_VALUES,
     SIDEBAR_COLLAPSE_MODE_VALUES,
     SIDEBAR_DENSITY_VALUES,
     TABLE_DENSITY_VALUES,
@@ -91,6 +96,212 @@ def get_secret(secret_name, env_var):
             return secret_file.read().strip()
     except OSError:
         return os.getenv(env_var)
+
+
+EMAIL_CONFIG_MODES = {'env', 'encrypted_db'}
+
+
+def default_email_config():
+    return {
+        'mode': 'env',
+        'host': '',
+        'port': 587,
+        'use_tls': True,
+        'use_ssl': False,
+        'username': '',
+        'default_from_email': '',
+        'encrypted_password': '',
+        'password_configured': False,
+    }
+
+
+def normalize_email_config(value, *, redact_secret=False):
+    config = value if isinstance(value, dict) else {}
+    normalized = default_email_config()
+    mode = str(config.get('mode') or '').strip()
+    if mode in EMAIL_CONFIG_MODES:
+        normalized['mode'] = mode
+    normalized['host'] = str(config.get('host') or '').strip()
+    try:
+        normalized['port'] = int(config.get('port') or normalized['port'])
+    except (TypeError, ValueError):
+        normalized['port'] = 587
+    normalized['use_tls'] = _coerce_import_bool(config.get('use_tls', normalized['use_tls']))
+    normalized['use_ssl'] = _coerce_import_bool(config.get('use_ssl', normalized['use_ssl']))
+    if normalized['use_ssl']:
+        normalized['use_tls'] = False
+    normalized['username'] = str(config.get('username') or '').strip()
+    normalized['default_from_email'] = str(config.get('default_from_email') or '').strip()
+    encrypted_password = str(config.get('encrypted_password') or '').strip()
+    normalized['encrypted_password'] = encrypted_password
+    normalized['password_configured'] = bool(encrypted_password or config.get('password_configured'))
+    if redact_secret:
+        normalized.pop('encrypted_password', None)
+    return normalized
+
+
+def _email_secret_seed():
+    configured_key = (
+        os.getenv('MICROSYS_EMAIL_SECRET_KEY')
+        or os.getenv('MICROSYS_SECRET_KEY')
+        or getattr(settings, 'MICROSYS_EMAIL_SECRET_KEY', '')
+        or getattr(settings, 'SECRET_KEY', '')
+    )
+    return str(configured_key or 'microsys-email-secret-dev-key')
+
+
+def _email_fernet():
+    from cryptography.fernet import Fernet
+
+    digest = hashlib.sha256(_email_secret_seed().encode('utf-8')).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def encrypt_email_secret(raw_secret):
+    raw_secret = str(raw_secret or '')
+    if not raw_secret:
+        return ''
+    return _email_fernet().encrypt(raw_secret.encode('utf-8')).decode('utf-8')
+
+
+def decrypt_email_secret(encrypted_secret):
+    encrypted_secret = str(encrypted_secret or '').strip()
+    if not encrypted_secret:
+        return ''
+    try:
+        return _email_fernet().decrypt(encrypted_secret.encode('utf-8')).decode('utf-8')
+    except Exception:
+        return ''
+
+
+def get_microsys_email_config(*, include_secret=False):
+    try:
+        SystemSettings = apps.get_model('microsys', 'SystemSettings')
+        raw_stored_config = getattr(SystemSettings.load(), 'email_config', {})
+        stored_config = normalize_email_config(raw_stored_config)
+    except Exception:
+        raw_stored_config = {}
+        stored_config = default_email_config()
+
+    if stored_config.get('mode') == 'encrypted_db':
+        config = {
+            'mode': 'encrypted_db',
+            'backend': 'django.core.mail.backends.smtp.EmailBackend',
+            'host': stored_config.get('host', ''),
+            'port': stored_config.get('port', 587),
+            'use_tls': bool(stored_config.get('use_tls', True)),
+            'use_ssl': bool(stored_config.get('use_ssl', False)),
+            'username': stored_config.get('username', ''),
+            'password': '',
+            'from_email': stored_config.get('default_from_email', ''),
+            'password_configured': bool(stored_config.get('encrypted_password')),
+        }
+        if include_secret:
+            config['password'] = decrypt_email_secret(stored_config.get('encrypted_password'))
+        return config
+
+    backend = getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+    stored_hints = normalize_email_config(raw_stored_config, redact_secret=True)
+    hint_keys = set(raw_stored_config.keys()) if isinstance(raw_stored_config, dict) else set()
+    return {
+        'mode': 'env',
+        'backend': backend,
+        'host': stored_hints.get('host') if 'host' in hint_keys else (getattr(settings, 'EMAIL_HOST', '') or ''),
+        'port': stored_hints.get('port') if 'port' in hint_keys else getattr(settings, 'EMAIL_PORT', None),
+        'use_tls': bool(stored_hints.get('use_tls')) if 'use_tls' in hint_keys else bool(getattr(settings, 'EMAIL_USE_TLS', False)),
+        'use_ssl': bool(stored_hints.get('use_ssl')) if 'use_ssl' in hint_keys else bool(getattr(settings, 'EMAIL_USE_SSL', False)),
+        'username': stored_hints.get('username') if 'username' in hint_keys else (getattr(settings, 'EMAIL_HOST_USER', '') or ''),
+        'password': getattr(settings, 'EMAIL_HOST_PASSWORD', '') if include_secret else '',
+        'from_email': stored_hints.get('default_from_email') if 'default_from_email' in hint_keys else (getattr(settings, 'DEFAULT_FROM_EMAIL', '') or ''),
+        'password_configured': bool(getattr(settings, 'EMAIL_HOST_PASSWORD', '')),
+        'ui_hints': stored_hints,
+    }
+
+
+def get_email_service_status():
+    """
+    Report whether Microsys-owned email flows are configured without touching
+    SMTP networks or returning secrets.
+    """
+    email_config = get_microsys_email_config(include_secret=False)
+    backend = email_config.get('backend') or 'django.core.mail.backends.smtp.EmailBackend'
+    from_email = email_config.get('from_email') or ''
+    debug = bool(getattr(settings, 'DEBUG', False))
+    host = email_config.get('host') or ''
+    port = email_config.get('port')
+    mode = email_config.get('mode') or 'env'
+    local_backends = {
+        'django.core.mail.backends.console.EmailBackend',
+        'django.core.mail.backends.locmem.EmailBackend',
+        'django.core.mail.backends.filebased.EmailBackend',
+    }
+
+    if backend in local_backends and debug:
+        return {
+            'available': True,
+            'configured': True,
+            'backend': backend,
+            'from_email': from_email,
+            'mode': mode,
+            'reason': 'local_debug_backend',
+        }
+
+    if backend == 'django.core.mail.backends.smtp.EmailBackend':
+        password_ok = True
+        if mode == 'encrypted_db' and email_config.get('username'):
+            password_ok = bool(email_config.get('password_configured'))
+        configured = bool(host and port and from_email and password_ok)
+        missing_reason = 'smtp_missing_host_port_or_from_email'
+        if mode == 'encrypted_db' and not password_ok:
+            missing_reason = 'encrypted_db_missing_password'
+        return {
+            'available': configured,
+            'configured': configured,
+            'backend': backend,
+            'from_email': from_email,
+            'mode': mode,
+            'detail': f"{host}:{port}" if host and port else '',
+            'reason': 'smtp_configured' if configured else missing_reason,
+        }
+
+    configured = bool(from_email)
+    return {
+        'available': configured,
+        'configured': configured,
+        'backend': backend,
+        'from_email': from_email,
+        'mode': mode,
+        'reason': 'custom_backend_configured' if configured else 'missing_default_from_email',
+    }
+
+
+def send_microsys_mail(subject, message, recipient_list, *, from_email=None, fail_silently=False):
+    """Send Microsys-owned transactional email through the selected email mode."""
+    email_config = get_microsys_email_config(include_secret=True)
+    effective_from = from_email or email_config.get('from_email') or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+
+    backend = email_config.get('backend') or getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+    if backend != 'django.core.mail.backends.smtp.EmailBackend':
+        return send_mail(subject, message, effective_from, recipient_list, fail_silently=fail_silently)
+
+    connection = get_connection(
+        backend=backend,
+        host=email_config.get('host') or None,
+        port=email_config.get('port') or None,
+        username=email_config.get('username') or None,
+        password=email_config.get('password') or None,
+        use_tls=bool(email_config.get('use_tls')),
+        use_ssl=bool(email_config.get('use_ssl')),
+        fail_silently=fail_silently,
+    )
+    email = EmailMessage(
+        subject=subject,
+        body=message,
+        from_email=effective_from,
+        to=list(recipient_list or []),
+        connection=connection,
+    )
+    return email.send(fail_silently=fail_silently)
 
 
 def is_sensitive_activity_field_name(field_name):
@@ -621,6 +832,13 @@ def build_config_groups(config, current_language=None):
         'security': {
             'public_root': bool(config.get('public_root', False)),
             'email_2fa': bool(config.get('email_2fa', False)),
+            'email_config': normalize_email_config(config.get('email_config', {}), redact_secret=True),
+            'public_registration_enabled': bool(config.get('public_registration_enabled', False)),
+            'registration_activation_mode': config.get(
+                'registration_activation_mode',
+                REGISTRATION_ACTIVATION_AUTO_LOGIN,
+            ),
+            'registration_throttle_enabled': bool(config.get('registration_throttle_enabled', True)),
         },
         'navigation': {
             'home_url': config.get('home_url') or DEFAULT_HOME_URL,
@@ -701,6 +919,7 @@ def normalize_titlebar_config(titlebar_config):
 
 def default_sidebar_config():
     return {
+        'enabled': True,
         'home_url_name': None,
         'entries': [],
         'enable_reorder': True,
@@ -715,6 +934,7 @@ def default_sidebar_config():
 def normalize_sidebar_behavior(sidebar_config):
     config = sidebar_config if isinstance(sidebar_config, dict) else {}
     normalized = default_sidebar_config()
+    normalized['enabled'] = bool(config.get('enabled', normalized['enabled']))
     normalized['home_url_name'] = config.get('home_url_name') if config.get('home_url_name') else None
     if isinstance(config.get('entries'), list):
         normalized['entries'] = [entry for entry in config.get('entries', []) if isinstance(entry, dict)]
@@ -722,6 +942,11 @@ def normalize_sidebar_behavior(sidebar_config):
     normalized['show_toolbar'] = bool(config.get('show_toolbar', normalized['show_toolbar']))
     normalized['show_icons'] = bool(config.get('show_icons', normalized['show_icons']))
     normalized['allow_user_density'] = bool(config.get('allow_user_density', normalized['allow_user_density']))
+
+    if not normalized['enabled']:
+        normalized['show_toolbar'] = False
+        normalized['enable_reorder'] = False
+        normalized['allow_user_density'] = False
 
     density = config.get('density')
     if density in SIDEBAR_DENSITY_VALUES:
@@ -803,6 +1028,10 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'default_table_density',
     'email_2fa',
     'public_root',
+    'public_registration_enabled',
+    'registration_activation_mode',
+    'registration_throttle_enabled',
+    'email_config',
     'languages',
     'translations_override',
     'sidebar_config',
@@ -841,6 +1070,8 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_system_names(value)
         elif field_name == 'sidebar_config':
             data[field_name] = normalize_sidebar_behavior(value)
+        elif field_name == 'email_config':
+            data[field_name] = normalize_email_config(value, redact_secret=True)
         elif field_name == 'titlebar_config':
             data[field_name] = normalize_titlebar_config(value)
         elif field_name == 'allowed_themes':
@@ -878,6 +1109,8 @@ def normalize_system_settings_import_payload(payload):
         normalized['translations_override'] = {}
     if 'sidebar_config' in normalized:
         normalized['sidebar_config'] = normalize_sidebar_behavior(normalized['sidebar_config'])
+    if 'email_config' in normalized:
+        normalized['email_config'] = normalize_email_config(normalized['email_config'], redact_secret=True)
     if 'titlebar_config' in normalized:
         normalized['titlebar_config'] = normalize_titlebar_config(normalized['titlebar_config'])
     if 'allowed_themes' in normalized:
@@ -890,11 +1123,18 @@ def normalize_system_settings_import_payload(payload):
         normalized['default_language'] = _normalize_language_code(normalized['default_language']) or 'en'
     if 'home_url' in normalized:
         normalized['home_url'] = str(normalized['home_url'] or '').strip()
+    if (
+        'registration_activation_mode' in normalized
+        and normalized['registration_activation_mode'] not in REGISTRATION_ACTIVATION_VALUES
+    ):
+        normalized.pop('registration_activation_mode', None)
     for bool_field in (
         'allow_user_theme_override',
         'allow_user_language_override',
         'email_2fa',
         'public_root',
+        'public_registration_enabled',
+        'registration_throttle_enabled',
     ):
         if bool_field in normalized:
             normalized[bool_field] = _coerce_import_bool(normalized[bool_field])
@@ -928,6 +1168,10 @@ def get_system_config():
         'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
         'public_root': False,
+        'public_registration_enabled': False,
+        'registration_activation_mode': REGISTRATION_ACTIVATION_AUTO_LOGIN,
+        'registration_throttle_enabled': True,
+        'email_config': default_email_config(),
         'languages': deepcopy(DEFAULT_LANGUAGE_CATALOG),
         'translations': {},
         'sidebar': default_sidebar_config(),
@@ -1022,6 +1266,8 @@ def get_system_config():
             db_config['translations'] = sys_settings.translations_override
         if isinstance(getattr(sys_settings, 'sidebar_config', None), dict) and sys_settings.sidebar_config:
             db_config['sidebar'] = sys_settings.sidebar_config
+        if isinstance(getattr(sys_settings, 'email_config', None), dict) and sys_settings.email_config:
+            db_config['email_config'] = normalize_email_config(sys_settings.email_config)
         if (
             isinstance(getattr(sys_settings, 'titlebar_config', None), dict)
             and sys_settings.titlebar_config
@@ -1043,6 +1289,31 @@ def get_system_config():
             and _should_apply_db_override(bool(sys_settings.public_root), default_config['public_root'])
         ):
             db_config['public_root'] = bool(sys_settings.public_root)
+        if (
+            hasattr(sys_settings, 'public_registration_enabled')
+            and _should_apply_db_override(
+                bool(sys_settings.public_registration_enabled),
+                default_config['public_registration_enabled'],
+            )
+        ):
+            db_config['public_registration_enabled'] = bool(sys_settings.public_registration_enabled)
+        if (
+            hasattr(sys_settings, 'registration_activation_mode')
+            and sys_settings.registration_activation_mode in REGISTRATION_ACTIVATION_VALUES
+            and _should_apply_db_override(
+                sys_settings.registration_activation_mode,
+                default_config['registration_activation_mode'],
+            )
+        ):
+            db_config['registration_activation_mode'] = sys_settings.registration_activation_mode
+        if (
+            hasattr(sys_settings, 'registration_throttle_enabled')
+            and _should_apply_db_override(
+                bool(sys_settings.registration_throttle_enabled),
+                default_config['registration_throttle_enabled'],
+            )
+        ):
+            db_config['registration_throttle_enabled'] = bool(sys_settings.registration_throttle_enabled)
     except Exception:
         pass
 
@@ -1111,6 +1382,7 @@ def get_system_config():
         final_config['default_theme'] = final_config['allowed_themes'][0]
     final_config['allow_user_theme_override'] = bool(final_config.get('allow_user_theme_override', True))
     final_config['allow_user_language_override'] = bool(final_config.get('allow_user_language_override', True))
+    final_config['email_config'] = normalize_email_config(final_config.get('email_config', {}))
     if final_config.get('default_table_density') not in TABLE_DENSITY_VALUES:
         final_config['default_table_density'] = default_config['default_table_density']
 
@@ -1390,6 +1662,8 @@ def get_user_linked_models():
     for model in apps.get_models():
         # Exclude the internal microsys profile since it's already auto-created
         if model._meta.app_label == 'microsys' and model.__name__ == 'Profile':
+            continue
+        if getattr(model, 'microsys_auto_create_user_profile', True) is False:
             continue
             
         for field in model._meta.get_fields():

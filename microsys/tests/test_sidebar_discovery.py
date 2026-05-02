@@ -130,6 +130,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
     def test_sanitize_sidebar_config_preserves_sidebar_behavior_flags(self):
         sidebar = {
+            "enabled": False,
             "home_url_name": None,
             "entries": [],
             "enable_reorder": False,
@@ -142,12 +143,30 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         sanitized = sanitize_sidebar_config(sidebar, allow_system_items=True)
 
+        self.assertFalse(sanitized["enabled"])
         self.assertFalse(sanitized["enable_reorder"])
         self.assertFalse(sanitized["show_toolbar"])
         self.assertFalse(sanitized["show_icons"])
         self.assertEqual(sanitized["density"], "roomy")
         self.assertFalse(sanitized["allow_user_density"])
         self.assertEqual(sanitized["collapse_mode"], "hidden")
+
+    def test_build_sidebar_navigation_returns_empty_when_sidebar_disabled(self):
+        with patch("microsys.utils.get_system_config", return_value={
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "enabled": False,
+                "entries": [{"id": "options_view", "url_name": "options_view"}],
+            },
+        }):
+            navigation = build_sidebar_navigation(
+                user=_StubUser(is_authenticated=True, permissions={"__ms_authenticated__"}),
+            )
+
+        self.assertEqual(navigation["entries"], [])
+        self.assertEqual(navigation["auto_items"], [])
+        self.assertEqual(navigation["extra_groups"], [])
 
     @patch("microsys.utils.get_system_config", return_value={"default_language": "en", "translations": {}})
     def test_discovery_can_include_only_configurable_system_items(self, _mock_get_system_config):

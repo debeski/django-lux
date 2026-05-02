@@ -10,8 +10,9 @@ microSYS is a multilingual Django app that gives a project-level system layer fo
 
 ## What microSYS gives you
 
-- A first-launch setup wizard at `/sys/setup/` for identity, explicit language catalog management, translation-matrix overrides, access/security toggles, themes, default table density, global home URL, and sidebar structure, including runtime sidebar-toolbar and user-reordering controls.
+- A first-launch setup wizard at `/sys/setup/` for identity, explicit language catalog management, translation-matrix overrides, access/security toggles, UI-first Microsys email delivery, themes, default table density, global home URL, and sidebar structure, including full sidebar disable, runtime sidebar-toolbar, and user-reordering controls.
 - A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
+- A disabled-by-default public registration playground for email-first local signup with mandatory email verification, Microsys email readiness checks, public-account provenance badges, throttles, and optional approval.
 - A database-backed `SystemSettings` singleton layered over `MICROSYS_CONFIG`, so projects can seed defaults in code and refine them in the UI later.
 - A framework-owned `django_tables2` platform that auto-adopts stock tables, ships built-in pagination and per-page controls, exposes a public `MicrosysTable` base class, and supports per-table `microsys_table`, `microsys_density`, `microsys_per_page`, and `microsys_actions` overrides.
 - A `ScopedModel` base with audit fields, soft-delete behavior, actor tracking, filtered managers, and automatic scope handling.
@@ -70,6 +71,8 @@ That helper prepends the required apps, inserts `django.middleware.locale.Locale
 
 __Proceed to [Getting Started](docs/getting-started.md) if you prefer to wire everything manually.__
 
+Public registration is documented separately at [Public Registration Playground](docs/registration.md). It is disabled by default and is not part of the optional SSO packages.
+
 
 2. Mount `microsys.urls` at project root so the bundled auth and system routes stay at `/accounts/...` and `/sys/...`.
 
@@ -108,6 +111,8 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
   universal file download, Excel export, smart autofill, sticky-form cloning, and generic list/filter helpers.
 - Audit and governance:
   signal-based activity logging, diff capture, masked sensitive fields, deduplicated entries, download/export logging, and scoped visibility.
+- Optional SSO:
+  `django-microsys-sso` and `django-microsys-sso-client` live as separate optional packages for OIDC provider/client deployments without changing core Microsys runtime behavior.
 - Framework-level automation:
   translation patches, scoped-model auto-injection, actor tracking, soft-delete, and config layering across defaults, project settings, and runtime UI.
 
@@ -119,5 +124,7 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 - [Developer Guide](docs/developer-guide.md)
 - [Customization Guide](docs/customization-guide.md)
 - [Reference](docs/reference.md)
+- [MSRP-1 Security Standard](docs/security-msrp-1.md)
+- [Optional SSO Packages](docs/sso.md)
 - [Features](docs/FEATURES.md) — complete feature inventory
 - [Changelog](CHANGELOG.md)

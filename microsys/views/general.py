@@ -22,7 +22,7 @@ from django.utils.module_loading import import_string
 from microsys import __version__
 from microsys.constants import DEFAULT_HOME_URL
 from microsys.translations import get_current_language_code, get_strings
-from microsys.utils import export_system_settings_payload
+from microsys.utils import export_system_settings_payload, get_email_service_status, get_system_config, is_global_staff
 
 try:
     import psutil
@@ -305,18 +305,26 @@ def options_view(request):
     View for system options, accessibility settings, and live system info.
     """
     strings = get_strings(get_current_language_code(request))
-    show_system_diagnostics = bool(request.user.is_staff or request.user.is_superuser)
+    show_system_diagnostics = bool(request.user.is_superuser or is_global_staff(request.user))
 
-    db_service = cache_service = api_service = celery_service = drf_service = None
-    ram_total_gb = ram_used_gb = ram_percent = 0
-    disk_total_gb = disk_used_gb = disk_percent = 0
-    os_info = python_version = django_version = decrypter_version = None
+    diagnostic_context = {}
 
     if show_system_diagnostics:
+        system_config = get_system_config()
+        show_email_service = bool(system_config.get('public_registration_enabled') or system_config.get('email_2fa'))
         db_service = _localize_service_status(_get_database_service(), strings)
         cache_service = _localize_service_status(_get_cache_service(), strings)
         api_service = _localize_service_status(_get_api_service(), strings)
         celery_service = _localize_service_status(_get_celery_service(), strings)
+        email_service = None
+        if show_email_service:
+            email_status = get_email_service_status()
+            email_service = _service_status(
+                'online' if email_status.get('available') else 'offline',
+                detail=email_status.get('backend', ''),
+                note=email_status.get('reason', ''),
+            )
+            email_service = _localize_service_status(email_service, strings)
         drf_service = _get_drf_service()
         os_info = f"{platform.system()} {platform.release()}"
         python_version = sys.version.split()[0]
@@ -339,28 +347,31 @@ def options_view(request):
             ram_total_gb = ram_used_gb = ram_percent = 0
             disk_total_gb = disk_used_gb = disk_percent = 0
 
+        diagnostic_context = {
+            'os_info': os_info,
+            'python_version': python_version,
+            'django_version': django_version,
+            'decrypter_version': decrypter_version,
+            'drf_service': drf_service,
+            'api_service': api_service,
+            'db_service': db_service,
+            'cache_service': cache_service,
+            'celery_service': celery_service,
+            'email_service': email_service,
+            'version': __version__,
+            'ram_total': f"{ram_total_gb:.1f}",
+            'ram_used': f"{ram_used_gb:.1f}",
+            'ram_percent': ram_percent,
+            'disk_total': f"{disk_total_gb:.1f}",
+            'disk_used': f"{disk_used_gb:.1f}",
+            'disk_percent': disk_percent,
+        }
+
     context = {
         'show_system_diagnostics': show_system_diagnostics,
         'current_time': timezone.now(),
-        'os_info': os_info,
-        'python_version': python_version,
-        'django_version': django_version,
-        'decrypter_version': decrypter_version,
-        'drf_service': drf_service,
-        'api_service': api_service,
-        'db_service': db_service,
-        'cache_service': cache_service,
-        'celery_service': celery_service,
-        'version': __version__,
-        
-        # System Stats
-        'ram_total': f"{ram_total_gb:.1f}",
-        'ram_used': f"{ram_used_gb:.1f}",
-        'ram_percent': ram_percent,
-        'disk_total': f"{disk_total_gb:.1f}",
-        'disk_used': f"{disk_used_gb:.1f}",
-        'disk_percent': disk_percent,
     }
+    context.update(diagnostic_context)
     return render(request, 'microsys/includes/options.html', context)
 
 

@@ -1,0 +1,25 @@
+{% extends 'microsys/base.html' %}
+{% block title %}Registration Verification{% endblock %}
+{% block titlebar %}{% endblock %}
+
+{% block layout %}
+<main class="container py-5" style="max-width: 640px;">
+    {% if status == 'activated' %}
+        <h1 class="h3 mb-3">Account verified</h1>
+        <p>Your account is active and you are signed in.</p>
+        <a class="btn btn-primary" href="{{ APP_CONFIG.home_url|default:'/accounts/profile/' }}">Continue</a>
+    {% elif status == 'pending_approval' %}
+        <h1 class="h3 mb-3">Email verified</h1>
+        <p>Your account is waiting for approval.</p>
+        <a class="btn btn-primary" href="{% url 'login' %}">Back to login</a>
+    {% elif status == 'expired' %}
+        <h1 class="h3 mb-3">Verification expired</h1>
+        <p>The verification link is no longer valid.</p>
+        <a class="btn btn-primary" href="{% url 'register' %}">Register again</a>
+    {% else %}
+        <h1 class="h3 mb-3">Verification failed</h1>
+        <p>The verification link is invalid or has already been used.</p>
+        <a class="btn btn-primary" href="{% url 'register' %}">Register</a>
+    {% endif %}
+</main>
+{% endblock %}

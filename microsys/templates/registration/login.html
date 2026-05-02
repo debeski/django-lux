@@ -63,6 +63,14 @@
                 </div>
         
                 <button type="submit" class="w-100 btn btn-lg mt-4" id="submit">{{ MS_TRANS.login_submit }}</button>
+                {% if public_registration_enabled %}
+                    <div class="login-register-action mt-3">
+                        <a href="{% url 'register' %}" class="login-register-link">
+                            <i class="bi bi-person-plus"></i>
+                            <span>{{ MS_TRANS.create_account|default:"Create an account" }}</span>
+                        </a>
+                    </div>
+                {% endif %}
                 
                 <!-- Mobile Language Toggle (Below Button) -->
                 <div class="d-flex justify-content-center mt-4 d-md-none">

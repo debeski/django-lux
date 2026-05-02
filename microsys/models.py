@@ -3,11 +3,28 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 from django.core.cache import cache
 from django.core.files.base import ContentFile
-from .constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, TABLE_DENSITY_CHOICES, TABLE_DENSITY_VALUES
+from .constants import (
+    DEFAULT_HOME_URL,
+    DEFAULT_TABLE_DENSITY,
+    REGISTRATION_ACTIVATION_AUTO_LOGIN,
+    REGISTRATION_ACTIVATION_CHOICES,
+    REGISTRATION_STATUS_ACTIVATED,
+    REGISTRATION_STATUS_CHOICES,
+    REGISTRATION_STATUS_EXPIRED,
+    REGISTRATION_STATUS_PENDING_APPROVAL,
+    REGISTRATION_STATUS_PENDING_EMAIL,
+    REGISTRATION_STATUS_REJECTED,
+    TABLE_DENSITY_CHOICES,
+    TABLE_DENSITY_VALUES,
+)
 from .managers import ScopedManager
+import hashlib
 import io
+import secrets
+from datetime import timedelta
 from PIL import Image
 
 
@@ -102,6 +119,8 @@ class SingletonModel(models.Model):
                     obj.translations_override = config.get('translations')
                 if hasattr(obj, 'sidebar_config') and isinstance(config.get('sidebar'), dict):
                     obj.sidebar_config = config.get('sidebar')
+                if hasattr(obj, 'email_config') and isinstance(config.get('email_config'), dict):
+                    obj.email_config = config.get('email_config')
                 if hasattr(obj, 'allowed_themes') and isinstance(config.get('allowed_themes'), (list, tuple, set)):
                     obj.allowed_themes = list(config.get('allowed_themes'))
                 if hasattr(obj, 'allow_user_theme_override') and 'allow_user_theme_override' in config:
@@ -114,6 +133,12 @@ class SingletonModel(models.Model):
                     obj.email_2fa = bool(config.get('email_2fa'))
                 if hasattr(obj, 'public_root') and 'public_root' in config:
                     obj.public_root = bool(config.get('public_root'))
+                if hasattr(obj, 'public_registration_enabled') and 'public_registration_enabled' in config:
+                    obj.public_registration_enabled = bool(config.get('public_registration_enabled'))
+                if hasattr(obj, 'registration_activation_mode') and config.get('registration_activation_mode'):
+                    obj.registration_activation_mode = config.get('registration_activation_mode')
+                if hasattr(obj, 'registration_throttle_enabled') and 'registration_throttle_enabled' in config:
+                    obj.registration_throttle_enabled = bool(config.get('registration_throttle_enabled'))
                 obj.save()
             cache.set(cls.__name__, obj, timeout=86400)
         return obj
@@ -141,6 +166,15 @@ class SystemSettings(SingletonModel):
     is_configured = models.BooleanField(default=False, verbose_name="Is Configured")
     email_2fa = models.BooleanField(default=False, verbose_name="Enable Email 2FA")
     public_root = models.BooleanField(default=False, verbose_name="Public Root Access")
+    public_registration_enabled = models.BooleanField(default=False, verbose_name="Enable Public Registration")
+    registration_activation_mode = models.CharField(
+        max_length=32,
+        choices=REGISTRATION_ACTIVATION_CHOICES,
+        default=REGISTRATION_ACTIVATION_AUTO_LOGIN,
+        verbose_name="Registration Activation Mode",
+    )
+    registration_throttle_enabled = models.BooleanField(default=True, verbose_name="Enable Registration Throttles")
+    email_config = models.JSONField(default=dict, blank=True, verbose_name="Email Configuration")
     languages = models.JSONField(default=dict, blank=True, verbose_name="Available Languages")
     translations_override = models.JSONField(default=dict, blank=True, verbose_name="Translations Override")
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="Sidebar Configuration")
@@ -260,6 +294,7 @@ class Profile(ScopedModel):
     is_totp_2fa_enabled = models.BooleanField(default=False, verbose_name="2FA via App")
     totp_secret = models.CharField(max_length=32, blank=True, null=True, verbose_name="TOTP Secret")
     backup_codes = models.JSONField(default=list, blank=True, verbose_name="Backup Codes")
+    email_verified_at = models.DateTimeField(blank=True, null=True, verbose_name="Email Verified At")
 
     @property
     def is_2fa_enabled(self):
@@ -326,6 +361,134 @@ class Profile(ScopedModel):
             ("view_activitylog", "View activity log"),
             ("manage_scopes", "Can manage scopes and all users"),
         ]
+
+
+class PublicRegistration(models.Model):
+    microsys_auto_create_user_profile = False
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='public_registration',
+        verbose_name="User",
+    )
+    email = models.EmailField(db_index=True, verbose_name="Email")
+    status = models.CharField(
+        max_length=32,
+        choices=REGISTRATION_STATUS_CHOICES,
+        default=REGISTRATION_STATUS_PENDING_EMAIL,
+        db_index=True,
+        verbose_name="Status",
+    )
+    activation_mode = models.CharField(
+        max_length=32,
+        choices=REGISTRATION_ACTIVATION_CHOICES,
+        default=REGISTRATION_ACTIVATION_AUTO_LOGIN,
+        verbose_name="Activation Mode",
+    )
+    token_hash = models.CharField(max_length=64, blank=True, verbose_name="Verification Token Hash")
+    ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name="IP Address")
+    user_agent = models.TextField(blank=True, verbose_name="User Agent")
+    expires_at = models.DateTimeField(verbose_name="Expires At")
+    verified_at = models.DateTimeField(blank=True, null=True, verbose_name="Verified At")
+    approved_at = models.DateTimeField(blank=True, null=True, verbose_name="Approved At")
+    rejected_at = models.DateTimeField(blank=True, null=True, verbose_name="Rejected At")
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        null=True,
+        related_name='approved_public_registrations',
+        on_delete=models.SET_NULL,
+        verbose_name="Approved By",
+    )
+    rejected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        null=True,
+        related_name='rejected_public_registrations',
+        on_delete=models.SET_NULL,
+        verbose_name="Rejected By",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+
+    class Meta:
+        verbose_name = "Public Registration"
+        verbose_name_plural = "Public Registrations"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.email} ({self.status})"
+
+    @staticmethod
+    def hash_token(token):
+        return hashlib.sha256(str(token).encode('utf-8')).hexdigest()
+
+    @classmethod
+    def create_for_user(cls, user, email, activation_mode, ip_address=None, user_agent='', ttl_seconds=86400):
+        token = secrets.token_urlsafe(32)
+        registration = cls.objects.create(
+            user=user,
+            email=email,
+            activation_mode=activation_mode,
+            token_hash=cls.hash_token(token),
+            ip_address=ip_address,
+            user_agent=(user_agent or '')[:2000],
+            expires_at=timezone.now() + timedelta(seconds=ttl_seconds),
+        )
+        return registration, token
+
+    def token_matches(self, token):
+        if not token or not self.token_hash:
+            return False
+        return constant_time_compare(self.token_hash, self.hash_token(token))
+
+    @property
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+    def mark_expired(self):
+        if self.status == REGISTRATION_STATUS_PENDING_EMAIL:
+            self.status = REGISTRATION_STATUS_EXPIRED
+            self.token_hash = ''
+            self.user.is_active = False
+            self.user.save(update_fields=['is_active'])
+            self.save(update_fields=['status', 'token_hash', 'updated_at'])
+
+    def mark_verified(self):
+        self.verified_at = timezone.now()
+        self.token_hash = ''
+        if self.activation_mode == REGISTRATION_ACTIVATION_AUTO_LOGIN:
+            self.status = REGISTRATION_STATUS_ACTIVATED
+            self.user.is_active = True
+            self.user.save(update_fields=['is_active'])
+        else:
+            self.status = REGISTRATION_STATUS_PENDING_APPROVAL
+            self.user.is_active = False
+            self.user.save(update_fields=['is_active'])
+        self.save(update_fields=['verified_at', 'token_hash', 'status', 'updated_at'])
+
+        profile = getattr(self.user, 'profile', None)
+        if profile and not profile.email_verified_at:
+            profile.email_verified_at = self.verified_at
+            profile.save(update_fields=['email_verified_at'])
+
+    def approve(self, actor):
+        self.status = REGISTRATION_STATUS_ACTIVATED
+        self.approved_at = timezone.now()
+        self.approved_by = actor
+        self.user.is_active = True
+        self.user.save(update_fields=['is_active'])
+        self.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
+
+    def reject(self, actor):
+        self.status = REGISTRATION_STATUS_REJECTED
+        self.rejected_at = timezone.now()
+        self.rejected_by = actor
+        self.token_hash = ''
+        self.user.is_active = False
+        self.user.save(update_fields=['is_active'])
+        self.save(update_fields=['status', 'rejected_at', 'rejected_by', 'token_hash', 'updated_at'])
 
 
 class UserActivityLog(ScopedModel):

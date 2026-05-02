@@ -1,0 +1,11 @@
+{% extends 'microsys/base.html' %}
+{% block title %}Registration Sent{% endblock %}
+{% block titlebar %}{% endblock %}
+
+{% block layout %}
+<main class="container py-5" style="max-width: 640px;">
+    <h1 class="h3 mb-3">Check your email</h1>
+    <p>If the address can be registered, a verification link has been sent.</p>
+    <a class="btn btn-primary" href="{% url 'login' %}">Back to login</a>
+</main>
+{% endblock %}

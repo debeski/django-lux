@@ -52,6 +52,20 @@
                     {% endif %}
                 </div>
             </div>
+            <div class="mb-3">
+                <div class="info-label">{{ MS_TRANS.account_source|default:"Account Source" }}</div>
+                <div class="info-value">
+                    {% if target_user.public_registration %}
+                        <span class="badge bg-light text-primary border">
+                            <i class="bi bi-person-plus me-1"></i>{{ MS_TRANS.account_source_public|default:"Public signup" }}
+                        </span>
+                    {% else %}
+                        <span class="badge bg-light text-secondary border">
+                            <i class="bi bi-person-check me-1"></i>{{ MS_TRANS.account_source_internal|default:"Internal" }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 

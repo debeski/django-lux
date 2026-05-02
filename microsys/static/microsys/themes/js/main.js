@@ -44,3 +44,38 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize UI on load
     updateActiveThemeUI(themes.includes(savedTheme) ? savedTheme : defaultTheme);
 });
+
+if (typeof window.updatePreferences !== 'function') {
+    window.updatePreferences = function(data) {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        if (!csrfToken) {
+            console.error("CSRF token not found, cannot save preferences.");
+            return Promise.resolve();
+        }
+
+        return fetch('/sys/api/preferences/update/', {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(data || {})
+        }).then(response => {
+            if (!response.ok) {
+                console.error("Failed to save preferences:", response.statusText);
+                return null;
+            }
+            return response.json().catch(() => null);
+        }).then(payload => {
+            if (payload && payload.preferences && window.USER_PREFS) {
+                Object.assign(window.USER_PREFS, payload.preferences);
+            } else if (window.USER_PREFS && data) {
+                Object.assign(window.USER_PREFS, data);
+            }
+            return payload;
+        }).catch(error => {
+            console.error("Error updating preferences:", error);
+            return null;
+        });
+    };
+}

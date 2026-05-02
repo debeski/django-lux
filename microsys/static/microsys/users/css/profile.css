@@ -242,6 +242,110 @@ html[dir="rtl"] .timeline-dot {
     color: #fff;
 }
 
+.security-method-row {
+    border: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.12) !important;
+    border-radius: 12px;
+    margin-bottom: 0.65rem;
+    padding: 0.8rem !important;
+    background: rgba(255, 255, 255, 0.42) !important;
+}
+
+.security-method-row .btn {
+    min-width: 5.5rem;
+}
+
+.btn.is-loading .btn-label {
+    opacity: 0.72;
+}
+
+/* --- Signed-in Devices --- */
+.profile-session-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.profile-session-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.85rem;
+    align-items: center;
+    padding: 0.85rem;
+    border: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.14);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.42);
+}
+
+.profile-session-row.is-current {
+    border-color: rgba(var(--primal-rgb, 35, 99, 195), 0.28);
+    background: rgba(var(--primal-rgb, 35, 99, 195), 0.06);
+}
+
+.profile-session-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.9rem;
+    background: rgba(var(--primal-rgb, 35, 99, 195), 0.1);
+    color: var(--primal);
+    font-size: 1.05rem;
+}
+
+.profile-session-main {
+    min-width: 0;
+}
+
+.profile-session-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.85rem;
+    margin-top: 0.22rem;
+    color: var(--htitle);
+    font-size: 0.84rem;
+}
+
+.profile-session-agent {
+    max-width: 100%;
+    margin-top: 0.28rem;
+    overflow: hidden;
+    color: var(--htitle);
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.profile-session-action {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.profile-session-empty {
+    padding: 0.85rem;
+    border: 1px dashed rgba(var(--primal-rgb, 35, 99, 195), 0.22);
+    border-radius: 14px;
+    color: var(--htitle);
+    text-align: center;
+}
+
+@media (max-width: 575.98px) {
+    .profile-session-row {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .profile-session-action {
+        grid-column: 1 / -1;
+        justify-content: stretch;
+    }
+
+    .profile-session-action .btn,
+    .profile-session-action form {
+        width: 100%;
+    }
+}
+
 /* --- Profile Image Widget --- */
 .ms-profile-image-input-wrapper {
     display: flex;

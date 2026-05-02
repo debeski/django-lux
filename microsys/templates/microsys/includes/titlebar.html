@@ -12,9 +12,9 @@
     data-titlebar-scope-name="{% if user.scope %}{{ user.scope.name }}{% endif %}"
     data-sidebar-collapse-mode="{{ sidebar.collapse_mode|default:'icons' }}"
 >
-    <div class="titlebar__side titlebar__side--start">
-        {% if request.user.is_authenticated %}
-        <button id="sidebarToggle" class="sidebar-toggle ms-2 flex-shrink-0" type="button" aria-label="{{ MS_TRANS.tut_sidebar_title|default:'Sidebar' }}">
+    <div class="titlebar__side titlebar__side--start{% if request.user.is_authenticated and sidebar_enabled and sidebar.collapse_mode == 'locked_expanded' %} titlebar__side--mobile-toggle{% elif request.user.is_authenticated and sidebar_enabled %} titlebar__side--has-toggle{% else %} titlebar__side--empty{% endif %}">
+        {% if request.user.is_authenticated and sidebar_enabled %}
+        <button id="sidebarToggle" class="sidebar-toggle ms-2{% if sidebar.collapse_mode == 'locked_expanded' %} sidebar-toggle--desktop-disabled{% endif %} flex-shrink-0" type="button" aria-label="{{ MS_TRANS.tut_sidebar_title|default:'Sidebar' }}">
             <i class="bi bi-list"></i>
         </button>
         {% endif %}

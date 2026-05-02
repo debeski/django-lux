@@ -5,8 +5,9 @@ from types import MethodType
 
 from django import forms
 from django.contrib.auth.models import Permission as Permissions
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm, PasswordChangeForm, SetPasswordForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UserChangeForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Field, Div, HTML, Submit, Row
 from crispy_forms.bootstrap import FormActions
@@ -27,6 +28,8 @@ from .constants import (
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
     LEGACY_HOME_URL,
+    REGISTRATION_ACTIVATION_CHOICES,
+    REGISTRATION_ACTIVATION_VALUES,
     SIDEBAR_COLLAPSE_MODE_CHOICES,
     SIDEBAR_COLLAPSE_MODE_VALUES,
     SIDEBAR_DENSITY_CHOICES,
@@ -48,10 +51,14 @@ from .translations import build_translation_matrix_groups, discover_translation_
 from .themes import get_theme_choices, get_theme_options, is_valid_theme, normalize_allowed_themes
 from .utils import (
     default_titlebar_config,
+    default_email_config,
+    encrypt_email_secret,
+    get_email_service_status,
     has_section_models,
     is_central_staff,
     is_global_staff,
     normalize_system_settings_import_payload,
+    normalize_email_config,
     normalize_language_catalog,
     normalize_sidebar_behavior,
     normalize_system_names,
@@ -62,6 +69,71 @@ from .widgets import MicrosysChoiceSelectorWidget
 User = get_user_model()
 
 THEME_CHOICES = get_theme_choices()
+
+
+class MicrosysAuthenticationForm(AuthenticationForm):
+    """
+    Preserve normal username login while allowing verified public-registration
+    projects to accept email in the username field.
+    """
+
+    def clean(self):
+        raw_username = self.cleaned_data.get('username')
+        if raw_username and '@' in raw_username:
+            from .registration import public_registration_config
+
+            if public_registration_config().get('enabled'):
+                match = User._default_manager.filter(email__iexact=str(raw_username).strip()).first()
+                if match:
+                    self.cleaned_data['username'] = match.get_username()
+        return super().clean()
+
+
+class PublicRegistrationForm(forms.Form):
+    email = forms.EmailField(
+        label=_("Email"),
+        max_length=254,
+        widget=forms.EmailInput(attrs={'autocomplete': 'email'}),
+    )
+    password1 = forms.CharField(
+        label=_("Password"),
+        strip=False,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
+    password2 = forms.CharField(
+        label=_("Confirm password"),
+        strip=False,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}),
+    )
+    first_name = forms.CharField(
+        label=_("First name"),
+        required=False,
+        max_length=150,
+        widget=forms.TextInput(attrs={'autocomplete': 'given-name'}),
+    )
+    last_name = forms.CharField(
+        label=_("Last name"),
+        required=False,
+        max_length=150,
+        widget=forms.TextInput(attrs={'autocomplete': 'family-name'}),
+    )
+    website = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'autocomplete': 'off', 'tabindex': '-1'}),
+    )
+
+    def clean_email(self):
+        return str(self.cleaned_data['email']).strip().lower()
+
+    def clean(self):
+        cleaned = super().clean()
+        password1 = cleaned.get('password1')
+        password2 = cleaned.get('password2')
+        if password1 and password2 and password1 != password2:
+            self.add_error('password2', _("The two password fields did not match."))
+        if password1:
+            validate_password(password1)
+        return cleaned
 
 
 def _json_dump(value, **kwargs):
@@ -968,7 +1040,7 @@ class ResetPasswordForm(SetPasswordForm):
 class UserProfileEditForm(forms.ModelForm):
     # Add fields from profile
     phone = forms.CharField(max_length=15, required=False, label="Phone Number")
-    profile_picture = forms.ImageField(required=False, label="Profile Picture", widget=ProfileImageWidget)
+    profile_picture = forms.ImageField(required=False, label="Profile Picture")
 
     handles_save = True  # Indicate to DynamicModalManagerView to call save(commit=True) directly
     refresh_parent = True # Force page reload on success
@@ -996,6 +1068,10 @@ class UserProfileEditForm(forms.ModelForm):
         self.fields['email'].label = s.get('form_email', "Email")
         self.fields['phone'].label = s.get('form_phone', "Phone Number")
         self.fields['profile_picture'].label = s.get('form_profile_pic', "Profile Picture")
+        self.fields['profile_picture'].widget = _build_archive_file_widget(
+            attrs={'accept': 'image/*'},
+            field_label=self.fields['profile_picture'].label,
+        )
 
         
         self.fields["email"].required = False
@@ -1177,9 +1253,31 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.HiddenInput(),
         required=False,
     )
+    email_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
+    email_config_mode = forms.ChoiceField(
+        required=False,
+        choices=(('env', 'Environment / secrets'), ('encrypted_db', 'Encrypted database')),
+    )
+    email_config_host = forms.CharField(required=False, max_length=255)
+    email_config_port = forms.IntegerField(required=False, min_value=1, max_value=65535)
+    email_config_use_tls = forms.BooleanField(required=False, initial=True)
+    email_config_use_ssl = forms.BooleanField(required=False, initial=False)
+    email_config_username = forms.CharField(required=False, max_length=255)
+    email_config_password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+    )
+    email_config_default_from_email = forms.EmailField(required=False)
     sidebar_config = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
+    )
+    sidebar_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
     )
     sidebar_enable_reorder = forms.BooleanField(
         required=False,
@@ -1252,6 +1350,18 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=False,
     )
+    public_registration_enabled = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    registration_activation_mode = forms.ChoiceField(
+        required=False,
+        choices=REGISTRATION_ACTIVATION_CHOICES,
+    )
+    registration_throttle_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
 
     class Meta:
         model = apps.get_model('microsys', 'SystemSettings')
@@ -1268,16 +1378,20 @@ class SystemSettingsForm(forms.ModelForm):
             'default_table_density',
             'email_2fa',
             'public_root',
+            'public_registration_enabled',
+            'registration_activation_mode',
+            'registration_throttle_enabled',
+            'email_config',
             'languages',
             'translations_override',
             'sidebar_config',
             'titlebar_config',
         ]
 
-    def __init__(self, *args, **kwargs):
-        self.request = kwargs.pop('request', None)
-        self._user = kwargs.pop('user', None)
-        self.mode = kwargs.pop('mode', 'modal')
+    def __init__(self, *args, request=None, user=None, mode='modal', **kwargs):
+        self.request = request if request is not None else kwargs.pop('request', None)
+        self._user = user if user is not None else kwargs.pop('user', None)
+        self.mode = mode if mode is not None else kwargs.pop('mode', 'modal')
         super().__init__(*args, **kwargs)
         self.refresh_parent = True
         self.extra_form_class = 'ms-system-setup-form'
@@ -1367,6 +1481,11 @@ class SystemSettingsForm(forms.ModelForm):
             field_label=self.fields['favicon'].label,
         )
         self.fields['sidebar_config'].label = s.get('form_sys_sidebar', "Sidebar Configuration")
+        self.fields['sidebar_enabled'].label = s.get('form_sys_sidebar_enabled', 'Enable sidebar')
+        self.fields['sidebar_enabled'].help_text = s.get(
+            'help_sys_sidebar_enabled',
+            'Show the runtime sidebar. When disabled, content expands and sidebar toolbar controls are ignored.',
+        )
         self.fields['sidebar_enable_reorder'].label = s.get('form_sys_sidebar_enable_reorder', 'Enable sidebar reorder')
         self.fields['sidebar_enable_reorder'].help_text = s.get(
             'help_sys_sidebar_enable_reorder',
@@ -1455,12 +1574,54 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['email_2fa'].label = s.get('form_sys_email_2fa', 'Enable Email 2FA')
         self.fields['email_2fa'].help_text = s.get(
             'help_sys_email_2fa',
-            'Allow users to enable two-factor authentication via email. Requires a working EMAIL_HOST in Django settings.',
+            'Allow users to enable two-factor authentication via email. Requires Microsys email delivery to be ready.',
         )
+        self.fields['email_config'].label = s.get('form_sys_email_config', 'Email delivery configuration')
+        self.fields['email_config_mode'].label = s.get('form_sys_email_config_mode', 'Email setup mode')
+        self.fields['email_config_mode'].help_text = s.get(
+            'help_sys_email_config_mode',
+            'Use environment/secrets by default, or explicitly store an encrypted SMTP password in System Settings.',
+        )
+        self.fields['email_config_host'].label = s.get('form_sys_email_host', 'SMTP host')
+        self.fields['email_config_port'].label = s.get('form_sys_email_port', 'SMTP port')
+        self.fields['email_config_use_tls'].label = s.get('form_sys_email_use_tls', 'Use TLS')
+        self.fields['email_config_use_ssl'].label = s.get('form_sys_email_use_ssl', 'Use SSL')
+        self.fields['email_config_username'].label = s.get('form_sys_email_username', 'SMTP username')
+        self.fields['email_config_password'].label = s.get('form_sys_email_password', 'SMTP password')
+        self.fields['email_config_default_from_email'].label = s.get('form_sys_email_default_from', 'Default from email')
+        self.fields['email_config_password'].help_text = s.get(
+            'help_sys_email_password',
+            'Only saved in encrypted database mode. Exports never include this secret.',
+        )
+        for field_name in (
+            'email_config_host',
+            'email_config_username',
+            'email_config_password',
+            'email_config_default_from_email',
+        ):
+            self.fields[field_name].widget.attrs.update({'class': 'form-control glass-input'})
+        self.fields['email_config_port'].widget.attrs.update({'class': 'form-control glass-input'})
         self.fields['public_root'].label = s.get('form_sys_public_root', 'Public Root Access')
         self.fields['public_root'].help_text = s.get(
             'help_sys_public_root',
             'Allow anonymous (non-logged-in) users to access the root URL (/). When enabled, the system will not force-redirect to login.',
+        )
+        email_status = get_email_service_status()
+        smtp_label = s.get('form_sys_email_status_ready', 'ready') if email_status.get('available') else s.get('form_sys_email_status_not_ready', 'not ready')
+        self.fields['public_registration_enabled'].label = s.get('form_sys_public_registration', 'Enable Public Registration')
+        self.fields['public_registration_enabled'].help_text = s.get(
+            'help_sys_public_registration',
+            'Allow anonymous users to request an account. Email verification is mandatory and SMTP/email delivery must be configured.',
+        ) + f" Email service: {smtp_label}."
+        self.fields['registration_activation_mode'].label = s.get('form_sys_registration_activation_mode', 'Registration Activation Mode')
+        self.fields['registration_activation_mode'].help_text = s.get(
+            'help_sys_registration_activation_mode',
+            'Choose whether verified users become active immediately or wait for superuser approval.',
+        )
+        self.fields['registration_throttle_enabled'].label = s.get('form_sys_registration_throttle', 'Enable Registration Throttles')
+        self.fields['registration_throttle_enabled'].help_text = s.get(
+            'help_sys_registration_throttle',
+            'Use cache-based IP/email throttles and resend cooldowns for public registration.',
         )
         self.sidebar_sections_manager_available = bool(has_section_models())
         _bind_choice_selector_widget(
@@ -1714,6 +1875,36 @@ class SystemSettingsForm(forms.ModelForm):
             getattr(self.instance, 'public_root', False)
             or config.get('public_root', False)
         )
+        self.initial['public_registration_enabled'] = bool(
+            getattr(self.instance, 'public_registration_enabled', False)
+            or config.get('public_registration_enabled', False)
+        )
+        registration_activation_mode = (
+            getattr(self.instance, 'registration_activation_mode', None)
+            or config.get('registration_activation_mode')
+        )
+        if registration_activation_mode in REGISTRATION_ACTIVATION_VALUES:
+            self.initial['registration_activation_mode'] = registration_activation_mode
+        self.initial['registration_throttle_enabled'] = bool(
+            getattr(self.instance, 'registration_throttle_enabled', True)
+            if hasattr(self.instance, 'registration_throttle_enabled')
+            else config.get('registration_throttle_enabled', True)
+        )
+        initial_email_config = normalize_email_config(
+            (
+                getattr(self.instance, 'email_config', None)
+                if isinstance(getattr(self.instance, 'email_config', None), dict) and getattr(self.instance, 'email_config', None)
+                else config.get('email_config', {})
+            )
+        )
+        self.initial['email_config'] = _json_dump(normalize_email_config(initial_email_config, redact_secret=True), ensure_ascii=False)
+        self.initial['email_config_mode'] = initial_email_config.get('mode', 'env')
+        self.initial['email_config_host'] = initial_email_config.get('host', '')
+        self.initial['email_config_port'] = initial_email_config.get('port', 587)
+        self.initial['email_config_use_tls'] = bool(initial_email_config.get('use_tls', True))
+        self.initial['email_config_use_ssl'] = bool(initial_email_config.get('use_ssl', False))
+        self.initial['email_config_username'] = initial_email_config.get('username', '')
+        self.initial['email_config_default_from_email'] = initial_email_config.get('default_from_email', '')
         if not self.initial.get('sidebar_config'):
             sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}), allow_system_items=True)
             if not isinstance(sidebar_config, dict):
@@ -1733,6 +1924,7 @@ class SystemSettingsForm(forms.ModelForm):
         if not isinstance(initial_sidebar_config, dict):
             initial_sidebar_config = {}
 
+        self.initial['sidebar_enabled'] = bool(initial_sidebar_config.get('enabled', True))
         self.initial['sidebar_enable_reorder'] = bool(initial_sidebar_config.get('enable_reorder', True))
         self.initial['sidebar_enable_toolbar'] = bool(initial_sidebar_config.get('show_toolbar', True))
         self.initial['sidebar_show_icons'] = bool(initial_sidebar_config.get('show_icons', True))
@@ -1945,9 +2137,41 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'Step 3: Security')}</span></div>"),
+                HTML(
+                    f"<div class='ms-email-config-section' data-email-config-section>"
+                    f"<h6 class='fw-bold my-3'>{s.get('email_delivery_settings_title', 'Email Delivery')}</h6>"
+                    f"<p class='small text-muted mb-3'>"
+                    f"{s.get('email_delivery_settings_desc', 'Visible when public signup or email 2FA is enabled. In generated Docker projects, env mode should point the app at the internal smtp-relay service; upstream SMTP credentials stay in environment/secrets.')}"
+                    f"</p>"
+                ),
+                Row(
+                    Div(Field('email_config_mode'), css_class='col-lg-4'),
+                    Div(Field('email_config_default_from_email'), css_class='col-lg-4'),
+                    Div(Field('email_config_username'), css_class='col-lg-4'),
+                ),
+                Row(
+                    Div(Field('email_config_host'), css_class='col-lg-4'),
+                    Div(Field('email_config_port'), css_class='col-lg-2'),
+                    Div(Field('email_config_use_tls'), css_class='col-lg-2'),
+                    Div(Field('email_config_use_ssl'), css_class='col-lg-2'),
+                    Div(Field('email_config_password'), css_class='col-lg-2'),
+                ),
+                Field('email_config'),
+                HTML(
+                    f"<div class='alert alert-info small'>"
+                    f"Email service: {get_email_service_status().get('reason', 'unknown')}."
+                    f"</div>"
+                ),
+                HTML("</div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('access_security_settings_title', 'Access & Security')}</h6>"),
                 Row(
                     Div(Field('public_root'), css_class='col-lg-6'),
                     Div(Field('email_2fa'), css_class='col-lg-6'),
+                ),
+                Row(
+                    Div(Field('public_registration_enabled'), css_class='col-lg-4'),
+                    Div(Field('registration_activation_mode'), css_class='col-lg-4'),
+                    Div(Field('registration_throttle_enabled'), css_class='col-lg-4'),
                 ),
                 css_class='wizard-step',
                 style=_step_style(2),
@@ -1958,6 +2182,10 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('home_url_discovered'), css_class='col-lg-6'),
                     Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
                 ),
+                Row(
+                    Div(Field('sidebar_enabled'), css_class='col-lg-12'),
+                ),
+                HTML("<div class='ms-sidebar-dependent-settings' data-sidebar-dependent>"),
                 HTML(
                     f"<div class='d-none' data-sidebar-tooling-state "
                     f"data-sections-manager-available=\"{'true' if self.sidebar_sections_manager_available else 'false'}\"></div>"
@@ -1981,6 +2209,7 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('sidebar_collapse_mode'), css_class='col-lg-6'),
                 ),
                 HTML(self.sidebar_builder_html),
+                HTML("</div>"),
                 Field('sidebar_config'),
                 css_class='wizard-step',
                 style=_step_style(3),
@@ -2217,7 +2446,7 @@ class SystemSettingsForm(forms.ModelForm):
 
         data = self.cleaned_data.get('sidebar_config')
         if not data:
-            return {'home_url_name': None, 'entries': []}
+            return normalize_sidebar_behavior({'home_url_name': None, 'entries': []})
         try:
             parsed = json.loads(data)
         except json.JSONDecodeError:
@@ -2228,9 +2457,37 @@ class SystemSettingsForm(forms.ModelForm):
         if not isinstance(entries, list):
             raise ValidationError("Sidebar entries must be a list.")
         return sanitize_sidebar_config({
+            'enabled': parsed.get('enabled', True),
             'home_url_name': None,
             'entries': entries,
+            'enable_reorder': parsed.get('enable_reorder', True),
+            'show_toolbar': parsed.get('show_toolbar', True),
+            'show_icons': parsed.get('show_icons', True),
+            'density': parsed.get('density', DEFAULT_SIDEBAR_DENSITY),
+            'allow_user_density': parsed.get('allow_user_density', True),
+            'collapse_mode': parsed.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE),
         }, allow_system_items=True)
+
+    def clean_email_config(self):
+        existing = normalize_email_config(getattr(self.instance, 'email_config', {}))
+        mode = self.cleaned_data.get('email_config_mode') or existing.get('mode', 'env')
+        config = normalize_email_config({
+            'mode': mode,
+            'host': self.cleaned_data.get('email_config_host') or '',
+            'port': self.cleaned_data.get('email_config_port') or 587,
+            'use_tls': self.cleaned_data.get('email_config_use_tls'),
+            'use_ssl': self.cleaned_data.get('email_config_use_ssl'),
+            'username': self.cleaned_data.get('email_config_username') or '',
+            'default_from_email': self.cleaned_data.get('email_config_default_from_email') or '',
+        })
+        if mode == 'encrypted_db':
+            raw_password = self.cleaned_data.get('email_config_password') or ''
+            if raw_password:
+                config['encrypted_password'] = encrypt_email_secret(raw_password)
+            elif existing.get('mode') == 'encrypted_db':
+                config['encrypted_password'] = existing.get('encrypted_password', '')
+        config['password_configured'] = bool(config.get('encrypted_password'))
+        return config
 
     def _read_imported_settings(self):
         uploaded = self.cleaned_data.get('settings_import_file')
@@ -2267,14 +2524,31 @@ class SystemSettingsForm(forms.ModelForm):
             'default_table_density',
             'email_2fa',
             'public_root',
+            'public_registration_enabled',
+            'registration_activation_mode',
+            'registration_throttle_enabled',
+            'email_config',
         )
         for field_name in direct_fields:
             if field_name in imported:
                 cleaned[field_name] = imported[field_name]
 
+        email_config = imported.get('email_config')
+        if isinstance(email_config, dict):
+            cleaned['email_config'] = email_config
+            cleaned['email_config_mode'] = email_config.get('mode', 'env')
+            cleaned['email_config_host'] = email_config.get('host', '')
+            cleaned['email_config_port'] = email_config.get('port', 587)
+            cleaned['email_config_use_tls'] = bool(email_config.get('use_tls', True))
+            cleaned['email_config_use_ssl'] = bool(email_config.get('use_ssl', False))
+            cleaned['email_config_username'] = email_config.get('username', '')
+            cleaned['email_config_default_from_email'] = email_config.get('default_from_email', '')
+            cleaned['email_config_password'] = ''
+
         sidebar = imported.get('sidebar_config')
         if isinstance(sidebar, dict):
             cleaned['sidebar_config'] = sidebar
+            cleaned['sidebar_enabled'] = bool(sidebar.get('enabled', True))
             cleaned['sidebar_enable_reorder'] = bool(sidebar.get('enable_reorder', True))
             cleaned['sidebar_enable_toolbar'] = bool(sidebar.get('show_toolbar', True))
             cleaned['sidebar_show_icons'] = bool(sidebar.get('show_icons', True))
@@ -2309,18 +2583,76 @@ class SystemSettingsForm(forms.ModelForm):
 
         sidebar = cleaned.get('sidebar_config')
         if isinstance(sidebar, dict):
-            sidebar['enable_reorder'] = bool(cleaned.get('sidebar_enable_reorder', True))
-            sidebar['show_toolbar'] = bool(cleaned.get('sidebar_enable_toolbar', True))
-            sidebar['show_icons'] = bool(cleaned.get('sidebar_show_icons', True))
-            sidebar['density'] = cleaned.get('sidebar_density', DEFAULT_SIDEBAR_DENSITY)
-            sidebar['allow_user_density'] = bool(cleaned.get('sidebar_allow_user_density', True))
-            sidebar['collapse_mode'] = cleaned.get('sidebar_collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+            sidebar['enabled'] = bool(cleaned.get('sidebar_enabled', True))
+            if sidebar['enabled']:
+                sidebar['enable_reorder'] = bool(cleaned.get('sidebar_enable_reorder', True))
+                sidebar['show_toolbar'] = bool(cleaned.get('sidebar_enable_toolbar', True))
+                sidebar['show_icons'] = bool(cleaned.get('sidebar_show_icons', True))
+                sidebar['density'] = cleaned.get('sidebar_density', DEFAULT_SIDEBAR_DENSITY)
+                sidebar['allow_user_density'] = bool(cleaned.get('sidebar_allow_user_density', True))
+                sidebar['collapse_mode'] = cleaned.get('sidebar_collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+            else:
+                sidebar['enable_reorder'] = False
+                sidebar['show_toolbar'] = False
+                sidebar['show_icons'] = False
+                sidebar['allow_user_density'] = False
+                sidebar['density'] = cleaned.get('sidebar_density', DEFAULT_SIDEBAR_DENSITY)
+                sidebar['collapse_mode'] = 'hidden'
+                cleaned['sidebar_enable_reorder'] = False
+                cleaned['sidebar_enable_toolbar'] = False
+                cleaned['sidebar_show_icons'] = False
+                cleaned['sidebar_allow_user_density'] = False
+                cleaned['sidebar_collapse_mode'] = 'hidden'
             if not _system_settings_sidebar_tools_available(cleaned):
                 sidebar['show_toolbar'] = False
                 cleaned['sidebar_enable_toolbar'] = False
             sidebar = normalize_sidebar_behavior(sidebar)
             cleaned['sidebar_config'] = sidebar
+            cleaned['sidebar_enabled'] = bool(sidebar.get('enabled', True))
             cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+        existing_email_config = normalize_email_config(getattr(self.instance, 'email_config', {}))
+        email_features_enabled = bool(cleaned.get('public_registration_enabled') or cleaned.get('email_2fa'))
+        email_fields_posted = any(
+            field_name in self.data
+            for field_name in (
+                'email_config_mode',
+                'email_config_host',
+                'email_config_port',
+                'email_config_use_tls',
+                'email_config_use_ssl',
+                'email_config_username',
+                'email_config_password',
+                'email_config_default_from_email',
+            )
+        )
+        imported_email_config = cleaned.get('email_config') if isinstance(cleaned.get('email_config'), dict) else {}
+        imported_email_config = normalize_email_config(imported_email_config) if imported_email_config else {}
+        if imported_email_config.get('mode') == 'encrypted_db' and not imported_email_config.get('encrypted_password'):
+            imported_email_config['password_configured'] = False
+        if not email_fields_posted and imported_email_config and imported_email_config != default_email_config():
+            cleaned['email_config'] = imported_email_config
+        elif not email_features_enabled and not email_fields_posted and existing_email_config:
+            cleaned['email_config'] = existing_email_config
+        else:
+            email_mode = cleaned.get('email_config_mode') or existing_email_config.get('mode', 'env')
+            email_config = normalize_email_config({
+                'mode': email_mode,
+                'host': cleaned.get('email_config_host') or '',
+                'port': cleaned.get('email_config_port') or 587,
+                'use_tls': cleaned.get('email_config_use_tls'),
+                'use_ssl': cleaned.get('email_config_use_ssl'),
+                'username': cleaned.get('email_config_username') or '',
+                'default_from_email': cleaned.get('email_config_default_from_email') or '',
+            })
+            if email_mode == 'encrypted_db':
+                raw_password = cleaned.get('email_config_password') or ''
+                if raw_password:
+                    email_config['encrypted_password'] = encrypt_email_secret(raw_password)
+                elif existing_email_config.get('mode') == 'encrypted_db':
+                    email_config['encrypted_password'] = existing_email_config.get('encrypted_password', '')
+            email_config['password_configured'] = bool(email_config.get('encrypted_password'))
+            cleaned['email_config'] = email_config
+        email_config = normalize_email_config(cleaned.get('email_config') or existing_email_config)
         cleaned['titlebar_config'] = normalize_titlebar_config({
             'show_title': bool(cleaned.get('titlebar_show_title', True)),
             'show_logo': bool(cleaned.get('titlebar_show_logo', True)),
@@ -2331,12 +2663,28 @@ class SystemSettingsForm(forms.ModelForm):
             'height': cleaned.get('titlebar_height', 'balanced'),
             'surface': cleaned.get('titlebar_surface', 'default'),
         })
+        if cleaned.get('registration_activation_mode') not in REGISTRATION_ACTIVATION_VALUES:
+            cleaned['registration_activation_mode'] = 'auto_login_after_verify'
+        email_ready = get_email_service_status().get('available')
+        if email_config.get('mode') == 'encrypted_db':
+            email_ready = bool(
+                email_config.get('host')
+                and email_config.get('port')
+                and email_config.get('default_from_email')
+                and (not email_config.get('username') or email_config.get('encrypted_password'))
+            )
+        if (cleaned.get('public_registration_enabled') or cleaned.get('email_2fa')) and not email_ready:
+            self.add_error(
+                'email_config',
+                "Public registration and email 2FA require configured email delivery. Use SMTP in production, local debug email backends during development, or encrypted DB mode with a saved SMTP secret.",
+            )
         return cleaned
 
     def save(self, commit=True):
         instance = super().save(commit=False)
         instance.is_configured = True
         instance.sidebar_config = self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []})
+        instance.email_config = self.cleaned_data.get('email_config', default_email_config())
         instance.system_names = self.cleaned_data.get('system_names', {})
         instance.languages = self.cleaned_data.get('languages', normalize_language_catalog())
         instance.translations_override = self.cleaned_data.get('translations_override', {})

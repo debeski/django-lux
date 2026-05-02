@@ -3,6 +3,7 @@ import threading
 from django.conf import settings
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 
 from .constants import DEFAULT_HOME_URL
 
@@ -117,11 +118,53 @@ class ActivityLogMiddleware:
             getattr(settings, 'LOGIN_REDIRECT_URL', DEFAULT_HOME_URL)
         )
 
+    def _client_ip(self, request):
+        forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if forwarded_for:
+            return forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR', '')
+
+    def _remember_session_device(self, request):
+        user = getattr(request, 'user', None)
+        session = getattr(request, 'session', None)
+        if not user or not getattr(user, 'is_authenticated', False) or session is None:
+            return
+
+        session_key = getattr(session, 'session_key', None)
+        if not session_key:
+            return
+
+        now = timezone.now()
+        existing = session.get('microsys_device') if hasattr(session, 'get') else {}
+        if not isinstance(existing, dict):
+            existing = {}
+
+        try:
+            previous_seen = timezone.datetime.fromisoformat(str(existing.get('last_seen') or ''))
+            if timezone.is_naive(previous_seen):
+                previous_seen = timezone.make_aware(previous_seen, timezone.get_current_timezone())
+        except (TypeError, ValueError):
+            previous_seen = None
+
+        # Keep this cheap: refresh user-agent/IP immediately, but persist last_seen at most once per minute.
+        if previous_seen and (now - previous_seen).total_seconds() < 60:
+            return
+
+        user_agent = str(request.META.get('HTTP_USER_AGENT') or '').strip()
+        session['microsys_device'] = {
+            'first_seen': existing.get('first_seen') or now.isoformat(),
+            'last_seen': now.isoformat(),
+            'ip_address': self._client_ip(request),
+            'user_agent': user_agent[:320],
+        }
+
     def __call__(self, request):
         _thread_locals.user = getattr(request, 'user', None)
         _thread_locals.request = request
 
         try:
+            self._remember_session_device(request)
+
             if self._should_redirect_to_setup(request):
                 return redirect('system_setup')
             

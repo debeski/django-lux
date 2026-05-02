@@ -307,6 +307,30 @@ class ContextProcessorsTests(TestCase):
         self.assertTrue(context['sidebar_density_picker_enabled'])
         self.assertTrue(context['sidebar_toolbar_enabled'])
 
+    def test_microsys_context_disables_sidebar_runtime_surfaces(self):
+        from microsys.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.sidebar_config = {
+            'enabled': False,
+            'entries': [],
+            'show_toolbar': True,
+            'enable_reorder': True,
+            'allow_user_density': True,
+        }
+        settings_obj.save()
+
+        request = self.factory.get('/')
+        request.user = self.user
+        context = microsys_context(request)
+
+        self.assertFalse(context['sidebar_enabled'])
+        self.assertFalse(context['sidebar_toolbar_enabled'])
+        self.assertFalse(context['sidebar_density_picker_enabled'])
+        self.assertFalse(context['sidebar_reorder_enabled'])
+        self.assertEqual(context['sidebar_entries'], [])
+        self.assertFalse(context['sidebar']['enabled'])
+
     def test_microsys_context_falls_back_to_default_language_when_override_disabled(self):
         from microsys.models import SystemSettings
 

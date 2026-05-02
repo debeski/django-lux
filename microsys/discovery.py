@@ -774,6 +774,14 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
 
     config = get_system_config()
     base_sidebar = sanitize_sidebar_config(config.get('sidebar', {}), allow_system_items=True)
+    if not base_sidebar.get('enabled', True):
+        return {
+            'entries': [],
+            'auto_items': [],
+            'extra_groups': [],
+            'home_url_name': None,
+            'sidebar': base_sidebar,
+        }
     override_sidebar = sanitize_sidebar_config(sidebar_override, allow_system_items=True) if isinstance(sidebar_override, dict) else None
     if override_sidebar and override_sidebar.get('entries'):
         sidebar = {

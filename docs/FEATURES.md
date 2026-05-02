@@ -41,6 +41,7 @@
   - Home URL configuration
   - Public root access toggle
   - Email 2FA enable/disable
+  - Public registration enable/disable, activation mode, and throttle toggle
   - JSON language definitions
   - Translation overrides
   - Sidebar configuration
@@ -129,6 +130,7 @@
 - JSON preferences storage
 - **2FA state fields:** email, phone, TOTP, backup codes
 - `is_2fa_enabled` property
+- Signed-in device/session list on the profile page with POST-only revocation for the user’s own sessions
 
 ### Scope & ScopeSettings Models
 - Scope isolation for multi-tenant scenarios
@@ -137,20 +139,33 @@
 
 ---
 
-## 4. Security & Authentication (MSRP)
+## 4. Security & Authentication (MSRP-1)
+
+MSRP-1, the Microsys Secure Runtime Policy, is the active authorization standard.
+Every runtime-exposed surface must have backend authorization that matches its
+UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msrp-1.md).
 
 ### Multi-Factor Authentication (2FA)
 | Method | Features |
 |--------|----------|
-| **Email 2FA** | OTP sent via email, configurable via SystemSettings |
+| **Email 2FA** | OTP sent via Microsys email delivery, configurable in System Setup/System Settings |
 | **TOTP (App)** | QR code generation, pyotp-based verification |
 | **Backup Codes** | 8x8-digit codes, hashed storage, generation/regeneration |
 
 **2FA Flows:**
-- Login challenge (if 2FA enabled)
+- Unified login challenge accepts app codes, explicitly requested email OTPs, and backup codes
 - Enable/disable endpoints (POST-only for security)
-- Resend OTP with rate limiting
+- Email OTP sends only after an explicit request and keeps hashed cache storage
 - Backup code verification with usage tracking
+
+### Public Registration Playground
+- Disabled by default and SMTP-gated in setup/System Settings
+- Email-first form at `/accounts/register/` with generated internal usernames
+- Inactive local user creation until mandatory email verification succeeds
+- Publicly created accounts display a “Public signup” provenance badge in account surfaces
+- Hashed verification tokens, honeypot field, duplicate-email generic response, and cache throttles
+- Activation modes: `auto_login_after_verify` and `verified_pending_approval`
+- Superuser-only pending registration approval view at `/sys/registrations/`
 
 ### Security Hardening (MSRP)
 - **Dynamic Modal CRUD** — backend permission enforcement
@@ -159,11 +174,20 @@
 - **Activity Log Access** — `microsys.view_activitylog` permission (not just `is_staff`)
 - **Reset Password Flow** — requires `auth.change_user` + scope/staff/superuser checks
 - **Options View** — Every user can modify the system allowed options based on their preferences.
-- **Options Diagnostics** — superuser-only access
+- **Options Diagnostics** — superuser and Global Staff only
 - **AJAX Endpoints** — 403 for non-superusers on scope management
 - **Section Model Allowlisting** — only discovered section models accepted
 - **2FA State Mutators** — POST-only with hashed backup codes
+- **Public Registration** — disabled-by-default, email-verified, SMTP-gated, throttled, and approval actions are POST-only
 - **Sidebar Permission Enforcement** — items only visible to users with the required permission; no implicit staff access
+
+### Optional OIDC SSO Packages
+- **Provider plugin** — `django-microsys-sso`, installed only in a Microsys deployment that acts as the identity provider
+- **Client SDK** — `django-microsys-sso-client`, installable in connected Django projects without depending on `django-microsys`
+- **Cross-platform clients** — PHP, .NET, JavaScript, Java, Go, mobile, and desktop clients can connect through standard OIDC discovery and Authorization Code flow
+- **Per-client roles** — portable `admin`, `staff`, and `user` roles; no project-generated Django permission mirroring
+- **Secure defaults** — exact redirect URI checks, HTTPS outside local development, RS256 OIDC signing, and fail-closed client policy checks
+- **Client mapping** — local users link by `(issuer, subject)` and provider `admin` never becomes Django `is_superuser`
 
 ### Activity Log Security
 - Superuser-created log entries hidden from non-superusers

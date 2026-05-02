@@ -16,6 +16,13 @@ x-environment:
   ALLOWED_HOSTS: "${ALLOWED_HOSTS:-web,nginx,localhost,127.0.0.1}"
   BASE_URL: "${BASE_URL:-http://localhost}"
   DEBUG_STATUS: "${DEBUG_STATUS:-False}"
+  # App email settings. The app talks to the internal SMTP relay; only the relay has public egress.
+  EMAIL_BACKEND: "django.core.mail.backends.smtp.EmailBackend"
+  EMAIL_HOST: "smtp-relay"
+  EMAIL_PORT: "1025"
+  EMAIL_USE_TLS: "False"
+  EMAIL_USE_SSL: "False"
+  DEFAULT_FROM_EMAIL: "${DEFAULT_FROM_EMAIL:-webmaster@localhost}"
 
 services:
   db:
@@ -49,6 +56,32 @@ services:
     networks:
       - {{ project_slug }}_internal
 
+  smtp-relay:
+    build: .
+    image: ${WEB_IMAGE:-{{ project_image }}:latest}
+    restart: unless-stopped
+    entrypoint: []
+    command: ["python", "/app/tools/smtp_relay.py"]
+    volumes:
+      - ./:/app:ro
+    environment:
+      SMTP_RELAY_LISTEN_HOST: "0.0.0.0"
+      SMTP_RELAY_LISTEN_PORT: "1025"
+      SMTP_RELAY_HOST: "${SMTP_RELAY_HOST:-smtp.gmail.com}"
+      SMTP_RELAY_PORT: "${SMTP_RELAY_PORT:-587}"
+      SMTP_RELAY_USE_TLS: "${SMTP_RELAY_USE_TLS:-True}"
+      SMTP_RELAY_USER: "${SMTP_RELAY_USER:-}"
+      SMTP_RELAY_PASSWORD: "${SMTP_RELAY_PASSWORD:-}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 1025), 5).close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - {{ project_slug }}_net
+      - {{ project_slug }}_internal
+
   nginx:
     image: nginx:latest
     ports:
@@ -75,7 +108,7 @@ services:
 
   web:
     build: .
-    image: ${WEB_IMAGE:-{{ project_slug }}:latest}
+    image: ${WEB_IMAGE:-{{ project_image }}:latest}
     restart: always
     command: >
       bash -c ' if [ "$$DEBUG_STATUS" = "True" ]; then
@@ -110,11 +143,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      smtp-relay:
+        condition: service_healthy
     networks:
       - {{ project_slug }}_internal
 
   celery:
-    image: ${WEB_IMAGE:-{{ project_slug }}:latest}
+    image: ${WEB_IMAGE:-{{ project_image }}:latest}
     restart: always
     command: ["python", "-m", "celery", "-A", "{{ config_package }}", "worker", "-B", "--loglevel=info"]
     entrypoint: ["/app/entrypoint.sh"]

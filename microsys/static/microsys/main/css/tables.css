@@ -78,27 +78,34 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.92),
         var(--ms-table-shadow);
     overflow: hidden;
+    isolation: isolate;
+    clip-path: inset(0 round 1.35rem);
     backdrop-filter: blur(8px);
 }
 
 .ms-table-card {
     background: transparent !important;
     border: 0 !important;
-    border-radius: 0 !important;
+    border-radius: 1.35rem !important;
     box-shadow: none !important;
+    overflow: hidden;
+    clip-path: inset(0 round 1.35rem);
 }
 
 .ms-table-card > .card-body {
     background: transparent !important;
     border: 0 !important;
-    border-radius: 0 !important;
+    border-radius: inherit !important;
     box-shadow: none !important;
+    overflow: hidden;
 }
 
 .ms-table-scroll {
     background: var(--ms-table-scroll-bg);
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+    border-radius: inherit;
 }
 
 .ms-data-table {
@@ -136,6 +143,24 @@
     text-transform: uppercase;
     white-space: nowrap;
     border-bottom: 1px solid var(--ms-table-border-strong);
+}
+
+.ms-data-table > thead > tr:first-child > th:first-child {
+    border-start-start-radius: calc(1.35rem - 2px);
+}
+
+.ms-data-table > thead > tr:first-child > th:last-child {
+    border-start-end-radius: calc(1.35rem - 2px);
+}
+
+.ms-table-shell:not(:has(.ms-table-footer)) .ms-data-table > tbody > tr:last-child > td:first-child,
+.ms-table-shell:not(:has(.ms-table-footer)) .ms-data-table > tbody > tr:last-child > th:first-child {
+    border-end-start-radius: calc(1.35rem - 2px);
+}
+
+.ms-table-shell:not(:has(.ms-table-footer)) .ms-data-table > tbody > tr:last-child > td:last-child,
+.ms-table-shell:not(:has(.ms-table-footer)) .ms-data-table > tbody > tr:last-child > th:last-child {
+    border-end-end-radius: calc(1.35rem - 2px);
 }
 
 @media (min-width: 992px) {
@@ -248,6 +273,7 @@
     padding: 1rem;
     background: var(--ms-table-footer-surface);
     border-top: 1px solid var(--ms-table-footer-border);
+    border-radius: 0 0 calc(1.35rem - 1px) calc(1.35rem - 1px);
 }
 
 .ms-table-footer-meta {

@@ -1,5 +1,13 @@
 let needsReload = false;
 
+function setButtonLoading(button, loading) {
+    if (!button) return;
+    button.disabled = loading;
+    button.classList.toggle("is-loading", loading);
+    const spinner = button.querySelector(".spinner-border");
+    if (spinner) spinner.classList.toggle("d-none", !loading);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const setupButtons = document.querySelectorAll('.setup-2fa-btn');
     const disableButtons = document.querySelectorAll('.disable-2fa-btn');
@@ -61,6 +69,7 @@ function initiate2FASetup(btn) {
     const form = document.getElementById('otpSetupForm');
     if (!form) return;
     const csrfToken = form?.dataset.csrf || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    setButtonLoading(btn, true);
     
     // Reset Modal State
     const errorEl = document.getElementById('otpSetupError');
@@ -116,7 +125,8 @@ function initiate2FASetup(btn) {
                 alert(data.message || 'Error generating QR');
             }
         })
-        .catch(err => console.error("Error fetching TOTP setup:", err));
+        .catch(err => console.error("Error fetching TOTP setup:", err))
+        .finally(() => setButtonLoading(btn, false));
     } else {
         // Email/Phone
         fetch(url, {
@@ -142,7 +152,8 @@ function initiate2FASetup(btn) {
                 alert(data.message || 'Error sending code');
             }
         })
-        .catch(err => console.error("Error initiating 2FA:", err));
+        .catch(err => console.error("Error initiating 2FA:", err))
+        .finally(() => setButtonLoading(btn, false));
     }
 }
 
@@ -167,6 +178,8 @@ function submitOTPSetup(e) {
     const code = document.getElementById('otpSetupInput').value;
     const method = document.getElementById('otpMethodInput').value;
     const errorDiv = document.getElementById('otpSetupError');
+    const submitButton = form.querySelector('button[type="submit"]');
+    setButtonLoading(submitButton, true);
     
     fetch(url, {
         method: 'POST',
@@ -220,7 +233,8 @@ function submitOTPSetup(e) {
         console.error(err);
         errorDiv.textContent = 'Connection error';
         errorDiv.classList.remove('d-none');
-    });
+    })
+    .finally(() => setButtonLoading(submitButton, false));
 }
 
 function downloadCodes(codes) {
@@ -267,13 +281,14 @@ function showConfirmation(message, onConfirm) {
 }
 
 function disable2FA(e) {
-    const btn = e.target.closest('button');
+    const btn = e && e.target && e.target.closest ? e.target.closest('button') : e;
     const method = btn.dataset.method;
     const url = btn.dataset.url;
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || document.getElementById('otpSetupForm').dataset.csrf;
     const confirmMsg = btn.dataset.confirmMsg || 'Are you sure?';
     
     showConfirmation(confirmMsg, function() {
+        setButtonLoading(btn, true);
         fetch(url, {
             method: 'POST',
             headers: {
@@ -294,7 +309,8 @@ function disable2FA(e) {
         .catch(err => {
             console.error(err);
             alert('Server connection error');
-        });
+        })
+        .finally(() => setButtonLoading(btn, false));
     });
 }
 
@@ -304,6 +320,7 @@ function handleBackupCodes(e) {
     
     const performGeneration = () => {
         const container = document.getElementById('backupCodesContainer');
+        setButtonLoading(btn, true);
         
         // Show modal first with loader
         const modalEl = document.getElementById('backupCodesModal');
@@ -345,7 +362,8 @@ function handleBackupCodes(e) {
         })
         .catch(err => {
             container.innerHTML = `<div class="text-danger">Connection Error</div>`;
-        });
+        })
+        .finally(() => setButtonLoading(btn, false));
     };
 
     // Confirmation before generating new codes

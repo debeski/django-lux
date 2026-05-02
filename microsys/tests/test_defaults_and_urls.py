@@ -61,7 +61,13 @@ from microsys.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, LEGACY_H
 from microsys.forms import SystemSettingsForm
 from microsys.models import SystemSettings
 from microsys.themes import get_theme_names
-from microsys.utils import get_system_config
+from microsys.utils import (
+    decrypt_email_secret,
+    export_system_settings_payload,
+    get_microsys_email_config,
+    get_system_config,
+    normalize_system_settings_import_payload,
+)
 
 
 class MicrosysDefaultRouteTests(SimpleTestCase):
@@ -287,6 +293,59 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.cleaned_data['sidebar_config']['density'], 'dense')
         self.assertFalse(form.cleaned_data['titlebar_config']['show_title'])
 
+    def test_setup_form_import_restores_email_config_and_sidebar_enabled_flag(self):
+        payload = {
+            'format': 'django-microsys.system-settings',
+            'version': 1,
+            'settings': {
+                'system_names': {'en': 'Imported System'},
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': {'en': {'name': 'English', 'dir': 'ltr', 'flag': 'EN'}},
+                'translations_override': {},
+                'home_url': '/',
+                'email_config': {
+                    'mode': 'encrypted_db',
+                    'host': 'smtp.example.com',
+                    'port': 587,
+                    'use_tls': True,
+                    'username': 'mailer@example.com',
+                    'default_from_email': 'security@example.com',
+                    'password_configured': True,
+                },
+                'sidebar_config': {'enabled': False, 'entries': [], 'density': 'dense'},
+            },
+        }
+        import_file = SimpleUploadedFile(
+            'microsys-system-settings.json',
+            json.dumps(payload).encode('utf-8'),
+            content_type='application/json',
+        )
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "Posted"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'sidebar_config': '{"entries":[]}',
+            },
+            files={'settings_import_file': import_file},
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['email_config']['mode'], 'encrypted_db')
+        self.assertEqual(form.cleaned_data['email_config']['host'], 'smtp.example.com')
+        self.assertFalse(form.cleaned_data['email_config']['password_configured'])
+        self.assertFalse(form.cleaned_data['sidebar_config']['enabled'])
+        self.assertFalse(form.cleaned_data['sidebar_enable_toolbar'])
+
     def test_setup_form_import_does_not_override_when_processed_flag_set(self):
         """When import is marked as processed, user edits are preserved and import is skipped."""
         payload = {
@@ -375,6 +434,98 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn('default_theme', form.errors)
+
+    def test_setup_form_saves_encrypted_db_email_secret_without_plaintext(self):
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "System"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'email_2fa': 'on',
+                'email_config_mode': 'encrypted_db',
+                'email_config_host': 'smtp.example.com',
+                'email_config_port': '587',
+                'email_config_use_tls': 'on',
+                'email_config_username': 'mailer@example.com',
+                'email_config_password': 'app-secret-pass',
+                'email_config_default_from_email': 'security@example.com',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        email_config = form.cleaned_data['email_config']
+        self.assertEqual(email_config['mode'], 'encrypted_db')
+        self.assertTrue(email_config['encrypted_password'])
+        self.assertNotEqual(email_config['encrypted_password'], 'app-secret-pass')
+        self.assertEqual(decrypt_email_secret(email_config['encrypted_password']), 'app-secret-pass')
+
+    def test_system_settings_export_redacts_email_secret_and_preserves_sidebar_enabled(self):
+        settings_obj = SystemSettings(
+            system_names={'en': 'Export System'},
+            default_language='en',
+            default_theme='light',
+            allowed_themes=['light'],
+            email_config={
+                'mode': 'encrypted_db',
+                'host': 'smtp.example.com',
+                'port': 587,
+                'use_tls': True,
+                'username': 'mailer@example.com',
+                'default_from_email': 'security@example.com',
+                'encrypted_password': 'ciphertext-value',
+                'password_configured': True,
+            },
+            sidebar_config={'enabled': False, 'entries': []},
+        )
+
+        payload = export_system_settings_payload(settings_obj)
+        email_config = payload['settings']['email_config']
+
+        self.assertNotIn('encrypted_password', email_config)
+        self.assertTrue(email_config['password_configured'])
+        self.assertEqual(email_config['mode'], 'encrypted_db')
+        self.assertFalse(payload['settings']['sidebar_config']['enabled'])
+
+        imported = normalize_system_settings_import_payload(payload)
+        self.assertNotIn('encrypted_password', imported['email_config'])
+        self.assertTrue(imported['email_config']['password_configured'])
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        EMAIL_HOST='settings-smtp.example.com',
+        EMAIL_PORT=2525,
+        EMAIL_USE_TLS=False,
+        EMAIL_HOST_USER='settings-user',
+        EMAIL_HOST_PASSWORD='env-secret',
+        DEFAULT_FROM_EMAIL='settings@example.com',
+    )
+    @patch('microsys.models.SystemSettings.load')
+    def test_env_email_mode_uses_ui_hints_with_env_secret(self, mock_load):
+        mock_load.return_value = SimpleNamespace(email_config={
+            'mode': 'env',
+            'host': 'ui-smtp.example.com',
+            'port': 587,
+            'use_tls': True,
+            'use_ssl': False,
+            'username': 'ui-user',
+            'default_from_email': 'ui@example.com',
+        })
+        email_config = get_microsys_email_config(include_secret=True)
+
+        self.assertEqual(email_config['mode'], 'env')
+        self.assertEqual(email_config['host'], 'ui-smtp.example.com')
+        self.assertEqual(email_config['port'], 587)
+        self.assertTrue(email_config['use_tls'])
+        self.assertEqual(email_config['username'], 'ui-user')
+        self.assertEqual(email_config['from_email'], 'ui@example.com')
+        self.assertEqual(email_config['password'], 'env-secret')
 
     @override_settings(MICROSYS_CONFIG={'default_table_density': 'invalid-choice'})
     def test_setup_form_falls_back_to_balanced_table_density(self):

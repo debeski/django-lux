@@ -86,15 +86,15 @@
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap-icons.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/main/css/main.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/main/css/buttons.css' %}">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/titlebar.css' %}?v=20260423a">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/tables.css' %}">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/titlebar.css' %}?v=20260501c">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/tables.css' %}?v=20260501a">
     <link rel="stylesheet" href="{% static 'microsys/main/css/dropdowns.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/main/css/selectors.css' %}?v=20260422a">
     
     <link rel="stylesheet" href="{% static 'microsys/main/css/pagination.css' %}">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/system_setup.css' %}?v=20260426b">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/system_setup.css' %}?v=20260501d">
     {% for theme in MICROSYS_THEMES %}
-    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260426b">
+    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260501b">
     {% endfor %}
     <link rel="stylesheet" href="{% static 'microsys/accessibility/css/main.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/language/css/main.css' %}">
@@ -108,7 +108,7 @@
     {% include_if_exists 'microsys/includes/custom_head.html' %}
     {% block extra_head %}{% endblock %}
 
-    <script src="{% static 'microsys/themes/js/main.js' %}?v=20260402f" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'microsys/themes/js/main.js' %}?v=20260501a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/accessibility/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/language/js/main.js' %}?v=20260423a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/language/js/translations.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
@@ -118,7 +118,7 @@
     <script src="{% static 'microsys/helpers/wizard/js/main.js' %}?v=20260417c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/main/js/tables.js' %}?v=20260423a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/main/js/selectors.js' %}?v=20260422a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'microsys/main/js/system_setup.js' %}?v=20260426c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'microsys/main/js/system_setup.js' %}?v=20260501c" nonce="{{ request.csp_nonce }}" defer></script>
 
 </head>
 <body>
@@ -136,7 +136,9 @@
         <div class="col overflow-hidden">
             <div class="row g-0 m-0 d-flex flex-grow-1 flex-nowrap">
                 <!-- Sidebar -->
+                {% if sidebar_enabled %}
                     {% include 'microsys/includes/sidebar_items.html' %}
+                {% endif %}
                 <!-- Main Content -->
                 <div class="col p-3 flex-column flex-fill p-4" id="mainContent">
     {% else %}

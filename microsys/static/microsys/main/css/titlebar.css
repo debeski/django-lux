@@ -27,6 +27,10 @@
 }
 
 .titlebar__side--start {
+    min-width: 0;
+}
+
+.titlebar__side--has-toggle {
     min-width: 40px;
 }
 
@@ -217,6 +221,20 @@
 
 .titlebar[data-sidebar-collapse-mode="locked_expanded"] .sidebar-toggle {
     display: none;
+}
+
+.titlebar .sidebar-toggle--desktop-disabled {
+    display: none;
+}
+
+@media (max-width: 1099.98px) {
+    .titlebar .sidebar-toggle--desktop-disabled {
+        display: inline-flex !important;
+    }
+
+    .titlebar__side--mobile-toggle {
+        min-width: 40px;
+    }
 }
 
 @media (max-width: 991.98px) {

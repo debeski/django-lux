@@ -3,9 +3,12 @@ import logging
 
 from django.apps import apps
 from django.contrib import messages
-from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect
+from django.contrib.sessions.models import Session
+from django.shortcuts import get_object_or_404, render, redirect
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 # Project imports
 from django.utils.module_loading import import_string
@@ -16,11 +19,125 @@ from .twofa import get_2fa_config
 logger = logging.getLogger('microsys')
 
 
+def _parse_session_datetime(value):
+    try:
+        parsed = timezone.datetime.fromisoformat(str(value or ''))
+        if timezone.is_naive(parsed):
+            parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+        return parsed
+    except (TypeError, ValueError):
+        return None
+
+
+def _device_label(user_agent):
+    user_agent = str(user_agent or '').strip()
+    lowered = user_agent.lower()
+    if not user_agent:
+        return 'Unknown device'
+
+    if 'edg/' in lowered or 'edge/' in lowered:
+        browser = 'Edge'
+    elif 'firefox/' in lowered:
+        browser = 'Firefox'
+    elif 'chrome/' in lowered or 'chromium/' in lowered:
+        browser = 'Chrome'
+    elif 'safari/' in lowered:
+        browser = 'Safari'
+    else:
+        browser = 'Browser'
+
+    if 'android' in lowered:
+        platform = 'Android'
+    elif 'iphone' in lowered or 'ipad' in lowered:
+        platform = 'iOS'
+    elif 'windows' in lowered:
+        platform = 'Windows'
+    elif 'mac os' in lowered or 'macintosh' in lowered:
+        platform = 'macOS'
+    elif 'linux' in lowered:
+        platform = 'Linux'
+    else:
+        platform = 'device'
+
+    return f'{browser} on {platform}'
+
+
+def _session_device_metadata_from_request(request):
+    now = timezone.now().isoformat()
+    existing = request.session.get('microsys_device')
+    if not isinstance(existing, dict):
+        existing = {}
+    metadata = {
+        'user_agent': request.META.get('HTTP_USER_AGENT', '')[:500],
+        'ip_address': request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip(),
+        'first_seen': existing.get('first_seen') or now,
+        'last_seen': now,
+    }
+    request.session['microsys_device'] = metadata
+    request.session.modified = True
+    return metadata
+
+
+def _profile_sessions_for_user(user, current_session_key=None, current_session_data=None, current_expire_date=None):
+    sessions = []
+    now = timezone.now()
+    user_id = str(user.pk)
+    has_current_session = False
+
+    for session in Session.objects.filter(expire_date__gt=now).order_by('-expire_date'):
+        try:
+            data = session.get_decoded()
+        except Exception:
+            continue
+
+        if str(data.get('_auth_user_id') or '') != user_id:
+            continue
+
+        if current_session_key and session.session_key == current_session_key and isinstance(current_session_data, dict):
+            metadata = current_session_data.get('microsys_device') if isinstance(current_session_data.get('microsys_device'), dict) else {}
+        else:
+            metadata = data.get('microsys_device') if isinstance(data.get('microsys_device'), dict) else {}
+        user_agent = metadata.get('user_agent') or ''
+        last_seen = _parse_session_datetime(metadata.get('last_seen'))
+        first_seen = _parse_session_datetime(metadata.get('first_seen'))
+
+        is_current = bool(current_session_key and session.session_key == current_session_key)
+        has_current_session = has_current_session or is_current
+
+        sessions.append({
+            'session_key': session.session_key,
+            'is_current': is_current,
+            'device_label': _device_label(user_agent),
+            'user_agent': user_agent,
+            'ip_address': metadata.get('ip_address') or '',
+            'first_seen': first_seen,
+            'last_seen': last_seen,
+            'expire_date': session.expire_date,
+        })
+
+    if current_session_key and not has_current_session:
+        metadata = current_session_data.get('microsys_device') if isinstance(current_session_data, dict) and isinstance(current_session_data.get('microsys_device'), dict) else {}
+        user_agent = metadata.get('user_agent') or ''
+        sessions.append({
+            'session_key': current_session_key,
+            'is_current': True,
+            'device_label': _device_label(user_agent),
+            'user_agent': user_agent,
+            'ip_address': metadata.get('ip_address') or '',
+            'first_seen': _parse_session_datetime(metadata.get('first_seen')),
+            'last_seen': _parse_session_datetime(metadata.get('last_seen')) or now,
+            'expire_date': current_expire_date or now,
+        })
+
+    return sorted(sessions, key=lambda item: (not item['is_current'], -(item['last_seen'] or item['expire_date']).timestamp()))
+
+
 # Profile View — Displays user profile with stats, activity timeline, and password change
 @login_required
 def user_profile(request):
     CustomPasswordChangeForm = import_string('microsys.forms.CustomPasswordChangeForm')
     user = request.user
+    _session_device_metadata_from_request(request)
     
     # Use dynamic form
     password_form = CustomPasswordChangeForm(user)
@@ -176,6 +293,44 @@ def user_profile(request):
         'last_login_date': last_login_date, # If used
         'role': 'Admin' if request.user.is_staff else 'User',
         'config_2fa': get_2fa_config(), # Inject 2FA availability
+        'active_sessions': _profile_sessions_for_user(
+            request.user,
+            request.session.session_key,
+            dict(request.session.items()),
+            request.session.get_expiry_date(),
+        ),
     }
 
     return render(request, 'microsys/users/profile.html', context)
+
+
+@login_required
+@require_POST
+def revoke_profile_session(request, session_key):
+    target_session = get_object_or_404(Session, session_key=session_key)
+    try:
+        decoded = target_session.get_decoded()
+    except Exception:
+        decoded = {}
+
+    if str(decoded.get('_auth_user_id') or '') != str(request.user.pk):
+        messages.error(
+            request,
+            get_strings().get('session_revoke_denied', 'That session does not belong to your account.'),
+            fail_silently=True,
+        )
+        return redirect('user_profile')
+
+    is_current_session = session_key == request.session.session_key
+    target_session.delete()
+    log_user_action(request, "DELETE", instance=request.user, model_name="session", number=session_key[:8])
+
+    messages.success(
+        request,
+        get_strings().get('session_revoked_success', 'Session signed out.'),
+        fail_silently=True,
+    )
+    if is_current_session:
+        logout(request)
+        return redirect('login')
+    return redirect('user_profile')

@@ -1,116 +1,130 @@
-/* Modern Button Styles */
+/* Modern Microsys button surface */
 
-/* Base Button */
-.btn {
-    border-radius: 10px;
-    font-weight: 600;
-    padding: 0.5rem 1.25rem;
-    transition: all 0.25s ease;
-    border: none !important;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08); /* Subtle shadow */
-    outline: none !important;
+:root {
+    --ms-btn-radius: 0.78rem;
+    --ms-btn-ink: #111827;
+    --ms-btn-border: rgba(15, 23, 42, 0.14);
+    --ms-btn-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    --ms-btn-shadow-hover: 0 12px 26px rgba(15, 23, 42, 0.13);
+    --ms-btn-secondary-bg: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+    --ms-btn-success-bg: linear-gradient(180deg, #bbf7d0 0%, #86efac 100%);
+    --ms-btn-info-bg: linear-gradient(180deg, #bae6fd 0%, #7dd3fc 100%);
+    --ms-btn-warning-bg: linear-gradient(180deg, #fde68a 0%, #facc15 100%);
+    --ms-btn-danger-bg: linear-gradient(180deg, #fecaca 0%, #fda4af 100%);
 }
 
-.btn:focus, .btn:active {
+.btn {
+    border-radius: var(--ms-btn-radius);
+    font-weight: 700;
+    padding: 0.52rem 1.08rem;
+    border: 1px solid var(--ms-btn-border) !important;
+    box-shadow: var(--ms-btn-shadow);
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease;
     outline: none !important;
-    box-shadow: none !important;
 }
 
 .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    transform: translateY(-1px);
+    box-shadow: var(--ms-btn-shadow-hover);
 }
 
 .btn:active {
     transform: translateY(0);
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.1) !important;
 }
 
-/* Primary Button (Add New, Submit) - Soft Blue */
+.btn:focus-visible {
+    box-shadow: 0 0 0 0.18rem rgba(var(--primal-rgb, 71, 85, 105), 0.28), var(--ms-btn-shadow) !important;
+}
+
+.btn:disabled,
+.btn.disabled {
+    transform: none;
+    box-shadow: none;
+    opacity: 0.62;
+}
+
 .btn-primary {
-    background-color: var(--primal) !important;
+    background: linear-gradient(180deg, var(--primal) 0%, var(--primal_dark) 100%) !important;
+    border-color: rgba(var(--primal-rgb, 71, 85, 105), 0.32) !important;
     color: #fff !important;
 }
 
-.btn-primary:hover {
-    background-color: var(--primal_dark) !important;
-    box-shadow: 0 4px 15px var(--btn-primary-shadow);
+.btn-primary:hover,
+.btn-primary:focus {
+    color: #fff !important;
 }
 
-/* Secondary Button (Back, Cancel) - Soft Gray */
+.btn-secondary,
+.btn-success,
+.btn-info,
+.btn-warning,
+.btn-danger,
+.btn-light {
+    color: var(--ms-btn-ink) !important;
+}
+
 .btn-secondary {
-    background-color: #cbd5e1 !important; /* Soft gray */
-    color: #495057 !important;
+    background: var(--ms-btn-secondary-bg) !important;
 }
 
-.btn-secondary:hover {
-    background-color: #94a3b8 !important;
-    color: #212529 !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-/* Success Button (Download Excel) - Soft Green */
 .btn-success {
-    background-color: #a7f3d0 !important; /* Soft green bg */
-    color: #0f5132 !important; /* Dark green text */
+    background: var(--ms-btn-success-bg) !important;
 }
 
-.btn-success:hover {
-    background-color: #6ee7b7 !important;
-    box-shadow: 0 4px 12px rgba(15, 81, 50, 0.15);
+.btn-info {
+    background: var(--ms-btn-info-bg) !important;
 }
 
-/* Info Button (Download Zip / Advanced Search) - Soft Cyan/Blue */
-/* .btn-info {
-    background-color: #bae6fd !important;
-    color: #055160 !important;
-}
-
-.btn-info:hover {
-    background-color: #7dd3fc !important;
-    box-shadow: 0 4px 12px rgba(5, 81, 96, 0.15);
-} */
-
-/* Danger Button (Delete) - Soft Red */
-.btn-danger {
-    background-color: #fecaca !important;
-    color: #842029 !important;
-}
-
-.btn-danger:hover {
-    background-color: #fca5a5 !important;
-    box-shadow: 0 4px 12px rgba(132, 32, 41, 0.15);
-}
-
-/* Warning Button (Edit/Alert) - Soft Yellow */
 .btn-warning {
-    background-color: #fde68a !important;
-    color: #664d03 !important;
+    background: var(--ms-btn-warning-bg) !important;
 }
 
-.btn-warning:hover {
-    background-color: #fcd34d !important;
-    box-shadow: 0 4px 12px rgba(102, 77, 3, 0.15);
+.btn-danger {
+    background: var(--ms-btn-danger-bg) !important;
 }
 
-/* Outline Buttons (if used) */
-.btn-outline-primary {
-    border: none !important;
-    color: var(--primal) !important;
-    background: transparent !important;
+.btn-outline-primary,
+.btn-outline-secondary,
+.btn-outline-success,
+.btn-outline-info,
+.btn-outline-warning,
+.btn-outline-danger,
+.btn-outline-light,
+.btn-outline-dark {
+    background: rgba(255, 255, 255, 0.52) !important;
+    border-color: rgba(var(--primal-rgb, 71, 85, 105), 0.22) !important;
+    color: var(--title, #111827) !important;
 }
 
-.btn-outline-primary:hover {
-    background-color: var(--primal) !important;
-    color: #fff !important;
+.btn-outline-primary:hover,
+.btn-outline-secondary:hover,
+.btn-outline-success:hover,
+.btn-outline-info:hover,
+.btn-outline-warning:hover,
+.btn-outline-danger:hover,
+.btn-outline-light:hover,
+.btn-outline-dark:hover {
+    background: rgba(var(--primal-rgb, 71, 85, 105), 0.12) !important;
+    color: var(--title, #111827) !important;
+    border-color: rgba(var(--primal-rgb, 71, 85, 105), 0.32) !important;
 }
 
-.btn-outline-success {
-    border: none !important;
-    color: #198754 !important;
-    background: transparent !important;
+.btn-sm {
+    border-radius: 0.66rem;
+    padding: 0.36rem 0.72rem;
 }
 
-.btn-outline-success:hover {
-    background-color: #198754 !important;
-    color: #fff !important;
+.btn-lg {
+    border-radius: 0.92rem;
+    padding: 0.72rem 1.32rem;
+}
+
+.btn.rounded-pill {
+    border-radius: 999px !important;
 }

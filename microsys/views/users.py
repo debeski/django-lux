@@ -19,9 +19,9 @@ from django.views.generic.detail import DetailView
 
 # Project imports
 from ..constants import DEFAULT_HOME_URL, DEFAULT_TABLE_PAGE_SIZE
+from ..forms import MicrosysAuthenticationForm
 from ..utils import is_scope_enabled, is_staff, is_superuser, is_global_staff, is_central_staff, log_user_action, get_client_ip, get_user_linked_models, can_manage_target_user, user_can_view_user_directory, user_can_view_activity_log
 from ..translations import get_strings
-from .twofa import send_otp
 
 
 logger = logging.getLogger('microsys')
@@ -31,6 +31,7 @@ User = get_user_model() # Use custom user model
 # Authentication — Custom login with 2FA intercept, language injection, and dynamic redirect
 class CustomLoginView(LoginView):
     redirect_authenticated_user = True  # Automatically redirect logged-in users
+    authentication_form = MicrosysAuthenticationForm
 
     def form_valid(self, form):
         """
@@ -40,13 +41,7 @@ class CustomLoginView(LoginView):
         
         # Check if 2FA is enabled for this user's profile
         if hasattr(user, 'profile') and user.profile.is_2fa_enabled:
-            # 1. Send OTP
-            send_otp(self.request, user, intent='login')
-            
-            # 2. Store user ID in session (partially authenticated)
             self.request.session['pre_2fa_user_id'] = user.pk
-            
-            # 3. Redirect to verification page
             return redirect('verify_otp_login')
             
         # Standard Login
@@ -63,6 +58,8 @@ class CustomLoginView(LoginView):
             
         # 2. Use the smart helper (now handles session automatically)
         context['MS_TRANS'] = get_strings()
+        from ..registration import public_registration_config
+        context['public_registration_enabled'] = public_registration_config().get('enabled', False)
 
         return context
 

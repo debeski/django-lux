@@ -1,0 +1,48 @@
+{% extends 'microsys/base.html' %}
+{% block title %}Register{% endblock %}
+{% block titlebar %}{% endblock %}
+
+{% block layout %}
+<main class="container py-5" style="max-width: 640px;">
+    <h1 class="h3 mb-4">Create an account</h1>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div class="mb-3">
+            {{ form.email.label_tag }}
+            {{ form.email }}
+            {{ form.email.errors }}
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                {{ form.first_name.label_tag }}
+                {{ form.first_name }}
+                {{ form.first_name.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+                {{ form.last_name.label_tag }}
+                {{ form.last_name }}
+                {{ form.last_name.errors }}
+            </div>
+        </div>
+        <div class="mb-3">
+            {{ form.password1.label_tag }}
+            {{ form.password1 }}
+            {{ form.password1.errors }}
+        </div>
+        <div class="mb-3">
+            {{ form.password2.label_tag }}
+            {{ form.password2 }}
+            {{ form.password2.errors }}
+        </div>
+        <div class="d-none" aria-hidden="true">
+            {{ form.website.label_tag }}
+            {{ form.website }}
+        </div>
+        <button type="submit" class="btn btn-primary">Register</button>
+        <a class="btn btn-link" href="{% url 'login' %}">Back to login</a>
+    </form>
+</main>
+{% endblock %}

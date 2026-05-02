@@ -65,4 +65,14 @@ from .activitylog import (
 )
 
 # Profile
-from .profile import user_profile
+from .profile import revoke_profile_session, user_profile
+
+# Public registration
+from .registration import (
+    approve_registration_view,
+    pending_registrations_view,
+    register_sent_view,
+    register_verify_view,
+    register_view,
+    reject_registration_view,
+)

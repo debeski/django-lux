@@ -4,6 +4,7 @@ import django_tables2 as tables
 from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils.html import format_html
 
 from .constants import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS
 from .translations import get_strings
@@ -111,6 +112,20 @@ class UserTable(MicrosysTable):
             "data-micro-context": "true",
             "data-micro-actions": lambda record: json.dumps(_build_user_row_actions(record))
         }
+
+    def render_username(self, value, record):
+        s = get_strings()
+        try:
+            public_registration = record.public_registration
+        except Exception:
+            public_registration = None
+        if public_registration:
+            return format_html(
+                '{} <span class="badge bg-light text-primary border ms-2"><i class="bi bi-person-plus me-1"></i>{}</span>',
+                value,
+                s.get('account_source_public', 'Public signup'),
+            )
+        return value
 
 
 class UserActivityLogTable(MicrosysTable):

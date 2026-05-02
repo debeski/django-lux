@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-microsys-sso"
+version = "0.1.0"
+description = "Optional OIDC SSO provider plugin for django-microsys."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "NON-COMMERCIAL" }
+authors = [
+    { name = "DeBeski", email = "debeski1@gmail.com" }
+]
+dependencies = [
+    "Django>=5.1",
+    "django-microsys>=2.0.0",
+    "django-oauth-toolkit[oidc]>=3.0",
+    "cryptography>=42.0",
+]
+classifiers = [
+    "Framework :: Django",
+    "Framework :: Django :: 5",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: Other/Proprietary License",
+]
+
+[project.urls]
+Homepage = "https://github.com/debeski/django-microsys"
+
+[tool.setuptools.packages.find]
+include = ["microsys_sso", "microsys_sso.*"]
+

@@ -16,6 +16,9 @@ Use the sections below based on what you are trying to do.
 ## I am Configuring microSYS
 
 - [Admin Guide](admin-guide.md) for the first-launch setup wizard, Options view, sidebar builder, themes, languages, and runtime preferences.
+- [MSRP-1 Security Standard](security-msrp-1.md) for the active backend authorization and security-flow policy.
+- [Public Registration Playground](registration.md) for the disabled-by-default email-verified local signup path.
+- [Optional SSO Packages](sso.md) for the separate OIDC provider plugin and client SDK.
 
 ## I am Integrating microSYS into a Django Project
 
@@ -34,10 +37,12 @@ Use the sections below based on what you are trying to do.
 
 - Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, a global home URL, and sidebar behavior controls.
 - A full internal-operations UI including user management, profiles, grouped permissions, activity logs, scopes, sections, options, and built-in two-factor authentication flows.
+- A disabled-by-default public registration playground with mandatory email verification, SMTP readiness checks, throttles, honeypot protection, and optional superuser approval.
 - A resolver-driven sidebar system with discovered app pages, permission-based item visibility, structured groups, runtime tree rendering, optional user-level reordering layered on top of the system default, and a configurable runtime toolbar.
 - A shared theme registry that keeps theme validation, ordering, previews, and CSS inclusion aligned across setup, options, and the live runtime UI.
 - A generic CRUD layer made of sections, dynamic modals, list/filter helpers, and reusable context-menu actions and events.
 - A built-in audit trail that records CRUD, login/logout, user-profile merges, diffs, masked sensitive changes, and download/export actions.
+- Optional OIDC SSO packages that keep provider/client behavior separate from core Microsys runtime imports.
 - Data-movement helpers such as the universal fetcher, Excel export, sticky autofill, recursive foreign-key autofill, and downloadable file handling.
 - Framework-level automation for translations, scope injection, actor tracking, soft-delete, and UI preference persistence.
 - Tutorial and design infrastructure including view-aware walkthroughs, theme-aware surfaces, and extension hooks for head/scripts injection.

@@ -881,6 +881,28 @@
         });
     }
 
+    function setNamedFieldDisabled(form, name, isDisabled) {
+        const inputs = getNamedFieldInputs(form, name);
+        if (!inputs.length) {
+            return;
+        }
+
+        const selectorRoot = inputs[0].closest('[data-ms-selector]');
+        if (selectorRoot) {
+            selectorRoot.classList.toggle('is-disabled', Boolean(isDisabled));
+            selectorRoot.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+        }
+
+        inputs.forEach((input) => {
+            input.disabled = Boolean(isDisabled);
+            if (isDisabled) {
+                input.setAttribute('aria-disabled', 'true');
+            } else {
+                input.removeAttribute('aria-disabled');
+            }
+        });
+    }
+
     function setPreviewVisibility(element, isVisible) {
         if (!element) {
             return;
@@ -987,6 +1009,7 @@
             return;
         }
 
+        const sidebarEnabled = readBooleanField(form, '#id_sidebar_enabled', true);
         const showIcons = readBooleanField(form, '#id_sidebar_show_icons', true);
         const collapseMode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
         const density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
@@ -1001,6 +1024,8 @@
         const densityToolVisible = allowUserDensity;
         const reorderToolVisible = enableReorder;
 
+        setPreviewVisibility(sidebar, sidebarEnabled);
+        sidebar.dataset.sidebarEnabled = sidebarEnabled ? 'true' : 'false';
         sidebar.dataset.sidebarShowIcons = showIcons ? 'true' : 'false';
         sidebar.dataset.sidebarCollapseMode = collapseMode;
         sidebar.dataset.sidebarDensity = density;
@@ -1014,7 +1039,18 @@
         const titlebar = document.querySelector('.titlebar');
         if (titlebar) {
             titlebar.dataset.sidebarCollapseMode = collapseMode;
+            const startSide = titlebar.querySelector('.titlebar__side--start');
+            if (startSide) {
+                startSide.classList.toggle('titlebar__side--empty', !sidebarEnabled);
+                startSide.classList.toggle('titlebar__side--has-toggle', sidebarEnabled && collapseMode !== 'locked_expanded');
+                startSide.classList.toggle('titlebar__side--mobile-toggle', sidebarEnabled && collapseMode === 'locked_expanded');
+            }
         }
+        const titlebarToggle = document.getElementById('sidebarToggle');
+        if (titlebarToggle) {
+            titlebarToggle.classList.toggle('sidebar-toggle--desktop-disabled', sidebarEnabled && collapseMode === 'locked_expanded');
+        }
+        setPreviewVisibility(titlebarToggle, sidebarEnabled);
 
         const toolbar = sidebar.querySelector('.sidebar-toolbar');
         const themeArrow = document.getElementById('sidebarThemeArrow');
@@ -1023,12 +1059,12 @@
         const densityControl = sidebar.querySelector('.sidebar-density-control');
         const reorderToggle = document.getElementById('sidebarReorderToggle') || sidebar.querySelector('.reorder-toggle');
         const sectionsManagerLink = sidebar.querySelector('.sidebar-toolbar-link');
-        const toolbarVisible = enableToolbar && Boolean(themeToolVisible || densityToolVisible || reorderToolVisible || sectionsManagerLink);
+        const toolbarVisible = sidebarEnabled && enableToolbar && Boolean(themeToolVisible || densityToolVisible || reorderToolVisible || sectionsManagerLink);
 
-        setPreviewVisibility(themeArrow, themeToolVisible);
-        setPreviewVisibility(themeIndicator, themeToolVisible);
-        setPreviewVisibility(densityControl, densityToolVisible);
-        setPreviewVisibility(reorderToggle, reorderToolVisible);
+        setPreviewVisibility(themeArrow, sidebarEnabled && themeToolVisible);
+        setPreviewVisibility(themeIndicator, sidebarEnabled && themeToolVisible);
+        setPreviewVisibility(densityControl, sidebarEnabled && densityToolVisible);
+        setPreviewVisibility(reorderToggle, sidebarEnabled && reorderToolVisible);
         setPreviewVisibility(toolbar, toolbarVisible);
 
         if (!themeToolVisible && themePopup) {
@@ -1052,7 +1088,7 @@
 
         setPreviewVisibility(themeCard, themeToolVisible);
         setPreviewVisibility(languageCard, allowUserLanguage && languageCount > 1);
-        setPreviewVisibility(sidebarDensityCard, allowUserDensity);
+        setPreviewVisibility(sidebarDensityCard, sidebarEnabled && allowUserDensity);
     }
 
     function applyTableDensityPreview(form) {
@@ -1235,8 +1271,15 @@
 
         const entries = Array.isArray(config.entries) ? config.entries : [];
         return {
+            enabled: config.enabled !== false,
             home_url_name: config.home_url_name || null,
             entries: entries.map(entry => normalizeEntry(entry, catalogLookup, fallbackCatalogLookup)).filter(Boolean),
+            enable_reorder: config.enable_reorder !== false,
+            show_toolbar: config.show_toolbar !== false,
+            show_icons: config.show_icons !== false,
+            density: config.density || 'balanced',
+            allow_user_density: config.allow_user_density !== false,
+            collapse_mode: config.collapse_mode || 'icons',
         };
     }
 
@@ -2579,11 +2622,23 @@
             }
         });
 
-        ['allow_user_theme_override', 'allow_user_language_override', 'email_2fa', 'public_root'].forEach((name) => {
+        ['allow_user_theme_override', 'allow_user_language_override', 'email_2fa', 'public_root', 'public_registration_enabled', 'registration_throttle_enabled'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setCheckboxField(form, name, settings[name]);
             }
         });
+
+        const emailConfig = settings.email_config && typeof settings.email_config === 'object' ? settings.email_config : null;
+        if (emailConfig) {
+            setJsonField(form, 'email_config', emailConfig);
+            setNamedFieldValue(form, 'email_config_mode', emailConfig.mode || 'env');
+            setNamedFieldValue(form, 'email_config_host', emailConfig.host || '');
+            setNamedFieldValue(form, 'email_config_port', emailConfig.port || '587');
+            setCheckboxField(form, 'email_config_use_tls', emailConfig.use_tls !== false);
+            setCheckboxField(form, 'email_config_use_ssl', emailConfig.use_ssl === true);
+            setNamedFieldValue(form, 'email_config_username', emailConfig.username || '');
+            setNamedFieldValue(form, 'email_config_default_from_email', emailConfig.default_from_email || '');
+        }
 
         if (Array.isArray(settings.allowed_themes)) {
             form.querySelectorAll('[data-setup-theme-allowed]').forEach((field) => {
@@ -2595,6 +2650,7 @@
         const sidebar = settings.sidebar_config && typeof settings.sidebar_config === 'object' ? settings.sidebar_config : null;
         if (sidebar) {
             setJsonField(form, 'sidebar_config', sidebar);
+            setCheckboxField(form, 'sidebar_enabled', sidebar.enabled !== false);
             setCheckboxField(form, 'sidebar_enable_reorder', sidebar.enable_reorder !== false);
             setCheckboxField(form, 'sidebar_enable_toolbar', sidebar.show_toolbar !== false);
             setCheckboxField(form, 'sidebar_show_icons', sidebar.show_icons !== false);
@@ -2803,6 +2859,7 @@
             }
 
             const toolbarToggle = form.querySelector('#id_sidebar_enable_toolbar');
+            const sidebarEnabledToggle = form.querySelector('#id_sidebar_enabled');
             const toolbarNote = form.querySelector('[data-sidebar-toolbar-note]');
             const showIconsToggle = form.querySelector('#id_sidebar_show_icons');
             const allowThemeOverrideToggle = form.querySelector('#id_allow_user_theme_override');
@@ -2836,7 +2893,21 @@
             }
 
             function syncToolbarAvailability() {
-                const available = hasLiveToolbarTool();
+                const sidebarEnabled = !sidebarEnabledToggle || sidebarEnabledToggle.checked;
+                const dependentSection = form.querySelector('[data-sidebar-dependent]');
+                if (dependentSection) {
+                    dependentSection.classList.toggle('is-disabled', !sidebarEnabled);
+                    dependentSection.setAttribute('aria-disabled', sidebarEnabled ? 'false' : 'true');
+                }
+                [
+                    'sidebar_enable_reorder',
+                    'sidebar_enable_toolbar',
+                    'sidebar_show_icons',
+                    'sidebar_allow_user_density',
+                    'sidebar_density',
+                    'sidebar_collapse_mode',
+                ].forEach((name) => setNamedFieldDisabled(form, name, !sidebarEnabled));
+                const available = sidebarEnabled && hasLiveToolbarTool();
                 toolbarToggle.disabled = !available;
                 if (!available) {
                     toolbarToggle.checked = false;
@@ -2857,6 +2928,9 @@
             }
 
             toolbarToggle.addEventListener('change', syncToolbarAvailability);
+            if (sidebarEnabledToggle) {
+                sidebarEnabledToggle.addEventListener('change', syncToolbarAvailability);
+            }
             if (showIconsToggle) {
                 showIconsToggle.addEventListener('change', syncCollapseMode);
             }
@@ -2876,6 +2950,49 @@
             }
             syncCollapseMode();
             syncToolbarAvailability();
+        });
+    }
+
+    function initEmailDeliveryOptions(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.emailDeliveryBound === 'true') {
+                return;
+            }
+
+            const section = form.querySelector('[data-email-config-section]');
+            const publicRegistrationToggle = form.querySelector('#id_public_registration_enabled');
+            const email2faToggle = form.querySelector('#id_email_2fa');
+            if (!section || (!publicRegistrationToggle && !email2faToggle)) {
+                return;
+            }
+
+            form.dataset.emailDeliveryBound = 'true';
+
+            function syncEmailConfigVisibility() {
+                const enabled = Boolean(
+                    (publicRegistrationToggle && publicRegistrationToggle.checked) ||
+                    (email2faToggle && email2faToggle.checked)
+                );
+                section.classList.toggle('d-none', !enabled);
+                section.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+                [
+                    'email_config_mode',
+                    'email_config_host',
+                    'email_config_port',
+                    'email_config_use_tls',
+                    'email_config_use_ssl',
+                    'email_config_username',
+                    'email_config_password',
+                    'email_config_default_from_email',
+                ].forEach((name) => setNamedFieldDisabled(form, name, !enabled));
+            }
+
+            [publicRegistrationToggle, email2faToggle].forEach((field) => {
+                if (field) {
+                    field.addEventListener('change', syncEmailConfigVisibility);
+                }
+            });
+            syncEmailConfigVisibility();
         });
     }
 
@@ -2919,6 +3036,7 @@
         initSetupTableDensityPicker(root);
         initSetupSidebarDensityPicker(root);
         initSidebarBehaviorOptions(root);
+        initEmailDeliveryOptions(root);
         initTitlebarBehaviorOptions(root);
         initImmediateSystemSettingsPreview(root);
     }

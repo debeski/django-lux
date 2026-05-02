@@ -30,40 +30,32 @@
             
             <div class="form m-0 mx-auto text-center">
                 {% if user_methods %}
-                    <!-- Method Selector (Modern) -->
-                    <div class="mb-4">
-                        <label class="text-muted mb-2 small fw-bold">{{ MS_TRANS.2fa_select_method|default:"Select Verification Method" }}</label>
-                        <div class="d-flex justify-content-center gap-2 flex-wrap mb-3" id="method-selector">
+                    <div class="mb-4 login-2fa-panel">
+                        <div class="login-2fa-icon"><i class="bi bi-shield-lock"></i></div>
+                        <p class="text-muted small mt-2 mb-3" id="otp-instruction-text">
                             {% if user_methods.totp %}
-                            <input type="radio" class="btn-check" name="method" id="method_totp" value="totp" autocomplete="off" onchange="updateInstruction('totp')" checked>
-                            <label class="btn btn-outline-primary" for="method_totp">
-                                <i class="bi bi-qr-code me-1"></i> App
-                            </label>
+                                {{ MS_TRANS.2fa_totp_or_email_instruction|default:"Enter your authenticator code. You can request an email code if enabled." }}
+                            {% else %}
+                                {{ MS_TRANS.2fa_email_request_instruction|default:"Request an email code, then enter it here." }}
                             {% endif %}
-
-                            {% if user_methods.email %}
-                            <input type="radio" class="btn-check" name="method" id="method_email" value="email" autocomplete="off" onchange="updateInstruction('email')" {% if not user_methods.totp %}checked{% endif %}>
-                            <label class="btn btn-outline-primary" for="method_email">
-                                <i class="bi bi-envelope me-1"></i> Email
-                            </label>
-                            {% endif %}
-
-                            {% if user_methods.phone %}
-                            <input type="radio" class="btn-check" name="method" id="method_phone" value="phone" autocomplete="off" onchange="updateInstruction('phone')" {% if not user_methods.totp and not user_methods.email %}checked{% endif %}>
-                            <label class="btn btn-outline-primary" for="method_phone">
-                                <i class="bi bi-phone me-1"></i> SMS
-                            </label>
-                            {% endif %}
-
-                            <input type="radio" class="btn-check" name="method" id="method_backup" value="backup_code" autocomplete="off" onchange="updateInstruction('backup_code')">
-                            <label class="btn btn-outline-secondary" for="method_backup">
-                                <i class="bi bi-safe me-1"></i> Backup
-                            </label>
-                        </div>
-
-                        <p class="text-muted small mt-2" id="otp-instruction-text" style="min-height: 20px;">
-                            {{ MS_TRANS.2fa_verify_desc }}
                         </p>
+                        <div class="d-flex justify-content-center gap-2 flex-wrap">
+                            {% if user_methods.email %}
+                            <button type="button"
+                                    class="btn btn-outline-primary btn-sm rounded-pill"
+                                    id="sendEmailOtpBtn"
+                                    data-url="{% url 'resend_otp_login' %}"
+                                    data-csrf="{{ csrf_token }}">
+                                <span class="btn-label"><i class="bi bi-envelope me-1"></i>{{ MS_TRANS.2fa_send_email_code|default:"Send email code" }}</span>
+                                <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                            </button>
+                            {% endif %}
+                            {% if user_methods.backup %}
+                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" id="useBackupCodeBtn">
+                                <i class="bi bi-safe me-1"></i>{{ MS_TRANS.2fa_use_backup_code|default:"Use backup code" }}
+                            </button>
+                            {% endif %}
+                        </div>
                     </div>
                 {% else %}
                     <p class="text-muted mb-4">{{ MS_TRANS.2fa_verify_desc }}</p>
@@ -77,7 +69,7 @@
 
                 <div class="mb-4">
                     <label for="otp_code" class="visually-hidden">{{ MS_TRANS.2fa_code }}</label>
-                    <input type="text" 
+                    <input type="text"
                            class="login-input text-center fw-bold" 
                            id="otp_code" 
                            name="otp_code" 
@@ -92,7 +84,6 @@
                 
                 <div class="d-flex justify-content-between mt-4">
                     {% if intent == 'login' %}
-                        <button type="submit" form="resendOtpLoginForm" class="btn btn-link text-muted text-decoration-none small p-0 border-0">{{ MS_TRANS.2fa_resend_btn }}</button>
                         <a href="{% url 'login' %}" class="text-muted text-decoration-none small">Back to Login</a>
                     {% else %}
                         <button type="submit" form="resendOtpEnableForm" class="btn btn-link text-muted text-decoration-none small p-0 border-0">{{ MS_TRANS.2fa_resend_btn }}</button>
@@ -125,38 +116,55 @@
 
 {% block scripts %}
 <script>
-    function updateInstruction(method) {
+    document.addEventListener('DOMContentLoaded', function() {
+        const emailBtn = document.getElementById('sendEmailOtpBtn');
+        const backupBtn = document.getElementById('useBackupCodeBtn');
         const textEl = document.getElementById('otp-instruction-text');
         const inputEl = document.getElementById('otp_code');
-        if (!textEl) return;
-        
-        const instructions = {
-            'totp': 'Enter the 6-digit code from your authenticator app.',
-            'email': 'Enter the 6-digit code sent to your email.',
-            'phone': 'Enter the 6-digit code sent to your phone.',
-            'backup_code': '{{ MS_TRANS.2fa_backup_instruction|default:"Enter one of your 8-digit backup codes." }}'
-        };
-        
-        if (instructions[method]) {
-            textEl.textContent = instructions[method];
+
+        function setButtonLoading(button, loading) {
+            if (!button) return;
+            button.disabled = loading;
+            const spinner = button.querySelector('.spinner-border');
+            if (spinner) spinner.classList.toggle('d-none', !loading);
         }
 
-        if (inputEl) {
-            if (method === 'backup_code') {
-                inputEl.setAttribute('maxlength', '8');
-                inputEl.setAttribute('placeholder', 'XXXXXXXX');
-            } else {
-                inputEl.setAttribute('maxlength', '6');
-                inputEl.setAttribute('placeholder', 'XXXXXX');
-            }
+        if (emailBtn) {
+            emailBtn.addEventListener('click', function() {
+                setButtonLoading(emailBtn, true);
+                fetch(emailBtn.dataset.url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': emailBtn.dataset.csrf || '',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok || data.status !== 'success') throw new Error(data.message || 'Unable to send code');
+                    if (textEl) textEl.textContent = '{{ MS_TRANS.2fa_email_sent_instruction|default:"Email code sent. Enter the 6-digit code here." }}';
+                    if (inputEl) {
+                        inputEl.setAttribute('maxlength', '6');
+                        inputEl.setAttribute('placeholder', 'XXXXXX');
+                        inputEl.focus();
+                    }
+                })
+                .catch((error) => {
+                    if (textEl) textEl.textContent = error.message || 'Unable to send code';
+                })
+                .finally(() => setButtonLoading(emailBtn, false));
+            });
         }
-    }
 
-    // Initialize on load
-    document.addEventListener('DOMContentLoaded', function() {
-        const checked = document.querySelector('input[name="method"]:checked');
-        if (checked) {
-            updateInstruction(checked.value);
+        if (backupBtn) {
+            backupBtn.addEventListener('click', function() {
+                if (textEl) textEl.textContent = '{{ MS_TRANS.2fa_backup_instruction|default:"Enter one of your 8-digit backup codes." }}';
+                if (inputEl) {
+                    inputEl.setAttribute('maxlength', '8');
+                    inputEl.setAttribute('placeholder', 'XXXXXXXX');
+                    inputEl.focus();
+                }
+            });
         }
     });
 </script>

@@ -1,0 +1,124 @@
+import asyncio
+import os
+import smtplib
+import sys
+
+
+LISTEN_HOST = os.getenv("SMTP_RELAY_LISTEN_HOST", "0.0.0.0")
+LISTEN_PORT = int(os.getenv("SMTP_RELAY_LISTEN_PORT", "1025"))
+UPSTREAM_HOST = os.getenv("SMTP_RELAY_HOST", "")
+UPSTREAM_PORT = int(os.getenv("SMTP_RELAY_PORT", "587"))
+UPSTREAM_USE_TLS = os.getenv("SMTP_RELAY_USE_TLS", "True").lower() == "true"
+UPSTREAM_USER = os.getenv("SMTP_RELAY_USER", "")
+UPSTREAM_PASSWORD = os.getenv("SMTP_RELAY_PASSWORD", "")
+MAX_MESSAGE_BYTES = int(os.getenv("SMTP_RELAY_MAX_MESSAGE_BYTES", str(10 * 1024 * 1024)))
+
+
+def _parse_address(command):
+    value = command.split(":", 1)[1].strip() if ":" in command else ""
+    if value.startswith("<") and ">" in value:
+        return value[1:value.index(">")].strip()
+    return value.split()[0].strip()
+
+
+def _deliver(mail_from, recipients, message_bytes):
+    if not UPSTREAM_HOST:
+        raise RuntimeError("SMTP_RELAY_HOST is not configured")
+    if not mail_from:
+        raise RuntimeError("MAIL FROM is missing")
+    if not recipients:
+        raise RuntimeError("RCPT TO is missing")
+
+    with smtplib.SMTP(UPSTREAM_HOST, UPSTREAM_PORT, timeout=30) as smtp:
+        smtp.ehlo()
+        if UPSTREAM_USE_TLS:
+            smtp.starttls()
+            smtp.ehlo()
+        if UPSTREAM_USER or UPSTREAM_PASSWORD:
+            smtp.login(UPSTREAM_USER, UPSTREAM_PASSWORD)
+        smtp.sendmail(mail_from, recipients, message_bytes)
+
+
+async def _send(writer, line):
+    writer.write((line + "\r\n").encode("utf-8"))
+    await writer.drain()
+
+
+async def handle_client(reader, writer):
+    peer = writer.get_extra_info("peername")
+    mail_from = ""
+    recipients = []
+
+    await _send(writer, "220 microsys smtp relay ready")
+
+    while not reader.at_eof():
+        raw = await reader.readline()
+        if not raw:
+            break
+        command = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+        upper = command.upper()
+
+        if upper.startswith(("EHLO", "HELO")):
+            await _send(writer, "250-microsys-smtp-relay")
+            await _send(writer, f"250 SIZE {MAX_MESSAGE_BYTES}")
+        elif upper.startswith("MAIL FROM:"):
+            mail_from = _parse_address(command)
+            recipients = []
+            await _send(writer, "250 OK")
+        elif upper.startswith("RCPT TO:"):
+            recipient = _parse_address(command)
+            if recipient:
+                recipients.append(recipient)
+            await _send(writer, "250 OK")
+        elif upper == "RSET":
+            mail_from = ""
+            recipients = []
+            await _send(writer, "250 OK")
+        elif upper == "NOOP":
+            await _send(writer, "250 OK")
+        elif upper == "DATA":
+            await _send(writer, "354 End data with <CR><LF>.<CR><LF>")
+            chunks = []
+            total = 0
+            while True:
+                line = await reader.readline()
+                if not line:
+                    break
+                if line in {b".\r\n", b".\n"}:
+                    break
+                if line.startswith(b".."):
+                    line = line[1:]
+                total += len(line)
+                if total > MAX_MESSAGE_BYTES:
+                    await _send(writer, "552 Message exceeds configured size limit")
+                    chunks = []
+                    break
+                chunks.append(line)
+
+            if chunks:
+                try:
+                    await asyncio.to_thread(_deliver, mail_from, recipients, b"".join(chunks))
+                    await _send(writer, "250 Message accepted")
+                except Exception as exc:
+                    print(f"SMTP relay delivery failed for {peer}: {exc}", file=sys.stderr, flush=True)
+                    await _send(writer, "451 Relay delivery failed")
+        elif upper == "QUIT":
+            await _send(writer, "221 Bye")
+            break
+        else:
+            await _send(writer, "502 Command not implemented")
+
+    writer.close()
+    await writer.wait_closed()
+
+
+async def main():
+    server = await asyncio.start_server(handle_client, LISTEN_HOST, LISTEN_PORT)
+    sockets = ", ".join(str(sock.getsockname()) for sock in server.sockets or [])
+    print(f"Microsys SMTP relay listening on {sockets}", flush=True)
+    async with server:
+        await server.serve_forever()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

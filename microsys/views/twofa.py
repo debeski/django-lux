@@ -2,7 +2,6 @@
 import base64
 import logging
 import os
-import random
 import secrets
 import string
 from io import BytesIO
@@ -23,7 +22,6 @@ from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password, identify_hasher, make_password
 from django.core.cache import cache
-from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.crypto import constant_time_compare
@@ -33,7 +31,7 @@ from django.views.decorators.http import require_POST
 # Project imports
 from ..constants import DEFAULT_HOME_URL
 from ..translations import get_strings
-from ..utils import get_system_config
+from ..utils import get_system_config, send_microsys_mail
 
 User = get_user_model()
 logger = logging.getLogger('microsys')
@@ -141,15 +139,43 @@ def _resolve_totp_issuer_name():
     return 'microSYS'
 
 
+def _otp_cache_key(user, intent):
+    return f"otp_{user.pk}_{intent}"
+
+
+def _otp_cooldown_key(user, intent):
+    return f"otp_cooldown_{user.pk}_{intent}"
+
+
+def _otp_code_matches(data, raw_code):
+    normalized = str(raw_code or '')
+    if data.get('code_hash'):
+        return check_password(normalized, data.get('code_hash'))
+    return constant_time_compare(str(data.get('code', '')), normalized)
+
+
+def _generate_email_otp_code():
+    return ''.join(secrets.choice(string.digits) for _ in range(6))
+
+
+def _email_otp_exists(user, intent='login'):
+    return bool(cache.get(_otp_cache_key(user, intent)))
+
+
 # 2FA Helper — Generates and emails a 6-digit OTP code
 def send_otp(request, user, intent='login'):
     """
     Generates a 6-digit OTP, stores it in cache, and sends it via email.
     intent: 'login' or an enable_* flow.
     """
-    code = ''.join(random.choices(string.digits, k=6))
-    cache_key = f"otp_{user.pk}_{intent}"
-    cache.set(cache_key, {'code': code, 'attempts': 0}, timeout=300)
+    cooldown_key = _otp_cooldown_key(user, intent)
+    if cache.get(cooldown_key):
+        return False
+
+    code = _generate_email_otp_code()
+    cache_key = _otp_cache_key(user, intent)
+    cache.set(cache_key, {'code_hash': make_password(code), 'attempts': 0}, timeout=300)
+    cache.set(cooldown_key, True, timeout=60)
 
     s = get_strings()
     subject_key = '2fa_login_email_subject' if intent == 'login' else '2fa_setup_email_subject'
@@ -157,10 +183,9 @@ def send_otp(request, user, intent='login'):
     body = s.get('2fa_email_body', 'Your code is {code}').format(code=code)
 
     try:
-        send_mail(
+        send_microsys_mail(
             subject,
             body,
-            settings.DEFAULT_FROM_EMAIL,
             [user.email],
             fail_silently=False,
         )
@@ -177,13 +202,13 @@ def verify_otp_logic(user, code, intent='login'):
     Verifies the OTP from cache.
     Returns: (True, None) or (False, error_message_key)
     """
-    cache_key = f"otp_{user.pk}_{intent}"
+    cache_key = _otp_cache_key(user, intent)
     data = cache.get(cache_key)
 
     if not data:
         return False, '2fa_invalid_code'
 
-    if constant_time_compare(str(data.get('code', '')), str(code)):
+    if _otp_code_matches(data, code):
         cache.delete(cache_key)
         return True, None
 
@@ -244,7 +269,15 @@ def verify_otp_view(request, intent='login'):
         is_valid = False
         error_key = '2fa_invalid_code'
 
-        if intent == 'enable_totp' or (intent == 'login' and method == 'totp'):
+        if intent == 'login' and not request.POST.get('method'):
+            if len(code) == 8 and user.profile.backup_codes:
+                is_valid = _consume_backup_code(user.profile, code)
+            if not is_valid and user.profile.is_totp_2fa_enabled and pyotp and user.profile.totp_secret:
+                totp = pyotp.TOTP(user.profile.totp_secret)
+                is_valid = bool(totp.verify(code, valid_window=1))
+            if not is_valid and user.profile.is_email_2fa_enabled and _email_otp_exists(user, 'login'):
+                is_valid, error_key = verify_otp_logic(user, code, intent='login')
+        elif intent == 'enable_totp' or (intent == 'login' and method == 'totp'):
             if pyotp and user.profile.totp_secret:
                 totp = pyotp.TOTP(user.profile.totp_secret)
                 is_valid = bool(totp.verify(code, valid_window=1))
@@ -299,6 +332,7 @@ def verify_otp_view(request, intent='login'):
             'email': user.profile.is_email_2fa_enabled,
             'phone': user.profile.is_phone_2fa_enabled,
             'totp': user.profile.is_totp_2fa_enabled,
+            'backup': bool(user.profile.backup_codes),
         } if intent == 'login' else {},
     })
 
@@ -396,6 +430,7 @@ def disable_2fa(request):
 @require_POST
 def resend_otp(request, intent='login'):
     intent = request.POST.get('intent') or intent
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     user = None
 
     if intent == 'login':
@@ -408,9 +443,17 @@ def resend_otp(request, intent='login'):
     elif request.user.is_authenticated:
         user = request.user
 
-    if user and send_otp(request, user, intent=intent):
+    can_send = bool(user)
+    if intent == 'login' and user:
+        can_send = bool(getattr(user.profile, 'is_email_2fa_enabled', False))
+
+    if can_send and send_otp(request, user, intent=intent):
+        if is_ajax:
+            return JsonResponse({'status': 'success', 'message': 'Code Sent'})
         messages.success(request, 'Code Sent')
     else:
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': 'Unable to send code'}, status=400)
         messages.error(request, 'Unable to send code')
 
     if intent == 'login':

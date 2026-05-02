@@ -1127,17 +1127,20 @@
 }
 
 /* 14. Sidebar Toggle - Neon Button */
-:root.theme-neon .sidebar-toggle {
+:root.theme-neon .titlebar .sidebar-toggle {
     color: var(--neon-cyan) !important;
-    background-color: rgba(0, 255, 255, 0.1) !important;
-    border-color: rgba(0, 255, 255, 0.25) !important;
-    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1) !important;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
-:root.theme-neon .sidebar-toggle:hover {
-    background-color: rgba(0, 255, 255, 0.2) !important;
+:root.theme-neon .titlebar .sidebar-toggle:hover,
+:root.theme-neon .titlebar .sidebar-toggle:focus,
+:root.theme-neon .titlebar .sidebar-toggle:focus-visible {
+    background-color: rgba(0, 255, 255, 0.12) !important;
+    border-color: transparent !important;
     color: #fff !important;
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.25) !important;
+    box-shadow: 0 0 14px rgba(0, 255, 255, 0.16) !important;
 }
 
 /* 15. Login Screen - Cyberpunk Terminal */

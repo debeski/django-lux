@@ -1,5 +1,26 @@
 Set-StrictMode -Version Latest
 
+# Check for --update flag to pull latest decrypter image
+if ($args[0] -eq "--update") {
+    Write-Host "=== Current Decrypter Version ==="
+    $currentVersion = docker run --rm --entrypoint cat debeski/decrypter:compose /app/VERSION 2>$null
+    if ($currentVersion) {
+        Write-Host "  $currentVersion"
+    } else {
+        Write-Host "  (not present locally)"
+    }
+
+    Write-Host ""
+    Write-Host "Pulling latest decrypter image..."
+    docker pull debeski/decrypter:compose
+
+    Write-Host ""
+    Write-Host "=== Installed Version ==="
+    docker run --rm --entrypoint cat debeski/decrypter:compose /app/VERSION
+
+    exit 0
+}
+
 if ($PSScriptRoot) {
   $projectRoot = $PSScriptRoot
 } else {
@@ -15,8 +36,6 @@ if ($projectRoot -match '^([A-Za-z]):\\(.*)$') {
 } else {
   throw "Unsupported Windows path format: $projectRoot"
 }
-
-docker pull debeski/decrypter:compose *> $null
 
 docker run -it --rm `
   -v "${projectRoot}:${containerRoot}" `

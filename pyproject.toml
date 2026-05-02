@@ -30,6 +30,7 @@ dependencies = [
     "qrcode>=8.2",
     "pillow>=11.0",
     "babel>=2.1",
+    "cryptography>=42.0",
 ]
 
 # Classifiers
@@ -73,8 +74,5 @@ ms = "microsys.cli:main"
 
 [project.optional-dependencies]
 sso = [
-    "django-oauth-toolkit>=3.0",
-    "pyjwt>=2.8",
-    "cryptography>=42.0",
-    "django-cors-headers>=4.0"
+    "django-microsys-sso>=0.1.0",
 ]

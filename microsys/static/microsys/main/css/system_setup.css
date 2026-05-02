@@ -13,6 +13,15 @@
   padding: 1rem 0;
 }
 
+.ms-sidebar-dependent-settings.is-disabled {
+  opacity: 0.58;
+}
+
+.ms-sidebar-dependent-settings.is-disabled [data-ms-selector],
+.ms-sidebar-dependent-settings.is-disabled .ms-setup-builder {
+  pointer-events: none;
+}
+
 .ms-setup-builder .card {
   border-radius: 1rem;
   background: var(--ms-setup-card-bg) !important;
@@ -243,6 +252,101 @@
 .ms-builder-icon-choice i {
   font-size: 1.2rem;
   line-height: 1;
+}
+
+:root.theme-dark .ms-setup-builder .btn[class*="btn-outline-"],
+:root.theme-retro .ms-setup-builder .btn[class*="btn-outline-"],
+:root.theme-gothic .ms-setup-builder .btn[class*="btn-outline-"],
+:root.theme-neon .ms-setup-builder .btn[class*="btn-outline-"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.16rem;
+  background:
+    linear-gradient(135deg, rgba(var(--primal-rgb), 0.07), rgba(255, 255, 255, 0.018)) !important;
+  border-color: rgba(var(--primal-rgb), 0.26) !important;
+  color: color-mix(in srgb, var(--primal) 78%, var(--title)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 8px 18px -18px rgba(0, 0, 0, 0.72) !important;
+}
+
+:root.theme-dark .ms-setup-builder .btn[class*="btn-outline-"] i,
+:root.theme-retro .ms-setup-builder .btn[class*="btn-outline-"] i,
+:root.theme-gothic .ms-setup-builder .btn[class*="btn-outline-"] i,
+:root.theme-neon .ms-setup-builder .btn[class*="btn-outline-"] i {
+  color: currentColor !important;
+}
+
+:root.theme-dark .ms-setup-builder .btn.btn-outline-primary:hover,
+:root.theme-retro .ms-setup-builder .btn.btn-outline-primary:hover,
+:root.theme-gothic .ms-setup-builder .btn.btn-outline-primary:hover,
+:root.theme-neon .ms-setup-builder .btn.btn-outline-primary:hover,
+:root.theme-dark .ms-setup-builder .btn.btn-outline-primary:focus-visible,
+:root.theme-retro .ms-setup-builder .btn.btn-outline-primary:focus-visible,
+:root.theme-gothic .ms-setup-builder .btn.btn-outline-primary:focus-visible,
+:root.theme-neon .ms-setup-builder .btn.btn-outline-primary:focus-visible {
+  background:
+    linear-gradient(135deg, rgba(var(--primal-rgb), 0.15), rgba(255, 255, 255, 0.032)) !important;
+  border-color: rgba(var(--primal-rgb), 0.45) !important;
+  color: color-mix(in srgb, var(--primal) 90%, var(--htitle, var(--title))) !important;
+  box-shadow:
+    0 0 0 0.14rem rgba(var(--primal-rgb), 0.1),
+    0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
+}
+
+:root.theme-dark .ms-setup-builder .btn.btn-outline-secondary,
+:root.theme-retro .ms-setup-builder .btn.btn-outline-secondary,
+:root.theme-gothic .ms-setup-builder .btn.btn-outline-secondary,
+:root.theme-neon .ms-setup-builder .btn.btn-outline-secondary {
+  color: color-mix(in srgb, var(--title) 86%, var(--primal)) !important;
+  border-color: rgba(var(--primal-rgb), 0.18) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(var(--primal-rgb), 0.018)) !important;
+}
+
+:root.theme-dark .ms-setup-builder .btn.btn-outline-secondary:hover,
+:root.theme-retro .ms-setup-builder .btn.btn-outline-secondary:hover,
+:root.theme-gothic .ms-setup-builder .btn.btn-outline-secondary:hover,
+:root.theme-neon .ms-setup-builder .btn.btn-outline-secondary:hover,
+:root.theme-dark .ms-setup-builder .btn.btn-outline-secondary:focus-visible,
+:root.theme-retro .ms-setup-builder .btn.btn-outline-secondary:focus-visible,
+:root.theme-gothic .ms-setup-builder .btn.btn-outline-secondary:focus-visible,
+:root.theme-neon .ms-setup-builder .btn.btn-outline-secondary:focus-visible {
+  color: color-mix(in srgb, var(--title) 92%, var(--primal)) !important;
+  border-color: rgba(var(--primal-rgb), 0.34) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(var(--primal-rgb), 0.035)) !important;
+  box-shadow:
+    0 0 0 0.14rem rgba(var(--primal-rgb), 0.075),
+    0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
+}
+
+:root.theme-dark .ms-setup-builder .btn.btn-outline-danger,
+:root.theme-retro .ms-setup-builder .btn.btn-outline-danger,
+:root.theme-gothic .ms-setup-builder .btn.btn-outline-danger,
+:root.theme-neon .ms-setup-builder .btn.btn-outline-danger {
+  background:
+    linear-gradient(135deg, rgba(248, 113, 113, 0.08), rgba(255, 255, 255, 0.018)) !important;
+  border-color: rgba(248, 113, 113, 0.34) !important;
+  color: #fca5a5 !important;
+}
+
+:root.theme-dark .ms-setup-builder .btn.btn-outline-danger:hover,
+:root.theme-retro .ms-setup-builder .btn.btn-outline-danger:hover,
+:root.theme-gothic .ms-setup-builder .btn.btn-outline-danger:hover,
+:root.theme-neon .ms-setup-builder .btn.btn-outline-danger:hover,
+:root.theme-dark .ms-setup-builder .btn.btn-outline-danger:focus-visible,
+:root.theme-retro .ms-setup-builder .btn.btn-outline-danger:focus-visible,
+:root.theme-gothic .ms-setup-builder .btn.btn-outline-danger:focus-visible,
+:root.theme-neon .ms-setup-builder .btn.btn-outline-danger:focus-visible {
+  background:
+    linear-gradient(135deg, rgba(248, 113, 113, 0.16), rgba(255, 255, 255, 0.032)) !important;
+  border-color: rgba(248, 113, 113, 0.52) !important;
+  color: #fecaca !important;
+  box-shadow:
+    0 0 0 0.14rem rgba(248, 113, 113, 0.1),
+    0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
 }
 
 .ms-theme-settings-option .ms-choice-option__surface {
