@@ -173,7 +173,10 @@
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
-                                        <button class="btn btn-sm btn-primary setup-2fa-btn" data-method="email" data-url="{% url 'enable_2fa' %}">
+                                        <button class="btn btn-sm btn-primary setup-2fa-btn"
+                                                data-method="email"
+                                                data-url="{% url 'enable_2fa' %}"
+                                                data-email="{{ user.email|default:'' }}">
                                             <span class="btn-label">{{ MS_TRANS.enable|default:"Enable" }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
@@ -496,10 +499,31 @@
 
                 <div id="otpSetupError" class="alert alert-danger d-none"></div>
 
+                <div id="email2faConfirm" class="text-start d-none">
+                    <label for="email2faAddressInput" class="form-label">
+                        {{ MS_TRANS.2fa_confirm_email_label|default:"Email address for 2FA" }}
+                    </label>
+                    <input type="email"
+                           class="form-control form-control-lg"
+                           id="email2faAddressInput"
+                           autocomplete="email"
+                           placeholder="name@example.com">
+                    <p class="small text-muted mt-2 mb-3">
+                        {{ MS_TRANS.2fa_confirm_email_help|default:"Confirm this is the email address that should receive your 2FA setup code." }}
+                    </p>
+                    <button type="button" class="btn btn-primary w-100" id="email2faConfirmBtn">
+                        <span class="btn-label">{{ MS_TRANS.2fa_confirm_email_send|default:"Send setup code" }}</span>
+                        <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                    </button>
+                </div>
+
                 <form id="otpSetupForm" 
                     data-url="{% url 'verify_otp_enable' %}" 
                     data-csrf="{{ csrf_token }}"
                     data-trans-verify-title="{{ MS_TRANS.2fa_verify_title }}"
+                    data-trans-confirm-email-title="{{ MS_TRANS.2fa_confirm_email_title|default:'Confirm Email 2FA' }}"
+                    data-trans-confirm-email-instruction="{{ MS_TRANS.2fa_confirm_email_instruction|default:'Confirm or update the email address before we send a setup code.' }}"
+                    data-trans-invalid-email="{{ MS_TRANS.2fa_invalid_email|default:'Enter a valid email address.' }}"
                     data-trans-scan-instruction="{{ MS_TRANS.totp_scan_instruction }}"
                     data-trans-otp-sent="{{ MS_TRANS.otp_sent_instruction }}"
                     data-trans-recovery-codes="{{ MS_TRANS.2fa_method_backup|default:'Recovery Codes' }}">

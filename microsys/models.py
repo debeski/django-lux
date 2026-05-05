@@ -292,7 +292,7 @@ class Profile(ScopedModel):
     is_email_2fa_enabled = models.BooleanField(default=False, verbose_name="2FA via Email")
     is_phone_2fa_enabled = models.BooleanField(default=False, verbose_name="2FA via Phone")
     is_totp_2fa_enabled = models.BooleanField(default=False, verbose_name="2FA via App")
-    totp_secret = models.CharField(max_length=32, blank=True, null=True, verbose_name="TOTP Secret")
+    totp_secret = models.CharField(max_length=255, blank=True, null=True, verbose_name="TOTP Secret")
     backup_codes = models.JSONField(default=list, blank=True, verbose_name="Backup Codes")
     email_verified_at = models.DateTimeField(blank=True, null=True, verbose_name="Email Verified At")
 
@@ -317,6 +317,10 @@ class Profile(ScopedModel):
 
     def save(self, *args, **kwargs):
         """Optimize profile picture: Resize and convert to WebP."""
+        if self.totp_secret:
+            from .utils import encrypt_totp_secret
+            self.totp_secret = encrypt_totp_secret(self.totp_secret)
+
         if self.profile_picture and hasattr(self.profile_picture, 'file'):
             try:
                 # Normalize extension and check if processing is needed
@@ -358,7 +362,6 @@ class Profile(ScopedModel):
         default_permissions = ()
         permissions = [
             ("manage_staff", "Can manage staff"),
-            ("view_activitylog", "View activity log"),
             ("manage_scopes", "Can manage scopes and all users"),
         ]
 
@@ -525,6 +528,9 @@ class UserActivityLog(ScopedModel):
         verbose_name = "Activity Log"
         verbose_name_plural = "Activity Logs"
         default_permissions = ()
+        permissions = [
+            ("view_activitylog", "View activity log"),
+        ]
 
     @classmethod
     def safe_log(cls, user, action, model_name=None, object_id=None, number=None, details=None, ip_address=None, user_agent=None, scope=None):
@@ -553,8 +559,9 @@ class UserActivityLog(ScopedModel):
             return None
 
         # Automatically use actor's scope if not provided
-        if not scope and user and hasattr(user, 'profile'):
-            scope = user.profile.scope
+        if not scope and user:
+            from .utils import get_user_scope
+            scope = get_user_scope(user)
 
         return cls.objects.create(
             created_by=user,

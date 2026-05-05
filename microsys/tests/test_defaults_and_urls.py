@@ -307,7 +307,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
                 'translations_override': {},
                 'home_url': '/',
                 'email_config': {
-                    'mode': 'encrypted_db',
+                    'transport': 'direct',
+                    'secret_storage': 'encrypted_db',
                     'host': 'smtp.example.com',
                     'port': 587,
                     'use_tls': True,
@@ -340,7 +341,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data['email_config']['mode'], 'encrypted_db')
+        self.assertEqual(form.cleaned_data['email_config']['transport'], 'direct')
+        self.assertEqual(form.cleaned_data['email_config']['secret_storage'], 'encrypted_db')
         self.assertEqual(form.cleaned_data['email_config']['host'], 'smtp.example.com')
         self.assertFalse(form.cleaned_data['email_config']['password_configured'])
         self.assertFalse(form.cleaned_data['sidebar_config']['enabled'])
@@ -447,7 +449,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
                 'languages': '{}',
                 'translations_override': '{}',
                 'email_2fa': 'on',
-                'email_config_mode': 'encrypted_db',
+                'email_config_transport': 'direct',
+                'email_config_secret_storage': 'encrypted_db',
                 'email_config_host': 'smtp.example.com',
                 'email_config_port': '587',
                 'email_config_use_tls': 'on',
@@ -461,10 +464,83 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
         email_config = form.cleaned_data['email_config']
-        self.assertEqual(email_config['mode'], 'encrypted_db')
+        self.assertEqual(email_config['transport'], 'direct')
+        self.assertEqual(email_config['secret_storage'], 'encrypted_db')
         self.assertTrue(email_config['encrypted_password'])
         self.assertNotEqual(email_config['encrypted_password'], 'app-secret-pass')
         self.assertEqual(decrypt_email_secret(email_config['encrypted_password']), 'app-secret-pass')
+
+    def test_setup_form_saves_direct_smtp_with_encrypted_db_secret_axes(self):
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "System"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'email_2fa': 'on',
+                'email_config_transport': 'direct',
+                'email_config_secret_storage': 'encrypted_db',
+                'email_config_host': 'smtp.example.com',
+                'email_config_port': '465',
+                'email_config_use_ssl': 'on',
+                'email_config_username': 'mailer@example.com',
+                'email_config_password': 'direct-secret',
+                'email_config_default_from_email': 'security@example.com',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        email_config = form.cleaned_data['email_config']
+        self.assertEqual(email_config['transport'], 'direct')
+        self.assertEqual(email_config['secret_storage'], 'encrypted_db')
+        self.assertTrue(email_config['use_ssl'])
+        self.assertFalse(email_config['use_tls'])
+        self.assertEqual(decrypt_email_secret(email_config['encrypted_password']), 'direct-secret')
+
+    def test_setup_form_saves_relay_upstream_email_secret_without_plaintext(self):
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "System"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'email_2fa': 'on',
+                'email_config_transport': 'relay',
+                'email_config_secret_storage': 'encrypted_db',
+                'email_config_host': 'smtp.gmail.com',
+                'email_config_port': '587',
+                'email_config_use_tls': 'on',
+                'email_config_username': 'mailer@example.com',
+                'email_config_password': 'app-secret-pass',
+                'email_config_default_from_email': 'security@example.com',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        email_config = form.cleaned_data['email_config']
+        self.assertEqual(email_config['transport'], 'relay')
+        self.assertEqual(email_config['secret_storage'], 'encrypted_db')
+        self.assertEqual(email_config['host'], 'smtp.gmail.com')
+        self.assertEqual(email_config['port'], 587)
+        self.assertTrue(email_config['use_tls'])
+        self.assertFalse(email_config['use_ssl'])
+        self.assertEqual(email_config['username'], 'mailer@example.com')
+        self.assertTrue(email_config['encrypted_password'])
+        self.assertNotEqual(email_config['encrypted_password'], 'app-secret-pass')
+        self.assertEqual(decrypt_email_secret(email_config['encrypted_password']), 'app-secret-pass')
+        self.assertTrue(email_config['password_configured'])
 
     def test_system_settings_export_redacts_email_secret_and_preserves_sidebar_enabled(self):
         settings_obj = SystemSettings(
@@ -473,7 +549,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             default_theme='light',
             allowed_themes=['light'],
             email_config={
-                'mode': 'encrypted_db',
+                'transport': 'direct',
+                'secret_storage': 'encrypted_db',
                 'host': 'smtp.example.com',
                 'port': 587,
                 'use_tls': True,
@@ -490,7 +567,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertNotIn('encrypted_password', email_config)
         self.assertTrue(email_config['password_configured'])
-        self.assertEqual(email_config['mode'], 'encrypted_db')
+        self.assertEqual(email_config['transport'], 'direct')
+        self.assertEqual(email_config['secret_storage'], 'encrypted_db')
         self.assertFalse(payload['settings']['sidebar_config']['enabled'])
 
         imported = normalize_system_settings_import_payload(payload)
@@ -509,7 +587,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
     @patch('microsys.models.SystemSettings.load')
     def test_env_email_mode_uses_ui_hints_with_env_secret(self, mock_load):
         mock_load.return_value = SimpleNamespace(email_config={
-            'mode': 'env',
+            'transport': 'direct',
+            'secret_storage': 'env',
             'host': 'ui-smtp.example.com',
             'port': 587,
             'use_tls': True,
@@ -519,13 +598,42 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         })
         email_config = get_microsys_email_config(include_secret=True)
 
-        self.assertEqual(email_config['mode'], 'env')
+        self.assertEqual(email_config['transport'], 'direct')
+        self.assertEqual(email_config['secret_storage'], 'env')
         self.assertEqual(email_config['host'], 'ui-smtp.example.com')
         self.assertEqual(email_config['port'], 587)
         self.assertTrue(email_config['use_tls'])
         self.assertEqual(email_config['username'], 'ui-user')
         self.assertEqual(email_config['from_email'], 'ui@example.com')
         self.assertEqual(email_config['password'], 'env-secret')
+
+    @patch('microsys.models.SystemSettings.load')
+    def test_relay_email_mode_sends_to_internal_relay_without_auth_or_tls(self, mock_load):
+        mock_load.return_value = SimpleNamespace(email_config={
+            'transport': 'relay',
+            'secret_storage': 'encrypted_db',
+            'host': 'smtp.gmail.com',
+            'port': 587,
+            'use_tls': True,
+            'use_ssl': False,
+            'username': 'mailer@example.com',
+            'default_from_email': 'security@example.com',
+            'encrypted_password': 'ciphertext-value',
+            'password_configured': True,
+        })
+
+        email_config = get_microsys_email_config(include_secret=True)
+
+        self.assertEqual(email_config['transport'], 'relay')
+        self.assertEqual(email_config['secret_storage'], 'encrypted_db')
+        self.assertEqual(email_config['host'], 'smtp-relay')
+        self.assertEqual(email_config['port'], 1025)
+        self.assertFalse(email_config['use_tls'])
+        self.assertFalse(email_config['use_ssl'])
+        self.assertEqual(email_config['username'], '')
+        self.assertEqual(email_config['password'], '')
+        self.assertFalse(email_config['password_configured'])
+        self.assertEqual(email_config['from_email'], 'security@example.com')
 
     @override_settings(MICROSYS_CONFIG={'default_table_density': 'invalid-choice'})
     def test_setup_form_falls_back_to_balanced_table_density(self):

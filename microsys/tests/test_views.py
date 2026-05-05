@@ -51,7 +51,7 @@ if not settings.configured:
 
 from django.test import TestCase, Client, RequestFactory
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.sessions.models import Session
 from django.urls import reverse
@@ -181,6 +181,22 @@ class GeneralViewsTests(TestCase):
         self.assertTrue(response.context['show_system_diagnostics'])
         self.assertIn('version', response.context)
         self.assertIn('python_version', response.context)
+
+    def test_staff_missing_profile_does_not_get_staff_tier_access(self):
+        staff_without_profile = User.objects.create_user(
+            username='missingprofile',
+            email='missingprofile@example.com',
+            password='missingpass123',
+            is_staff=True,
+        )
+        Profile = apps.get_model('microsys', 'Profile')
+        Profile.all_objects.filter(user=staff_without_profile).delete()
+
+        self.client.logout()
+        self.client.login(username='missingprofile', password='missingpass123')
+        response = self.client.get(reverse('manage_users'))
+
+        self.assertEqual(response.status_code, 403)
 
     def test_options_view_reads_decrypter_version_from_env(self):
         with patch.dict('os.environ', {'DECRYPTER_VERSION': '2.4.1'}, clear=False):
@@ -687,6 +703,38 @@ class SecurityHardeningViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
 
+    def test_manage_users_central_staff_excludes_global_staff_group_members(self):
+        central_staff = User.objects.create_user(
+            username='centralviewer',
+            email='centralviewer@example.com',
+            password='centralpass123',
+            is_staff=True,
+        )
+        global_staff = User.objects.create_user(
+            username='globaltarget',
+            email='globaltarget@example.com',
+            password='globalpass123',
+            is_staff=True,
+        )
+        regular_staff = User.objects.create_user(
+            username='centraltarget',
+            email='centraltarget@example.com',
+            password='targetpass123',
+            is_staff=True,
+        )
+        content_type = ContentType.objects.get(app_label='microsys', model='profile')
+        manage_scopes = Permission.objects.get(content_type=content_type, codename='manage_scopes')
+        group = Group.objects.create(name='Global Staff')
+        group.permissions.add(manage_scopes)
+        global_staff.groups.add(group)
+
+        self.client.login(username='centralviewer', password='centralpass123')
+        response = self.client.get(reverse('manage_users'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, regular_staff.username)
+        self.assertNotContains(response, global_staff.username)
+
     def test_user_management_modal_enforces_scope_rules(self):
         self.client.login(username='staffer', password='staffpass123')
 
@@ -958,9 +1006,98 @@ class TwoFactorSecurityViewTests(TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
         self.assertEqual(captured['name'], self.user.email)
         self.assertEqual(captured['issuer_name'], 'Configured Portal')
         self.assertNotEqual(captured['issuer_name'], 'FineStor')
+        self.assertEqual(payload['secret'], 'JBSWY3DPEHPK3PXP')
+
+        from microsys.utils import decrypt_totp_secret, is_encrypted_totp_secret
+        self.user.profile.refresh_from_db()
+        self.assertTrue(is_encrypted_totp_secret(self.user.profile.totp_secret))
+        self.assertNotEqual(self.user.profile.totp_secret, 'JBSWY3DPEHPK3PXP')
+        self.assertEqual(decrypt_totp_secret(self.user.profile.totp_secret), 'JBSWY3DPEHPK3PXP')
+
+    def test_setup_totp_database_save_error_returns_json(self):
+        from django.db import DatabaseError
+
+        class FakeTOTP:
+            def __init__(self, secret):
+                self.secret = secret
+
+            def provisioning_uri(self, name, issuer_name):
+                return 'otpauth://totp/test'
+
+        fake_pyotp = SimpleNamespace(
+            random_base32=lambda: 'JBSWY3DPEHPK3PXP',
+            totp=SimpleNamespace(TOTP=FakeTOTP),
+        )
+
+        with patch('microsys.views.twofa.pyotp', fake_pyotp), \
+             patch('microsys.views.twofa.qrcode'), \
+             patch('microsys.models.Profile.save', side_effect=DatabaseError('too long')):
+            response = self.client.post(
+                reverse('setup_totp'),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 500)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'error')
+        self.assertIn('Run database migrations', payload['message'])
+
+    def test_totp_verification_reads_encrypted_secret(self):
+        captured = {}
+
+        class FakeTOTP:
+            def __init__(self, secret):
+                captured['secret'] = secret
+
+            def verify(self, code, valid_window=0):
+                return code == '654321'
+
+        self.user.profile.totp_secret = 'JBSWY3DPEHPK3PXP'
+        self.user.profile.is_totp_2fa_enabled = True
+        self.user.profile.save(update_fields=['totp_secret', 'is_totp_2fa_enabled'])
+        self.user.profile.refresh_from_db()
+        self._prime_pre_2fa_session()
+
+        fake_pyotp = SimpleNamespace(TOTP=FakeTOTP)
+        with patch('microsys.views.twofa.pyotp', fake_pyotp):
+            response = self.client.post(
+                reverse('verify_otp_login'),
+                {'otp_code': '654321', 'method': 'totp'},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(captured['secret'], 'JBSWY3DPEHPK3PXP')
+
+    def test_two_factor_verify_is_ip_rate_limited(self):
+        self._prime_pre_2fa_session()
+        cache.set('microsys:2fa:verify:ip:127.0.0.1:login', 20, timeout=600)
+
+        response = self.client.post(
+            reverse('verify_otp_login'),
+            {'otp_code': '000000'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 429)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'error')
+
+    def test_two_factor_email_send_is_ip_rate_limited(self):
+        cache.set('microsys:2fa:send:ip:127.0.0.1:login', 10, timeout=3600)
+        self._prime_pre_2fa_session()
+
+        with patch('microsys.views.twofa.send_microsys_mail', return_value=1) as mocked_mail:
+            response = self.client.post(
+                reverse('resend_otp_login'),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 400)
+        mocked_mail.assert_not_called()
 
     def test_send_otp_no_longer_prints_live_codes(self):
         with patch('microsys.views.twofa.send_microsys_mail', return_value=1), \
@@ -989,6 +1126,84 @@ class TwoFactorSecurityViewTests(TestCase):
         self.assertTrue(cached.get('code_hash'))
         identify_hasher(cached['code_hash'])
         self.assertTrue(check_password('123456', cached['code_hash']))
+
+    def test_enable_email_2fa_sends_to_confirmed_email_and_updates_after_verify(self):
+        self.user.profile.is_email_2fa_enabled = False
+        self.user.profile.email_verified_at = None
+        self.user.profile.save(update_fields=['is_email_2fa_enabled', 'email_verified_at'])
+        captured = {}
+
+        def fake_send_microsys_mail(subject, body, recipients, fail_silently=False):
+            captured['recipients'] = recipients
+            return 1
+
+        with patch('microsys.views.twofa.send_microsys_mail', side_effect=fake_send_microsys_mail), \
+             patch('microsys.views.twofa._generate_email_otp_code', return_value='123456'):
+            response = self.client.post(
+                reverse('enable_2fa'),
+                {'method': 'email', 'email': 'corrected@example.com'},
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured['recipients'], ['corrected@example.com'])
+        cached = cache.get(f'otp_{self.user.pk}_enable_email')
+        self.assertEqual(cached['email'], 'corrected@example.com')
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, 'twofa@example.com')
+
+        response = self.client.post(
+            reverse('verify_otp_enable'),
+            {'otp_code': '123456', 'method': 'email', 'intent': 'enable_email'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'success')
+        self.user.refresh_from_db()
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.email, 'corrected@example.com')
+        self.assertTrue(self.user.profile.is_email_2fa_enabled)
+        self.assertIsNotNone(self.user.profile.email_verified_at)
+
+    def test_enable_email_2fa_rejects_invalid_confirmed_email_before_send(self):
+        self.user.profile.is_email_2fa_enabled = False
+        self.user.profile.save(update_fields=['is_email_2fa_enabled'])
+
+        with patch('microsys.views.twofa.send_microsys_mail', return_value=1) as mocked_mail:
+            response = self.client.post(
+                reverse('enable_2fa'),
+                {'method': 'email', 'email': 'not-an-email'},
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 400)
+        mocked_mail.assert_not_called()
+
+    def test_enable_email_2fa_send_cooldown_is_per_confirmed_email(self):
+        self.user.profile.is_email_2fa_enabled = False
+        self.user.profile.save(update_fields=['is_email_2fa_enabled'])
+
+        with patch('microsys.views.twofa.send_microsys_mail', return_value=1) as mocked_mail, \
+             patch('microsys.views.twofa._generate_email_otp_code', return_value='123456'):
+            first = self.client.post(
+                reverse('enable_2fa'),
+                {'method': 'email', 'email': 'wrong@example.com'},
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+            second = self.client.post(
+                reverse('enable_2fa'),
+                {'method': 'email', 'email': 'corrected@example.com'},
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(mocked_mail.call_count, 2)
+        cached = cache.get(f'otp_{self.user.pk}_enable_email')
+        self.assertEqual(cached['email'], 'corrected@example.com')
 
     def test_generated_backup_codes_are_hashed_at_rest(self):
         response = self.client.post(

@@ -14,6 +14,62 @@ UPSTREAM_PASSWORD = os.getenv("SMTP_RELAY_PASSWORD", "")
 MAX_MESSAGE_BYTES = int(os.getenv("SMTP_RELAY_MAX_MESSAGE_BYTES", str(10 * 1024 * 1024)))
 
 
+def _coerce_bool(value, default=False):
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_upstream_config():
+    return {
+        "host": UPSTREAM_HOST,
+        "port": UPSTREAM_PORT,
+        "use_tls": UPSTREAM_USE_TLS,
+        "use_ssl": _coerce_bool(os.getenv("SMTP_RELAY_USE_SSL"), False),
+        "username": UPSTREAM_USER,
+        "password": UPSTREAM_PASSWORD,
+    }
+
+
+def _django_upstream_config():
+    """
+    Read UI-managed relay settings from Microsys System Settings.
+
+    The relay runs in the generated project image, so it can use the same
+    Django settings, database, and secret key as the web container. Env values
+    remain as a bootstrap/fallback for projects that do not use UI-managed relay delivery.
+    """
+    try:
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "{{ config_package }}.settings")
+        import django
+
+        django.setup()
+
+        from microsys.models import SystemSettings
+        from microsys.utils import decrypt_email_secret, normalize_email_config
+
+        email_config = normalize_email_config(SystemSettings.load().email_config)
+        if email_config.get("transport") != "relay":
+            return None
+        if email_config.get("secret_storage") != "encrypted_db":
+            return None
+        return {
+            "host": email_config.get("host", ""),
+            "port": int(email_config.get("port") or 587),
+            "use_tls": bool(email_config.get("use_tls", True)),
+            "use_ssl": bool(email_config.get("use_ssl", False)),
+            "username": email_config.get("username", ""),
+            "password": decrypt_email_secret(email_config.get("encrypted_password", "")),
+        }
+    except Exception as exc:
+        print(f"SMTP relay could not read Microsys UI config, using env fallback: {exc}", file=sys.stderr, flush=True)
+        return None
+
+
+def _upstream_config():
+    return _django_upstream_config() or _env_upstream_config()
+
+
 def _parse_address(command):
     value = command.split(":", 1)[1].strip() if ":" in command else ""
     if value.startswith("<") and ">" in value:
@@ -22,20 +78,26 @@ def _parse_address(command):
 
 
 def _deliver(mail_from, recipients, message_bytes):
-    if not UPSTREAM_HOST:
+    upstream = _upstream_config()
+    upstream_host = upstream.get("host", "")
+    upstream_port = int(upstream.get("port") or 587)
+    upstream_user = upstream.get("username", "")
+    upstream_password = upstream.get("password", "")
+    if not upstream_host:
         raise RuntimeError("SMTP_RELAY_HOST is not configured")
     if not mail_from:
         raise RuntimeError("MAIL FROM is missing")
     if not recipients:
         raise RuntimeError("RCPT TO is missing")
 
-    with smtplib.SMTP(UPSTREAM_HOST, UPSTREAM_PORT, timeout=30) as smtp:
+    smtp_class = smtplib.SMTP_SSL if upstream.get("use_ssl") else smtplib.SMTP
+    with smtp_class(upstream_host, upstream_port, timeout=30) as smtp:
         smtp.ehlo()
-        if UPSTREAM_USE_TLS:
+        if upstream.get("use_tls") and not upstream.get("use_ssl"):
             smtp.starttls()
             smtp.ehlo()
-        if UPSTREAM_USER or UPSTREAM_PASSWORD:
-            smtp.login(UPSTREAM_USER, UPSTREAM_PASSWORD)
+        if upstream_user or upstream_password:
+            smtp.login(upstream_user, upstream_password)
         smtp.sendmail(mail_from, recipients, message_bytes)
 
 

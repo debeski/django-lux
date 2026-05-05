@@ -130,21 +130,6 @@ def _sort_sidebar(items, order, id_field='url_name'):
     sorted_items.extend(item_map.values())
     return sorted_items
 
-def _user_has_sidebar_permission(user, permissions):
-    from .utils import user_has_any_permission_tokens
-
-    # Superusers can see all sidebar items
-    if user and getattr(user, 'is_superuser', False):
-        return True
-    
-    # If no permissions could be inferred (e.g., function-based views),
-    # allow staff users to see the item (they'll be blocked at view level if needed)
-    if not permissions:
-        return user and getattr(user, 'is_staff', False)
-    
-    # For items with inferred permissions, check them
-    return user_has_any_permission_tokens(user, permissions or [], default_visible_to_all=False)
-
 def microsys_context(request):
     """
     Unified context processor for the entire Microsys package.

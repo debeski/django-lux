@@ -84,10 +84,10 @@
                 
                 <div class="d-flex justify-content-between mt-4">
                     {% if intent == 'login' %}
-                        <a href="{% url 'login' %}" class="text-muted text-decoration-none small">Back to Login</a>
+                        <a href="{% url 'login' %}" class="text-muted text-decoration-none small">{{ MS_TRANS.back_to_login|default:'Back to Login' }}</a>
                     {% else %}
                         <button type="submit" form="resendOtpEnableForm" class="btn btn-link text-muted text-decoration-none small p-0 border-0">{{ MS_TRANS.2fa_resend_btn }}</button>
-                        <a href="{% url 'user_profile' %}" class="text-muted text-decoration-none small">Cancel</a>
+                        <a href="{% url 'user_profile' %}" class="text-muted text-decoration-none small">{{ MS_TRANS.btn_cancel|default:'Cancel' }}</a>
                     {% endif %}
                 </div>
             </div>

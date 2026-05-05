@@ -4,6 +4,15 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.2.0
+
+- **UI-First Email Delivery Setup**: Reworked System Settings email delivery into two independent controls: delivery path (`Direct SMTP from web service` or `Internal SMTP relay`) and secret storage (`Environment / secrets` or `Encrypted database secret`). This supports direct SMTP with DB-backed encrypted secrets and relay-based delivery with DB-backed encrypted secrets.
+- **Generated SMTP Relay Integration**: Updated scaffolded Docker projects so the `smtp-relay` sidecar can read UI-managed upstream SMTP settings from `SystemSettings.email_config`, decrypt the password with the project secret, and deliver externally while the `web` and `celery` services stay isolated on the internal network.
+- **SMTP Relay Scaffold Updates**: Generated `compose.yml` now gives the relay service the same Django/database settings needed to read UI configuration. Environment SMTP variables remain only a bootstrap/fallback path for projects that intentionally keep mail config outside the UI.
+- **Public Registration And Email 2FA Readiness**: Public signup and email 2FA now gate against the selected delivery path and selected secret-storage backend instead of a single overloaded SMTP setting.
+- **2FA Secret Migration Merge**: Folded TOTP secret widening/encryption into `0002_public_registration.py` and removed the separate `0003_totp_secret_encryption.py` migration before release.
+- **Docs Refresh**: Updated registration, reference, and MSRP-1 docs to describe direct-vs-relay delivery, env-vs-encrypted secret storage, and the generated SMTP relay behavior.
+
 ## v2.1.0
 
 - **Public Registration Playground**: Added core public registration feature (disabled by default) with email-first signup, verification tokens, activation modes (`auto_login_after_verify` and `verified_pending_approval`), and superuser approval/rejection workflows. Includes provenance badges on user profiles and integration with Microsys mail delivery configuration.

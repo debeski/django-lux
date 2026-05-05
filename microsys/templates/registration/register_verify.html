@@ -1,25 +1,25 @@
 {% extends 'microsys/base.html' %}
-{% block title %}Registration Verification{% endblock %}
+{% block title %}{{ MS_TRANS.verification_failed|default:'Verification failed' }}{% endblock %}
 {% block titlebar %}{% endblock %}
 
 {% block layout %}
 <main class="container py-5" style="max-width: 640px;">
     {% if status == 'activated' %}
-        <h1 class="h3 mb-3">Account verified</h1>
-        <p>Your account is active and you are signed in.</p>
-        <a class="btn btn-primary" href="{{ APP_CONFIG.home_url|default:'/accounts/profile/' }}">Continue</a>
+        <h1 class="h3 mb-3">{{ MS_TRANS.account_verified|default:'Account verified' }}</h1>
+        <p>{{ MS_TRANS.account_active_signed_in|default:'Your account is active and you are signed in.' }}</p>
+        <a class="btn btn-primary" href="{{ APP_CONFIG.home_url|default:'/accounts/profile/' }}">{{ MS_TRANS.btn_continue|default:'Continue' }}</a>
     {% elif status == 'pending_approval' %}
-        <h1 class="h3 mb-3">Email verified</h1>
-        <p>Your account is waiting for approval.</p>
-        <a class="btn btn-primary" href="{% url 'login' %}">Back to login</a>
+        <h1 class="h3 mb-3">{{ MS_TRANS.email_verified|default:'Email verified' }}</h1>
+        <p>{{ MS_TRANS.account_pending_approval|default:'Your account is waiting for approval.' }}</p>
+        <a class="btn btn-primary" href="{% url 'login' %}">{{ MS_TRANS.back_to_login|default:'Back to login' }}</a>
     {% elif status == 'expired' %}
-        <h1 class="h3 mb-3">Verification expired</h1>
-        <p>The verification link is no longer valid.</p>
-        <a class="btn btn-primary" href="{% url 'register' %}">Register again</a>
+        <h1 class="h3 mb-3">{{ MS_TRANS.verification_expired|default:'Verification expired' }}</h1>
+        <p>{{ MS_TRANS.verification_link_expired|default:'The verification link is no longer valid.' }}</p>
+        <a class="btn btn-primary" href="{% url 'register' %}">{{ MS_TRANS.register_again|default:'Register again' }}</a>
     {% else %}
-        <h1 class="h3 mb-3">Verification failed</h1>
-        <p>The verification link is invalid or has already been used.</p>
-        <a class="btn btn-primary" href="{% url 'register' %}">Register</a>
+        <h1 class="h3 mb-3">{{ MS_TRANS.verification_failed|default:'Verification failed' }}</h1>
+        <p>{{ MS_TRANS.verification_link_invalid|default:'The verification link is invalid or has already been used.' }}</p>
+        <a class="btn btn-primary" href="{% url 'register' %}">{{ MS_TRANS.btn_register_again|default:'Register' }}</a>
     {% endif %}
 </main>
 {% endblock %}

@@ -27,7 +27,7 @@ The wizard currently runs in five steps:
    This step manages language-keyed system names, the explicit language catalog, default language, user language override policy, and the translation matrix editor. English and Arabic are built in; custom languages are available to users only after an admin adds them here.
 
 3. Access and security
-   This step controls public root access and email 2FA.
+   This step controls public root access, public registration/email 2FA, and Microsys email delivery. Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
 
 4. Navigation
    This step manages the global home URL, sidebar builder, and sidebar behavior controls.

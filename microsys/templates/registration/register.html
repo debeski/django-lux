@@ -1,10 +1,10 @@
 {% extends 'microsys/base.html' %}
-{% block title %}Register{% endblock %}
+{% block title %}{{ MS_TRANS.register_title|default:'Register' }}{% endblock %}
 {% block titlebar %}{% endblock %}
 
 {% block layout %}
 <main class="container py-5" style="max-width: 640px;">
-    <h1 class="h3 mb-4">Create an account</h1>
+    <h1 class="h3 mb-4">{{ MS_TRANS.create_account|default:'Create an account' }}</h1>
     <form method="post" novalidate>
         {% csrf_token %}
         {% if form.non_field_errors %}
@@ -41,8 +41,8 @@
             {{ form.website.label_tag }}
             {{ form.website }}
         </div>
-        <button type="submit" class="btn btn-primary">Register</button>
-        <a class="btn btn-link" href="{% url 'login' %}">Back to login</a>
+        <button type="submit" class="btn btn-primary">{{ MS_TRANS.btn_register|default:'Register' }}</button>
+        <a class="btn btn-link" href="{% url 'login' %}">{{ MS_TRANS.back_to_login|default:'Back to login' }}</a>
     </form>
 </main>
 {% endblock %}

@@ -10,7 +10,7 @@ from django_filters.views import FilterView
 
 # Project imports
 from ..constants import DEFAULT_TABLE_PAGE_SIZE
-from ..utils import is_scope_enabled, user_can_view_activity_log
+from ..utils import get_user_scope, is_scope_enabled, user_can_view_activity_log
 from ..translations import get_strings
 
 
@@ -49,7 +49,7 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
         table = super().get_table(**kwargs)
         if not is_scope_enabled():
             table.exclude = ('scope',)
-        elif hasattr(self.request.user, 'profile') and self.request.user.profile.scope:
+        elif get_user_scope(self.request.user):
             table.exclude = ('scope',)
         return table
 

@@ -1,4 +1,5 @@
 let needsReload = false;
+let pendingEmailSetup = null;
 
 function setButtonLoading(button, loading) {
     if (!button) return;
@@ -30,6 +31,11 @@ document.addEventListener('DOMContentLoaded', function() {
         otpSetupForm.addEventListener('submit', submitOTPSetup);
     }
 
+    const emailConfirmBtn = document.getElementById('email2faConfirmBtn');
+    if (emailConfirmBtn) {
+        emailConfirmBtn.addEventListener('click', submitEmail2FAAddress);
+    }
+
     const generateBackupBtn = document.getElementById('generateBackupCodesBtn');
     if (generateBackupBtn) {
         generateBackupBtn.addEventListener('click', handleBackupCodes);
@@ -57,7 +63,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Ensure focus on input when shown
         modalEl.addEventListener('shown.bs.modal', function () {
-            const input = document.getElementById('otpSetupInput');
+            const emailConfirm = document.getElementById('email2faConfirm');
+            const input = emailConfirm && !emailConfirm.classList.contains('d-none')
+                ? document.getElementById('email2faAddressInput')
+                : document.getElementById('otpSetupInput');
             if (input) input.focus();
         });
     }
@@ -71,31 +80,7 @@ function initiate2FASetup(btn) {
     const csrfToken = form?.dataset.csrf || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
     setButtonLoading(btn, true);
     
-    // Reset Modal State
-    const errorEl = document.getElementById('otpSetupError');
-    if (errorEl) errorEl.classList.add('d-none');
-    
-    const inputEl = document.getElementById('otpSetupInput');
-    if (inputEl) inputEl.value = '';
-    
-    document.getElementById('otpSetupForm').classList.remove('d-none');
-    document.getElementById('otp-instruction').classList.remove('d-none');
-    document.getElementById('otpSetupSuccess').classList.add('d-none');
-    
-    const closeBtn = document.querySelector('#otpSetupModal .btn-close');
-    if (closeBtn) closeBtn.classList.remove('d-none');
-    
-    const iconContainer = document.querySelector('#otpSetupModal .bi-shield-lock-fill');
-    if (iconContainer && iconContainer.parentElement) {
-        iconContainer.parentElement.classList.remove('d-none');
-    }
-
-    const titleEl = document.querySelector('#otpSetupModal .modal-title');
-    if (titleEl && form.dataset.transVerifyTitle) {
-        titleEl.textContent = form.dataset.transVerifyTitle;
-    }
-    
-    needsReload = false;
+    resetOTPSetupModal(form);
     
     // Logic split for TOTP vs Email/Phone
     if (method === 'totp') {
@@ -106,7 +91,7 @@ function initiate2FASetup(btn) {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(res => res.json())
+        .then(parseJsonResponse)
         .then(data => {
             if (data.status === 'success') {
                 // Show QR Code
@@ -125,8 +110,35 @@ function initiate2FASetup(btn) {
                 alert(data.message || 'Error generating QR');
             }
         })
-        .catch(err => console.error("Error fetching TOTP setup:", err))
+        .catch(err => {
+            console.error("Error fetching TOTP setup:", err);
+            alert(err.message || 'Error generating QR');
+        })
         .finally(() => setButtonLoading(btn, false));
+    } else if (method === 'email') {
+        pendingEmailSetup = { btn, url, method, csrfToken };
+        const confirmSection = document.getElementById('email2faConfirm');
+        const emailInput = document.getElementById('email2faAddressInput');
+        const setupForm = document.getElementById('otpSetupForm');
+        const instructionText = document.getElementById('otp-instruction');
+        const titleEl = document.querySelector('#otpSetupModal .modal-title');
+        const qrContainer = document.getElementById('totp-qr-container');
+
+        if (titleEl && form.dataset.transConfirmEmailTitle) {
+            titleEl.textContent = form.dataset.transConfirmEmailTitle;
+        }
+        if (instructionText) {
+            instructionText.textContent = form.dataset.transConfirmEmailInstruction || 'Confirm or update the email address before we send a setup code.';
+        }
+        if (emailInput) {
+            emailInput.value = btn.dataset.email || '';
+        }
+        if (setupForm) setupForm.classList.add('d-none');
+        if (qrContainer) qrContainer.classList.add('d-none');
+        if (confirmSection) confirmSection.classList.remove('d-none');
+
+        showModal();
+        setButtonLoading(btn, false);
     } else {
         // Email/Phone
         fetch(url, {
@@ -138,7 +150,7 @@ function initiate2FASetup(btn) {
             },
             body: `method=${encodeURIComponent(method)}`
         })
-        .then(res => res.json())
+        .then(parseJsonResponse)
         .then(data => {
             if (data.status === 'success') {
                 // Hide QR, Show plain text
@@ -152,9 +164,138 @@ function initiate2FASetup(btn) {
                 alert(data.message || 'Error sending code');
             }
         })
-        .catch(err => console.error("Error initiating 2FA:", err))
+        .catch(err => {
+            console.error("Error initiating 2FA:", err);
+            alert(err.message || 'Error sending code');
+        })
         .finally(() => setButtonLoading(btn, false));
     }
+}
+
+function resetOTPSetupModal(form) {
+    const errorEl = document.getElementById('otpSetupError');
+    if (errorEl) errorEl.classList.add('d-none');
+
+    const inputEl = document.getElementById('otpSetupInput');
+    if (inputEl) inputEl.value = '';
+
+    const emailInput = document.getElementById('email2faAddressInput');
+    if (emailInput) emailInput.value = '';
+
+    const emailConfirm = document.getElementById('email2faConfirm');
+    if (emailConfirm) emailConfirm.classList.add('d-none');
+
+    const setupForm = document.getElementById('otpSetupForm');
+    if (setupForm) setupForm.classList.remove('d-none');
+
+    const instruction = document.getElementById('otp-instruction');
+    if (instruction) instruction.classList.remove('d-none');
+
+    const success = document.getElementById('otpSetupSuccess');
+    if (success) success.classList.add('d-none');
+
+    const qrContainer = document.getElementById('totp-qr-container');
+    if (qrContainer) {
+        qrContainer.innerHTML = '';
+        qrContainer.classList.add('d-none');
+    }
+
+    const closeBtn = document.querySelector('#otpSetupModal .btn-close');
+    if (closeBtn) closeBtn.classList.remove('d-none');
+
+    const iconContainer = document.querySelector('#otpSetupModal .bi-shield-lock-fill');
+    if (iconContainer && iconContainer.parentElement) {
+        iconContainer.parentElement.classList.remove('d-none');
+    }
+
+    const titleEl = document.querySelector('#otpSetupModal .modal-title');
+    if (titleEl && form.dataset.transVerifyTitle) {
+        titleEl.textContent = form.dataset.transVerifyTitle;
+    }
+
+    pendingEmailSetup = null;
+    needsReload = false;
+}
+
+function submitEmail2FAAddress() {
+    const state = pendingEmailSetup;
+    const form = document.getElementById('otpSetupForm');
+    const errorEl = document.getElementById('otpSetupError');
+    const emailInput = document.getElementById('email2faAddressInput');
+    const confirmBtn = document.getElementById('email2faConfirmBtn');
+    if (!state || !form || !emailInput) return;
+
+    const email = emailInput.value.trim();
+    if (!emailInput.checkValidity()) {
+        if (errorEl) {
+            errorEl.textContent = form.dataset.transInvalidEmail || 'Enter a valid email address.';
+            errorEl.classList.remove('d-none');
+        }
+        emailInput.focus();
+        return;
+    }
+
+    if (errorEl) errorEl.classList.add('d-none');
+    setButtonLoading(confirmBtn, true);
+
+    const body = new URLSearchParams();
+    body.set('method', 'email');
+    body.set('email', email);
+
+    fetch(state.url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': state.csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: body.toString()
+    })
+    .then(parseJsonResponse)
+    .then(data => {
+        if (data.status === 'success') {
+            const confirmSection = document.getElementById('email2faConfirm');
+            const instructionText = document.getElementById('otp-instruction');
+            const titleEl = document.querySelector('#otpSetupModal .modal-title');
+            if (confirmSection) confirmSection.classList.add('d-none');
+            if (form) form.classList.remove('d-none');
+            if (titleEl && form.dataset.transVerifyTitle) {
+                titleEl.textContent = form.dataset.transVerifyTitle;
+            }
+            if (instructionText) {
+                instructionText.textContent = `${form.dataset.transOtpSent || 'Enter the code sent to'} ${email}`;
+            }
+            document.getElementById('otpMethodInput').value = 'email';
+            const inputEl = document.getElementById('otpSetupInput');
+            if (inputEl) inputEl.focus();
+        } else if (errorEl) {
+            errorEl.textContent = data.message || 'Error sending code';
+            errorEl.classList.remove('d-none');
+        }
+    })
+    .catch(err => {
+        console.error("Error initiating email 2FA:", err);
+        if (errorEl) {
+            errorEl.textContent = err.message || 'Error sending code';
+            errorEl.classList.remove('d-none');
+        }
+    })
+    .finally(() => setButtonLoading(confirmBtn, false));
+}
+
+function parseJsonResponse(response) {
+    return response.text().then(text => {
+        let data = {};
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (err) {
+            throw new Error('Server returned an unexpected response.');
+        }
+        if (!response.ok) {
+            throw new Error(data.message || 'Request failed.');
+        }
+        return data;
+    });
 }
 
 function showModal() {

@@ -98,12 +98,16 @@ def get_secret(secret_name, env_var):
         return os.getenv(env_var)
 
 
-EMAIL_CONFIG_MODES = {'env', 'encrypted_db'}
+EMAIL_CONFIG_TRANSPORTS = {'direct', 'relay'}
+EMAIL_CONFIG_SECRET_STORAGES = {'env', 'encrypted_db'}
+MICROSYS_INTERNAL_SMTP_RELAY_HOST = 'smtp-relay'
+MICROSYS_INTERNAL_SMTP_RELAY_PORT = 1025
 
 
 def default_email_config():
     return {
-        'mode': 'env',
+        'transport': 'direct',
+        'secret_storage': 'env',
         'host': '',
         'port': 587,
         'use_tls': True,
@@ -118,9 +122,12 @@ def default_email_config():
 def normalize_email_config(value, *, redact_secret=False):
     config = value if isinstance(value, dict) else {}
     normalized = default_email_config()
-    mode = str(config.get('mode') or '').strip()
-    if mode in EMAIL_CONFIG_MODES:
-        normalized['mode'] = mode
+    transport = str(config.get('transport') or '').strip()
+    secret_storage = str(config.get('secret_storage') or '').strip()
+    if transport in EMAIL_CONFIG_TRANSPORTS:
+        normalized['transport'] = transport
+    if secret_storage in EMAIL_CONFIG_SECRET_STORAGES:
+        normalized['secret_storage'] = secret_storage
     normalized['host'] = str(config.get('host') or '').strip()
     try:
         normalized['port'] = int(config.get('port') or normalized['port'])
@@ -174,6 +181,57 @@ def decrypt_email_secret(encrypted_secret):
         return ''
 
 
+TOTP_SECRET_PREFIX = 'fernet$'
+
+
+def _totp_secret_seed():
+    configured_key = (
+        os.getenv('MICROSYS_TOTP_SECRET_KEY')
+        or os.getenv('MICROSYS_SECRET_KEY')
+        or getattr(settings, 'MICROSYS_TOTP_SECRET_KEY', '')
+        or getattr(settings, 'SECRET_KEY', '')
+    )
+    return str(configured_key or 'microsys-totp-secret-dev-key')
+
+
+def _totp_fernet():
+    from cryptography.fernet import Fernet
+
+    digest = hashlib.sha256(_totp_secret_seed().encode('utf-8')).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def is_encrypted_totp_secret(value):
+    return isinstance(value, str) and value.startswith(TOTP_SECRET_PREFIX)
+
+
+def encrypt_totp_secret(raw_secret):
+    raw_secret = str(raw_secret or '').strip()
+    if not raw_secret:
+        return ''
+    if is_encrypted_totp_secret(raw_secret):
+        return raw_secret
+    encrypted = _totp_fernet().encrypt(raw_secret.encode('utf-8')).decode('utf-8')
+    return f'{TOTP_SECRET_PREFIX}{encrypted}'
+
+
+def decrypt_totp_secret(stored_secret):
+    stored_secret = str(stored_secret or '').strip()
+    if not stored_secret:
+        return ''
+    if not is_encrypted_totp_secret(stored_secret):
+        return stored_secret
+    encrypted = stored_secret[len(TOTP_SECRET_PREFIX):]
+    try:
+        return _totp_fernet().decrypt(encrypted.encode('utf-8')).decode('utf-8')
+    except Exception:
+        return ''
+
+
+def get_profile_totp_secret(profile):
+    return decrypt_totp_secret(getattr(profile, 'totp_secret', ''))
+
+
 def get_microsys_email_config(*, include_secret=False):
     try:
         SystemSettings = apps.get_model('microsys', 'SystemSettings')
@@ -183,9 +241,25 @@ def get_microsys_email_config(*, include_secret=False):
         raw_stored_config = {}
         stored_config = default_email_config()
 
-    if stored_config.get('mode') == 'encrypted_db':
+    if stored_config.get('transport') == 'relay':
+        return {
+            'transport': 'relay',
+            'secret_storage': stored_config.get('secret_storage', 'encrypted_db'),
+            'backend': 'django.core.mail.backends.smtp.EmailBackend',
+            'host': getattr(settings, 'MICROSYS_SMTP_RELAY_HOST', MICROSYS_INTERNAL_SMTP_RELAY_HOST),
+            'port': getattr(settings, 'MICROSYS_SMTP_RELAY_PORT', MICROSYS_INTERNAL_SMTP_RELAY_PORT),
+            'use_tls': False,
+            'use_ssl': False,
+            'username': '',
+            'password': '',
+            'from_email': stored_config.get('default_from_email', ''),
+            'password_configured': False,
+        }
+
+    if stored_config.get('secret_storage') == 'encrypted_db':
         config = {
-            'mode': 'encrypted_db',
+            'transport': 'direct',
+            'secret_storage': 'encrypted_db',
             'backend': 'django.core.mail.backends.smtp.EmailBackend',
             'host': stored_config.get('host', ''),
             'port': stored_config.get('port', 587),
@@ -204,7 +278,8 @@ def get_microsys_email_config(*, include_secret=False):
     stored_hints = normalize_email_config(raw_stored_config, redact_secret=True)
     hint_keys = set(raw_stored_config.keys()) if isinstance(raw_stored_config, dict) else set()
     return {
-        'mode': 'env',
+        'transport': 'direct',
+        'secret_storage': 'env',
         'backend': backend,
         'host': stored_hints.get('host') if 'host' in hint_keys else (getattr(settings, 'EMAIL_HOST', '') or ''),
         'port': stored_hints.get('port') if 'port' in hint_keys else getattr(settings, 'EMAIL_PORT', None),
@@ -223,13 +298,19 @@ def get_email_service_status():
     Report whether Microsys-owned email flows are configured without touching
     SMTP networks or returning secrets.
     """
+    try:
+        SystemSettings = apps.get_model('microsys', 'SystemSettings')
+        stored_email_config = normalize_email_config(getattr(SystemSettings.load(), 'email_config', {}))
+    except Exception:
+        stored_email_config = default_email_config()
     email_config = get_microsys_email_config(include_secret=False)
     backend = email_config.get('backend') or 'django.core.mail.backends.smtp.EmailBackend'
     from_email = email_config.get('from_email') or ''
     debug = bool(getattr(settings, 'DEBUG', False))
     host = email_config.get('host') or ''
     port = email_config.get('port')
-    mode = email_config.get('mode') or 'env'
+    transport = email_config.get('transport') or 'direct'
+    secret_storage = email_config.get('secret_storage') or 'env'
     local_backends = {
         'django.core.mail.backends.console.EmailBackend',
         'django.core.mail.backends.locmem.EmailBackend',
@@ -242,24 +323,49 @@ def get_email_service_status():
             'configured': True,
             'backend': backend,
             'from_email': from_email,
-            'mode': mode,
+            'transport': transport,
+            'secret_storage': secret_storage,
             'reason': 'local_debug_backend',
         }
 
     if backend == 'django.core.mail.backends.smtp.EmailBackend':
         password_ok = True
-        if mode == 'encrypted_db' and email_config.get('username'):
+        if secret_storage == 'encrypted_db' and email_config.get('username'):
             password_ok = bool(email_config.get('password_configured'))
+        if transport == 'relay':
+            relay_password_ok = True
+            if stored_email_config.get('secret_storage') == 'encrypted_db' and stored_email_config.get('username'):
+                relay_password_ok = bool(stored_email_config.get('password_configured'))
+            configured = bool(
+                stored_email_config.get('host')
+                and stored_email_config.get('port')
+                and stored_email_config.get('default_from_email')
+                and relay_password_ok
+            )
+            return {
+                'available': configured,
+                'configured': configured,
+                'backend': backend,
+                'from_email': from_email,
+                'transport': transport,
+                'secret_storage': secret_storage,
+                'detail': f"{host}:{port} -> {stored_email_config.get('host')}:{stored_email_config.get('port')}"
+                if host and port and stored_email_config.get('host') and stored_email_config.get('port') else '',
+                'reason': 'relay_configured' if configured else (
+                    'relay_missing_password' if not relay_password_ok else 'relay_missing_upstream_host_port_or_from_email'
+                ),
+            }
         configured = bool(host and port and from_email and password_ok)
         missing_reason = 'smtp_missing_host_port_or_from_email'
-        if mode == 'encrypted_db' and not password_ok:
+        if secret_storage == 'encrypted_db' and not password_ok:
             missing_reason = 'encrypted_db_missing_password'
         return {
             'available': configured,
             'configured': configured,
             'backend': backend,
             'from_email': from_email,
-            'mode': mode,
+            'transport': transport,
+            'secret_storage': secret_storage,
             'detail': f"{host}:{port}" if host and port else '',
             'reason': 'smtp_configured' if configured else missing_reason,
         }
@@ -270,13 +376,14 @@ def get_email_service_status():
         'configured': configured,
         'backend': backend,
         'from_email': from_email,
-        'mode': mode,
+        'transport': transport,
+        'secret_storage': secret_storage,
         'reason': 'custom_backend_configured' if configured else 'missing_default_from_email',
     }
 
 
 def send_microsys_mail(subject, message, recipient_list, *, from_email=None, fail_silently=False):
-    """Send Microsys-owned transactional email through the selected email mode."""
+    """Send Microsys-owned transactional email through the selected delivery path."""
     email_config = get_microsys_email_config(include_secret=True)
     effective_from = from_email or email_config.get('from_email') or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
 
@@ -492,10 +599,57 @@ def get_user_scope(user):
     """Return the user's scope from profile first, then direct attribute."""
     if not user:
         return None
-    profile = getattr(user, 'profile', None)
+    profile = get_user_profile(user)
     if profile and getattr(profile, 'scope', None):
         return profile.scope
     return getattr(user, 'scope', None)
+
+
+def get_user_profile(user):
+    """Return the related profile when it exists; missing profiles fail closed elsewhere."""
+    if not user:
+        return None
+    try:
+        return getattr(user, 'profile', None)
+    except Exception:
+        return None
+
+
+def user_has_scope_state(user):
+    """
+    Return True when the user's scoped/unscoped state is knowable.
+
+    Real Django users should have a Profile row. Lightweight test doubles may
+    expose a direct `scope` attribute instead.
+    """
+    if not user:
+        return False
+    if hasattr(user, 'scope'):
+        return True
+    return get_user_profile(user) is not None
+
+
+def exclude_global_staff_users(queryset):
+    """Exclude users who have the Global Staff `manage_scopes` permission."""
+    return queryset.exclude(
+        user_permissions__content_type__app_label='microsys',
+        user_permissions__codename='manage_scopes',
+    ).exclude(
+        groups__permissions__content_type__app_label='microsys',
+        groups__permissions__codename='manage_scopes',
+    ).distinct()
+
+
+def strip_manage_scopes_permissions(permissions):
+    """Return a permission list with Microsys Global Staff elevation removed."""
+    return [
+        permission
+        for permission in permissions
+        if not (
+            getattr(permission, 'codename', None) == 'manage_scopes'
+            and getattr(getattr(permission, 'content_type', None), 'app_label', None) == 'microsys'
+        )
+    ]
 
 
 def can_manage_target_user(actor, target_user=None):
@@ -512,6 +666,11 @@ def can_manage_target_user(actor, target_user=None):
 
     if target_user is None:
         return True
+
+    if not getattr(actor, 'is_superuser', False) and not user_has_scope_state(actor):
+        return False
+    if not getattr(actor, 'is_superuser', False) and not user_has_scope_state(target_user):
+        return False
 
     if getattr(target_user, 'is_superuser', False) and actor != target_user:
         return False
@@ -546,6 +705,8 @@ def is_global_staff(user):
         return True
     if not getattr(user, 'is_staff', False):
         return False
+    if not user_has_scope_state(user):
+        return False
     # Must have no scope and have manage_scopes permission
     user_scope = get_user_scope(user)
     if user_scope is not None:
@@ -565,6 +726,8 @@ def is_central_staff(user):
         return False  # Superuser is not Central Staff
     if not getattr(user, 'is_staff', False):
         return False
+    if not user_has_scope_state(user):
+        return False
     # Must have no scope and NOT have manage_scopes permission
     user_scope = get_user_scope(user)
     if user_scope is not None:
@@ -583,6 +746,8 @@ def user_can_view_user_directory(user):
     if getattr(user, 'is_superuser', False):
         return True
     if not getattr(user, 'is_staff', False):
+        return False
+    if not user_has_scope_state(user):
         return False
     # Global Staff and Central Staff (both non-scoped) can access
     if get_user_scope(user) is None:
@@ -2322,12 +2487,7 @@ def _get_m2m_through_defaults(model, field_name, request):
 
     defaults = {}
     if is_scope_enabled():
-        # Resolve scope from profile first, then direct user attribute
-        scope = None
-        if hasattr(request.user, 'profile') and getattr(request.user.profile, 'scope', None):
-            scope = request.user.profile.scope
-        elif hasattr(request.user, 'scope') and getattr(request.user, 'scope', None):
-            scope = request.user.scope
+        scope = get_user_scope(request.user)
         if scope:
             try:
                 through._meta.get_field('scope')

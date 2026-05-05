@@ -169,7 +169,7 @@ sidebar toolbar/reorder/density controls, and lets the main layout expand.
 Common runtime feature flags in `get_system_config()`:
 
 - `email_2fa` — Enable email-based 2FA (set via `MICROSYS_CONFIG['email_2fa']` or the System Settings UI)
-- `email_config` — Redacted Microsys email delivery config. Supports `env` and `encrypted_db`; exports never include SMTP secrets.
+- `email_config` — Redacted Microsys email delivery config. Supports delivery `transport` (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never include SMTP secrets.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
 - `registration_throttle_enabled` — Enable cache throttles for public signup.

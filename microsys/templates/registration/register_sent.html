@@ -1,11 +1,11 @@
 {% extends 'microsys/base.html' %}
-{% block title %}Registration Sent{% endblock %}
+{% block title %}{{ MS_TRANS.check_email|default:'Check your email' }}{% endblock %}
 {% block titlebar %}{% endblock %}
 
 {% block layout %}
 <main class="container py-5" style="max-width: 640px;">
-    <h1 class="h3 mb-3">Check your email</h1>
-    <p>If the address can be registered, a verification link has been sent.</p>
-    <a class="btn btn-primary" href="{% url 'login' %}">Back to login</a>
+    <h1 class="h3 mb-3">{{ MS_TRANS.check_email|default:'Check your email' }}</h1>
+    <p>{{ MS_TRANS.registration_sent_desc|default:'If the address can be registered, a verification link has been sent.' }}</p>
+    <a class="btn btn-primary" href="{% url 'login' %}">{{ MS_TRANS.back_to_login|default:'Back to login' }}</a>
 </main>
 {% endblock %}

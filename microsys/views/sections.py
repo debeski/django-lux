@@ -33,6 +33,7 @@ from ..utils import (
     _get_m2m_through_defaults,
     _create_minimal_instance_from_post,
     can_manage_target_user,
+    get_user_scope,
     log_user_action,
     setup_filter_helper,
     has_submit_button,
@@ -58,6 +59,20 @@ def _normalize_section_model_token(value):
     if not raw:
         return ''
     return raw
+
+
+def _scope_filtered_modal_queryset(model, user):
+    queryset = model._default_manager.all()
+    if not is_scope_enabled() or getattr(user, 'is_superuser', False):
+        return queryset
+    try:
+        model._meta.get_field('scope')
+    except Exception:
+        return queryset
+    user_scope = get_user_scope(user)
+    if user_scope is None:
+        return queryset.none()
+    return queryset.filter(scope=user_scope)
 
 
 def _definition_matches_model_token(definition, token):
@@ -946,7 +961,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         pk = kwargs.get('pk') or request.GET.get('id')
         instance = None
         if pk and pk != 'new':
-            instance = get_object_or_404(model._default_manager.all(), pk=pk)
+            instance = get_object_or_404(_scope_filtered_modal_queryset(model, request.user), pk=pk)
 
         action, show_table, show_form = self._resolve_modal_surface(model)
         if not self._guard_model_access(model, instance=instance, show_table=show_table, show_form=show_form, action=action):
@@ -962,7 +977,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         f = None
         
         if show_table:
-            queryset = model._default_manager.all()
+            queryset = _scope_filtered_modal_queryset(model, request.user)
             # Filter (optional)
             if classes['filter']:
                 f = classes['filter'](request.GET, queryset=queryset)
@@ -1023,7 +1038,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         instance = None
         pk = kwargs.get('pk') or request.GET.get('id')
         if pk and pk != 'new':
-            instance = get_object_or_404(model._default_manager.all(), pk=pk)
+            instance = get_object_or_404(_scope_filtered_modal_queryset(model, request.user), pk=pk)
 
         if not self._guard_model_access(model, instance=instance, show_form=True):
             return JsonResponse({'error': 'Permission denied'}, status=403)
@@ -1113,7 +1128,7 @@ class DynamicModalDeleteView(LoginRequiredMixin, View):
         if not user_has_model_permission(request.user, model_class, 'delete'):
             return JsonResponse({'error': 'Permission denied'}, status=403)
             
-        instance = get_object_or_404(model_class._default_manager.all(), pk=pk)
+        instance = get_object_or_404(_scope_filtered_modal_queryset(model_class, request.user), pk=pk)
         
         # Protection check (Generic helper from utils)
         related = collect_related_objects(instance)

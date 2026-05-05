@@ -47,6 +47,7 @@ if not settings.configured:
     import django
     django.setup()
 
+from django.core.exceptions import FieldDoesNotExist
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -54,11 +55,124 @@ from django.contrib.contenttypes.models import ContentType
 from django.urls import reverse
 from django.core.cache import cache
 import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
+from microsys.api import _scope_filter_queryset, _serialize_instance
 from microsys.models import Section, SystemSettings
 
 User = get_user_model()
+
+
+class _FakeMeta:
+    app_label = "fake"
+    model_name = "record"
+
+    def __init__(self, has_scope=True, fields=None):
+        self.has_scope = has_scope
+        self._fields = fields or []
+
+    def get_field(self, name):
+        if name == "scope" and self.has_scope:
+            return object()
+        raise FieldDoesNotExist(name)
+
+    def get_fields(self):
+        return self._fields
+
+
+class _FakeModel:
+    def __init__(self, has_scope=True):
+        self._meta = _FakeMeta(has_scope=has_scope)
+
+
+class _FakeQuerySet:
+    def __init__(self, model):
+        self.model = model
+        self.filtered_scope = None
+        self.none_called = False
+
+    def filter(self, **kwargs):
+        clone = _FakeQuerySet(self.model)
+        clone.filtered_scope = kwargs.get("scope")
+        return clone
+
+    def none(self):
+        clone = _FakeQuerySet(self.model)
+        clone.none_called = True
+        return clone
+
+
+class _FakeField:
+    concrete = True
+    auto_created = False
+    is_relation = False
+
+    def __init__(self, name):
+        self.name = name
+
+    def get_internal_type(self):
+        return "CharField"
+
+
+class APIHelperSecurityTests(TestCase):
+    def _user(self, scope=None, *, superuser=False, global_staff=False):
+        permissions = {"microsys.manage_scopes"} if global_staff else set()
+        return SimpleNamespace(
+            is_authenticated=True,
+            is_superuser=superuser,
+            is_staff=global_staff,
+            profile=SimpleNamespace(scope=scope),
+            has_perm=lambda perm: perm in permissions,
+        )
+
+    @patch("microsys.api.is_scope_enabled", return_value=True)
+    def test_scope_filter_limits_scoped_model_to_user_scope(self, _scope_enabled):
+        user_scope = object()
+        qs = _FakeQuerySet(_FakeModel(has_scope=True))
+
+        filtered = _scope_filter_queryset(self._user(scope=user_scope), qs)
+
+        self.assertIs(filtered.filtered_scope, user_scope)
+        self.assertFalse(filtered.none_called)
+
+    @patch("microsys.api.is_scope_enabled", return_value=True)
+    def test_scope_filter_fails_closed_for_scopeless_user_on_scoped_model(self, _scope_enabled):
+        qs = _FakeQuerySet(_FakeModel(has_scope=True))
+
+        filtered = _scope_filter_queryset(self._user(scope=None), qs)
+
+        self.assertTrue(filtered.none_called)
+
+    @patch("microsys.api.is_scope_enabled", return_value=True)
+    def test_scope_filter_allows_global_staff(self, _scope_enabled):
+        qs = _FakeQuerySet(_FakeModel(has_scope=True))
+
+        filtered = _scope_filter_queryset(self._user(global_staff=True), qs)
+
+        self.assertIs(filtered, qs)
+
+    def test_serializer_skips_secret_like_fields(self):
+        instance = SimpleNamespace(
+            _meta=_FakeMeta(fields=[
+                _FakeField("name"),
+                _FakeField("api_token"),
+                _FakeField("smtp_password"),
+                _FakeField("email_config"),
+            ]),
+            pk=1,
+            name="Visible",
+            api_token="secret-token",
+            smtp_password="secret-password",
+            email_config={"mode": "encrypted_db"},
+        )
+
+        data = _serialize_instance(instance)
+
+        self.assertEqual(data["name"], "Visible")
+        self.assertNotIn("api_token", data)
+        self.assertNotIn("smtp_password", data)
+        self.assertNotIn("email_config", data)
 
 
 class APIEndpointsTests(TestCase):

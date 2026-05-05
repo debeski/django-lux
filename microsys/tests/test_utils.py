@@ -1,3 +1,4 @@
+from django.apps import apps
 from django.conf import settings
 from unittest.mock import mock_open, patch
 
@@ -59,6 +60,7 @@ from microsys.utils import (
     get_system_config, is_staff, is_superuser, get_client_ip,
     log_user_action, is_scope_enabled, _normalize_asset_url,
     get_secret, microsys_settings, _build_generic_detail_context,
+    is_central_staff, is_global_staff, user_can_view_user_directory,
 )
 
 User = get_user_model()
@@ -450,6 +452,21 @@ class UtilsTests(TestCase):
         scope_settings.save()
         
         self.assertTrue(is_scope_enabled())
+
+    def test_staff_without_profile_fails_closed_for_staff_tiers(self):
+        user = User.objects.create_user(
+            username='missingprofile',
+            email='missingprofile@example.com',
+            password='missingpass123',
+            is_staff=True,
+        )
+        Profile = apps.get_model('microsys', 'Profile')
+        Profile.all_objects.filter(user=user).delete()
+        user = User.objects.get(pk=user.pk)
+
+        self.assertFalse(is_central_staff(user))
+        self.assertFalse(is_global_staff(user))
+        self.assertFalse(user_can_view_user_directory(user))
 
     def test_normalize_asset_url_with_absolute_url(self):
         """Test _normalize_asset_url with absolute URL."""

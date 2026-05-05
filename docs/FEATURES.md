@@ -1,7 +1,7 @@
 
 # Django-Microsys Complete Feature Reference
 
-**Version:** 2.0.3
+**Version:** 2.2.0
 **Package:** `django-microsys` — A multilingual Django framework layer for internal systems
 
 ---
@@ -619,5 +619,5 @@ Auto-handles:
 
 ---
 ```markdown
-*Generated from codebase analysis — reflects package version 2.0.3*
+*Generated from codebase analysis — reflects package version 2.2.0*
 ```

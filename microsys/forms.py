@@ -697,8 +697,10 @@ class CustomUserCreationForm(UserCreationForm):
             # Check if profile already exists (via signal) or create it
             profile, created = Profile.all_objects.get_or_create(user=user)
             profile.phone = self.cleaned_data.get('phone')
-            if self.user_context and not self.user_context.is_superuser and hasattr(self.user_context, 'profile') and self.user_context.profile.scope:
-                profile.scope = self.user_context.profile.scope
+            from microsys.utils import get_user_scope
+            user_scope = get_user_scope(self.user_context)
+            if self.user_context and not self.user_context.is_superuser and user_scope:
+                profile.scope = user_scope
             elif self.cleaned_data.get('scope'):
                 profile.scope = self.cleaned_data.get('scope')
             # If empty scope, we do not overwrite since signal may have auto-assigned one
@@ -822,8 +824,10 @@ class CustomUserChangeForm(UserChangeForm):
             Profile = apps.get_model('microsys', 'Profile')
             profile, created = Profile.all_objects.get_or_create(user=user)
             profile.phone = self.cleaned_data.get('phone')
-            if self.user_context and not self.user_context.is_superuser and hasattr(self.user_context, 'profile') and self.user_context.profile.scope:
-                profile.scope = self.user_context.profile.scope
+            from microsys.utils import get_user_scope
+            user_scope = get_user_scope(self.user_context)
+            if self.user_context and not self.user_context.is_superuser and user_scope:
+                profile.scope = user_scope
             else:
                 if 'scope' in self.changed_data:
                     profile.scope = self.cleaned_data.get('scope')
@@ -938,16 +942,8 @@ class CustomUserPermissionsForm(UserChangeForm):
             
             # Central Staff cannot assign manage_scopes permission
             if self.user_context and is_central_staff(self.user_context):
-                from django.contrib.auth.models import Permission
-                try:
-                    manage_scopes_perm = Permission.objects.get(
-                        content_type__app_label='microsys',
-                        codename='manage_scopes'
-                    )
-                    if manage_scopes_perm in permissions:
-                        permissions.remove(manage_scopes_perm)
-                except Permission.DoesNotExist:
-                    pass
+                from microsys.utils import strip_manage_scopes_permissions
+                permissions = strip_manage_scopes_permissions(permissions)
             
             # Auto-grant auth.view_user permission when user is staff
             if user.is_staff:
@@ -1257,9 +1253,19 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.HiddenInput(),
         required=False,
     )
-    email_config_mode = forms.ChoiceField(
+    email_config_transport = forms.ChoiceField(
         required=False,
-        choices=(('env', 'Environment / secrets'), ('encrypted_db', 'Encrypted database')),
+        choices=(
+            ('relay', 'Internal SMTP relay'),
+            ('direct', 'Direct SMTP from web service'),
+        ),
+    )
+    email_config_secret_storage = forms.ChoiceField(
+        required=False,
+        choices=(
+            ('encrypted_db', 'Encrypted database secret'),
+            ('env', 'Environment / secrets'),
+        ),
     )
     email_config_host = forms.CharField(required=False, max_length=255)
     email_config_port = forms.IntegerField(required=False, min_value=1, max_value=65535)
@@ -1577,10 +1583,15 @@ class SystemSettingsForm(forms.ModelForm):
             'Allow users to enable two-factor authentication via email. Requires Microsys email delivery to be ready.',
         )
         self.fields['email_config'].label = s.get('form_sys_email_config', 'Email delivery configuration')
-        self.fields['email_config_mode'].label = s.get('form_sys_email_config_mode', 'Email setup mode')
-        self.fields['email_config_mode'].help_text = s.get(
-            'help_sys_email_config_mode',
-            'Use environment/secrets by default, or explicitly store an encrypted SMTP password in System Settings.',
+        self.fields['email_config_transport'].label = s.get('form_sys_email_transport', 'Delivery path')
+        self.fields['email_config_transport'].help_text = s.get(
+            'help_sys_email_transport',
+            'Use the internal relay when the web service is isolated; use direct SMTP only when the web service can reach the SMTP provider.',
+        )
+        self.fields['email_config_secret_storage'].label = s.get('form_sys_email_secret_storage', 'Secret storage')
+        self.fields['email_config_secret_storage'].help_text = s.get(
+            'help_sys_email_secret_storage',
+            'Store the SMTP password encrypted in Microsys System Settings, or intentionally keep it in environment/secrets.',
         )
         self.fields['email_config_host'].label = s.get('form_sys_email_host', 'SMTP host')
         self.fields['email_config_port'].label = s.get('form_sys_email_port', 'SMTP port')
@@ -1591,7 +1602,7 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['email_config_default_from_email'].label = s.get('form_sys_email_default_from', 'Default from email')
         self.fields['email_config_password'].help_text = s.get(
             'help_sys_email_password',
-            'Only saved in encrypted database mode. Exports never include this secret.',
+            'Saved only when Secret storage is encrypted database. Exports never include this secret.',
         )
         for field_name in (
             'email_config_host',
@@ -1898,7 +1909,8 @@ class SystemSettingsForm(forms.ModelForm):
             )
         )
         self.initial['email_config'] = _json_dump(normalize_email_config(initial_email_config, redact_secret=True), ensure_ascii=False)
-        self.initial['email_config_mode'] = initial_email_config.get('mode', 'env')
+        self.initial['email_config_transport'] = initial_email_config.get('transport', 'direct')
+        self.initial['email_config_secret_storage'] = initial_email_config.get('secret_storage', 'env')
         self.initial['email_config_host'] = initial_email_config.get('host', '')
         self.initial['email_config_port'] = initial_email_config.get('port', 587)
         self.initial['email_config_use_tls'] = bool(initial_email_config.get('use_tls', True))
@@ -2141,20 +2153,23 @@ class SystemSettingsForm(forms.ModelForm):
                     f"<div class='ms-email-config-section' data-email-config-section>"
                     f"<h6 class='fw-bold my-3'>{s.get('email_delivery_settings_title', 'Email Delivery')}</h6>"
                     f"<p class='small text-muted mb-3'>"
-                    f"{s.get('email_delivery_settings_desc', 'Visible when public signup or email 2FA is enabled. In generated Docker projects, env mode should point the app at the internal smtp-relay service; upstream SMTP credentials stay in environment/secrets.')}"
+                    f"{s.get('email_delivery_settings_desc', 'Visible when public signup or email 2FA is enabled. If the web service is isolated, choose Internal SMTP relay and enter the upstream SMTP server below; the generated relay reads this UI config and handles internet egress. If the web service can reach SMTP directly, choose Direct SMTP from web service. Use Encrypted database secret for UI-managed passwords, or Environment / secrets when deployers intentionally keep mail secrets outside the UI.')}"
                     f"</p>"
                 ),
                 Row(
-                    Div(Field('email_config_mode'), css_class='col-lg-4'),
+                    Div(Field('email_config_transport'), css_class='col-lg-4'),
+                    Div(Field('email_config_secret_storage'), css_class='col-lg-4'),
                     Div(Field('email_config_default_from_email'), css_class='col-lg-4'),
-                    Div(Field('email_config_username'), css_class='col-lg-4'),
                 ),
                 Row(
                     Div(Field('email_config_host'), css_class='col-lg-4'),
                     Div(Field('email_config_port'), css_class='col-lg-2'),
                     Div(Field('email_config_use_tls'), css_class='col-lg-2'),
                     Div(Field('email_config_use_ssl'), css_class='col-lg-2'),
-                    Div(Field('email_config_password'), css_class='col-lg-2'),
+                    Div(Field('email_config_username'), css_class='col-lg-2'),
+                ),
+                Row(
+                    Div(Field('email_config_password'), css_class='col-lg-4'),
                 ),
                 Field('email_config'),
                 HTML(
@@ -2184,6 +2199,12 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 Row(
                     Div(Field('sidebar_enabled'), css_class='col-lg-12'),
+                ),
+                HTML(
+                    f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enabled', True) else ''}' "
+                    f"data-sidebar-disabled-note>"
+                    f"{s.get('sidebar_disabled_navigation_note', 'Disabling the sidebar can leave the app without built-in navigation. You will need to rely on dashboards and modals, or add your own back buttons and navigation entries in forms, lists, and dashboards. As of v2.2.0, Dynamic Sections Manager is only available through the sidebar, so add a dashboard button or custom entry if you need access. This warning will be updated if a built-in workaround is added later.')}"
+                    f"</div>"
                 ),
                 HTML("<div class='ms-sidebar-dependent-settings' data-sidebar-dependent>"),
                 HTML(
@@ -2470,9 +2491,11 @@ class SystemSettingsForm(forms.ModelForm):
 
     def clean_email_config(self):
         existing = normalize_email_config(getattr(self.instance, 'email_config', {}))
-        mode = self.cleaned_data.get('email_config_mode') or existing.get('mode', 'env')
+        transport = self.cleaned_data.get('email_config_transport') or existing.get('transport', 'direct')
+        secret_storage = self.cleaned_data.get('email_config_secret_storage') or existing.get('secret_storage', 'env')
         config = normalize_email_config({
-            'mode': mode,
+            'transport': transport,
+            'secret_storage': secret_storage,
             'host': self.cleaned_data.get('email_config_host') or '',
             'port': self.cleaned_data.get('email_config_port') or 587,
             'use_tls': self.cleaned_data.get('email_config_use_tls'),
@@ -2480,11 +2503,11 @@ class SystemSettingsForm(forms.ModelForm):
             'username': self.cleaned_data.get('email_config_username') or '',
             'default_from_email': self.cleaned_data.get('email_config_default_from_email') or '',
         })
-        if mode == 'encrypted_db':
+        if config.get('secret_storage') == 'encrypted_db':
             raw_password = self.cleaned_data.get('email_config_password') or ''
             if raw_password:
                 config['encrypted_password'] = encrypt_email_secret(raw_password)
-            elif existing.get('mode') == 'encrypted_db':
+            elif existing.get('transport') == config.get('transport') and existing.get('secret_storage') == 'encrypted_db':
                 config['encrypted_password'] = existing.get('encrypted_password', '')
         config['password_configured'] = bool(config.get('encrypted_password'))
         return config
@@ -2536,7 +2559,8 @@ class SystemSettingsForm(forms.ModelForm):
         email_config = imported.get('email_config')
         if isinstance(email_config, dict):
             cleaned['email_config'] = email_config
-            cleaned['email_config_mode'] = email_config.get('mode', 'env')
+            cleaned['email_config_transport'] = email_config.get('transport', 'direct')
+            cleaned['email_config_secret_storage'] = email_config.get('secret_storage', 'env')
             cleaned['email_config_host'] = email_config.get('host', '')
             cleaned['email_config_port'] = email_config.get('port', 587)
             cleaned['email_config_use_tls'] = bool(email_config.get('use_tls', True))
@@ -2615,7 +2639,8 @@ class SystemSettingsForm(forms.ModelForm):
         email_fields_posted = any(
             field_name in self.data
             for field_name in (
-                'email_config_mode',
+                'email_config_transport',
+                'email_config_secret_storage',
                 'email_config_host',
                 'email_config_port',
                 'email_config_use_tls',
@@ -2627,16 +2652,18 @@ class SystemSettingsForm(forms.ModelForm):
         )
         imported_email_config = cleaned.get('email_config') if isinstance(cleaned.get('email_config'), dict) else {}
         imported_email_config = normalize_email_config(imported_email_config) if imported_email_config else {}
-        if imported_email_config.get('mode') == 'encrypted_db' and not imported_email_config.get('encrypted_password'):
+        if imported_email_config.get('secret_storage') == 'encrypted_db' and not imported_email_config.get('encrypted_password'):
             imported_email_config['password_configured'] = False
         if not email_fields_posted and imported_email_config and imported_email_config != default_email_config():
             cleaned['email_config'] = imported_email_config
         elif not email_features_enabled and not email_fields_posted and existing_email_config:
             cleaned['email_config'] = existing_email_config
         else:
-            email_mode = cleaned.get('email_config_mode') or existing_email_config.get('mode', 'env')
+            email_transport = cleaned.get('email_config_transport') or existing_email_config.get('transport', 'direct')
+            email_secret_storage = cleaned.get('email_config_secret_storage') or existing_email_config.get('secret_storage', 'env')
             email_config = normalize_email_config({
-                'mode': email_mode,
+                'transport': email_transport,
+                'secret_storage': email_secret_storage,
                 'host': cleaned.get('email_config_host') or '',
                 'port': cleaned.get('email_config_port') or 587,
                 'use_tls': cleaned.get('email_config_use_tls'),
@@ -2644,11 +2671,14 @@ class SystemSettingsForm(forms.ModelForm):
                 'username': cleaned.get('email_config_username') or '',
                 'default_from_email': cleaned.get('email_config_default_from_email') or '',
             })
-            if email_mode == 'encrypted_db':
+            if email_config.get('secret_storage') == 'encrypted_db':
                 raw_password = cleaned.get('email_config_password') or ''
                 if raw_password:
                     email_config['encrypted_password'] = encrypt_email_secret(raw_password)
-                elif existing_email_config.get('mode') == 'encrypted_db':
+                elif (
+                    existing_email_config.get('transport') == email_config.get('transport')
+                    and existing_email_config.get('secret_storage') == 'encrypted_db'
+                ):
                     email_config['encrypted_password'] = existing_email_config.get('encrypted_password', '')
             email_config['password_configured'] = bool(email_config.get('encrypted_password'))
             cleaned['email_config'] = email_config
@@ -2666,7 +2696,7 @@ class SystemSettingsForm(forms.ModelForm):
         if cleaned.get('registration_activation_mode') not in REGISTRATION_ACTIVATION_VALUES:
             cleaned['registration_activation_mode'] = 'auto_login_after_verify'
         email_ready = get_email_service_status().get('available')
-        if email_config.get('mode') == 'encrypted_db':
+        if email_config.get('secret_storage') == 'encrypted_db':
             email_ready = bool(
                 email_config.get('host')
                 and email_config.get('port')
@@ -2676,7 +2706,7 @@ class SystemSettingsForm(forms.ModelForm):
         if (cleaned.get('public_registration_enabled') or cleaned.get('email_2fa')) and not email_ready:
             self.add_error(
                 'email_config',
-                "Public registration and email 2FA require configured email delivery. Use SMTP in production, local debug email backends during development, or encrypted DB mode with a saved SMTP secret.",
+                "Public registration and email 2FA require configured email delivery. Use env/secrets, the generated internal SMTP relay with a saved upstream secret, local debug email backends during development, or encrypted DB mode with a saved SMTP secret.",
             )
         return cleaned
 

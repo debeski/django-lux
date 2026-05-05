@@ -34,14 +34,17 @@ Approve and reject actions are POST-only and superuser-only.
 ## Required Email Setup
 
 Public registration requires Microsys email delivery. Setup/System Settings
-step 3 includes an **Email delivery** subsection with two modes:
+step 3 includes an **Email delivery** subsection with two independent choices:
 
-| Mode | Behavior |
+| Choice | Behavior |
 | --- | --- |
-| `env` | Recommended default. The UI may store/export non-sensitive hints such as host, port, username, and from address, but the SMTP password stays in environment variables or secrets. |
-| `encrypted_db` | Explicit opt-in. Microsys stores the SMTP password encrypted in `SystemSettings.email_config`. Exports include only a redacted “password configured” marker, so imported setups must re-enter the secret. |
+| Delivery path: `direct` | The web process connects to the SMTP provider itself. Use this when the web service has egress to the SMTP host. |
+| Delivery path: `relay` | The web process sends to the generated internal `smtp-relay:1025` service. Use this when the web service is isolated and only the relay has internet egress. |
+| Secret storage: `encrypted_db` | Microsys stores the SMTP password encrypted in `SystemSettings.email_config`. This works with both direct delivery and relay delivery. Exports include only a redacted “password configured” marker, so imported setups must re-enter the secret. |
+| Secret storage: `env` | Environment/secrets-owned mode. The UI may store/export non-sensitive hints such as host, port, username, and from address, but the SMTP password stays in environment variables or secrets. |
 
-Generated projects read standard Django email settings in `env` mode:
+Generated projects can still read standard Django email settings when secret
+storage is environment/secrets-owned:
 
 ```text
 EMAIL_BACKEND
@@ -62,7 +65,8 @@ Generated Docker projects default to an internal SMTP relay so the `web` and
 `celery` containers can remain on the internal Docker network. The app talks to
 `smtp-relay:1025`; only the `smtp-relay` service joins the public network for
 outbound SMTP egress, and the scaffold does not publish an inbound relay port.
-The relay uses these upstream settings:
+The relay can fall back to these upstream env settings before UI-managed relay
+delivery is configured:
 
 ```text
 DEFAULT_FROM_EMAIL
@@ -73,17 +77,20 @@ SMTP_RELAY_USER
 SMTP_RELAY_PASSWORD
 ```
 
-With this layout, the System Setup UI should normally stay in `env` mode and
-store non-secret hints such as host `smtp-relay`, port `1025`, and the from
-address. The upstream Gmail/SMTP credentials remain in relay environment
-variables or secrets. Use `encrypted_db` only when the web process is expected
-to reach the SMTP server directly, or when the encrypted secret is intentionally
-for an internal relay endpoint.
+With this layout, choose delivery path `Internal SMTP relay`, choose secret
+storage `Encrypted database secret`, and enter the upstream provider settings,
+for example Gmail host `smtp.gmail.com`, port `587`, TLS enabled, SMTP
+username, app password, and default-from address. The web container still sends
+only to the internal `smtp-relay:1025` listener; the relay loads the upstream
+settings from `SystemSettings.email_config` on delivery. If the web process can
+reach the SMTP server directly, choose delivery path `Direct SMTP from web
+service`; encrypted DB secrets still work in that mode.
 
 The setup/System Settings security step refuses to enable public registration
-or email 2FA when the selected Microsys email mode is not ready. Microsys-owned
-transactional mail uses the selected mode through package helpers; it does not
-force the host project’s unrelated Django email behavior to change.
+or email 2FA when the selected Microsys email delivery path and secret storage
+are not ready. Microsys-owned transactional mail uses this package-owned
+configuration through helpers; it does not force the host project’s unrelated
+Django email behavior to change.
 
 ## Security Defaults
 

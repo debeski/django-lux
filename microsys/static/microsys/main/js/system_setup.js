@@ -2631,7 +2631,8 @@
         const emailConfig = settings.email_config && typeof settings.email_config === 'object' ? settings.email_config : null;
         if (emailConfig) {
             setJsonField(form, 'email_config', emailConfig);
-            setNamedFieldValue(form, 'email_config_mode', emailConfig.mode || 'env');
+            setNamedFieldValue(form, 'email_config_transport', emailConfig.transport || 'direct');
+            setNamedFieldValue(form, 'email_config_secret_storage', emailConfig.secret_storage || 'env');
             setNamedFieldValue(form, 'email_config_host', emailConfig.host || '');
             setNamedFieldValue(form, 'email_config_port', emailConfig.port || '587');
             setCheckboxField(form, 'email_config_use_tls', emailConfig.use_tls !== false);
@@ -2861,6 +2862,7 @@
             const toolbarToggle = form.querySelector('#id_sidebar_enable_toolbar');
             const sidebarEnabledToggle = form.querySelector('#id_sidebar_enabled');
             const toolbarNote = form.querySelector('[data-sidebar-toolbar-note]');
+            const sidebarDisabledNote = form.querySelector('[data-sidebar-disabled-note]');
             const showIconsToggle = form.querySelector('#id_sidebar_show_icons');
             const allowThemeOverrideToggle = form.querySelector('#id_allow_user_theme_override');
             const reorderToggle = form.querySelector('#id_sidebar_enable_reorder');
@@ -2894,6 +2896,9 @@
 
             function syncToolbarAvailability() {
                 const sidebarEnabled = !sidebarEnabledToggle || sidebarEnabledToggle.checked;
+                if (sidebarDisabledNote) {
+                    sidebarDisabledNote.classList.toggle('d-none', sidebarEnabled);
+                }
                 const dependentSection = form.querySelector('[data-sidebar-dependent]');
                 if (dependentSection) {
                     dependentSection.classList.toggle('is-disabled', !sidebarEnabled);
@@ -2953,6 +2958,68 @@
         });
     }
 
+    function syncSidebarToolbarWarningFallback(form) {
+        if (!form || !form.classList || !form.classList.contains('ms-system-setup-form')) {
+            return;
+        }
+
+        const toolbarToggle = form.querySelector('#id_sidebar_enable_toolbar');
+        const sidebarEnabledToggle = form.querySelector('#id_sidebar_enabled');
+        const toolbarNote = form.querySelector('[data-sidebar-toolbar-note]');
+        const sidebarDisabledNote = form.querySelector('[data-sidebar-disabled-note]');
+        if (!toolbarToggle || !toolbarNote) {
+            return;
+        }
+
+        const sidebarEnabled = !sidebarEnabledToggle || sidebarEnabledToggle.checked;
+        if (sidebarDisabledNote) {
+            sidebarDisabledNote.classList.toggle('d-none', sidebarEnabled);
+        }
+        const dependentSection = form.querySelector('[data-sidebar-dependent]');
+        if (dependentSection) {
+            dependentSection.classList.toggle('is-disabled', !sidebarEnabled);
+            dependentSection.setAttribute('aria-disabled', sidebarEnabled ? 'false' : 'true');
+        }
+
+        [
+            'sidebar_enable_reorder',
+            'sidebar_enable_toolbar',
+            'sidebar_show_icons',
+            'sidebar_allow_user_density',
+            'sidebar_density',
+            'sidebar_collapse_mode',
+        ].forEach((name) => setNamedFieldDisabled(form, name, !sidebarEnabled));
+
+        const allowedThemeCount = Array.from(form.querySelectorAll('[data-setup-theme-allowed]'))
+            .filter((checkbox) => checkbox.checked)
+            .length;
+        const allowThemeOverrideToggle = form.querySelector('#id_allow_user_theme_override');
+        const reorderToggle = form.querySelector('#id_sidebar_enable_reorder');
+        const allowUserDensityToggle = form.querySelector('#id_sidebar_allow_user_density');
+        const sectionsToolState = form.querySelector('[data-sidebar-tooling-state]');
+        const hasToolbarTool = Boolean(
+            (
+                allowThemeOverrideToggle &&
+                allowThemeOverrideToggle.checked &&
+                allowedThemeCount > 1
+            ) ||
+            (allowUserDensityToggle && allowUserDensityToggle.checked) ||
+            (reorderToggle && reorderToggle.checked) ||
+            (
+                sectionsToolState &&
+                sectionsToolState.getAttribute('data-sections-manager-available') === 'true'
+            )
+        );
+        const available = sidebarEnabled && hasToolbarTool;
+
+        toolbarToggle.disabled = !available;
+        if (!available) {
+            toolbarToggle.checked = false;
+        }
+        toolbarNote.classList.toggle('d-none', !available || Boolean(toolbarToggle.checked));
+        applyImmediateSystemSettingsPreview(form);
+    }
+
     function initEmailDeliveryOptions(root) {
         root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
             if (form.dataset.emailDeliveryBound === 'true') {
@@ -2976,7 +3043,8 @@
                 section.classList.toggle('d-none', !enabled);
                 section.setAttribute('aria-hidden', enabled ? 'false' : 'true');
                 [
-                    'email_config_mode',
+                    'email_config_transport',
+                    'email_config_secret_storage',
                     'email_config_host',
                     'email_config_port',
                     'email_config_use_tls',
@@ -3036,6 +3104,7 @@
         initSetupTableDensityPicker(root);
         initSetupSidebarDensityPicker(root);
         initSidebarBehaviorOptions(root);
+        root.querySelectorAll('form.ms-system-setup-form').forEach(syncSidebarToolbarWarningFallback);
         initEmailDeliveryOptions(root);
         initTitlebarBehaviorOptions(root);
         initImmediateSystemSettingsPreview(root);
@@ -3046,6 +3115,19 @@
     } else {
         scan(document);
     }
+
+    document.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!target || !target.matches) {
+            return;
+        }
+        if (!target.matches(
+            '#id_sidebar_enable_toolbar, #id_sidebar_enabled, #id_sidebar_enable_reorder, #id_sidebar_allow_user_density, #id_allow_user_theme_override, [data-setup-theme-allowed]'
+        )) {
+            return;
+        }
+        syncSidebarToolbarWarningFallback(target.closest('form.ms-system-setup-form'));
+    });
 
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {

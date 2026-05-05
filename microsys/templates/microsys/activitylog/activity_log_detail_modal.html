@@ -57,7 +57,7 @@
         <div class="glass-card mb-4 p-3">
             <div class="info-label-sm mb-1 text-primary">{{ related_object_model }}</div>
             <div class="info-value">{{ related_object }}</div>
-            <div class="text-white-50 small mt-1">ID: {{ related_object.pk }}</div>
+            <div class="text-white-50 small mt-1">{{ MS_TRANS.label_id|default:"ID" }}: {{ related_object.pk }}</div>
         </div>
     {% endif %}
 </div>

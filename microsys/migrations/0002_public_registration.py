@@ -3,6 +3,46 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def migrate_activity_log_permission(apps, schema_editor):
+    ContentType = apps.get_model('contenttypes', 'ContentType')
+    Permission = apps.get_model('auth', 'Permission')
+    UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
+    Profile = apps.get_model('microsys', 'Profile')
+
+    activity_type = ContentType.objects.get_for_model(UserActivityLog, for_concrete_model=False)
+    profile_type = ContentType.objects.get_for_model(Profile, for_concrete_model=False)
+    new_permission, _ = Permission.objects.get_or_create(
+        content_type=activity_type,
+        codename='view_activitylog',
+        defaults={'name': 'View activity log'},
+    )
+
+    try:
+        old_permission = Permission.objects.get(
+            content_type=profile_type,
+            codename='view_activitylog',
+        )
+    except Permission.DoesNotExist:
+        return
+
+    for user in old_permission.user_set.all():
+        user.user_permissions.add(new_permission)
+    for group in old_permission.group_set.all():
+        group.permissions.add(new_permission)
+    old_permission.delete()
+
+
+def encrypt_existing_totp_secrets(apps, schema_editor):
+    Profile = apps.get_model('microsys', 'Profile')
+    from microsys.utils import encrypt_totp_secret, is_encrypted_totp_secret
+
+    for profile in Profile.objects.exclude(totp_secret__isnull=True).exclude(totp_secret='').iterator():
+        if is_encrypted_totp_secret(profile.totp_secret):
+            continue
+        profile.totp_secret = encrypt_totp_secret(profile.totp_secret)
+        profile.save(update_fields=['totp_secret'])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -44,6 +84,12 @@ class Migration(migrations.Migration):
             name='email_verified_at',
             field=models.DateTimeField(blank=True, null=True, verbose_name='Email Verified At'),
         ),
+        migrations.AlterField(
+            model_name='profile',
+            name='totp_secret',
+            field=models.CharField(blank=True, max_length=255, null=True, verbose_name='TOTP Secret'),
+        ),
+        migrations.RunPython(encrypt_existing_totp_secrets, migrations.RunPython.noop),
         migrations.CreateModel(
             name='PublicRegistration',
             fields=[
@@ -109,4 +155,26 @@ class Migration(migrations.Migration):
                 'ordering': ['-created_at'],
             },
         ),
+        migrations.AlterModelOptions(
+            name='profile',
+            options={
+                'default_permissions': (),
+                'permissions': [
+                    ('manage_staff', 'Can manage staff'),
+                    ('manage_scopes', 'Can manage scopes and all users'),
+                ],
+                'verbose_name': 'Profile',
+                'verbose_name_plural': 'Profiles',
+            },
+        ),
+        migrations.AlterModelOptions(
+            name='useractivitylog',
+            options={
+                'default_permissions': (),
+                'permissions': [('view_activitylog', 'View activity log')],
+                'verbose_name': 'Activity Log',
+                'verbose_name_plural': 'Activity Logs',
+            },
+        ),
+        migrations.RunPython(migrate_activity_log_permission, migrations.RunPython.noop),
     ]

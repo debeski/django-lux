@@ -54,9 +54,10 @@ or client packages.
 The first v1 policy is intentionally narrow:
 
 - The deployer must explicitly enable `public_registration_enabled`.
-- Email delivery must be ready through either environment/secrets mode or the
-  explicit encrypted-DB Microsys mail mode. Export/import redacts the secret and
-  requires re-entry after import.
+- Email delivery must be ready through the selected delivery path (`direct` or
+  generated Docker `relay`) and selected secret storage (`env` or
+  `encrypted_db`). Export/import redacts secrets and requires re-entry after
+  import.
 - Public signup creates an inactive user first.
 - Email verification is mandatory before activation or approval.
 - `auto_login_after_verify` activates and signs in the verified local user.

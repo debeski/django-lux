@@ -20,7 +20,22 @@ from django.views.generic.detail import DetailView
 # Project imports
 from ..constants import DEFAULT_HOME_URL, DEFAULT_TABLE_PAGE_SIZE
 from ..forms import MicrosysAuthenticationForm
-from ..utils import is_scope_enabled, is_staff, is_superuser, is_global_staff, is_central_staff, log_user_action, get_client_ip, get_user_linked_models, can_manage_target_user, user_can_view_user_directory, user_can_view_activity_log
+from ..utils import (
+    can_manage_target_user,
+    exclude_global_staff_users,
+    get_client_ip,
+    get_user_linked_models,
+    get_user_scope,
+    is_central_staff,
+    is_global_staff,
+    is_scope_enabled,
+    is_staff,
+    is_superuser,
+    log_user_action,
+    strip_manage_scopes_permissions,
+    user_can_view_activity_log,
+    user_can_view_user_directory,
+)
 from ..translations import get_strings
 
 
@@ -106,7 +121,7 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
     
     def get_queryset(self):
         # Apply the filter and order by any logic you need
-        qs = super().get_queryset().order_by('date_joined')
+        qs = super().get_queryset().select_related('profile').order_by('date_joined')
         # Exclude soft-deleted users by checking profile's deleted_at
         qs = qs.filter(profile__deleted_at__isnull=True)
         
@@ -119,19 +134,12 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
             # Central Staff: can ONLY see scopeless users who are NOT Global Staff
             if is_central_staff(user):
                 qs = qs.filter(profile__scope__isnull=True)
-                # Exclude users with manage_scopes permission (Global Staff)
-                from django.contrib.auth.models import Permission
-                try:
-                    manage_scopes_perm = Permission.objects.get(
-                        content_type__app_label='microsys',
-                        codename='manage_scopes'
-                    )
-                    qs = qs.exclude(user_permissions=manage_scopes_perm)
-                except Permission.DoesNotExist:
-                    pass
+                qs = exclude_global_staff_users(qs)
             # Scoped staff: can only see same scope
-            elif hasattr(user, 'profile') and user.profile.scope:
-                qs = qs.filter(profile__scope=user.profile.scope)
+            elif get_user_scope(user):
+                qs = qs.filter(profile__scope=get_user_scope(user))
+            elif not is_global_staff(user):
+                qs = qs.none()
             # Global Staff: sees all users (no scope filter)
         return qs
 
@@ -146,7 +154,7 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
         # Hide scope column when scopes are off, or when user is already scoped
         if not is_scope_enabled():
             table.exclude = ('scope',)
-        elif hasattr(self.request.user, 'profile') and self.request.user.profile.scope and not self.request.user.is_superuser:
+        elif get_user_scope(self.request.user) and not self.request.user.is_superuser:
             table.exclude = ('scope',)
         return table
 
@@ -193,25 +201,15 @@ def create_user(request):
         if form.is_valid():
             user = form.save(commit=False)
             # Auto-assign scope for non-superusers
-            if not request.user.is_superuser and hasattr(request.user, 'profile') and request.user.profile.scope:
+            if not request.user.is_superuser and get_user_scope(request.user):
                 # This logic is handled inside form.save via passed params.
                 pass
             
             # Central Staff cannot create Global Staff - strip manage_scopes permission
             if is_central_staff(request.user):
-                from django.contrib.auth.models import Permission
-                try:
-                    manage_scopes_perm = Permission.objects.get(
-                        content_type__app_label='microsys',
-                        codename='manage_scopes'
-                    )
-                    # Remove from cleaned_data so it doesn't get saved
-                    perms = list(form.cleaned_data.get('permissions', []))
-                    if manage_scopes_perm in perms:
-                        perms.remove(manage_scopes_perm)
-                        form.cleaned_data['permissions'] = perms
-                except Permission.DoesNotExist:
-                    pass
+                form.cleaned_data['permissions'] = strip_manage_scopes_permissions(
+                    list(form.cleaned_data.get('permissions', []))
+                )
                 # Ensure scope is NULL (scopeless user)
                 if hasattr(user, 'profile') and user.profile:
                     user.profile.scope = None
@@ -256,8 +254,8 @@ def edit_user(request, pk):
 
     # Restrict to same scope
     if not request.user.is_superuser:
-        user_scope = user.profile.scope if hasattr(user, 'profile') else None
-        requester_scope = request.user.profile.scope if hasattr(request.user, 'profile') else None
+        user_scope = get_user_scope(user)
+        requester_scope = get_user_scope(request.user)
         
         if requester_scope and user_scope != requester_scope:
              messages.error(request, "ليس لديك صلاحية لتعديل هذا المستخدم!")
@@ -309,8 +307,8 @@ def delete_user(request, pk):
 
     # Restrict to same scope
     if not request.user.is_superuser:
-        user_scope = user.profile.scope if hasattr(user, 'profile') else None
-        requester_scope = request.user.profile.scope if hasattr(request.user, 'profile') else None
+        user_scope = get_user_scope(user)
+        requester_scope = get_user_scope(request.user)
         if requester_scope and user_scope != requester_scope:
              messages.error(request, "ليس لديك صلاحية لحذف هذا المستخدم!")
              return redirect('manage_users')

@@ -9,9 +9,14 @@
             <h1 class="mb-1">{{ app_title }}</h1>
             <p class="text-muted mb-0">MicroSys starter list page for {{ app_name }}.</p>
         </div>
-        <a class="btn btn-primary rounded-pill" href="{% url '{{ app_name }}:example_record_add' %}">
+        <button
+            type="button"
+            class="btn btn-primary rounded-pill"
+            data-dynamic-modal="{% url 'modal_manager' '{{ app_name }}' 'ExampleRecord' 'new' %}"
+            data-modal-title="Add Record"
+        >
             Add Record
-        </a>
+        </button>
     </div>
 
     {% if filter %}

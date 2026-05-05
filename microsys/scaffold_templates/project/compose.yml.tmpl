@@ -65,6 +65,11 @@ services:
     volumes:
       - ./:/app:ro
     environment:
+      <<: *de
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin_pass}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local_secret}
+      DJANGO_SETTINGS_MODULE: "{{ config_package }}.settings"
       SMTP_RELAY_LISTEN_HOST: "0.0.0.0"
       SMTP_RELAY_LISTEN_PORT: "1025"
       SMTP_RELAY_HOST: "${SMTP_RELAY_HOST:-smtp.gmail.com}"
