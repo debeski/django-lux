@@ -1,7 +1,7 @@
 
 # Django-Microsys Complete Feature Reference
 
-**Version:** 2.2.0
+**Version:** 2.1.1
 **Package:** `django-microsys` — A multilingual Django framework layer for internal systems
 
 ---
@@ -48,11 +48,14 @@
   - Titlebar configuration
 
 ### First-Launch Setup Wizard
-- **4-step wizard:** Identity/Defaults → Languages → Sidebar → Titlebar/Appearance
+- **5-step wizard:** Identity → Localization → Access and security → Navigation → Appearance and personalization
+- **Setup import/export path** for reusing System Settings payloads across environments
 - **Live preview** for theme, language, sidebar, and titlebar changes
 - **Unsaved preview state** with session-based language switching
 - **Dynamic sidebar builder** with drag-and-drop cross-pane support
 - **Theme allowlist matrix** with visual selector cards
+- **Translation matrix editor** plus explicit language-catalog management
+- **Microsys email delivery controls** for delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`)
 
 ### Options View (`/sys/options/`)
 - Split System Settings modal entrypoints (Branding, Languages, Sidebar, Titlebar)
@@ -61,12 +64,19 @@
 - Table density picker
 - System diagnostics (privileged-only)
 - User preferences panel
+- Draggable card layout with browser-persisted ordering
+- Double-width System Info card inside the shared Options card grid
+- Standalone Autofill and Reset Defaults cards using shared external CSS/JS assets
 
 ### Utilities & Helpers
 - `microsys_settings(globals())` — one-line settings integration
 - `get_system_config()` — cached config retrieval with fallback handling
 - `is_scope_enabled()` — scope system status check
 - `get_secret()` — env-driven secret retrieval for Docker/decrypter flows
+- `require_current_password(request)` — reusable backend guard for destructive profile/security actions
+- `set_profile_totp_state(profile, raw_secret=..., enabled=...)` — direct TOTP persistence helper
+- `build_archive_file_field('field_name', css_class='...')` — explicit Microsys custom file widget bridge
+- `build_settings_toggle_field(form, 'field_name', css_class='...')` — shared setup/System Settings toggle-card renderer
 - Settings auto-injection: apps, middleware, context processors, Crispy defaults, message tags, i18n/tz defaults
 
 ---
@@ -154,9 +164,11 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 
 **2FA Flows:**
 - Unified login challenge accepts app codes, explicitly requested email OTPs, and backup codes
-- Enable/disable endpoints (POST-only for security)
+- TOTP setup persists secret/enabled state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path
+- Enable/disable endpoints and backup-code regeneration are POST-only
 - Email OTP sends only after an explicit request and keeps hashed cache storage
 - Backup code verification with usage tracking
+- Destructive profile security actions such as 2FA disable, backup-code regeneration, and session revocation require current-password confirmation
 
 ### Public Registration Playground
 - Disabled by default and SMTP-gated in setup/System Settings
@@ -173,13 +185,14 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - **User/Profile Modals** — self-or-staff/scope rules
 - **Activity Log Access** — `microsys.view_activitylog` permission (not just `is_staff`)
 - **Reset Password Flow** — requires `auth.change_user` + scope/staff/superuser checks
-- **Options View** — Every user can modify the system allowed options based on their preferences.
+- **Options View** — authenticated users keep personal preferences; diagnostics remain privileged-only
 - **Options Diagnostics** — superuser and Global Staff only
 - **AJAX Endpoints** — 403 for non-superusers on scope management
 - **Section Model Allowlisting** — only discovered section models accepted
 - **2FA State Mutators** — POST-only with hashed backup codes
 - **Public Registration** — disabled-by-default, email-verified, SMTP-gated, throttled, and approval actions are POST-only
 - **Sidebar Permission Enforcement** — items only visible to users with the required permission; no implicit staff access
+- **Runtime Asset Policy** — no inline `<style>`, executable inline `<script>`, or inline `style=` attributes unless a documented unavoidable runtime need exists
 
 ### Optional OIDC SSO Packages
 - **Provider plugin** — `django-microsys-sso`, installed only in a Microsys deployment that acts as the identity provider
@@ -340,6 +353,7 @@ class Meta:
 - `MicrosysChoiceSelectorWidget` — card/chip selector for single choice
 - `MicrosysMultipleChoiceSelectorWidget` — searchable multi-select with chips
 - `ArchiveFileInput` — file upload with preview (used for logo/favicon)
+- Shared crispy file/toggle helpers keep System Settings and setup widgets aligned without relying on app-order template shadowing
 
 ### Filter Helpers
 - Inline label support
@@ -420,9 +434,10 @@ UserActivityLog.safe_log(
 - `/sys/scopes/toggle-auto/` — toggle auto-creation
 
 ### 2FA API
-- `/sys/2fa/verify/` — verify OTP
 - `/sys/2fa/enable/` — enable 2FA
 - `/sys/2fa/setup/totp/` — TOTP setup with QR
+- `/sys/2fa/verify/login/` — verify OTP during login
+- `/sys/2fa/verify/enable/` — verify OTP during enable flow
 - `/sys/2fa/disable/` — disable 2FA
 - `/sys/2fa/backup-codes/generate/` — generate codes
 - `/sys/2fa/resend/<intent>/` — resend OTP
@@ -467,6 +482,8 @@ UserActivityLog.safe_log(
 | [autofill/js/main.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/autofill/js/main.js:0:0-0:0) | Sticky form autofill |
 | [scan_link/js/main.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/scan_link/js/main.js:0:0-0:0) | QR/barcode scanning |
 | [scan_link/js/scan_button.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/scan_link/js/scan_button.js:0:0-0:0) | Scan button widget |
+| [main/js/options.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/js/options.js:0:0-0:0) | Options card reordering, reset/defaults, and shared page behavior |
+| [users/js/profile_2fa.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/users/js/profile_2fa.js:0:0-0:0) | POST-backed profile 2FA flows and current-password-confirmed destructive actions |
 
 ### CSS Structure
 | Directory | Contents |
@@ -485,8 +502,10 @@ UserActivityLog.safe_log(
 - [tables.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/tables.css:0:0-0:0) — Table platform with density tokens
 - [buttons.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/buttons.css:0:0-0:0) — Button variants
 - [titlebar.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/titlebar.css:0:0-0:0) — Titlebar layout
+- [options.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/options.css:0:0-0:0) — Shared Options card system and drag layout
 - [system_setup.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/system_setup.css:0:0-0:0) — Setup wizard styling
 - [selectors.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/selectors.css:0:0-0:0) — Choice selector widgets
+- [template_cleanup.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/template_cleanup.css:0:0-0:0) — Shared CSS replacements for previously inline template styling
 
 ---
 
@@ -607,11 +626,14 @@ Auto-handles:
 - django-filter
 - Pillow
 
-**Optional (degrade gracefully):**
-- psutil — system monitoring
+**Required for shipped features:**
+- babel — translations
+- cryptography — encrypted TOTP secrets and UI-managed encrypted SMTP secrets
+- psutil — diagnostics/system monitoring
 - pyotp — TOTP 2FA
 - qrcode — QR code generation
-- babel — translations
+
+**Optional (project/runtime dependent):**
 - celery + redis — background tasks
 - django-cors-headers — CORS
 - django-csp — Content Security Policy
@@ -619,5 +641,5 @@ Auto-handles:
 
 ---
 ```markdown
-*Generated from codebase analysis — reflects package version 2.2.0*
+*Generated from codebase analysis — reflects package version 2.1.1*
 ```

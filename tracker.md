@@ -4,8 +4,9 @@
 ### Current Verified Snapshot:
 - Verified on `2026-05-07`.
 - Package/version state:
-  - `microsys/VERSION` is `2.1.0`.
-  - `CHANGELOG.md` now contains the stable `v2.1.0` release entry above the beta history.
+  - `microsys/VERSION` is `2.1.1`.
+  - `CHANGELOG.md` now contains the stable `v2.1.1` patch release entry above the `v2.1.0` release and beta history.
+  - Built distributions now exclude `microsys.tests`, `__pycache__`, and compiled Python cache artifacts from both `wheel` and `sdist`.
 - Current verified implementation state:
   - Public registration playground exists in core, is disabled by default, and uses email-first inactive users plus hashed verification tokens.
   - Generated Docker projects use the internal `smtp-relay` sidecar path for UI-managed relay delivery when `SystemSettings.email_config.transport == "relay"`.
@@ -55,6 +56,7 @@
   - Direct TOTP persistence helper: `set_profile_totp_state(profile, raw_secret=..., enabled=...)`
 - Active framework standards:
   - MSRP-1 is the active runtime authorization standard.
+  - Standard source: `docs/security-msrp-1.md`
   - Optional SSO is additive-only and lives under `optional_packages/`.
   - Public registration is core, additive, and email-gated.
 
@@ -73,6 +75,7 @@
   - do not use executable inline `<script>` blocks in templates,
   - do not emit inline `style=` attributes from templates or Python HTML helpers when a class, static asset, `json_script`, or `data-*` bridge can be used instead.
 - Generated/scaffolded URL entrypoints must enforce login plus the relevant permission on the backend.
+- Packaged PyPI distributions should exclude repository test packages and Python cache artifacts unless a release explicitly needs them.
 
 ### Cross-Cutting Audits if any:
 - Security/MSRP-1 audit:
@@ -167,12 +170,14 @@
   - [x] Fixed profile TOTP setup to avoid the fragile `pyotp.totp.TOTP(...)` path, bypass unrelated `Profile.save()` side effects via `set_profile_totp_state(...)`, and return JSON instead of raw 500 responses when provisioning/QR generation or secret persistence fails.
   - [x] Added the stable `v2.1.0` changelog entry and refreshed dependency docs to include `cryptography`.
   - [x] Updated the reference/admin/customization/registration/scaffold docs for reusable guards/helpers, draggable Options cards, scaffold baseline details, and current 2FA/public-registration behavior.
+  - [x] Added the stable `v2.1.1` changelog entry for packaging hygiene, MSRP-1 no-inline policy clarification, and release/docs organization.
+  - [x] Refreshed `docs/FEATURES.md` and `docs/README.md` to match the `2.1.1` setup flow, Options/runtime behavior, reusable helper APIs, 2FA routes, and no-inline MSRP-1 policy references.
 
 ### One-line info about last verified Tests:
 - `2026-05-07`: Django `DiscoverRunner` passed `microsys.tests.test_utils.UtilsTests` plus `microsys.tests.test_views.TwoFactorSecurityViewTests` with `65` tests after adding `set_profile_totp_state(...)`, tightening TOTP persistence, and updating release/docs metadata.
 
 ### One-line info about last time edited Docs:
-- `2026-05-07`: `CHANGELOG.md`, `README.md`, `docs/getting-started.md`, `docs/reference.md`, `docs/admin-guide.md`, `docs/customization-guide.md`, `docs/registration.md`, `microsys/scaffold_templates/project/README.md.tmpl`, and `tracker.md` were updated for `v2.1.0`, reusable helper coverage, scaffold/runtime docs, and the explicit `cryptography` dependency.
+- `2026-05-07`: `docs/FEATURES.md` and `docs/README.md` were refreshed to match `2.1.1` runtime behavior, reusable helper APIs, current 2FA routes, and the no-inline MSRP-1 policy; earlier the same day `CHANGELOG.md` was updated with the stable `v2.1.1` patch release entry, `docs/security-msrp-1.md` was updated to add the no-inline HTML/CSS/JS policy to the MSRP-1 core rules, and `README.md`, `docs/getting-started.md`, `docs/reference.md`, `docs/admin-guide.md`, `docs/customization-guide.md`, `docs/registration.md`, `microsys/scaffold_templates/project/README.md.tmpl`, and `tracker.md` were updated for `v2.1.0`, reusable helper coverage, scaffold/runtime docs, and the explicit `cryptography` dependency.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -190,6 +195,10 @@
     - `./.venv/bin/python - <<'PY' ... runner.run_tests(['microsys.tests.test_defaults_and_urls']) ... PY`
   - Full compile check without repo `__pycache__` ownership issues:
     - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys`
+  - Packaging verification:
+    - `rm -rf dist build *.egg-info && ./.venv/bin/python -m build --wheel --sdist`
+    - `unzip -l dist/*.whl | rg 'microsys/tests|__pycache__|\\.pyc|\\.pyo'`
+    - `tar -tf dist/*.tar.gz | rg 'microsys/tests|__pycache__|\\.pyc|\\.pyo'`
 - Known local environment note:
   - `node` is not available in the current environment, so JS syntax checks via `node --check` are not currently usable.
 
@@ -203,6 +212,9 @@
   - prefer dedicated static CSS/JS files,
   - use `json_script` and `data-*` for server-to-client data handoff,
   - if a future exception is truly required, record why in the tracker instead of normalizing it silently.
+- Packaging should stay lean by default:
+  - exclude `microsys.tests` from published distributions,
+  - exclude `__pycache__`, `.pyc`, and `.pyo` artifacts from published distributions.
 
 ### Agent Handoff Rules:
 - Re-read this tracker at the start of every turn and update it after meaningful project-state changes.

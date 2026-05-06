@@ -16,6 +16,10 @@ authorization decision.
   `user_matches_permission_token()` over ad hoc `is_staff` checks.
 - State-changing security flows must be POST-only unless the endpoint is
   explicitly read-only.
+- Runtime HTML must not rely on inline CSS, inline `style=` attributes, or
+  executable inline JavaScript unless there is a documented unavoidable need.
+  Prefer dedicated static assets plus `json_script` or `data-*` bridges so CSP
+  can stay strict and consistent across Microsys surfaces.
 - Diagnostics and system-wide configuration surfaces are privileged-only, while
   authenticated users may retain their own personal preference controls.
 - Sensitive stored security material must be hashed or externally protected

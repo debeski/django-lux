@@ -4,6 +4,12 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.1.1
+
+- **Packaging Hygiene Tightening**: Excluded `microsys.tests` from package discovery and pruned repository test modules plus Python cache artifacts (`__pycache__`, `.pyc`, `.pyo`) from published `wheel` and `sdist` distributions so the release payload stays focused on runtime code and shipped assets.
+- **MSRP-1 Policy Clarification**: Promoted the no-inline asset rule into the core MSRP-1 standard, explicitly documenting that runtime HTML should avoid inline CSS, inline `style=` attributes, and executable inline JavaScript unless there is a documented unavoidable need.
+- **Documentation And Release Organization**: Aligned the live docs/release metadata around the `2.1.1` patch line by keeping the security-policy source explicit, preserving the layered docs structure, and recording the packaging/security policy changes in the release history.
+
 ## v2.1.0
 
 - **Public Registration And Email Delivery Release**: Finalized the core public registration playground together with the UI-first Microsys email delivery system. Delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`) are now first-class runtime settings, and generated Docker projects use the internal `smtp-relay` sidecar pattern for UI-managed upstream SMTP delivery.
@@ -56,21 +62,21 @@ This file owns the release history for `django-microsys`.
 - **Direct File-Field Injection Flow**: Kept ScanLink scanning aligned with the shared Microsys archive file widget by attaching the scanned PDF directly to the target `<input type="file">` and dispatching the standard change event.
 - **Options Sidebar Authorization Fix**: Replaced the old Options-only internal token with `__ms_authenticated__`, aligning sidebar visibility with direct `/sys/options/` access for any authenticated user.
 
-## v2.0.0 *not backwards compatible*
+## v2.0.0
 
 - **Sidebar Permission Inference for Function-Based Views**: Added URL pattern-based permission inference that correctly extracts permissions for function-based views. The logic now parses URL namespace as app label and URL name prefix as model name (e.g., `documents:outgoing_list` → `documents.view_outgoing`). This ensures sidebar items are only visible to users who have the actual view permission for the associated model.
 - **Strict Sidebar Permission Enforcement**: Simplified `_user_has_sidebar_permission` to strictly check permissions without staff fallback. Users must have the actual permission (e.g., `documents.view_outgoing`) to see the sidebar item. No implicit staff access - explicit permissions are required.
 - **System Route Permission Updates**: Added explicit system route tokens in `SYSTEM_ROUTE_META`, including authenticated-user visibility for the options/settings sidebar item.
 - **Breaking Change**: Staff users will no longer see sidebar items for models they don't have explicit view permissions for. Ensure users have the appropriate `app.view_model` permissions assigned.
 
-## v1.87.0b4 *not backwards compatible*
+## v1.87.0b4
 
 - **Global Staff vs Central Staff Tier System**: Added new `manage_scopes` permission to separate non-scoped staff into two distinct authorization tiers. Global Staff (`is_staff=True, scope=NULL, manage_scopes permission`) can create/manage scopes and ALL users. Central Staff (`is_staff=True, scope=NULL, NO manage_scopes`) can only create/manage scopeless (NULL scope) users, completely blind to scoped users and their data. Only superusers can create Global Staff.
 - **Permission Widget Fix**: Fixed the queryset filter in `CustomUserCreationForm` and `CustomUserPermissionsForm` that was excluding `view_activitylog` and `manage_scopes` permissions from the permission widget. Now both activity log access and Global Staff assignment permissions appear correctly in the UI.
 - **Tier-Based User Management Enforcement**: Added `is_global_staff()` and `is_central_staff()` utility functions, updated `can_manage_target_user()` to reject Central Staff from managing scoped users, modified `UserListView` queryset filtering to hide Global Staff from Central Staff, added view-level enforcement in `create_user` and `edit_user` to prevent Central Staff from creating/editing Global Staff users, and added form-level enforcement in `CustomUserPermissionsForm` to strip `manage_scopes` from Central Staff submissions.
 - **UI: Hide Scope Field from Central Staff**: Changed from showing disabled scope field with help text to completely hiding it using `HiddenInput` widget. Central Staff users no longer see any scope-related UI when creating or editing users.
 
-## v1.87.0b3 *not backwards compatible*
+## v1.87.0b3
 
 - **CRITICAL: Widget Queryset Caching Fix**: Fixed a security bug where the permission widget (`GroupedPermissionWidget`) was using the class-level cached queryset instead of the filtered queryset. This allowed non-superusers to see and assign permissions they didn't have. Fixed by storing `_filtered_queryset` on the widget and prioritizing it in `get_context()`. Now users can only see and assign permissions they possess.
 - **CRITICAL: Sidebar Permission Security Fix**: Fixed a critical security issue where sidebar items with no permissions were visible to ALL users. The `user_has_any_permission_tokens` function returned `True` for empty permissions, making items without explicit permissions visible to everyone. Fixed by adding `default_visible_to_all=False` parameter - now items MUST have explicit permissions to appear in sidebar. Superusers can see all sidebar items regardless of permissions.
@@ -81,7 +87,7 @@ This file owns the release history for `django-microsys`.
 - **Auto-Grant `view_user` Permission**: `CustomUserCreationForm` and `CustomUserPermissionsForm` now automatically grant `auth.view_user` permission when saving a user with `is_staff=True`, ensuring backward compatibility and reducing manual permission management.
 - **Translation Fallback Hardening**: Updated form help text fallbacks to use English strings instead of Arabic, ensuring consistent UX when translations are missing.
 
-## v1.87.0b2 *not backwards compatible*
+## v1.87.0b2
 
 - **Governed Theme Allowlist**: Added `SystemSettings.allowed_themes` plus `allow_user_theme_override`, wired setup/System Settings to a theme-allowlist matrix, filtered runtime theme exposure to the approved set, and forced saved disallowed themes back to the system default.
 - **Sidebar Density and Collapse Modes**: Expanded sidebar config with `show_icons`, `density`, `allow_user_density`, and `collapse_mode`, added density controls to setup, Options, and the live sidebar toolbar, and normalized `show_icons=false` away from the icon-rail collapse mode.
@@ -89,7 +95,7 @@ This file owns the release history for `django-microsys`.
 - **Config and Preference Hardening**: Extended `get_system_config()`, context, and preferences persistence to respect theme allowlists, sidebar density locks, locked-expanded sidebars, branding URL normalization, and optional `psutil` / TOTP dependencies in lean environments.
 - **Migrator Error handling**: Added a clear visual error output to debug terminal when any of the migrator tasks fails.
 
-## v1.87.0b1 *not backwards compatible*
+## v1.87.0b1
 
 - **System Navigation Authorization Cleanup**: The sidebar discovery layer, user hub, and dashboard now follow the same helper-backed MSRP authorization rules for Users, Sections, and Activity Log instead of older `is_staff`/typo’d-permission checks.
 - **Legacy User Reset Route Alignment**: `/sys/reset_password/<pk>/` now requires `auth.change_user` and the same `can_manage_target_user()` staff/scope/superuser target checks as the hardened user-management modal flows, and its invalid-form fallback no longer redirects to the removed `edit_user` route.
@@ -98,7 +104,7 @@ This file owns the release history for `django-microsys`.
 - **2FA State-Handling Rehab**: Converted 2FA mutators and resend flows to POST-only, switched backup codes to hashed-at-rest storage with legacy in-place migration, validated post-OTP redirects against allowed hosts, and removed secret-leaking debug prints from the 2FA flow.
 - **Autofill/API Exposure Reduction**: Stopped autofill/detail APIs from expanding reverse OneToOne relations such as `user.profile`, and routed those reads through the model default manager so scoped query behavior is preserved automatically.
 
-## v1.87.0b0 *not backwards compatible*
+## v1.87.0b0 *all versions past this are not backwards compatible*
 
 - **Table Meta Contract Repair**: Fixed the `django_tables2` patch layer so host tables again honor `Meta`-level `microsys_table`, `microsys_density`, `microsys_per_page`, and `microsys_actions` settings instead of accidentally reading only the runtime `_meta` wrapper.
 - **Broad Suite Cleanup**: Removed the remaining stale failures in `test_utils_discovery`, `test_models`, and `test_tables`; the full `microsys.tests` suite now completes green at `247` passing tests.

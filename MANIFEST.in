@@ -13,7 +13,7 @@ recursive-include microsys/templates *
 # If you have static files
 recursive-include microsys/static *
 
-# Make sure no unnecessary Python cache files are included
-exclude *.pyc
-exclude __pycache__/
-recursive-exclude * __pycache__ *.pyc *.pyo
+# Keep test code and cache artifacts out of source distributions
+prune microsys/tests
+global-exclude __pycache__
+global-exclude *.py[cod]

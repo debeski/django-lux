@@ -49,6 +49,7 @@ classifiers = [
 # Tell setuptools which packages to include
 [tool.setuptools.packages.find]
 include = ["microsys", "microsys.*"]
+exclude = ["microsys.tests", "microsys.tests.*"]
 
 # Include static/templates files (equivalent to include_package_data=True)
 [tool.setuptools]
