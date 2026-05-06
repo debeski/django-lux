@@ -1,4 +1,88 @@
 document.addEventListener('DOMContentLoaded', function() {
+    const userDetailModalBody = document.getElementById('userDetailModalBody');
+
+    document.addEventListener('micro:view-user-details', function(e) {
+        const detail = e.detail;
+        const data = detail.data || detail.actionData?.data || detail.action?.data;
+        const url = data?.url;
+
+        if (!url) {
+            return;
+        }
+
+        const modalEl = document.getElementById('userDetailModal');
+        const modalBody = document.getElementById('userDetailModalBody');
+        if (!modalEl || !modalBody) {
+            return;
+        }
+
+        modalBody.innerHTML = `
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">${modalBody.dataset.loadingText || 'Loading...'}</span>
+                </div>
+            </div>`;
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+
+        fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => response.text())
+        .then(html => {
+            modalBody.innerHTML = html;
+        })
+        .catch(err => {
+            console.error('Error loading user details:', err);
+            modalBody.innerHTML = `
+                <div class="text-center p-5 text-danger">
+                    <i class="bi bi-exclamation-circle display-1 mb-3"></i>
+                    <p>${modalBody.dataset.errorText || 'Error loading details.'}</p>
+                </div>`;
+        });
+    });
+
+    document.addEventListener('micro:reset-password', function(e) {
+        const eventData = e.detail.data;
+        if (!eventData || !eventData.url) {
+            return;
+        }
+
+        const modalEl = document.getElementById('resetPasswordModal');
+        const form = document.getElementById('resetPasswordForm');
+
+        if (modalEl && form) {
+            const usernameInput = form.querySelector('input[name$="username"]');
+            form.action = eventData.url;
+            if (usernameInput && eventData.username) {
+                usernameInput.value = eventData.username;
+            }
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    });
+
+    document.addEventListener('micro:soft-delete', function(e) {
+        const eventData = e.detail.data;
+        if (!eventData || !eventData.url) {
+            return;
+        }
+
+        const modalEl = document.getElementById('deleteModal');
+        const form = document.getElementById('deleteForm');
+        const nameSpan = document.getElementById('userName');
+
+        if (modalEl && form) {
+            form.action = eventData.url;
+            if (nameSpan && eventData.name) {
+                nameSpan.textContent = eventData.name;
+            }
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    });
+
     // 1. Manage Scopes Button (Main page)
     const btnManageScopes = document.getElementById('btn-manage-scopes');
     if (btnManageScopes) {

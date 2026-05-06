@@ -2147,6 +2147,26 @@
         });
     }
 
+    function previewSetupDefaultLanguage(form, language) {
+        const normalizedLanguage = normalizeLanguageCode(language);
+        if (!form || !normalizedLanguage) {
+            return;
+        }
+
+        const currentLanguage = normalizeLanguageCode((window.USER_PREFS && window.USER_PREFS._lang) || document.documentElement.getAttribute('lang') || 'en');
+        if (normalizedLanguage === currentLanguage) {
+            return;
+        }
+
+        persistSetupFormState(form);
+        if (typeof window.persistCurrentDynamicModalState === 'function') {
+            window.persistCurrentDynamicModalState();
+        }
+        if (window.setLanguage) {
+            window.setLanguage(normalizedLanguage, { previewOnly: true });
+        }
+    }
+
     function normalizeLanguageCode(value) {
         return String(value || '').trim().toLowerCase().replace(/_/g, '-').replace(/[^a-z0-9-]/g, '');
     }
@@ -2351,7 +2371,12 @@
         row.dataset.languageBound = 'true';
         row.querySelectorAll('input, select').forEach((input) => {
             input.addEventListener('input', () => syncLanguageCatalog(form));
-            input.addEventListener('change', () => syncLanguageCatalog(form));
+            input.addEventListener('change', () => {
+                syncLanguageCatalog(form);
+                if (input.matches('[data-language-default]') && input.checked) {
+                    previewSetupDefaultLanguage(form, input.value);
+                }
+            });
         });
         const removeButton = row.querySelector('[data-language-remove]');
         if (removeButton) {
@@ -2633,6 +2658,7 @@
             setJsonField(form, 'email_config', emailConfig);
             setNamedFieldValue(form, 'email_config_transport', emailConfig.transport || 'direct');
             setNamedFieldValue(form, 'email_config_secret_storage', emailConfig.secret_storage || 'env');
+            getNamedFieldInputs(form, 'email_config_secret_storage').forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
             setNamedFieldValue(form, 'email_config_host', emailConfig.host || '');
             setNamedFieldValue(form, 'email_config_port', emailConfig.port || '587');
             setCheckboxField(form, 'email_config_use_tls', emailConfig.use_tls !== false);
@@ -3029,6 +3055,9 @@
             const section = form.querySelector('[data-email-config-section]');
             const publicRegistrationToggle = form.querySelector('#id_public_registration_enabled');
             const email2faToggle = form.querySelector('#id_email_2fa');
+            const secretStorageInput = form.querySelector('[name="email_config_secret_storage"]');
+            const passwordInput = form.querySelector('[name="email_config_password"]');
+            const passwordField = form.querySelector('.ms-email-config-password-field') || (passwordInput && passwordInput.closest('.col-lg-4, .col-lg-6, .col-12'));
             if (!section || (!publicRegistrationToggle && !email2faToggle)) {
                 return;
             }
@@ -3040,6 +3069,7 @@
                     (publicRegistrationToggle && publicRegistrationToggle.checked) ||
                     (email2faToggle && email2faToggle.checked)
                 );
+                const encryptedDbSecret = enabled && (!secretStorageInput || secretStorageInput.value === 'encrypted_db');
                 section.classList.toggle('d-none', !enabled);
                 section.setAttribute('aria-hidden', enabled ? 'false' : 'true');
                 [
@@ -3050,17 +3080,50 @@
                     'email_config_use_tls',
                     'email_config_use_ssl',
                     'email_config_username',
-                    'email_config_password',
                     'email_config_default_from_email',
                 ].forEach((name) => setNamedFieldDisabled(form, name, !enabled));
+                setNamedFieldDisabled(form, 'email_config_password', !encryptedDbSecret);
+                if (passwordField) {
+                    passwordField.classList.toggle('d-none', !encryptedDbSecret);
+                    passwordField.setAttribute('aria-hidden', encryptedDbSecret ? 'false' : 'true');
+                }
             }
 
-            [publicRegistrationToggle, email2faToggle].forEach((field) => {
+            [publicRegistrationToggle, email2faToggle, secretStorageInput].forEach((field) => {
                 if (field) {
                     field.addEventListener('change', syncEmailConfigVisibility);
                 }
             });
             syncEmailConfigVisibility();
+        });
+    }
+
+    function initPublicRegistrationOptions(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.publicRegistrationBound === 'true') {
+                return;
+            }
+
+            const publicRegistrationToggle = form.querySelector('#id_public_registration_enabled');
+            const dependentFields = Array.from(form.querySelectorAll('[data-public-registration-dependent]'));
+            if (!publicRegistrationToggle || !dependentFields.length) {
+                return;
+            }
+
+            form.dataset.publicRegistrationBound = 'true';
+
+            function syncPublicRegistrationVisibility() {
+                const enabled = Boolean(publicRegistrationToggle.checked);
+                dependentFields.forEach((field) => {
+                    field.classList.toggle('d-none', !enabled);
+                    field.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+                });
+                setNamedFieldDisabled(form, 'registration_activation_mode', !enabled);
+                setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled);
+            }
+
+            publicRegistrationToggle.addEventListener('change', syncPublicRegistrationVisibility);
+            syncPublicRegistrationVisibility();
         });
     }
 
@@ -3106,6 +3169,7 @@
         initSidebarBehaviorOptions(root);
         root.querySelectorAll('form.ms-system-setup-form').forEach(syncSidebarToolbarWarningFallback);
         initEmailDeliveryOptions(root);
+        initPublicRegistrationOptions(root);
         initTitlebarBehaviorOptions(root);
         initImmediateSystemSettingsPreview(root);
     }

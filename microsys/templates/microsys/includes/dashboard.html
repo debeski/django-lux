@@ -9,7 +9,7 @@
 {% block content %}
 <div class="container-fluid py-3">
     <div class="text-center mb-5 fade-in-up">
-        <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="Logo" style="max-height: 100px; opacity: 0.9;">
+        <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="Logo" class="ms-dashboard-logo">
         {% if user.profile.scope %}
             <div class="mt-3">
                 <span class="badge bg-primary fs-6">{{ MS_TRANS.work_scope }}: {{ user.profile.scope.name }}</span>
@@ -139,75 +139,19 @@
     <div class="row justify-content-center mt-5">
         <div class="col-12 px-0">
             <div class="chart-container-sys">
-                <div id="activityChart24h" style="width:100%; height:300px;"></div>
+                <div id="activityChart24h"
+                     class="ms-dashboard-chart"
+                     data-chart-title="{{ MS_TRANS.activity_24h }}"
+                     data-chart-locale="{{ CURRENT_LANG|default:'en' }}"></div>
             </div>
         </div>
     </div>
 </div>
+{{ chart_data.last_24h|json_script:"dashboard-activity-24h-data" }}
 
 <script src="{% static 'plotly/plotly.min.js' %}"></script>
 {% if CURRENT_LANG == 'ar' %}
 <script src="{% static 'plotly/plotly-locale-ar.js' %}"></script>
 {% endif %}
-<script nonce="{{ request.csp_nonce }}">
-    document.addEventListener("DOMContentLoaded", function () {
-        const data24h = JSON.parse('{{ chart_data.last_24h|escapejs }}');
-
-        const commonLayout = {
-            autosize: true,
-            margin: { t: 20, r: 10, l: 10, b: 0 },
-            paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor: 'rgba(0,0,0,0)',
-            showlegend: false,
-            title: {
-                text: '{{ MS_TRANS.activity_24h }}',
-                font: { family: 'inherit', size: 16, color: '#6c757d' },
-                x: 0.5,
-                y: 0.95
-            },
-            font: { family: 'inherit', color: '#6c757d' },
-            xaxis: {
-                showgrid: false,
-                zeroline: false,
-                showticklabels: false,
-            },
-            yaxis: {
-                showgrid: false,
-                gridcolor: 'rgba(0,0,0,0.05)',
-                zeroline: false,
-                showticklabels: false,
-            }
-        };
-
-        const config = {
-            responsive: false,
-            displayModeBar: false,
-            locale: '{{ CURRENT_LANG|default:"en" }}'
-        };
-
-        // 24h Chart
-        Plotly.newPlot('activityChart24h', [{
-            x: data24h.labels,
-            y: data24h.values,
-            type: 'scatter',
-            mode: 'lines+markers',
-            line: { shape: 'spline', width: 3, color: '#0d6efd' },
-            marker: { size: 6, color: '#0d6efd' },
-            fill: 'tozeroy',
-            fillcolor: 'rgba(13, 110, 253, 0.1)'
-        }], commonLayout, config);
-
-        // Resize Observer to handle sidebar toggle and window resize
-        const chartElement = document.getElementById('activityChart24h');
-        const resizeObserver = new ResizeObserver(() => {
-            Plotly.Plots.resize(chartElement);
-        });
-        
-        // Observe the main content area (or the chart container itself)
-        // Observing the chart's parent container is usually safest for flex layouts
-        if (chartElement.parentElement) {
-            resizeObserver.observe(chartElement.parentElement);
-        }
-    });
-</script>
+<script src="{% static 'microsys/main/js/dashboard.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

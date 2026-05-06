@@ -126,10 +126,11 @@ class _MicrosysSelectorMixin:
             option_classes.append('is-disabled')
 
         indicator = ''
-        if meta.get('preview_style'):
+        preview_class = str(meta.get('preview_class') or '').strip()
+        if preview_class:
             indicator = format_html(
-                '<span class="ms-choice-option__swatch" style="{}"></span>',
-                meta.get('preview_style'),
+                '<span class="ms-choice-option__swatch {}"></span>',
+                preview_class,
             )
         elif meta.get('icon'):
             indicator = format_html(

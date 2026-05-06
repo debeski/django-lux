@@ -9,9 +9,9 @@
 {% block layout %}
 <div class="page">
     {% if messages %}
-        <div class="alert-container position-absolute top-0 start-0 w-100" style="z-index: 2000;">
+        <div class="alert-container position-absolute top-0 start-0 w-100 ms-page-alert-container">
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} text-center h4" style="opacity: 95%;">
+                <div class="alert alert-{{ message.tags }} text-center h4 ms-page-alert">
                     {{ message }}
                 </div>
             {% endfor %}
@@ -45,13 +45,18 @@
                                     class="btn btn-outline-primary btn-sm rounded-pill"
                                     id="sendEmailOtpBtn"
                                     data-url="{% url 'resend_otp_login' %}"
-                                    data-csrf="{{ csrf_token }}">
+                                    data-csrf="{{ csrf_token }}"
+                                    data-sent-text="{{ MS_TRANS.2fa_email_sent_instruction|default:'Email code sent. Enter the 6-digit code here.' }}"
+                                    data-error-text="{{ MS_TRANS.error_generic|default:'Unable to send code' }}">
                                 <span class="btn-label"><i class="bi bi-envelope me-1"></i>{{ MS_TRANS.2fa_send_email_code|default:"Send email code" }}</span>
                                 <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                             </button>
                             {% endif %}
                             {% if user_methods.backup %}
-                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" id="useBackupCodeBtn">
+                            <button type="button"
+                                    class="btn btn-outline-secondary btn-sm rounded-pill"
+                                    id="useBackupCodeBtn"
+                                    data-instruction-text="{{ MS_TRANS.2fa_backup_instruction|default:'Enter one of your 8-digit backup codes.' }}">
                                 <i class="bi bi-safe me-1"></i>{{ MS_TRANS.2fa_use_backup_code|default:"Use backup code" }}
                             </button>
                             {% endif %}
@@ -70,14 +75,13 @@
                 <div class="mb-4">
                     <label for="otp_code" class="visually-hidden">{{ MS_TRANS.2fa_code }}</label>
                     <input type="text"
-                           class="login-input text-center fw-bold" 
+                           class="login-input text-center fw-bold ms-otp-code-input"
                            id="otp_code" 
                            name="otp_code" 
                            placeholder="XXXXXX" 
                            maxlength="8" 
                            autofocus 
-                           required
-                           style="letter-spacing: 0.5em; font-size: 1.5rem;">
+                           required>
                 </div>
         
                 <button type="submit" class="w-100 btn btn-lg mt-4" id="submit">{{ MS_TRANS.2fa_verify_btn }}</button>
@@ -115,57 +119,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const emailBtn = document.getElementById('sendEmailOtpBtn');
-        const backupBtn = document.getElementById('useBackupCodeBtn');
-        const textEl = document.getElementById('otp-instruction-text');
-        const inputEl = document.getElementById('otp_code');
-
-        function setButtonLoading(button, loading) {
-            if (!button) return;
-            button.disabled = loading;
-            const spinner = button.querySelector('.spinner-border');
-            if (spinner) spinner.classList.toggle('d-none', !loading);
-        }
-
-        if (emailBtn) {
-            emailBtn.addEventListener('click', function() {
-                setButtonLoading(emailBtn, true);
-                fetch(emailBtn.dataset.url, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': emailBtn.dataset.csrf || '',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
-                .then(({ ok, data }) => {
-                    if (!ok || data.status !== 'success') throw new Error(data.message || 'Unable to send code');
-                    if (textEl) textEl.textContent = '{{ MS_TRANS.2fa_email_sent_instruction|default:"Email code sent. Enter the 6-digit code here." }}';
-                    if (inputEl) {
-                        inputEl.setAttribute('maxlength', '6');
-                        inputEl.setAttribute('placeholder', 'XXXXXX');
-                        inputEl.focus();
-                    }
-                })
-                .catch((error) => {
-                    if (textEl) textEl.textContent = error.message || 'Unable to send code';
-                })
-                .finally(() => setButtonLoading(emailBtn, false));
-            });
-        }
-
-        if (backupBtn) {
-            backupBtn.addEventListener('click', function() {
-                if (textEl) textEl.textContent = '{{ MS_TRANS.2fa_backup_instruction|default:"Enter one of your 8-digit backup codes." }}';
-                if (inputEl) {
-                    inputEl.setAttribute('maxlength', '8');
-                    inputEl.setAttribute('placeholder', 'XXXXXXXX');
-                    inputEl.focus();
-                }
-            });
-        }
-    });
-</script>
+<script src="{% static 'microsys/users/js/twofa_verify.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

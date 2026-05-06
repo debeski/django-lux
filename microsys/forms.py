@@ -14,6 +14,7 @@ from crispy_forms.bootstrap import FormActions
 from PIL import Image
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
+from django.utils.html import conditional_escape
 from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.db.models import Q
@@ -240,7 +241,7 @@ def _build_wizard_actions(strings, submit_label, submit_icon):
     return _wrap_modal_action_buttons(
         _build_cancel_button_html(strings),
         f"""
-        <button type="button" class="btn btn-secondary rounded-pill ms-btn-prev" style="display: none;">
+        <button type="button" class="btn btn-secondary rounded-pill ms-btn-prev d-none">
             <i class="bi {prev_icon} text-light me-1 h4"></i> {strings.get('btn_prev', 'Previous')}
         </button>
         """,
@@ -250,7 +251,7 @@ def _build_wizard_actions(strings, submit_label, submit_icon):
         </button>
         """,
         f"""
-        <button type="submit" class="btn btn-success rounded-pill ms-btn-submit" style="display: none;">
+        <button type="submit" class="btn btn-success rounded-pill ms-btn-submit d-none">
             <i class="bi {submit_icon} text-light me-1 h4"></i> {submit_label}
         </button>
         """,
@@ -311,6 +312,52 @@ def _build_archive_file_widget(field_label="", show_scan=False, attrs=None):
 
     widget.get_context = MethodType(_get_context, widget)
     return widget
+
+
+def build_archive_file_field(field_name, css_class=None):
+    field_kwargs = {'template': 'microsys/forms/crispy_file_field.html'}
+    if css_class:
+        field_kwargs['css_class'] = css_class
+    return Field(field_name, **field_kwargs)
+
+
+def _boolean_field_checked(form, field_name):
+    field = form.fields[field_name]
+    if form.is_bound:
+        return bool(field.widget.value_from_datadict(form.data, form.files, form.add_prefix(field_name)))
+    if field_name in form.initial:
+        return bool(form.initial.get(field_name))
+    return bool(field.initial)
+
+
+def build_settings_toggle_field(form, field_name, css_class=None, attrs=None):
+    bound_field = form[field_name]
+    field = bound_field.field
+    label = conditional_escape(field.label or field_name.replace('_', ' ').title())
+    help_text = str(field.help_text or '').strip()
+    help_html = (
+        f"<div class='ms-settings-toggle-field__help small text-muted mt-1'>{conditional_escape(help_text)}</div>"
+        if help_text else
+        ""
+    )
+    checked_attr = ' checked' if _boolean_field_checked(form, field_name) else ''
+    disabled_attr = ' disabled' if bool(getattr(field, 'disabled', False)) else ''
+    wrapper_html = mark_safe(
+        f"<div class='ms-settings-toggle-field d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-2 h-100' "
+        f"data-ms-settings-toggle-field='{conditional_escape(field_name)}'>"
+        f"<div class='ms-settings-toggle-field__content flex-grow-1'>"
+        f"<div class='ms-settings-toggle-field__label fw-semibold'>{label}</div>"
+        f"{help_html}"
+        f"</div>"
+        f"<div class='ms-settings-toggle-field__control form-check form-switch flex-shrink-0 ms-2'>"
+        f"<input class='form-check-input' type='checkbox' id='{conditional_escape(bound_field.auto_id)}' "
+        f"name='{conditional_escape(bound_field.html_name)}' aria-label='{label}'{checked_attr}{disabled_attr}>"
+        f"</div>"
+        f"</div>"
+    )
+    if css_class:
+        return Div(HTML(wrapper_html), css_class=css_class, **(attrs or {}))
+    return HTML(wrapper_html)
 
 class GroupedPermissionWidget(ChoiceWidget):
     template_name = 'microsys/users/grouped_permissions.html'
@@ -659,7 +706,7 @@ class CustomUserCreationForm(UserCreationForm):
             HTML("<hr>"),
             Field("permissions", css_class="col-12")
         ]
-        step_2_div = Div(*step_2_fields, css_class="wizard-step wizard-step-2", style="display: none;")
+        step_2_div = Div(*step_2_fields, css_class="wizard-step wizard-step-2 d-none")
 
         actions = _build_wizard_actions(
             s,
@@ -1086,7 +1133,7 @@ class UserProfileEditForm(forms.ModelForm):
         self.helper.form_tag = False
         
         layout_blocks = [
-            Field("profile_picture"),
+            build_archive_file_field("profile_picture"),
             Row(Field("username", css_class="form-control")),            
             HTML("<hr>"),
             Row(
@@ -1434,11 +1481,13 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_import_config',
             'Optional: choose a Microsys-exported JSON setup file to populate these settings.',
         )
-        self.fields['settings_import_file'].widget.attrs.update({
-            'class': 'form-control glass-input',
-            'accept': 'application/json,.json',
-            'data-settings-import-file': 'true',
-        })
+        self.fields['settings_import_file'].widget = _build_archive_file_widget(
+            attrs={
+                'accept': 'application/json,.json',
+                'data-settings-import-file': 'true',
+            },
+            field_label=self.fields['settings_import_file'].label,
+        )
         self.fields['languages'].label = s.get('form_sys_languages', "Available languages")
         self.fields['translations_override'].label = s.get('form_sys_translations', "Translation overrides")
         self.fields['home_url'].required = False
@@ -1584,26 +1633,14 @@ class SystemSettingsForm(forms.ModelForm):
         )
         self.fields['email_config'].label = s.get('form_sys_email_config', 'Email delivery configuration')
         self.fields['email_config_transport'].label = s.get('form_sys_email_transport', 'Delivery path')
-        self.fields['email_config_transport'].help_text = s.get(
-            'help_sys_email_transport',
-            'Use the internal relay when the web service is isolated; use direct SMTP only when the web service can reach the SMTP provider.',
-        )
         self.fields['email_config_secret_storage'].label = s.get('form_sys_email_secret_storage', 'Secret storage')
-        self.fields['email_config_secret_storage'].help_text = s.get(
-            'help_sys_email_secret_storage',
-            'Store the SMTP password encrypted in Microsys System Settings, or intentionally keep it in environment/secrets.',
-        )
-        self.fields['email_config_host'].label = s.get('form_sys_email_host', 'SMTP host')
-        self.fields['email_config_port'].label = s.get('form_sys_email_port', 'SMTP port')
-        self.fields['email_config_use_tls'].label = s.get('form_sys_email_use_tls', 'Use TLS')
-        self.fields['email_config_use_ssl'].label = s.get('form_sys_email_use_ssl', 'Use SSL')
-        self.fields['email_config_username'].label = s.get('form_sys_email_username', 'SMTP username')
-        self.fields['email_config_password'].label = s.get('form_sys_email_password', 'SMTP password')
+        self.fields['email_config_host'].label = s.get('form_sys_email_host', 'Provider SMTP host')
+        self.fields['email_config_port'].label = s.get('form_sys_email_port', 'Provider SMTP port')
+        self.fields['email_config_use_tls'].label = s.get('form_sys_email_use_tls', 'Provider STARTTLS')
+        self.fields['email_config_use_ssl'].label = s.get('form_sys_email_use_ssl', 'Provider SSL')
+        self.fields['email_config_username'].label = s.get('form_sys_email_username', 'Provider SMTP username')
+        self.fields['email_config_password'].label = s.get('form_sys_email_password', 'Provider SMTP password')
         self.fields['email_config_default_from_email'].label = s.get('form_sys_email_default_from', 'Default from email')
-        self.fields['email_config_password'].help_text = s.get(
-            'help_sys_email_password',
-            'Saved only when Secret storage is encrypted database. Exports never include this secret.',
-        )
         for field_name in (
             'email_config_host',
             'email_config_username',
@@ -2098,26 +2135,31 @@ class SystemSettingsForm(forms.ModelForm):
         self.helper = FormHelper()
         self.helper.form_tag = False
 
-        def _step_style(index):
+        def _step_css_class(index):
+            classes = ['wizard-step']
             if self.single_step_mode and self.single_step_index != index:
-                return 'display: none;'
-            if not self.single_step_mode and index > 0:
-                return 'display: none;'
-            return None
+                classes.append('d-none')
+            elif not self.single_step_mode and index > 0:
+                classes.append('d-none')
+            return ' '.join(classes)
+
+        email_password_field_class = 'col-lg-4 ms-email-config-password-field'
+        if self.initial.get('email_config_secret_storage') != 'encrypted_db':
+            email_password_field_class += ' d-none'
 
         # Build step 1 fields dynamically - import only shown in initial setup
         step_1_fields = [
             HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step1', 'Step 1: Identity')}</span></div>"),
         ]
         if self.mode == 'setup':
-            step_1_fields.append(Field('settings_import_file'))
+            step_1_fields.append(build_archive_file_field('settings_import_file'))
             step_1_fields.append(Field('settings_import_processed'))
         step_1_fields.extend([
             HTML(self.system_names_html),
             Field('system_names'),
             Row(
-                Div(Field('logo', css_class='col-md-6'), css_class='col-md-6'),
-                Div(Field('favicon', css_class='col-md-6'), css_class='col-md-6'),
+                Div(build_archive_file_field('logo', css_class='col-md-6'), css_class='col-md-6'),
+                Div(build_archive_file_field('favicon', css_class='col-md-6'), css_class='col-md-6'),
                 css_class='row'
             ),
         ])
@@ -2131,21 +2173,20 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             Div(
                 *step_1_fields,
-                css_class='wizard-step',
-                style=_step_style(0),
+                css_class=_step_css_class(0),
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step2', 'Step 2: Languages')}</span></div>"),
                 HTML(self.language_catalog_html),
                 Row(
                     Div(Field('default_language'), css_class='d-none'),
-                    Div(Field('allow_user_language_override'), css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'allow_user_language_override', css_class='col-lg-12'),
+                    css_class='mb-3',
                 ),
                 HTML(self.translation_matrix_html),
                 Field('languages'),
                 Field('translations_override'),
-                css_class='wizard-step',
-                style=_step_style(1),
+                css_class=_step_css_class(1),
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'Step 3: Security')}</span></div>"),
@@ -2164,12 +2205,12 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(Field('email_config_host'), css_class='col-lg-4'),
                     Div(Field('email_config_port'), css_class='col-lg-2'),
-                    Div(Field('email_config_use_tls'), css_class='col-lg-2'),
-                    Div(Field('email_config_use_ssl'), css_class='col-lg-2'),
+                    build_settings_toggle_field(self, 'email_config_use_tls', css_class='col-lg-2'),
+                    build_settings_toggle_field(self, 'email_config_use_ssl', css_class='col-lg-2'),
                     Div(Field('email_config_username'), css_class='col-lg-2'),
                 ),
                 Row(
-                    Div(Field('email_config_password'), css_class='col-lg-4'),
+                    Div(Field('email_config_password'), css_class=email_password_field_class),
                 ),
                 Field('email_config'),
                 HTML(
@@ -2180,16 +2221,33 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML("</div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('access_security_settings_title', 'Access & Security')}</h6>"),
                 Row(
-                    Div(Field('public_root'), css_class='col-lg-6'),
-                    Div(Field('email_2fa'), css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'email_2fa', css_class='col-lg-6'),
+                    css_class='g-3 mb-3',
                 ),
                 Row(
-                    Div(Field('public_registration_enabled'), css_class='col-lg-4'),
-                    Div(Field('registration_activation_mode'), css_class='col-lg-4'),
-                    Div(Field('registration_throttle_enabled'), css_class='col-lg-4'),
+                    build_settings_toggle_field(self, 'public_registration_enabled', css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
                 ),
-                css_class='wizard-step',
-                style=_step_style(2),
+                Row(
+                    Div(
+                        Field('registration_activation_mode'),
+                        css_class=f"col-lg-6 ms-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        data_public_registration_dependent='true',
+                        aria_hidden='false' if self.initial.get('public_registration_enabled', False) else 'true',
+                    ),
+                    build_settings_toggle_field(
+                        self,
+                        'registration_throttle_enabled',
+                        css_class=f"col-lg-6 ms-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        attrs={
+                            'data_public_registration_dependent': 'true',
+                            'aria_hidden': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
+                        },
+                    ),
+                    css_class='g-3',
+                ),
+                css_class=_step_css_class(2),
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'Step 4: Sidebar')}</span></div>"),
@@ -2198,7 +2256,8 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
                 ),
                 Row(
-                    Div(Field('sidebar_enabled'), css_class='col-lg-12'),
+                    build_settings_toggle_field(self, 'sidebar_enabled', css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
                 ),
                 HTML(
                     f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enabled', True) else ''}' "
@@ -2212,12 +2271,14 @@ class SystemSettingsForm(forms.ModelForm):
                     f"data-sections-manager-available=\"{'true' if self.sidebar_sections_manager_available else 'false'}\"></div>"
                 ),
                 Row(
-                    Div(Field('sidebar_enable_reorder'), css_class='col-lg-6'),
-                    Div(Field('sidebar_enable_toolbar'), css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'sidebar_enable_reorder', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'sidebar_enable_toolbar', css_class='col-lg-6'),
+                    css_class='g-3 mb-3',
                 ),
                 Row(
-                    Div(Field('sidebar_show_icons'), css_class='col-lg-6'),
-                    Div(Field('sidebar_allow_user_density'), css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'sidebar_show_icons', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'sidebar_allow_user_density', css_class='col-lg-6'),
+                    css_class='g-3 mb-3',
                 ),
                 HTML(
                     f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enable_toolbar', True) else ''}' "
@@ -2232,8 +2293,7 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(self.sidebar_builder_html),
                 HTML("</div>"),
                 Field('sidebar_config'),
-                css_class='wizard-step',
-                style=_step_style(3),
+                css_class=_step_css_class(3),
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Appearance')}</span></div>"),
@@ -2245,17 +2305,7 @@ class SystemSettingsForm(forms.ModelForm):
                     ),
                 ),
                 Row(
-                    Div(
-                        HTML(
-                            f"<div class='d-flex justify-content-between align-items-center p-3 border rounded bg-light mb-2'>"
-                            f"<span>{self.fields['allow_user_theme_override'].label}</span>"
-                            f"<div class='form-check form-switch'>"
-                            f"<input class='form-check-input' type='checkbox' id='id_allow_user_theme_override' name='allow_user_theme_override'"
-                            f"{' checked' if self.initial.get('allow_user_theme_override', True) else ''}>"
-                            f"</div>"
-                            f"</div>"
-                        ),
-                    )
+                    build_settings_toggle_field(self, 'allow_user_theme_override', css_class='col-12')
                 ),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
                 Row(
@@ -2263,42 +2313,10 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
                 Row(
-                    Div(
-                        HTML(
-                            f"<div class='d-flex justify-content-between align-items-center p-3 border rounded bg-light mb-2'>"
-                            f"<span>{self.fields['titlebar_show_title'].label}</span>"
-                            f"<div class='form-check form-switch'>"
-                            f"<input class='form-check-input' type='checkbox' id='id_titlebar_show_title' name='titlebar_show_title'"
-                            f"{' checked' if self.initial.get('titlebar_show_title', True) else ''}>"
-                            f"</div>"
-                            f"</div>"
-                        ),
-                        css_class='col-lg-4'
-                    ),
-                    Div(
-                        HTML(
-                            f"<div class='d-flex justify-content-between align-items-center p-3 border rounded bg-light mb-2'>"
-                            f"<span>{self.fields['titlebar_show_logo'].label}</span>"
-                            f"<div class='form-check form-switch'>"
-                            f"<input class='form-check-input' type='checkbox' id='id_titlebar_show_logo' name='titlebar_show_logo'"
-                            f"{' checked' if self.initial.get('titlebar_show_logo', True) else ''}>"
-                            f"</div>"
-                            f"</div>"
-                        ),
-                        css_class='col-lg-4'
-                    ),
-                    Div(
-                        HTML(
-                            f"<div class='d-flex justify-content-between align-items-center p-3 border rounded bg-light mb-2'>"
-                            f"<span>{self.fields['titlebar_show_home_button'].label}</span>"
-                            f"<div class='form-check form-switch'>"
-                            f"<input class='form-check-input' type='checkbox' id='id_titlebar_show_home_button' name='titlebar_show_home_button'"
-                            f"{' checked' if self.initial.get('titlebar_show_home_button', True) else ''}>"
-                            f"</div>"
-                            f"</div>"
-                        ),
-                        css_class='col-lg-4'
-                    ), css_class='mb-2'
+                    build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-4'),
+                    build_settings_toggle_field(self, 'titlebar_show_logo', css_class='col-lg-4'),
+                    build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-4'),
+                    css_class='g-3 mb-3'
                 ),
                 Row(
                     Div(Field('titlebar_title_align'), css_class='col-lg-6'),
@@ -2311,35 +2329,26 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(Field('titlebar_surface'), css_class='col-lg-12'),
                 ),
-                css_class='wizard-step',
-                style=_step_style(4),
+                css_class=_step_css_class(4),
             ),
             FormActions(
-                Submit(
-                    'submit',
-                    s.get('btn_save', 'Save'),
-                    css_class='btn btn-primary px-5 rounded-pill fw-bold ms-btn-submit'
-                ),
-                css_class=(
-                    'd-flex justify-content-end align-items-center gap-2 mt-4'
-                    if self.single_step_mode
-                    else 'd-flex justify-content-between align-items-center gap-2 mt-4'
-                ),
+                HTML(
+                    f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 ms-setup-wizard-actions' dir='{_get_ui_direction()}'>"
+                    f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold ms-btn-submit'>"
+                    f"{s.get('btn_save', 'Save')}</button>"
+                    f"</div>"
+                )
             ) if self.single_step_mode else FormActions(
                 HTML(
+                    f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 ms-setup-wizard-actions' dir='{_get_ui_direction()}'>"
                     f"<button type='button' class='btn btn-outline-secondary rounded-pill px-4 ms-btn-prev'>"
                     f"{s.get('btn_prev', 'Previous')}</button>"
-                ),
-                HTML(
                     f"<button type='button' class='btn btn-outline-primary rounded-pill px-4 ms-btn-next'>"
                     f"{s.get('btn_next', 'Next')}</button>"
-                ),
-                Submit(
-                    'submit',
-                    s.get('btn_save', 'Save'),
-                    css_class='btn btn-primary px-5 rounded-pill fw-bold ms-btn-submit'
-                ),
-                css_class='d-flex justify-content-between align-items-center gap-2 mt-4',
+                    f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold ms-btn-submit'>"
+                    f"{s.get('btn_save', 'Save')}</button>"
+                    f"</div>"
+                )
             ),
             HTML("</div>")
         )

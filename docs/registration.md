@@ -31,6 +31,8 @@ Pending approvals are managed at:
 
 Approve and reject actions are POST-only and superuser-only.
 
+Users created through this path are marked as public-registration-originated in Microsys runtime surfaces so operators can distinguish them from manually created local accounts.
+
 ## Required Email Setup
 
 Public registration requires Microsys email delivery. Setup/System Settings
@@ -105,6 +107,7 @@ Django email behavior to change.
 - Publicly registered users are not automatically assigned a generated scope by
   Microsys scope auto-creation.
 - Login accepts username or email only when public registration is enabled.
+- Email verification, readiness checks, and public registration all use the same Microsys email delivery contract as email 2FA.
 
 ## Relation To SSO
 

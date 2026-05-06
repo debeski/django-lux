@@ -258,6 +258,33 @@ html[dir="rtl"] .timeline-dot {
     opacity: 0.72;
 }
 
+.timeline-dot--system {
+    background-color: var(--redanator);
+}
+
+.profile-code-shell {
+    letter-spacing: 2px;
+    background: rgba(var(--primal-rgb), 0.05);
+    color: var(--title);
+    border-color: rgba(var(--primal-rgb), 0.1);
+}
+
+.profile-setup-icon {
+    font-size: 3rem;
+}
+
+.profile-confirmation-modal {
+    z-index: 1060;
+}
+
+.profile-confirmation-title {
+    color: var(--title);
+}
+
+.profile-confirmation-copy {
+    color: var(--htitle);
+}
+
 /* --- Signed-in Devices --- */
 .profile-session-list {
     display: flex;

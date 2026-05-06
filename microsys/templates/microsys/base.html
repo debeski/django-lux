@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="{{ CURRENT_LANG|default:'en' }}" dir="{{ CURRENT_DIR|default:'ltr' }}">
 <head>
     <meta charset="UTF-8">
@@ -9,74 +10,7 @@
     {{ MS_TRANS|json_script:"ms-trans-data" }}
     {{ MICROSYS_THEME_NAMES|json_script:"microsys-theme-names" }}
     {{ config|json_script:"microsys-config-data" }}
-    <script nonce="{{ request.csp_nonce }}">
-        (function() {
-            try {
-                window.USER_PREFS = JSON.parse(document.getElementById('user-prefs-data').textContent) || {};
-            } catch (e) {
-                window.USER_PREFS = {};
-            }
-            try {
-                window.__MS_TRANS = JSON.parse(document.getElementById('ms-trans-data').textContent) || {};
-            } catch (e) {
-                window.__MS_TRANS = {};
-            }
-            try {
-                window.MICROSYS_THEME_NAMES = JSON.parse(document.getElementById('microsys-theme-names').textContent) || ['light'];
-            } catch (e) {
-                window.MICROSYS_THEME_NAMES = ['light'];
-            }
-            try {
-                window.MICROSYS_CONFIG = JSON.parse(document.getElementById('microsys-config-data').textContent) || {};
-            } catch (e) {
-                window.MICROSYS_CONFIG = {};
-            }
-            // Inject server-resolved language info for client-side use
-            window.USER_PREFS._lang = '{{ CURRENT_LANG|default:"en" }}';
-            window.USER_PREFS._dir = '{{ CURRENT_DIR|default:"ltr" }}';
-            
-            const allowedThemes = Array.isArray(window.MICROSYS_THEME_NAMES) && window.MICROSYS_THEME_NAMES.length
-                ? window.MICROSYS_THEME_NAMES
-                : ['light'];
-            const defaultTheme = window.MICROSYS_CONFIG.default_theme || allowedThemes[0] || 'light';
-            const savedTheme = window.USER_PREFS.theme || localStorage.getItem('appTheme') || defaultTheme;
-            const themeToApply = allowedThemes.includes(savedTheme) ? savedTheme : defaultTheme;
-            const savedAcc = window.USER_PREFS.accessibility || localStorage.getItem('accessibilityMode');
-            
-            document.documentElement.classList.add(`theme-${themeToApply}`);
-            
-            if (savedAcc) {
-                let modes = [];
-                try {
-                    // Check if it's already an array (from JSONField) or string (localStorage)
-                    modes = Array.isArray(savedAcc) ? savedAcc : (savedAcc.trim().startsWith('[') ? JSON.parse(savedAcc) : [savedAcc]);
-                } catch (e) {
-                    modes = [savedAcc];
-                }
-                modes.forEach((mode) => {
-                    if (mode) document.documentElement.classList.add(`accessibility-${mode}`);
-                });
-            }
-        })();
-    </script>
-    <script nonce="{{ request.csp_nonce }}">
-        // Dynamic FOUC Prevention for collapsible cards
-        (function() {
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.endsWith('Collapsed') && localStorage.getItem(key) === 'true') {
-                    const storageKeyBase = key.replace('Collapsed', '');
-                    const style = document.createElement('style');
-                    style.id = `fouc-${storageKeyBase}`;
-                    // Hide the body element associated with this key
-                    style.innerHTML = `#${storageKeyBase}Body { display: none !important; }`;
-                    document.head.appendChild(style);
-                }
-            }
-        })();
-    </script>
-    {% load static %}
-
+    <script src="{% static 'microsys/main/js/base_head.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}"></script>
     <!-- Include CSS (direction-aware bootstrap) -->
     {% if CURRENT_DIR == 'ltr' %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.min.css' %}" id="bootstrap-css">
@@ -89,16 +23,17 @@
     <link rel="stylesheet" href="{% static 'microsys/main/css/titlebar.css' %}?v=20260501c">
     <link rel="stylesheet" href="{% static 'microsys/main/css/tables.css' %}?v=20260501a">
     <link rel="stylesheet" href="{% static 'microsys/main/css/dropdowns.css' %}">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/selectors.css' %}?v=20260422a">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/selectors.css' %}?v=20260506b">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/template_cleanup.css' %}?v=20260506a">
     
     <link rel="stylesheet" href="{% static 'microsys/main/css/pagination.css' %}">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/system_setup.css' %}?v=20260501d">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/system_setup.css' %}?v=20260506f">
     {% for theme in MICROSYS_THEMES %}
     <link rel="stylesheet" href="{% static theme.css_path %}?v=20260501b">
     {% endfor %}
     <link rel="stylesheet" href="{% static 'microsys/accessibility/css/main.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/language/css/main.css' %}">
-    <link rel="stylesheet" href="{% static 'microsys/users/css/user_hub.css' %}">
+    <link rel="stylesheet" href="{% static 'microsys/users/css/user_hub.css' %}?v=20260506b">
     <link rel="icon" href="{{ APP_CONFIG.favicon_url|default:'/static/favicon.ico' }}" type="image/x-icon">
     <!-- <link rel="icon" type="image/png" sizes="192x192" href="{% static 'icons/icon-192x192.png' %}">
     <link rel="icon" type="image/png" sizes="512x512" href="{% static 'icons/icon-512x512.png' %}"> -->
@@ -118,7 +53,7 @@
     <script src="{% static 'microsys/helpers/wizard/js/main.js' %}?v=20260417c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/main/js/tables.js' %}?v=20260423a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/main/js/selectors.js' %}?v=20260422a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'microsys/main/js/system_setup.js' %}?v=20260505b" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'microsys/main/js/system_setup.js' %}?v=20260506d" nonce="{{ request.csp_nonce }}" defer></script>
 
 </head>
 <body>
@@ -147,7 +82,7 @@
         {% if messages %}
             <div class="alert-container position-absolute top-0 start-0 w-100">
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} text-center h4" style="opacity: 95%; z-index: 1090;">
+                    <div class="alert alert-{{ message.tags }} text-center h4 ms-global-alert">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -171,77 +106,11 @@
     {% block scripts %}{% endblock %}
     <link rel="stylesheet" href="{% static 'vanillajs-datepicker/datepicker-bs5.min.css' %}">
     <script src="{% static 'vanillajs-datepicker/datepicker.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
-
-    <script nonce="{{ request.csp_nonce }}">
-        document.addEventListener('DOMContentLoaded', function() {
-            function ensureArabicDatepickerLocale() {
-                if (!window.Datepicker) {
-                    return;
-                }
-                window.Datepicker.locales = window.Datepicker.locales || {};
-                if (!window.Datepicker.locales.ar) {
-                    window.Datepicker.locales.ar = {
-                        days: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
-                        daysShort: ['أحد', 'إثن', 'ثلا', 'أرب', 'خم', 'جم', 'سبت'],
-                        daysMin: ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'],
-                        months: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
-                        monthsShort: ['ينا', 'فبر', 'مار', 'أبر', 'ماي', 'يون', 'يول', 'أغس', 'سبت', 'أكت', 'نوف', 'ديس'],
-                        today: 'اليوم',
-                        clear: 'مسح',
-                        titleFormat: 'MM y'
-                    };
-                }
-            }
-
-            function microsysDatepickerOptions() {
-                const options = {
-                    format: 'yyyy-mm-dd',
-                    autohide: true,
-                    buttonClass: 'btn',
-                };
-                {% if CURRENT_LANG == 'ar' %}
-                ensureArabicDatepickerLocale();
-                options.language = 'ar';
-                {% endif %}
-                return options;
-            }
-
-            window.initMicrosysDatepickers = function (scope) {
-                if (!window.Datepicker) {
-                    return;
-                }
-                const root = scope || document;
-                root.querySelectorAll('.ms-datepicker, .flatpickr').forEach(function (input) {
-                    if (!(input instanceof HTMLInputElement) || input.type === 'hidden') {
-                        return;
-                    }
-                    if (input.dataset.msDatepickerReady === 'true') {
-                        return;
-                    }
-                    input.setAttribute('autocomplete', 'off');
-                    input.dataset.msDatepickerReady = 'true';
-                    new Datepicker(input, microsysDatepickerOptions());
-                });
-            };
-
-            window.initMicrosysDatepickers(document);
-        });
-    </script>
+    <script src="{% static 'microsys/main/js/base_runtime.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}" defer></script>
 
     {% if request.resolver_match.url_name != 'login' %}
     {% include 'microsys/includes/tutorial.html' %}
     {% endif %}
-    <script nonce="{{ request.csp_nonce }}">
-        document.addEventListener("DOMContentLoaded", function () {
-            let messages = document.querySelectorAll(".alert:not([data-autoclose='false'])");
-            messages.forEach(function (message) {
-                setTimeout(function () {
-                    message.style.opacity = "0";
-                    setTimeout(() => message.remove(), 3000); // Remove the element after fade-out
-                }, 3000); // Change to adjust timeout (3000ms = 3s)
-            });
-        });
-    </script>
     {% include 'microsys/helpers/micro_context_menu.html' %}
     {% include 'microsys/helpers/dynamic_modal.html' %}
 </body>

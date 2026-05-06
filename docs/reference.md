@@ -14,7 +14,14 @@ Generated project baseline:
 - `.secrets/.env` with scaffolded bootstrap secret values
 - `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter CORS/CSP settings
-- `compose.yml` keeping the standard inline-env pattern
+- `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
+- a generated Docker baseline with `web`, `celery`, `db`, `redis`, `nginx`, `pgadmin`, `migrator`, and internal `smtp-relay` services
+- `req.txt` pinned to the generated stable `django-microsys` release
+
+Generated app scaffold baseline:
+- discovery-friendly `models.py`, `forms.py`, `filters.py`, `tables.py`, `views.py`, `urls.py`, `translations.py`, templates, and tests
+- optional `--register` patching for `INSTALLED_APPS` and root project URLs
+- modal/list conventions that align with Microsys discovery, sections, and table/filter helpers
 
 ## Management Commands
 
@@ -116,6 +123,8 @@ Section security contract:
 - `/sys/2fa/enable/`, `/sys/2fa/setup/totp/`, `/sys/2fa/disable/`, `/sys/2fa/backup-codes/generate/`, and resend endpoints are POST-only mutators
 - backup codes are stored hashed in `Profile.backup_codes`
 - login 2FA redirects validate `next` against allowed hosts before redirecting
+- destructive profile-side 2FA actions such as disable, backup-code regeneration, and session revocation require the current-password guard on the backend
+- TOTP setup persists secret/enabled state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, so unrelated profile-save side effects do not block authenticator setup
 
 ## API Endpoints
 
@@ -182,6 +191,12 @@ Theme/runtime UI notes:
 - the sidebar toolbar picker uses `.theme-option-circle` selectors
 - runtime theme changes dispatch the `microsys:theme-changed` event so secondary UI such as the sidebar indicator can sync without a refresh
 
+Options/runtime UI notes:
+
+- Options cards are draggable through per-card handles and the current order is persisted in browser `localStorage`
+- the wide System Info card intentionally keeps a double-column span inside the grid
+- Autofill and Reset Defaults are standalone cards in the shared Options card system, not nested sub-cards
+
 ## Framework-Owned Table Surface
 
 Microsys now owns the default table chrome for standard `django_tables2` tables.
@@ -239,6 +254,43 @@ The system records several action families out of the box, including:
 - `LOGOUT`
 - `DOWNLOAD`
 - `EXPORT`
+
+## Reusable Helpers
+
+### View/security helpers
+
+| Helper | Purpose |
+| --- | --- |
+| `require_current_password(request)` | Reusable backend guard for destructive profile/security actions. Returns a failure response or `None`. |
+| `set_profile_totp_state(profile, raw_secret=..., enabled=...)` | Persist encrypted TOTP secret and/or enabled state directly without routing through the full `Profile.save()` path. |
+
+Typical current-password guard usage:
+
+```python
+from microsys.guards import require_current_password
+
+
+def my_sensitive_view(request):
+    if failure_response := require_current_password(request):
+        return failure_response
+    # continue mutation
+```
+
+Typical TOTP state persistence usage:
+
+```python
+from microsys.utils import set_profile_totp_state
+
+
+set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=True)
+```
+
+### Form/UI helpers
+
+| Helper | Purpose |
+| --- | --- |
+| `build_archive_file_field('field_name', css_class='...')` | Render the Microsys custom file widget explicitly instead of relying on template shadowing. |
+| `build_settings_toggle_field(form, 'field_name', css_class='...')` | Render the shared setup/System Settings toggle-card control for boolean fields. |
 
 ## Template Tags and Filters
 

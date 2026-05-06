@@ -57,7 +57,6 @@ services:
       - {{ project_slug }}_internal
 
   smtp-relay:
-    build: .
     image: ${WEB_IMAGE:-{{ project_image }}:latest}
     restart: unless-stopped
     entrypoint: []

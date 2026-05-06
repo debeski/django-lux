@@ -3,7 +3,7 @@
 {% block titlebar %}{% endblock %}
 
 {% block layout %}
-<main class="container py-5" style="max-width: 640px;">
+<main class="container py-5 ms-register-main">
     <h1 class="h3 mb-4">{{ MS_TRANS.create_account|default:'Create an account' }}</h1>
     <form method="post" novalidate>
         {% csrf_token %}

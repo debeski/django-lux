@@ -156,7 +156,10 @@
     <div class="modal fade" id="userDetailModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content glass-card border-0 shadow-lg">
-                <div class="modal-body text-center p-5" id="userDetailModalBody">
+                <div class="modal-body text-center p-5"
+                     id="userDetailModalBody"
+                     data-loading-text="{{ MS_TRANS.loading|default:'Loading...' }}"
+                     data-error-text="{{ MS_TRANS.error_loading_details|default:'Error loading details.' }}">
                     <!-- Content loaded via AJAX -->
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">{{ MS_TRANS.loading }}</span>
@@ -169,88 +172,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script nonce="{{ request.csp_nonce }}">
-    document.addEventListener('DOMContentLoaded', function() {
-        // 1. Handle View User Details Event from Context Menu
-        document.addEventListener('micro:view-user-details', function(e) {
-            const detail = e.detail;
-            const data = detail.data || detail.actionData?.data || detail.action?.data;
-            const url = data?.url;
-            
-            if (!url) return;
-    
-            const modalEl = document.getElementById('userDetailModal');
-            const modalBody = document.getElementById('userDetailModalBody');
-    
-            if (modalEl && modalBody) {
-                // Show loading state
-                modalBody.innerHTML = `
-                    <div class="text-center p-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div>`;
-                
-                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
-    
-                // Fetch content
-                fetch(url, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                })
-                .then(response => response.text())
-                .then(html => {
-                    modalBody.innerHTML = html;
-                })
-                .catch(err => {
-                    console.error('Error loading user details:', err);
-                    modalBody.innerHTML = `
-                        <div class="text-center p-5 text-danger">
-                            <i class="bi bi-exclamation-circle display-1 mb-3"></i>
-                            <p>Error loading details.</p>
-                        </div>`;
-                });
-            }
-        });
-
-        // 2. Handle Password Reset Event from Context Menu
-        document.addEventListener('micro:reset-password', function(e) {
-            const eventData = e.detail.data; 
-            if (!eventData || !eventData.url) return;
-
-            const modalEl = document.getElementById('resetPasswordModal');
-            const form = document.getElementById('resetPasswordForm');
-
-            if (modalEl && form) {
-                const usernameInput = form.querySelector('input[name$="username"]');
-                form.action = eventData.url;
-                if (usernameInput && eventData.username) {
-                    usernameInput.value = eventData.username;
-                }
-                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
-            }
-        });
-
-        // 3. Handle Soft Delete Event from Context Menu
-        document.addEventListener('micro:soft-delete', function(e) {
-            const eventData = e.detail.data;
-            if (!eventData || !eventData.url) return;
-
-            const modalEl = document.getElementById('deleteModal');
-            const form = document.getElementById('deleteForm');
-            const nameSpan = document.getElementById('userName');
-
-            if (modalEl && form) {
-                form.action = eventData.url;
-                if (nameSpan && eventData.name) {
-                    nameSpan.textContent = eventData.name;
-                }
-                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
-            }
-        });
-    });
-    </script>
     <script src="{% static 'microsys/users/js/manage_users.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

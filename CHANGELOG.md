@@ -4,7 +4,16 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
-## v2.2.0
+## v2.1.0
+
+- **Public Registration And Email Delivery Release**: Finalized the core public registration playground together with the UI-first Microsys email delivery system. Delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`) are now first-class runtime settings, and generated Docker projects use the internal `smtp-relay` sidecar pattern for UI-managed upstream SMTP delivery.
+- **Security And 2FA Hardening**: Unified login 2FA challenges across authenticator codes, requested email OTPs, and backup codes; encrypted TOTP secrets at rest; hashed backup codes at rest; enforced POST-only 2FA mutators; added current-password confirmation for destructive profile security actions; and hardened TOTP setup to return sanitized JSON instead of raw 500 pages when provisioning or secret persistence fails.
+- **System Settings And Setup UX Refresh**: Expanded setup/System Settings with shared toggle-card rendering across steps, explicit gating for registration-dependent controls, custom Microsys file widgets for import/logo/favicon, responsive toggle-card layout fixes, and improved setup/options parity for the email, sidebar, titlebar, theme, and language surfaces.
+- **Options And Profile UX Refresh**: Reworked Options onto shared external CSS/JS assets, merged the new visual card language across the page, restored Autofill and Reset Defaults as standalone cards, added draggable persisted card ordering with a double-width System Info card, exposed signed-in device management in profile, and improved user-hub mobile toolbar behavior on small screens.
+- **Template Asset Policy Cleanup**: Removed inline template CSS and executable inline JS across the shipped HTML surfaces, moved behavior into shared static assets, switched theme preview swatches to shared CSS classes, and added regression coverage so the framework stays CSP-friendly by default.
+- **Packaging And Dependency Baseline**: The `2.1.0` package declares the runtime dependencies the shipped features require, including `pyotp`, `qrcode`, `psutil`, and `cryptography`. `cryptography` is required for encrypted TOTP secrets and UI-managed encrypted SMTP secrets.
+
+## v2.1.0b1
 
 - **UI-First Email Delivery Setup**: Reworked System Settings email delivery into two independent controls: delivery path (`Direct SMTP from web service` or `Internal SMTP relay`) and secret storage (`Environment / secrets` or `Encrypted database secret`). This supports direct SMTP with DB-backed encrypted secrets and relay-based delivery with DB-backed encrypted secrets.
 - **Generated SMTP Relay Integration**: Updated scaffolded Docker projects so the `smtp-relay` sidecar can read UI-managed upstream SMTP settings from `SystemSettings.email_config`, decrypt the password with the project secret, and deliver externally while the `web` and `celery` services stay isolated on the internal network.
@@ -13,7 +22,7 @@ This file owns the release history for `django-microsys`.
 - **2FA Secret Migration Merge**: Folded TOTP secret widening/encryption into `0002_public_registration.py` and removed the separate `0003_totp_secret_encryption.py` migration before release.
 - **Docs Refresh**: Updated registration, reference, and MSRP-1 docs to describe direct-vs-relay delivery, env-vs-encrypted secret storage, and the generated SMTP relay behavior.
 
-## v2.1.0
+## v2.1.0b0
 
 - **Public Registration Playground**: Added core public registration feature (disabled by default) with email-first signup, verification tokens, activation modes (`auto_login_after_verify` and `verified_pending_approval`), and superuser approval/rejection workflows. Includes provenance badges on user profiles and integration with Microsys mail delivery configuration.
 - **Optional SSO v1 Scaffolding**: Implemented separate provider and client packages under `optional_packages/` as `django-microsys-sso` and `django-microsys-sso-client`. OIDC-only with cross-platform flat claims (`microsys_sso_role`, `microsys_sso_client_id`) for generic PHP/.NET/JS/Java/Go/mobile/desktop clients.

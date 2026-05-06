@@ -6,6 +6,7 @@
 {% if sidebar_toolbar_enabled and sidebar_reorder_enabled %}
 <link rel="stylesheet" href="{% static 'microsys/sidebar/css/reorder.css' %}?v=20260402k">
 {% endif %}
+<script src="{% static 'microsys/sidebar/js/preload.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}"></script>
 <script src="{% static 'microsys/sidebar/js/main.js' %}?v=20260501b" nonce="{{ request.csp_nonce }}" defer></script>
 {% if sidebar_toolbar_enabled and sidebar_theme_picker_enabled %}
 <script src="{% static 'microsys/sidebar/js/theme_picker.js' %}?v=20260426a" nonce="{{ request.csp_nonce }}" defer></script>
@@ -27,38 +28,9 @@
      data-sidebar-show-icons="{% if sidebar.show_icons %}true{% else %}false{% endif %}"
      data-sidebar-collapse-mode="{{ sidebar.collapse_mode|default:'icons' }}"
      data-sidebar-allow-user-density="{% if sidebar.allow_user_density %}true{% else %}false{% endif %}">
-    <script nonce="{{ request.csp_nonce }}">
-        // Immediate FOUC fix for small screens
-        (function() {
-            var screenWidth = window.innerWidth;
-            var sidebar = document.currentScript.parentElement;
-            if (screenWidth < 1100) {
-                sidebar.classList.add('collapsed');
-                // Temporarily disable transition to avoid "sliding shut" flicker on load
-                sidebar.style.transition = 'none';
-                setTimeout(function() { sidebar.style.transition = ''; }, 100);
-            }
-        })();
-    </script>
     <div class="sidebar-items-wrapper">
         <div class="list-group flex-shrink-0">
             {% block items %}
-        
-        <!-- DEFAULT CONTENT / INSTRUCTIONS -->
-        <!-- <div class="p-3 text-center text-muted">
-            <i class="bi bi-info-circle mb-2" style="font-size: 24px;"></i>
-            <p class="small">
-                <strong>Default Sidebar</strong><br>
-                To customize this menu, create a template extending:<br>
-                <code>sidebar/main.html</code><br>
-                and override the <code>items</code> block.
-            </p>
-        </div> -->
-
-        <!-- <a href="#" class="list-group-item list-group-item-action">
-            <i class="bi bi-house me-2" style="font-size: 24px;"></i>
-            <span>Example Home</span>
-        </a> -->
         
         {% endblock %}
     </div>
@@ -107,7 +79,7 @@
             <div class="small fw-bold mb-2 text-center border-bottom pb-1">{{ MS_TRANS.theme_pick_color }}</div>
             <div class="theme-options-grid">
                 {% for theme in MICROSYS_THEMES %}
-                <div class="theme-option-circle" data-theme="{{ theme.slug }}" title="{{ theme.label }}" style="{{ theme.preview_style }}"></div>
+                <div class="theme-option-circle ms-theme-preview--{{ theme.slug }}" data-theme="{{ theme.slug }}" title="{{ theme.label }}"></div>
                 {% endfor %}
             </div>
         </div>

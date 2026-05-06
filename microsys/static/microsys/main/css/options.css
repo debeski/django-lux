@@ -1,0 +1,393 @@
+.ms-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.35rem;
+    align-items: stretch;
+    grid-auto-flow: row dense;
+}
+
+.ms-options-card {
+    min-width: 0;
+}
+
+.ms-options-card--wide {
+    grid-column: span 2;
+}
+
+.ms-options-panel {
+    position: relative;
+    min-height: 100%;
+    overflow: hidden;
+    margin-bottom: 0;
+    padding: 1.35rem 1.35rem 1.25rem;
+    border-radius: 1.4rem;
+    border: 1px solid rgba(var(--primal-rgb), 0.12);
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(var(--primal-rgb), 0.055));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        0 24px 48px -38px rgba(15, 23, 42, 0.42);
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.ms-options-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 4px;
+    background: linear-gradient(90deg, rgba(var(--primal-rgb), 0.88), rgba(var(--primal-rgb), 0.22));
+}
+
+.ms-options-panel--danger::before {
+    background: linear-gradient(90deg, rgba(220, 53, 69, 0.9), rgba(220, 53, 69, 0.24));
+}
+
+.ms-options-panel h4 {
+    padding-inline-end: 3.35rem;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+}
+
+.ms-options-panel h4 > i:first-child {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    margin-inline-end: 0.55rem !important;
+    border-radius: 0.85rem;
+    background: rgba(var(--primal-rgb), 0.1);
+    color: var(--primal);
+    box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.12);
+}
+
+.ms-options-panel--danger h4 > i:first-child {
+    background: rgba(220, 53, 69, 0.11);
+    color: var(--bs-danger, #dc3545);
+    box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.14);
+}
+
+.ms-options-panel > .text-muted.small {
+    max-width: 56ch;
+}
+
+.ms-options-card-handle {
+    position: absolute;
+    top: 1rem;
+    inset-inline-end: 1rem;
+    z-index: 2;
+    width: 2.35rem;
+    height: 2.35rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed rgba(var(--primal-rgb), 0.22);
+    border-radius: 0.9rem;
+    background: rgba(var(--primal-rgb), 0.045);
+    color: color-mix(in srgb, var(--title) 76%, var(--primal));
+    cursor: grab;
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.ms-options-card-handle:hover,
+.ms-options-card-handle:focus-visible {
+    background: rgba(var(--primal-rgb), 0.1);
+    border-color: rgba(var(--primal-rgb), 0.34);
+    color: var(--primal);
+    transform: translateY(-1px);
+}
+
+.ms-options-card-handle:active {
+    cursor: grabbing;
+}
+
+.ms-options-card.is-dragging {
+    opacity: 0.55;
+}
+
+.ms-options-card.is-dragging .ms-options-panel {
+    transform: scale(0.985);
+}
+
+.ms-options-card.is-drag-over-before .ms-options-panel,
+.ms-options-card.is-drag-over-after .ms-options-panel {
+    border-color: rgba(var(--primal-rgb), 0.34);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        0 0 0 0.16rem rgba(var(--primal-rgb), 0.08),
+        0 24px 48px -38px rgba(15, 23, 42, 0.42);
+}
+
+.ms-options-card.is-drag-over-before .ms-options-panel::after,
+.ms-options-card.is-drag-over-after .ms-options-panel::after {
+    content: "";
+    position: absolute;
+    inset-inline: 1rem;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(var(--primal-rgb), 0.78);
+}
+
+.ms-options-card.is-drag-over-before .ms-options-panel::after {
+    top: 0.65rem;
+}
+
+.ms-options-card.is-drag-over-after .ms-options-panel::after {
+    bottom: 0.65rem;
+}
+
+.ms-options-switch-list {
+    gap: 0.85rem !important;
+}
+
+.ms-options-switch-row,
+.ms-options-toggle-shell,
+.ms-options-reset-action-shell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-width: 0;
+    padding: 1rem 1.05rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(var(--primal-rgb), 0.12);
+    background: rgba(var(--primal-rgb), 0.045);
+}
+
+.ms-options-switch-row span:first-child,
+.ms-options-toggle-label {
+    font-weight: 650;
+    color: var(--title);
+}
+
+.ms-options-inline-switch,
+.ms-options-reset-actions {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.ms-options-reset-action-shell {
+    border-color: rgba(220, 53, 69, 0.2);
+    background: rgba(220, 53, 69, 0.045);
+}
+
+.ms-options-reset-actions[hidden] {
+    display: none !important;
+}
+
+.ms-options-reset-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.12rem;
+}
+
+.ms-options-system-info-table {
+    max-width: 100%;
+}
+
+.ms-options-system-info-table th,
+.ms-options-system-info-table td {
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+.ms-system-settings-actions .ms-system-settings-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    min-height: 2.62rem;
+}
+
+:root.theme-dark .ms-options-panel,
+:root.theme-retro .ms-options-panel,
+:root.theme-gothic .ms-options-panel,
+:root.theme-neon .ms-options-panel {
+    background:
+        linear-gradient(160deg, rgba(var(--primal-rgb), 0.08), rgba(255, 255, 255, 0.02)) !important;
+    border-color: rgba(var(--primal-rgb), 0.18) !important;
+}
+
+:root.theme-dark .ms-options-panel--danger,
+:root.theme-retro .ms-options-panel--danger,
+:root.theme-gothic .ms-options-panel--danger,
+:root.theme-neon .ms-options-panel--danger {
+    background:
+        linear-gradient(160deg, rgba(248, 113, 113, 0.075), rgba(255, 255, 255, 0.016)) !important;
+    border-color: rgba(248, 113, 113, 0.22) !important;
+}
+
+:root.theme-dark .ms-options-card-handle,
+:root.theme-retro .ms-options-card-handle,
+:root.theme-gothic .ms-options-card-handle,
+:root.theme-neon .ms-options-card-handle {
+    background: rgba(var(--primal-rgb), 0.08);
+    border-color: rgba(var(--primal-rgb), 0.2);
+}
+
+:root.theme-dark .ms-options-card-handle:hover,
+:root.theme-retro .ms-options-card-handle:hover,
+:root.theme-gothic .ms-options-card-handle:hover,
+:root.theme-neon .ms-options-card-handle:hover,
+:root.theme-dark .ms-options-card-handle:focus-visible,
+:root.theme-retro .ms-options-card-handle:focus-visible,
+:root.theme-gothic .ms-options-card-handle:focus-visible,
+:root.theme-neon .ms-options-card-handle:focus-visible {
+    background: rgba(var(--primal-rgb), 0.15);
+    border-color: rgba(var(--primal-rgb), 0.34);
+}
+
+:root.theme-dark .ms-options-switch-row,
+:root.theme-dark .ms-options-toggle-shell,
+:root.theme-dark .ms-options-reset-action-shell,
+:root.theme-retro .ms-options-switch-row,
+:root.theme-retro .ms-options-toggle-shell,
+:root.theme-retro .ms-options-reset-action-shell,
+:root.theme-gothic .ms-options-switch-row,
+:root.theme-gothic .ms-options-toggle-shell,
+:root.theme-gothic .ms-options-reset-action-shell,
+:root.theme-neon .ms-options-switch-row,
+:root.theme-neon .ms-options-toggle-shell,
+:root.theme-neon .ms-options-reset-action-shell {
+    background:
+        linear-gradient(145deg, rgba(var(--primal-rgb), 0.08), rgba(255, 255, 255, 0.016)) !important;
+}
+
+:root.theme-dark .ms-options-reset-action-shell,
+:root.theme-retro .ms-options-reset-action-shell,
+:root.theme-gothic .ms-options-reset-action-shell,
+:root.theme-neon .ms-options-reset-action-shell {
+    border-color: rgba(248, 113, 113, 0.24) !important;
+}
+
+:root.theme-dark .ms-system-settings-actions .ms-system-settings-action,
+:root.theme-retro .ms-system-settings-actions .ms-system-settings-action,
+:root.theme-gothic .ms-system-settings-actions .ms-system-settings-action,
+:root.theme-neon .ms-system-settings-actions .ms-system-settings-action {
+    background:
+        linear-gradient(135deg, rgba(var(--primal-rgb), 0.075), rgba(255, 255, 255, 0.018)) !important;
+    border-color: rgba(var(--primal-rgb), 0.26) !important;
+    color: color-mix(in srgb, var(--primal) 78%, var(--title)) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        0 8px 18px -18px rgba(0, 0, 0, 0.72) !important;
+}
+
+:root.theme-dark .ms-system-settings-actions .ms-system-settings-action i,
+:root.theme-retro .ms-system-settings-actions .ms-system-settings-action i,
+:root.theme-gothic .ms-system-settings-actions .ms-system-settings-action i,
+:root.theme-neon .ms-system-settings-actions .ms-system-settings-action i {
+    color: currentColor !important;
+}
+
+:root.theme-dark .ms-system-settings-actions .ms-system-settings-action:hover,
+:root.theme-retro .ms-system-settings-actions .ms-system-settings-action:hover,
+:root.theme-gothic .ms-system-settings-actions .ms-system-settings-action:hover,
+:root.theme-neon .ms-system-settings-actions .ms-system-settings-action:hover,
+:root.theme-dark .ms-system-settings-actions .ms-system-settings-action:focus-visible,
+:root.theme-retro .ms-system-settings-actions .ms-system-settings-action:focus-visible,
+:root.theme-gothic .ms-system-settings-actions .ms-system-settings-action:focus-visible,
+:root.theme-neon .ms-system-settings-actions .ms-system-settings-action:focus-visible {
+    background:
+        linear-gradient(135deg, rgba(var(--primal-rgb), 0.14), rgba(255, 255, 255, 0.032)) !important;
+    border-color: rgba(var(--primal-rgb), 0.42) !important;
+    color: color-mix(in srgb, var(--primal) 88%, var(--htitle, var(--title))) !important;
+    box-shadow:
+        0 0 0 0.14rem rgba(var(--primal-rgb), 0.1),
+        0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
+}
+
+:root.theme-dark .ms-system-settings-actions .ms-system-settings-action--secondary,
+:root.theme-retro .ms-system-settings-actions .ms-system-settings-action--secondary,
+:root.theme-gothic .ms-system-settings-actions .ms-system-settings-action--secondary,
+:root.theme-neon .ms-system-settings-actions .ms-system-settings-action--secondary {
+    color: color-mix(in srgb, var(--title) 86%, var(--primal)) !important;
+    border-color: rgba(var(--primal-rgb), 0.18) !important;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(var(--primal-rgb), 0.018)) !important;
+}
+
+:root.theme-dark .ms-options-reset-action,
+:root.theme-retro .ms-options-reset-action,
+:root.theme-gothic .ms-options-reset-action,
+:root.theme-neon .ms-options-reset-action {
+    background:
+        linear-gradient(135deg, rgba(248, 113, 113, 0.08), rgba(255, 255, 255, 0.018)) !important;
+    border-color: rgba(248, 113, 113, 0.34) !important;
+    color: #fca5a5 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        0 8px 18px -18px rgba(0, 0, 0, 0.72) !important;
+}
+
+:root.theme-dark .ms-options-reset-action:hover,
+:root.theme-retro .ms-options-reset-action:hover,
+:root.theme-gothic .ms-options-reset-action:hover,
+:root.theme-neon .ms-options-reset-action:hover,
+:root.theme-dark .ms-options-reset-action:focus-visible,
+:root.theme-retro .ms-options-reset-action:focus-visible,
+:root.theme-gothic .ms-options-reset-action:focus-visible,
+:root.theme-neon .ms-options-reset-action:focus-visible {
+    background:
+        linear-gradient(135deg, rgba(248, 113, 113, 0.16), rgba(255, 255, 255, 0.032)) !important;
+    border-color: rgba(248, 113, 113, 0.52) !important;
+    color: #fecaca !important;
+    box-shadow:
+        0 0 0 0.14rem rgba(248, 113, 113, 0.1),
+        0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
+}
+
+:root.theme-dark .ms-options-reset-action i,
+:root.theme-retro .ms-options-reset-action i,
+:root.theme-gothic .ms-options-reset-action i,
+:root.theme-neon .ms-options-reset-action i {
+    color: currentColor !important;
+}
+
+@media (max-width: 900px) {
+    .ms-options-card--wide {
+        grid-column: span 1;
+    }
+}
+
+@media (max-width: 576px) {
+    .ms-options-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .ms-options-panel {
+        padding: 1rem;
+    }
+
+    .ms-options-panel h4 {
+        padding-inline-end: 2.9rem;
+    }
+
+    .ms-options-card-handle {
+        top: 0.8rem;
+        inset-inline-end: 0.8rem;
+        width: 2.15rem;
+        height: 2.15rem;
+    }
+
+    .ms-options-switch-row,
+    .ms-options-toggle-shell,
+    .ms-options-reset-action-shell {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ms-options-inline-switch {
+        align-self: flex-end;
+    }
+}

@@ -3,8 +3,7 @@
 {% for group in groups %}
     <div class="accordion-item sidebar-tree-node sidebar-group-node" data-group-id="{{ group.id }}">
         <h2 class="accordion-header d-flex flex-nowrap align-items-center{% if group.url and group.url != '#' %} has-url-btn{% endif %}">
-            <button class="accordion-button sidebar-folder-button{% if group.has_active %} has-active-child{% endif %}{% if not group.is_open %} collapsed{% endif %}"
-                    style="flex-grow: 1;"
+            <button class="accordion-button sidebar-folder-button flex-grow-1{% if group.has_active %} has-active-child{% endif %}{% if not group.is_open %} collapsed{% endif %}"
                     type="button" 
                     data-bs-toggle="collapse" 
                     data-bs-target="#{{ group.id }}" 

@@ -128,7 +128,7 @@
     {% endfor %}
 
     {# Hidden form for deleting subsections #}
-    <form id="deleteSubsectionForm" method="post" action="" style="display: none;">
+    <form id="deleteSubsectionForm" method="post" action="" class="d-none">
         {% csrf_token %}
     </form>
 
@@ -154,7 +154,7 @@
     {% endif %}
 
     {# Hidden delete form for sections #}
-    <form id="deleteSectionForm" method="post" action="" style="display: none;">
+    <form id="deleteSectionForm" method="post" action="" class="d-none">
         {% csrf_token %}
     </form>
 
@@ -173,39 +173,8 @@
 {% endblock %}
 
 {% block scripts %}
-    {% if id_type %}
-    <script nonce="{{ request.csp_nonce }}">
-        document.getElementById('id_type').addEventListener('change', function() {
-            var type = this.options[this.selectedIndex].text;  // Get the selected Arabic text
-            var nameField = document.getElementById('id_name');
-            nameField.value = type + ' ';  // Set the name field to the title followed by a space
-            nameField.focus();  // Move the focus to the name field
-            nameField.setSelectionRange(nameField.value.length, nameField.value.length);  // Place cursor at the end
-        });
-    </script>
-    {% endif %}
-
-    {% if id_subtype %}
-    <script nonce="{{ request.csp_nonce }}">
-        document.getElementById('id_subtype').addEventListener('change', function() {
-            var type = this.options[this.selectedIndex].text;  // Get the selected Arabic text
-            var nameField = document.getElementById('id_subname');
-            nameField.value = type + ' ';  // Set the name field to the title followed by a space
-            nameField.focus();  // Move the focus to the name field
-            nameField.setSelectionRange(nameField.value.length, nameField.value.length);  // Place cursor at the end
-        });
-    </script>
-    {% endif %}
-
-    <script nonce="{{ request.csp_nonce }}">
-        document.addEventListener('DOMContentLoaded', function() {
-            if (typeof window.initMicrosysDatepickers === 'function') {
-                window.initMicrosysDatepickers(document);
-            }
-        });
-    </script>
-
     {# Section Manager (Smart Delete / View) #}
-    <script src="{% static 'microsys/helpers/context_menu/js/section_manager.js' %}"></script>
+    <script src="{% static 'microsys/helpers/context_menu/js/section_manager.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'microsys/sections/js/manage_sections.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}" defer></script>
 
 {% endblock %}

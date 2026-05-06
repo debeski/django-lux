@@ -100,11 +100,11 @@
             <i class="bi bi-clock-history me-1"></i> {{ MS_TRANS.activity_log|default:"Recent Activity" }}
         </h6>
         
-        <div class="activity-timeline mt-3" style="max-height: 250px; overflow-y: auto; overflow-x: hidden;">
+        <div class="activity-timeline mt-3 ms-user-detail-timeline">
             {% for log in recent_logs %}
                 <div class="timeline-item">
                     <div class="timeline-dot"></div>
-                    <div class="timeline-content p-3 mb-3 glass-card border-0 shadow-sm" style="background: rgba(var(--bs-primary-rgb), 0.03);">
+                    <div class="timeline-content p-3 mb-3 glass-card border-0 shadow-sm ms-user-detail-timeline-content">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="badge bg-secondary-subtle text-secondary border-0 small">
                                 {{ log.action|translate_log:'action' }}
@@ -121,7 +121,7 @@
                 </div>
             {% empty %}
                 <div class="text-center py-4 border rounded bg-light border-dashed">
-                    <i class="bi bi-info-circle text-muted mb-2 d-block" style="font-size: 1.5rem;"></i>
+                    <i class="bi bi-info-circle text-muted mb-2 d-block ms-user-detail-empty-icon"></i>
                     <p class="text-muted mb-0 small italic">{{ MS_TRANS.no_activity_recorded }}</p>
                 </div>
             {% endfor %}

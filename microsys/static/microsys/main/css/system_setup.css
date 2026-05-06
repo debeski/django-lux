@@ -13,6 +13,61 @@
   padding: 1rem 0;
 }
 
+.ms-settings-toggle-field {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.ms-settings-toggle-field__content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ms-settings-toggle-field__label,
+.ms-settings-toggle-field__help {
+  overflow-wrap: anywhere;
+}
+
+.ms-settings-toggle-field__control {
+  margin-inline-start: auto;
+  padding-inline-start: 0.25rem;
+  align-self: flex-start;
+}
+
+.ms-settings-toggle-field__control .form-check-input {
+  max-width: 100%;
+}
+
+@container (max-width: 14rem) {
+  .ms-settings-toggle-field {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+
+  .ms-settings-toggle-field__label {
+    font-size: 0.95rem;
+    line-height: 1.18;
+  }
+
+  .ms-settings-toggle-field__help {
+    font-size: 0.76rem;
+    line-height: 1.2;
+    margin-top: 0.45rem !important;
+  }
+
+  .ms-settings-toggle-field__control {
+    width: 100%;
+    margin-inline-start: 0;
+    padding-inline-start: 0;
+    display: flex;
+    justify-content: flex-end;
+    align-self: stretch;
+  }
+}
+
 .ms-sidebar-dependent-settings.is-disabled {
   opacity: 0.58;
 }

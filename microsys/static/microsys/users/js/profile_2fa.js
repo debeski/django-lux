@@ -27,6 +27,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    document.body.addEventListener('submit', function(e) {
+        const revokeForm = e.target.closest('.profile-session-revoke-form');
+        if (!revokeForm) return;
+        e.preventDefault();
+        confirmSessionRevoke(revokeForm);
+    });
+
     if (otpSetupForm) {
         otpSetupForm.addEventListener('submit', submitOTPSetup);
     }
@@ -398,13 +405,31 @@ function downloadCodes(codes) {
 
 // Helper for Confirmation Modal
 function showConfirmation(message, onConfirm) {
+    const config = typeof message === 'object' && message !== null
+        ? message
+        : { message, onConfirm };
     const modalEl = document.getElementById('confirmationModal');
     const msgEl = document.getElementById('confirmationMessage');
     const btnEl = document.getElementById('confirmationConfirmBtn');
+    const passwordWrap = document.getElementById('confirmationPasswordWrap');
+    const passwordInput = document.getElementById('confirmationPasswordInput');
+    const passwordError = document.getElementById('confirmationPasswordError');
     
     if (!modalEl || !msgEl || !btnEl) return;
     
-    msgEl.textContent = message;
+    msgEl.textContent = config.message || '';
+    const requirePassword = !!config.requirePassword;
+    if (passwordWrap) {
+        passwordWrap.classList.toggle('d-none', !requirePassword);
+    }
+    if (passwordInput) {
+        passwordInput.value = '';
+        passwordInput.required = requirePassword;
+    }
+    if (passwordError) {
+        passwordError.textContent = '';
+        passwordError.classList.add('d-none');
+    }
     
     // Create new modal instance
     const modal = new bootstrap.Modal(modalEl);
@@ -414,11 +439,25 @@ function showConfirmation(message, onConfirm) {
     btnEl.parentNode.replaceChild(newBtn, btnEl);
     
     newBtn.addEventListener('click', function() {
+        const currentPassword = passwordInput ? passwordInput.value.trim() : '';
+        if (requirePassword && !currentPassword) {
+            if (passwordError) {
+                passwordError.textContent = passwordInput?.dataset.requiredMsg || 'Please enter your current password.';
+                passwordError.classList.remove('d-none');
+            }
+            if (passwordInput) passwordInput.focus();
+            return;
+        }
         modal.hide();
-        onConfirm();
+        if (typeof config.onConfirm === 'function') {
+            config.onConfirm(currentPassword);
+        }
     });
     
     modal.show();
+    if (requirePassword && passwordInput) {
+        setTimeout(() => passwordInput.focus(), 150);
+    }
 }
 
 function disable2FA(e) {
@@ -428,7 +467,10 @@ function disable2FA(e) {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || document.getElementById('otpSetupForm').dataset.csrf;
     const confirmMsg = btn.dataset.confirmMsg || 'Are you sure?';
     
-    showConfirmation(confirmMsg, function() {
+    showConfirmation({
+        message: confirmMsg,
+        requirePassword: true,
+        onConfirm: function(currentPassword) {
         setButtonLoading(btn, true);
         fetch(url, {
             method: 'POST',
@@ -437,7 +479,7 @@ function disable2FA(e) {
                 'X-CSRFToken': csrfToken,
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: `method=${method}`
+            body: `method=${encodeURIComponent(method)}&current_password=${encodeURIComponent(currentPassword)}`
         })
         .then(res => res.json())
         .then(data => {
@@ -452,6 +494,7 @@ function disable2FA(e) {
             alert('Server connection error');
         })
         .finally(() => setButtonLoading(btn, false));
+        }
     });
 }
 
@@ -459,7 +502,7 @@ function handleBackupCodes(e) {
     const btn = e.target.closest('button');
     const url = btn.dataset.url;
     
-    const performGeneration = () => {
+    const performGeneration = (currentPassword) => {
         const container = document.getElementById('backupCodesContainer');
         setButtonLoading(btn, true);
         
@@ -480,9 +523,11 @@ function handleBackupCodes(e) {
         fetch(url, {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'X-CSRFToken': csrfToken,
                 'X-Requested-With': 'XMLHttpRequest'
-            }
+            },
+            body: `current_password=${encodeURIComponent(currentPassword)}`
         })
         .then(res => res.json())
         .then(data => {
@@ -509,7 +554,27 @@ function handleBackupCodes(e) {
 
     // Confirmation before generating new codes
     const confirmMsg = btn.dataset.confirmMsg || 'Are you sure?';
-    showConfirmation(confirmMsg, performGeneration);
+    showConfirmation({
+        message: confirmMsg,
+        requirePassword: true,
+        onConfirm: performGeneration,
+    });
+}
+
+function confirmSessionRevoke(form) {
+    const hiddenPasswordInput = form.querySelector('input[name="current_password"]');
+    const confirmMsg = form.dataset.confirmMsg || 'Are you sure?';
+
+    showConfirmation({
+        message: confirmMsg,
+        requirePassword: true,
+        onConfirm: function(currentPassword) {
+            if (hiddenPasswordInput) {
+                hiddenPasswordInput.value = currentPassword;
+            }
+            form.submit();
+        }
+    });
 }
 
 function downloadBackupCodes() {

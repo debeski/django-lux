@@ -55,7 +55,9 @@ from django.urls import clear_url_caches
 from django.core.files.uploadedfile import SimpleUploadedFile
 from types import SimpleNamespace
 from unittest.mock import call, patch
+from pathlib import Path
 import json
+import re
 
 from microsys.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, LEGACY_HOME_URL
 from microsys.forms import SystemSettingsForm
@@ -245,6 +247,20 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-translation-group-tab="microsys"', html)
         self.assertNotIn('data-setup-language-picker', html)
 
+    def test_setup_identity_step_uses_microsys_file_widget_for_import_logo_and_favicon(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertEqual(html.count('data-archive-file-widget'), 3)
+        self.assertIn('data-settings-import-file="true"', html)
+        self.assertIn('id="id_settings_import_file"', html)
+        self.assertIn('id="id_logo"', html)
+        self.assertIn('id="id_favicon"', html)
+
     def test_setup_form_import_file_overrides_posted_setup_values_on_initial_import(self):
         """On initial import (JS populated, flag not set), import overrides posted defaults."""
         payload = {
@@ -400,6 +416,82 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('<fieldset aria-describedby="id_default_table_density_helptext">', html)
         self.assertNotIn('<fieldset> <legend', html)
 
+    def test_crispy_setup_render_uses_shared_toggle_cards_for_boolean_settings_across_steps(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn("data-ms-settings-toggle-field='allow_user_language_override'", html)
+        self.assertIn("data-ms-settings-toggle-field='public_root'", html)
+        self.assertIn("data-ms-settings-toggle-field='email_config_use_tls'", html)
+        self.assertIn("data-ms-settings-toggle-field='sidebar_enabled'", html)
+        self.assertIn("data-ms-settings-toggle-field='sidebar_enable_toolbar'", html)
+        self.assertIn("data-ms-settings-toggle-field='allow_user_theme_override'", html)
+        self.assertIn("data-ms-settings-toggle-field='titlebar_show_title'", html)
+        self.assertIn('data-ms-settings-toggle-field=\'allow_user_language_override\'', html)
+        self.assertIn('class="row mb-3"', html)
+        self.assertIn('class="row g-3 mb-3"', html)
+        self.assertIn('data-ms-settings-toggle-field=\'titlebar_show_home_button\'', html)
+
+    def test_setup_form_hides_public_registration_dependents_until_enabled(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False, public_registration_enabled=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('ms-public-registration-dependent d-none', html)
+        self.assertIn('data-public-registration-dependent="true"', html)
+        self.assertIn('aria-hidden="true"', html)
+        self.assertIn('data-ms-settings-toggle-field=\'public_registration_enabled\'', html)
+        self.assertIn('class="col-lg-12" > <div class=\'ms-settings-toggle-field', html)
+
+    def test_setup_form_shows_public_registration_dependents_when_enabled(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False, public_registration_enabled=True),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+        dependent_class_start = html.index('ms-public-registration-dependent')
+        dependent_class_end = html.index('>', dependent_class_start)
+
+        self.assertNotIn('d-none', html[dependent_class_start:dependent_class_end])
+        self.assertIn('aria-hidden="false"', html[dependent_class_start:dependent_class_end])
+        self.assertIn('class="col-lg-6 ms-public-registration-dependent"', html)
+
+    @override_settings(MICROSYS_CONFIG={})
+    def test_setup_wizard_actions_align_to_direction_end_in_ltr(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('ms-setup-wizard-actions', html)
+        self.assertIn("dir='ltr'", html)
+        self.assertIn('justify-content-end', html)
+        self.assertNotIn('justify-content-between align-items-center gap-2 mt-4', html)
+
+    @override_settings(MICROSYS_CONFIG={'default_language': 'ar'})
+    def test_setup_wizard_actions_align_to_direction_end_in_rtl(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False, default_language='ar'),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('ms-setup-wizard-actions', html)
+        self.assertIn("dir='rtl'", html)
+        self.assertIn('justify-content-end', html)
+        self.assertNotIn('justify-content-between align-items-center gap-2 mt-4', html)
+
     def test_setup_form_rejects_empty_allowed_themes(self):
         form = SystemSettingsForm(
             data={
@@ -541,6 +633,173 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertNotEqual(email_config['encrypted_password'], 'app-secret-pass')
         self.assertEqual(decrypt_email_secret(email_config['encrypted_password']), 'app-secret-pass')
         self.assertTrue(email_config['password_configured'])
+
+    def test_setup_form_hides_email_password_field_for_env_secret_storage(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False, email_config={
+                'transport': 'relay',
+                'secret_storage': 'env',
+                'host': 'smtp.example.com',
+                'port': 587,
+                'default_from_email': 'security@example.com',
+            }),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('ms-email-config-password-field d-none', html)
+
+    def test_setup_form_shows_email_password_field_for_encrypted_db_secret_storage(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False, email_config={
+                'transport': 'relay',
+                'secret_storage': 'encrypted_db',
+                'host': 'smtp.example.com',
+                'port': 587,
+                'default_from_email': 'security@example.com',
+            }),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+        password_class_start = html.index('ms-email-config-password-field')
+        password_class_end = html.index('>', password_class_start)
+
+        self.assertNotIn('d-none', html[password_class_start:password_class_end])
+
+    def test_system_setup_js_toggles_email_password_and_previews_default_language(self):
+        script = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'js' / 'system_setup.js'
+        contents = script.read_text(encoding='utf-8')
+
+        self.assertIn('ms-email-config-password-field', contents)
+        self.assertIn("secretStorageInput.value === 'encrypted_db'", contents)
+        self.assertIn('previewSetupDefaultLanguage', contents)
+        self.assertIn('window.setLanguage(normalizedLanguage, { previewOnly: true })', contents)
+        self.assertIn("input.matches('[data-language-default]')", contents)
+        self.assertIn('#id_sidebar_enable_toolbar, #id_sidebar_enabled', contents)
+        self.assertIn('data-public-registration-dependent', contents)
+        self.assertIn("setNamedFieldDisabled(form, 'registration_activation_mode', !enabled)", contents)
+        self.assertIn("setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled)", contents)
+
+    def test_user_hub_css_clamps_mobile_dropdown_to_viewport(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'users' / 'css' / 'user_hub.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('width: min(var(--ms-dropdown-width), calc(100vw - (var(--ms-dropdown-edge-gap) * 2)))', contents)
+        self.assertIn('@media (max-width: 575.98px)', contents)
+        self.assertIn('position: fixed', contents)
+        self.assertIn('inset-inline: var(--ms-dropdown-edge-gap)', contents)
+        self.assertIn('overflow-y: auto', contents)
+        self.assertIn('flex-wrap: wrap;', contents)
+        self.assertIn('justify-content: center;', contents)
+        self.assertIn('width: auto;', contents)
+
+    def test_selector_css_adds_vertical_padding_for_toggle_card_grids(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'selectors.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.ms-choice-selector--toggle .ms-choice-selector__options {', contents)
+        self.assertIn('padding-block: 0.8rem;', contents)
+        self.assertIn('align-self: stretch;', contents)
+
+    def test_system_setup_css_makes_shared_toggle_cards_reflow_inside_narrow_columns(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'system_setup.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.ms-settings-toggle-field {', contents)
+        self.assertIn('container-type: inline-size;', contents)
+        self.assertIn('.ms-settings-toggle-field__content {', contents)
+        self.assertIn('.ms-settings-toggle-field__control {', contents)
+        self.assertIn('@container (max-width: 14rem)', contents)
+        self.assertIn('flex-direction: column;', contents)
+        self.assertIn('justify-content: flex-end;', contents)
+
+    def test_options_template_uses_external_assets_and_draggable_cards(self):
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'includes' / 'options.html'
+        contents = template_path.read_text(encoding='utf-8')
+
+        self.assertIn("microsys/main/css/options.css", contents)
+        self.assertIn("microsys/main/js/options.js", contents)
+        self.assertIn('id="msOptionsGrid"', contents)
+        self.assertIn('data-options-card="system-info"', contents)
+        self.assertIn('data-options-card="autofill"', contents)
+        self.assertIn('data-options-card="reset-defaults"', contents)
+        self.assertIn('data-options-card-handle', contents)
+        self.assertIn('id="autofillToggle"', contents)
+        self.assertIn('id="btnResetInit"', contents)
+        self.assertIn('id="resetActions"', contents)
+        self.assertNotIn('<style nonce=', contents)
+        self.assertNotIn('<script nonce=', contents)
+
+    def test_options_assets_define_shared_card_system_and_reorder_logic(self):
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'options.css'
+        js_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'js' / 'options.js'
+
+        css_contents = css_path.read_text(encoding='utf-8')
+        js_contents = js_path.read_text(encoding='utf-8')
+
+        self.assertIn('.ms-options-panel {', css_contents)
+        self.assertIn('.ms-options-card-handle {', css_contents)
+        self.assertIn('.ms-options-card--wide {', css_contents)
+        self.assertIn('OPTIONS_ORDER_STORAGE_KEY', js_contents)
+        self.assertIn('data-options-card-handle', js_contents)
+        self.assertIn('persistCardOrder(grid, storageKey)', js_contents)
+
+    def test_setup_form_render_does_not_emit_inline_style_attributes(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertNotIn(' style=', html)
+
+    def test_templates_do_not_embed_inline_style_blocks_or_executable_inline_scripts(self):
+        templates_root = Path(__file__).resolve().parents[1] / 'templates'
+        inline_script_pattern = re.compile(
+            r'<script\b(?![^>]*\bsrc=)(?![^>]*\btype=(["\'])application/json\1)[^>]*>',
+            re.IGNORECASE,
+        )
+        violations = []
+
+        for path in sorted(templates_root.rglob('*.html')):
+            contents = path.read_text(encoding='utf-8')
+            if re.search(r'<style\b', contents, re.IGNORECASE):
+                violations.append(f'{path.relative_to(templates_root)}:style-block')
+            if inline_script_pattern.search(contents):
+                violations.append(f'{path.relative_to(templates_root)}:inline-script')
+
+        self.assertEqual(violations, [])
+
+    def test_template_html_emitters_do_not_hardcode_inline_css_or_js(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        emitter_paths = [
+            repo_root / 'microsys' / 'forms.py',
+            repo_root / 'microsys' / 'widgets.py',
+        ]
+        inline_script_pattern = re.compile(
+            r'<script\b(?![^>]*\bsrc=)(?![^>]*\btype=(["\'])application/json\1)[^>]*>',
+            re.IGNORECASE,
+        )
+
+        for path in emitter_paths:
+            contents = path.read_text(encoding='utf-8')
+            self.assertNotIn('style=', contents, str(path))
+            self.assertNotIn('<style', contents, str(path))
+            self.assertIsNone(inline_script_pattern.search(contents), str(path))
+
+    def test_templates_do_not_use_inline_style_attributes(self):
+        templates_root = Path(__file__).resolve().parents[1] / 'templates'
+        violations = []
+
+        for path in sorted(templates_root.rglob('*.html')):
+            for lineno, line in enumerate(path.read_text(encoding='utf-8').splitlines(), start=1):
+                if 'style=' in line:
+                    violations.append(f'{path.relative_to(templates_root)}:{lineno}')
+
+        self.assertEqual(violations, [])
 
     def test_system_settings_export_redacts_email_secret_and_preserves_sidebar_enabled(self):
         settings_obj = SystemSettings(

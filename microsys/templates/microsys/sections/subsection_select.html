@@ -20,10 +20,9 @@
     {% if checkbox.data.value|stringformat:"s" in locked_ids %}
         <div class="position-relative d-inline-block">
             <input type="checkbox" name="{{ checkbox.data.name }}" value="{{ checkbox.data.value }}" class="btn-check" id="{{ checkbox_id }}" checked disabled>
-            <label class="btn btn-outline-secondary opacity-75 subsection-checkbox-label" 
+            <label class="btn btn-outline-secondary opacity-75 subsection-checkbox-label ms-subsection-checkbox-label ms-subsection-checkbox-label--locked" 
                    for="{{ checkbox_id }}" 
                    title="{{ MS_TRANS.subsection_locked_tooltip }}" 
-                   style="cursor: not-allowed; font-size: 1.1rem;"
                    data-sub-id="{{ checkbox.data.value }}"
                    data-sub-name="{{ checkbox.choice_label }}"
                    data-micro-context="true"
@@ -41,9 +40,8 @@
                class="btn-check" 
                id="{{ checkbox_id }}" 
                {% if checkbox.data.selected %}checked{% endif %}>
-        <label class="btn btn-outline-secondary subsection-checkbox-label" 
+        <label class="btn btn-outline-secondary subsection-checkbox-label ms-subsection-checkbox-label" 
                for="{{ checkbox_id }}" 
-               style="font-size: 1.1rem;"
                data-sub-id="{{ checkbox.data.value }}"
                data-sub-name="{{ checkbox.choice_label }}"
                data-micro-context="true"
@@ -75,14 +73,3 @@
 
 <!-- Delete Form (hidden, used by JS) -->
 
-
-<!-- Include JS -->
-<!-- Include Micro Context Menu -->
-<script nonce="{{ request.csp_nonce }}">
-  (function() {
-    if (!window.bootstrap || !window.bootstrap.Tooltip) return;
-    document.querySelectorAll('.subsection-help[data-bs-toggle="tooltip"]').forEach(function(el) {
-      bootstrap.Tooltip.getOrCreateInstance(el, { container: 'body' });
-    });
-  })();
-</script>

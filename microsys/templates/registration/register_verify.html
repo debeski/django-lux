@@ -3,7 +3,7 @@
 {% block titlebar %}{% endblock %}
 
 {% block layout %}
-<main class="container py-5" style="max-width: 640px;">
+<main class="container py-5 ms-register-main">
     {% if status == 'activated' %}
         <h1 class="h3 mb-3">{{ MS_TRANS.account_verified|default:'Account verified' }}</h1>
         <p>{{ MS_TRANS.account_active_signed_in|default:'Your account is active and you are signed in.' }}</p>

@@ -5,45 +5,54 @@
 
 {% block extra_head %}
     {% include "microsys/forms/assets_head.html" %}
-    <link rel="stylesheet" href="{% static 'microsys/accessibility/css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/options.css' %}?v=20260506a">
 {% endblock %}
 
 {% block content %}
     <h2 class="page-title mb-4"><i class="bi bi-gear me-2"></i> {{ MS_TRANS.options_title }}</h2>
 
-    <div class="ms-options-grid">
+    <div class="ms-options-grid"
+         id="msOptionsGrid"
+         data-options-order-storage-key="microsys.options.card-order.v1">
         <!-- Accessibility Section -->
-        <div class="ms-options-card no-print">
-            <div class="glass-profile option-section h-100">
+        <div class="ms-options-card no-print" data-options-card="accessibility">
+            <div class="glass-profile option-section h-100 ms-options-panel">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
                 <h4 class="mb-3"><i class="bi bi-eye me-2"></i> {{ MS_TRANS.accessibility }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.accessibility_desc }}</p>
 
-                <div class="d-grid gap-3">
-                    <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
+                <div class="d-grid gap-3 ms-options-switch-list">
+                    <div class="ms-options-switch-row">
                         <span>{{ MS_TRANS.high_contrast }}</span>
                         <div class="form-check form-switch">
                             <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="high-contrast">
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
+                    <div class="ms-options-switch-row">
                         <span>{{ MS_TRANS.grayscale }}</span>
                         <div class="form-check form-switch">
                             <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="grayscale">
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
+                    <div class="ms-options-switch-row">
                         <span>{{ MS_TRANS.invert }}</span>
                         <div class="form-check form-switch">
                             <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="invert">
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
+                    <div class="ms-options-switch-row">
                         <span>{{ MS_TRANS.large_text }}</span>
                         <div class="form-check form-switch">
                             <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="large-text">
                         </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
+                    <div class="ms-options-switch-row">
                         <span>{{ MS_TRANS.no_animations }}</span>
                         <div class="form-check form-switch">
                             <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="no-animations">
@@ -55,8 +64,15 @@
 
         {% if show_system_diagnostics %}
         <!-- System Info Section -->
-        <div class="ms-options-card ms-options-card--wide">
-            <div class="glass-profile option-section h-100">
+        <div class="ms-options-card ms-options-card--wide" data-options-card="system-info">
+            <div class="glass-profile option-section h-100 ms-options-panel">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
                 <h4 class="mb-3"><i class="bi bi-info-circle me-2"></i> {{ MS_TRANS.system_info }}</h4>
                 <div class="table-responsive ms-options-system-info-table">
                 <table class="table table-sm table-borderless mt-4">
@@ -67,11 +83,11 @@
                     <tr>
                         <th width="40%">{{ MS_TRANS.storage }}:</th>
                         <td class="dir-ltr font-monospace">
-                            <div class="d-flex dir-ltr-inline-end align-items-center gap-2" style="white-space: nowrap;">
+                            <div class="d-flex dir-ltr-inline-end align-items-center gap-2 ms-options-storage-row">
                                 <span>{{ disk_used }}GB / {{ disk_total }}GB</span>
-                                <div class="progress flex-shrink-0" style="width: 90px; height: 6px;">
+                                <div class="progress flex-shrink-0 ms-options-storage-progress">
                                     <div class="progress-bar {% if disk_percent > 90 %}bg-danger{% elif disk_percent > 70 %}bg-warning{% else %}bg-success{% endif %}"
-                                        role="progressbar" style="width: {{ disk_percent }}%;"
+                                        role="progressbar" data-inline-width="{{ disk_percent }}%"
                                         aria-valuenow="{{ disk_percent }}" aria-valuemin="0" aria-valuemax="100">
                                     </div>
                                 </div>
@@ -195,7 +211,14 @@
 
                 {% if config.allow_user_theme_override and MICROSYS_THEMES|length > 1 %}
                 <div class="ms-options-card no-print" data-options-card="theme">
-                    <div class="glass-profile option-section h-100">
+                    <div class="glass-profile option-section h-100 ms-options-panel">
+                        <button class="ms-options-card-handle"
+                                type="button"
+                                data-options-card-handle
+                                aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                                title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                            <i class="bi bi-grip-vertical"></i>
+                        </button>
                         <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
                         <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
                         {% include 'microsys/includes/theme_previews.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
@@ -205,7 +228,14 @@
 
                 {% if language_picker_enabled %}
                 <div class="ms-options-card no-print" data-options-card="language">
-                    <div class="glass-profile option-section h-100">
+                    <div class="glass-profile option-section h-100 ms-options-panel">
+                        <button class="ms-options-card-handle"
+                                type="button"
+                                data-options-card-handle
+                                aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                                title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                            <i class="bi bi-grip-vertical"></i>
+                        </button>
                         <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ MS_TRANS.language }}</h4>
                         <p class="text-muted small mb-4">{{ MS_TRANS.language_desc }}</p>
 
@@ -219,7 +249,14 @@
             {% else %}
 
                 <div class="ms-options-card no-print" data-options-card="theme-language">
-                    <div class="glass-profile option-section h-100">
+                    <div class="glass-profile option-section h-100 ms-options-panel">
+                        <button class="ms-options-card-handle"
+                                type="button"
+                                data-options-card-handle
+                                aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                                title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                            <i class="bi bi-grip-vertical"></i>
+                        </button>
 
                         {% if config.allow_user_theme_override and MICROSYS_THEMES|length > 1 %}
                             <div class="mb-4">
@@ -254,8 +291,15 @@
         {% endif %}
 
         <!-- Table Density -->
-        <div class="ms-options-card no-print">
-            <div class="glass-profile option-section h-100">
+        <div class="ms-options-card no-print" data-options-card="table-density">
+            <div class="glass-profile option-section h-100 ms-options-panel">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
                 <h4 class="mb-3"><i class="bi bi-table me-2"></i> {{ MS_TRANS.table_density|default:"Table Density" }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.table_density_desc|default:"Control how much vertical space data tables use while you work." }}</p>
                 {% include 'microsys/includes/table_density_previews.html' with selected_density=user_preferences.table_density|default:APP_CONFIG.default_table_density picker_mode='options' density_choices=MICROSYS_TABLE_DENSITIES MS_TRANS=MS_TRANS %}
@@ -265,7 +309,14 @@
         {% if config.sidebar.allow_user_density %}
         <!-- Sidebar Density -->
         <div class="ms-options-card no-print" data-options-card="sidebar-density">
-            <div class="glass-profile option-section h-100">
+            <div class="glass-profile option-section h-100 ms-options-panel">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
                 <h4 class="mb-3"><i class="bi bi-layout-sidebar-inset me-2"></i> {{ MS_TRANS.sidebar_density|default:"Sidebar Density" }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.sidebar_density_desc|default:"Control how much vertical space the sidebar navigation uses while you work." }}</p>
                 {% include 'microsys/includes/sidebar_density_previews.html' with selected_density=user_preferences.sidebar_density|default:sidebar_density|default:config.sidebar.density picker_mode='options' density_choices=MICROSYS_TABLE_DENSITIES MS_TRANS=MS_TRANS %}
@@ -274,36 +325,51 @@
         {% endif %}
 
         <!-- Autofill -->
-        <div class="ms-options-card no-print">
-            <div class="glass-profile option-section h-100">
+        <div class="ms-options-card no-print" data-options-card="autofill">
+            <div class="glass-profile option-section h-100 ms-options-panel">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
                 <h4 class="mb-3"><i class="bi bi-magic me-2"></i> {{ MS_TRANS.autofill }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.autofill_desc }}</p>
-
-                <div class="d-flex justify-content-between align-items-center p-3 border rounded bg-light">
-                    <span>{{ MS_TRANS.on_off }}</span>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="autofillToggle" checked>
+                <div class="ms-options-toggle-shell">
+                    <span class="ms-options-toggle-label">{{ MS_TRANS.on_off }}</span>
+                    <div class="form-check form-switch ms-options-inline-switch">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="autofillToggle"
+                               checked
+                               data-enabled-message="{{ MS_TRANS.autofill_enabled }}"
+                               data-disabled-message="{{ MS_TRANS.autofill_disabled }}">
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Reset Defaults -->
-        <div class="ms-options-card no-print">
-            <div class="glass-profile option-section h-100 border-danger">
-                <h4 class="mb-3 text-danger"><i class="bi bi-exclamation-triangle me-2"></i> {{ MS_TRANS.reset_defaults }}</h4>
+        <div class="ms-options-card no-print" data-options-card="reset-defaults">
+            <div class="glass-profile option-section h-100 ms-options-panel ms-options-panel--danger"
+                 data-reset-url="{% url 'reset_preferences' %}"
+                 data-reset-success="{{ MS_TRANS.reset_success }}"
+                 data-reset-error="{{ MS_TRANS.reset_error|default:'Unable to reset preferences.' }}">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3 text-danger"><i class="bi bi-arrow-counterclockwise me-2"></i> {{ MS_TRANS.reset_defaults }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.reset_desc }}</p>
-
-                <div class="d-flex justify-content-end align-items-center p-3 border border-danger rounded bg-light ms-options-reset-action-shell">
-                    <!-- <span class="text-danger fw-bold">{{ MS_TRANS.reset_btn }}</span> -->
-
-                    <!-- Initial Reset Button -->
+                <div class="ms-options-reset-action-shell">
                     <button class="btn btn-outline-danger btn-sm ms-options-reset-action" id="btnResetInit">
                         <i class="bi bi-arrow-counterclockwise me-1"></i> {{ MS_TRANS.reset_btn }}
                     </button>
-
-                    <!-- Confirm/Cancel Actions (Hidden initially) -->
-                    <div id="resetActions" style="display: none;">
+                    <div id="resetActions" class="ms-options-reset-actions" hidden>
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-danger btn-sm" id="btnResetConfirm">
                                 <i class="bi bi-check-lg me-1"></i> {{ MS_TRANS.confirm }}
@@ -319,8 +385,15 @@
 
         {% if user.is_superuser %}
         <!-- System Settings -->
-        <div class="ms-options-card">
-            <div class="glass-profile option-section h-100">
+        <div class="ms-options-card" data-options-card="system-settings">
+            <div class="glass-profile option-section h-100 ms-options-panel">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
                 <h4 class="mb-3"><i class="bi bi-sliders me-2"></i> {{ MS_TRANS.system_settings_label }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.system_settings_desc }}</p>
                 <div class="d-grid gap-2 ms-system-settings-actions">
@@ -358,367 +431,9 @@
         </div>
         {% endif %}
     </div>
+{% endblock %}
 
-    <style nonce="{{ request.csp_nonce }}">
-        .ms-options-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.5rem;
-            align-items: stretch;
-        }
-        @media (max-width: 576px) {
-            .ms-options-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-        }
-        .ms-options-card {
-            min-width: 0; /* Prevent grid blowout */
-        }
-        .ms-options-card--wide {
-            grid-column: span 2;
-        }
-        .ms-options-system-info-table {
-            max-width: 100%;
-        }
-        .ms-options-system-info-table th,
-        .ms-options-system-info-table td {
-            overflow-wrap: anywhere;
-            word-break: normal;
-        }
-        .ms-system-settings-actions .ms-system-settings-action {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.15rem;
-            min-height: 2.62rem;
-        }
-        :root.theme-dark .ms-system-settings-actions .ms-system-settings-action,
-        :root.theme-retro .ms-system-settings-actions .ms-system-settings-action,
-        :root.theme-gothic .ms-system-settings-actions .ms-system-settings-action,
-        :root.theme-neon .ms-system-settings-actions .ms-system-settings-action {
-            background:
-                linear-gradient(135deg, rgba(var(--primal-rgb), 0.075), rgba(255, 255, 255, 0.018)) !important;
-            border-color: rgba(var(--primal-rgb), 0.26) !important;
-            color: color-mix(in srgb, var(--primal) 78%, var(--title)) !important;
-            box-shadow:
-                inset 0 1px 0 rgba(255, 255, 255, 0.035),
-                0 8px 18px -18px rgba(0, 0, 0, 0.72) !important;
-        }
-        :root.theme-dark .ms-system-settings-actions .ms-system-settings-action i,
-        :root.theme-retro .ms-system-settings-actions .ms-system-settings-action i,
-        :root.theme-gothic .ms-system-settings-actions .ms-system-settings-action i,
-        :root.theme-neon .ms-system-settings-actions .ms-system-settings-action i {
-            color: currentColor !important;
-        }
-        :root.theme-dark .ms-system-settings-actions .ms-system-settings-action:hover,
-        :root.theme-retro .ms-system-settings-actions .ms-system-settings-action:hover,
-        :root.theme-gothic .ms-system-settings-actions .ms-system-settings-action:hover,
-        :root.theme-neon .ms-system-settings-actions .ms-system-settings-action:hover,
-        :root.theme-dark .ms-system-settings-actions .ms-system-settings-action:focus-visible,
-        :root.theme-retro .ms-system-settings-actions .ms-system-settings-action:focus-visible,
-        :root.theme-gothic .ms-system-settings-actions .ms-system-settings-action:focus-visible,
-        :root.theme-neon .ms-system-settings-actions .ms-system-settings-action:focus-visible {
-            background:
-                linear-gradient(135deg, rgba(var(--primal-rgb), 0.14), rgba(255, 255, 255, 0.032)) !important;
-            border-color: rgba(var(--primal-rgb), 0.42) !important;
-            color: color-mix(in srgb, var(--primal) 88%, var(--htitle, var(--title))) !important;
-            box-shadow:
-                0 0 0 0.14rem rgba(var(--primal-rgb), 0.1),
-                0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
-        }
-        :root.theme-dark .ms-system-settings-actions .ms-system-settings-action--secondary,
-        :root.theme-retro .ms-system-settings-actions .ms-system-settings-action--secondary,
-        :root.theme-gothic .ms-system-settings-actions .ms-system-settings-action--secondary,
-        :root.theme-neon .ms-system-settings-actions .ms-system-settings-action--secondary {
-            color: color-mix(in srgb, var(--title) 86%, var(--primal)) !important;
-            border-color: rgba(var(--primal-rgb), 0.18) !important;
-            background:
-                linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(var(--primal-rgb), 0.018)) !important;
-        }
-        .ms-options-reset-action {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.12rem;
-        }
-        :root.theme-dark .ms-options-reset-action-shell,
-        :root.theme-retro .ms-options-reset-action-shell,
-        :root.theme-gothic .ms-options-reset-action-shell,
-        :root.theme-neon .ms-options-reset-action-shell {
-            background:
-                linear-gradient(135deg, rgba(248, 113, 113, 0.045), rgba(255, 255, 255, 0.018)) !important;
-            border-color: rgba(248, 113, 113, 0.24) !important;
-        }
-        :root.theme-dark .ms-options-reset-action,
-        :root.theme-retro .ms-options-reset-action,
-        :root.theme-gothic .ms-options-reset-action,
-        :root.theme-neon .ms-options-reset-action {
-            background:
-                linear-gradient(135deg, rgba(248, 113, 113, 0.08), rgba(255, 255, 255, 0.018)) !important;
-            border-color: rgba(248, 113, 113, 0.34) !important;
-            color: #fca5a5 !important;
-            box-shadow:
-                inset 0 1px 0 rgba(255, 255, 255, 0.035),
-                0 8px 18px -18px rgba(0, 0, 0, 0.72) !important;
-        }
-        :root.theme-dark .ms-options-reset-action:hover,
-        :root.theme-retro .ms-options-reset-action:hover,
-        :root.theme-gothic .ms-options-reset-action:hover,
-        :root.theme-neon .ms-options-reset-action:hover,
-        :root.theme-dark .ms-options-reset-action:focus-visible,
-        :root.theme-retro .ms-options-reset-action:focus-visible,
-        :root.theme-gothic .ms-options-reset-action:focus-visible,
-        :root.theme-neon .ms-options-reset-action:focus-visible {
-            background:
-                linear-gradient(135deg, rgba(248, 113, 113, 0.16), rgba(255, 255, 255, 0.032)) !important;
-            border-color: rgba(248, 113, 113, 0.52) !important;
-            color: #fecaca !important;
-            box-shadow:
-                0 0 0 0.14rem rgba(248, 113, 113, 0.1),
-                0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
-        }
-        :root.theme-dark .ms-options-reset-action i,
-        :root.theme-retro .ms-options-reset-action i,
-        :root.theme-gothic .ms-options-reset-action i,
-        :root.theme-neon .ms-options-reset-action i {
-            color: currentColor !important;
-        }
-        @media (max-width: 900px) {
-            .ms-options-card--wide {
-                grid-column: span 1;
-            }
-        }
-    </style>
-        <script nonce="{{ request.csp_nonce }}">
-            document.addEventListener('DOMContentLoaded', () => {
-                // --- Autofill Logic ---
-                const toggle = document.getElementById('autofillToggle');
-                const densityPicker = document.querySelector('.ms-table-density-picker:not([data-setup-table-density-picker]):not(.ms-sidebar-density-picker)');
-                const densityOptions = densityPicker ? Array.from(densityPicker.querySelectorAll('.ms-density-option[data-table-density]')) : [];
-                const sidebarDensityPicker = document.querySelector('.ms-sidebar-density-picker');
-                const sidebarDensityOptions = sidebarDensityPicker ? Array.from(sidebarDensityPicker.querySelectorAll('.ms-density-option[data-sidebar-density]')) : [];
-                const currentDensity = (window.USER_PREFS && window.USER_PREFS.table_density) || '{{ user_preferences.table_density|default:APP_CONFIG.default_table_density }}';
-                const currentSidebarDensity = (window.USER_PREFS && window.USER_PREFS.sidebar_density) || '{{ user_preferences.sidebar_density|default:sidebar_density|default:config.sidebar.density }}';
-
-                function updateTableDensityUI(activeDensity) {
-                    densityOptions.forEach((option) => {
-                        option.classList.toggle('is-active', option.getAttribute('data-table-density') === activeDensity);
-                    });
-                }
-
-                function updateSidebarDensityUI(activeDensity) {
-                    sidebarDensityOptions.forEach((option) => {
-                        option.classList.toggle('is-active', option.getAttribute('data-sidebar-density') === activeDensity);
-                    });
-                }
-
-                updateTableDensityUI(currentDensity);
-                updateSidebarDensityUI(currentSidebarDensity);
-                
-                function toggleAutofill() {
-                    const isEnabled = toggle.checked; // true or false
-                    
-                    // 1. Set Cookie for Server-Side
-                    const d = new Date();
-                    d.setTime(d.getTime() + (365*24*60*60*1000));
-                    let expires = "expires="+ d.toUTCString();
-                    document.cookie = "enable_prefill=" + isEnabled + ";" + expires + ";path=/";
-
-                    // 2. Set LocalStorage for Client-Side persistence/sync if needed
-                    localStorage.setItem('enable_prefill', isEnabled);
-
-                    // 3. Show Feedback
-                    if (typeof showToast === 'function') {
-                        showToast(isEnabled ? '{{ MS_TRANS.autofill_enabled }}' : '{{ MS_TRANS.autofill_disabled }}');
-                    }
-                }
-
-                // Check cookie first
-                const getCookie = (name) => {
-                    const value = `; ${document.cookie}`;
-                    const parts = value.split(`; ${name}=`);
-                    if (parts.length === 2) return parts.pop().split(';').shift();
-                    return null;
-                };
-                
-                const cookieVal = getCookie('enable_prefill');
-                
-                if (cookieVal !== null) {
-                    toggle.checked = (cookieVal === 'true');
-                } else {
-                    // Default to true if not set
-                    toggle.checked = true;
-                }
-
-                // Attach event listener
-                if (toggle) {
-                    toggle.addEventListener('change', toggleAutofill);
-                }
-
-                // --- Theme Logic (Delegated) ---
-                document.querySelectorAll('[data-theme]').forEach(el => {
-                    el.addEventListener('click', function() {
-                        const theme = this.getAttribute('data-theme');
-                        if (window.setTheme) {
-                            window.setTheme(theme);
-                            // Also save preference to backend if available
-                            if (window.updatePreferences) {
-                                window.updatePreferences({ theme: theme });
-                            }
-                        }
-                    });
-                });
-
-
-
-                // --- Accessibility Logic (Delegated) ---
-                document.querySelectorAll('.accessibility-switch').forEach(el => {
-                    el.addEventListener('change', function() {
-                        const mode = this.getAttribute('data-accessibility');
-                        if (window.setAccessibilityMode) {
-                            window.setAccessibilityMode(mode);
-                        }
-                    });
-                });
-
-                // --- Language Logic (Delegated) ---
-                document.querySelectorAll('[data-lang]').forEach(el => {
-                    el.addEventListener('click', function() {
-                        const lang = this.getAttribute('data-lang');
-                        if (window.setLanguage) {
-                            window.setLanguage(lang);
-                        }
-                    });
-                });
-
-                // --- Table Density Logic ---
-                densityOptions.forEach((option) => {
-                    option.addEventListener('click', function() {
-                        const density = this.getAttribute('data-table-density') || 'balanced';
-                        updateTableDensityUI(density);
-                        if (window.USER_PREFS) {
-                            window.USER_PREFS.table_density = density;
-                        }
-                        if (window.updatePreferences) {
-                            window.updatePreferences({ table_density: density });
-                        }
-                    });
-                });
-
-                sidebarDensityOptions.forEach((option) => {
-                    option.addEventListener('click', function() {
-                        const density = this.getAttribute('data-sidebar-density') || 'balanced';
-                        updateSidebarDensityUI(density);
-                        if (window.USER_PREFS) {
-                            window.USER_PREFS.sidebar_density = density;
-                        }
-                        const sidebar = document.getElementById('sidebar');
-                        if (sidebar) {
-                            sidebar.setAttribute('data-sidebar-density', density);
-                        }
-                        if (window.updatePreferences) {
-                            window.updatePreferences({ sidebar_density: density });
-                        }
-                    });
-                });
-
-                // --- Reset Defaults Logic ---
-                const btnInit = document.getElementById('btnResetInit');
-                const actionsDiv = document.getElementById('resetActions');
-                const btnConfirm = document.getElementById('btnResetConfirm');
-                const btnCancel = document.getElementById('btnResetCancel');
-
-                // 1. Show Confirm/Cancel with animation
-                if (btnInit) {
-                    btnInit.addEventListener('click', function() {
-                        // Fade out init button
-                        this.style.transition = 'opacity 0.2s';
-                        this.style.opacity = '0';
-                        
-                        setTimeout(() => {
-                            this.style.display = 'none';
-                            // Show actions
-                            actionsDiv.style.opacity = '0';
-                            actionsDiv.style.display = 'block';
-                            actionsDiv.style.transition = 'opacity 0.3s';
-                            
-                            // Trigger reflow
-                            void actionsDiv.offsetWidth;
-                            actionsDiv.style.opacity = '1';
-                            
-                            // Anime.js or simple css transition could be used here for more flair if needed,
-                            // but CSS transition is lightweight and sufficient.
-                        }, 200);
-                    });
-                }
-
-                // 2. Cancel Action
-                if (btnCancel) {
-                    btnCancel.addEventListener('click', function() {
-                        actionsDiv.style.opacity = '0';
-                        setTimeout(() => {
-                            actionsDiv.style.display = 'none';
-                            btnInit.style.display = 'block';
-                            void btnInit.offsetWidth;
-                            btnInit.style.opacity = '1';
-                        }, 200);
-                    });
-                }
-
-                // 3. Confirm Action
-                if (btnConfirm) {
-                    btnConfirm.addEventListener('click', function() {
-                        // Show loading state on confirm button
-                        const originalContent = this.innerHTML;
-                        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
-                        this.disabled = true;
-                        btnCancel.disabled = true;
-
-                        fetch('{% url "reset_preferences" %}', {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRFToken': '{{ csrf_token }}',
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({})
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                // Clear LocalStorage Forcefully
-                                const keysToRemove = [];
-                                for (let i = 0; i < localStorage.length; i++) {
-                                    const key = localStorage.key(i);
-                                    // Identify keys to remove: sidebar_*, appTheme, appLanguage, accessibilityMode, enable_prefill
-                                    if (key.startsWith('sidebar_') || 
-                                        key === 'appTheme' || 
-                                        key === 'appLanguage' || 
-                                        key === 'accessibilityMode' || 
-                                        key === 'enable_prefill') {
-                                        keysToRemove.push(key);
-                                    }
-                                }
-                                keysToRemove.forEach(k => localStorage.removeItem(k));
-                                
-                                alert('{{ MS_TRANS.reset_success }}');
-                                location.reload();
-                            } else {
-                                alert('Error: ' + (data.error || 'Unknown error'));
-                                this.innerHTML = originalContent;
-                                this.disabled = false;
-                                btnCancel.disabled = false;
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            alert('Request failed.');
-                            this.innerHTML = originalContent;
-                            this.disabled = false;
-                            btnCancel.disabled = false;
-                        });
-                    });
-                }
-            });
-        </script>
+{% block scripts %}
+    {{ block.super }}
+    <script src="{% static 'microsys/main/js/options.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

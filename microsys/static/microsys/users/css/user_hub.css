@@ -2,6 +2,7 @@
 :root {
     --ms-dropdown-width: 400px;
     --ms-dropdown-radius: 24px;
+    --ms-dropdown-edge-gap: 15px;
     --ms-glass-bg: rgba(var(--bs-body-bg-rgb), 0.8);
     --ms-glass-border: rgba(var(--primal-rgb), 0.1);
 }
@@ -9,8 +10,9 @@
 .ms-user-dropdown-card {
     position: absolute;
     top: calc(var(--header-height) + 10px);
-    inset-inline-end: 15px;
-    width: var(--ms-dropdown-width);
+    inset-inline-end: var(--ms-dropdown-edge-gap);
+    width: min(var(--ms-dropdown-width), calc(100vw - (var(--ms-dropdown-edge-gap) * 2)));
+    max-height: calc(100dvh - var(--header-height) - 20px);
     background: var(--ms-glass-bg);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -35,12 +37,12 @@
 
 /* RTL Specificity */
 [dir="rtl"] .ms-user-dropdown-card {
-    left: 15px;
+    left: var(--ms-dropdown-edge-gap);
     right: auto;
 }
 
 [dir="ltr"] .ms-user-dropdown-card {
-    right: 15px;
+    right: var(--ms-dropdown-edge-gap);
     left: auto;
 }
 
@@ -218,6 +220,96 @@
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
+@media (max-width: 575.98px) {
+    :root {
+        --ms-dropdown-edge-gap: 10px;
+        --ms-dropdown-radius: 18px;
+    }
+
+    .ms-user-dropdown-card {
+        position: fixed;
+        top: calc(var(--header-height) + 8px);
+        inset-inline: var(--ms-dropdown-edge-gap);
+        width: auto;
+        max-width: none;
+        max-height: calc(100dvh - var(--header-height) - 16px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        transform-origin: top center;
+    }
+
+    [dir="rtl"] .ms-user-dropdown-card,
+    [dir="ltr"] .ms-user-dropdown-card {
+        left: var(--ms-dropdown-edge-gap);
+        right: var(--ms-dropdown-edge-gap);
+    }
+
+    .ms-dropdown-header {
+        padding: 18px;
+        gap: 14px;
+    }
+
+    .ms-display-name {
+        font-size: 1.05rem;
+        line-height: 1.25;
+    }
+
+    .ms-user-role {
+        max-width: 100%;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.2;
+    }
+
+    .ms-avatar-preview {
+        width: 64px;
+        height: 64px;
+        margin-inline-start: 0;
+        border-radius: 18px;
+        border-width: 3px;
+        flex: 0 0 auto;
+    }
+
+    .ms-dropdown-toolbar {
+        padding: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 10px;
+    }
+
+    .ms-toolbar-left,
+    .ms-toolbar-right {
+        width: auto;
+        max-width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-inline-start: 0;
+    }
+
+    .ms-tool-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 13px;
+    }
+}
+
+@media (max-width: 360px) {
+    .ms-dropdown-header {
+        padding: 16px 14px;
+    }
+
+    .ms-avatar-preview {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+    }
+
+    .ms-tool-btn {
+        width: 40px;
+        height: 40px;
+    }
+}
+
 .ms-tooltip.show {
     opacity: 1;
     transform: translateY(0) translateX(-50%);
@@ -242,4 +334,3 @@
 :root.theme-dark .ms-tooltip::after {
     border-color: rgba(30, 30, 30, 0.95) transparent transparent transparent;
 }
-

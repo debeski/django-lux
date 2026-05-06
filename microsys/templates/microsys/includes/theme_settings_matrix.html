@@ -40,8 +40,7 @@
                     title="{{ MS_TRANS.form_sys_default_theme|default:'Default Theme' }}: {{ theme.label }}"
                 >
                 <span
-                    class="ms-choice-option__swatch theme-preview{% if selected_theme == theme.slug %} active{% endif %}"
-                    style="{{ theme.preview_style }}"
+                    class="ms-choice-option__swatch theme-preview ms-theme-preview ms-theme-preview--{{ theme.slug }}{% if selected_theme == theme.slug %} active{% endif %}"
                     data-theme="{{ theme.slug }}"
                     title="{{ theme.label }}"
                 ></span>

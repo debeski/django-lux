@@ -2,9 +2,9 @@
 <div class="ms-profile-image-input-wrapper">
     <div class="ms-profile-image-preview-area">
         {% if widget.value %}
-            <img src="{{ widget.value.url }}" alt="Profile Preview" class="ms-image-preview-circle" id="ms-profile-preview-img">
+            <img src="{{ widget.value.url }}" alt="Profile Preview" class="ms-image-preview-circle" id="ms-profile-preview-{{ widget.attrs.id }}">
         {% else %}
-            <div class="ms-image-preview-circle ms-image-placeholder" id="ms-profile-preview-img">
+            <div class="ms-image-preview-circle ms-image-placeholder" id="ms-profile-preview-{{ widget.attrs.id }}">
                 <i class="bi bi-person-fill"></i>
             </div>
         {% endif %}
@@ -13,34 +13,6 @@
             <i class="bi bi-camera-fill"></i>
         </label>
     </div>
-    <input type="{{ widget.type }}" name="{{ widget.name }}" {% if widget.value %}value="{{ widget.value }}"{% endif %} {% for name, value in widget.attrs.items %}{{ name }}="{{ value }}" {% endfor %} class="d-none ms-profile-file-input">
+    <input type="{{ widget.type }}" name="{{ widget.name }}" {% if widget.value %}value="{{ widget.value }}"{% endif %} {% for name, value in widget.attrs.items %}{{ name }}="{{ value }}" {% endfor %} class="d-none ms-profile-file-input" data-preview-target="ms-profile-preview-{{ widget.attrs.id }}">
 </div>
-
-<script nonce="{{ request.csp_nonce }}">
-(function() {
-    const fileInput = document.getElementById('{{ widget.attrs.id }}');
-    const previewImg = document.getElementById('ms-profile-preview-img');
-    
-    if (fileInput && previewImg) {
-        fileInput.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    if (previewImg.tagName === 'IMG') {
-                        previewImg.src = e.target.result;
-                    } else {
-                        // Replace placeholder div with img
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.className = 'ms-image-preview-circle';
-                        img.id = 'ms-profile-preview-img';
-                        previewImg.parentNode.replaceChild(img, previewImg);
-                    }
-                }
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-})();
-</script>
+<script src="{% static 'microsys/widgets/js/profile_image_widget.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}" defer></script>

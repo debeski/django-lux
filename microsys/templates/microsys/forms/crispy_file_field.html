@@ -1,6 +1,6 @@
 {% load crispy_forms_field %}
 
-{% if 'archive-file-input' in field.field.widget.attrs.class|default:'' %}
+{% if field.field.widget.template_name == 'microsys/forms/file_input.html' or 'archive-file-input' in field.field.widget.attrs.class|default:'' %}
 <div{% if field.errors %} class="is-invalid"{% endif %}>
     {{ field.as_widget }}
     {% include 'bootstrap5/layout/help_text_and_errors.html' %}

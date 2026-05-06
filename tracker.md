@@ -1,79 +1,44 @@
-# Project Tracker
+# Project Tracker (django-microsys)
 
-## Part 1: Project
-### Current Verified Snapshot and current project overview:
-- Verified on: `2026-05-05`
-- Project: `django-microsys`
-- Current package version from codebase: `2.2.0` in `microsys/VERSION` (CHANGELOG.md updated with a `2.2.0` pending release entry)
-- last migration file: `0002_public_registration.py`
-- Current verified state:
-  - Core framework areas: scoped data isolation, MSRP authorization hardening, managed table rendering, setup/System Settings, runtime sidebar/titlebar controls, and Options entrypoints are implemented in code.
-  - `SystemSettings` uses language-keyed `system_names`; `get_system_config()` exposes nested public groups (`identity`, `localization`, `security`, `navigation`, `appearance`, `personalization`) plus compatibility keys.
-  - Options sidebar visibility now matches direct `/sys/options/` access through `__ms_authenticated__`.
-  - TOTP provisioning uses configured system identity display name / neutral fallback, not the old project-specific `FineStor` issuer.
-  - Optional SSO v1 scaffolding is implemented as separate packages under `optional_packages/`, not inside core `microsys/`:
-    - provider plugin: `optional_packages/django-microsys-sso`
-    - client SDK: `optional_packages/django-microsys-sso-client`
-    - core `pyproject.toml` now points the `sso` extra at `django-microsys-sso>=0.1.0` instead of implying embedded SSO code.
-  - Optional SSO cross-platform contract is documented as first-priority: generic PHP/.NET/JS/Java/Go/mobile/desktop clients should use standard OIDC discovery and Authorization Code flow; the Django client SDK is only a convenience wrapper.
-  - Public registration playground is implemented in core and disabled by default:
-    - routes: `/accounts/register/`, `/accounts/register/sent/`, `/accounts/register/verify/<token>/`
-    - approval routes: `/sys/registrations/`, `/sys/registrations/<pk>/approve/`, `/sys/registrations/<pk>/reject/`
-    - local user creation is email-first, inactive until verified, with hashed verification tokens only
-    - activation modes: `auto_login_after_verify` and `verified_pending_approval`
-    - email readiness is checked through Microsys mail helpers, supporting `env` mode plus explicit `encrypted_db` mode
-    - publicly registered users expose a "Public signup" provenance badge in account surfaces without adding a separate user-source field
-  - System Setup/System Settings Access & Security step has Microsys-owned email delivery configuration:
-    - `SystemSettings.email_config` JSON uses `transport` (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); no SMTP legacy `mode` field is kept because this work is unreleased
-    - `transport=relay` is supported for generated Docker projects with isolated web containers; the UI stores upstream SMTP host/port/TLS/user/from plus encrypted password, Microsys sends to internal `smtp-relay:1025`, and the relay sidecar reads `SystemSettings.email_config` for upstream delivery
-    - env SMTP relay settings remain a bootstrap/fallback only; UI-managed relay transport with encrypted DB secret storage is the preferred path for generated Docker projects
-    - encrypted DB secret storage uses `cryptography`; exports redact SMTP secrets and imports require re-entering the secret
-    - public registration and email 2FA are gated on selected Microsys mail delivery path and secret-storage readiness
-  - Login 2FA now uses one challenge input:
-    - authenticator app codes work directly
-    - email OTP is sent only after explicit "Send email code"
-    - backup codes remain available through the same input
-    - verification attempts and OTP send requests have cache-backed IP throttles
-    - TOTP secrets are encrypted at rest with Fernet-prefixed ciphertext and legacy plaintext read compatibility
-    - TOTP secret widening/encryption is merged into `0002_public_registration.py`; the separate unreleased `0003_totp_secret_encryption.py` migration was removed before release.
-  - Profile email 2FA setup now asks the user to confirm or correct the destination email inside the setup modal before sending the setup OTP; the user email changes only after OTP verification, and the setup-send cooldown is scoped to the confirmed email address so a wrong address does not block an immediate corrected send.
-  - Runtime sidebar can be disabled with `sidebar_config.enabled`; disabled mode hides sidebar rendering, hides the titlebar sidebar toggle, and ignores toolbar/reorder/density controls.
-  - Sidebar disable/toolbar warnings are translated setup alerts:
-    - disabling the whole sidebar warns that the app may become unnavigable without dashboards, modals, back buttons, or custom navigation entries, and notes that Dynamic Sections Manager is sidebar-only as of `v2.2.0`
-    - disabling the toolbar warns that it removes the built-in Dynamic Sections Manager shortcut
-    - warning visibility has delegated setup-form fallback so it works on both first-launch System Setup and Options dynamic modals.
-  - Runtime sidebar desktop collapse/expand is controlled by `sidebar_config.collapse_mode`; `locked_expanded` now hides the desktop titlebar toggle without reserving space while keeping the mobile toggle available for phone navigation.
-  - Options diagnostics are now restricted to superusers and Global Staff only; unauthorized users receive no diagnostic context values.
-  - Generated `startapp` apps now demonstrate Microsys dynamic modal manager integration:
-    - list-page "Add Record" opens `/sys/modals/manager/<app_label>/ExampleRecord/new/` with `data-dynamic-modal`
-    - generated table context-menu View/Edit actions emit `micro:dynamic_modal:open` and use direct modal-manager URLs
-    - generic dynamic modal manager list/detail/edit/delete queryset resolution is scope-aware for models with a `scope` field
-  - Options theme persistence no longer depends on the sidebar JS being present; base theme JS provides a global `updatePreferences()` fallback.
-  - Options System Settings split-step modals receive request context and render as single-step save forms instead of full wizard forms.
-  - Options System Settings card now uses the same `glass-profile option-section` shell and inline `h4` icon/title pattern as the other Options cards; action buttons use scoped dark-theme styling in dark/retro/gothic/neon.
-  - Options reset action has scoped dark-theme styling in dark/retro/gothic/neon so the Reset Now outline button and action shell no longer fall back to a generic Bootstrap light/gray look.
-  - System Setup sidebar builder outline action buttons use scoped dark-theme styling in dark/retro/gothic/neon instead of generic gray Bootstrap outline surfaces.
-  - Dark and neon titlebar sidebar toggles now use transparent at-rest backgrounds scoped to `.titlebar .sidebar-toggle`, matching the titlebar surface like retro/gothic while keeping restrained hover feedback.
-  - Disabled-sidebar titlebars no longer reserve invisible start-side space after the toggle is hidden.
-  - Options email diagnostics row renders only when public registration or email 2FA is enabled.
-  - User profile shows signed-in devices backed by Django sessions; the current session is listed with a request/session fallback and users can revoke their own non-current sessions through a POST-only action.
-  - Global Microsys table shell/card clipping was tightened with rounded clipping so themed row/header backgrounds do not protrude past corners.
-  - MSRP-1 highest-risk remediation batch completed:
-    - generated app CRUD views now require login plus per-action model permissions, apply scope filtering, and audit create/update/delete actions
-    - generic API model detail/autofill endpoints now use scope-aware querysets and skip additional secret-like fields
-    - stale context-processor `_user_has_sidebar_permission()` helper with permissive staff fallback was removed
-    - Central Staff user-list filtering now excludes Global Staff through direct/group permission joins instead of per-request permission-object lookup
-    - `view_activitylog` permission ownership is aligned to `UserActivityLog`; migration transfers assignments from the old Profile-owned permission
-    - staff users with missing Profile state fail closed for Central/Global Staff and user-directory helpers
-    - `MSRP-1-analysis.md` was updated on `2026-05-02` to mark those items resolved
-  - Generated Docker projects route application email through an internal `smtp-relay` sidecar:
-    - `web` and `celery` stay on the internal network
-    - only `smtp-relay` joins both the public and internal Docker networks for upstream SMTP egress, without publishing an inbound relay port by default
-    - the relay service receives Django/DB settings access so it can read UI-managed relay SMTP settings from `SystemSettings.email_config`
-  - Full validation status after relay email-mode fix: `293` tests passing through the Django runner; compileall passes with `PYTHONPYCACHEPREFIX`.
-  - Browser/manual validation remains pending for UI-heavy setup, Options, sidebar/titlebar, and 2FA flows.
+## Part 1: Project Related
+### Current Verified Snapshot:
+- Verified on `2026-05-07`.
+- Package/version state:
+  - `microsys/VERSION` is `2.1.0`.
+  - `CHANGELOG.md` now contains the stable `v2.1.0` release entry above the beta history.
+- Current verified implementation state:
+  - Public registration playground exists in core, is disabled by default, and uses email-first inactive users plus hashed verification tokens.
+  - Generated Docker projects use the internal `smtp-relay` sidecar path for UI-managed relay delivery when `SystemSettings.email_config.transport == "relay"`.
+  - Login 2FA uses one challenge input for authenticator codes, requested email OTPs, and backup codes; TOTP secrets are encrypted at rest and OTP actions are throttled.
+  - Profile TOTP setup now uses the stable `pyotp.TOTP(...)` path, falls back to username if email is blank, persists TOTP state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, and returns sanitized JSON on provisioning/QR generation or secret-persistence failures instead of raw 500 HTML errors.
+  - Destructive profile security actions require current password in both UI and backend via `require_current_password(request)`.
+  - System Settings/setup file fields use the Microsys custom archive widget through `build_archive_file_field(...)`.
+  - System Settings/setup boolean cards use the shared toggle renderer `build_settings_toggle_field(form, field_name, ...)` across steps `2` to `5`.
+  - Step 2 `allow_user_language_override` is full-width and separated from the translation matrix filters.
+  - `registration_activation_mode` and `registration_throttle_enabled` are hidden/disabled until `public_registration_enabled` is enabled.
+  - Step 3 and Step 4 boolean-card rows now use explicit row gutters/margins so stacked toggle rows have vertical separation instead of only horizontal spacing.
+  - Step 3 `public_registration_enabled` now takes a full row; its dependent controls render on the following row as the hidden/gated pair.
+  - Step 5 titlebar toggle-card row now uses the same `g-3 mb-3` row spacing pattern as the neighboring setup rows, so the gap before the first selection-widget row matches the gap between the selection-widget rows.
+  - Shared setup/settings toggle cards now have dedicated content/control sub-elements and container-query reflow rules in `microsys/static/microsys/main/css/system_setup.css`.
+    - Narrow toggle cards stack the switch below the label/help instead of pushing the switch outside the card boundary.
+    - This directly covers tight cards such as `Provider STARTTLS` and `Provider SSL`.
+  - Shared selector toggle-card grids now have vertical padding in `microsys/static/microsys/main/css/selectors.css`, and the selectors asset version was bumped for browser pickup.
+  - Options now use shared external assets in `microsys/static/microsys/main/css/options.css` and `microsys/static/microsys/main/js/options.js`.
+    - Autofill and reset-defaults are standalone cards again, using the shared Options card surface instead of nested cards inside one wrapper.
+    - All Options cards now expose drag handles and persist user-defined card order in local storage.
+    - System Info keeps the double-card span while sharing the same card language.
+  - User hub mobile toolbar now wraps within one toolbar row when there is enough width, instead of being forced into separate stacked rows by mobile CSS.
+  - Template/rendered-HTML asset policy cleanup is now enforced in code:
+    - no inline `<style>` blocks remain under `microsys/templates/`
+    - no executable inline `<script>` blocks remain under `microsys/templates/`
+    - no inline `style=` attributes remain in templates, `microsys/forms.py`, or `microsys/widgets.py`
+    - theme preview swatches now use shared slug-based CSS classes instead of inline background styles
+  - Sidebar/titlebar runtime controls, split-step Options System Settings modals, scope-aware generated CRUD scaffolds, and MSRP-1 authorization hardening are implemented in code.
+- Current verified caveats:
+- Browser/manual validation is still pending for several UI-heavy flows.
+  - First-launch System Setup still has an unresolved runtime mismatch for the sidebar-toolbar warning, while the Options modal path works.
 
-### Current Project Official Standards:
+### Current Project Adopted Standards:
 - Preferred settings integration:
   - `from microsys.utils import microsys_settings`
   - `microsys_settings(globals())`
@@ -83,324 +48,186 @@
 - Preferred page entrypoints:
   - `microsys/form_base.html`
   - `microsys/list_base.html`
-- Preferred filter helpers:
-  - `setup_filter_helper()`
-  - `advanced_filter_helper()`
-- Preferred table base:
-  - `microsys.tables.MicrosysTable`
-- Preferred extension hooks:
-  - `microsys/includes/custom_head.html`
-  - `microsys/includes/custom_scripts.html`
-- Preferred system-name config:
-  - `MICROSYS_CONFIG["system_names"] = {"en": "...", "ar": "..."}`
-- Preferred runtime config groups for new code:
-  - `APP_CONFIG.identity`
-  - `APP_CONFIG.localization`
-  - `APP_CONFIG.security`
-  - `APP_CONFIG.navigation`
-  - `APP_CONFIG.appearance`
-  - `APP_CONFIG.personalization`
-- Security:
-  - MSRP-1 "Microsys Secure Runtime Policy":
-    - The project authorization standard for runtime-exposed surfaces.
-    - Covers direct URL access, sidebar discovery/rendering, dashboard/user-hub shortcuts, modal CRUD, context actions, diagnostics, and state-changing security flows.
-    - UI visibility is never the only control; every protected behavior must have matching backend authorization.
-- Optional SSO:
-  - Provider package: `django-microsys-sso`, opt-in through `microsys_sso.settings.microsys_sso_settings(globals())`.
-  - Client package: `django-microsys-sso-client`, opt-in through `microsys_sso_client.settings.configure_microsys_sso(...)`.
-  - OIDC-only v1; per-client portable roles are `admin`, `staff`, and `user`.
-  - Generic clients should use provider discovery at `/o/.well-known/openid-configuration/`, Authorization Code flow, `openid email profile` scopes, RS256/JWKS validation, and the flat role claim `microsys_sso_role`.
-  - Do not mirror project-generated Django permissions into SSO clients.
-- Public registration:
-  - Core playground feature, disabled by default through `public_registration_enabled`.
-  - Requires email delivery before enabling, except local `DEBUG=True` console/locmem/file backends.
-  - Email delivery is configured through `SystemSettings.email_config`:
-    - `transport=direct` means the web service connects to SMTP directly.
-    - `transport=relay` means the web service connects only to generated internal `smtp-relay:1025`; the relay performs upstream SMTP delivery.
-    - `secret_storage=env` keeps SMTP passwords in environment/secrets.
-    - `secret_storage=encrypted_db` stores an encrypted SMTP password in `SystemSettings.email_config`.
-    - exports never include plaintext or ciphertext SMTP secrets.
-  - Email verification is mandatory before activation or approval.
-  - Publicly registered users are local Microsys users, not SSO client-originated identities.
-  - Approval/rejection actions are superuser-only and POST-only.
+- Preferred helper APIs already adopted in current code:
+  - Current-password protection: `require_current_password(request)`
+  - Shared crispy file field: `build_archive_file_field('<field_name>')`
+  - Shared setup/settings toggle card: `build_settings_toggle_field(form, '<field_name>', css_class='...')`
+  - Direct TOTP persistence helper: `set_profile_totp_state(profile, raw_secret=..., enabled=...)`
+- Active framework standards:
+  - MSRP-1 is the active runtime authorization standard.
+  - Optional SSO is additive-only and lives under `optional_packages/`.
+  - Public registration is core, additive, and email-gated.
 
-### Standards' rules and policies:
-- Keep Microsys defaults framework-neutral unless the default is explicitly part of the framework contract.
-- Prefer additive helpers, templates, and extension points over project-rewriting commands.
+### Adopted Standards' rules and policies:
+- Backend authorization must always match any protected UI visibility; hiding links/buttons is never the only control.
+- Keep Microsys defaults framework-neutral unless the behavior is an explicit framework contract.
+- Prefer additive helpers, templates, and extension points over project-rewriting behavior.
 - Do not use `settings.configure()` as a host-project installation path.
-- Keep host-project-specific behavior out of Microsys defaults unless broadly reusable.
-- Document supported integration surfaces in `README.md` plus `docs/reference.md` or `docs/customization-guide.md`.
-- MSRP-1 is the active authorization policy: direct routes, sidebar/catalog visibility, dashboard/user-hub links, modal/context actions, diagnostics, and 2FA mutators must agree on who can access the behavior.
-- Optional SSO must remain additive and fail closed: no core `microsys` runtime imports/URLs/middleware/login changes, exact registered redirect URIs, HTTPS outside local development callbacks, and per-client membership/role checks before authorization.
-- Prefer helper-backed permission checks and internal tokens resolved by `user_matches_permission_token()`; do not add ad hoc `is_staff` gates unless staff-only access is the explicit contract.
-- Any generated or scaffolded entrypoint exposed by URL registration must enforce login plus the relevant model/system permission on the backend, not only through sidebar hiding.
+- Do not rely on app-order template shadowing for critical behavior when an explicit helper or explicit template path can be used.
+- For System Settings/setup:
+  - use `build_archive_file_field(...)` for Microsys custom file widgets,
+  - use `build_settings_toggle_field(...)` for shared toggle-card booleans,
+  - keep UI gating mirrored in backend validation/normalization.
+- No HTML should carry inline CSS or executable inline JS unless there is a real unavoidable runtime requirement:
+  - do not use inline `<style>` blocks in templates,
+  - do not use executable inline `<script>` blocks in templates,
+  - do not emit inline `style=` attributes from templates or Python HTML helpers when a class, static asset, `json_script`, or `data-*` bridge can be used instead.
+- Generated/scaffolded URL entrypoints must enforce login plus the relevant permission on the backend.
 
 ### Cross-Cutting Audits if any:
 - Security/MSRP-1 audit:
-  - backend permission enforcement now exists for modal CRUD, sections, user detail/modals, activity log, and reset-password flow
-  - 2FA state mutators are POST-only, backup codes are hashed at rest, OTP sends/verifications are IP-throttled, and TOTP secrets are encrypted at rest
-  - Options diagnostics are superuser/Global Staff only and non-privileged users get no diagnostic context values
+  - backend permission enforcement exists for modal CRUD, sections, diagnostics, activity log, reset-password flow, and 2FA mutators.
+  - profile destructive security actions now share the reusable current-password backend guard.
+  - no inline CSS/JS in HTML unless there is a real unavoidable runtime reason. always CSP complied.
+- Public registration/mail audit:
+  - registration is disabled by default and 404s while disabled.
+  - email readiness gates public registration and email 2FA.
+  - exports redact SMTP secrets; encrypted DB storage is supported for UI-managed secrets.
+- Setup/Options audit:
+  - setup and split-step Options modals share the same main System Settings helpers for boolean toggle cards and custom file widgets.
+  - public-registration-dependent controls and email-delivery controls are visibility-gated in setup JS and preserved across imported payloads.
 - Optional SSO audit:
-  - provider/client code lives in `optional_packages/` and is not imported by core Microsys
-  - provider redirect policy helper requires exact redirect URI registration and HTTPS unless localhost dev callbacks are explicitly allowed
-  - provider userinfo claims now include flat cross-platform claims `microsys_sso_role` and `microsys_sso_client_id` plus the nested `microsys_sso` object
-  - client role mapping never maps provider `admin` to Django `is_superuser`; `is_staff` changes require explicit host role mapping
-- Public registration audit:
-  - registration is disabled by default and returns 404 while disabled
-  - signup creates inactive users and `PublicRegistration` rows with hashed tokens only
-  - duplicate email, honeypot, and throttle-denied submissions use generic success-style flow
-  - email OTPs now use `secrets`, store hashed cache values, keep short TTL, enforce attempt limits, and do not log live codes
-  - login 2FA does not send email OTP automatically; the user must request email delivery explicitly
-  - pending approval list is superuser-only; approve/reject require POST and are audit logged
-- Table platform audit:
-  - Microsys-managed tables now respect `Meta.microsys_table`, `Meta.microsys_density`, `Meta.microsys_per_page`, `Meta.microsys_per_page_options`, and `Meta.microsys_actions`
-  - stock/no-template host tables are auto-captured into the Microsys renderer
-  - Setup/Options audit:
-  - theme allowlist, language lock, sidebar runtime controls, and titlebar controls are wired through setup and split Options modals
-  - setup/System Settings localization now has an explicit add-language catalog and translation matrix; custom languages remain unavailable until explicitly added
-  - sidebar disable and Microsys email delivery mode controls are wired through setup/System Settings export/import paths
-  - System Settings email-delivery fields are UI-gated behind public registration or email 2FA toggles; hidden/disabled email fields preserve existing/imported config instead of wiping it
+  - provider/client code remains isolated in `optional_packages/`; no core runtime coupling is intended.
 
-### Current Project's Known Bugs:
-- **Manual validation pending**: UI-heavy setup, Options, language matrix, sidebar/titlebar, and POST-only 2FA flows still need browser checks.
-- **Integration caveats**: host templates overriding `extra_head` without `{{ block.super }}` can drop base assets; crispy file-field override precedence depends on host app/template ordering.
+### Current Project's Unsolved Known Bugs:
+- First-launch System Setup still has an unresolved runtime issue where the sidebar-toolbar removal warning does not match the Options modal behavior.
+- Browser/manual validation is still pending for:
+  - setup/System Settings wizard behavior,
+  - sidebar/titlebar runtime behavior,
+  - Options selector widgets and theme persistence,
+  - POST-only 2FA flows,
+  - profile security/session UX.
 
-### Tasks:
+### Incomplete Tasks:
 - Priority 1:
-  - [ ] Browser-check POST-only 2FA flows: setup, verify, resend, disable, and backup-code usage.
-  - [ ] Browser-check setup/System Settings appearance governance:
-    - language catalog add/remove and default-language behavior after the `2026-04-26` UI wiring fix
-    - translation matrix search/filter/edit behavior
-    - allowed themes matrix
-    - language lock behavior
-    - sidebar density/collapse/icon controls
-    - sidebar enabled/disabled layout and titlebar sidebar-toggle hiding
-    - `locked_expanded` desktop sidebar collapse mode hides the desktop titlebar toggle while mobile toggle remains available
-    - titlebar visibility/alignment/shape/surface controls
-    - Microsys email delivery env/encrypted DB mode UI, feature-gated visibility, and readiness alerts
+  - [ ] Reproduce and fix the first-launch System Setup sidebar-toolbar warning mismatch against the working Options modal path.
+  - [ ] Browser-check the refreshed Options page behavior:
+    - [ ] card drag ordering and persistence
+    - [ ] System Info double-width placement after card reordering
+    - [ ] autofill toggle and reset-defaults card behavior after the external JS move
+  - [ ] Browser-check the externalized template asset cleanup across affected pages:
+    - [ ] login theme bootstrap
+    - [ ] dashboard chart render
+    - [ ] tutorial string bootstrap
+    - [ ] profile image widget preview
+    - [ ] activity log detail modal loader
+    - [ ] manage users detail/reset/delete modal actions
+    - [ ] sidebar preload and theme preview swatches
+  - [ ] Browser-check the user hub mobile toolbar wrap behavior on smaller screens.
+  - [ ] Browser-check POST-only 2FA flows:
+    - [ ] setup
+    - [ ] verify
+    - [ ] resend
+    - [ ] disable
+    - [ ] backup-code usage
+  - [ ] Browser-check setup/System Settings appearance and shell behavior:
+    - [ ] language catalog add/remove and default-language behavior
+    - [ ] translation matrix search/filter/edit behavior
+    - [ ] allowed themes matrix
+    - [ ] language lock behavior
+    - [ ] sidebar density/collapse/icon controls
+    - [ ] sidebar enabled/disabled runtime layout
+    - [ ] titlebar visibility/alignment/shape/surface controls
+    - [ ] email delivery UI gating and readiness alerts
   - [ ] Browser-check account/security UI modernization:
-    - public signup provenance badge on profile, user table, and user detail modal
-    - unified login 2FA challenge for TOTP, requested email OTP, and backup code
-    - profile 2FA loading states, email-destination confirmation modal, and updated profile image file widget
-    - signed-in device list and session revocation UX
-    - non-primary button contrast in light, dark, mono, neon, gothic, and retro themes
-    - global table rounded-corner clipping in dark, retro, gothic, and neon themes
-  - [ ] Browser-check live runtime shell behavior:
-    - sidebar save -> runtime render
-    - sidebar toolbar auto-hide/disable logic
-    - desktop collapse modes `icons`, `hidden`, `locked_expanded`
-    - titlebar `show_title` / `show_logo` / `show_home_button`
-  - [ ] Browser-check Options layout and selector widgets after the latest cleanup.
-    - System Settings action button contrast in light, dark, retro, gothic, neon, and mono themes
-  - [ ] Browser-check Options theme persistence with sidebar enabled and disabled.
+    - [ ] public signup provenance badge
+    - [ ] unified login 2FA challenge UX
+    - [ ] profile 2FA loading/email confirmation flow
+    - [ ] signed-in device list and revocation UX
+    - [ ] light/dark/mono/neon/gothic/retro contrast for secondary buttons
+  - [ ] Review translation coverage for UI labels/messages that were called out by the user and are not yet re-verified in browser/runtime:
+    - [ ] signed-in devices card
+    - [ ] 2FA enable button in profile
+    - [ ] general setup/options labels and descriptions
 - Priority 2:
   - [ ] Run one end-to-end generated-project validation for `python -m microsys startproject`.
   - [ ] Run one end-to-end generated-app validation for `python -m microsys startapp --register`.
   - [ ] Validate generated Docker/Celery/health-check baseline in a live boot.
-  - [ ] Run full provider OIDC validation after installing `django-oauth-toolkit[oidc]`:
-    - apply `microsys_sso` migrations in a test project
-    - verify authorize/token/userinfo/JWKS/revoke endpoints
-    - verify denial for inactive client, bad redirect URI, missing role, expired invitation, and revoked session
-  - [ ] Run full client OIDC validation after installing `mozilla-django-oidc`:
-    - mount `microsys_sso_client.urls`
-    - verify `(issuer, sub)` identity linking
-    - verify allowed role auto-create and denied/missing role fail-closed behavior
-    - verify local group/staff mapping and no `is_superuser` elevation
+  - [ ] Run full provider OIDC validation after installing `django-oauth-toolkit[oidc]`.
+  - [ ] Run full client OIDC validation after installing `mozilla-django-oidc`.
 - Completed Recently:
-  - [x] Remediated top MSRP-1 security findings from `MSRP-1-analysis.md`:
-    - [x] Hardened generated app CRUD templates with login, model permissions, scope filtering, and action audit logging.
-    - [x] Hardened generic API model detail/autofill querysets with scope filtering and broader secret-field exclusion.
-    - [x] Removed stale context-processor `_user_has_sidebar_permission()` helper with staff fallback.
-    - [x] Updated `MSRP-1-analysis.md` to reflect the `2026-05-02` remediation state.
-    - [x] Updated scaffold tests for SMTP relay `.env` entries added by earlier email-delivery work.
-  - [x] Completed remaining `MSRP-1-analysis.md` Immediate fixes:
-    - [x] Replaced Central Staff `Permission.objects.get()` filtering with direct/group permission queryset exclusion.
-    - [x] Moved `view_activitylog` permission ownership to `UserActivityLog` with migration transfer from Profile-owned permission.
-    - [x] Hardened missing Profile state to fail closed for staff-tier helpers and user-directory access.
-  - [x] Completed near-term 2FA hardening:
-    - [x] Added cache-backed IP rate limits for 2FA verification attempts and OTP sends.
-    - [x] Encrypted TOTP secrets at rest with Fernet and a `fernet$` ciphertext prefix.
-    - [x] Added migration logic to encrypt existing plaintext TOTP secrets.
-    - [x] Kept legacy plaintext read compatibility so old values still verify before/save during migration.
-  - [x] Fixed browser-reported TOTP setup 500 caused by existing project schema drift:
-    - [x] Merged TOTP secret widening/encryption into `0002_public_registration.py` before release.
-    - [x] `setup_totp` now returns JSON on DB save errors instead of an HTML error page.
-    - [x] `profile_2fa.js` now handles non-JSON/failed responses cleanly instead of throwing `Unexpected token '<'`.
-  - [x] Fixed Microsys UI mail setup for generated Docker SMTP relay:
-    - [x] Replaced the SMTP dropdown with independent delivery path and secret storage controls.
-    - [x] Runtime mail helpers send app email to internal `smtp-relay:1025` when `transport=relay` while readiness checks validate the stored upstream relay config.
-    - [x] Generated `smtp-relay` sidecar reads encrypted upstream SMTP settings from `SystemSettings.email_config` and falls back to env only when UI-managed relay config is not configured.
-    - [x] System Setup UI keeps relay upstream SMTP fields editable instead of requiring env edits.
-    - [x] Updated registration/reference/MSRP-1 docs for relay delivery and secret storage.
-  - [x] Improved profile email 2FA setup recovery:
-    - [x] Added an in-modal email confirmation/edit step before setup OTP send.
-    - [x] Stored pending setup email in the OTP cache and only updated `User.email` after successful OTP verification.
-    - [x] Scoped email-setup cooldowns by confirmed email address so correcting a wrong address can proceed immediately.
-  - [x] Fixed sidebar toolbar disable warning coverage:
-    - [x] Added delegated `system_setup.js` handling so the warning updates in first-launch setup and dynamic Options modals.
-    - [x] Bumped the base `system_setup.js` asset version to bypass browser cache.
-  - [x] Added translated sidebar-disabled navigation warning:
-    - [x] Rendered warning directly below the sidebar enable toggle.
-    - [x] Wired warning visibility to the same setup/sidebar JS path as toolbar warnings.
-    - [x] Added English and Arabic translation keys.
-  - [x] Updated generated app scaffold to demonstrate dynamic modals:
-    - [x] Add Record uses `data-dynamic-modal` with the direct `modal_manager` URL.
-    - [x] Generated table View/Edit context-menu actions open Microsys modals.
-    - [x] Dynamic modal manager queryset resolution is scope-aware for scoped models.
-    - [x] App scaffold README documents the direct modal-manager pattern.
-  - [x] Bumped package version metadata to `2.2.0` and added the `v2.2.0` CHANGELOG entry.
-  - [x] Updated CHANGELOG.md with v2.1.0 release notes covering public registration, SSO, email delivery, 2FA, sidebar controls, signed-in devices, Docker SMTP relay, Global/Central Staff tiers, table platform, Options security/UX, security hardening, and theme polish.
-  - [x] Modernized System Setup sidebar builder and Options action buttons for dark themes.
-  - [x] Replaced redundant sidebar-toggle checkbox with improved `locked_expanded` collapse mode.
-  - [x] Fixed sidebar/titlebar/email/options/profile cleanup (disabled sidebar, email diagnostics gating, theme persistence, System Settings modals).
-  - [x] Added signed-in devices to user profile with POST-only session revocation.
-  - [x] Fixed themed Microsys table card corner clipping.
-  - [x] Implemented account/security UI modernization (unified 2FA login, provenance badges, loading spinners, file-field widget).
-  - [x] Implemented UI-first Microsys email delivery setup with env and encrypted DB modes.
-  - [x] Fixed generated Docker SMTP delivery via `smtp-relay` sidecar.
-  - [x] Implemented public registration playground in core.
-  - [x] Implemented optional SSO v1 package scaffolding in `optional_packages/`.
-  - [x] Implemented Global Staff vs Central Staff tier system with `manage_scopes` permission.
+  - [x] Aligned setup boolean cards across steps `2` to `5` with `build_settings_toggle_field(...)`.
+  - [x] Made Step 2 language override full-width and added gap before translation filters.
+  - [x] Gated `registration_activation_mode` and `registration_throttle_enabled` behind `public_registration_enabled`.
+  - [x] Added explicit Step 3/4 row spacing for stacked toggle-card rows.
+  - [x] Moved `public_registration_enabled` to its own full-width row and placed its dependent controls on the following gated row.
+  - [x] Fixed System Settings file widgets to use the Microsys custom archive widget path explicitly.
+  - [x] Added reusable current-password confirmation gating for destructive profile security actions.
+  - [x] Added vertical padding to shared toggle-card selector grids and bumped the selectors asset version.
+  - [x] Added permanent responsive reflow behavior to shared setup/settings toggle cards.
+  - [x] Bumped the `system_setup.css` asset version for browser pickup after the toggle-card reflow fix.
+  - [x] Aligned the Step 5 titlebar toggle row spacing with the selection-widget row spacing.
+  - [x] Replaced inline Options styling/behavior with shared external `options.css` and `options.js` assets.
+  - [x] Restored Autofill and Reset Defaults as standalone Options cards while reusing the new shared card surface across the page.
+  - [x] Added draggable/persisted Options card ordering while preserving the double-width System Info card span.
+  - [x] Changed the user hub mobile toolbar from forced stacked rows to wrap layout so it can stay on one row when space allows.
+  - [x] Externalized inline template CSS/JS into shared static assets and removed inline `style=` usage from templates plus the main Python HTML emitters.
+  - [x] Converted theme preview swatches from inline background styles to shared slug-based CSS classes.
+  - [x] Added regression tests that fail on inline template `<style>`, executable inline `<script>`, and inline `style=` markup.
+  - [x] Fixed profile TOTP setup to avoid the fragile `pyotp.totp.TOTP(...)` path, bypass unrelated `Profile.save()` side effects via `set_profile_totp_state(...)`, and return JSON instead of raw 500 responses when provisioning/QR generation or secret persistence fails.
+  - [x] Added the stable `v2.1.0` changelog entry and refreshed dependency docs to include `cryptography`.
+  - [x] Updated the reference/admin/customization/registration/scaffold docs for reusable guards/helpers, draggable Options cards, scaffold baseline details, and current 2FA/public-registration behavior.
 
-### Tests:
-- **Previous full-suite status before 2026-05-02 immediate fixes**: `255` tests run, `8` errors — all were the now-resolved `view_activitylog` permission ownership/test drift on `UserActivityLog` content type.
-- **Verified on 2026-05-05**:
-  - `./.venv/bin/python -c "import microsys.tests.test_models; import microsys.tests.test_views; import microsys.tests.test_api; import microsys.tests.test_middleware; import microsys.tests.test_signals; import microsys.tests.test_utils; import microsys.tests.test_context_processors; import microsys.tests.test_scaffold; import microsys.tests.test_defaults_and_urls; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests']); raise SystemExit(bool(failures))"` — `294` tests passed after removing SMTP legacy `mode`, splitting email delivery into `transport`/`secret_storage`, merging migrations, and bumping `2.2.0`
-  - `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls microsys.tests.test_scaffold` — `31` tests passed after SMTP config/scaffold updates
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m py_compile microsys/scaffold_templates/project/tools/smtp_relay.py.tmpl` — passed after SMTP config/scaffold updates
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys` — passed after SMTP config/scaffold updates
-  - `./.venv/bin/python - <<'PY' ... runner.run_tests(['microsys.tests.test_views.TwoFactorSecurityViewTests']) ... PY` — `15` tests passed after the profile email 2FA confirmation/edit flow
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys` — passed after the profile email 2FA confirmation/edit flow
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys` — passed after sidebar toolbar warning fallback update
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys` — passed after sidebar-disabled warning update
-  - `./.venv/bin/python - <<'PY' ... MICROSYS_STRINGS ... PY` — passed direct check that English/Arabic sidebar-disabled warning keys exist
-  - `./.venv/bin/python - <<'PY' ... get_strings(...) ... PY` — not usable without configured Django settings in this standalone command; direct `MICROSYS_STRINGS` check used instead
-  - `./.venv/bin/python -m unittest microsys.tests.test_scaffold` — `3` tests passed after generated app dynamic-modal scaffold update
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys` — passed after generated app dynamic-modal scaffold update
-  - `./.venv/bin/python - <<'PY' ... runner.run_tests(['microsys.tests.test_views.SecurityHardeningViewTests']) ... PY` — `24` tests passed after dynamic modal manager scope-aware queryset update
-  - `node --check microsys/static/microsys/users/js/profile_2fa.js` — not run because `node` is not installed in the current environment
-  - `./.venv/bin/python -c "import microsys.tests.test_models; import microsys.tests.test_views; import microsys.tests.test_api; import microsys.tests.test_middleware; import microsys.tests.test_signals; import microsys.tests.test_utils; import microsys.tests.test_context_processors; import microsys.tests.test_scaffold; import microsys.tests.test_defaults_and_urls; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests']); raise SystemExit(bool(failures))"` — `293` tests passed after relay email-mode fix
-  - `./.venv/bin/python -c "import microsys.tests.test_models; import microsys.tests.test_views; import microsys.tests.test_api; import microsys.tests.test_middleware; import microsys.tests.test_signals; import microsys.tests.test_utils; import microsys.tests.test_context_processors; import microsys.tests.test_scaffold; import microsys.tests.test_defaults_and_urls; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests']); raise SystemExit(bool(failures))"` — `293` tests passed after UI-managed relay config correction
-  - `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls microsys.tests.test_scaffold` — `30` tests passed after UI-managed relay config correction
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys` — passed after UI-managed relay config correction
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m py_compile microsys/scaffold_templates/project/tools/smtp_relay.py.tmpl` — passed after UI-managed relay config correction
-  - `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls` — `27` tests passed after relay email-mode fix
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys` — passed after relay email-mode fix
-  - `./.venv/bin/python -c "import microsys.tests.test_models; import microsys.tests.test_views; import microsys.tests.test_api; import microsys.tests.test_middleware; import microsys.tests.test_signals; import microsys.tests.test_utils; import microsys.tests.test_context_processors; import microsys.tests.test_scaffold; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests']); raise SystemExit(bool(failures))"` — `290` tests passed after 2FA IP throttling and TOTP encryption
-  - `./.venv/bin/python -c "import microsys.tests.test_views; import microsys.tests.test_models; import microsys.tests.test_signals; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests.test_views.TwoFactorSecurityViewTests', 'microsys.tests.test_models', 'microsys.tests.test_signals']); raise SystemExit(bool(failures))"` — `47` tests passed
-  - `./.venv/bin/python -c "import microsys.tests.test_views; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests.test_views.TwoFactorSecurityViewTests']); raise SystemExit(bool(failures))"` — `12` tests passed after the TOTP setup schema-drift fix
-  - `./.venv/bin/python -c "import microsys.tests.test_models; import microsys.tests.test_views; import microsys.tests.test_api; import microsys.tests.test_middleware; import microsys.tests.test_signals; import microsys.tests.test_utils; import microsys.tests.test_context_processors; import microsys.tests.test_scaffold; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests']); raise SystemExit(bool(failures))"` — `287` tests passed
-  - `./.venv/bin/python -c "import microsys.tests.test_api; import microsys.tests.test_scaffold; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests.test_api', 'microsys.tests.test_scaffold']); raise SystemExit(bool(failures))"` — `31` tests passed
-  - `./.venv/bin/python -c "import microsys.tests.test_views; import microsys.tests.test_utils; from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests.test_views', 'microsys.tests.test_utils']); raise SystemExit(bool(failures))"` — `113` tests passed
-  - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys` — passed
-- **Note**: direct `python -m compileall microsys` is blocked by root-owned `__pycache__` directories in the working tree; use `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache` unless ownership is repaired.
-- **Recommended test commands**:
-  - Full suite: `./.venv/bin/python -c "from django.test.runner import DiscoverRunner; runner = DiscoverRunner(verbosity=1); failures = runner.run_tests(['microsys.tests']); raise SystemExit(bool(failures))"`
-  - Core views: `./.venv/bin/python -m unittest microsys.tests.test_views`
-  - Registration: `./.venv/bin/python -m unittest microsys.tests.test_registration`
-  - Sidebar discovery: `./.venv/bin/python -m unittest microsys.tests.test_sidebar_discovery`
-  - Optional SSO packages: `python -m compileall optional_packages`
-- **Recommended next validation**:
-  - Browser validation for UI-heavy setup, Options, language matrix, sidebar/titlebar, and 2FA flows
-  - One live generated-project boot and one generated-app registration pass
-  - Install optional SSO dependencies and run provider/client OIDC integration tests
+### One-line info about last verified Tests:
+- `2026-05-07`: Django `DiscoverRunner` passed `microsys.tests.test_utils.UtilsTests` plus `microsys.tests.test_views.TwoFactorSecurityViewTests` with `65` tests after adding `set_profile_totp_state(...)`, tightening TOTP persistence, and updating release/docs metadata.
 
-### Docs:
-- Primary live docs:
-  - `README.md`
-  - `CHANGELOG.md`
-  - `docs/README.md`
-  - `docs/FEATURES.md`
-  - `docs/reference.md`
-  - `docs/getting-started.md`
-  - `docs/admin-guide.md`
-  - `docs/customization-guide.md`
-  - `docs/developer-guide.md`
-  - `docs/security-msrp-1.md`
-  - `docs/registration.md`
-    - documents delivery path (`direct`/`relay`), secret storage (`env`/`encrypted_db`), and generated Docker `smtp-relay:1025` egress-only relay usage
-  - `docs/sso.md`
-- Key contracts to keep documented:
-  - MSRP-1 authorization and 2FA contracts
-  - Public registration playground contract: disabled by default, SMTP-gated, email-verified, hashed tokens, throttled/honeypot protected, and local-user-only
-  - Microsys email delivery config contract: `SystemSettings.email_config` with `transport` and `secret_storage`, encrypted DB passwords, redacted export/import
-  - Generated Docker public-registration email contract: app containers use internal `smtp-relay:1025`; only the relay sidecar has public SMTP egress and it can read UI-managed encrypted upstream SMTP settings
-  - `SystemSettings.allowed_themes`
-  - `SystemSettings.allow_user_theme_override`
-  - `SystemSettings.allow_user_language_override`
-  - `SystemSettings.system_names`
-  - `SystemSettings.languages` explicit language catalog behavior
-  - `SystemSettings.translations_override` as the matrix-backed runtime override layer
-  - System Settings export/import JSON format: `django-microsys.system-settings`
-  - `SystemSettings.titlebar_config`
-  - `SystemSettings.public_registration_enabled`
-  - `SystemSettings.registration_activation_mode`
-  - `SystemSettings.registration_throttle_enabled`
-  - sidebar runtime config keys: `enabled`, `show_icons`, `density`, `allow_user_density`, `collapse_mode`
-  - `microsys.widgets.MicrosysChoiceSelectorWidget`
-  - `microsys.widgets.MicrosysMultipleChoiceSelectorWidget`
-  - `microsys.tables.MicrosysTable`
-  - `microsys_settings(globals())`
-  - `microsys_sso_settings(globals())`
-  - `configure_microsys_sso(...)`
-  - optional SSO per-client role contract: `admin`, `staff`, `user`
-  - optional SSO generic client contract: discovery URL `/o/.well-known/openid-configuration/`, scopes `openid email profile`, flat role claim `microsys_sso_role`, no Django permission mirroring
+### One-line info about last time edited Docs:
+- `2026-05-07`: `CHANGELOG.md`, `README.md`, `docs/getting-started.md`, `docs/reference.md`, `docs/admin-guide.md`, `docs/customization-guide.md`, `docs/registration.md`, `microsys/scaffold_templates/project/README.md.tmpl`, and `tracker.md` were updated for `v2.1.0`, reusable helper coverage, scaffold/runtime docs, and the explicit `cryptography` dependency.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
-- Fast file search:
-  - `rg`
-  - `rg --files`
-- Preferred verification order:
-  - focused failing slice first
-  - broader slice second
-  - full suite last
-- In this workspace, `tracker.md` is required working memory and must be reread each turn.
+- Reusable helper APIs:
+  - `require_current_password(request)`
+  - `build_archive_file_field('<field_name>')`
+  - `build_settings_toggle_field(form, '<field_name>', css_class='...')`
+  - `set_profile_totp_state(profile, raw_secret=..., enabled=...)`
+- Common validation commands:
+  - Focused defaults/render suite:
+    - `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls`
+  - Focused 2FA view suite:
+    - `./.venv/bin/python - <<'PY' ... DiscoverRunner(...).run_tests(['microsys.tests.test_views.TwoFactorSecurityViewTests']) ... PY`
+  - Legacy focused defaults/render suite reference:
+    - `./.venv/bin/python - <<'PY' ... runner.run_tests(['microsys.tests.test_defaults_and_urls']) ... PY`
+  - Full compile check without repo `__pycache__` ownership issues:
+    - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys`
+- Known local environment note:
+  - `node` is not available in the current environment, so JS syntax checks via `node --check` are not currently usable.
 
-### Global Ruleset:
+### Global Rulesets:
+- Prefer explicit reusable helpers over template shadowing or duplicated inline HTML.
+- When a UI issue differs between modal/runtime/setup surfaces, verify the actual load/bind/runtime path before adding sync code.
 - Keep tracker entries grounded in verified code, verified runtime behavior, or explicit user instruction.
-- Use `apply_patch` for manual file edits.
-- Do not revert unrelated dirty worktree changes.
-- Prefer updating stale tests when framework contracts have intentionally moved, but fix product code first when behavior is actually wrong.
+- Do not convert user complaints into “fixed” tracker notes until the real runtime path is verified.
+- Leave unrelated worktree changes untouched.
+- No inline CSS/JS in HTML unless there is a real unavoidable runtime reason:
+  - prefer dedicated static CSS/JS files,
+  - use `json_script` and `data-*` for server-to-client data handoff,
+  - if a future exception is truly required, record why in the tracker instead of normalizing it silently.
 
 ### Agent Handoff Rules:
-- Re-read `tracker.md` at the start of every turn.
-- Update tracker after meaningful code, verification, or contract changes.
-- Keep the tracker short and current; remove stale historical detail instead of appending endlessly.
-- When browser/manual validation is still pending, state that explicitly instead of implying full runtime verification.
+- Re-read this tracker at the start of every turn and update it after meaningful project-state changes.
+- The user explicitly corrected earlier assumptions about local testing: they mount this repo over the target app, so do not assume they are running only the packaged PyPI release when they say the local checkout is active.
+- The unresolved first-launch sidebar warning issue should be treated as a real runtime problem, not something to “paper over” with speculative event handlers unless the runtime path has been reproduced.
+- Preserve user corrections explicitly in future tracker updates so the same wrong assumptions are not repeated.
 
-### Links To Possibly Helpful Tools and Projects if any:
-- Cross-reference trackers:
-  - `/home/debeski/depy/tools/DNgine/tracker.md`
-  - `/home/debeski/depy/projects/archive/tracker.md`
-- Older SSO reference only:
-  - `/home/debeski/depy/projects/microsys-pkg(SSO)/microsys`
-- Optional SSO standards/docs:
+### References and Links:
+- Key project files:
+  - `microsys/forms.py`
+  - `microsys/widgets.py`
+  - `microsys/guards.py`
+  - `microsys/utils.py`
+  - `microsys/views/twofa.py`
+  - `microsys/views/profile.py`
+  - `microsys/views/sections.py`
+  - `microsys/static/microsys/main/js/system_setup.js`
+  - `microsys/static/microsys/main/css/selectors.css`
+  - `microsys/static/microsys/users/css/user_hub.css`
+  - `microsys/templates/microsys/base.html`
+  - `microsys/tests/test_defaults_and_urls.py`
+- Optional SSO references:
+  - `optional_packages/django-microsys-sso/microsys_sso`
+  - `optional_packages/django-microsys-sso-client/microsys_sso_client`
+- External standards/docs already relevant to the project:
   - OAuth 2.0 Security BCP / RFC 9700: `https://www.rfc-editor.org/rfc/rfc9700.html`
   - Django OAuth Toolkit OIDC docs: `https://django-oauth-toolkit.readthedocs.io/en/stable/oidc.html`
   - mozilla-django-oidc settings docs: `https://mozilla-django-oidc.readthedocs.io/en/stable/settings.html`
-
-### References:
-- Key project files:
-  - `microsys/utils.py`
-  - `microsys/patches.py`
-  - `microsys/models.py`
-  - `microsys/context_processors.py`
-  - `microsys/views/sections.py`
-  - `microsys/views/users.py`
-  - `microsys/views/twofa.py`
-  - `microsys/templates/microsys/tables/table.html`
-  - `optional_packages/django-microsys-sso/microsys_sso`
-  - `optional_packages/django-microsys-sso-client/microsys_sso_client`
-
-
-
-TODO by DeBeski: "DO NOT TOUCH"
-
-the sidebar-toolbar removal warning only works in modal view "from options view", doesnt work in initial setup view tho. unknown status to test....
-
-make sure all translations in ui are accounted for, for all titles, descriptions, fields, labels, table headers, etc. both in arabic and in english. make sure there are no hardcoded strings and instead microsys translation system is used.
-
-make sure a please enter your current password prompt is required for these actions in profile view: disable 2FA for any option, Generate New Backup Codes discarding the previous ones, terminating a signed-in device session.
-
-the user hub is struggling on smaller screen mobile devices and not adapting to the available screen size dynamically when on mobile. causing alf the hub sometimes to be outside of the screen and inaccessible.

@@ -3,7 +3,7 @@
 {% block titlebar %}{% endblock %}
 
 {% block layout %}
-<main class="container py-5" style="max-width: 640px;">
+<main class="container py-5 ms-register-main">
     <h1 class="h3 mb-3">{{ MS_TRANS.check_email|default:'Check your email' }}</h1>
     <p>{{ MS_TRANS.registration_sent_desc|default:'If the address can be registered, a verification link has been sent.' }}</p>
     <a class="btn btn-primary" href="{% url 'login' %}">{{ MS_TRANS.back_to_login|default:'Back to login' }}</a>

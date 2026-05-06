@@ -1,11 +1,21 @@
 document.addEventListener("DOMContentLoaded", function () {
     // Tutorial Logic
     const driver = window.driver.js.driver;
+    const tutorialStringsElement = document.getElementById('tutorial-strings-data');
+    let tutorialStrings = {};
+
+    if (tutorialStringsElement) {
+        try {
+            tutorialStrings = JSON.parse(tutorialStringsElement.textContent) || {};
+        } catch (_error) {
+            tutorialStrings = {};
+        }
+    }
     
     function getTutorialSteps() {
         const path = window.location.pathname;
         let steps = [];
-        const t = window.TUT_STRINGS || {};
+        const t = tutorialStrings;
 
         // Base step that applies to most pages
         const sidebarStep = { element: '#sidebar', popover: { title: t.sidebar_title || 'Sidebar', description: t.sidebar_desc || 'Navigate between sections.', side: "right", align: 'start' }};

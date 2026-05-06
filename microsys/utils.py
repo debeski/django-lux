@@ -182,6 +182,7 @@ def decrypt_email_secret(encrypted_secret):
 
 
 TOTP_SECRET_PREFIX = 'fernet$'
+_UNSET = object()
 
 
 def _totp_secret_seed():
@@ -230,6 +231,24 @@ def decrypt_totp_secret(stored_secret):
 
 def get_profile_totp_secret(profile):
     return decrypt_totp_secret(getattr(profile, 'totp_secret', ''))
+
+
+def set_profile_totp_state(profile, *, raw_secret=_UNSET, enabled=_UNSET):
+    if profile is None or not getattr(profile, 'pk', None):
+        raise ValueError('Profile must be saved before updating TOTP state.')
+
+    updates = {}
+    if raw_secret is not _UNSET:
+        updates['totp_secret'] = encrypt_totp_secret(raw_secret) if raw_secret else ''
+    if enabled is not _UNSET:
+        updates['is_totp_2fa_enabled'] = bool(enabled)
+    if not updates:
+        return profile
+
+    profile.__class__._default_manager.filter(pk=profile.pk).update(**updates)
+    for field_name, value in updates.items():
+        setattr(profile, field_name, value)
+    return profile
 
 
 def get_microsys_email_config(*, include_secret=False):
@@ -3267,9 +3286,17 @@ def has_submit_button(form):
         # Match inside raw HTML objects
         if isinstance(node, HTML) and hasattr(node, 'html'):
             html_content = str(node.html).lower()
-            if '<button' in html_content and 'type="submit"' in html_content:
+            if '<button' in html_content and (
+                'type="submit"' in html_content or
+                "type='submit'" in html_content or
+                'type=submit' in html_content
+            ):
                 return True
-            if '<input' in html_content and 'type="submit"' in html_content:
+            if '<input' in html_content and (
+                'type="submit"' in html_content or
+                "type='submit'" in html_content or
+                'type=submit' in html_content
+            ):
                 return True
             if 'class="btn' in html_content and ('save' in html_content or 'حفظ' in html_content):
                 # Catch-all for generic styled buttons that look like save buttons

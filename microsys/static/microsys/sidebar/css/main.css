@@ -181,6 +181,13 @@
 } */
 
 @media (max-width: 1100px) {
+    .ms-sidebar-precollapse .sidebar {
+        width: 0 !important;
+        min-width: 0 !important;
+        border: none !important;
+        overflow: hidden !important;
+    }
+
     /* .sidebar-ghost {
         display: none !important;
     } */

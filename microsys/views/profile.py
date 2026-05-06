@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 
 # Project imports
 from django.utils.module_loading import import_string
+from ..guards import require_current_password
 from ..utils import log_user_action
 from ..translations import get_strings
 from .twofa import get_2fa_config
@@ -307,6 +308,9 @@ def user_profile(request):
 @login_required
 @require_POST
 def revoke_profile_session(request, session_key):
+    if failure_response := require_current_password(request):
+        return failure_response
+
     target_session = get_object_or_404(Session, session_key=session_key)
     try:
         decoded = target_session.get_decoded()

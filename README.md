@@ -34,6 +34,7 @@ microSYS is a multilingual Django app that gives a project-level system layer fo
 - `psutil` "for system monitoring"
 - `pyotp` "for TOTP 2FA"
 - `qrcode` "for TOTP 2FA QR codes"
+- `cryptography` "for encrypted TOTP and SMTP secret storage"
 
 ## Installation
 

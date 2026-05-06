@@ -37,6 +37,8 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
+    document.documentElement.classList.remove('ms-sidebar-precollapse');
+
     const mobileBreakpoint = 1100;
     const collapseMode = sidebar.dataset.sidebarCollapseMode || 'icons';
     const allowUserDensity = sidebar.dataset.sidebarAllowUserDensity === 'true';

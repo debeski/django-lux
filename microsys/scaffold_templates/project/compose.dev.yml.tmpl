@@ -4,6 +4,10 @@
 name: {{ project_slug }}
 
 services:
+  smtp-relay:
+    build: .
+    image: !reset null
+
   nginx:
     ports: !override
       - target: 80
@@ -11,6 +15,7 @@ services:
         protocol: tcp
 
   web:
+    build: .
     image: !reset null
     volumes: !override
       - ./:/app:rw

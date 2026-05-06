@@ -61,6 +61,7 @@ from microsys.utils import (
     log_user_action, is_scope_enabled, _normalize_asset_url,
     get_secret, microsys_settings, _build_generic_detail_context,
     is_central_staff, is_global_staff, user_can_view_user_directory,
+    get_profile_totp_secret, set_profile_totp_state,
 )
 
 User = get_user_model()
@@ -195,6 +196,29 @@ class UtilsTests(TestCase):
 
         self.assertEqual(get_version(), expected)
         self.assertEqual(__version__, expected)
+
+    def test_set_profile_totp_state_persists_secret_without_full_model_save(self):
+        profile = self.user.profile
+        original_picture_name = profile.profile_picture.name or ''
+
+        set_profile_totp_state(profile, raw_secret='JBSWY3DPEHPK3PXP', enabled=True)
+
+        profile.refresh_from_db()
+        self.assertTrue(profile.is_totp_2fa_enabled)
+        self.assertNotEqual(profile.totp_secret, 'JBSWY3DPEHPK3PXP')
+        self.assertEqual(get_profile_totp_secret(profile), 'JBSWY3DPEHPK3PXP')
+        self.assertEqual(profile.profile_picture.name or '', original_picture_name)
+
+    def test_set_profile_totp_state_can_clear_secret(self):
+        profile = self.user.profile
+        set_profile_totp_state(profile, raw_secret='JBSWY3DPEHPK3PXP', enabled=True)
+
+        set_profile_totp_state(profile, raw_secret='', enabled=False)
+
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_totp_2fa_enabled)
+        self.assertEqual(profile.totp_secret, '')
+        self.assertEqual(get_profile_totp_secret(profile), '')
 
     def test_log_user_action(self):
         """Test log_user_action utility function."""
@@ -643,6 +667,8 @@ class UtilsTests(TestCase):
         """Test has_submit_button function."""
         from microsys.utils import has_submit_button
         from django import forms
+        from crispy_forms.helper import FormHelper
+        from crispy_forms.layout import HTML, Layout
         
         # Create a form with submit button
         class TestForm(forms.Form):
@@ -650,3 +676,7 @@ class UtilsTests(TestCase):
         
         form = TestForm()
         self.assertFalse(has_submit_button(form))
+
+        form.helper = FormHelper()
+        form.helper.layout = Layout(HTML("<button type='submit' class='btn btn-primary'>Save</button>"))
+        self.assertTrue(has_submit_button(form))

@@ -226,6 +226,8 @@ class GeneralViewsTests(TestCase):
         self.assertIn('data-ms-wizard-initial-step="4"', payload['html'])
         self.assertIn('?step=4', payload['html'])
         self.assertIn('ms-btn-submit', payload['html'])
+        self.assertNotIn('microsys-form-action-primary', payload['html'])
+        self.assertNotIn('microsys-form-action-neutral', payload['html'])
         self.assertNotIn('ms-btn-next', payload['html'])
         self.assertNotIn('ms-btn-prev', payload['html'])
 
@@ -991,7 +993,7 @@ class TwoFactorSecurityViewTests(TestCase):
 
         fake_pyotp = SimpleNamespace(
             random_base32=lambda: 'JBSWY3DPEHPK3PXP',
-            totp=SimpleNamespace(TOTP=FakeTOTP),
+            TOTP=FakeTOTP,
         )
         fake_qrcode = SimpleNamespace(make=lambda uri: FakeQr())
 
@@ -1030,12 +1032,12 @@ class TwoFactorSecurityViewTests(TestCase):
 
         fake_pyotp = SimpleNamespace(
             random_base32=lambda: 'JBSWY3DPEHPK3PXP',
-            totp=SimpleNamespace(TOTP=FakeTOTP),
+            TOTP=FakeTOTP,
         )
 
         with patch('microsys.views.twofa.pyotp', fake_pyotp), \
              patch('microsys.views.twofa.qrcode'), \
-             patch('microsys.models.Profile.save', side_effect=DatabaseError('too long')):
+             patch('microsys.views.twofa.set_profile_totp_state', side_effect=DatabaseError('too long')):
             response = self.client.post(
                 reverse('setup_totp'),
                 HTTP_X_REQUESTED_WITH='XMLHttpRequest',
@@ -1045,6 +1047,57 @@ class TwoFactorSecurityViewTests(TestCase):
         payload = json.loads(response.content)
         self.assertEqual(payload['status'], 'error')
         self.assertIn('Run database migrations', payload['message'])
+
+    def test_setup_totp_non_database_save_error_returns_json(self):
+        class FakeTOTP:
+            def __init__(self, secret):
+                self.secret = secret
+
+            def provisioning_uri(self, name, issuer_name):
+                return 'otpauth://totp/test'
+
+        fake_pyotp = SimpleNamespace(
+            random_base32=lambda: 'JBSWY3DPEHPK3PXP',
+            TOTP=FakeTOTP,
+        )
+
+        with patch('microsys.views.twofa.pyotp', fake_pyotp), \
+             patch('microsys.views.twofa.qrcode'), \
+             patch('microsys.views.twofa.set_profile_totp_state', side_effect=RuntimeError('missing crypto backend')):
+            response = self.client.post(
+                reverse('setup_totp'),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 500)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'error')
+        self.assertIn('Unable to prepare authenticator setup', payload['message'])
+
+    def test_setup_totp_generation_error_returns_json(self):
+        class FakeTOTP:
+            def __init__(self, secret):
+                self.secret = secret
+
+            def provisioning_uri(self, name, issuer_name):
+                raise RuntimeError('broken provisioning payload')
+
+        fake_pyotp = SimpleNamespace(
+            random_base32=lambda: 'JBSWY3DPEHPK3PXP',
+            TOTP=FakeTOTP,
+        )
+
+        with patch('microsys.views.twofa.pyotp', fake_pyotp), \
+             patch('microsys.views.twofa.qrcode', SimpleNamespace(make=lambda uri: None)):
+            response = self.client.post(
+                reverse('setup_totp'),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 500)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'error')
+        self.assertIn('Unable to generate authenticator setup', payload['message'])
 
     def test_totp_verification_reads_encrypted_secret(self):
         captured = {}
@@ -1205,9 +1258,36 @@ class TwoFactorSecurityViewTests(TestCase):
         cached = cache.get(f'otp_{self.user.pk}_enable_email')
         self.assertEqual(cached['email'], 'corrected@example.com')
 
+    def test_disable_2fa_requires_current_password(self):
+        response = self.client.post(
+            reverse('disable_2fa'),
+            {'method': 'email'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'error')
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.is_email_2fa_enabled)
+
+    def test_disable_2fa_accepts_valid_current_password(self):
+        response = self.client.post(
+            reverse('disable_2fa'),
+            {'method': 'email', 'current_password': 'twofapass123'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'success')
+        self.user.profile.refresh_from_db()
+        self.assertFalse(self.user.profile.is_email_2fa_enabled)
+
     def test_generated_backup_codes_are_hashed_at_rest(self):
         response = self.client.post(
             reverse('generate_backup_codes'),
+            {'current_password': 'twofapass123'},
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
 
@@ -1223,9 +1303,20 @@ class TwoFactorSecurityViewTests(TestCase):
             self.assertNotEqual(raw_code, stored_code)
             identify_hasher(stored_code)
 
+    def test_generate_backup_codes_requires_current_password(self):
+        response = self.client.post(
+            reverse('generate_backup_codes'),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'error')
+
     def test_backup_code_verification_consumes_hashed_code(self):
         generate_response = self.client.post(
             reverse('generate_backup_codes'),
+            {'current_password': 'twofapass123'},
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
         plain_codes = json.loads(generate_response.content)['codes']
@@ -1339,9 +1430,26 @@ class ProfileSessionDeviceTests(TestCase):
         second_client.get(reverse('user_profile'))
         second_session_key = second_client.session.session_key
 
-        response = first_client.post(reverse('revoke_profile_session', args=[second_session_key]))
+        response = first_client.post(
+            reverse('revoke_profile_session', args=[second_session_key]),
+            {'current_password': 'devicespass123'},
+        )
 
         self.assertRedirects(response, reverse('user_profile'))
         self.assertFalse(Session.objects.filter(session_key=second_session_key).exists())
         second_response = second_client.get(reverse('user_profile'))
         self.assertEqual(second_response.status_code, 302)
+
+    def test_profile_session_revoke_requires_current_password(self):
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        second_client.login(username='devices', password='devicespass123')
+        first_client.get(reverse('user_profile'))
+        second_client.get(reverse('user_profile'))
+        second_session_key = second_client.session.session_key
+
+        response = first_client.post(reverse('revoke_profile_session', args=[second_session_key]))
+
+        self.assertRedirects(response, reverse('user_profile'))
+        self.assertTrue(Session.objects.filter(session_key=second_session_key).exists())

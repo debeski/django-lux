@@ -15,6 +15,7 @@ Use this page when adding `django-microsys` to a host Django project for the fir
 - `psutil`
 - `pyotp`
 - `qrcode`
+- `cryptography`
 
 ## Install the Package
 

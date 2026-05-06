@@ -6,8 +6,7 @@
         {% for theme in MICROSYS_THEMES %}
         <div class="text-center">
             <div
-                class="rounded-circle border shadow-sm mb-1 theme-preview{% if selected_theme == theme.slug %} active{% endif %}"
-                style="width: 45px; height: 45px; {{ theme.preview_style }} cursor: pointer;"
+                class="rounded-circle border shadow-sm mb-1 theme-preview ms-theme-preview ms-theme-preview--{{ theme.slug }}{% if selected_theme == theme.slug %} active{% endif %}"
                 data-theme="{{ theme.slug }}"
                 title="{{ theme.label }}"
             ></div>

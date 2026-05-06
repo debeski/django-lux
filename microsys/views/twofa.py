@@ -34,8 +34,9 @@ from django.views.decorators.http import require_POST
 
 # Project imports
 from ..constants import DEFAULT_HOME_URL
+from ..guards import require_current_password
 from ..translations import get_strings
-from ..utils import get_client_ip, get_profile_totp_secret, get_system_config, send_microsys_mail
+from ..utils import get_client_ip, get_profile_totp_secret, get_system_config, send_microsys_mail, set_profile_totp_state
 
 User = get_user_model()
 logger = logging.getLogger('microsys')
@@ -392,7 +393,7 @@ def verify_otp_view(request, intent='login'):
             elif intent == 'enable_phone':
                 user.profile.is_phone_2fa_enabled = True
             elif intent == 'enable_totp':
-                user.profile.is_totp_2fa_enabled = True
+                set_profile_totp_state(user.profile, enabled=True)
 
             if intent == 'enable_email' and hasattr(user.profile, 'email_verified_at'):
                 user.profile.save(update_fields=['is_email_2fa_enabled', 'email_verified_at'])
@@ -400,8 +401,6 @@ def verify_otp_view(request, intent='login'):
                 user.profile.save(update_fields=['is_email_2fa_enabled'])
             elif intent == 'enable_phone':
                 user.profile.save(update_fields=['is_phone_2fa_enabled'])
-            elif intent == 'enable_totp':
-                user.profile.save(update_fields=['is_totp_2fa_enabled'])
 
             response_data = {'status': 'success'}
             if not was_2fa_enabled or not user.profile.backup_codes:
@@ -447,25 +446,38 @@ def setup_totp(request):
     raw_secret = get_profile_totp_secret(profile)
     if not raw_secret:
         raw_secret = pyotp.random_base32()
-        profile.totp_secret = raw_secret
         try:
-            profile.save(update_fields=['totp_secret'])
+            set_profile_totp_state(profile, raw_secret=raw_secret)
         except DatabaseError:
             logger.exception("Failed to save encrypted TOTP secret for user pk=%s", request.user.pk)
             return JsonResponse({
                 'status': 'error',
                 'message': 'Unable to save authenticator setup. Run database migrations and try again.',
             }, status=500)
+        except Exception:
+            logger.exception("Failed to persist TOTP secret for user pk=%s", request.user.pk)
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Unable to prepare authenticator setup. Check server dependencies and try again.',
+            }, status=500)
 
-    totp_uri = pyotp.totp.TOTP(raw_secret).provisioning_uri(
-        name=request.user.email,
-        issuer_name=_resolve_totp_issuer_name()
-    )
+    try:
+        account_name = str(request.user.email or request.user.get_username() or '').strip()
+        totp_uri = pyotp.TOTP(raw_secret).provisioning_uri(
+            name=account_name,
+            issuer_name=_resolve_totp_issuer_name()
+        )
 
-    img = qrcode.make(totp_uri)
-    buffered = BytesIO()
-    img.save(buffered, format='PNG')
-    img_str = base64.b64encode(buffered.getvalue()).decode()
+        img = qrcode.make(totp_uri)
+        buffered = BytesIO()
+        img.save(buffered, format='PNG')
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+    except Exception:
+        logger.exception("Failed to generate TOTP setup payload for user pk=%s", request.user.pk)
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Unable to generate authenticator setup. Try again.',
+        }, status=500)
 
     return JsonResponse({
         'status': 'success',
@@ -512,6 +524,9 @@ def disable_2fa(request):
     """
     Disables a specific 2FA method.
     """
+    if failure_response := require_current_password(request):
+        return failure_response
+
     method = request.POST.get('method')
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     profile = request.user.profile
@@ -523,16 +538,16 @@ def disable_2fa(request):
         profile.is_phone_2fa_enabled = False
         update_fields = ['is_phone_2fa_enabled']
     elif method == 'totp':
-        profile.is_totp_2fa_enabled = False
-        profile.totp_secret = ''
-        update_fields = ['is_totp_2fa_enabled', 'totp_secret']
+        set_profile_totp_state(profile, raw_secret='', enabled=False)
+        update_fields = []
     else:
         if is_ajax:
             return JsonResponse({'status': 'error', 'message': 'Invalid Method'}, status=400)
         messages.error(request, 'Invalid Method')
         return redirect('user_profile')
 
-    profile.save(update_fields=update_fields)
+    if update_fields:
+        profile.save(update_fields=update_fields)
 
     if is_ajax:
         return JsonResponse({'status': 'success'})
@@ -581,6 +596,9 @@ def resend_otp(request, intent='login'):
 @require_POST
 def generate_backup_codes(request):
     """Generates 8 new backup codes for the user."""
+    if failure_response := require_current_password(request):
+        return failure_response
+
     raw_codes = _generate_backup_code_values()
     request.user.profile.backup_codes = _hash_backup_code_values(raw_codes)
     request.user.profile.save(update_fields=['backup_codes'])

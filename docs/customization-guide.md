@@ -468,7 +468,31 @@ Built-in 2FA intents include:
 - `is_phone_2fa_enabled`
 - `is_totp_2fa_enabled`
 
-The property `is_2fa_enabled` returns `True` if any of the above are active. To force 2FA setup, redirect the user to `reverse('enable_2fa')`.
+The property `is_2fa_enabled` returns `True` if any of the above are active. Do not redirect users to `reverse('enable_2fa')` directly; `enable_2fa` is a POST-only mutator. The supported UI path is the profile security surface, or a custom POST-backed action that triggers the built-in 2FA flow.
+
+For destructive security mutations in your own views, reuse the current-password backend guard:
+
+```python
+from microsys.guards import require_current_password
+
+
+@login_required
+@require_POST
+def revoke_api_token(request, pk):
+    if failure_response := require_current_password(request):
+        return failure_response
+    # continue destructive mutation
+```
+
+For direct TOTP state persistence, avoid routing through the full `Profile.save()` path:
+
+```python
+from microsys.utils import set_profile_totp_state
+
+
+set_profile_totp_state(request.user.profile, raw_secret='BASE32SECRET', enabled=True)
+set_profile_totp_state(request.user.profile, raw_secret='', enabled=False)
+```
 
 ## Tutorial Engine Customization
 

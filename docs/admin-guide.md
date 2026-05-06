@@ -126,6 +126,12 @@ The Options screen currently provides:
 - a superuser-only System Settings button that opens the editable settings modal
 - a superuser-only setup export action for reusing System Settings across development environments
 
+Options layout note:
+
+- the cards are intentionally reorganizable from their drag handles
+- card order persists per browser in local storage, not in `Profile.preferences`
+- the System Info card intentionally stays wider than the rest of the cards inside the grid
+
 Security note:
 
 - the diagnostics card is now staff/superuser-only
@@ -170,6 +176,7 @@ Other admin-facing runtime behaviors to expect:
 2FA operational note:
 
 - enable, disable, backup-code generation, TOTP setup, and OTP resend flows are now POST-backed actions rather than GET-triggered links
+- destructive profile security actions now ask for the current password before the backend mutation is allowed to proceed
 
 ## Activity Logs in Daily Use
 

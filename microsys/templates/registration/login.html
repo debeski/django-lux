@@ -4,24 +4,7 @@
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'microsys/users/css/login.css' %}">
 {% if theme %}
-<style>
-  :root {
-    {% if theme.selection_bg %}--selection-bg: {{ theme.selection_bg }} !important;{% endif %}
-    {% if theme.selection_moz_bg %}--selection-moz-bg: {{ theme.selection_moz_bg }} !important;{% endif %}
-    {% if theme.left_bg %}--left-bg: {{ theme.left_bg }} !important;{% endif %}
-    {% if theme.left_shadow %}--left-shadow: {{ theme.left_shadow }} !important;{% endif %}
-    {% if theme.right_bg %}--right-bg: {{ theme.right_bg }} !important;{% endif %}
-    {% if theme.right_shadow %}--right-shadow: {{ theme.right_shadow }} !important;{% endif %}
-    {% if theme.right_text %}--right-text: {{ theme.right_text }} !important;{% endif %}
-    {% if theme.label_color %}--label-color: {{ theme.label_color }} !important;{% endif %}
-    {% if theme.input_text %}--input-text: {{ theme.input_text }} !important;{% endif %}
-    {% if theme.submit_color %}--submit-color: {{ theme.submit_color }} !important;{% endif %}
-    {% if theme.submit_focus %}--submit-focus: {{ theme.submit_focus }} !important;{% endif %}
-    {% if theme.submit_active %}--submit-active: {{ theme.submit_active }} !important;{% endif %}
-    {% if theme.gradient_start %}--gradient-start: {{ theme.gradient_start }} !important;{% endif %}
-    {% if theme.gradient_end %}--gradient-end: {{ theme.gradient_end }} !important;{% endif %}
-  }
-</style>
+{{ theme|json_script:"login-theme-data" }}
 {% endif %}
 {% endblock %}
 {% block titlebar %}{% endblock %}
@@ -29,9 +12,9 @@
 {% block layout %}
 <div class="page">
     {% if messages %}
-        <div class="alert-container position-absolute top-0 start-0 w-100" style="z-index: 2000;">
+        <div class="alert-container position-absolute top-0 start-0 w-100 ms-page-alert-container">
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} text-center h4" style="opacity: 95%;">
+                <div class="alert alert-{{ message.tags }} text-center h4 ms-page-alert">
                     {{ message }}
                 </div>
             {% endfor %}
