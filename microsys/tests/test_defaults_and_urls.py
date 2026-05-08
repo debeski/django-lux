@@ -692,6 +692,9 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("step.classList.toggle('d-none', !isActive);", contents)
         self.assertIn("step.style.display = isActive ? '' : 'none';", contents)
         self.assertIn("step.setAttribute('aria-hidden', isActive ? 'false' : 'true');", contents)
+        self.assertIn("button.classList.toggle('d-none', !isVisible);", contents)
+        self.assertIn("button.style.display = isVisible ? '' : 'none';", contents)
+        self.assertIn("button.setAttribute('aria-hidden', isVisible ? 'false' : 'true');", contents)
 
     def test_user_hub_css_clamps_mobile_dropdown_to_viewport(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'users' / 'css' / 'user_hub.css'

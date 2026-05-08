@@ -690,6 +690,21 @@ class SecurityHardeningViewTests(TestCase):
         self.assertEqual(create_response.status_code, 403)
         self.assertEqual(edit_response.status_code, 403)
 
+    def test_user_create_modal_renders_wizard_actions_for_cancel_and_step_navigation(self):
+        self.client.login(username='root', password='rootpass123')
+
+        response = self.client.get(
+            reverse('modal_user'),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIn('data-bs-dismiss="modal"', payload['html'])
+        self.assertIn('ms-btn-prev d-none', payload['html'])
+        self.assertIn('ms-btn-next', payload['html'])
+        self.assertIn('ms-btn-submit d-none', payload['html'])
+
     def test_manage_users_requires_view_user_permission_for_staff(self):
         self.client.login(username='staffer', password='staffpass123')
 

@@ -9,12 +9,11 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
 from django.core.exceptions import PermissionDenied
-from django.http import JsonResponse
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404
 from django.utils import timezone
 from django.utils.module_loading import import_string
 from django_filters.views import FilterView
-from django_tables2 import RequestConfig, SingleTableView
+from django_tables2 import SingleTableView
 from django.views.generic.detail import DetailView
 
 # Project imports
@@ -23,8 +22,6 @@ from ..forms import MicrosysAuthenticationForm
 from ..utils import (
     can_manage_target_user,
     exclude_global_staff_users,
-    get_client_ip,
-    get_user_linked_models,
     get_user_scope,
     is_central_staff,
     is_global_staff,
@@ -32,7 +29,6 @@ from ..utils import (
     is_staff,
     is_superuser,
     log_user_action,
-    strip_manage_scopes_permissions,
     user_can_view_activity_log,
     user_can_view_user_directory,
 )
@@ -189,101 +185,6 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
             
         return context
 
-
-# User Management — Handles new user creation with scope auto-assignment
-@user_passes_test(is_staff)
-def create_user(request):
-    CustomUserCreationForm = import_string('microsys.forms.CustomUserCreationForm')
-    linked_models = get_user_linked_models()
-    
-    if request.method == "POST":
-        form = CustomUserCreationForm(request.POST or None, user=request.user)
-        if form.is_valid():
-            user = form.save(commit=False)
-            # Auto-assign scope for non-superusers
-            if not request.user.is_superuser and get_user_scope(request.user):
-                # This logic is handled inside form.save via passed params.
-                pass
-            
-            # Central Staff cannot create Global Staff - strip manage_scopes permission
-            if is_central_staff(request.user):
-                form.cleaned_data['permissions'] = strip_manage_scopes_permissions(
-                    list(form.cleaned_data.get('permissions', []))
-                )
-                # Ensure scope is NULL (scopeless user)
-                if hasattr(user, 'profile') and user.profile:
-                    user.profile.scope = None
-            
-            user = form.save() # Saves user + profile
-            
-            # --- Dynamic Profile Auto-Enrollment ---
-            for lm in linked_models:
-                checkbox_name = f"create_profile_{lm['app_label']}_{lm['model_name']}"
-                if request.POST.get(checkbox_name) == 'on':
-                    model_class = apps.get_model(lm['app_label'], lm['model_name'])
-                    kwargs = {lm['field_name']: user}
-                    
-                    # Try to populate 'name' if defined on the model
-                    field_names = [f.name for f in model_class._meta.get_fields()]
-                    if 'name' in field_names:
-                        kwargs['name'] = user.get_full_name() or user.username
-                        
-                    model_class.objects.get_or_create(**kwargs)
-            # ---------------------------------------
-            
-            return redirect("manage_users")
-        else:
-            return render(request, "microsys/users/user_form.html", {"form": form, "linked_models": linked_models})
-    else:
-        form = CustomUserCreationForm(user=request.user)
-    
-    return render(request, "microsys/users/user_form.html", {"form": form, "linked_models": linked_models})
-
-
-# User Management — Handles user editing with superuser/scope protection
-@user_passes_test(is_staff)
-def edit_user(request, pk):
-    user = get_object_or_404(User, pk=pk)
-    ResetPasswordForm = import_string('microsys.forms.ResetPasswordForm')
-    CustomUserChangeForm = import_string('microsys.forms.CustomUserChangeForm')
-    # 🚫 Superusers can only be edited by THEMSELVES
-    if user.is_superuser and request.user != user:
-        messages.error(request, "ليس لديك صلاحية لتعديل هذا الحساب!")
-        return redirect('manage_users')
-
-
-    # Restrict to same scope
-    if not request.user.is_superuser:
-        user_scope = get_user_scope(user)
-        requester_scope = get_user_scope(request.user)
-        
-        if requester_scope and user_scope != requester_scope:
-             messages.error(request, "ليس لديك صلاحية لتعديل هذا المستخدم!")
-             return redirect('manage_users')
-        
-        # Central Staff: cannot edit Global Staff users (those with manage_scopes permission)
-        if is_central_staff(request.user):
-            if user.has_perm('microsys.manage_scopes'):
-                messages.error(request, "Central Staff cannot edit Global Staff users.")
-                return redirect('manage_users')
-
-    form_reset = ResetPasswordForm(user, data=request.POST or None, prefix='reset_password')
-
-    if request.method == "POST":
-        form = CustomUserChangeForm(request.POST, instance=user, user=request.user)
-        if form.is_valid():
-            user = form.save() # Saves user + profile
-            return redirect("manage_users")
-        else:
-            # Validation errors will be automatically handled by the form object
-            return render(request, "microsys/users/user_form.html", {"form": form, "edit_mode": True, "form_reset": form_reset})
-
-    else:
-        form = CustomUserChangeForm(instance=user, user=request.user)
-
-    return render(request, "microsys/users/user_form.html", {"form": form, "edit_mode": True, "form_reset": form_reset})
-
-
 # User Management — Soft-deletes a user (deactivate + rename for reuse)
 from django.contrib.auth.decorators import permission_required
 @permission_required('auth.delete_user', raise_exception=True)
@@ -372,39 +273,6 @@ def reset_password(request, pk):
             return redirect("manage_users")
     
     return redirect("manage_users")  # Fallback redirect
-
-
-# User Management — Full-page user detail view with activity log table
-class UserDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
-    model = User
-    template_name = "microsys/users/user_detail.html"
-
-    def test_func(self):
-        return user_can_view_user_directory(self.request.user)
-
-    def get_object(self, queryset=None):
-        obj = super().get_object(queryset)
-        if not can_manage_target_user(self.request.user, obj):
-            raise PermissionDenied
-        return obj
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        table = None
-        can_view_activity_logs = user_can_view_activity_log(self.request.user)
-        if can_view_activity_logs:
-            UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
-            logs_qs = UserActivityLog._default_manager.filter(created_by=self.object).order_by('-created_at')
-
-            UserActivityLogTableNoUser = import_string('microsys.tables.UserActivityLogTableNoUser')
-            table = UserActivityLogTableNoUser(logs_qs, translations=get_strings(), request=self.request)
-            RequestConfig(self.request).configure(table)
-
-        context['can_view_activity_logs'] = can_view_activity_logs
-        context['table'] = table
-        return context
-
-
 # User Management — Quick-view modal for user details and recent activity
 class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     model = User

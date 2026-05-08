@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", function () {
             steps = [
                 sidebarStep,
                 { element: 'input[name="keyword"]', popover: { title: t.search_title || 'Search', description: t.search_desc || 'Search users.', side: "right", align: 'center' }},
-                { element: 'a[href*="create_user"]', popover: { title: t.users_add_btn_title || 'Add User', description: t.users_add_btn_desc || 'Add new user.', side: "bottom", align: 'end' }},
+                { element: '[data-dynamic-modal][data-modal-title]', popover: { title: t.users_add_btn_title || 'Add User', description: t.users_add_btn_desc || 'Add new user.', side: "bottom", align: 'end' }},
                 { element: '#btn-manage-scopes, #toggleScopes', popover: { title: t.users_scopes_title || 'Scopes', description: t.users_scopes_desc || 'Manage scopes.', side: "bottom", align: 'center' }},
                 { element: '.badge', popover: { title: t.users_roles_title || 'User Roles', description: t.users_roles_desc || 'Role indicators.', side: "bottom", align: 'center' }},
                 { element: '.table tbody tr', popover: { title: t.users_row_title || 'User Details', description: t.users_row_desc || 'Double click row.', side: "bottom", align: 'center' }},

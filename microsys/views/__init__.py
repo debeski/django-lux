@@ -8,10 +8,7 @@ from .general import export_system_settings_view, options_view, system_setup_vie
 from .users import (
     CustomLoginView,
     UserListView,
-    UserDetailView,
     UserDetailModalView,
-    create_user,
-    edit_user,
     delete_user,
     reset_password,
     User,

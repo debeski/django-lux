@@ -59,6 +59,15 @@
             currentStep = resolvedStep;
         }
 
+        function setButtonVisibility(button, isVisible) {
+            if (!button) {
+                return;
+            }
+            button.classList.toggle('d-none', !isVisible);
+            button.style.display = isVisible ? '' : 'none';
+            button.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+        }
+
         function showStep(index) {
             steps.forEach(function(step, i) {
                 const isActive = i === index;
@@ -68,9 +77,9 @@
             });
 
             // Button visibility
-            btnPrev.style.display = (index === 0) ? 'none' : '';
-            btnNext.style.display = (index === steps.length - 1) ? 'none' : '';
-            btnSubmit.style.display = (index === steps.length - 1) ? '' : 'none';
+            setButtonVisibility(btnPrev, index !== 0);
+            setButtonVisibility(btnNext, index !== steps.length - 1);
+            setButtonVisibility(btnSubmit, index === steps.length - 1);
 
             currentStep = index;
         }
