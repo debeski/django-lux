@@ -4,6 +4,12 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+
+## v2.1.4
+
+- **User Creation Bug Fix**: Fixed an issue where users could not be created due to missing `save` button.
+- **Retired Old User Forms**: Removed old user creation forms that were no longer needed.
+
 ## v2.1.3
 
 - **Version Bump**: Updated version to 2.1.3 due to linting changes.
