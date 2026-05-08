@@ -4,6 +4,14 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.1.3
+
+- **Version Bump**: Updated version to 2.1.3 due to linting changes.
+
+## v2.1.2
+
+- **Improved Management Command**: Added fallback protection for the 'migrate_plus_populate' management command to gracefully handle cases where no 'populate' command is installed, preventing deployment failures and providing helpful guidance to developers.
+
 ## v2.1.1
 
 - **Packaging Hygiene Tightening**: Excluded `microsys.tests` from package discovery and pruned repository test modules plus Python cache artifacts (`__pycache__`, `.pyc`, `.pyo`) from published `wheel` and `sdist` distributions so the release payload stays focused on runtime code and shipped assets.

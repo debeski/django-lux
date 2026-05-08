@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Verified on `2026-05-07`.
+- Verified on `2026-05-08`.
 - Package/version state:
   - `microsys/VERSION` is `2.1.1`.
   - `CHANGELOG.md` now contains the stable `v2.1.1` patch release entry above the `v2.1.0` release and beta history.
@@ -22,22 +22,31 @@
   - Step 5 titlebar toggle-card row now uses the same `g-3 mb-3` row spacing pattern as the neighboring setup rows, so the gap before the first selection-widget row matches the gap between the selection-widget rows.
   - Shared setup/settings toggle cards now have dedicated content/control sub-elements and container-query reflow rules in `microsys/static/microsys/main/css/system_setup.css`.
     - Narrow toggle cards stack the switch below the label/help instead of pushing the switch outside the card boundary.
-    - This directly covers tight cards such as `Provider STARTTLS` and `Provider SSL`.
+    - Step 3 `Provider STARTTLS` and `Provider SSL` no longer use the shared toggle-card renderer; they now use a dedicated compact email-toggle wrapper because the user reported repeated narrow-card rendering failures there.
+    - Label/help wrapping now uses `overflow-wrap: break-word` with normal word breaking so narrow toggle cards do not collapse short labels into vertical character stacks.
+    - The shared toggle control wrapper no longer uses Bootstrap `form-check` padding/negative-margin switch layout inside the custom card, so narrow Step 3 email toggles stay fully inside card bounds.
+  - Step 3 email TLS/SSL switches now render through dedicated `build_email_toggle_field(...)` markup instead of `build_settings_toggle_field(...)`.
+  - First-launch setup wizard step navigation now unhides server-rendered later steps by removing `d-none` in the shared wizard helper instead of only flipping inline `display`, so Step 2 to Step 5 no longer render as empty after `Next`.
   - Shared selector toggle-card grids now have vertical padding in `microsys/static/microsys/main/css/selectors.css`, and the selectors asset version was bumped for browser pickup.
   - Options now use shared external assets in `microsys/static/microsys/main/css/options.css` and `microsys/static/microsys/main/js/options.js`.
     - Autofill and reset-defaults are standalone cards again, using the shared Options card surface instead of nested cards inside one wrapper.
     - All Options cards now expose drag handles and persist user-defined card order in local storage.
     - System Info keeps the double-card span while sharing the same card language.
+    - Draggable Options cards now use a lighter drop shadow and the reorder handle icon now uses `bi-arrow-left-right` instead of the generic grip icon.
+    - Drag-over placement now uses a vertical inline start/end indicator centered in the gap between cards, and the actual card insertion logic now follows horizontal pointer position with RTL-aware start/end handling instead of the old top/bottom midpoint check.
+    - The gap indicator now renders from `.ms-options-card` instead of the inner `.ms-options-panel`, because the panel’s `overflow: hidden` clipped any marker positioned outside the card surface.
+    - System Info now forces the inner diagnostics table and storage progress background surfaces transparent so Bootstrap table/progress defaults do not show as white blocks inside the card.
   - User hub mobile toolbar now wraps within one toolbar row when there is enough width, instead of being forced into separate stacked rows by mobile CSS.
   - Template/rendered-HTML asset policy cleanup is now enforced in code:
     - no inline `<style>` blocks remain under `microsys/templates/`
     - no executable inline `<script>` blocks remain under `microsys/templates/`
     - no inline `style=` attributes remain in templates, `microsys/forms.py`, or `microsys/widgets.py`
     - theme preview swatches now use shared slug-based CSS classes instead of inline background styles
+  - User permission assignment UI now excludes scaffold infra app labels such as `db` / `health_check`, skips orphaned permissions whose `ContentType.model_class()` no longer resolves, groups `manage_scopes` with `manage_staff` plus the synthetic `is_staff` toggle under the dedicated staff-access card, and labels any remaining `Profile`-backed permission group with `model_user` (`Users`) instead of `model_profile` (`User Profile`).
   - Sidebar/titlebar runtime controls, split-step Options System Settings modals, scope-aware generated CRUD scaffolds, and MSRP-1 authorization hardening are implemented in code.
 - Current verified caveats:
 - Browser/manual validation is still pending for several UI-heavy flows.
-  - First-launch System Setup still has an unresolved runtime mismatch for the sidebar-toolbar warning, while the Options modal path works.
+  - The Step 2 to Step 5 empty-state regression is fixed in code and covered by a focused static regression test, but a live browser pass for first-launch setup navigation is still pending.
 
 ### Current Project Adopted Standards:
 - Preferred settings integration:
@@ -88,6 +97,7 @@
   - exports redact SMTP secrets; encrypted DB storage is supported for UI-managed secrets.
 - Setup/Options audit:
   - setup and split-step Options modals share the same main System Settings helpers for boolean toggle cards and custom file widgets.
+  - the shared wizard helper must remove server-rendered `d-none` classes when switching steps; inline `style.display` alone is insufficient for Bootstrap-hidden steps.
   - public-registration-dependent controls and email-delivery controls are visibility-gated in setup JS and preserved across imported payloads.
 - Optional SSO audit:
   - provider/client code remains isolated in `optional_packages/`; no core runtime coupling is intended.
@@ -103,7 +113,6 @@
 
 ### Incomplete Tasks:
 - Priority 1:
-  - [ ] Reproduce and fix the first-launch System Setup sidebar-toolbar warning mismatch against the working Options modal path.
   - [ ] Browser-check the refreshed Options page behavior:
     - [ ] card drag ordering and persistence
     - [ ] System Info double-width placement after card reordering
@@ -124,6 +133,7 @@
     - [ ] disable
     - [ ] backup-code usage
   - [ ] Browser-check setup/System Settings appearance and shell behavior:
+    - [ ] first-launch step navigation from Step 1 through Step 5 after the shared wizard fix
     - [ ] language catalog add/remove and default-language behavior
     - [ ] translation matrix search/filter/edit behavior
     - [ ] allowed themes matrix
@@ -149,6 +159,17 @@
   - [ ] Run full provider OIDC validation after installing `django-oauth-toolkit[oidc]`.
   - [ ] Run full client OIDC validation after installing `mozilla-django-oidc`.
 - Completed Recently:
+  - [x] Switched the remaining `Profile`-backed permission card label from the `model_profile` translation path to `model_user`, and fixed the widget so special-case group labels are not overwritten by the generic `model_*` lookup.
+  - [x] Grouped `manage_scopes` with `manage_staff` and the synthetic `is_staff` toggle under the dedicated staff-access permission card instead of leaving `manage_scopes` under the separate User Profile/User Management card.
+  - [x] Fixed assignable user-permission filtering so scaffold infra app labels like `db` do not show up as permission groups, and orphaned content-type permissions such as `Test Model` are skipped in the grouped widget even if they leak into the queryset.
+  - [x] Fixed the Options gap-centered drop marker so it renders from the outer card wrapper instead of being clipped by the panel’s `overflow: hidden`.
+  - [x] Moved the Options vertical drop indicator off the card edge and into the gap between cards so the insertion marker reads as “drop here between these cards”.
+  - [x] Replaced the Options drag-over top/bottom bar with a vertical start/end drop indicator and switched the drop-position logic to horizontal before/after detection.
+  - [x] Reduced the draggable Options card shadow, switched the reorder handle icon to `bi-arrow-left-right`, and removed the white inner background surfaces from the System Info card table/progress area.
+  - [x] Moved Step 3 `email_config_use_tls` and `email_config_use_ssl` off the shared toggle-card path into a dedicated compact email-toggle renderer after the user explicitly requested changing those toggles instead of continuing to tweak the shared card.
+  - [x] Fixed the shared toggle-card switch wrapper so Bootstrap `form-check` padding/negative-margin behavior no longer leaks into the custom toggle-card layout.
+  - [x] Fixed first-launch setup navigation so the shared wizard helper removes `d-none` from later steps instead of leaving Step 2 to Step 5 blank after `Next`.
+  - [x] Added a focused regression test for the shared wizard helper to lock the `d-none`/`display` step-switch behavior in place.
   - [x] Aligned setup boolean cards across steps `2` to `5` with `build_settings_toggle_field(...)`.
   - [x] Made Step 2 language override full-width and added gap before translation filters.
   - [x] Gated `registration_activation_mode` and `registration_throttle_enabled` behind `public_registration_enabled`.
@@ -174,7 +195,7 @@
   - [x] Refreshed `docs/FEATURES.md` and `docs/README.md` to match the `2.1.1` setup flow, Options/runtime behavior, reusable helper APIs, 2FA routes, and no-inline MSRP-1 policy references.
 
 ### One-line info about last verified Tests:
-- `2026-05-07`: Django `DiscoverRunner` passed `microsys.tests.test_utils.UtilsTests` plus `microsys.tests.test_views.TwoFactorSecurityViewTests` with `65` tests after adding `set_profile_totp_state(...)`, tightening TOTP persistence, and updating release/docs metadata.
+- `2026-05-08`: `./.venv/bin/python - <<'PY' ... DiscoverRunner(...).run_tests(['microsys.tests.test_permissions_ui']) ... PY` passed with `4` DB-backed tests covering scaffold-infra/orphaned permission filtering, `manage_scopes` staff-access grouping, and `Profile` card label remapping to `model_user`; `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls` also passed with `50` static/render tests.
 
 ### One-line info about last time edited Docs:
 - `2026-05-07`: `docs/FEATURES.md` and `docs/README.md` were refreshed to match `2.1.1` runtime behavior, reusable helper APIs, current 2FA routes, and the no-inline MSRP-1 policy; earlier the same day `CHANGELOG.md` was updated with the stable `v2.1.1` patch release entry, `docs/security-msrp-1.md` was updated to add the no-inline HTML/CSS/JS policy to the MSRP-1 core rules, and `README.md`, `docs/getting-started.md`, `docs/reference.md`, `docs/admin-guide.md`, `docs/customization-guide.md`, `docs/registration.md`, `microsys/scaffold_templates/project/README.md.tmpl`, and `tracker.md` were updated for `v2.1.0`, reusable helper coverage, scaffold/runtime docs, and the explicit `cryptography` dependency.
@@ -191,6 +212,8 @@
     - `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls`
   - Focused 2FA view suite:
     - `./.venv/bin/python - <<'PY' ... DiscoverRunner(...).run_tests(['microsys.tests.test_views.TwoFactorSecurityViewTests']) ... PY`
+  - Focused permissions UI DB suite:
+    - `./.venv/bin/python - <<'PY' ... DiscoverRunner(...).run_tests(['microsys.tests.test_permissions_ui']) ... PY`
   - Legacy focused defaults/render suite reference:
     - `./.venv/bin/python - <<'PY' ... runner.run_tests(['microsys.tests.test_defaults_and_urls']) ... PY`
   - Full compile check without repo `__pycache__` ownership issues:
@@ -219,7 +242,11 @@
 ### Agent Handoff Rules:
 - Re-read this tracker at the start of every turn and update it after meaningful project-state changes.
 - The user explicitly corrected earlier assumptions about local testing: they mount this repo over the target app, so do not assume they are running only the packaged PyPI release when they say the local checkout is active.
-- The unresolved first-launch sidebar warning issue should be treated as a real runtime problem, not something to “paper over” with speculative event handlers unless the runtime path has been reproduced.
+- The first-launch Step 2 to Step 5 empty-state bug was caused by the shared wizard helper leaving Bootstrap `d-none` on later steps; if setup navigation regresses again, inspect `microsys/static/microsys/helpers/wizard/js/main.js` before changing form markup.
+- If shared setup toggle labels start stacking vertically again, inspect `microsys/static/microsys/main/css/system_setup.css` before replacing the toggle renderer; `overflow-wrap: anywhere` was too aggressive for narrow Step 3 email cards.
+- If shared setup toggles start overflowing their card bounds again, inspect `microsys/forms.py` `build_settings_toggle_field(...)` and `microsys/static/microsys/main/css/system_setup.css` before changing columns; Bootstrap `form-check` / `form-switch` wrapper padding and negative input margins conflict with the custom flex card layout.
+- Do not route Step 3 `email_config_use_tls` / `email_config_use_ssl` back through `build_settings_toggle_field(...)` unless the dedicated email-toggle path is intentionally retired and re-verified in browser; the user explicitly asked to change those toggles after repeated layout regressions.
+- If unexpected permission groups like `Db -> Test Model` show up in user permissions, inspect `get_assignable_permissions_queryset()` plus `GroupedPermissionWidget.get_context()` before blaming the template; scaffold infra app labels and orphaned content types are now intentionally filtered there.
 - Preserve user corrections explicitly in future tracker updates so the same wrong assumptions are not repeated.
 
 ### References and Links:

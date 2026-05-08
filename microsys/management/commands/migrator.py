@@ -1,6 +1,6 @@
 import os
 from django.core.management.base import BaseCommand
-from django.core.management import call_command
+from django.core.management import call_command, get_commands
 from django.contrib.auth import get_user_model
 from django.apps import apps
 from django.conf import settings
@@ -177,14 +177,18 @@ class Command(BaseCommand):
                 break
 
         if not data_exists:
-            self.stdout.write("No initial data found in target local apps. Running populate...")
-            try:
-                call_command('populate')
-            except Exception as e:
-                self.stderr.write(self.style.ERROR(f"POPULATE FAILED: {e}"))
-                self.stderr.write("Ensure a 'populate' management command exists in one of your apps.")
-                self.stderr.write("The populate command should be defined at: <app>/management/commands/populate.py")
-                raise
+            if 'populate' in get_commands():
+                self.stdout.write("No initial data found in target local apps. Running populate...")
+                try:
+                    call_command('populate')
+                except Exception as e:
+                    self.stderr.write(self.style.ERROR(f"POPULATE FAILED: {e}"))
+                    self.stderr.write("The populate command exists but failed while running.")
+                    raise
+            else:
+                self.stdout.write(self.style.WARNING(
+                    "No initial data found, and no 'populate' command is installed. Skipping population."
+                ))
         else:
             self.stdout.write("Initial data already exists. Skipping population.")
 

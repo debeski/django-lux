@@ -8,26 +8,27 @@ autorun.ini
 .codex
 
 # Ignore app directories
-logs/
-media/
-staticfiles/
-imports/
-backups/
-.backups/
-secrets/
-.secrets/
-venv/
-.venv/
-dist/
-.dist/
+/logs/
+/media/
+/staticfiles/
+/imports/
+/backups/
+/.backups/
+/secrets/
+/.secrets/
+/venv/
+/.venv/
+/dist/
+/.dist/
 *.egg-info/
-build/
-.build/
-codex/
-.codex/
-agents/
-.agents/
-.xpose/
+/build/
+/.build/
+/codex/
+/.codex/
+/agents/
+/.agents/
+/.xpose/
+/.sonar/
 
 # Ignore celery-related files
 celerybeat-*

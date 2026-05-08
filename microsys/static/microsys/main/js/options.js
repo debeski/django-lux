@@ -290,13 +290,22 @@
             });
         }
 
+        function shouldInsertBefore(targetCard, event) {
+            const rect = targetCard.getBoundingClientRect();
+            const direction = window.getComputedStyle(targetCard).direction || document.documentElement.dir || 'ltr';
+            const midpoint = rect.left + (rect.width / 2);
+            if (direction === 'rtl') {
+                return event.clientX > midpoint;
+            }
+            return event.clientX < midpoint;
+        }
+
         function placeDraggedCard(targetCard, event) {
             if (!draggedCard || !targetCard || draggedCard === targetCard) {
                 return;
             }
 
-            const rect = targetCard.getBoundingClientRect();
-            const insertBefore = event.clientY < rect.top + (rect.height / 2);
+            const insertBefore = shouldInsertBefore(targetCard, event);
             targetCard.classList.toggle('is-drag-over-before', insertBefore);
             targetCard.classList.toggle('is-drag-over-after', !insertBefore);
         }
@@ -355,8 +364,7 @@
                 }
                 event.preventDefault();
 
-                const rect = card.getBoundingClientRect();
-                const insertBefore = event.clientY < rect.top + (rect.height / 2);
+                const insertBefore = shouldInsertBefore(card, event);
                 if (insertBefore) {
                     grid.insertBefore(draggedCard, card);
                 } else {

@@ -61,7 +61,10 @@
 
         function showStep(index) {
             steps.forEach(function(step, i) {
-                step.style.display = (i === index) ? '' : 'none';
+                const isActive = i === index;
+                step.classList.toggle('d-none', !isActive);
+                step.style.display = isActive ? '' : 'none';
+                step.setAttribute('aria-hidden', isActive ? 'false' : 'true');
             });
 
             // Button visibility

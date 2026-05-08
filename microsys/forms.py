@@ -70,6 +70,25 @@ from .widgets import MicrosysChoiceSelectorWidget
 User = get_user_model()
 
 THEME_CHOICES = get_theme_choices()
+PERMISSION_UI_EXCLUDED_APP_LABELS = [
+    'admin',
+    'contenttypes',
+    'sessions',
+    'django_celery_beat',
+    'health_check',
+    'db',
+    'corsheaders',
+    'csp',
+]
+
+
+def get_assignable_permissions_queryset():
+    return Permissions.objects.exclude(
+        Q(codename__regex=r'^(delete_)') |
+        Q(content_type__app_label__in=PERMISSION_UI_EXCLUDED_APP_LABELS) |
+        (Q(content_type__app_label='microsys') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'view_activitylog']) & ~Q(content_type__model='section')) |
+        Q(content_type__app_label='auth', content_type__model__in=['group', 'user', 'permission'])
+    )
 
 
 class MicrosysAuthenticationForm(AuthenticationForm):
@@ -349,10 +368,38 @@ def build_settings_toggle_field(form, field_name, css_class=None, attrs=None):
         f"<div class='ms-settings-toggle-field__label fw-semibold'>{label}</div>"
         f"{help_html}"
         f"</div>"
-        f"<div class='ms-settings-toggle-field__control form-check form-switch flex-shrink-0 ms-2'>"
-        f"<input class='form-check-input' type='checkbox' id='{conditional_escape(bound_field.auto_id)}' "
+        f"<div class='ms-settings-toggle-field__control form-switch'>"
+        f"<input class='form-check-input ms-settings-toggle-field__input' type='checkbox' id='{conditional_escape(bound_field.auto_id)}' "
         f"name='{conditional_escape(bound_field.html_name)}' aria-label='{label}'{checked_attr}{disabled_attr}>"
         f"</div>"
+        f"</div>"
+    )
+    if css_class:
+        return Div(HTML(wrapper_html), css_class=css_class, **(attrs or {}))
+    return HTML(wrapper_html)
+
+
+def build_email_toggle_field(form, field_name, css_class=None, attrs=None):
+    bound_field = form[field_name]
+    field = bound_field.field
+    label = conditional_escape(field.label or field_name.replace('_', ' ').title())
+    help_text = str(field.help_text or '').strip()
+    help_html = (
+        f"<div class='ms-email-toggle-field__help small text-muted mt-1'>{conditional_escape(help_text)}</div>"
+        if help_text else
+        ""
+    )
+    checked_attr = ' checked' if _boolean_field_checked(form, field_name) else ''
+    disabled_attr = ' disabled' if bool(getattr(field, 'disabled', False)) else ''
+    wrapper_html = mark_safe(
+        f"<div class='ms-email-toggle-field border rounded bg-light px-3 py-2 h-100' "
+        f"data-ms-email-toggle-field='{conditional_escape(field_name)}'>"
+        f"<div class='ms-email-toggle-field__row d-flex align-items-center justify-content-between gap-3'>"
+        f"<div class='ms-email-toggle-field__label fw-semibold'>{label}</div>"
+        f"<input class='form-check-input ms-email-toggle-field__input' type='checkbox' id='{conditional_escape(bound_field.auto_id)}' "
+        f"name='{conditional_escape(bound_field.html_name)}' aria-label='{label}'{checked_attr}{disabled_attr}>"
+        f"</div>"
+        f"{help_html}"
         f"</div>"
     )
     if css_class:
@@ -405,21 +452,25 @@ class GroupedPermissionWidget(ChoiceWidget):
             model_name = perm.content_type.model
             codename = perm.codename
 
-            # --- Mapping manage_staff to the dedicated staff-access UI ---
-            if app_label == 'microsys' and codename == 'manage_staff':
+            # Keep staff-delegation permissions together in the dedicated staff-access UI.
+            if app_label == 'microsys' and codename in {'manage_staff', 'manage_scopes'}:
                 model_name = 'staff_access'
                 # Force model_verbose_name to match what _attach_is_staff_permission uses
                 # "perm_staff_access" string usually "Staff Permissions"
                 
-            # Use real verbose name from model class if available
+            model_label_key = None
+            model_label_fallback = None
             if app_label == 'microsys' and model_name == 'staff_access':
-                model_verbose_name = s.get('perm_staff_access', "Staff Permissions")
+                model_label_key = 'perm_staff_access'
+                model_label_fallback = "Staff Permissions"
             elif app_label == 'microsys' and model_name == 'profile':
-                model_verbose_name = s.get('perm_manage_users', "User Management")
-            # elif app_label == 'auth' and model_name == 'section':
-            #     model_verbose_name = "إدارة الأقسام الفرعية"
-            # else:
+                model_label_key = 'model_user'
+
             model_class = perm.content_type.model_class()
+            if model_class is None and not (
+                app_label == 'microsys' and model_name in {'staff_access', 'profile'}
+            ):
+                continue
             if model_class:
                 # prefer plural verbose name if possible, or just verbose name
                 # But here we want to use our translation keys if available
@@ -427,9 +478,11 @@ class GroupedPermissionWidget(ChoiceWidget):
             else:
                 default_verbose = perm.content_type.name
             
-            # Try translation key 'model_modelname' (e.g. model_user)
-            # Override for specific known models if needed, though they should be in translations now
-            model_verbose_name = s.get(f"model_{model_name}", default_verbose)
+            if model_label_key:
+                model_verbose_name = s.get(model_label_key, model_label_fallback or default_verbose)
+            else:
+                # Try translation key 'model_modelname' (e.g. model_user)
+                model_verbose_name = s.get(f"model_{model_name}", default_verbose)
             
             # Fetch verbose app name
             try:
@@ -552,17 +605,7 @@ class CustomUserCreationForm(UserCreationForm):
     scope = forms.ModelChoiceField(queryset=None, required=False, label="Scope")
     
     permissions = forms.ModelMultipleChoiceField(
-        queryset=Permissions.objects.exclude(
-            Q(codename__regex=r'^(delete_)') |
-            Q(content_type__app_label__in=[
-                'admin',
-                'contenttypes',
-                'sessions',
-                'django_celery_beat',
-            ]) |
-            (Q(content_type__app_label='microsys') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'view_activitylog']) & ~Q(content_type__model='section')) |
-            Q(content_type__app_label='auth', content_type__model__in=['group', 'user', 'permission'])
-        ),
+        queryset=get_assignable_permissions_queryset(),
         required=False,
         widget=GroupedPermissionWidget,
         label="Permissions"
@@ -888,17 +931,7 @@ class CustomUserPermissionsForm(UserChangeForm):
     refresh_parent = True
 
     permissions = forms.ModelMultipleChoiceField(
-        queryset=Permissions.objects.exclude(
-            Q(codename__regex=r'^(delete_)') |
-            Q(content_type__app_label__in=[
-                'admin',
-                'contenttypes',
-                'sessions',
-                'django_celery_beat',
-            ]) |
-            (Q(content_type__app_label='microsys') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'view_activitylog']) & ~Q(content_type__model='section')) |
-            Q(content_type__app_label='auth', content_type__model__in=['group', 'user', 'permission'])
-        ),
+        queryset=get_assignable_permissions_queryset(),
         required=False,
         widget=GroupedPermissionWidget,
         label="Permissions"
@@ -2205,8 +2238,8 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(Field('email_config_host'), css_class='col-lg-4'),
                     Div(Field('email_config_port'), css_class='col-lg-2'),
-                    build_settings_toggle_field(self, 'email_config_use_tls', css_class='col-lg-2'),
-                    build_settings_toggle_field(self, 'email_config_use_ssl', css_class='col-lg-2'),
+                    build_email_toggle_field(self, 'email_config_use_tls', css_class='col-lg-2'),
+                    build_email_toggle_field(self, 'email_config_use_ssl', css_class='col-lg-2'),
                     Div(Field('email_config_username'), css_class='col-lg-2'),
                 ),
                 Row(

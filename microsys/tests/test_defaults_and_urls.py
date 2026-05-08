@@ -416,7 +416,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('<fieldset aria-describedby="id_default_table_density_helptext">', html)
         self.assertNotIn('<fieldset> <legend', html)
 
-    def test_crispy_setup_render_uses_shared_toggle_cards_for_boolean_settings_across_steps(self):
+    def test_crispy_setup_render_uses_shared_toggle_cards_for_boolean_settings_except_email_switches(self):
         form = SystemSettingsForm(
             instance=SystemSettings(is_configured=False),
             mode='setup',
@@ -426,11 +426,14 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertIn("data-ms-settings-toggle-field='allow_user_language_override'", html)
         self.assertIn("data-ms-settings-toggle-field='public_root'", html)
-        self.assertIn("data-ms-settings-toggle-field='email_config_use_tls'", html)
         self.assertIn("data-ms-settings-toggle-field='sidebar_enabled'", html)
         self.assertIn("data-ms-settings-toggle-field='sidebar_enable_toolbar'", html)
         self.assertIn("data-ms-settings-toggle-field='allow_user_theme_override'", html)
         self.assertIn("data-ms-settings-toggle-field='titlebar_show_title'", html)
+        self.assertIn("data-ms-email-toggle-field='email_config_use_tls'", html)
+        self.assertIn("data-ms-email-toggle-field='email_config_use_ssl'", html)
+        self.assertNotIn("data-ms-settings-toggle-field='email_config_use_tls'", html)
+        self.assertNotIn("data-ms-settings-toggle-field='email_config_use_ssl'", html)
         self.assertIn('data-ms-settings-toggle-field=\'allow_user_language_override\'', html)
         self.assertIn('class="row mb-3"', html)
         self.assertIn('class="row g-3 mb-3"', html)
@@ -682,6 +685,14 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("setNamedFieldDisabled(form, 'registration_activation_mode', !enabled)", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled)", contents)
 
+    def test_wizard_helper_reveals_server_hidden_steps(self):
+        script = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'helpers' / 'wizard' / 'js' / 'main.js'
+        contents = script.read_text(encoding='utf-8')
+
+        self.assertIn("step.classList.toggle('d-none', !isActive);", contents)
+        self.assertIn("step.style.display = isActive ? '' : 'none';", contents)
+        self.assertIn("step.setAttribute('aria-hidden', isActive ? 'false' : 'true');", contents)
+
     def test_user_hub_css_clamps_mobile_dropdown_to_viewport(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'users' / 'css' / 'user_hub.css'
         contents = stylesheet.read_text(encoding='utf-8')
@@ -711,9 +722,51 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('container-type: inline-size;', contents)
         self.assertIn('.ms-settings-toggle-field__content {', contents)
         self.assertIn('.ms-settings-toggle-field__control {', contents)
+        self.assertIn('.ms-settings-toggle-field__control.form-switch {', contents)
+        self.assertIn('.ms-settings-toggle-field__input.form-check-input {', contents)
+        self.assertIn('padding-inline-start: 0;', contents)
+        self.assertIn('margin: 0;', contents)
+        self.assertIn('float: none;', contents)
+        self.assertIn('position: static;', contents)
+        self.assertIn('overflow-wrap: break-word;', contents)
+        self.assertIn('word-break: normal;', contents)
+        self.assertNotIn('overflow-wrap: anywhere;', contents)
         self.assertIn('@container (max-width: 14rem)', contents)
         self.assertIn('flex-direction: column;', contents)
         self.assertIn('justify-content: flex-end;', contents)
+
+    def test_shared_toggle_helper_uses_neutral_switch_wrapper(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn("ms-settings-toggle-field__control form-switch", html)
+        self.assertIn("form-check-input ms-settings-toggle-field__input", html)
+        self.assertNotIn("ms-settings-toggle-field__control form-check form-switch", html)
+
+    def test_setup_email_tls_ssl_use_dedicated_email_toggle_markup(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn("data-ms-email-toggle-field='email_config_use_tls'", html)
+        self.assertIn("data-ms-email-toggle-field='email_config_use_ssl'", html)
+        self.assertIn('ms-email-toggle-field__input', html)
+
+    def test_system_setup_css_defines_dedicated_email_toggle_layout(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'system_setup.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.ms-email-toggle-field {', contents)
+        self.assertIn('.ms-email-toggle-field__row {', contents)
+        self.assertIn('.ms-email-toggle-field__label {', contents)
+        self.assertIn('.ms-email-toggle-field__input.form-check-input {', contents)
 
     def test_options_template_uses_external_assets_and_draggable_cards(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'includes' / 'options.html'
@@ -726,6 +779,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-options-card="autofill"', contents)
         self.assertIn('data-options-card="reset-defaults"', contents)
         self.assertIn('data-options-card-handle', contents)
+        self.assertIn('bi-arrow-left-right', contents)
+        self.assertNotIn('bi-grip-vertical', contents)
         self.assertIn('id="autofillToggle"', contents)
         self.assertIn('id="btnResetInit"', contents)
         self.assertIn('id="resetActions"', contents)
@@ -740,11 +795,28 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         js_contents = js_path.read_text(encoding='utf-8')
 
         self.assertIn('.ms-options-panel {', css_contents)
+        self.assertIn('.ms-options-card {', css_contents)
         self.assertIn('.ms-options-card-handle {', css_contents)
         self.assertIn('.ms-options-card--wide {', css_contents)
+        self.assertIn('--ms-options-grid-gap: 1.35rem;', css_contents)
+        self.assertIn('position: relative;', css_contents)
+        self.assertIn('0 16px 30px -28px rgba(15, 23, 42, 0.28);', css_contents)
+        self.assertIn('inset-block: 1rem;', css_contents)
+        self.assertIn('width: 3px;', css_contents)
+        self.assertIn('.ms-options-card.is-drag-over-before::after,', css_contents)
+        self.assertIn('.ms-options-card.is-drag-over-after::after {', css_contents)
+        self.assertIn('inset-inline-start: calc((var(--ms-options-grid-gap) / -2) - 1.5px);', css_contents)
+        self.assertIn('inset-inline-end: calc((var(--ms-options-grid-gap) / -2) - 1.5px);', css_contents)
+        self.assertIn('pointer-events: none;', css_contents)
+        self.assertIn('.ms-options-system-info-table .table {', css_contents)
+        self.assertIn('--bs-table-bg: transparent;', css_contents)
+        self.assertIn('.ms-options-system-info-table .progress {', css_contents)
         self.assertIn('OPTIONS_ORDER_STORAGE_KEY', js_contents)
         self.assertIn('data-options-card-handle', js_contents)
         self.assertIn('persistCardOrder(grid, storageKey)', js_contents)
+        self.assertIn('function shouldInsertBefore(targetCard, event)', js_contents)
+        self.assertIn("const direction = window.getComputedStyle(targetCard).direction || document.documentElement.dir || 'ltr';", js_contents)
+        self.assertIn('return event.clientX < midpoint;', js_contents)
 
     def test_setup_form_render_does_not_emit_inline_style_attributes(self):
         form = SystemSettingsForm(
