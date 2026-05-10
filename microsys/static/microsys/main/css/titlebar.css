@@ -170,7 +170,8 @@
     border-color: rgba(var(--primal-rgb), 0.2) !important;
 }
 
-.titlebar .ms-titlebar-home {
+.titlebar .ms-titlebar-home,
+.titlebar .ms-login-round {
     width: 34px;
     height: 34px;
     min-width: 34px;
@@ -184,19 +185,25 @@
     border: 1px solid rgba(var(--primal-rgb), 0.12);
     transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+    font-size: 1rem;
 }
 
-.titlebar[data-titlebar-home-shape="square"] .ms-titlebar-home {
+.titlebar[data-titlebar-home-shape="square"] .ms-titlebar-home,
+.titlebar[data-titlebar-home-shape="square"] .ms-login-round {
     border-radius: 10px;
 }
 
-.titlebar[data-titlebar-home-shape="squircle"] .ms-titlebar-home {
+.titlebar[data-titlebar-home-shape="squircle"] .ms-titlebar-home,
+.titlebar[data-titlebar-home-shape="squircle"] .ms-login-round {
     border-radius: 14px;
 }
 
 .titlebar .ms-titlebar-home:hover,
+.titlebar .ms-login-round:hover,
 .titlebar .ms-titlebar-home:focus,
-.titlebar .ms-titlebar-home:focus-visible {
+.titlebar .ms-login-round:focus,
+.titlebar .ms-titlebar-home:focus-visible,
+.titlebar .ms-login-round:focus-visible {
     color: var(--primal_dark);
     background: rgba(255, 255, 255, 0.9);
     border-color: rgba(var(--primal-rgb), 0.22);
@@ -205,7 +212,8 @@
     outline: none;
 }
 
-.titlebar .ms-titlebar-home i {
+.titlebar .ms-titlebar-home i,
+.titlebar .ms-login-round i {
     font-size: 1rem;
     line-height: 1;
 }

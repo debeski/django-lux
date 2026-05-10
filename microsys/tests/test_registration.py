@@ -20,7 +20,7 @@ if not settings.configured:
             'django.contrib.sessions.middleware.SessionMiddleware',
             'django.contrib.auth.middleware.AuthenticationMiddleware',
             'django.contrib.messages.middleware.MessageMiddleware',
-            'microsys.middleware.ActivityLogMiddleware',
+            'microsys.middleware.MicrosysMiddleware',
         ],
         ROOT_URLCONF='microsys.urls',
         TEMPLATES=[

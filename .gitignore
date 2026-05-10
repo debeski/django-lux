@@ -29,6 +29,7 @@ autorun.ini
 /.agents/
 /.xpose/
 /.sonar/
+/scratch/
 
 # Ignore celery-related files
 celerybeat-*

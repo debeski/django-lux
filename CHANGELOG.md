@@ -5,6 +5,14 @@ This file owns the release history for `django-microsys`.
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 
+## v2.1.5
+
+- **Missing Root Redirect Fix**: Fixed an issue in `MicrosysMiddleware` where `_missing_root_redirect` improperly returned `None` instead of the original `HttpResponse` when allowing a public root request to proceed, which previously caused an `AttributeError: 'NoneType' object has no attribute 'status_code'` in subsequent middleware.
+- **Middleware Rename**: Renamed the core framework middleware from `ActivityLogMiddleware` to `MicrosysMiddleware` to better reflect its comprehensive responsibilities (thread-locals, setup guards, device tracking). A backward-compatibility alias `ActivityLogMiddleware = MicrosysMiddleware` ensures existing host projects will not break.
+- **Simplified Root URL Hijacking**: Replaced the complex `_is_root_mounted_microsys` URL introspection and auth-branching logic with a clean 404-based approach. If `/` returns a 404 (no dev view), microsys redirects to the configured `home_url`. If the dev has their own view at `/`, microsys stays out of the way. The `public_root` setting gates anonymous access: when off, anonymous users at `/` are sent to login instead of `home_url`.
+- **Dynamic Auth Redirects**: `LOGIN_REDIRECT_URL` is now dynamically synced to the configured `home_url`. `LOGOUT_REDIRECT_URL` respects `public_root` — when enabled, logout redirects to `home_url`; when disabled, logout redirects to the login page.
+- **Asset and Template Cleanup**: Performed a major cleanup of abandoned static assets and templates. Removed obsolete Plotly and Flatpickr libraries, deleted the abandoned dashboard implementation, and purged unreferenced CSS/JS files and redundant template helpers to reduce package weight and improve maintainability.
+
 ## v2.1.4
 
 - **User Creation Bug Fix**: Fixed an issue where users could not be created due to missing `save` button.
@@ -221,7 +229,7 @@ This file owns the release history for `django-microsys`.
 
 ## v1.19.0
 
-- **Settings Helper**: Added `microsys_settings(globals())` in `microsys.utils` as the supported low-friction settings integration path for host projects. The helper prepends the required apps, inserts `ActivityLogMiddleware`, adds the Microsys context processor, sets Crispy Bootstrap 5 defaults, and seeds the standard MicroSys language/timezone/format defaults when the host project has not already defined them.
+- **Settings Helper**: Added `microsys_settings(globals())` in `microsys.utils` as the supported low-friction settings integration path for host projects. The helper prepends the required apps, inserts `MicrosysMiddleware`, adds the Microsys context processor, sets Crispy Bootstrap 5 defaults, and seeds the standard MicroSys language/timezone/format defaults when the host project has not already defined them.
 - **Command Upgrade**: `microsys_setup` now appends the recommended helper block to the active project `settings.py` instead of only running migrations, and `microsys_check` now validates the helper pattern explicitly alongside the resulting configuration state.
 - **List Base Template**: Added `microsys/list_base.html` plus `microsys/forms/filter_assets_head.html` as the supported entrypoint for list/filter pages, so filter-helper surfaces can use the same modern field/button styling without loading the full form bundle globally.
 - **Form Base Template**: Added `microsys/form_base.html` as the supported full-page entrypoint for Microsys forms, so projects can opt into the shared form surface without loading form-only assets through `microsys/base.html`.

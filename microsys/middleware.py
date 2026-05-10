@@ -15,7 +15,7 @@ def get_current_user():
 def get_current_request():
     return getattr(_thread_locals, 'request', None)
 
-class ActivityLogMiddleware:
+class MicrosysMiddleware:
     """
     Middleware to capture the current request and user in a thread-local variable.
     This allows access to the user in signals where request is not available.
@@ -47,76 +47,47 @@ class ActivityLogMiddleware:
         except Exception:
             return False
 
-        if request.path == '/' and self._is_root_mounted_microsys():
-            return True
-
         user = getattr(request, 'user', None)
         if not user or not getattr(user, 'is_authenticated', False):
             return False
 
         return bool(user.is_superuser)
 
-    def _is_root_mounted_microsys(self):
-        """Check if Microsys is mounted at the root URL."""
-        from django.urls import URLPattern, URLResolver, get_resolver
+    def _root_redirect(self, request, response):
+        """
+        Handle root URL hijacking.
 
-        resolver = get_resolver()
-        urlconf_name = getattr(resolver, 'urlconf_name', '')
-        if isinstance(urlconf_name, str) and urlconf_name == 'microsys.urls':
-            return True
+        If the dev has no view at '/' (response is 404), redirect to
+        the home_url configured during system setup.  If the system
+        is not yet configured, redirect to the setup wizard instead.
 
-        for pattern in resolver.url_patterns:
-            route = getattr(pattern.pattern, '_route', str(pattern.pattern))
-            if isinstance(pattern, URLResolver):
-                nested = getattr(pattern, 'urlconf_name', None)
-                nested_name = nested if isinstance(nested, str) else getattr(nested, '__name__', '')
-                if route == '' and nested_name == 'microsys.urls':
-                    return True
-            elif isinstance(pattern, URLPattern):
-                callback = getattr(pattern, 'callback', None)
-                if route == '' and getattr(callback, '__module__', '').startswith('microsys.'):
-                    return True
-        return False
+        When public_root is disabled, anonymous users are sent to the
+        login page instead of home_url.
 
-    def _should_redirect_missing_root(self, request, response):
-        """Helper to check if we should redirect from / to dashboard/setup."""
-        if response.status_code != 404:
-            return False
-        
-        return (
-            request.path == '/' and
-            self._is_root_mounted_microsys()
-        )
+        If the dev DOES have a view at '/' (response is not 404),
+        this method returns None and the middleware stays out of the way.
+        """
+        if response.status_code != 404 or request.path != '/':
+            return None
 
-    def _missing_root_redirect(self, request):
         from microsys.utils import get_system_config
-        user = request.user
-        
         config = get_system_config()
-        is_configured = bool(config.get('is_configured', False))
-        
-        # Anonymous users: check if public root is allowed
-        if not getattr(user, 'is_authenticated', False):
-            if not is_configured:
-                return redirect('system_setup')
-            # If host set explicit LOGIN_REDIRECT_URL, respect their routing intent
-            has_custom_login_redirect = hasattr(settings, 'LOGIN_REDIRECT_URL') and settings.LOGIN_REDIRECT_URL != DEFAULT_HOME_URL
-            # Or if public_root is explicitly enabled in config
-            public_root_enabled = config.get('public_root', False)
-            
-            if has_custom_login_redirect or public_root_enabled:
-                # Let the request proceed (will likely 404, letting host handle it)
-                return None
-            # Otherwise, redirect to login
-            return redirect('login')
 
-        if user.is_superuser and not is_configured:
+        if not config.get('is_configured', False):
             return redirect('system_setup')
 
-        return redirect(
-            config.get('home_url') or
-            getattr(settings, 'LOGIN_REDIRECT_URL', DEFAULT_HOME_URL)
-        )
+        home_url = config.get('home_url')
+
+        # When public_root is off, anonymous users must log in first
+        user = getattr(request, 'user', None)
+        if not config.get('public_root', False):
+            if not user or not getattr(user, 'is_authenticated', False):
+                return redirect('login')
+
+        if home_url and home_url != '/':
+            return redirect(home_url)
+
+        return None
 
     def _client_ip(self, request):
         forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -158,24 +129,54 @@ class ActivityLogMiddleware:
             'user_agent': user_agent[:320],
         }
 
+    def _sync_auth_redirects(self):
+        """
+        Dynamically update LOGIN_REDIRECT_URL and LOGOUT_REDIRECT_URL
+        based on the live system config.
+
+        - LOGIN_REDIRECT_URL  → always points to home_url
+        - LOGOUT_REDIRECT_URL → home_url when public_root is on,
+                                 login page when public_root is off
+        """
+        try:
+            from microsys.utils import get_system_config
+            config = get_system_config()
+            if not config.get('is_configured', False):
+                return
+
+            home_url = config.get('home_url') or DEFAULT_HOME_URL
+            settings.LOGIN_REDIRECT_URL = home_url
+
+            if config.get('public_root', False):
+                settings.LOGOUT_REDIRECT_URL = home_url
+            else:
+                settings.LOGOUT_REDIRECT_URL = '/accounts/login/'
+        except Exception:
+            pass
+
     def __call__(self, request):
         _thread_locals.user = getattr(request, 'user', None)
         _thread_locals.request = request
 
         try:
+            self._sync_auth_redirects()
             self._remember_session_device(request)
 
             if self._should_redirect_to_setup(request):
                 return redirect('system_setup')
-            
+
             response = self.get_response(request)
-            
-            if self._should_redirect_missing_root(request, response):
-                return self._missing_root_redirect(request)
-            
+
+            root_redirect = self._root_redirect(request, response)
+            if root_redirect is not None:
+                return root_redirect
+
             return response
         finally:
             if hasattr(_thread_locals, 'user'):
                 del _thread_locals.user
             if hasattr(_thread_locals, 'request'):
                 del _thread_locals.request
+
+# Backward-compatibility alias so we don't break existing projects
+ActivityLogMiddleware = MicrosysMiddleware

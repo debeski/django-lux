@@ -533,7 +533,7 @@ UserActivityLog.safe_log(
 
 ## 14. Middleware & Request Handling
 
-### ActivityLogMiddleware
+### MicrosysMiddleware
 - Thread-local user/request storage
 - Setup guard (redirects unconfigured anonymous requests)
 - Root URL redirect handling
@@ -608,7 +608,7 @@ microsys_settings(globals())
 
 Auto-handles:
 - `INSTALLED_APPS` prepending
-- `MIDDLEWARE` insertion (LocaleMiddleware, ActivityLogMiddleware)
+- `MIDDLEWARE` insertion (LocaleMiddleware, MicrosysMiddleware)
 - `TEMPLATES` context processor injection
 - `CRISPY_*` defaults
 - `MESSAGE_TAGS` Bootstrap mapping

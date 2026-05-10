@@ -15,4 +15,4 @@
     </div>
     <input type="{{ widget.type }}" name="{{ widget.name }}" {% if widget.value %}value="{{ widget.value }}"{% endif %} {% for name, value in widget.attrs.items %}{{ name }}="{{ value }}" {% endfor %} class="d-none ms-profile-file-input" data-preview-target="ms-profile-preview-{{ widget.attrs.id }}">
 </div>
-<script src="{% static 'microsys/widgets/js/profile_image_widget.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% static 'microsys/users/js/profile_image_widget.js' %}?v=20260511a" nonce="{{ request.csp_nonce }}" defer></script>

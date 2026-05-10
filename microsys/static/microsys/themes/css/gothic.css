@@ -1276,7 +1276,8 @@
 }
 
 /* 24. Titlebar Home Button */
-:root.theme-gothic .titlebar .ms-titlebar-home {
+:root.theme-gothic .titlebar .ms-titlebar-home,
+:root.theme-gothic .titlebar .ms-login-round {
     color: #acb1d2 !important;
     background: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(157, 78, 221, 0.18) !important;
@@ -1284,8 +1285,11 @@
 }
 
 :root.theme-gothic .titlebar .ms-titlebar-home:hover,
+:root.theme-gothic .titlebar .ms-login-round:hover,
 :root.theme-gothic .titlebar .ms-titlebar-home:focus,
-:root.theme-gothic .titlebar .ms-titlebar-home:focus-visible {
+:root.theme-gothic .titlebar .ms-login-round:focus,
+:root.theme-gothic .titlebar .ms-titlebar-home:focus-visible,
+:root.theme-gothic .titlebar .ms-login-round:focus-visible {
     color: var(--gothic-cyan) !important;
     background: rgba(0, 180, 216, 0.12) !important;
     border-color: rgba(0, 180, 216, 0.3) !important;

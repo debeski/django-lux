@@ -288,7 +288,7 @@ def _build_submit_actions(strings, submit_label, submit_icon, submit_class='btn 
     )
 
 class ProfileImageWidget(forms.ClearableFileInput):
-    template_name = 'microsys/widgets/profile_image_widget.html'
+    template_name = 'microsys/users/profile_image_widget.html'
 
 
 def _apply_autocomplete_attrs(form, mapping):

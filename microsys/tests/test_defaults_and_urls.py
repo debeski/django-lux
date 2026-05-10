@@ -20,7 +20,7 @@ if not settings.configured:
         MIDDLEWARE=[
             'django.contrib.sessions.middleware.SessionMiddleware',
             'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'microsys.middleware.ActivityLogMiddleware',
+            'microsys.middleware.MicrosysMiddleware',
         ],
         ROOT_URLCONF='microsys.urls',
         TEMPLATES=[
@@ -86,8 +86,18 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             fetch_redirect_response=False,
         )
 
-    @override_settings(MICROSYS_CONFIG={'is_configured': True})
-    def test_configured_root_url_redirects_to_login(self):
+    @override_settings(MICROSYS_CONFIG={'is_configured': True, 'home_url': '/dashboard/', 'public_root': True})
+    def test_configured_root_url_redirects_to_home_url(self):
+        response = Client().get('/')
+
+        self.assertRedirects(
+            response,
+            '/dashboard/',
+            fetch_redirect_response=False,
+        )
+
+    @override_settings(MICROSYS_CONFIG={'is_configured': True, 'home_url': '/dashboard/', 'public_root': False})
+    def test_configured_root_url_redirects_anonymous_to_login(self):
         response = Client().get('/')
 
         self.assertRedirects(
@@ -97,15 +107,12 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         )
 
     @override_settings(ROOT_URLCONF='microsys.tests.urls_with_root_index')
-    def test_unconfigured_existing_project_root_redirects_to_system_setup(self):
+    def test_unconfigured_existing_project_root_respects_dev_view(self):
         clear_url_caches()
         response = Client().get('/')
 
-        self.assertRedirects(
-            response,
-            '/sys/setup/',
-            fetch_redirect_response=False,
-        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b'project index')
 
     @override_settings(ROOT_URLCONF='microsys.tests.urls_with_root_index', MICROSYS_CONFIG={'is_configured': True})
     def test_configured_existing_project_root_view_is_not_hijacked(self):
@@ -115,12 +122,16 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, b'project index')
 
-    @override_settings(ROOT_URLCONF='microsys.tests.urls_with_prefix_mount')
-    def test_prefix_mount_does_not_hijack_project_root(self):
+    @override_settings(ROOT_URLCONF='microsys.tests.urls_with_prefix_mount', MICROSYS_CONFIG={'is_configured': True, 'home_url': '/dashboard/', 'public_root': True})
+    def test_prefix_mount_still_redirects_unclaimed_root(self):
         clear_url_caches()
         response = Client().get('/')
 
-        self.assertEqual(response.status_code, 404)
+        self.assertRedirects(
+            response,
+            '/dashboard/',
+            fetch_redirect_response=False,
+        )
 
     @override_settings(MICROSYS_CONFIG={})
     def test_setup_form_replaces_legacy_sys_home_url_for_unconfigured_instance(self):
@@ -708,6 +719,22 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('flex-wrap: wrap;', contents)
         self.assertIn('justify-content: center;', contents)
         self.assertIn('width: auto;', contents)
+
+    def test_titlebar_login_round_uses_shared_shape_and_theme_selectors(self):
+        static_root = Path(__file__).resolve().parents[1] / 'static' / 'microsys'
+        titlebar_css = (static_root / 'main' / 'css' / 'titlebar.css').read_text(encoding='utf-8')
+
+        self.assertIn('.titlebar .ms-login-round {', titlebar_css)
+        self.assertIn('.titlebar[data-titlebar-home-shape="square"] .ms-login-round {', titlebar_css)
+        self.assertIn('.titlebar[data-titlebar-home-shape="squircle"] .ms-login-round {', titlebar_css)
+        self.assertIn('.titlebar .ms-login-round:hover,', titlebar_css)
+        self.assertIn('.titlebar .ms-login-round:focus-visible {', titlebar_css)
+
+        for theme_name in ('dark', 'gothic', 'retro', 'neon'):
+            theme_css = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
+            self.assertIn('.titlebar .ms-login-round {', theme_css)
+            self.assertIn('.titlebar .ms-login-round:hover,', theme_css)
+            self.assertIn('.titlebar .ms-login-round:focus-visible {', theme_css)
 
     def test_selector_css_adds_vertical_padding_for_toggle_card_grids(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'selectors.css'

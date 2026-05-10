@@ -2,11 +2,15 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Verified on `2026-05-08`.
+- Verified on `2026-05-10`.
 - Package/version state:
-  - `microsys/VERSION` is `2.1.1`.
-  - `CHANGELOG.md` now contains the stable `v2.1.1` patch release entry above the `v2.1.0` release and beta history.
+  - `microsys/VERSION` is `2.1.5`.
+  - `CHANGELOG.md` now contains the stable `v2.1.5` patch release entry with the major asset and template cleanup history.
+  - The core framework middleware has been renamed from `ActivityLogMiddleware` to `MicrosysMiddleware` with a backward-compatibility alias provided.
+  - Root URL hijacking simplified: removed `_is_root_mounted_microsys` introspection; now uses 404-based detection — if `/` returns 404, redirect to `home_url`; if dev has a view at `/`, stay out of the way.
   - Built distributions now exclude `microsys.tests`, `__pycache__`, and compiled Python cache artifacts from both `wheel` and `sdist`.
+  - Abandoned asset cleanup performed: Flatpickr, Plotly, and the old Dashboard implementation removed; redundant template helpers purged.
+  - Profile image widget moved to `microsys/users/` for both static and templates.
 - Current verified implementation state:
   - Public registration playground exists in core, is disabled by default, and uses email-first inactive users plus hashed verification tokens.
   - Generated Docker projects use the internal `smtp-relay` sidecar path for UI-managed relay delivery when `SystemSettings.email_config.transport == "relay"`.
@@ -39,6 +43,7 @@
     - The gap indicator now renders from `.ms-options-card` instead of the inner `.ms-options-panel`, because the panel’s `overflow: hidden` clipped any marker positioned outside the card surface.
     - System Info now forces the inner diagnostics table and storage progress background surfaces transparent so Bootstrap table/progress defaults do not show as white blocks inside the card.
   - User hub mobile toolbar now wraps within one toolbar row when there is enough width, instead of being forced into separate stacked rows by mobile CSS.
+  - The unauthenticated titlebar login trigger now shares the same base shape/hover treatment as `ms-titlebar-home`, and the `dark` / `gothic` / `retro` / `neon` theme overrides now target the live `.ms-login-round` selector instead of only the authenticated home button path.
   - Template/rendered-HTML asset policy cleanup is now enforced in code:
     - no inline `<style>` blocks remain under `microsys/templates/`
     - no executable inline `<script>` blocks remain under `microsys/templates/`
@@ -46,9 +51,6 @@
     - theme preview swatches now use shared slug-based CSS classes instead of inline background styles
   - User permission assignment UI now excludes scaffold infra app labels such as `db` / `health_check`, skips orphaned permissions whose `ContentType.model_class()` no longer resolves, groups `manage_scopes` with `manage_staff` plus the synthetic `is_staff` toggle under the dedicated staff-access card, and labels any remaining `Profile`-backed permission group with `model_user` (`Users`) instead of `model_profile` (`User Profile`).
   - Sidebar/titlebar runtime controls, split-step Options System Settings modals, scope-aware generated CRUD scaffolds, and MSRP-1 authorization hardening are implemented in code.
-- Current verified caveats:
-- Browser/manual validation is still pending for several UI-heavy flows.
-  - The Step 2 to Step 5 empty-state regression is fixed in code and covered by a focused static regression test, but a live browser pass for first-launch setup navigation is still pending.
 
 ### Current Project Adopted Standards:
 - Preferred settings integration:
@@ -88,21 +90,6 @@
 - Generated/scaffolded URL entrypoints must enforce login plus the relevant permission on the backend.
 - Packaged PyPI distributions should exclude repository test packages and Python cache artifacts unless a release explicitly needs them.
 
-### Cross-Cutting Audits if any:
-- Security/MSRP-1 audit:
-  - backend permission enforcement exists for modal CRUD, sections, diagnostics, activity log, reset-password flow, and 2FA mutators.
-  - profile destructive security actions now share the reusable current-password backend guard.
-  - no inline CSS/JS in HTML unless there is a real unavoidable runtime reason. always CSP complied.
-- Public registration/mail audit:
-  - registration is disabled by default and 404s while disabled.
-  - email readiness gates public registration and email 2FA.
-  - exports redact SMTP secrets; encrypted DB storage is supported for UI-managed secrets.
-- Setup/Options audit:
-  - setup and split-step Options modals share the same main System Settings helpers for boolean toggle cards and custom file widgets.
-  - the shared wizard helper must remove server-rendered `d-none` classes when switching steps; inline `style.display` alone is insufficient for Bootstrap-hidden steps.
-  - public-registration-dependent controls and email-delivery controls are visibility-gated in setup JS and preserved across imported payloads.
-- Optional SSO audit:
-  - provider/client code remains isolated in `optional_packages/`; no core runtime coupling is intended.
 
 ### Current Project's Unsolved Known Bugs:
 - First-launch System Setup still has an unresolved runtime issue where the sidebar-toolbar removal warning does not match the Options modal behavior.
@@ -150,6 +137,7 @@
     - [ ] unified login 2FA challenge UX
     - [ ] profile 2FA loading/email confirmation flow
     - [ ] signed-in device list and revocation UX
+    - [ ] unauthenticated titlebar login trigger in dark/gothic/retro/neon with circle/square/squircle titlebar shapes
     - [ ] light/dark/mono/neon/gothic/retro contrast for secondary buttons
   - [ ] Review translation coverage for UI labels/messages that were called out by the user and are not yet re-verified in browser/runtime:
     - [ ] signed-in devices card
@@ -162,14 +150,15 @@
   - [ ] Run full provider OIDC validation after installing `django-oauth-toolkit[oidc]`.
   - [ ] Run full client OIDC validation after installing `mozilla-django-oidc`.
 - Completed Recently:
+  - [x] Performed cleanup of abandoned static assets (Flatpickr, Plotly, Dashboard JS/CSS, unused themes/locales).
+  - [x] Removed abandoned templates (`dashboard.html`, redundant helpers).
+  - [x] Moved profile image widget to `users/` namespace in both static and templates.
+  - [x] Fixed the unauthenticated titlebar login trigger styling path so `.ms-login-round` now inherits the shared titlebar shape rules and the dark/gothic/retro/neon theme overrides that previously only hit `.ms-titlebar-home`.
   - [x] Fixed shared wizard button visibility handling so Bootstrap `d-none` is removed/restored for Prev/Next/Submit, preventing the user-create modal step-2 action-row regression.
-  - [x] Removed obsolete unrouted full-page user create/edit/detail views, their stale exports, the dead `user_form.html` template, and the leftover tutorial selector that still targeted the removed create-user route.
-  - [x] Switched the remaining `Profile`-backed permission card label from the `model_profile` translation path to `model_user`, and fixed the widget so special-case group labels are not overwritten by the generic `model_*` lookup.
-  - [x] Grouped `manage_scopes` with `manage_staff` and the synthetic `is_staff` toggle under the dedicated staff-access permission card instead of leaving `manage_scopes` under the separate User Profile/User Management card.
-  - [x] Fixed assignable user-permission filtering so scaffold infra app labels like `db` do not show up as permission groups, and orphaned content-type permissions such as `Test Model` are skipped in the grouped widget even if they leak into the queryset.
+  - [x] Removed obsolete unrouted full-page user create/edit/detail views, their stale exports, the dead `user_form.html` template.
 
 ### One-line info about last verified Tests:
-- `2026-05-08`: `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls` passed with `50` static/render tests, and `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python - <<'PY' import microsys.tests.test_views; import django; from django.test.runner import DiscoverRunner; django.setup(); raise SystemExit(bool(DiscoverRunner(verbosity=1).run_tests(['microsys.tests.test_views.SecurityHardeningViewTests']))) ; PY` passed with `25` DB-backed modal/security tests.
+- `2026-05-10`: `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls` passed with `51` static/render tests, covering the new `.ms-login-round` titlebar/theme selector regression check.
 
 ### One-line info about last time edited Docs:
 - `2026-05-07`: `docs/FEATURES.md` and `docs/README.md` were refreshed to match `2.1.1` runtime behavior, reusable helper APIs, current 2FA routes, and the no-inline MSRP-1 policy; earlier the same day `CHANGELOG.md` was updated with the stable `v2.1.1` patch release entry, `docs/security-msrp-1.md` was updated to add the no-inline HTML/CSS/JS policy to the MSRP-1 core rules, and `README.md`, `docs/getting-started.md`, `docs/reference.md`, `docs/admin-guide.md`, `docs/customization-guide.md`, `docs/registration.md`, `microsys/scaffold_templates/project/README.md.tmpl`, and `tracker.md` were updated for `v2.1.0`, reusable helper coverage, scaffold/runtime docs, and the explicit `cryptography` dependency.
@@ -190,8 +179,6 @@
     - `./.venv/bin/python - <<'PY' ... DiscoverRunner(...).run_tests(['microsys.tests.test_views.TwoFactorSecurityViewTests']) ... PY`
   - Focused permissions UI DB suite:
     - `./.venv/bin/python - <<'PY' ... DiscoverRunner(...).run_tests(['microsys.tests.test_permissions_ui']) ... PY`
-  - Legacy focused defaults/render suite reference:
-    - `./.venv/bin/python - <<'PY' ... runner.run_tests(['microsys.tests.test_defaults_and_urls']) ... PY`
   - Full compile check without repo `__pycache__` ownership issues:
     - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys`
   - Packaging verification:
@@ -210,7 +197,7 @@
 - No inline CSS/JS in HTML unless there is a real unavoidable runtime reason:
   - prefer dedicated static CSS/JS files,
   - use `json_script` and `data-*` for server-to-client data handoff,
-  - if a future exception is truly required, record why in the tracker instead of normalizing it silently.
+  - if a future exception is truly required, record why in the tracker.
 - Packaging should stay lean by default:
   - exclude `microsys.tests` from published distributions,
   - exclude `__pycache__`, `.pyc`, and `.pyo` artifacts from published distributions.
@@ -222,6 +209,7 @@
 - If shared setup toggle labels start stacking vertically again, inspect `microsys/static/microsys/main/css/system_setup.css` before replacing the toggle renderer; `overflow-wrap: anywhere` was too aggressive for narrow Step 3 email cards.
 - If shared setup toggles start overflowing their card bounds again, inspect `microsys/forms.py` `build_settings_toggle_field(...)` and `microsys/static/microsys/main/css/system_setup.css` before changing columns; Bootstrap `form-check` / `form-switch` wrapper padding and negative input margins conflict with the custom flex card layout.
 - If modal wizard action buttons disappear while switching steps, inspect `microsys/static/microsys/helpers/wizard/js/main.js` before changing form markup; the helper must remove/apply Bootstrap `d-none` on Prev/Next/Submit, not only flip inline `display`.
+- If the unauthenticated titlebar login button looks unthemed in darker themes, inspect `.ms-login-round` in `microsys/templates/microsys/includes/titlebar.html`, `microsys/static/microsys/main/css/titlebar.css`, and the per-theme CSS files before changing `.ms-titlebar-home`; the live unauthenticated selector is not `.login-title-btn`.
 - Do not route Step 3 `email_config_use_tls` / `email_config_use_ssl` back through `build_settings_toggle_field(...)` unless the dedicated email-toggle path is intentionally retired and re-verified in browser; the user explicitly asked to change those toggles after repeated layout regressions.
 - If unexpected permission groups like `Db -> Test Model` show up in user permissions, inspect `get_assignable_permissions_queryset()` plus `GroupedPermissionWidget.get_context()` before blaming the template; scaffold infra app labels and orphaned content types are now intentionally filtered there.
 - Preserve user corrections explicitly in future tracker updates so the same wrong assumptions are not repeated.

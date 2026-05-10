@@ -635,7 +635,8 @@
     background-color: transparent !important;
 }
 
-:root.theme-dark .titlebar .ms-titlebar-home {
+:root.theme-dark .titlebar .ms-titlebar-home,
+:root.theme-dark .titlebar .ms-login-round {
     color: #e2e8f0 !important;
     background: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(255, 255, 255, 0.12) !important;
@@ -643,8 +644,11 @@
 }
 
 :root.theme-dark .titlebar .ms-titlebar-home:hover,
+:root.theme-dark .titlebar .ms-login-round:hover,
 :root.theme-dark .titlebar .ms-titlebar-home:focus,
-:root.theme-dark .titlebar .ms-titlebar-home:focus-visible {
+:root.theme-dark .titlebar .ms-login-round:focus,
+:root.theme-dark .titlebar .ms-titlebar-home:focus-visible,
+:root.theme-dark .titlebar .ms-login-round:focus-visible {
     color: #ffffff !important;
     background: rgba(var(--primal-rgb), 0.18) !important;
     border-color: rgba(var(--primal-rgb), 0.32) !important;

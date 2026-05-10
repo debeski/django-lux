@@ -21,7 +21,7 @@ if not settings.configured:
         MIDDLEWARE=[
             'django.contrib.sessions.middleware.SessionMiddleware',
             'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'microsys.middleware.ActivityLogMiddleware',
+            'microsys.middleware.MicrosysMiddleware',
         ],
         ROOT_URLCONF='microsys.urls',
         TEMPLATES=[
@@ -147,7 +147,7 @@ class UtilsTests(TestCase):
             scope['MIDDLEWARE'].index('django.middleware.common.CommonMiddleware') - 1,
         )
         self.assertEqual(
-            scope['MIDDLEWARE'].index('microsys.middleware.ActivityLogMiddleware'),
+            scope['MIDDLEWARE'].index('microsys.middleware.MicrosysMiddleware'),
             scope['MIDDLEWARE'].index('django.contrib.auth.middleware.AuthenticationMiddleware') + 1,
         )
         self.assertEqual(scope['MESSAGE_TAGS'][messages.ERROR], 'danger')

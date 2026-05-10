@@ -485,7 +485,7 @@ def microsys_settings(scope):
     session_middleware = "django.contrib.sessions.middleware.SessionMiddleware"
     common_middleware = "django.middleware.common.CommonMiddleware"
     locale_middleware = "django.middleware.locale.LocaleMiddleware"
-    microsys_middleware = "microsys.middleware.ActivityLogMiddleware"
+    microsys_middleware = "microsys.middleware.MicrosysMiddleware"
 
     if session_middleware in middleware and common_middleware in middleware:
         session_index = middleware.index(session_middleware)

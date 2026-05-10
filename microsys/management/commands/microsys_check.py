@@ -71,9 +71,10 @@ microsys_settings(globals())"""
         # ─────────────────────────────────────────────────
         # Check MIDDLEWARE
         # ─────────────────────────────────────────────────
-        middleware_path = 'microsys.middleware.ActivityLogMiddleware'
+        new_path = 'microsys.middleware.MicrosysMiddleware'
+        old_path = 'microsys.middleware.ActivityLogMiddleware'
         self.stdout.write('\n📋 MIDDLEWARE: ', ending='')
-        if middleware_path in settings.MIDDLEWARE:
+        if new_path in settings.MIDDLEWARE or old_path in settings.MIDDLEWARE:
             self.stdout.write(self.style.SUCCESS('✓ OK'))
         else:
             self.stdout.write(self.style.ERROR('✗ MISSING'))

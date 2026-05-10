@@ -882,7 +882,8 @@
     background-color: transparent !important;
 }
 
-:root.theme-neon .titlebar .ms-titlebar-home {
+:root.theme-neon .titlebar .ms-titlebar-home,
+:root.theme-neon .titlebar .ms-login-round {
     color: var(--neon-cyan) !important;
     background: rgba(0, 255, 255, 0.08) !important;
     border-color: rgba(0, 255, 255, 0.25) !important;
@@ -890,8 +891,11 @@
 }
 
 :root.theme-neon .titlebar .ms-titlebar-home:hover,
+:root.theme-neon .titlebar .ms-login-round:hover,
 :root.theme-neon .titlebar .ms-titlebar-home:focus,
-:root.theme-neon .titlebar .ms-titlebar-home:focus-visible {
+:root.theme-neon .titlebar .ms-login-round:focus,
+:root.theme-neon .titlebar .ms-titlebar-home:focus-visible,
+:root.theme-neon .titlebar .ms-login-round:focus-visible {
     color: var(--neon-pink) !important;
     background: rgba(255, 0, 255, 0.15) !important;
     border-color: rgba(255, 0, 255, 0.4) !important;

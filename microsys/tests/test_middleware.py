@@ -19,7 +19,7 @@ if not settings.configured:
         MIDDLEWARE=[
             'django.contrib.sessions.middleware.SessionMiddleware',
             'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'microsys.middleware.ActivityLogMiddleware',
+            'microsys.middleware.MicrosysMiddleware',
         ],
         ROOT_URLCONF='microsys.urls',
         TEMPLATES=[
@@ -53,16 +53,16 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.http import HttpResponse
 from django.core.cache import cache
-from microsys.middleware import ActivityLogMiddleware, get_current_user, get_current_request
+from microsys.middleware import MicrosysMiddleware, get_current_user, get_current_request
 
 User = get_user_model()
 
 
-class ActivityLogMiddlewareTests(TestCase):
+class MicrosysMiddlewareTests(TestCase):
     def setUp(self):
         cache.clear()
         self.factory = RequestFactory()
-        self.middleware = ActivityLogMiddleware(lambda r: HttpResponse())
+        self.middleware = MicrosysMiddleware(lambda r: HttpResponse())
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
@@ -85,7 +85,7 @@ class ActivityLogMiddlewareTests(TestCase):
             seen['user'] = get_current_user()
             return HttpResponse()
 
-        middleware = ActivityLogMiddleware(capture_response)
+        middleware = MicrosysMiddleware(capture_response)
         request = self.factory.get('/some-page')
         request.user = self.user
         request.path = '/some-page'
@@ -102,7 +102,7 @@ class ActivityLogMiddlewareTests(TestCase):
             seen['request'] = get_current_request()
             return HttpResponse()
 
-        middleware = ActivityLogMiddleware(capture_response)
+        middleware = MicrosysMiddleware(capture_response)
         request = self.factory.get('/some-page')
         request.user = self.user
         request.path = '/some-page'
@@ -171,64 +171,81 @@ class ActivityLogMiddlewareTests(TestCase):
         with override_settings(MICROSYS_CONFIG={'is_configured': False}):
             self.assertFalse(self.middleware._should_redirect_to_setup(request))
 
-    def test_is_root_mounted_microsys(self):
-        """Test detection of root-mounted microsys."""
-        self.assertTrue(self.middleware._is_root_mounted_microsys())
-
-    def test_should_redirect_missing_root(self):
-        """Test redirect for missing root."""
+    def test_root_redirect_returns_none_for_non_404(self):
+        """Test that _root_redirect does nothing when response is not 404."""
         request = self.factory.get('/')
         request.user = self.user
         request.path = '/'
-        request.method = 'GET'
-        request.resolver_match = None
-        
-        response = HttpResponse(status=404)
-        self.assertTrue(self.middleware._should_redirect_missing_root(request, response))
 
-    def test_should_not_redirect_missing_root_for_non_root(self):
-        """Test no redirect for non-root paths."""
+        response = HttpResponse(status=200)
+        self.assertIsNone(self.middleware._root_redirect(request, response))
+
+    def test_root_redirect_returns_none_for_non_root_path(self):
+        """Test that _root_redirect does nothing for non-root 404s."""
         request = self.factory.get('/some-path')
         request.user = self.user
         request.path = '/some-path'
-        request.method = 'GET'
-        request.resolver_match = None
-        
-        response = HttpResponse(status=404)
-        self.assertFalse(self.middleware._should_redirect_missing_root(request, response))
 
-    def test_missing_root_redirect_for_anonymous(self):
-        """Test missing root redirect for anonymous user."""
+        response = HttpResponse(status=404)
+        self.assertIsNone(self.middleware._root_redirect(request, response))
+
+    def test_root_redirect_to_setup_when_unconfigured(self):
+        """Test _root_redirect sends to setup when system is not configured."""
         request = self.factory.get('/')
         request.user = type('AnonymousUser', (), {'is_authenticated': False})()
-        
-        response = self.middleware._missing_root_redirect(request)
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/sys/setup/')
+        request.path = '/'
 
-    def test_missing_root_redirect_for_superuser_unconfigured(self):
-        """Test missing root redirect for superuser on unconfigured system."""
-        request = self.factory.get('/')
-        self.user.is_superuser = True
-        self.user.save()
-        request.user = self.user
-        
+        response_404 = HttpResponse(status=404)
         with override_settings(MICROSYS_CONFIG={'is_configured': False}):
-            response = self.middleware._missing_root_redirect(request)
-            self.assertEqual(response.status_code, 302)
-            self.assertIn('sys/setup', response.url)
+            result = self.middleware._root_redirect(request, response_404)
+            self.assertEqual(result.status_code, 302)
+            self.assertIn('sys/setup', result.url)
 
-    def test_missing_root_redirect_for_configured_system(self):
-        """Test missing root redirect for configured system."""
+    def test_root_redirect_to_home_url_when_configured(self):
+        """Test _root_redirect sends to home_url when system is configured."""
         request = self.factory.get('/')
-        self.user.is_superuser = True
-        self.user.save()
         request.user = self.user
-        
-        with override_settings(MICROSYS_CONFIG={'is_configured': True, 'home_url': '/profile/'}):
-            response = self.middleware._missing_root_redirect(request)
-            self.assertEqual(response.status_code, 302)
-            self.assertIn('/profile/', response.url)
+        request.path = '/'
+
+        response_404 = HttpResponse(status=404)
+        with override_settings(MICROSYS_CONFIG={'is_configured': True, 'home_url': '/dashboard/'}):
+            result = self.middleware._root_redirect(request, response_404)
+            self.assertEqual(result.status_code, 302)
+            self.assertIn('/dashboard/', result.url)
+
+    def test_root_redirect_returns_none_when_home_url_is_root(self):
+        """Test _root_redirect avoids infinite loop if home_url is /."""
+        request = self.factory.get('/')
+        request.user = self.user
+        request.path = '/'
+
+        response_404 = HttpResponse(status=404)
+        with override_settings(MICROSYS_CONFIG={'is_configured': True, 'home_url': '/'}):
+            self.assertIsNone(self.middleware._root_redirect(request, response_404))
+
+    def test_root_redirect_anonymous_to_login_when_public_root_off(self):
+        """Test _root_redirect sends anonymous users to login when public_root is disabled."""
+        request = self.factory.get('/')
+        request.user = type('AnonymousUser', (), {'is_authenticated': False})()
+        request.path = '/'
+
+        response_404 = HttpResponse(status=404)
+        with override_settings(MICROSYS_CONFIG={'is_configured': True, 'home_url': '/dashboard/', 'public_root': False}):
+            result = self.middleware._root_redirect(request, response_404)
+            self.assertEqual(result.status_code, 302)
+            self.assertIn('/accounts/login/', result.url)
+
+    def test_root_redirect_anonymous_to_home_when_public_root_on(self):
+        """Test _root_redirect sends anonymous users to home_url when public_root is enabled."""
+        request = self.factory.get('/')
+        request.user = type('AnonymousUser', (), {'is_authenticated': False})()
+        request.path = '/'
+
+        response_404 = HttpResponse(status=404)
+        with override_settings(MICROSYS_CONFIG={'is_configured': True, 'home_url': '/dashboard/', 'public_root': True}):
+            result = self.middleware._root_redirect(request, response_404)
+            self.assertEqual(result.status_code, 302)
+            self.assertIn('/dashboard/', result.url)
 
     def test_middleware_full_flow_with_redirect_to_setup(self):
         """Test full middleware flow with redirect to setup."""

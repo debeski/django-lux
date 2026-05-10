@@ -67,10 +67,13 @@ class MicrosysConfig(AppConfig):
         from django.conf import settings
 
         # Check Middleware
-        middleware_path = 'microsys.middleware.ActivityLogMiddleware'
-        if middleware_path not in getattr(settings, 'MIDDLEWARE', []):
+        new_path = 'microsys.middleware.MicrosysMiddleware'
+        old_path = 'microsys.middleware.ActivityLogMiddleware'
+        configured_middleware = getattr(settings, 'MIDDLEWARE', [])
+        
+        if new_path not in configured_middleware and old_path not in configured_middleware:
             warnings.warn(
-                f"\n⚠️  microsys: '{middleware_path}' not found in MIDDLEWARE.\n"
+                f"\n⚠️  microsys: '{new_path}' not found in MIDDLEWARE.\n"
                 "   Activity logging will not work. Run 'python manage.py microsys_check' for details.",
                 UserWarning
             )

@@ -1192,7 +1192,8 @@
 }
 
 /* 24. Titlebar Home Button */
-:root.theme-retro .titlebar .ms-titlebar-home {
+:root.theme-retro .titlebar .ms-titlebar-home,
+:root.theme-retro .titlebar .ms-login-round {
     color: var(--retro-amber) !important;
     background: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(184, 115, 51, 0.18) !important;
@@ -1200,8 +1201,11 @@
 }
 
 :root.theme-retro .titlebar .ms-titlebar-home:hover,
+:root.theme-retro .titlebar .ms-login-round:hover,
 :root.theme-retro .titlebar .ms-titlebar-home:focus,
-:root.theme-retro .titlebar .ms-titlebar-home:focus-visible {
+:root.theme-retro .titlebar .ms-login-round:focus,
+:root.theme-retro .titlebar .ms-titlebar-home:focus-visible,
+:root.theme-retro .titlebar .ms-login-round:focus-visible {
     color: #f5ebe0 !important;
     background: rgba(212, 165, 116, 0.14) !important;
     border-color: rgba(212, 165, 116, 0.3) !important;

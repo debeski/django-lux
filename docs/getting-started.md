@@ -70,7 +70,7 @@ Add middleware, context processor, and Crispy settings:
 MIDDLEWARE = [
     # ...
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "microsys.middleware.ActivityLogMiddleware",
+    "microsys.middleware.MicrosysMiddleware",
 ]
 
 TEMPLATES = [

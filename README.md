@@ -68,7 +68,7 @@ from microsys.utils import microsys_settings
 microsys_settings(globals())
 ```
 
-That helper prepends the required apps, inserts `django.middleware.locale.LocaleMiddleware` and `microsys.middleware.ActivityLogMiddleware` in the supported order, adds the Microsys context processor, sets the Crispy Bootstrap 5 defaults, adds a Bootstrap-friendly `MESSAGE_TAGS` error mapping, and seeds the standard MicroSys runtime defaults for language, timezone, i18n/tz flags, `FORMAT_MODULE_PATH`, and charset unless your project already defines them.
+That helper prepends the required apps, inserts `django.middleware.locale.LocaleMiddleware` and `microsys.middleware.MicrosysMiddleware` in the supported order, adds the Microsys context processor, sets the Crispy Bootstrap 5 defaults, adds a Bootstrap-friendly `MESSAGE_TAGS` error mapping, and seeds the standard MicroSys runtime defaults for language, timezone, i18n/tz flags, `FORMAT_MODULE_PATH`, and charset unless your project already defines them.
 
 __Proceed to [Getting Started](docs/getting-started.md) if you prefer to wire everything manually.__
 

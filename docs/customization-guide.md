@@ -119,7 +119,7 @@ The helper currently:
 
 - prepends the required MicroSys apps and companion packages
 - inserts `django.middleware.locale.LocaleMiddleware` in the supported Django order when missing
-- inserts `microsys.middleware.ActivityLogMiddleware` after Django authentication middleware
+- inserts `microsys.middleware.MicrosysMiddleware` after Django authentication middleware
 - adds `microsys.context_processors.microsys_context`
 - sets Crispy Bootstrap 5 defaults when absent
 - adds `MESSAGE_TAGS[messages.ERROR] = "danger"` when the host project has not already provided its own mapping
