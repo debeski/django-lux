@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}{{ MS_TRANS.login }}{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'microsys/users/css/login.css' %}">
+<link rel="stylesheet" href="{% static 'microsys/users/css/login.css' %}?v={% now 'U' %}">
 {% if theme %}
 {{ theme|json_script:"login-theme-data" }}
 {% endif %}
@@ -10,17 +10,9 @@
 {% block titlebar %}{% endblock %}
 
 {% block layout %}
+{% if messages %}<div class="alert-container position-absolute top-0 start-0 w-100 ms-page-alert-container">{% for message in messages %}<div class="alert alert-{{ message.tags }} text-center h4 ms-page-alert">{{ message }}</div>{% endfor %}</div>{% endif %}
+{% if form.non_field_errors %}<div class="ms-login-error-float shake-trigger">{% for error in form.non_field_errors %}<div class="alert alert-danger d-flex align-items-center gap-2 m-0 h4"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span></div>{% endfor %}</div>{% endif %}
 <div class="page">
-    {% if messages %}
-        <div class="alert-container position-absolute top-0 start-0 w-100 ms-page-alert-container">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} text-center h4 ms-page-alert">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
-
     <div class="container">
       <div class="left">
         <div class="d-flex flex-column align-items-center mb-4 d-md-none">
@@ -35,14 +27,24 @@
             {% endif %}
 
             <div class="form m-0 mx-auto">
-                <div class="mb-4">
+                <div class="mb-4 position-relative">
                     <label for="username">{{ MS_TRANS.username }}</label>
-                    <input type="text" class="login-input" id="username" name="username" autofocus required>
+                    <input type="text" class="login-input {% if form.username.errors %}is-invalid{% endif %}" id="username" name="username" autofocus required value="{{ form.username.value|default:'' }}">
+                    {% if form.username.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.username.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
         
-                <div class="mb-4">
+                <div class="mb-4 position-relative">
                     <label for="password">{{ MS_TRANS.password }}</label>
-                    <input type="password" class="login-input" id="password" name="password" required>
+                    <input type="password" class="login-input {% if form.password.errors %}is-invalid{% endif %}" id="password" name="password" required>
+                    {% if form.password.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.password.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
         
                 <button type="submit" class="w-100 btn btn-lg mt-4" id="submit">{{ MS_TRANS.login_submit }}</button>
@@ -66,7 +68,6 @@
         </form>
       </div>
       
-      <!-- Removed position-relative to preserve absolute positioning defined in CSS -->
       <div class="right d-none d-md-flex">
           <!-- Desktop Language Toggle -->
           <div class="lang-toggle-container desktop-lang-toggle">
@@ -83,5 +84,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'microsys/users/js/login.js' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% static 'microsys/users/js/login.js' %}?v={% now 'U' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

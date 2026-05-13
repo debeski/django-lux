@@ -17,30 +17,50 @@ ASGI_APPLICATION = "{{ config_package }}.asgi.application"
 BASE_DIR = Path(__file__).resolve().parent.parent
 BASE_URL = os.getenv("BASE_URL", "http://localhost")
 BASE_HOSTNAME = urlparse(BASE_URL).hostname
+ALLOWED_URLS = [
+    url.strip()
+    for url in os.getenv("ALLOWED_URLS", "").split(",")
+    if url.strip()
+]
 ROOT_URLCONF = "{{ config_package }}.urls"
 
 SECRET_KEY = get_secret("DJANGO_SECRET_KEY", "DJANGO_SECRET_KEY") or "insecure-temporary-dev-only-key-change-me-now"
 DEBUG = os.getenv("DEBUG_STATUS", "True").lower() == "true"
 
+# Security & Origins configuration
+is_secure = BASE_URL.startswith("https://")
+is_local = BASE_HOSTNAME in ["localhost", "127.0.0.1"] or ":" in (BASE_HOSTNAME or "")
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "web,nginx,localhost,127.0.0.1").split(",")
+    if host.strip()
+]
+
+# Unified list of trusted origins for CORS and CSRF
+TRUSTED_ORIGINS = list(set(
+    ([BASE_URL] if BASE_URL.startswith(("http://", "https://")) else []) +
+    ALLOWED_URLS +
+    (['http://localhost', 'http://127.0.0.1'] if DEBUG else [])
+))
+
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = TRUSTED_ORIGINS
+CSRF_TRUSTED_ORIGINS = TRUSTED_ORIGINS
+
+SESSION_COOKIE_SECURE = is_secure
+CSRF_COOKIE_SECURE = is_secure
+SESSION_COOKIE_DOMAIN = None if is_local else BASE_HOSTNAME
+CSRF_COOKIE_DOMAIN = None if is_local else BASE_HOSTNAME
+
 if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-    SESSION_COOKIE_DOMAIN = None
-    CSRF_COOKIE_DOMAIN = None
-    CSRF_TRUSTED_ORIGINS = [BASE_URL, 'http://localhost']
     logging.basicConfig(level=logging.DEBUG)
 else:
-    CORS_ALLOW_ALL_ORIGINS = False
-    CORS_ALLOWED_ORIGINS = [BASE_URL] if BASE_URL.startswith(("http://", "https://")) else []
-    SESSION_COOKIE_DOMAIN = BASE_HOSTNAME
-    CSRF_COOKIE_DOMAIN = BASE_HOSTNAME
-    CSRF_TRUSTED_ORIGINS = [BASE_URL] if BASE_URL.startswith(("http://", "https://")) else []
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-SECURE_SSL_REDIRECT = False # Always Set to False when using HAproxy
+SECURE_SSL_REDIRECT = False # Always Set to False if using HAproxy
 USE_X_FORWARDED_HOST = True
 CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 X_FRAME_OPTIONS = "SAMEORIGIN"
@@ -52,12 +72,6 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 1 week
 SESSION_COOKIE_NAME = '{{ project_slug }}_sessionid'
 CSRF_COOKIE_NAME = '{{ project_slug }}_csrftoken'
 CSRF_COOKIE_SAMESITE = "Lax"
-
-ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.getenv("ALLOWED_HOSTS", "web,nginx,localhost,127.0.0.1").split(",")
-    if host.strip()
-]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

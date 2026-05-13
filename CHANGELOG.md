@@ -5,6 +5,14 @@ This file owns the release history for `django-microsys`.
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 
+## v2.1.6
+
+- **Access & Security Routing Controls**: Moved the global `home_url` controls into Step 3 / Access & Security, added an optional split between authenticated Home and anonymous public-root destinations, and kept prior redirect behavior unchanged when the split is disabled.
+- **Public Root Runtime Alignment**: Root/login/logout redirect behavior and the anonymous public-home titlebar-hide rule now follow the optional anonymous public-root target instead of assuming all users share the same destination.
+- **Setup And Options Reliability**: Fixed setup/System Settings state restore so one modal step no longer overrides another after reloads, hardened public-root dependent-field visibility inside dynamic modal flows, and bumped setup asset versions for reliable browser refreshes.
+- **Translation And CSP Polish**: Added Microsys translation coverage for the new Access & Security section heading and Step 3 public-root controls, removed the remaining hardcoded Access & Security modal label fallback, and made the dynamic-modal loader script nonce-aware for stricter CSP deployments.
+- **Documentation Refresh**: Updated the README, Features reference, admin guide, and MSRP-1 security standard to reflect the Step 3 routing split, the new focused System Settings modal entrypoint, and CSP-safe modal asset loading.
+
 ## v2.1.5
 
 - **Missing Root Redirect Fix**: Fixed an issue in `MicrosysMiddleware` where `_missing_root_redirect` improperly returned `None` instead of the original `HttpResponse` when allowing a public root request to proceed, which previously caused an `AttributeError: 'NoneType' object has no attribute 'status_code'` in subsequent middleware.

@@ -38,6 +38,7 @@ def default_titlebar_config():
         'show_title': True,
         'show_logo': True,
         'show_home_button': True,
+        'hide_on_public_unauthenticated_index': False,
         'home_shape': 'circle',
         'title_align': 'start',
         'title_size': 'md',
@@ -133,6 +134,10 @@ class SingletonModel(models.Model):
                     obj.email_2fa = bool(config.get('email_2fa'))
                 if hasattr(obj, 'public_root') and 'public_root' in config:
                     obj.public_root = bool(config.get('public_root'))
+                if hasattr(obj, 'public_root_split_enabled') and 'public_root_split_enabled' in config:
+                    obj.public_root_split_enabled = bool(config.get('public_root_split_enabled'))
+                if hasattr(obj, 'public_root_url') and 'public_root_url' in config:
+                    obj.public_root_url = str(config.get('public_root_url') or '').strip()
                 if hasattr(obj, 'public_registration_enabled') and 'public_registration_enabled' in config:
                     obj.public_registration_enabled = bool(config.get('public_registration_enabled'))
                 if hasattr(obj, 'registration_activation_mode') and config.get('registration_activation_mode'):
@@ -166,6 +171,8 @@ class SystemSettings(SingletonModel):
     is_configured = models.BooleanField(default=False, verbose_name="Is Configured")
     email_2fa = models.BooleanField(default=False, verbose_name="Enable Email 2FA")
     public_root = models.BooleanField(default=False, verbose_name="Public Root Access")
+    public_root_split_enabled = models.BooleanField(default=False, verbose_name="Separate Public Root From Home")
+    public_root_url = models.CharField(max_length=255, default='', blank=True, verbose_name="Public Root URL")
     public_registration_enabled = models.BooleanField(default=False, verbose_name="Enable Public Registration")
     registration_activation_mode = models.CharField(
         max_length=32,

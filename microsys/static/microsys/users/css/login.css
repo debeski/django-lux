@@ -29,6 +29,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh; /* Full screen height now that titlebar is hidden */
+  position: relative;
 }
 
 /* Gradient background applied to body via style.css or separate logic, 
@@ -323,5 +324,67 @@ input::-moz-focus-inner { border: 0; }
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     opacity: 1;
     font-weight: 700;
+}
+
+.ms-page-alert-container {
+    z-index: 2000;
+}
+
+/* Floating Error at top of page (Prevents card layout shifts) */
+.ms-login-error-float {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    width: 100%;
+}
+
+.ms-login-error-float .alert {
+    border-radius: 0 0 15px 15px;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    justify-content: center;
+    padding: 1.25rem;
+    backdrop-filter: blur(10px);
+    background: rgba(220, 53, 69, 0.9);
+    color: white;
+}
+
+.ms-login-error {
+    display: none !important;
+}
+
+/* Field Error Styling */
+.invalid-feedback {
+    font-size: 0.8rem;
+    color: #dc3545;
+    margin-top: 0.25rem;
+    font-weight: 500;
+}
+
+input.is-invalid {
+    border-color: #dc3545 !important;
+    background: rgba(220, 53, 69, 0.05) !important;
+}
+
+input.is-invalid:focus {
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+}
+
+/* Shake Animation */
+@keyframes ms-shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.ms-shake {
+    animation: ms-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* Subtle input hover/focus improvements */
+.login-input:hover:not(.is-invalid) {
+    border-color: rgba(35, 99, 195, 0.3);
 }
 

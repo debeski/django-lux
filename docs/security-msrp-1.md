@@ -29,6 +29,9 @@ authorization decision.
 
 - Dynamic modal manager/delete views enforce backend authorization for model,
   user, and profile surfaces.
+- Shared modal/runtime helper scripts are shipped as external static assets, and
+  the dynamic-modal loader now carries the request CSP nonce so strict
+  `script-src` policies do not force a fallback to inline behavior.
 - User directory, user detail, reset-password, activity-log, section-management,
   dashboard, user-hub, and sidebar surfaces use helper-backed authorization.
 - Built-in system sidebar entries use internal permission tokens:

@@ -14,6 +14,7 @@ x-environment:
   BACKUP_INTERVAL: "${BACKUP_INTERVAL:-680400}"
   # Web app settings (override these in compose.dev.yml or .env)
   ALLOWED_HOSTS: "${ALLOWED_HOSTS:-web,nginx,localhost,127.0.0.1}"
+  ALLOWED_URLS: "${ALLOWED_URLS:-http://localhost:81}"
   BASE_URL: "${BASE_URL:-http://localhost}"
   DEBUG_STATUS: "${DEBUG_STATUS:-False}"
   # App email settings. The app talks to the internal SMTP relay; only the relay has public egress.

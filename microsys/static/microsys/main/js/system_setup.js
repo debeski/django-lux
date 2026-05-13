@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const SETUP_STATE_KEY = `microsys.systemSetupState:${window.location.pathname}`;
+    const SETUP_STATE_KEY_PREFIX = 'microsys.systemSetupState:';
     const ICON_SUGGESTIONS = [
         // ── Home & Dashboard ──
         'bi-house',
@@ -709,9 +709,23 @@
         }
     }
 
-    function readSetupState() {
+    function resolveSetupStateSurface(form) {
+        const action = form && form.getAttribute ? (form.getAttribute('action') || '') : '';
         try {
-            return parseJson(sessionStorage.getItem(SETUP_STATE_KEY), null);
+            const url = new URL(action || window.location.href, window.location.origin);
+            return `${url.pathname}${url.search}`;
+        } catch (err) {
+            return `${window.location.pathname}${window.location.search}`;
+        }
+    }
+
+    function getSetupStateKey(form) {
+        return `${SETUP_STATE_KEY_PREFIX}${resolveSetupStateSurface(form)}`;
+    }
+
+    function readSetupState(form) {
+        try {
+            return parseJson(sessionStorage.getItem(getSetupStateKey(form)), null);
         } catch (err) {
             return null;
         }
@@ -723,7 +737,7 @@
         }
 
         const state = {
-            path: window.location.pathname,
+            surface: resolveSetupStateSurface(form),
             values: {},
             currentStep: 0,
         };
@@ -754,7 +768,7 @@
             state.values[field.name] = field.value;
         });
 
-        sessionStorage.setItem(SETUP_STATE_KEY, JSON.stringify(state));
+        sessionStorage.setItem(getSetupStateKey(form), JSON.stringify(state));
     }
 
     function restoreSetupFormState(root) {
@@ -764,8 +778,9 @@
             }
             form.dataset.setupStateRestored = 'true';
 
-            const state = readSetupState();
-            if (!state || state.path !== window.location.pathname || !state.values || typeof state.values !== 'object') {
+            const state = readSetupState(form);
+            const expectedSurface = resolveSetupStateSurface(form);
+            if (!state || state.surface !== expectedSurface || !state.values || typeof state.values !== 'object') {
                 return;
             }
 
@@ -796,7 +811,7 @@
                 form.dataset.msWizardInitialStep = String(state.currentStep);
             }
 
-            sessionStorage.removeItem(SETUP_STATE_KEY);
+            sessionStorage.removeItem(getSetupStateKey(form));
         });
     }
 
@@ -805,8 +820,8 @@
         if (!form || !form.classList.contains('ms-system-setup-form')) {
             return null;
         }
-        const state = readSetupState();
-        if (!state || state.path !== window.location.pathname) {
+        const state = readSetupState(form);
+        if (!state || state.surface !== resolveSetupStateSurface(form)) {
             return null;
         }
         return Number.isInteger(state.currentStep) ? state.currentStep : null;
@@ -2038,69 +2053,81 @@
                 return;
             }
 
-            const routeFields = getNamedFieldInputs(form, 'home_url_discovered');
-            const urlInput = form.querySelector('[name="home_url"]');
-            if (!routeFields.length || !urlInput) {
+            const fieldPairs = [
+                { discoveredName: 'home_url_discovered', inputName: 'home_url' },
+                { discoveredName: 'public_root_url_discovered', inputName: 'public_root_url' },
+            ];
+            if (!fieldPairs.some(({ discoveredName, inputName }) => (
+                getNamedFieldInputs(form, discoveredName).length && form.querySelector(`[name="${inputName}"]`)
+            ))) {
                 return;
             }
 
             form.dataset.setupHomeFieldsBound = 'true';
 
-            const routeSelect = routeFields.find((field) => field.tagName === 'SELECT');
-            const routeRadios = routeFields.filter((field) => field.type === 'radio');
-
-            function selectableValues() {
-                if (routeSelect) {
-                    return new Set(
-                        Array.from(routeSelect.options || [])
-                            .map((option) => option.value)
-                            .filter(Boolean)
-                    );
-                }
-                return new Set(routeRadios.map((field) => field.value).filter(Boolean));
-            }
-
-            function syncSelectFromInput() {
-                const currentValue = (urlInput.value || '').trim();
-                const values = selectableValues();
-                if (routeSelect) {
-                    routeSelect.value = values.has(currentValue) ? currentValue : '';
+            fieldPairs.forEach(({ discoveredName, inputName }) => {
+                const routeFields = getNamedFieldInputs(form, discoveredName);
+                const urlInput = form.querySelector(`[name="${inputName}"]`);
+                if (!routeFields.length || !urlInput) {
                     return;
                 }
+
+                const routeSelect = routeFields.find((field) => field.tagName === 'SELECT');
+                const routeRadios = routeFields.filter((field) => field.type === 'radio');
+
+                function selectableValues() {
+                    if (routeSelect) {
+                        return new Set(
+                            Array.from(routeSelect.options || [])
+                                .map((option) => option.value)
+                                .filter(Boolean)
+                        );
+                    }
+                    return new Set(routeRadios.map((field) => field.value).filter(Boolean));
+                }
+
+                function syncSelectFromInput() {
+                    const currentValue = (urlInput.value || '').trim();
+                    const values = selectableValues();
+                    if (routeSelect) {
+                        routeSelect.value = values.has(currentValue) ? currentValue : '';
+                        return;
+                    }
+                    routeRadios.forEach((field) => {
+                        if (!currentValue && !field.value) {
+                            field.checked = true;
+                            return;
+                        }
+                        field.checked = values.has(currentValue) && field.value === currentValue;
+                    });
+                }
+
+                if (routeSelect) {
+                    routeSelect.addEventListener('change', () => {
+                        if (!routeSelect.value) {
+                            return;
+                        }
+                        urlInput.value = routeSelect.value;
+                        urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                }
+
                 routeRadios.forEach((field) => {
-                    if (!currentValue && !field.value) {
-                        field.checked = true;
-                        return;
-                    }
-                    field.checked = values.has(currentValue) && field.value === currentValue;
+                    field.addEventListener('change', () => {
+                        if (!field.checked || !field.value) {
+                            return;
+                        }
+                        urlInput.value = field.value;
+                        urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
                 });
-            }
 
-            if (routeSelect) {
-                routeSelect.addEventListener('change', () => {
-                    if (!routeSelect.value) {
-                        return;
-                    }
-                    urlInput.value = routeSelect.value;
-                    urlInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    urlInput.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-            }
-
-            routeRadios.forEach((field) => {
-                field.addEventListener('change', () => {
-                    if (!field.checked || !field.value) {
-                        return;
-                    }
-                    urlInput.value = field.value;
-                    urlInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    urlInput.dispatchEvent(new Event('change', { bubbles: true }));
-                });
+                urlInput.addEventListener('input', syncSelectFromInput);
+                urlInput.addEventListener('change', syncSelectFromInput);
+                syncSelectFromInput();
             });
-
-            urlInput.addEventListener('input', syncSelectFromInput);
-            urlInput.addEventListener('change', syncSelectFromInput);
-            syncSelectFromInput();
         });
     }
 
@@ -2224,14 +2251,14 @@
         const locked = code === 'en' || code === 'ar';
         row.innerHTML = `
             <div class="ms-language-row__code">${code}</div>
-            <input type="text" class="form-control glass-input" data-language-name value="${escapeHtml(name || code)}">
-            <select class="form-select glass-input" data-language-dir>
+            <input type="text" class="form-control glass-input" data-language-name value="${escapeHtml(name || code)}" aria-label="Display name (${escapeHtml(code)})">
+            <select class="form-select glass-input" data-language-dir aria-label="Direction (${escapeHtml(code)})">
                 <option value="ltr"${dir !== 'rtl' ? ' selected' : ''}>LTR</option>
                 <option value="rtl"${dir === 'rtl' ? ' selected' : ''}>RTL</option>
             </select>
-            <input type="text" class="form-control glass-input ms-language-flag-input" data-language-flag value="${escapeHtml(flag || '')}">
+            <input type="text" class="form-control glass-input ms-language-flag-input" data-language-flag value="${escapeHtml(flag || '')}" aria-label="Flag (${escapeHtml(code)})">
             <label class="ms-language-default">
-                <input type="radio" name="ms_language_default_choice" data-language-default value="${code}">
+                <input type="radio" data-language-default value="${code}">
                 <span>Default</span>
             </label>
             <button type="button" class="btn btn-sm btn-outline-danger" data-language-remove${locked ? ' disabled' : ''}>
@@ -2374,6 +2401,12 @@
             input.addEventListener('change', () => {
                 syncLanguageCatalog(form);
                 if (input.matches('[data-language-default]') && input.checked) {
+                    form.querySelectorAll('[data-language-default]').forEach((defaultInput) => {
+                        if (defaultInput !== input) {
+                            defaultInput.checked = false;
+                        }
+                    });
+                    syncLanguageCatalog(form);
                     previewSetupDefaultLanguage(form, input.value);
                 }
             });
@@ -2640,14 +2673,14 @@
             applyTranslationOverridesToMatrix(form, settings.translations_override);
         }
 
-        ['home_url', 'default_language', 'default_theme', 'default_table_density'].forEach((name) => {
+        ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setNamedFieldValue(form, name, settings[name]);
                 getNamedFieldInputs(form, name).forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
             }
         });
 
-        ['allow_user_theme_override', 'allow_user_language_override', 'email_2fa', 'public_root', 'public_registration_enabled', 'registration_throttle_enabled'].forEach((name) => {
+        ['allow_user_theme_override', 'allow_user_language_override', 'email_2fa', 'public_root', 'public_root_split_enabled', 'public_registration_enabled', 'registration_throttle_enabled'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setCheckboxField(form, name, settings[name]);
             }
@@ -2691,6 +2724,11 @@
             setCheckboxField(form, 'titlebar_show_title', titlebar.show_title !== false);
             setCheckboxField(form, 'titlebar_show_logo', titlebar.show_logo !== false);
             setCheckboxField(form, 'titlebar_show_home_button', titlebar.show_home_button !== false);
+            setCheckboxField(
+                form,
+                'titlebar_hide_on_public_unauthenticated_index',
+                titlebar.hide_on_public_unauthenticated_index === true
+            );
             setNamedFieldValue(form, 'titlebar_home_shape', titlebar.home_shape || 'circle');
             setNamedFieldValue(form, 'titlebar_title_align', titlebar.title_align || 'start');
             setNamedFieldValue(form, 'titlebar_title_size', titlebar.title_size || 'md');
@@ -3127,6 +3165,68 @@
         });
     }
 
+    function syncPublicRootVisibility(form) {
+        if (!form) {
+            return;
+        }
+
+        const publicRootToggle = getNamedFieldInputs(form, 'public_root')[0] || null;
+        const splitToggle = getNamedFieldInputs(form, 'public_root_split_enabled')[0] || null;
+        const publicRootDependents = Array.from(form.querySelectorAll('[data-public-root-dependent]'));
+        const splitDependents = Array.from(form.querySelectorAll('[data-public-root-split-dependent]'));
+        if (!publicRootToggle || !splitToggle) {
+            return;
+        }
+
+        const publicRootEnabled = Boolean(publicRootToggle.checked);
+        if (!publicRootEnabled && splitToggle.checked) {
+            splitToggle.checked = false;
+        }
+        const splitEnabled = publicRootEnabled && Boolean(splitToggle.checked);
+
+        publicRootDependents.forEach((field) => {
+            field.classList.toggle('d-none', !publicRootEnabled);
+            field.setAttribute('aria-hidden', publicRootEnabled ? 'false' : 'true');
+        });
+        splitDependents.forEach((field) => {
+            field.classList.toggle('d-none', !splitEnabled);
+            field.setAttribute('aria-hidden', splitEnabled ? 'false' : 'true');
+        });
+        setNamedFieldDisabled(form, 'public_root_split_enabled', !publicRootEnabled);
+        setNamedFieldDisabled(form, 'public_root_url_discovered', !splitEnabled);
+        setNamedFieldDisabled(form, 'public_root_url', !splitEnabled);
+    }
+
+    function initPublicRootOptions(root) {
+        const forms = root.matches && root.matches('form.ms-system-setup-form')
+            ? [root]
+            : Array.from(root.querySelectorAll('form.ms-system-setup-form'));
+
+        forms.forEach((form) => {
+            if (form.dataset.publicRootBound === 'true') {
+                syncPublicRootVisibility(form);
+                return;
+            }
+
+            const publicRootToggle = getNamedFieldInputs(form, 'public_root')[0] || null;
+            const splitToggle = getNamedFieldInputs(form, 'public_root_split_enabled')[0] || null;
+            if (!publicRootToggle || !splitToggle) {
+                return;
+            }
+
+            form.dataset.publicRootBound = 'true';
+
+            form.addEventListener('change', (event) => {
+                const target = event.target;
+                if (!target || (target.name !== 'public_root' && target.name !== 'public_root_split_enabled')) {
+                    return;
+                }
+                syncPublicRootVisibility(form);
+            });
+            syncPublicRootVisibility(form);
+        });
+    }
+
     function initTitlebarBehaviorOptions(root) {
         root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
             if (form.dataset.titlebarBehaviorBound === 'true') {
@@ -3170,6 +3270,7 @@
         root.querySelectorAll('form.ms-system-setup-form').forEach(syncSidebarToolbarWarningFallback);
         initEmailDeliveryOptions(root);
         initPublicRegistrationOptions(root);
+        initPublicRootOptions(root);
         initTitlebarBehaviorOptions(root);
         initImmediateSystemSettingsPreview(root);
     }

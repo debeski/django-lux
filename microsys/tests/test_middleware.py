@@ -50,9 +50,11 @@ if not settings.configured:
 
 from django.test import TestCase, RequestFactory, override_settings
 from django.contrib.auth import get_user_model
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.urls import reverse
 from django.http import HttpResponse
 from django.core.cache import cache
+from unittest.mock import patch
 from microsys.middleware import MicrosysMiddleware, get_current_user, get_current_request
 
 User = get_user_model()
@@ -61,6 +63,9 @@ User = get_user_model()
 class MicrosysMiddlewareTests(TestCase):
     def setUp(self):
         cache.clear()
+        from microsys.models import SystemSettings
+
+        SystemSettings._default_manager.all().delete()
         self.factory = RequestFactory()
         self.middleware = MicrosysMiddleware(lambda r: HttpResponse())
         self.user = User.objects.create_user(
@@ -68,6 +73,12 @@ class MicrosysMiddlewareTests(TestCase):
             email='test@example.com',
             password='testpass123'
         )
+
+    def _attach_session(self, request):
+        middleware = SessionMiddleware(lambda req: HttpResponse())
+        middleware.process_request(request)
+        request.session.save()
+        return request
 
     def test_get_current_user_returns_none_when_not_set(self):
         """Test that get_current_user returns None when not set."""
@@ -140,6 +151,21 @@ class MicrosysMiddlewareTests(TestCase):
             request.user = self.user
             self.assertFalse(self.middleware._should_redirect_to_setup(request))
 
+    @override_settings(ROOT_URLCONF='microsys.tests.urls_with_prefix_mount')
+    def test_setup_guard_allowed_paths_with_prefix_mount(self):
+        """Test that setup guard allowlist follows the active Microsys mount prefix."""
+        for path in [
+            '/microsys/accounts/login/',
+            '/microsys/accounts/logout/',
+            '/microsys/sys/setup/',
+            '/microsys/sys/api/preferences/update/',
+            '/microsys/sys/2fa/verify/',
+        ]:
+            request = self.factory.get(path)
+            request.user = self.user
+            request.path = path
+            self.assertFalse(self.middleware._should_redirect_to_setup(request))
+
     def test_should_redirect_to_setup_for_unconfigured_system(self):
         """Test redirect to setup for unconfigured system."""
         request = self.factory.get('/some-page')
@@ -150,7 +176,11 @@ class MicrosysMiddlewareTests(TestCase):
         self.user.is_superuser = True
         self.user.save()
         
-        with override_settings(MICROSYS_CONFIG={'is_configured': False}):
+        with patch.object(self.middleware, '_setup_guard_allowed', return_value=False), patch.object(
+            self.middleware,
+            '_load_system_config',
+            return_value={'is_configured': False},
+        ):
             self.assertTrue(self.middleware._should_redirect_to_setup(request))
 
     def test_should_not_redirect_to_setup_for_configured_system(self):
@@ -159,17 +189,63 @@ class MicrosysMiddlewareTests(TestCase):
         request.user = self.user
         request.path = '/some-page'
         
-        with override_settings(MICROSYS_CONFIG={'is_configured': True}):
+        with patch.object(self.middleware, '_setup_guard_allowed', return_value=False), patch.object(
+            self.middleware,
+            '_load_system_config',
+            return_value={'is_configured': True},
+        ):
             self.assertFalse(self.middleware._should_redirect_to_setup(request))
 
     def test_should_not_redirect_to_setup_for_anonymous_user(self):
-        """Test no redirect to setup for anonymous user."""
+        """Test anonymous users are redirected to login while setup is incomplete."""
         request = self.factory.get('/some-page')
         request.user = type('AnonymousUser', (), {'is_authenticated': False})()
         request.path = '/some-page'
         
-        with override_settings(MICROSYS_CONFIG={'is_configured': False}):
-            self.assertFalse(self.middleware._should_redirect_to_setup(request))
+        with patch.object(self.middleware, '_setup_guard_allowed', return_value=False), patch.object(
+            self.middleware,
+            '_load_system_config',
+            return_value={'is_configured': False},
+        ):
+            self.assertTrue(self.middleware._should_redirect_to_setup(request))
+
+    def test_setup_redirect_response_sends_anonymous_users_to_login(self):
+        """Test anonymous requests are blocked from host-app pages before setup completes."""
+        request = self.factory.get('/external-page/')
+        request.user = type('AnonymousUser', (), {'is_authenticated': False})()
+        request.path = '/external-page/'
+
+        with patch.object(self.middleware, '_setup_guard_allowed', return_value=False), patch.object(
+            self.middleware,
+            '_load_system_config',
+            return_value={'is_configured': False},
+        ):
+            response = self.middleware._setup_redirect_response(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('login'))
+
+    def test_setup_redirect_response_logs_out_non_superusers_to_login(self):
+        """Test authenticated non-superusers cannot bypass the setup gate through host-app URLs."""
+        request = self.factory.get('/external-page/')
+        request.user = self.user
+        request.path = '/external-page/'
+        self._attach_session(request)
+        request.session['_auth_user_id'] = str(self.user.pk)
+        request.session['_auth_user_backend'] = 'django.contrib.auth.backends.ModelBackend'
+        request.session['_auth_user_hash'] = self.user.get_session_auth_hash()
+        request.session.save()
+
+        with patch.object(self.middleware, '_setup_guard_allowed', return_value=False), patch.object(
+            self.middleware,
+            '_load_system_config',
+            return_value={'is_configured': False},
+        ):
+            response = self.middleware._setup_redirect_response(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('login'))
+        self.assertNotIn('_auth_user_id', request.session)
 
     def test_root_redirect_returns_none_for_non_404(self):
         """Test that _root_redirect does nothing when response is not 404."""
@@ -247,6 +323,52 @@ class MicrosysMiddlewareTests(TestCase):
             self.assertEqual(result.status_code, 302)
             self.assertIn('/dashboard/', result.url)
 
+    def test_root_redirect_anonymous_uses_public_root_url_when_split_enabled(self):
+        request = self.factory.get('/')
+        request.user = type('AnonymousUser', (), {'is_authenticated': False})()
+        request.path = '/'
+
+        response_404 = HttpResponse(status=404)
+        with override_settings(MICROSYS_CONFIG={
+            'is_configured': True,
+            'home_url': '/dashboard/',
+            'public_root': True,
+            'public_root_split_enabled': True,
+            'public_root_url': '/landing/',
+        }):
+            result = self.middleware._root_redirect(request, response_404)
+            self.assertEqual(result.status_code, 302)
+            self.assertEqual(result.url, '/landing/')
+
+    def test_root_redirect_authenticated_still_uses_home_url_when_split_enabled(self):
+        request = self.factory.get('/')
+        request.user = self.user
+        request.path = '/'
+
+        response_404 = HttpResponse(status=404)
+        with override_settings(MICROSYS_CONFIG={
+            'is_configured': True,
+            'home_url': '/dashboard/',
+            'public_root': True,
+            'public_root_split_enabled': True,
+            'public_root_url': '/landing/',
+        }):
+            result = self.middleware._root_redirect(request, response_404)
+            self.assertEqual(result.status_code, 302)
+            self.assertEqual(result.url, '/dashboard/')
+
+    def test_sync_auth_redirects_uses_public_root_url_for_logout_when_split_enabled(self):
+        with override_settings(MICROSYS_CONFIG={
+            'is_configured': True,
+            'home_url': '/dashboard/',
+            'public_root': True,
+            'public_root_split_enabled': True,
+            'public_root_url': '/landing/',
+        }):
+            self.middleware._sync_auth_redirects()
+            self.assertEqual(settings.LOGIN_REDIRECT_URL, '/dashboard/')
+            self.assertEqual(settings.LOGOUT_REDIRECT_URL, '/landing/')
+
     def test_middleware_full_flow_with_redirect_to_setup(self):
         """Test full middleware flow with redirect to setup."""
         request = self.factory.get('/some-page')
@@ -255,10 +377,30 @@ class MicrosysMiddlewareTests(TestCase):
         request.user = self.user
         request.path = '/some-page'
         
-        with override_settings(MICROSYS_CONFIG={'is_configured': False}):
+        with patch.object(self.middleware, '_setup_guard_allowed', return_value=False), patch.object(
+            self.middleware,
+            '_load_system_config',
+            return_value={'is_configured': False},
+        ):
             response = self.middleware(request)
             self.assertEqual(response.status_code, 302)
             self.assertIn('sys/setup', response.url)
+
+    def test_middleware_full_flow_redirects_anonymous_host_page_to_login(self):
+        """Test the middleware blocks anonymous host-app pages until setup completes."""
+        request = self.factory.get('/external-page/')
+        request.user = type('AnonymousUser', (), {'is_authenticated': False})()
+        request.path = '/external-page/'
+
+        with patch.object(self.middleware, '_setup_guard_allowed', return_value=False), patch.object(
+            self.middleware,
+            '_load_system_config',
+            return_value={'is_configured': False},
+        ):
+            response = self.middleware(request)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('login'))
 
     def test_middleware_full_flow_without_redirect(self):
         """Test full middleware flow without redirect."""

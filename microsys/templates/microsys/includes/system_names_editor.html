@@ -7,11 +7,13 @@
         <span class="ms-system-name-row__label">{{ lang.name|default:lang.code }}</span>
       </div>
       <input
+        id="ms-system-name-{{ forloop.counter0 }}"
         type="text"
         class="form-control glass-input"
         data-system-name-input
         value="{{ lang.system_name|default:'' }}"
         placeholder="{{ MS_TRANS.form_sys_system_name_placeholder|default:'System name' }}"
+        aria-label="{{ MS_TRANS.form_sys_system_names|default:'System names by language' }} ({{ lang.code }})"
       >
     </div>
     {% endfor %}

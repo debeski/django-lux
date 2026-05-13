@@ -36,7 +36,7 @@ Use the sections below based on what you are trying to do.
 
 ## Current Major Capabilities
 
-- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, a global home URL, and sidebar behavior controls.
+- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, a global home URL, an optional separate anonymous public-root destination, and sidebar behavior controls.
 - A full internal-operations UI including user management, profiles, grouped permissions, activity logs, scopes, sections, draggable Options cards, and built-in two-factor authentication flows.
 - A disabled-by-default public registration playground with mandatory email verification, SMTP readiness checks, throttles, honeypot protection, and optional superuser approval.
 - A resolver-driven sidebar system with discovered app pages, permission-based item visibility, structured groups, runtime tree rendering, optional user-level reordering layered on top of the system default, and a configurable runtime toolbar.
@@ -46,5 +46,5 @@ Use the sections below based on what you are trying to do.
 - A built-in audit trail that records CRUD, login/logout, user-profile merges, diffs, masked sensitive changes, and download/export actions.
 - Optional OIDC SSO packages that keep provider/client behavior separate from core Microsys runtime imports.
 - Data-movement helpers such as the universal fetcher, Excel export, sticky autofill, recursive foreign-key autofill, and downloadable file handling.
-- Framework-level automation for translations, scope injection, actor tracking, soft-delete, UI preference persistence, and CSP-friendly external asset usage across shipped templates.
+- Framework-level automation for translations, scope injection, actor tracking, soft-delete, UI preference persistence, and CSP-friendly external asset usage across shipped templates and modal helpers.
 - Tutorial and design infrastructure including view-aware walkthroughs, theme-aware surfaces, and extension hooks for head/scripts injection.

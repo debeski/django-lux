@@ -266,9 +266,26 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(fetchUrl, {
             method: 'POST',
             body: formData,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         })
-        .then(res => res.json())
+        .then(res => res.text().then(text => {
+            let data = null;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (err) {
+                data = {
+                    success: false,
+                    error: res.ok ? 'Invalid server response.' : `Request failed with HTTP ${res.status}.`
+                };
+            }
+            if (!res.ok && data && !data.error) {
+                data.error = `Request failed with HTTP ${res.status}.`;
+            }
+            return data;
+        }))
         .then(data => {
             if (data.success) {
                 if (data.refresh_parent) {

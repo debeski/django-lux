@@ -40,6 +40,7 @@
   - Default table density (dense/balanced/roomy)
   - Home URL configuration
   - Public root access toggle
+  - Optional split between authenticated Home URL and anonymous public-root URL
   - Email 2FA enable/disable
   - Public registration enable/disable, activation mode, and throttle toggle
   - JSON language definitions
@@ -49,6 +50,7 @@
 
 ### First-Launch Setup Wizard
 - **5-step wizard:** Identity → Localization → Access and security → Navigation → Appearance and personalization
+- **Step 3 routing controls** for the main Home URL plus optional anonymous public-root split when public root access is enabled
 - **Setup import/export path** for reusing System Settings payloads across environments
 - **Live preview** for theme, language, sidebar, and titlebar changes
 - **Unsaved preview state** with session-based language switching
@@ -58,7 +60,7 @@
 - **Microsys email delivery controls** for delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`)
 
 ### Options View (`/sys/options/`)
-- Split System Settings modal entrypoints (Branding, Languages, Sidebar, Titlebar)
+- Split System Settings modal entrypoints (Branding, Languages, Access & Security, Sidebar, Titlebar)
 - Theme picker with live preview
 - Language picker (when enabled)
 - Table density picker
@@ -408,6 +410,7 @@ UserActivityLog.safe_log(
 - Auto-form/table/filter discovery via `LazyModelClasses`
 - Section-based model allowlisting
 - Permission enforcement
+- External modal loader asset shipped with CSP nonce support in the shared base layout
 
 ### AJAX Endpoints
 | Endpoint | Purpose |

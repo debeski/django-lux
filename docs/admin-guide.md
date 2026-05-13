@@ -27,10 +27,10 @@ The wizard currently runs in five steps:
    This step manages language-keyed system names, the explicit language catalog, default language, user language override policy, and the translation matrix editor. English and Arabic are built in; custom languages are available to users only after an admin adds them here.
 
 3. Access and security
-   This step controls public root access, public registration/email 2FA, and Microsys email delivery. Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
+   This step controls public root access, the global Home URL, the optional split between authenticated Home and anonymous public-root destinations, public registration/email 2FA, and Microsys email delivery. Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
 
 4. Navigation
-   This step manages the global home URL, sidebar builder, and sidebar behavior controls.
+   This step manages the sidebar builder and sidebar behavior controls.
 
 5. Appearance and personalization
    This step manages theme availability, default theme, theme override policy, table-density defaults, and titlebar controls.
@@ -62,7 +62,7 @@ When the wizard is saved:
 - the chosen home URL becomes the global titlebar Home destination
 - the sidebar reorder and toolbar flags become part of the runtime sidebar behavior
 
-Superusers can export the current setup from the Options System Settings card. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, sidebar, titlebar, security toggles, themes, and density defaults. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
+Superusers can export the current setup from the Options System Settings card. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, optional anonymous public-root URL/split toggle, sidebar, titlebar, security toggles, themes, and density defaults. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
 
 ## Sidebar Builder and Runtime Navigation
 
@@ -123,7 +123,7 @@ The Options screen currently provides:
 - table-density switching for the current user
 - autofill enable or disable
 - reset-to-defaults for user preferences
-- a superuser-only System Settings button that opens the editable settings modal
+- a superuser-only System Settings button that opens focused Branding, Languages, Access & Security, Sidebar, and Appearance modals
 - a superuser-only setup export action for reusing System Settings across development environments
 
 Options layout note:
@@ -153,6 +153,7 @@ The most common admin-facing configuration tasks are:
 - updating the list of available languages
 - adding translation overrides without touching code
 - adjusting the global home URL used by the titlebar Home button
+- optionally routing anonymous public-root traffic to a different destination from the authenticated Home URL
 
 The safest mental model is:
 

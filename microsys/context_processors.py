@@ -1,3 +1,5 @@
+from urllib.parse import urlsplit
+
 from .constants import DEFAULT_TABLE_DENSITY, TABLE_DENSITY_CHOICES, TABLE_DENSITY_VALUES
 from .utils import (
     get_effective_allowed_themes,
@@ -18,6 +20,38 @@ import json
 from django.urls import reverse, NoReverseMatch
 from .discovery import SYSTEM_ROUTE_META, build_sidebar_navigation
 from .themes import get_theme_names, get_theme_options
+
+
+def _normalize_runtime_path(value):
+    raw_value = str(value or '').strip()
+    if not raw_value:
+        return ''
+    parsed = urlsplit(raw_value)
+    path = str(parsed.path or raw_value).strip()
+    if not path.startswith('/'):
+        return ''
+    return path if path == '/' else path.rstrip('/')
+
+
+def _should_hide_titlebar_for_public_index(request, final_config, titlebar_config):
+    user = getattr(request, 'user', None)
+    if not titlebar_config.get('hide_on_public_unauthenticated_index', False):
+        return False
+    if not final_config.get('public_root', False):
+        return False
+    if user and getattr(user, 'is_authenticated', False):
+        return False
+
+    current_path = _normalize_runtime_path(getattr(request, 'path', ''))
+    if not current_path:
+        return False
+
+    public_paths = {'/'}
+    anonymous_public_path = final_config.get('public_root_url') if final_config.get('public_root_split_enabled', False) else final_config.get('home_url')
+    target_path = _normalize_runtime_path(anonymous_public_path)
+    if target_path:
+        public_paths.add(target_path)
+    return current_path in public_paths
 
 # Helper functions for Sidebar - KEPT PRIVATE
 def _get_config_hash(config):
@@ -301,6 +335,11 @@ def microsys_context(request):
         'extra_groups': context['sidebar_extra_groups'],
     }
     context['titlebar'] = final_config.get('appearance', {}).get('titlebar', final_config.get('titlebar', {}))
+    context['hide_titlebar_for_public_index'] = _should_hide_titlebar_for_public_index(
+        request,
+        final_config,
+        context['titlebar'],
+    )
 
     return context
 

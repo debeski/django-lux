@@ -43,6 +43,7 @@
           {% for cell in row.cells %}
           <td data-translation-cell data-source="{{ cell.source }}">
             <textarea
+              id="ms-translation-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}"
               class="form-control form-control-sm glass-input"
               rows="2"
               data-translation-input
@@ -51,6 +52,7 @@
               data-base-value="{{ cell.base_value }}"
               data-override-value="{{ cell.override_value }}"
               placeholder="{{ cell.base_value }}"
+              aria-label="{{ row.key }} ({{ cell.language }})"
             >{{ cell.value }}</textarea>
             <span class="badge ms-translation-source">{{ cell.source }}</span>
           </td>

@@ -1063,6 +1063,7 @@ def default_titlebar_config():
         'show_title': True,
         'show_logo': True,
         'show_home_button': True,
+        'hide_on_public_unauthenticated_index': False,
         'home_shape': 'circle',
         'title_align': 'start',
         'title_size': 'md',
@@ -1077,6 +1078,12 @@ def normalize_titlebar_config(titlebar_config):
     normalized['show_title'] = bool(config.get('show_title', normalized['show_title']))
     normalized['show_logo'] = bool(config.get('show_logo', normalized['show_logo']))
     normalized['show_home_button'] = bool(config.get('show_home_button', normalized['show_home_button']))
+    normalized['hide_on_public_unauthenticated_index'] = bool(
+        config.get(
+            'hide_on_public_unauthenticated_index',
+            normalized['hide_on_public_unauthenticated_index'],
+        )
+    )
 
     home_shape = config.get('home_shape')
     if home_shape in TITLEBAR_HOME_SHAPE_VALUES:
@@ -1212,6 +1219,8 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'default_table_density',
     'email_2fa',
     'public_root',
+    'public_root_split_enabled',
+    'public_root_url',
     'public_registration_enabled',
     'registration_activation_mode',
     'registration_throttle_enabled',
@@ -1307,6 +1316,8 @@ def normalize_system_settings_import_payload(payload):
         normalized['default_language'] = _normalize_language_code(normalized['default_language']) or 'en'
     if 'home_url' in normalized:
         normalized['home_url'] = str(normalized['home_url'] or '').strip()
+    if 'public_root_url' in normalized:
+        normalized['public_root_url'] = str(normalized['public_root_url'] or '').strip()
     if (
         'registration_activation_mode' in normalized
         and normalized['registration_activation_mode'] not in REGISTRATION_ACTIVATION_VALUES
@@ -1317,6 +1328,7 @@ def normalize_system_settings_import_payload(payload):
         'allow_user_language_override',
         'email_2fa',
         'public_root',
+        'public_root_split_enabled',
         'public_registration_enabled',
         'registration_throttle_enabled',
     ):
@@ -1352,6 +1364,8 @@ def get_system_config():
         'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
         'public_root': False,
+        'public_root_split_enabled': False,
+        'public_root_url': '',
         'public_registration_enabled': False,
         'registration_activation_mode': REGISTRATION_ACTIVATION_AUTO_LOGIN,
         'registration_throttle_enabled': True,
@@ -1474,6 +1488,22 @@ def get_system_config():
         ):
             db_config['public_root'] = bool(sys_settings.public_root)
         if (
+            hasattr(sys_settings, 'public_root_split_enabled')
+            and _should_apply_db_override(
+                bool(sys_settings.public_root_split_enabled),
+                default_config['public_root_split_enabled'],
+            )
+        ):
+            db_config['public_root_split_enabled'] = bool(sys_settings.public_root_split_enabled)
+        if (
+            hasattr(sys_settings, 'public_root_url')
+            and _should_apply_db_override(
+                str(getattr(sys_settings, 'public_root_url', '') or '').strip(),
+                default_config['public_root_url'],
+            )
+        ):
+            db_config['public_root_url'] = str(sys_settings.public_root_url or '').strip()
+        if (
             hasattr(sys_settings, 'public_registration_enabled')
             and _should_apply_db_override(
                 bool(sys_settings.public_registration_enabled),
@@ -1582,6 +1612,8 @@ def get_system_config():
 
     final_config['home_url_name'] = None
     final_config['home_url'] = final_config.get('home_url') or default_config['home_url']
+    final_config['public_root_split_enabled'] = bool(final_config.get('public_root_split_enabled', False))
+    final_config['public_root_url'] = str(final_config.get('public_root_url') or '').strip()
     if final_config.get('default_language') not in final_config['languages']:
         final_config['default_language'] = 'en' if 'en' in final_config['languages'] else next(iter(final_config['languages']), 'en')
 
@@ -3314,4 +3346,3 @@ def has_submit_button(form):
             return True
             
     return False
-

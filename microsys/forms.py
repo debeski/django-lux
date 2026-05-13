@@ -1283,6 +1283,10 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         choices=(),
     )
+    public_root_url_discovered = forms.ChoiceField(
+        required=False,
+        choices=(),
+    )
     settings_import_file = forms.FileField(
         required=False,
     )
@@ -1403,6 +1407,10 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=True,
     )
+    titlebar_hide_on_public_unauthenticated_index = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
     titlebar_home_shape = forms.ChoiceField(
         required=False,
         choices=TITLEBAR_HOME_SHAPE_CHOICES,
@@ -1436,6 +1444,14 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=False,
     )
+    public_root_split_enabled = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    public_root_url = forms.CharField(
+        required=False,
+        max_length=255,
+    )
     public_registration_enabled = forms.BooleanField(
         required=False,
         initial=False,
@@ -1464,6 +1480,8 @@ class SystemSettingsForm(forms.ModelForm):
             'default_table_density',
             'email_2fa',
             'public_root',
+            'public_root_split_enabled',
+            'public_root_url',
             'public_registration_enabled',
             'registration_activation_mode',
             'registration_throttle_enabled',
@@ -1525,15 +1543,43 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['translations_override'].label = s.get('form_sys_translations', "Translation overrides")
         self.fields['home_url'].required = False
         self.fields['home_url'].label = s.get('form_sys_home_url', "Home URL")
-        self.fields['home_url'].help_text = s.get('help_sys_home_url', 'You can write a custom path like / or /finance/ or a full URL if desired.')
+        self.fields['home_url'].help_text = s.get(
+            'help_sys_home_url',
+            'Choose the main Home URL. It remains the authenticated home destination and login redirect even when anonymous public-root traffic is split elsewhere.',
+        )
         self.fields['home_url'].widget.attrs.update({
             'class': 'form-control glass-input',
             'dir': 'ltr',
             'placeholder': DEFAULT_HOME_URL,
         })
         self.fields['home_url_discovered'].label = s.get('form_sys_home_url_discovered', "Select from discovered pages")
-        self.fields['home_url_discovered'].help_text = s.get('help_sys_home_url_discovered', 'Optional: Select a discovered page to auto-fill the home URL, or leave blank and enter a custom URL.')
+        self.fields['home_url_discovered'].help_text = s.get(
+            'help_sys_home_url_discovered',
+            'Optional: select a discovered page to auto-fill the Home URL, or leave it blank and enter a custom URL.',
+        )
         self.fields['home_url_discovered'].widget.attrs.update({
+            'class': 'form-select glass-input',
+        })
+        self.fields['public_root_url'].required = False
+        self.fields['public_root_url'].label = s.get('form_sys_public_root_url', 'Anonymous Public Root URL')
+        self.fields['public_root_url'].help_text = s.get(
+            'help_sys_public_root_url',
+            'Optional: when separate public-root mode is enabled, anonymous users landing on `/` are redirected here instead of the main Home URL.',
+        )
+        self.fields['public_root_url'].widget.attrs.update({
+            'class': 'form-control glass-input',
+            'dir': 'ltr',
+            'placeholder': '/',
+        })
+        self.fields['public_root_url_discovered'].label = s.get(
+            'form_sys_public_root_url_discovered',
+            'Choose anonymous public root from discovered pages',
+        )
+        self.fields['public_root_url_discovered'].help_text = s.get(
+            'help_sys_public_root_url_discovered',
+            'Optional: select a discovered page to auto-fill the anonymous public-root destination, or leave it blank and enter a custom URL.',
+        )
+        self.fields['public_root_url_discovered'].widget.attrs.update({
             'class': 'form-select glass-input',
         })
         self.fields['default_language'].label = s.get('form_sys_default_lang', "Default Language")
@@ -1617,6 +1663,10 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['titlebar_show_title'].label = s.get('form_sys_titlebar_show_title', 'Show titlebar title')
         self.fields['titlebar_show_logo'].label = s.get('form_sys_titlebar_show_logo', 'Show titlebar logo')
         self.fields['titlebar_show_home_button'].label = s.get('form_sys_titlebar_show_home_button', 'Show titlebar home button')
+        self.fields['titlebar_hide_on_public_unauthenticated_index'].label = s.get(
+            'form_sys_titlebar_hide_on_public_unauthenticated_index',
+            'Hide titlebar on anonymous public home/index',
+        )
         self.fields['titlebar_home_shape'].label = s.get('form_sys_titlebar_home_shape', 'Home button shape')
         self.fields['titlebar_title_align'].label = s.get('form_sys_titlebar_title_align', 'Title alignment')
         self.fields['titlebar_title_size'].label = s.get('form_sys_titlebar_title_size', 'Title size')
@@ -1633,6 +1683,10 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['titlebar_show_home_button'].help_text = s.get(
             'help_sys_titlebar_show_home_button',
             'Show the quick Home button in the titlebar.',
+        )
+        self.fields['titlebar_hide_on_public_unauthenticated_index'].help_text = s.get(
+            'help_sys_titlebar_hide_on_public_unauthenticated_index',
+            'Hide the titlebar when an anonymous user opens the public root/home page.',
         )
         self.fields['titlebar_home_shape'].choices = (
             ('circle', s.get('titlebar_home_shape_circle', 'Circle')),
@@ -1686,6 +1740,14 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['public_root'].help_text = s.get(
             'help_sys_public_root',
             'Allow anonymous (non-logged-in) users to access the root URL (/). When enabled, the system will not force-redirect to login.',
+        )
+        self.fields['public_root_split_enabled'].label = s.get(
+            'form_sys_public_root_split_enabled',
+            'Separate anonymous public root from Home URL',
+        )
+        self.fields['public_root_split_enabled'].help_text = s.get(
+            'help_sys_public_root_split_enabled',
+            'When enabled, anonymous users can be redirected to a separate Public Root URL while authenticated users still use the main Home URL.',
         )
         email_status = get_email_service_status()
         smtp_label = s.get('form_sys_email_status_ready', 'ready') if email_status.get('available') else s.get('form_sys_email_status_not_ready', 'not ready')
@@ -1918,6 +1980,13 @@ class SystemSettingsForm(forms.ModelForm):
             or DEFAULT_HOME_URL
         )
         self.initial['home_url'] = current_home_url
+        instance_public_root_url = str(getattr(self.instance, 'public_root_url', '') or '').strip()
+        current_public_root_url = (
+            instance_public_root_url
+            or config.get('public_root_url', '')
+            or project_config.get('public_root_url', '')
+        )
+        self.initial['public_root_url'] = current_public_root_url
 
         if self.instance and self.instance.pk:
             if isinstance(self.instance.languages, dict):
@@ -1955,6 +2024,13 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['public_root'] = bool(
             getattr(self.instance, 'public_root', False)
             or config.get('public_root', False)
+        )
+        self.initial['public_root_split_enabled'] = bool(
+            (
+                config.get('public_root_split_enabled', False)
+                if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+                else getattr(self.instance, 'public_root_split_enabled', config.get('public_root_split_enabled', False))
+            )
         )
         self.initial['public_registration_enabled'] = bool(
             getattr(self.instance, 'public_registration_enabled', False)
@@ -2016,6 +2092,9 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['titlebar_show_title'] = bool(initial_titlebar_config.get('show_title', True))
         self.initial['titlebar_show_logo'] = bool(initial_titlebar_config.get('show_logo', True))
         self.initial['titlebar_show_home_button'] = bool(initial_titlebar_config.get('show_home_button', True))
+        self.initial['titlebar_hide_on_public_unauthenticated_index'] = bool(
+            initial_titlebar_config.get('hide_on_public_unauthenticated_index', False)
+        )
         self.initial['titlebar_home_shape'] = initial_titlebar_config.get('home_shape', 'circle')
         self.initial['titlebar_title_align'] = initial_titlebar_config.get('title_align', 'start')
         self.initial['titlebar_title_size'] = initial_titlebar_config.get('title_size', 'md')
@@ -2054,6 +2133,9 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['home_url_discovered'].choices = home_url_choices
         self.fields['home_url_discovered'].widget.option_meta = home_url_option_meta
         self.initial['home_url_discovered'] = current_home_url if current_home_url in seen_home_urls else ''
+        self.fields['public_root_url_discovered'].choices = home_url_choices
+        self.fields['public_root_url_discovered'].widget.option_meta = home_url_option_meta
+        self.initial['public_root_url_discovered'] = current_public_root_url if current_public_root_url in seen_home_urls else ''
 
         try:
             initial_languages = json.loads(self.initial.get('languages') or '{}')
@@ -2252,11 +2334,48 @@ class SystemSettingsForm(forms.ModelForm):
                     f"</div>"
                 ),
                 HTML("</div>"),
-                HTML(f"<h6 class='fw-bold my-3'>{s.get('access_security_settings_title', 'Access & Security')}</h6>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('access_security_settings_title', s.get('system_settings_security', 'Access & Security'))}</h6>"),
                 Row(
                     build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
                     build_settings_toggle_field(self, 'email_2fa', css_class='col-lg-6'),
                     css_class='g-3 mb-3',
+                ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('root_home_settings_title', 'Home & Public Root Destinations')}</h6>"),
+                Row(
+                    Div(Field('home_url_discovered'), css_class='col-lg-6'),
+                    Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
+                ),
+                Row(
+                    build_settings_toggle_field(
+                        self,
+                        'public_root_split_enabled',
+                        css_class=f"col-lg-12 ms-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        attrs={
+                            'data_public_root_dependent': 'true',
+                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
+                        },
+                    ),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
+                    Div(
+                        Field('public_root_url_discovered'),
+                        css_class=(
+                            "col-lg-6 ms-public-root-split-dependent"
+                            f"{' d-none' if not (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ''}"
+                        ),
+                        data_public_root_split_dependent='true',
+                        aria_hidden='false' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else 'true',
+                    ),
+                    Div(
+                        Field('public_root_url', dir='ltr'),
+                        css_class=(
+                            "col-lg-6 ms-public-root-split-dependent"
+                            f"{' d-none' if not (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ''}"
+                        ),
+                        data_public_root_split_dependent='true',
+                        aria_hidden='false' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else 'true',
+                    ),
                 ),
                 Row(
                     build_settings_toggle_field(self, 'public_registration_enabled', css_class='col-lg-12'),
@@ -2284,10 +2403,6 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'Step 4: Sidebar')}</span></div>"),
-                Row(
-                    Div(Field('home_url_discovered'), css_class='col-lg-6'),
-                    Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
-                ),
                 Row(
                     build_settings_toggle_field(self, 'sidebar_enabled', css_class='col-lg-12'),
                     css_class='g-3 mb-3',
@@ -2346,9 +2461,10 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
                 Row(
-                    build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-4'),
-                    build_settings_toggle_field(self, 'titlebar_show_logo', css_class='col-lg-4'),
-                    build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-4'),
+                    build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-3'),
+                    build_settings_toggle_field(self, 'titlebar_show_logo', css_class='col-lg-6 col-xl-3'),
+                    build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-6 col-xl-3'),
+                    build_settings_toggle_field(self, 'titlebar_hide_on_public_unauthenticated_index', css_class='col-lg-6 col-xl-3'),
                     css_class='g-3 mb-3'
                 ),
                 Row(
@@ -2502,7 +2618,36 @@ class SystemSettingsForm(forms.ModelForm):
     def clean_home_url(self):
         value = str(self.cleaned_data.get('home_url') or '').strip()
         discovered_value = str(self.cleaned_data.get('home_url_discovered') or '').strip()
+        if self.is_bound and 'home_url' not in self.data and 'home_url_discovered' not in self.data:
+            return (
+                str(getattr(self.instance, 'home_url', '') or '').strip()
+                or str(self.initial.get('home_url') or '').strip()
+                or getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url')
+                or DEFAULT_HOME_URL
+            )
         return value or discovered_value or getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
+
+    def clean_public_root_url(self):
+        value = str(self.cleaned_data.get('public_root_url') or '').strip()
+        discovered_value = str(self.cleaned_data.get('public_root_url_discovered') or '').strip()
+        home_url = str(self.cleaned_data.get('home_url') or '').strip()
+        if self.is_bound and 'public_root_url' not in self.data and 'public_root_url_discovered' not in self.data:
+            return (
+                str(getattr(self.instance, 'public_root_url', '') or '').strip()
+                or str(self.initial.get('public_root_url') or '').strip()
+                or str(getattr(settings, 'MICROSYS_CONFIG', {}).get('public_root_url') or '').strip()
+                or home_url
+                or getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url')
+                or DEFAULT_HOME_URL
+            )
+        return (
+            value
+            or discovered_value
+            or str(getattr(settings, 'MICROSYS_CONFIG', {}).get('public_root_url') or '').strip()
+            or home_url
+            or getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url')
+            or DEFAULT_HOME_URL
+        )
 
     def clean_sidebar_config(self):
         from microsys.discovery import sanitize_sidebar_config
@@ -2581,6 +2726,7 @@ class SystemSettingsForm(forms.ModelForm):
             'languages',
             'translations_override',
             'home_url',
+            'public_root_url',
             'default_language',
             'default_theme',
             'allowed_themes',
@@ -2589,6 +2735,7 @@ class SystemSettingsForm(forms.ModelForm):
             'default_table_density',
             'email_2fa',
             'public_root',
+            'public_root_split_enabled',
             'public_registration_enabled',
             'registration_activation_mode',
             'registration_throttle_enabled',
@@ -2627,6 +2774,9 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['titlebar_show_title'] = bool(titlebar.get('show_title', True))
             cleaned['titlebar_show_logo'] = bool(titlebar.get('show_logo', True))
             cleaned['titlebar_show_home_button'] = bool(titlebar.get('show_home_button', True))
+            cleaned['titlebar_hide_on_public_unauthenticated_index'] = bool(
+                titlebar.get('hide_on_public_unauthenticated_index', False)
+            )
             cleaned['titlebar_home_shape'] = titlebar.get('home_shape', 'circle')
             cleaned['titlebar_title_align'] = titlebar.get('title_align', 'start')
             cleaned['titlebar_title_size'] = titlebar.get('title_size', 'md')
@@ -2646,6 +2796,9 @@ class SystemSettingsForm(forms.ModelForm):
         if default_language not in languages:
             fallback_language = 'en' if 'en' in languages else next(iter(languages), 'en')
             cleaned['default_language'] = fallback_language
+        cleaned['public_root_split_enabled'] = bool(cleaned.get('public_root_split_enabled', False))
+        if not cleaned.get('public_root', False):
+            cleaned['public_root_split_enabled'] = False
 
         sidebar = cleaned.get('sidebar_config')
         if isinstance(sidebar, dict):
@@ -2729,6 +2882,9 @@ class SystemSettingsForm(forms.ModelForm):
             'show_title': bool(cleaned.get('titlebar_show_title', True)),
             'show_logo': bool(cleaned.get('titlebar_show_logo', True)),
             'show_home_button': bool(cleaned.get('titlebar_show_home_button', True)),
+            'hide_on_public_unauthenticated_index': bool(
+                cleaned.get('titlebar_hide_on_public_unauthenticated_index', False)
+            ),
             'home_shape': cleaned.get('titlebar_home_shape', 'circle'),
             'title_align': cleaned.get('titlebar_title_align', 'start'),
             'title_size': cleaned.get('titlebar_title_size', 'md'),
@@ -2764,6 +2920,8 @@ class SystemSettingsForm(forms.ModelForm):
         instance.allow_user_theme_override = bool(self.cleaned_data.get('allow_user_theme_override', True))
         instance.allow_user_language_override = bool(self.cleaned_data.get('allow_user_language_override', True))
         instance.titlebar_config = self.cleaned_data.get('titlebar_config', default_titlebar_config())
+        instance.public_root_split_enabled = bool(self.cleaned_data.get('public_root_split_enabled', False))
+        instance.public_root_url = str(self.cleaned_data.get('public_root_url') or '').strip()
         imported = getattr(self, '_imported_settings', {}) or {}
         if imported.get('logo') and not self.files.get('logo'):
             instance.logo = str(imported.get('logo'))

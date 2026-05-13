@@ -1,7 +1,7 @@
 <div class="ms-setup-builder" data-mode="{{ mode }}">
-    <textarea class="d-none ms-sidebar-catalog-data">{{ sidebar_catalog_json }}</textarea>
-    <textarea class="d-none ms-sidebar-catalog-fallback-data">{{ sidebar_catalog_fallback_json }}</textarea>
-    <textarea class="d-none ms-sidebar-config-data">{{ sidebar_config_json }}</textarea>
+    <textarea id="ms-sidebar-catalog-data-{{ mode }}" class="d-none ms-sidebar-catalog-data">{{ sidebar_catalog_json }}</textarea>
+    <textarea id="ms-sidebar-catalog-fallback-data-{{ mode }}" class="d-none ms-sidebar-catalog-fallback-data">{{ sidebar_catalog_fallback_json }}</textarea>
+    <textarea id="ms-sidebar-config-data-{{ mode }}" class="d-none ms-sidebar-config-data">{{ sidebar_config_json }}</textarea>
 
     <div class="row g-3">
         <div class="col-xl-5">
@@ -63,7 +63,8 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <input type="search" class="form-control glass-input" data-builder-search placeholder="{{ MS_TRANS.label_keyword|default:'Search...' }}">
+                        <label for="ms-sidebar-builder-search-{{ mode }}" class="visually-hidden">{{ MS_TRANS.label_keyword|default:'Search' }}</label>
+                        <input id="ms-sidebar-builder-search-{{ mode }}" type="search" class="form-control glass-input" data-builder-search placeholder="{{ MS_TRANS.label_keyword|default:'Search...' }}" aria-label="{{ MS_TRANS.label_keyword|default:'Search' }}">
                     </div>
                     <div class="ms-sidebar-available" data-builder-available-list></div>
                 </div>
@@ -84,14 +85,14 @@
                         <div class="row g-3 align-items-start">
                             <div class="col-lg-5">
                                 <div class="mb-3">
-                                    <label class="form-label">{{ MS_TRANS.sidebar_label_field|default:"Label" }}</label>
-                                    <input type="text" class="form-control glass-input" data-builder-label-input>
+                                    <label class="form-label" for="ms-sidebar-builder-label-{{ mode }}">{{ MS_TRANS.sidebar_label_field|default:"Label" }}</label>
+                                    <input id="ms-sidebar-builder-label-{{ mode }}" type="text" class="form-control glass-input" data-builder-label-input>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">{{ MS_TRANS.sidebar_icon_field|default:"Icon" }}</label>
+                                    <label class="form-label" for="ms-sidebar-builder-icon-{{ mode }}">{{ MS_TRANS.sidebar_icon_field|default:"Icon" }}</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="bi bi-stars" data-builder-icon-preview></i></span>
-                                        <input type="text" class="form-control glass-input" data-builder-icon-input placeholder="bi-house">
+                                        <input id="ms-sidebar-builder-icon-{{ mode }}" type="text" class="form-control glass-input" data-builder-icon-input placeholder="bi-house">
                                     </div>
                                 </div>
                                 <div class="d-flex gap-2 flex-wrap">
@@ -106,7 +107,8 @@
                             <div class="col-lg-7">
                                 <label class="form-label">{{ MS_TRANS.sidebar_icon_field|default:"Icon" }}</label>
                                 <div class="ms-builder-icon-picker p-2 rounded-4 border" data-builder-icon-picker>
-                                    <input type="search" class="form-control form-control-sm glass-input mb-2" data-builder-icon-search placeholder="{{ MS_TRANS.sidebar_icon_search|default:'Search icons...' }}">
+                                    <label for="ms-sidebar-builder-icon-search-{{ mode }}" class="visually-hidden">{{ MS_TRANS.sidebar_icon_search|default:'Search icons' }}</label>
+                                    <input id="ms-sidebar-builder-icon-search-{{ mode }}" type="search" class="form-control form-control-sm glass-input mb-2" data-builder-icon-search placeholder="{{ MS_TRANS.sidebar_icon_search|default:'Search icons...' }}" aria-label="{{ MS_TRANS.sidebar_icon_search|default:'Search icons' }}">
                                     <div class="ms-builder-icon-suggestions" data-builder-icon-suggestions></div>
                                 </div>
                             </div>

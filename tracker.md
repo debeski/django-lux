@@ -2,18 +2,14 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Verified on `2026-05-10`.
+- Verified on `2026-05-13`.
 - Package/version state:
   - `microsys/VERSION` is `2.1.5`.
   - `CHANGELOG.md` now contains the stable `v2.1.5` patch release entry with the major asset and template cleanup history.
-  - The core framework middleware has been renamed from `ActivityLogMiddleware` to `MicrosysMiddleware` with a backward-compatibility alias provided.
   - Root URL hijacking simplified: removed `_is_root_mounted_microsys` introspection; now uses 404-based detection — if `/` returns 404, redirect to `home_url`; if dev has a view at `/`, stay out of the way.
   - Built distributions now exclude `microsys.tests`, `__pycache__`, and compiled Python cache artifacts from both `wheel` and `sdist`.
-  - Abandoned asset cleanup performed: Flatpickr, Plotly, and the old Dashboard implementation removed; redundant template helpers purged.
-  - Profile image widget moved to `microsys/users/` for both static and templates.
 - Current verified implementation state:
-  - Public registration playground exists in core, is disabled by default, and uses email-first inactive users plus hashed verification tokens.
-  - Generated Docker projects use the internal `smtp-relay` sidecar path for UI-managed relay delivery when `SystemSettings.email_config.transport == "relay"`.
+  - Pre-setup middleware now guards all non-allowlisted host-app URLs, including a host project's own `/`, and its allowlist follows both root-mounted and prefix-mounted Microsys routes: anonymous users are redirected to `login`, authenticated superusers to `system_setup`, and authenticated non-superusers are logged out then redirected to `login`.
   - Login 2FA uses one challenge input for authenticator codes, requested email OTPs, and backup codes; TOTP secrets are encrypted at rest and OTP actions are throttled.
   - Profile TOTP setup now uses the stable `pyotp.TOTP(...)` path, falls back to username if email is blank, persists TOTP state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, and returns sanitized JSON on provisioning/QR generation or secret-persistence failures instead of raw 500 HTML errors.
   - Destructive profile security actions require current password in both UI and backend via `require_current_password(request)`.
@@ -23,7 +19,16 @@
   - `registration_activation_mode` and `registration_throttle_enabled` are hidden/disabled until `public_registration_enabled` is enabled.
   - Step 3 and Step 4 boolean-card rows now use explicit row gutters/margins so stacked toggle rows have vertical separation instead of only horizontal spacing.
   - Step 3 `public_registration_enabled` now takes a full row; its dependent controls render on the following row as the hidden/gated pair.
+  - Step 3 owns root/home access controls: `home_url` moved from Step 4, `public_root_split_enabled` + `public_root_url` split anonymous `/` from authenticated Home only when public root access is enabled, and split-off behavior still matches previous redirects.
+  - Step 3 public-root/modal JS is state-scoped per form action/surface; the public-root split visibility is now controlled by one form-scoped handler using `name=` fields, with no duplicate document-level listener.
+  - Step 3 split toggle is reset/disabled when public root is off, anonymous public-root fields are disabled while hidden, and `SystemSettingsForm` preserves existing Home/Public Root values when conditional destination fields are omitted from POST.
+  - Step 3 Access & Security/public-root labels/help use Microsys translation keys, and the Options modal security entrypoint no longer falls back to hardcoded English.
+  - Setup editor accessibility controls use ids/labels without extra `ms_*` POST names; `system_setup.js` is bumped to `20260513d`.
+  - Dynamic modal form submits request JSON and now handles non-JSON HTTP errors without throwing a JSON parse exception.
+  - AJAX requests that hit Django `SuspiciousOperation`/400 request parsing failures now receive a JSON error with the exception class instead of an HTML bad-request page.
   - Step 5 titlebar toggle-card row now uses the same `g-3 mb-3` row spacing pattern as the neighboring setup rows, so the gap before the first selection-widget row matches the gap between the selection-widget rows.
+  - Step 5 titlebar settings now include `hide_on_public_unauthenticated_index`; when enabled, the shared base template hides the titlebar for anonymous requests on the public root/home path only.
+  - Shared dynamic-modal loader script now carries the request CSP nonce, keeping the Options -> System Settings modal asset chain aligned with the no-inline/CSP-safe asset policy.
   - Shared setup/settings toggle cards now have dedicated content/control sub-elements and container-query reflow rules in `microsys/static/microsys/main/css/system_setup.css`.
     - Narrow toggle cards stack the switch below the label/help instead of pushing the switch outside the card boundary.
     - Step 3 `Provider STARTTLS` and `Provider SSL` no longer use the shared toggle-card renderer; they now use a dedicated compact email-toggle wrapper because the user reported repeated narrow-card rendering failures there.
@@ -34,21 +39,14 @@
   - Shared modal wizard button navigation now removes/applies Bootstrap `d-none` plus inline `display`/`aria-hidden` on Prev/Next/Submit controls, so the user-create modal keeps its action row working on step 2 after the helper-wide button-state regression.
   - Legacy full-page user create/edit/detail views were removed; routed user management is modal-only, and the obsolete `microsys/templates/microsys/users/user_form.html` fallback template is gone.
   - Shared selector toggle-card grids now have vertical padding in `microsys/static/microsys/main/css/selectors.css`, and the selectors asset version was bumped for browser pickup.
-  - Options now use shared external assets in `microsys/static/microsys/main/css/options.css` and `microsys/static/microsys/main/js/options.js`.
-    - Autofill and reset-defaults are standalone cards again, using the shared Options card surface instead of nested cards inside one wrapper.
-    - All Options cards now expose drag handles and persist user-defined card order in local storage.
-    - System Info keeps the double-card span while sharing the same card language.
-    - Draggable Options cards now use a lighter drop shadow and the reorder handle icon now uses `bi-arrow-left-right` instead of the generic grip icon.
-    - Drag-over placement now uses a vertical inline start/end indicator centered in the gap between cards, and the actual card insertion logic now follows horizontal pointer position with RTL-aware start/end handling instead of the old top/bottom midpoint check.
-    - The gap indicator now renders from `.ms-options-card` instead of the inner `.ms-options-panel`, because the panel’s `overflow: hidden` clipped any marker positioned outside the card surface.
-    - System Info now forces the inner diagnostics table and storage progress background surfaces transparent so Bootstrap table/progress defaults do not show as white blocks inside the card.
+  - Options use shared external assets in `microsys/static/microsys/main/css/options.css` and `microsys/static/microsys/main/js/options.js`; cards are draggable, order persists, System Info keeps double-card placement, related switches have explicit ids/names/labels, and drag handles use in-flow grip controls to avoid title/icon overlap.
+  - Options drag placement uses RTL-aware inline start/end gap indicators rendered from `.ms-options-card`, avoiding clipped markers inside `.ms-options-panel`.
+  - Setup/editor template accessibility pass:
+    - language catalog, system names, translation matrix, and sidebar-builder JS-driven controls now expose stable `id`/`name` attributes and the previously unlabeled editable controls now carry labels or `aria-label`s.
+    - Remaining template scan misses are outside the setup/options path and currently limited to file widgets plus a few user/profile management controls.
   - User hub mobile toolbar now wraps within one toolbar row when there is enough width, instead of being forced into separate stacked rows by mobile CSS.
   - The unauthenticated titlebar login trigger now shares the same base shape/hover treatment as `ms-titlebar-home`, and the `dark` / `gothic` / `retro` / `neon` theme overrides now target the live `.ms-login-round` selector instead of only the authenticated home button path.
-  - Template/rendered-HTML asset policy cleanup is now enforced in code:
-    - no inline `<style>` blocks remain under `microsys/templates/`
-    - no executable inline `<script>` blocks remain under `microsys/templates/`
-    - no inline `style=` attributes remain in templates, `microsys/forms.py`, or `microsys/widgets.py`
-    - theme preview swatches now use shared slug-based CSS classes instead of inline background styles
+  - Template/rendered-HTML asset policy cleanup is enforced in code: no inline `<style>`, executable inline `<script>`, or inline `style=` remains in the verified template/form/widget paths, and theme preview swatches use slug-based CSS classes.
   - User permission assignment UI now excludes scaffold infra app labels such as `db` / `health_check`, skips orphaned permissions whose `ContentType.model_class()` no longer resolves, groups `manage_scopes` with `manage_staff` plus the synthetic `is_staff` toggle under the dedicated staff-access card, and labels any remaining `Profile`-backed permission group with `model_user` (`Users`) instead of `model_profile` (`User Profile`).
   - Sidebar/titlebar runtime controls, split-step Options System Settings modals, scope-aware generated CRUD scaffolds, and MSRP-1 authorization hardening are implemented in code.
 
@@ -93,6 +91,8 @@
 
 ### Current Project's Unsolved Known Bugs:
 - First-launch System Setup still has an unresolved runtime issue where the sidebar-toolbar removal warning does not match the Options modal behavior.
+- Live Options -> System Settings Step 3 modal save still returns HTTP 400 in the user's mounted app; local full modal POST reproductions return 200, so the next check must use the new AJAX JSON error/class or server logs from the live app.
+- `microsys/fetcher.py` still trusts `request.META['HTTP_REFERER']` for fallback redirects in download/export error branches; this should be replaced with an allowlisted local redirect target or validated with `url_has_allowed_host_and_scheme(...)`.
 - Browser/manual validation is still pending for:
   - setup/System Settings wizard behavior,
   - sidebar/titlebar runtime behavior,
@@ -102,6 +102,10 @@
 
 ### Incomplete Tasks:
 - Priority 1:
+  - [ ] Harden `microsys/fetcher.py` fallback redirects so download/export error branches do not trust raw `HTTP_REFERER`.
+  - [ ] Verification:
+    - [ ] validate fallback redirect behavior for empty download/export cases with missing, local, and forged external referers
+  - [ ] Browser-check the pre-setup host-app guard in a mounted project for anonymous, superuser, and non-superuser requests before setup completes.
   - [ ] Browser-check the refreshed Options page behavior:
     - [ ] card drag ordering and persistence
     - [ ] System Info double-width placement after card reordering
@@ -128,9 +132,10 @@
     - [ ] translation matrix search/filter/edit behavior
     - [ ] allowed themes matrix
     - [ ] language lock behavior
+    - [ ] public-root split toggle plus anonymous/authenticated destination fields in Step 3
     - [ ] sidebar density/collapse/icon controls
     - [ ] sidebar enabled/disabled runtime layout
-    - [ ] titlebar visibility/alignment/shape/surface controls
+    - [ ] titlebar visibility/alignment/shape/surface controls, including the anonymous public home/index hide toggle
     - [ ] email delivery UI gating and readiness alerts
   - [ ] Browser-check account/security UI modernization:
     - [ ] public signup provenance badge
@@ -150,18 +155,25 @@
   - [ ] Run full provider OIDC validation after installing `django-oauth-toolkit[oidc]`.
   - [ ] Run full client OIDC validation after installing `mozilla-django-oidc`.
 - Completed Recently:
-  - [x] Performed cleanup of abandoned static assets (Flatpickr, Plotly, Dashboard JS/CSS, unused themes/locales).
-  - [x] Removed abandoned templates (`dashboard.html`, redundant helpers).
-  - [x] Moved profile image widget to `users/` namespace in both static and templates.
+  - [x] Fixed the first-launch setup guard so non-Microsys app URLs, including host-project `/` routes, are blocked before configuration is complete, and added middleware/default-route regressions for anonymous, superuser, and non-superuser redirects.
   - [x] Fixed the unauthenticated titlebar login trigger styling path so `.ms-login-round` now inherits the shared titlebar shape rules and the dark/gothic/retro/neon theme overrides that previously only hit `.ms-titlebar-home`.
+  - [x] Added a Step 5 titlebar toggle for hiding the titlebar on the anonymous public root/home page and wired the shared base render path to suppress only that case.
+  - [x] Split public root from authenticated home when needed: Step 3 now exposes the main Home URL, a public-root split toggle, and a separate anonymous public-root URL, with middleware/logout redirects honoring the split only when public access is enabled.
+  - [x] Fixed Step 3 public-root/home setup state collisions by scoping saved wizard state to the specific form action and bumped the setup JS/CSS asset versions so browsers fetch the latest Step 3 visibility logic.
+  - [x] Reworked Step 3 public-root visibility logic to remove the duplicate document-level listener, use one form-scoped controller, reset/disable the split toggle when public root is off, and bump `system_setup.js` to `20260513c`.
+  - [x] Fixed Step 3 side effects from hidden/conditional destination fields by preserving omitted Home/Public Root values server-side.
+  - [x] Removed `name=` from JS-only setup editor controls and added active split-save and field-count regressions; local modal POST reproduction still returns 200, but the user's live 400 remains pending diagnosis.
+  - [x] Restored Options card drag handles to the previous `bi-grip-vertical` icon and moved the handle out of absolute overlay positioning so it no longer overlaps the card title icon.
+  - [x] Added translation-backed Step 3 Access & Security/public-root labels, removed the remaining hardcoded Options security-label fallback, and nonce-protected the shared dynamic-modal loader for stricter CSP deployments.
+  - [x] Reduced setup/options accessibility audit noise by adding missing ids/names/labels to Options switches and JS-driven setup editor controls, and added regressions for those template surfaces.
   - [x] Fixed shared wizard button visibility handling so Bootstrap `d-none` is removed/restored for Prev/Next/Submit, preventing the user-create modal step-2 action-row regression.
   - [x] Removed obsolete unrouted full-page user create/edit/detail views, their stale exports, the dead `user_form.html` template.
 
 ### One-line info about last verified Tests:
-- `2026-05-10`: `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls` passed with `51` static/render tests, covering the new `.ms-login-round` titlebar/theme selector regression check.
+- `2026-05-13`: Django `DiscoverRunner` suite passed: `microsys.tests.test_defaults_and_urls` (`63` tests) after moving the Options drag handle out of absolute overlay positioning; earlier middleware suite passed (`25` tests).
 
 ### One-line info about last time edited Docs:
-- `2026-05-07`: `docs/FEATURES.md` and `docs/README.md` were refreshed to match `2.1.1` runtime behavior, reusable helper APIs, current 2FA routes, and the no-inline MSRP-1 policy; earlier the same day `CHANGELOG.md` was updated with the stable `v2.1.1` patch release entry, `docs/security-msrp-1.md` was updated to add the no-inline HTML/CSS/JS policy to the MSRP-1 core rules, and `README.md`, `docs/getting-started.md`, `docs/reference.md`, `docs/admin-guide.md`, `docs/customization-guide.md`, `docs/registration.md`, `microsys/scaffold_templates/project/README.md.tmpl`, and `tracker.md` were updated for `v2.1.0`, reusable helper coverage, scaffold/runtime docs, and the explicit `cryptography` dependency.
+- `2026-05-13`: `CHANGELOG.md` gained a new `v2.1.6` entry, and `docs/README.md`, `docs/FEATURES.md`, `docs/admin-guide.md`, and `docs/security-msrp-1.md` were updated for the Step 3 home/public-root split, focused System Settings modal entrypoints, and CSP-safe dynamic-modal asset loading.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -171,20 +183,11 @@
   - `build_settings_toggle_field(form, '<field_name>', css_class='...')`
   - `set_profile_totp_state(profile, raw_secret=..., enabled=...)`
 - Common validation commands:
-  - Focused defaults/render suite:
-    - `./.venv/bin/python -m unittest microsys.tests.test_defaults_and_urls`
-  - Focused user modal/security DB suite:
-    - `./.venv/bin/python - <<'PY' import microsys.tests.test_views; import django; from django.test.runner import DiscoverRunner; django.setup(); raise SystemExit(bool(DiscoverRunner(verbosity=1).run_tests(['microsys.tests.test_views.SecurityHardeningViewTests']))) ; PY`
-  - Focused 2FA view suite:
-    - `./.venv/bin/python - <<'PY' ... DiscoverRunner(...).run_tests(['microsys.tests.test_views.TwoFactorSecurityViewTests']) ... PY`
-  - Focused permissions UI DB suite:
-    - `./.venv/bin/python - <<'PY' ... DiscoverRunner(...).run_tests(['microsys.tests.test_permissions_ui']) ... PY`
-  - Full compile check without repo `__pycache__` ownership issues:
-    - `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys`
-  - Packaging verification:
-    - `rm -rf dist build *.egg-info && ./.venv/bin/python -m build --wheel --sdist`
-    - `unzip -l dist/*.whl | rg 'microsys/tests|__pycache__|\\.pyc|\\.pyo'`
-    - `tar -tf dist/*.tar.gz | rg 'microsys/tests|__pycache__|\\.pyc|\\.pyo'`
+  - Focused defaults/render suite: `./.venv/bin/python -c "import microsys.tests.test_defaults_and_urls; import django; from django.test.runner import DiscoverRunner; django.setup(); raise SystemExit(bool(DiscoverRunner(verbosity=1).run_tests(['microsys.tests.test_defaults_and_urls'])))"`
+  - Focused middleware suite: run `DiscoverRunner(...).run_tests(['microsys.tests.test_middleware'])`.
+  - Focused user/modal/security suites: run targeted `microsys.tests.test_views`, `microsys.tests.test_permissions_ui`, or 2FA classes through `DiscoverRunner`.
+  - Full compile check without repo `__pycache__` ownership issues: `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys`
+  - Packaging verification: build wheel/sdist, then inspect archives for `microsys/tests`, `__pycache__`, `.pyc`, and `.pyo`.
 - Known local environment note:
   - `node` is not available in the current environment, so JS syntax checks via `node --check` are not currently usable.
 
@@ -206,6 +209,7 @@
 - Re-read this tracker at the start of every turn and update it after meaningful project-state changes.
 - The user explicitly corrected earlier assumptions about local testing: they mount this repo over the target app, so do not assume they are running only the packaged PyPI release when they say the local checkout is active.
 - The first-launch Step 2 to Step 5 empty-state bug was caused by the shared wizard helper leaving Bootstrap `d-none` on later steps; if setup navigation regresses again, inspect `microsys/static/microsys/helpers/wizard/js/main.js` before changing form markup.
+- If an unconfigured install can still hit host-project URLs, inspect `microsys/middleware.py` first: the pre-setup gate is expected to block all non-allowlisted requests, including a host project's own `/` route, and its allowlist must stay aligned with both root-mounted and prefix-mounted Microsys URLs.
 - If shared setup toggle labels start stacking vertically again, inspect `microsys/static/microsys/main/css/system_setup.css` before replacing the toggle renderer; `overflow-wrap: anywhere` was too aggressive for narrow Step 3 email cards.
 - If shared setup toggles start overflowing their card bounds again, inspect `microsys/forms.py` `build_settings_toggle_field(...)` and `microsys/static/microsys/main/css/system_setup.css` before changing columns; Bootstrap `form-check` / `form-switch` wrapper padding and negative input margins conflict with the custom flex card layout.
 - If modal wizard action buttons disappear while switching steps, inspect `microsys/static/microsys/helpers/wizard/js/main.js` before changing form markup; the helper must remove/apply Bootstrap `d-none` on Prev/Next/Submit, not only flip inline `display`.
@@ -235,3 +239,8 @@
   - OAuth 2.0 Security BCP / RFC 9700: `https://www.rfc-editor.org/rfc/rfc9700.html`
   - Django OAuth Toolkit OIDC docs: `https://django-oauth-toolkit.readthedocs.io/en/stable/oidc.html`
   - mozilla-django-oidc settings docs: `https://mozilla-django-oidc.readthedocs.io/en/stable/settings.html`
+
+
+TODO by DeBeski (DO NOT TOUCH)
+- re-build the three tier user staff visual ui that was lost in the last incident, for permissions, profile, and user management views.
+- the per page options are not reflecting visually which option is selected even tho the get works and the url is updated with such option. tested on manage_users and activitylog.

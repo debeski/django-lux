@@ -40,4 +40,30 @@ document.addEventListener("DOMContentLoaded", function() {
     if (usernameField) {
         usernameField.focus();
     }
+
+    // Creative Touch: Trigger shake animation if errors are present
+    const shakeTrigger = document.querySelector('.shake-trigger') || document.querySelector('.is-invalid');
+    if (shakeTrigger) {
+        const loginCard = document.querySelector('.left');
+        if (loginCard) {
+            loginCard.classList.add('ms-shake');
+            // Remove class after animation ends so it can be re-triggered if needed
+            loginCard.addEventListener('animationend', () => {
+                loginCard.classList.remove('ms-shake');
+            }, { once: true });
+        }
+    }
+
+    // Submit button "thinking" state
+    const loginForm = document.querySelector('form');
+    const submitBtn = document.getElementById('submit');
+    if (loginForm && submitBtn) {
+        loginForm.addEventListener('submit', function() {
+            if (loginForm.checkValidity()) {
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> ${originalText}`;
+            }
+        });
+    }
 });

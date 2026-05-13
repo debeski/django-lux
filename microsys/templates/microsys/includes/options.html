@@ -5,7 +5,7 @@
 
 {% block extra_head %}
     {% include "microsys/forms/assets_head.html" %}
-    <link rel="stylesheet" href="{% static 'microsys/main/css/options.css' %}?v=20260508e">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/options.css' %}?v=20260513b">
 {% endblock %}
 
 {% block content %}
@@ -22,40 +22,40 @@
                         data-options-card-handle
                         aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                         title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-arrow-left-right"></i>
+                    <i class="bi bi-grip-vertical"></i>
                 </button>
                 <h4 class="mb-3"><i class="bi bi-eye me-2"></i> {{ MS_TRANS.accessibility }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.accessibility_desc }}</p>
 
                 <div class="d-grid gap-3 ms-options-switch-list">
                     <div class="ms-options-switch-row">
-                        <span>{{ MS_TRANS.high_contrast }}</span>
+                        <label for="options-accessibility-high-contrast">{{ MS_TRANS.high_contrast }}</label>
                         <div class="form-check form-switch">
-                            <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="high-contrast">
+                            <input id="options-accessibility-high-contrast" name="accessibility_high_contrast" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="high-contrast">
                         </div>
                     </div>
                     <div class="ms-options-switch-row">
-                        <span>{{ MS_TRANS.grayscale }}</span>
+                        <label for="options-accessibility-grayscale">{{ MS_TRANS.grayscale }}</label>
                         <div class="form-check form-switch">
-                            <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="grayscale">
+                            <input id="options-accessibility-grayscale" name="accessibility_grayscale" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="grayscale">
                         </div>
                     </div>
                     <div class="ms-options-switch-row">
-                        <span>{{ MS_TRANS.invert }}</span>
+                        <label for="options-accessibility-invert">{{ MS_TRANS.invert }}</label>
                         <div class="form-check form-switch">
-                            <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="invert">
+                            <input id="options-accessibility-invert" name="accessibility_invert" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="invert">
                         </div>
                     </div>
                     <div class="ms-options-switch-row">
-                        <span>{{ MS_TRANS.large_text }}</span>
+                        <label for="options-accessibility-large-text">{{ MS_TRANS.large_text }}</label>
                         <div class="form-check form-switch">
-                            <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="large-text">
+                            <input id="options-accessibility-large-text" name="accessibility_large_text" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="large-text">
                         </div>
                     </div>
                     <div class="ms-options-switch-row">
-                        <span>{{ MS_TRANS.no_animations }}</span>
+                        <label for="options-accessibility-no-animations">{{ MS_TRANS.no_animations }}</label>
                         <div class="form-check form-switch">
-                            <input class="form-check-input accessibility-switch" type="checkbox" data-accessibility="no-animations">
+                            <input id="options-accessibility-no-animations" name="accessibility_no_animations" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="no-animations">
                         </div>
                     </div>
                 </div>
@@ -71,7 +71,7 @@
                         data-options-card-handle
                         aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                         title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-arrow-left-right"></i>
+                    <i class="bi bi-grip-vertical"></i>
                 </button>
                 <h4 class="mb-3"><i class="bi bi-info-circle me-2"></i> {{ MS_TRANS.system_info }}</h4>
                 <div class="table-responsive ms-options-system-info-table">
@@ -217,7 +217,7 @@
                                 data-options-card-handle
                                 aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                                 title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                            <i class="bi bi-arrow-left-right"></i>
+                            <i class="bi bi-grip-vertical"></i>
                         </button>
                         <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
                         <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
@@ -234,7 +234,7 @@
                                 data-options-card-handle
                                 aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                                 title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                            <i class="bi bi-arrow-left-right"></i>
+                            <i class="bi bi-grip-vertical"></i>
                         </button>
                         <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ MS_TRANS.language }}</h4>
                         <p class="text-muted small mb-4">{{ MS_TRANS.language_desc }}</p>
@@ -255,7 +255,7 @@
                                 data-options-card-handle
                                 aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                                 title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                            <i class="bi bi-arrow-left-right"></i>
+                            <i class="bi bi-grip-vertical"></i>
                         </button>
 
                         {% if config.allow_user_theme_override and MICROSYS_THEMES|length > 1 %}
@@ -298,7 +298,7 @@
                         data-options-card-handle
                         aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                         title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-arrow-left-right"></i>
+                    <i class="bi bi-grip-vertical"></i>
                 </button>
                 <h4 class="mb-3"><i class="bi bi-table me-2"></i> {{ MS_TRANS.table_density|default:"Table Density" }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.table_density_desc|default:"Control how much vertical space data tables use while you work." }}</p>
@@ -315,7 +315,7 @@
                         data-options-card-handle
                         aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                         title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-arrow-left-right"></i>
+                    <i class="bi bi-grip-vertical"></i>
                 </button>
                 <h4 class="mb-3"><i class="bi bi-layout-sidebar-inset me-2"></i> {{ MS_TRANS.sidebar_density|default:"Sidebar Density" }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.sidebar_density_desc|default:"Control how much vertical space the sidebar navigation uses while you work." }}</p>
@@ -332,16 +332,17 @@
                         data-options-card-handle
                         aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                         title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-arrow-left-right"></i>
+                    <i class="bi bi-grip-vertical"></i>
                 </button>
                 <h4 class="mb-3"><i class="bi bi-magic me-2"></i> {{ MS_TRANS.autofill }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.autofill_desc }}</p>
                 <div class="ms-options-toggle-shell">
-                    <span class="ms-options-toggle-label">{{ MS_TRANS.on_off }}</span>
+                    <label class="ms-options-toggle-label" for="autofillToggle">{{ MS_TRANS.on_off }}</label>
                     <div class="form-check form-switch ms-options-inline-switch">
                         <input class="form-check-input"
                                type="checkbox"
                                id="autofillToggle"
+                               name="autofill_enabled"
                                checked
                                data-enabled-message="{{ MS_TRANS.autofill_enabled }}"
                                data-disabled-message="{{ MS_TRANS.autofill_disabled }}">
@@ -361,7 +362,7 @@
                         data-options-card-handle
                         aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                         title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-arrow-left-right"></i>
+                    <i class="bi bi-grip-vertical"></i>
                 </button>
                 <h4 class="mb-3 text-danger"><i class="bi bi-arrow-counterclockwise me-2"></i> {{ MS_TRANS.reset_defaults }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.reset_desc }}</p>
@@ -392,7 +393,7 @@
                         data-options-card-handle
                         aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
                         title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-arrow-left-right"></i>
+                    <i class="bi bi-grip-vertical"></i>
                 </button>
                 <h4 class="mb-3"><i class="bi bi-sliders me-2"></i> {{ MS_TRANS.system_settings_label }}</h4>
                 <p class="text-muted small mb-4">{{ MS_TRANS.system_settings_desc }}</p>
@@ -409,8 +410,8 @@
                     </button>
                     <button class="btn btn-outline-warning rounded-pill fw-bold ms-system-settings-action"
                             data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=2"
-                            data-modal-title="{{ MS_TRANS.system_settings_security|default:'Access & Security' }}">
-                        <i class="bi bi-shield-lock me-2"></i> {{ MS_TRANS.system_settings_security|default:'Access & Security' }}
+                            data-modal-title="{{ MS_TRANS.system_settings_security }}">
+                        <i class="bi bi-shield-lock me-2"></i> {{ MS_TRANS.system_settings_security }}
                     </button>
                     <button class="btn btn-outline-warning rounded-pill fw-bold ms-system-settings-action"
                             data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=3"

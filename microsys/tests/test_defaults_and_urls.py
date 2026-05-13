@@ -49,9 +49,11 @@ if not settings.configured:
 
     django.setup()
 
+from django.contrib.auth.models import AnonymousUser
 from django.test import Client, RequestFactory, SimpleTestCase, override_settings
 from django.template import Context, Template
 from django.urls import clear_url_caches
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from types import SimpleNamespace
 from unittest.mock import call, patch
@@ -60,6 +62,7 @@ import json
 import re
 
 from microsys.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, LEGACY_HOME_URL
+from microsys.context_processors import microsys_context
 from microsys.forms import SystemSettingsForm
 from microsys.models import SystemSettings
 from microsys.themes import get_theme_names
@@ -73,6 +76,13 @@ from microsys.utils import (
 
 
 class MicrosysDefaultRouteTests(SimpleTestCase):
+    databases = {'default'}
+
+    def setUp(self):
+        cache.clear()
+        SystemSettings._default_manager.all().delete()
+        super().setUp()
+
     @override_settings(MICROSYS_CONFIG={})
     def test_system_config_defaults_home_url_to_profile(self):
         self.assertEqual(get_system_config().get('home_url'), DEFAULT_HOME_URL)
@@ -176,9 +186,12 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             'allow_user_density': False,
             'collapse_mode': 'icons',
         },
+        'public_root_split_enabled': True,
+        'public_root_url': '/public-landing/',
         'titlebar': {
             'show_logo': False,
             'show_home_button': False,
+            'hide_on_public_unauthenticated_index': True,
             'home_shape': 'square',
             'title_align': 'center',
             'title_size': 'lg',
@@ -200,6 +213,9 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.initial['sidebar_collapse_mode'], 'hidden')
         self.assertFalse(form.initial['titlebar_show_logo'])
         self.assertFalse(form.initial['titlebar_show_home_button'])
+        self.assertTrue(form.initial['public_root_split_enabled'])
+        self.assertEqual(form.initial['public_root_url'], '/public-landing/')
+        self.assertTrue(form.initial['titlebar_hide_on_public_unauthenticated_index'])
         self.assertEqual(form.initial['titlebar_home_shape'], 'square')
         self.assertEqual(form.initial['titlebar_title_align'], 'center')
         self.assertEqual(form.initial['titlebar_title_size'], 'lg')
@@ -211,15 +227,15 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             'show_title': False,
         },
     })
-    def test_setup_form_surfaces_titlebar_toggle_widgets_and_step_four(self):
-        request = RequestFactory().get('/sys/modals/microsys/systemsettings/1/?step=3')
+    def test_setup_form_surfaces_titlebar_toggle_widgets_and_step_three(self):
+        request = RequestFactory().get('/sys/modals/microsys/systemsettings/1/?step=2')
         form = SystemSettingsForm(
             instance=SystemSettings(is_configured=False),
             request=request,
         )
 
         self.assertTrue(form.single_step_mode)
-        self.assertEqual(form.single_step_index, 3)
+        self.assertEqual(form.single_step_index, 2)
         self.assertFalse(form.initial['titlebar_show_title'])
         self.assertIn('data-ms-selector-variant="toggle"', str(form['default_table_density']))
         self.assertIn('lang-option', str(form['default_table_density']))
@@ -230,6 +246,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-ms-selector-variant="toggle"', str(form['titlebar_title_align']))
         self.assertIn('ms-choice-option', str(form['titlebar_surface']))
         self.assertIn('<select', str(form['home_url_discovered']))
+        self.assertIn('<select', str(form['public_root_url_discovered']))
         self.assertNotIn('data-ms-selector-search', str(form['home_url_discovered']))
 
     def test_setup_theme_picker_keeps_allow_checkboxes_separate_from_default_selector(self):
@@ -285,9 +302,16 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
                 'allowed_themes': ['dark'],
                 'translations_override': {'fr': {'app_microsys': 'Systeme'}},
                 'home_url': '/imported/',
+                'public_root': True,
+                'public_root_split_enabled': True,
+                'public_root_url': '/public-imported/',
                 'default_table_density': 'dense',
                 'sidebar_config': {'entries': [], 'density': 'dense', 'collapse_mode': 'hidden'},
-                'titlebar_config': {'show_title': False, 'title_align': 'center'},
+                'titlebar_config': {
+                    'show_title': False,
+                    'hide_on_public_unauthenticated_index': True,
+                    'title_align': 'center',
+                },
             },
         }
         import_file = SimpleUploadedFile(
@@ -317,8 +341,11 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.cleaned_data['default_language'], 'fr')
         self.assertEqual(form.cleaned_data['default_theme'], 'dark')
         self.assertEqual(form.cleaned_data['home_url'], '/imported/')
+        self.assertTrue(form.cleaned_data['public_root_split_enabled'])
+        self.assertEqual(form.cleaned_data['public_root_url'], '/public-imported/')
         self.assertEqual(form.cleaned_data['sidebar_config']['density'], 'dense')
         self.assertFalse(form.cleaned_data['titlebar_config']['show_title'])
+        self.assertTrue(form.cleaned_data['titlebar_config']['hide_on_public_unauthenticated_index'])
 
     def test_setup_form_import_restores_email_config_and_sidebar_enabled_flag(self):
         payload = {
@@ -441,6 +468,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("data-ms-settings-toggle-field='sidebar_enable_toolbar'", html)
         self.assertIn("data-ms-settings-toggle-field='allow_user_theme_override'", html)
         self.assertIn("data-ms-settings-toggle-field='titlebar_show_title'", html)
+        self.assertIn("data-ms-settings-toggle-field='public_root_split_enabled'", html)
+        self.assertIn("data-ms-settings-toggle-field='titlebar_hide_on_public_unauthenticated_index'", html)
         self.assertIn("data-ms-email-toggle-field='email_config_use_tls'", html)
         self.assertIn("data-ms-email-toggle-field='email_config_use_ssl'", html)
         self.assertNotIn("data-ms-settings-toggle-field='email_config_use_tls'", html)
@@ -449,6 +478,178 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('class="row mb-3"', html)
         self.assertIn('class="row g-3 mb-3"', html)
         self.assertIn('data-ms-settings-toggle-field=\'titlebar_show_home_button\'', html)
+        self.assertIn('data-ms-settings-toggle-field=\'titlebar_hide_on_public_unauthenticated_index\'', html)
+        self.assertIn('data-public-root-dependent="true"', html)
+        self.assertIn('data-public-root-split-dependent="true"', html)
+
+    def test_setup_form_hides_public_root_split_dependents_until_enabled(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(
+                is_configured=False,
+                public_root=False,
+                public_root_split_enabled=False,
+            ),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('ms-public-root-dependent', html)
+        self.assertIn('ms-public-root-split-dependent', html)
+        self.assertIn('d-none', html)
+        self.assertIn('data-public-root-dependent="true"', html)
+        self.assertIn('data-public-root-split-dependent="true"', html)
+
+    @override_settings(MICROSYS_CONFIG={
+        'public_root': True,
+        'public_root_split_enabled': True,
+        'public_root_url': '/public-landing/',
+    })
+    def test_setup_form_shows_public_root_split_dependents_when_enabled(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+        dependent_class_start = html.index('ms-public-root-split-dependent')
+        dependent_class_end = html.index('>', dependent_class_start)
+
+        self.assertIn('data-ms-settings-toggle-field=\'public_root_split_enabled\'', html)
+        self.assertIn('ms-public-root-split-dependent', html)
+        self.assertNotIn('d-none', html[dependent_class_start:dependent_class_end])
+
+    def test_setup_form_uses_translated_step_three_public_root_labels(self):
+        translated_strings = {
+            'access_security_settings_title': 'Security Custom',
+            'root_home_settings_title': 'Routing Custom',
+            'form_sys_public_root_split_enabled': 'Split Custom',
+            'help_sys_public_root_split_enabled': 'Split help custom.',
+            'form_sys_public_root_url': 'Anon Root Custom',
+            'form_sys_public_root_url_discovered': 'Anon Root Pick Custom',
+            'help_sys_public_root_url': 'Anon root help custom.',
+            'help_sys_public_root_url_discovered': 'Anon root discovered help custom.',
+        }
+
+        with patch('microsys.forms.get_strings', return_value=translated_strings):
+            form = SystemSettingsForm(
+                instance=SystemSettings(is_configured=False),
+                mode='setup',
+            )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('Security Custom', html)
+        self.assertIn('Routing Custom', html)
+        self.assertIn('Split Custom', html)
+        self.assertIn('Split help custom.', html)
+        self.assertIn('Anon Root Custom', html)
+        self.assertIn('Anon Root Pick Custom', html)
+        self.assertIn('Anon root help custom.', html)
+        self.assertIn('Anon root discovered help custom.', html)
+
+    def test_setup_form_preserves_root_destinations_when_conditional_fields_are_omitted(self):
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "System"}',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'public_root': 'on',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(
+                is_configured=True,
+                home_url='/dashboard/',
+                public_root=True,
+                public_root_split_enabled=True,
+                public_root_url='/anonymous-landing/',
+            ),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save(commit=False)
+        self.assertEqual(saved.home_url, '/dashboard/')
+        self.assertFalse(saved.public_root_split_enabled)
+        self.assertEqual(saved.public_root_url, '/anonymous-landing/')
+
+    def test_setup_form_saves_active_public_root_split_destinations(self):
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "System"}',
+                'home_url': '/dashboard/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'public_root': 'on',
+                'public_root_split_enabled': 'on',
+                'public_root_url': '/anonymous-landing/',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(is_configured=True),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save(commit=False)
+        self.assertEqual(saved.home_url, '/dashboard/')
+        self.assertTrue(saved.public_root)
+        self.assertTrue(saved.public_root_split_enabled)
+        self.assertEqual(saved.public_root_url, '/anonymous-landing/')
+
+    def test_public_root_setup_js_uses_single_form_scoped_controller(self):
+        script = (
+            Path(__file__).resolve().parents[1]
+            / 'static'
+            / 'microsys'
+            / 'main'
+            / 'js'
+            / 'system_setup.js'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("target.name !== 'public_root'", script)
+        self.assertIn("splitToggle.checked = false", script)
+        self.assertIn("setNamedFieldDisabled(form, 'public_root_split_enabled'", script)
+        self.assertNotIn("#id_public_root, #id_public_root_split_enabled", script)
+
+    @override_settings(MICROSYS_CONFIG={
+        'is_configured': True,
+        'public_root': True,
+        'home_url': '/public-home/',
+        'titlebar': {'hide_on_public_unauthenticated_index': True},
+    })
+    def test_context_marks_anonymous_public_home_for_titlebar_hide(self):
+        request = RequestFactory().get('/public-home/')
+        request.user = AnonymousUser()
+        request.session = {}
+        request.resolver_match = SimpleNamespace(url_name='public_home')
+
+        context = microsys_context(request)
+
+        self.assertTrue(context['hide_titlebar_for_public_index'])
+
+    @override_settings(MICROSYS_CONFIG={
+        'is_configured': True,
+        'public_root': True,
+        'home_url': '/public-home/',
+        'titlebar': {'hide_on_public_unauthenticated_index': True},
+    })
+    def test_base_template_hides_titlebar_for_anonymous_public_home_when_enabled(self):
+        request = RequestFactory().get('/public-home/')
+        request.user = AnonymousUser()
+        request.session = {}
+        request.resolver_match = SimpleNamespace(url_name='public_home')
+
+        context = {'request': request, **microsys_context(request)}
+        html = Template("{% extends 'microsys/base.html' %}{% block content %}Public{% endblock %}").render(Context(context))
+
+        self.assertTrue(context['hide_titlebar_for_public_index'])
+        self.assertNotIn('class="titlebar shadow-sm no-print"', html)
 
     def test_setup_form_hides_public_registration_dependents_until_enabled(self):
         form = SystemSettingsForm(
@@ -803,19 +1004,81 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/main/css/options.css", contents)
+        self.assertIn("?v=20260513b", contents)
         self.assertIn("microsys/main/js/options.js", contents)
         self.assertIn('id="msOptionsGrid"', contents)
         self.assertIn('data-options-card="system-info"', contents)
         self.assertIn('data-options-card="autofill"', contents)
         self.assertIn('data-options-card="reset-defaults"', contents)
         self.assertIn('data-options-card-handle', contents)
-        self.assertIn('bi-arrow-left-right', contents)
-        self.assertNotIn('bi-grip-vertical', contents)
+        self.assertIn('bi-grip-vertical', contents)
+        self.assertNotIn('bi-arrow-left-right', contents)
         self.assertIn('id="autofillToggle"', contents)
+        self.assertIn('name="autofill_enabled"', contents)
+        self.assertIn('name="accessibility_high_contrast"', contents)
         self.assertIn('id="btnResetInit"', contents)
         self.assertIn('id="resetActions"', contents)
         self.assertNotIn('<style nonce=', contents)
         self.assertNotIn('<script nonce=', contents)
+        self.assertIn('MS_TRANS.system_settings_security', contents)
+        self.assertNotIn("default:'Access & Security'", contents)
+
+    def test_dynamic_modal_template_uses_nonce_on_external_loader(self):
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'helpers' / 'dynamic_modal.html'
+        script_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'helpers' / 'dynamic_modal' / 'js' / 'main.js'
+        contents = template_path.read_text(encoding='utf-8')
+        script = script_path.read_text(encoding='utf-8')
+
+        self.assertIn("microsys/helpers/dynamic_modal/js/main.js", contents)
+        self.assertIn("?v=20260513a", contents)
+        self.assertIn('nonce="{{ request.csp_nonce }}"', contents)
+        self.assertIn("'Accept': 'application/json'", script)
+        self.assertIn("Request failed with HTTP ${res.status}", script)
+
+    def test_setup_editor_templates_use_ids_not_post_names_for_js_controls(self):
+        templates_root = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'includes'
+
+        language_editor = (templates_root / 'language_catalog_editor.html').read_text(encoding='utf-8')
+        system_names_editor = (templates_root / 'system_names_editor.html').read_text(encoding='utf-8')
+        translation_editor = (templates_root / 'translation_matrix_editor.html').read_text(encoding='utf-8')
+        sidebar_builder = (templates_root / 'sidebar_builder.html').read_text(encoding='utf-8')
+        setup_script = (
+            Path(__file__).resolve().parents[1]
+            / 'static'
+            / 'microsys'
+            / 'main'
+            / 'js'
+            / 'system_setup.js'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('id="ms-language-code-input"', language_editor)
+        self.assertIn('id="ms-language-name-input"', language_editor)
+        self.assertIn('id="ms-language-dir-input"', language_editor)
+        self.assertIn('id="ms-language-flag-input"', language_editor)
+        self.assertIn('id="ms-system-name-', system_names_editor)
+        self.assertIn('id="ms-translation-search"', translation_editor)
+        self.assertIn('id="ms-translation-status"', translation_editor)
+        self.assertIn('id="ms-sidebar-catalog-data-', sidebar_builder)
+        self.assertIn('id="ms-sidebar-builder-search-', sidebar_builder)
+        self.assertIn('id="sidebarSystemItemsToggle-', sidebar_builder)
+        self.assertNotIn('name="ms_', language_editor)
+        self.assertNotIn('name="ms_', system_names_editor)
+        self.assertNotIn('name="ms_', translation_editor)
+        self.assertNotIn('name="ms_', sidebar_builder)
+        self.assertNotIn('name="sidebarSystemItemsToggle-', sidebar_builder)
+        self.assertNotIn('name="ms_language_default_choice"', setup_script)
+
+    def test_system_settings_render_does_not_submit_js_only_editor_controls(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='modal',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertNotIn('name="ms_', html)
+        self.assertNotIn('name="sidebarSystemItemsToggle-', html)
+        self.assertLess(len(re.findall(r'\sname=', html)), 200)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'options.css'
@@ -827,6 +1090,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('.ms-options-panel {', css_contents)
         self.assertIn('.ms-options-card {', css_contents)
         self.assertIn('.ms-options-card-handle {', css_contents)
+        self.assertIn('float: inline-end;', css_contents)
+        self.assertNotIn('top: 1rem;', css_contents)
         self.assertIn('.ms-options-card--wide {', css_contents)
         self.assertIn('--ms-options-grid-gap: 1.35rem;', css_contents)
         self.assertIn('position: relative;', css_contents)
