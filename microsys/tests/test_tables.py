@@ -251,6 +251,15 @@ class TableRenderingTests(TestCase):
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.preferences.get('table_page_size'), 100)
 
+    def test_builtin_table_request_per_page_is_not_masked_by_base_default(self):
+        request = self._request('per_page=50')
+        table = UserTable(User.objects.order_by('username'), request=request)
+        template = Template('{% load django_tables2 %}{% render_table table %}')
+        html = template.render(Context({'table': table, 'request': request}))
+
+        self.assertEqual(table.microsys_per_page, 50)
+        self.assertRegex(html, r'ms-table-page-size__option is-active[\s\S]*?>\s*50\s*</a>')
+
     def test_invalid_request_per_page_falls_back_to_saved_preference(self):
         self.user.profile.preferences = {'table_density': 'roomy', 'table_page_size': 50}
         self.user.profile.save(update_fields=['preferences'])

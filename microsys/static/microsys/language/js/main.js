@@ -26,7 +26,10 @@
     window.setLanguage = function(langCode, options) {
         const config = options && typeof options === 'object' ? options : {};
         const previewOnly = Boolean(config.previewOnly);
-        if (!langCode || langCode === currentLang) return;
+        const shouldReload = config.reload !== false;
+        const activeLang = (document.documentElement.getAttribute('lang') || currentLang || 'en').split('-')[0];
+        const activeDir = document.documentElement.getAttribute('dir') || currentDir || 'ltr';
+        if (!langCode || langCode === activeLang) return;
 
         // 1. Immediately update HTML attributes for visual feedback
         document.documentElement.setAttribute('lang', langCode);
@@ -46,7 +49,7 @@
 
         // 3. Hot-swap Bootstrap CSS if direction changed
         const bootstrapLink = document.getElementById('bootstrap-css');
-        if (bootstrapLink && newDir !== currentDir) {
+        if (bootstrapLink && newDir !== activeDir) {
             const href = bootstrapLink.getAttribute('href');
             if (newDir === 'ltr') {
                 bootstrapLink.setAttribute('href', href.replace('bootstrap.rtl.min.css', 'bootstrap.min.css'));
@@ -74,13 +77,21 @@
             }),
         })
         .then(() => {
-            // 6. Reload page for server-side string refresh
-            window.location.reload();
+            if (window.USER_PREFS) {
+                window.USER_PREFS._lang = langCode;
+                window.USER_PREFS._dir = newDir;
+            }
+            if (shouldReload) {
+                // 6. Reload page for server-side string refresh
+                window.location.reload();
+            }
         })
         .catch((err) => {
             console.error('Failed to save language preference:', err);
-            // Still reload — localStorage will persist the choice
-            window.location.reload();
+            if (shouldReload) {
+                // Still reload — localStorage will persist the choice
+                window.location.reload();
+            }
         });
     };
 

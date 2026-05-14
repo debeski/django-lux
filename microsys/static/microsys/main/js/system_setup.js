@@ -811,8 +811,22 @@
                 form.dataset.msWizardInitialStep = String(state.currentStep);
             }
 
+            rehydrateSetupLanguageEditors(form);
             sessionStorage.removeItem(getSetupStateKey(form));
         });
+    }
+
+    function rehydrateSetupLanguageEditors(form) {
+        if (!form || !form.querySelector('[data-language-catalog-editor]')) {
+            return;
+        }
+        const languages = parseJson(getNamedFieldValue(form, 'languages'), null);
+        if (!languages || typeof languages !== 'object') {
+            return;
+        }
+        const systemNames = parseJson(getNamedFieldValue(form, 'system_names'), {});
+        const defaultLanguage = getNamedFieldValue(form, 'default_language') || 'en';
+        rebuildLanguageCatalog(form, languages, systemNames, defaultLanguage);
     }
 
     window.__msGetWizardInitialStep = function (container) {
@@ -2165,7 +2179,7 @@
                         window.persistCurrentDynamicModalState();
                     }
                     if (window.setLanguage) {
-                        window.setLanguage(language, { previewOnly: true });
+                        window.setLanguage(language, { previewOnly: true, reload: false });
                     }
                 });
             });
@@ -2190,7 +2204,7 @@
             window.persistCurrentDynamicModalState();
         }
         if (window.setLanguage) {
-            window.setLanguage(normalizedLanguage, { previewOnly: true });
+            window.setLanguage(normalizedLanguage, { previewOnly: true, reload: false });
         }
     }
 

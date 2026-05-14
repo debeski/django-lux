@@ -85,6 +85,23 @@ def _table_meta_value(table_meta, name, default=None):
     return default
 
 
+def _table_meta_explicit_value(table_meta, name, default=None):
+    if table_meta is None:
+        return default
+    meta = getattr(table_meta, 'Meta', None) if isinstance(table_meta, type) else None
+    if meta is not None and name in getattr(meta, '__dict__', {}):
+        return getattr(meta, name)
+    if not isinstance(table_meta, type):
+        meta = getattr(table_meta, 'Meta', None)
+        if meta is not None and name in getattr(meta, '__dict__', {}):
+            return getattr(meta, name)
+        if name in getattr(table_meta, '__dict__', {}):
+            value = getattr(table_meta, name)
+            if not isinstance(value, property):
+                return value
+    return default
+
+
 def _merge_class_tokens(existing, *tokens):
     merged = [token for token in str(existing or '').split() if token]
     for token in tokens:
@@ -196,7 +213,7 @@ def _resolve_table_page_size(request, table, table_meta, explicit_default=None):
     from microsys.constants import DEFAULT_TABLE_PAGE_SIZE
 
     options = getattr(table, 'microsys_per_page_options', None) or _resolve_table_page_size_options(table_meta)
-    override = _coerce_positive_int(_table_meta_value(table_meta, 'microsys_per_page'))
+    override = _coerce_positive_int(_table_meta_explicit_value(table_meta, 'microsys_per_page'))
     if override in options:
         return override
 

@@ -5,6 +5,12 @@ This file owns the release history for `django-microsys`.
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 
+## v2.1.7
+
+- **Setup Language Preview Stability**: Prevented first-launch default-language preview from reloading the setup wizard, preserving already entered Step 1 names and selected logo/favicon files while still applying immediate language direction feedback.
+- **Default Language Persistence Fix**: Rehydrated the setup language catalog and system-name editor from the saved hidden form state after preview restores so the selected default language is not overwritten back to English before save/login cycles.
+- **Table Page Size Active State Fix**: Fixed Microsys-managed tables so inherited base `microsys_per_page` defaults no longer mask `?per_page=` request values, allowing Manage Users and Activity Log page-size chips to correctly show the selected option.
+
 ## v2.1.6
 
 - **Access & Security Routing Controls**: Moved the global `home_url` controls into Step 3 / Access & Security, added an optional split between authenticated Home and anonymous public-root destinations, and kept prior redirect behavior unchanged when the split is disabled.
