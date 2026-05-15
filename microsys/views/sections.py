@@ -34,7 +34,6 @@ from ..utils import (
     _create_minimal_instance_from_post,
     can_manage_target_user,
     get_user_scope,
-    log_user_action,
     setup_filter_helper,
     has_submit_button,
     user_has_model_permission,
@@ -1064,9 +1063,6 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
                 obj.save()
                 form.save_m2m()
             
-            # Log action
-            log_user_action(request, "UPDATE" if pk else "CREATE", instance=obj, model_name=model._meta.model_name)
-            
             return JsonResponse({
                 'success': True,
                 'refresh_parent': getattr(form, 'refresh_parent', False)
@@ -1139,7 +1135,6 @@ class DynamicModalDeleteView(LoginRequiredMixin, View):
             })
             
         name = str(instance)
-        log_user_action(request, "DELETE", instance=instance, model_name=model_class._meta.model_name)
         instance.delete()
         
         return JsonResponse({'success': True, 'message': f"Deleted {name}"})

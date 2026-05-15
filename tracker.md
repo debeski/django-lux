@@ -41,6 +41,7 @@
   - Legacy full-page user create/edit/detail views were removed; routed user management is modal-only, and the obsolete `microsys/templates/microsys/users/user_form.html` fallback template is gone.
   - Shared selector toggle-card grids now have vertical padding in `microsys/static/microsys/main/css/selectors.css`, and the selectors asset version was bumped for browser pickup.
   - Shared Bootstrap-style primary badges now get explicit white foreground text from `microsys/static/microsys/main/css/main.css`, and the shared `main.css` include in `base.html` is versioned as `20260515a` so light-theme badge contrast fixes propagate instead of sticking behind browser cache.
+  - Generic modal CRUD now relies on the signal-based activity logger for plain `CREATE` / `UPDATE` / `DELETE` records instead of writing a second manual CRUD log in `DynamicModalManagerView` / `DynamicModalDeleteView`, which removes the duplicate `systemsettings` / `Users` companion entries that were appearing alongside the canonical signal-backed records.
   - Options use shared external assets in `microsys/static/microsys/main/css/options.css` and `microsys/static/microsys/main/js/options.js`; cards are draggable, order persists, System Info keeps double-card placement, related switches have explicit ids/names/labels, and drag handles use in-flow grip controls to avoid title/icon overlap.
   - Options drag placement uses RTL-aware inline start/end gap indicators rendered from `.ms-options-card`, avoiding clipped markers inside `.ms-options-panel`.
   - Setup/editor template accessibility pass:
@@ -177,6 +178,8 @@
     - [ ] setup import/export shape migration
     - [ ] registration branding lookup migration
 - Completed Recently:
+  - [x] Removed the duplicate generic CRUD activity-log writes from the dynamic modal save/delete paths so signal-backed entries remain the only plain create/update/delete records for those models.
+  - [x] Fixed the double-pagination bug on table-backed `FilterView + SingleTableView` screens by disabling outer ListView pagination and leaving pagination to `django-tables2` on activity log and manage-users.
   - [x] Fixed the shared Bootstrap-style primary badge contrast path by adding an explicit readable foreground to primary badges in `main.css` and versioning the shared stylesheet include in `base.html`.
   - [x] Fixed manage-users table staff-tier badge contrast by replacing the table renderer’s raw Bootstrap tier badges with dedicated table-scoped staff-tier badge classes.
   - [x] Fixed permission-step staff-tier preview contrast so Global Staff badges stay readable in light/blue/red/gold/green/mono and the preview panel no longer stays light in dark/gothic/neon/retro.
@@ -198,7 +201,7 @@
   - [x] Removed obsolete unrouted full-page user create/edit/detail views, their stale exports, the dead `user_form.html` template.
 
 ### One-line info about last verified Tests:
-- `2026-05-15`: After the shared primary-badge contrast fix and `main.css` cache-bust update, Django `DiscoverRunner` reran `test_defaults_and_urls` (`68` tests) and passed; earlier same-day reruns also passed for `test_tables` (`20` tests), `test_permissions_ui` (`6` tests), `test_utils` + `test_context_processors` + `test_tables` (`99` tests), and `test_views` (`85` tests).
+- `2026-05-15`: After removing duplicate generic CRUD activity-log writes, targeted Django `DiscoverRunner` reruns passed for the two new `GeneralViewsTests` duplicate-log regressions (`2` tests) and for `test_signals` (`11` tests); earlier same-day reruns also passed for `test_defaults_and_urls` (`68` tests), `test_tables` (`20` tests), `test_permissions_ui` (`6` tests), `test_utils` + `test_context_processors` + `test_tables` (`99` tests), and `test_views` (`85` tests).
 
 ### One-line info about last time edited Docs:
 - `2026-05-13`: `CHANGELOG.md` gained a new `v2.1.6` entry, and `docs/README.md`, `docs/FEATURES.md`, `docs/admin-guide.md`, and `docs/security-msrp-1.md` were updated for the Step 3 home/public-root split, focused System Settings modal entrypoints, and CSP-safe dynamic-modal asset loading.

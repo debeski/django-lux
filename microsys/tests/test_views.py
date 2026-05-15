@@ -257,6 +257,40 @@ class GeneralViewsTests(TestCase):
         payload = json.loads(response.content)
         self.assertIn('class="microsys-form ms-system-setup-form"', payload['html'])
 
+    def test_generic_modal_manager_relies_on_signal_logging_for_scope_create(self):
+        fake_request = SimpleNamespace(META={})
+        with patch('microsys.models.UserActivityLog.safe_log') as safe_log, \
+             patch('microsys.signals.get_current_user', return_value=self.user), \
+             patch('microsys.signals.get_current_request', return_value=fake_request):
+            response = self.client.post(
+                reverse('modal_manager', args=['microsys', 'Scope', 'new']),
+                {'name': 'NoDupScope'},
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertTrue(payload['success'])
+        self.assertTrue(Scope.objects.filter(name='NoDupScope').exists())
+        self.assertEqual(safe_log.call_count, 1)
+
+    def test_generic_modal_delete_relies_on_signal_logging_for_scope_delete(self):
+        scope = Scope.objects.create(name='DeleteNoDupScope')
+        fake_request = SimpleNamespace(META={})
+        with patch('microsys.models.UserActivityLog.safe_log') as safe_log, \
+             patch('microsys.signals.get_current_user', return_value=self.user), \
+             patch('microsys.signals.get_current_request', return_value=fake_request):
+            response = self.client.post(
+                reverse('modal_delete', args=['microsys', 'Scope', scope.pk]),
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertTrue(payload['success'])
+        self.assertFalse(Scope.objects.filter(pk=scope.pk).exists())
+        self.assertEqual(safe_log.call_count, 1)
+
     def test_disabled_sidebar_hides_titlebar_toggle(self):
         settings_obj = SystemSettings.load()
         settings_obj.sidebar_config = {
