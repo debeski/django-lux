@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Verified on `2026-05-13`.
+- Verified on `2026-05-14`.
 - Package/version state:
   - `microsys/VERSION` is `2.1.5`.
   - `CHANGELOG.md` now contains the stable `v2.1.5` patch release entry with the major asset and template cleanup history.
@@ -23,7 +23,8 @@
   - Step 3 public-root/modal JS is state-scoped per form action/surface; the public-root split visibility is now controlled by one form-scoped handler using `name=` fields, with no duplicate document-level listener.
   - Step 3 split toggle is reset/disabled when public root is off, anonymous public-root fields are disabled while hidden, and `SystemSettingsForm` preserves existing Home/Public Root values when conditional destination fields are omitted from POST.
   - Step 3 Access & Security/public-root labels/help use Microsys translation keys, and the Options modal security entrypoint no longer falls back to hardcoded English.
-  - Setup editor accessibility controls use ids/labels without extra `ms_*` POST names; `system_setup.js` is bumped to `20260513d`.
+  - Setup editor accessibility controls use ids/labels without extra `ms_*` POST names.
+  - Step 2 default-language preview now reloads through the normal language switch path after persisting setup state, so previously entered non-file values survive while setup labels/help text refresh in the selected preview language, but setup no longer auto-reopens the prior wizard step after reload; `system_setup.js` is bumped to `20260514c`.
   - Dynamic modal form submits request JSON and now handles non-JSON HTTP errors without throwing a JSON parse exception.
   - AJAX requests that hit Django `SuspiciousOperation`/400 request parsing failures now receive a JSON error with the exception class instead of an HTML bad-request page.
   - Step 5 titlebar toggle-card row now uses the same `g-3 mb-3` row spacing pattern as the neighboring setup rows, so the gap before the first selection-widget row matches the gap between the selection-widget rows.
@@ -128,7 +129,7 @@
     - [ ] backup-code usage
   - [ ] Browser-check setup/System Settings appearance and shell behavior:
     - [ ] first-launch step navigation from Step 1 through Step 5 after the shared wizard fix
-    - [ ] language catalog add/remove and default-language behavior
+    - [ ] language catalog add/remove and default-language behavior after restoring full reload-based preview text refresh without step auto-return
     - [ ] translation matrix search/filter/edit behavior
     - [ ] allowed themes matrix
     - [ ] language lock behavior
@@ -155,6 +156,8 @@
   - [ ] Run full provider OIDC validation after installing `django-oauth-toolkit[oidc]`.
   - [ ] Run full client OIDC validation after installing `mozilla-django-oidc`.
 - Completed Recently:
+  - [x] Removed setup preview step-index restoration so a reload no longer auto-jumps back to the translations step; non-file wizard values still rehydrate after the reload.
+  - [x] Fixed the Step 2 default-language setup preview regression by restoring reload-based language switching after persisting wizard state, so labels/help text change with the selected preview language without wiping previously entered non-file values.
   - [x] Fixed the first-launch setup guard so non-Microsys app URLs, including host-project `/` routes, are blocked before configuration is complete, and added middleware/default-route regressions for anonymous, superuser, and non-superuser redirects.
   - [x] Fixed the unauthenticated titlebar login trigger styling path so `.ms-login-round` now inherits the shared titlebar shape rules and the dark/gothic/retro/neon theme overrides that previously only hit `.ms-titlebar-home`.
   - [x] Added a Step 5 titlebar toggle for hiding the titlebar on the anonymous public root/home page and wired the shared base render path to suppress only that case.
@@ -170,7 +173,7 @@
   - [x] Removed obsolete unrouted full-page user create/edit/detail views, their stale exports, the dead `user_form.html` template.
 
 ### One-line info about last verified Tests:
-- `2026-05-13`: Django `DiscoverRunner` suite passed: `microsys.tests.test_defaults_and_urls` (`63` tests) after moving the Options drag handle out of absolute overlay positioning; earlier middleware suite passed (`25` tests).
+- `2026-05-14`: Django `DiscoverRunner` suite passed: `microsys.tests.test_defaults_and_urls` (`63` tests) after removing setup preview step auto-return while keeping reload-based default-language text refresh; earlier middleware suite passed (`25` tests).
 
 ### One-line info about last time edited Docs:
 - `2026-05-13`: `CHANGELOG.md` gained a new `v2.1.6` entry, and `docs/README.md`, `docs/FEATURES.md`, `docs/admin-guide.md`, and `docs/security-msrp-1.md` were updated for the Step 3 home/public-root split, focused System Settings modal entrypoints, and CSP-safe dynamic-modal asset loading.
@@ -204,6 +207,7 @@
 - Packaging should stay lean by default:
   - exclude `microsys.tests` from published distributions,
   - exclude `__pycache__`, `.pyc`, and `.pyo` artifacts from published distributions.
+  - when following instructions and implementing a big change, always come up with 3 real-life scenarios that might break the change, inform me of those scenarios along with finding the appropriate fix/workaround.
 
 ### Agent Handoff Rules:
 - Re-read this tracker at the start of every turn and update it after meaningful project-state changes.
@@ -213,6 +217,7 @@
 - If shared setup toggle labels start stacking vertically again, inspect `microsys/static/microsys/main/css/system_setup.css` before replacing the toggle renderer; `overflow-wrap: anywhere` was too aggressive for narrow Step 3 email cards.
 - If shared setup toggles start overflowing their card bounds again, inspect `microsys/forms.py` `build_settings_toggle_field(...)` and `microsys/static/microsys/main/css/system_setup.css` before changing columns; Bootstrap `form-check` / `form-switch` wrapper padding and negative input margins conflict with the custom flex card layout.
 - If modal wizard action buttons disappear while switching steps, inspect `microsys/static/microsys/helpers/wizard/js/main.js` before changing form markup; the helper must remove/apply Bootstrap `d-none` on Prev/Next/Submit, not only flip inline `display`.
+- If setup default-language preview changes only `dir`/Bootstrap direction but leaves labels in the old language, inspect `microsys/static/microsys/main/js/system_setup.js` and `microsys/static/microsys/language/js/main.js`; Step 2 preview must go through a full reload after `persistSetupFormState(form)` so server-rendered strings refresh while wizard values are restored, but the reload should not restore the prior wizard step index.
 - If the unauthenticated titlebar login button looks unthemed in darker themes, inspect `.ms-login-round` in `microsys/templates/microsys/includes/titlebar.html`, `microsys/static/microsys/main/css/titlebar.css`, and the per-theme CSS files before changing `.ms-titlebar-home`; the live unauthenticated selector is not `.login-title-btn`.
 - Do not route Step 3 `email_config_use_tls` / `email_config_use_ssl` back through `build_settings_toggle_field(...)` unless the dedicated email-toggle path is intentionally retired and re-verified in browser; the user explicitly asked to change those toggles after repeated layout regressions.
 - If unexpected permission groups like `Db -> Test Model` show up in user permissions, inspect `get_assignable_permissions_queryset()` plus `GroupedPermissionWidget.get_context()` before blaming the template; scaffold infra app labels and orphaned content types are now intentionally filtered there.

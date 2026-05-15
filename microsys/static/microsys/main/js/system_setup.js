@@ -739,14 +739,7 @@
         const state = {
             surface: resolveSetupStateSurface(form),
             values: {},
-            currentStep: 0,
         };
-
-        const steps = Array.from(form.querySelectorAll('.wizard-step'));
-        const visibleStepIndex = steps.findIndex((step) => window.getComputedStyle(step).display !== 'none');
-        if (visibleStepIndex >= 0) {
-            state.currentStep = visibleStepIndex;
-        }
 
         form.querySelectorAll('input[name], select[name], textarea[name]').forEach((field) => {
             if (!field.name || field.name === 'csrfmiddlewaretoken' || field.disabled || field.type === 'file') {
@@ -807,10 +800,6 @@
                 });
             });
 
-            if (Number.isInteger(state.currentStep) && state.currentStep >= 0) {
-                form.dataset.msWizardInitialStep = String(state.currentStep);
-            }
-
             rehydrateSetupLanguageEditors(form);
             sessionStorage.removeItem(getSetupStateKey(form));
         });
@@ -830,15 +819,7 @@
     }
 
     window.__msGetWizardInitialStep = function (container) {
-        const form = container && (container.matches && container.matches('form') ? container : container.closest && container.closest('form'));
-        if (!form || !form.classList.contains('ms-system-setup-form')) {
-            return null;
-        }
-        const state = readSetupState(form);
-        if (!state || state.surface !== resolveSetupStateSurface(form)) {
-            return null;
-        }
-        return Number.isInteger(state.currentStep) ? state.currentStep : null;
+        return null;
     };
 
     function humanizeKey(value) {
@@ -2179,7 +2160,7 @@
                         window.persistCurrentDynamicModalState();
                     }
                     if (window.setLanguage) {
-                        window.setLanguage(language, { previewOnly: true, reload: false });
+                        window.setLanguage(language, { previewOnly: true });
                     }
                 });
             });
@@ -2204,7 +2185,7 @@
             window.persistCurrentDynamicModalState();
         }
         if (window.setLanguage) {
-            window.setLanguage(normalizedLanguage, { previewOnly: true, reload: false });
+            window.setLanguage(normalizedLanguage, { previewOnly: true });
         }
     }
 
