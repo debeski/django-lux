@@ -883,6 +883,43 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertNotIn('d-none', html[password_class_start:password_class_end])
 
+    def test_setup_form_renders_client_ip_config_controls(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('data-client-ip-mode-input="true"', html)
+        self.assertIn('data-client-ip-hops="true"', html)
+        self.assertIn('data-client-ip-custom-header="true"', html)
+        self.assertIn('client_ip_trusted_proxy_hops', html)
+        self.assertIn('client_ip_custom_header', html)
+
+    def test_setup_form_saves_client_ip_config_as_single_json_field(self):
+        form = SystemSettingsForm(
+            data={
+                'home_url': DEFAULT_HOME_URL,
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': DEFAULT_TABLE_DENSITY,
+                'client_ip_mode': 'custom',
+                'client_ip_trusted_proxy_hops': '3',
+                'client_ip_custom_header': 'CF-Connecting-IP',
+            },
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        instance = form.save(commit=False)
+
+        self.assertEqual(instance.client_ip_config['mode'], 'custom')
+        self.assertEqual(instance.client_ip_config['trusted_proxy_hops'], 3)
+        self.assertEqual(instance.client_ip_config['custom_header'], 'HTTP_CF_CONNECTING_IP')
+
     def test_system_setup_js_toggles_email_password_and_previews_default_language(self):
         script = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'js' / 'system_setup.js'
         contents = script.read_text(encoding='utf-8')
@@ -901,6 +938,10 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-public-registration-dependent', contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_activation_mode', !enabled)", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled)", contents)
+        self.assertIn('initClientIpOptions', contents)
+        self.assertIn('data-client-ip-mode-input', contents)
+        self.assertIn("setNamedFieldDisabled(form, 'client_ip_trusted_proxy_hops', !showHops)", contents)
+        self.assertIn("setNamedFieldDisabled(form, 'client_ip_custom_header', !showCustomHeader)", contents)
 
     def test_wizard_helper_reveals_server_hidden_steps(self):
         script = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'helpers' / 'wizard' / 'js' / 'main.js'
@@ -1069,6 +1110,31 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertIn("microsys/main/css/main.css", contents)
         self.assertIn("?v=20260515a", contents)
+        self.assertIn("microsys/main/js/system_setup.js", contents)
+        self.assertIn("?v=20260515c", contents)
+
+    def test_verify_template_uses_versioned_auto_verify_script_and_trust_device_checkbox(self):
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / '2fa' / 'verify.html'
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'users' / 'css' / 'login.css'
+        script_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'users' / 'js' / 'twofa_verify.js'
+        contents = template_path.read_text(encoding='utf-8')
+        stylesheet = css_path.read_text(encoding='utf-8')
+        script = script_path.read_text(encoding='utf-8')
+
+        self.assertIn("microsys/users/css/login.css", contents)
+        self.assertIn("?v=20260515d", contents)
+        self.assertIn("microsys/users/js/twofa_verify.js", contents)
+        self.assertIn("?v=20260515d", contents)
+        self.assertIn('id="usePrimaryMethodBtn"', contents)
+        self.assertIn('name="trust_device"', contents)
+        self.assertIn('ms-twofa-login-state', contents)
+        self.assertIn('form.requestSubmit', script)
+        self.assertIn('updateModeActions', script)
+        self.assertIn('inputEl.readOnly = disabled;', script)
+        self.assertNotIn('inputEl.disabled = disabled;', script)
+        self.assertIn("new URLSearchParams({ method: 'email' })", script)
+        self.assertIn('.ms-twofa-inline-alert', stylesheet)
+        self.assertIn('.ms-twofa-trust-field', stylesheet)
 
     def test_dynamic_modal_template_uses_nonce_on_external_loader(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'helpers' / 'dynamic_modal.html'

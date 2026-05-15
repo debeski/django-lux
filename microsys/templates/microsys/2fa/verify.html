@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}{{ MS_TRANS.2fa_verify_title }}{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'microsys/users/css/login.css' %}">
+<link rel="stylesheet" href="{% static 'microsys/users/css/login.css' %}?v=20260515d">
 {% endblock %}
 {% block titlebar %}{% endblock %}
 
@@ -33,43 +33,77 @@
                     <div class="mb-4 login-2fa-panel">
                         <div class="login-2fa-icon"><i class="bi bi-shield-lock"></i></div>
                         <p class="text-muted small mt-2 mb-3" id="otp-instruction-text">
-                            {% if user_methods.totp %}
-                                {{ MS_TRANS.2fa_totp_or_email_instruction|default:"Enter your authenticator code. You can request an email code if enabled." }}
+                            {% if challenge_state.current_method == 'backup_code' %}
+                                {{ MS_TRANS.2fa_backup_instruction|default:'Enter one of your 8-digit backup codes.' }}
+                            {% elif challenge_state.current_method == 'email' %}
+                                {% if challenge_state.email_sent or challenge_state.email_auto_sent %}
+                                    {{ MS_TRANS.2fa_email_sent_instruction|default:'Email code sent. Enter the 6-digit code here.' }}
+                                {% else %}
+                                    {{ MS_TRANS.2fa_email_request_instruction|default:"Request an email code, then enter it here." }}
+                                {% endif %}
                             {% else %}
-                                {{ MS_TRANS.2fa_email_request_instruction|default:"Request an email code, then enter it here." }}
+                                {{ MS_TRANS.2fa_totp_or_email_instruction|default:"Enter your authenticator code. You can request an email code if enabled." }}
                             {% endif %}
                         </p>
-                        <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <div class="d-flex justify-content-center gap-2 flex-wrap login-2fa-actions">
                             {% if user_methods.email %}
                             <button type="button"
                                     class="btn btn-outline-primary btn-sm rounded-pill"
                                     id="sendEmailOtpBtn"
                                     data-url="{% url 'resend_otp_login' %}"
                                     data-csrf="{{ csrf_token }}"
+                                    data-method="email"
+                                    data-send-label="{{ MS_TRANS.2fa_send_email_code|default:'Send email code' }}"
+                                    data-resend-label="{{ MS_TRANS.2fa_resend_btn|default:'Resend code' }}"
                                     data-sent-text="{{ MS_TRANS.2fa_email_sent_instruction|default:'Email code sent. Enter the 6-digit code here.' }}"
+                                    data-request-text="{{ MS_TRANS.2fa_email_request_instruction|default:'Request an email code, then enter it here.' }}"
+                                    data-cooldown-seconds="{{ challenge_state.email_resend_cooldown_seconds|default:0 }}"
+                                    data-cooldown-template="{{ MS_TRANS.2fa_email_resend_wait|default:'Resend available in {seconds}s.' }}"
                                     data-error-text="{{ MS_TRANS.error_generic|default:'Unable to send code' }}">
-                                <span class="btn-label"><i class="bi bi-envelope me-1"></i>{{ MS_TRANS.2fa_send_email_code|default:"Send email code" }}</span>
+                                <span class="btn-label"><i class="bi bi-envelope me-1"></i>{% if challenge_state.email_sent or challenge_state.email_auto_sent %}{{ MS_TRANS.2fa_resend_btn|default:"Resend code" }}{% elif user_methods.totp %}{{ MS_TRANS.2fa_send_email_instead|default:"Use email instead" }}{% else %}{{ MS_TRANS.2fa_send_email_code|default:"Send email code" }}{% endif %}</span>
                                 <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                            </button>
+                            {% endif %}
+                            {% if user_methods.totp and not challenge_state.email_only %}
+                            <button type="button"
+                                    class="btn btn-outline-dark btn-sm rounded-pill"
+                                    id="useTotpBtn"
+                                    data-method="totp"
+                                    data-instruction-text="{{ MS_TRANS.2fa_totp_or_email_instruction|default:'Enter your authenticator code. You can request an email code if enabled.' }}">
+                                <i class="bi bi-app-indicator me-1"></i>{{ MS_TRANS.2fa_use_authenticator|default:"Use authenticator app" }}
                             </button>
                             {% endif %}
                             {% if user_methods.backup %}
                             <button type="button"
                                     class="btn btn-outline-secondary btn-sm rounded-pill"
                                     id="useBackupCodeBtn"
+                                    data-method="backup_code"
                                     data-instruction-text="{{ MS_TRANS.2fa_backup_instruction|default:'Enter one of your 8-digit backup codes.' }}">
                                 <i class="bi bi-safe me-1"></i>{{ MS_TRANS.2fa_use_backup_code|default:"Use backup code" }}
                             </button>
                             {% endif %}
+                            <button type="button"
+                                    class="btn btn-outline-secondary btn-sm rounded-pill d-none"
+                                    id="usePrimaryMethodBtn"
+                                    data-method="{{ challenge_state.default_method|default:'email' }}"
+                                    data-label-email="{{ MS_TRANS.2fa_return_to_email|default:'Return to email code' }}"
+                                    data-label-totp="{{ MS_TRANS.2fa_return_to_authenticator|default:'Return to authenticator app' }}"
+                                    data-label-default="{{ MS_TRANS.2fa_return_to_default|default:'Return to default method' }}">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i><span class="btn-label">{{ MS_TRANS.2fa_return_to_default|default:"Return to default method" }}</span>
+                            </button>
                         </div>
+                        <p class="small text-muted mt-3 mb-0" id="emailOtpStatusText"></p>
                     </div>
                 {% else %}
                     <p class="text-muted mb-4">{{ MS_TRANS.2fa_verify_desc }}</p>
                 {% endif %}
 
                 {% if error_message %}
-                    <div class="alert alert-danger" role="alert">
+                    <div class="alert alert-danger ms-twofa-inline-alert" role="alert" id="otp-inline-error">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ error_message }}
                     </div>
+                {% else %}
+                    <div class="alert alert-danger ms-twofa-inline-alert d-none" role="alert" id="otp-inline-error"></div>
                 {% endif %}
 
                 <div class="mb-4">
@@ -78,11 +112,22 @@
                            class="login-input text-center fw-bold ms-otp-code-input"
                            id="otp_code" 
                            name="otp_code" 
-                           placeholder="XXXXXX" 
-                           maxlength="8" 
+                           placeholder="{% if challenge_state.current_method == 'backup_code' %}XXXXXXXX{% else %}XXXXXX{% endif %}"
+                           maxlength="{{ challenge_state.code_length|default:8 }}"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
                            autofocus 
                            required>
                 </div>
+                {% if intent == 'login' %}
+                    <input type="hidden" name="method" id="otp_method" value="{{ challenge_state.current_method|default:'email' }}">
+                    <div class="form-check text-start mt-n2 mb-3 ms-twofa-trust-field">
+                        <input class="form-check-input" type="checkbox" value="1" id="trust_device" name="trust_device">
+                        <label class="form-check-label small" for="trust_device">
+                            {{ challenge_state.trust_device_label|default:"Trust this device for 30 days" }}
+                        </label>
+                    </div>
+                {% endif %}
         
                 <button type="submit" class="w-100 btn btn-lg mt-4" id="submit">{{ MS_TRANS.2fa_verify_btn }}</button>
                 
@@ -110,6 +155,7 @@
 <form id="resendOtpLoginForm" method="post" action="{% url 'resend_otp_login' %}" class="d-none">
     {% csrf_token %}
 </form>
+{{ challenge_state|json_script:"ms-twofa-login-state" }}
 {% else %}
 <form id="resendOtpEnableForm" method="post" action="{% url 'resend_otp' intent %}" class="d-none">
     {% csrf_token %}
@@ -119,5 +165,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'microsys/users/js/twofa_verify.js' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% static 'microsys/users/js/twofa_verify.js' %}?v=20260515d" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

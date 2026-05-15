@@ -10,7 +10,11 @@
   - Built distributions now exclude `microsys.tests`, `__pycache__`, and compiled Python cache artifacts from both `wheel` and `sdist`.
   - Current verified implementation state:
   - Pre-setup middleware now guards all non-allowlisted host-app URLs, including a host project's own `/`, and its allowlist follows both root-mounted and prefix-mounted Microsys routes: anonymous users are redirected to `login`, authenticated superusers to `system_setup`, and authenticated non-superusers are logged out then redirected to `login`.
-  - Login 2FA uses one challenge input for authenticator codes, requested email OTPs, and backup codes; TOTP secrets are encrypted at rest and OTP actions are throttled.
+  - Login 2FA now uses a modern challenge flow: email-only login 2FA auto-sends the OTP with a `120s` resend cooldown, mixed TOTP+email accounts default to authenticator codes until email is explicitly requested, code entry auto-submits the real verify form as soon as it reaches full length, and the login challenge can mark the browser as trusted for `30` days.
+  - The user reported that the first AJAX-only auto-verify attempt looked successful in server logs but did not navigate in the mounted app; the verify UI now uses auto-submit of the real form for the actual sign-in step, while resend/method switching stay JS-enhanced.
+  - Follow-up correction from the user: the first form auto-submit patch still left users locked out because the script disabled the OTP input before submit, which stripped `otp_code` from the POST. The verify script now uses `readOnly` instead of `disabled`, and the verify assets are rebumped to `20260515d`.
+  - Trusted devices are now stored in a dedicated `TrustedDevice` model, linked into `microsys_device` session metadata, surfaced in the profile Signed-in devices card with `Trusted until ...`, and revoked alongside session revocation.
+  - Client IP resolution is now centralized through `get_client_ip(request)` with one JSON-backed `SystemSettings.client_ip_config` UI block (`mode`, `trusted_proxy_hops`, `custom_header`) instead of ad hoc `HTTP_X_FORWARDED_FOR` parsing in auth/session code.
   - Profile TOTP setup now uses the stable `pyotp.TOTP(...)` path, falls back to username if email is blank, persists TOTP state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, and returns sanitized JSON on provisioning/QR generation or secret-persistence failures instead of raw 500 HTML errors.
   - Destructive profile security actions require current password in both UI and backend via `require_current_password(request)`.
   - System Settings/setup file fields use the Microsys custom archive widget through `build_archive_file_field(...)`.
@@ -24,7 +28,7 @@
   - Step 3 split toggle is reset/disabled when public root is off, anonymous public-root fields are disabled while hidden, and `SystemSettingsForm` preserves existing Home/Public Root values when conditional destination fields are omitted from POST.
   - Step 3 Access & Security/public-root labels/help use Microsys translation keys, and the Options modal security entrypoint no longer falls back to hardcoded English.
   - Setup editor accessibility controls use ids/labels without extra `ms_*` POST names.
-  - Step 2 default-language preview now reloads through the normal language switch path after persisting setup state, so previously entered non-file values survive while setup labels/help text refresh in the selected preview language, but setup no longer auto-reopens the prior wizard step after reload; `system_setup.js` is bumped to `20260514c`.
+  - Step 2 default-language preview now reloads through the normal language switch path after persisting setup state, so previously entered non-file values survive while setup labels/help text refresh in the selected preview language, but setup no longer auto-reopens the prior wizard step after reload; `system_setup.js` is now bumped through `20260515c`.
   - Dynamic modal form submits request JSON and now handles non-JSON HTTP errors without throwing a JSON parse exception.
   - AJAX requests that hit Django `SuspiciousOperation`/400 request parsing failures now receive a JSON error with the exception class instead of an HTML bad-request page.
   - Step 5 titlebar toggle-card row now uses the same `g-3 mb-3` row spacing pattern as the neighboring setup rows, so the gap before the first selection-widget row matches the gap between the selection-widget rows.
@@ -178,6 +182,7 @@
     - [ ] setup import/export shape migration
     - [ ] registration branding lookup migration
 - Completed Recently:
+  - [x] Tightened login 2FA with email-only auto-send, `120s` resend cooldown, AJAX auto-verify/redirect, trust-this-device for `30` days, signed-in-device trust display/revocation, and one JSON-backed System Settings client-IP config UI wired through `get_client_ip(request)`.
   - [x] Removed the duplicate generic CRUD activity-log writes from the dynamic modal save/delete paths so signal-backed entries remain the only plain create/update/delete records for those models.
   - [x] Fixed the double-pagination bug on table-backed `FilterView + SingleTableView` screens by disabling outer ListView pagination and leaving pagination to `django-tables2` on activity log and manage-users.
   - [x] Fixed the shared Bootstrap-style primary badge contrast path by adding an explicit readable foreground to primary badges in `main.css` and versioning the shared stylesheet include in `base.html`.
@@ -201,7 +206,7 @@
   - [x] Removed obsolete unrouted full-page user create/edit/detail views, their stale exports, the dead `user_form.html` template.
 
 ### One-line info about last verified Tests:
-- `2026-05-15`: After removing duplicate generic CRUD activity-log writes, targeted Django `DiscoverRunner` reruns passed for the two new `GeneralViewsTests` duplicate-log regressions (`2` tests) and for `test_signals` (`11` tests); earlier same-day reruns also passed for `test_defaults_and_urls` (`68` tests), `test_tables` (`20` tests), `test_permissions_ui` (`6` tests), `test_utils` + `test_context_processors` + `test_tables` (`99` tests), and `test_views` (`85` tests).
+- `2026-05-15`: After fixing the disabled-input auto-submit bug in the OTP verify screen, the focused verify-template regression reran green (`1` test); earlier same-day reruns also passed for `TwoFactorSecurityViewTests` + `ProfileSessionDeviceTests` (`31` tests), `test_utils` (`50` tests), `test_defaults_and_urls` (`71` tests), `test_views` (`95` tests), duplicate-log regressions (`2` tests), `test_signals` (`11` tests), `test_tables` (`20` tests), `test_permissions_ui` (`6` tests), and `test_context_processors` coverage inside the combined focused runs.
 
 ### One-line info about last time edited Docs:
 - `2026-05-13`: `CHANGELOG.md` gained a new `v2.1.6` entry, and `docs/README.md`, `docs/FEATURES.md`, `docs/admin-guide.md`, and `docs/security-msrp-1.md` were updated for the Step 3 home/public-root split, focused System Settings modal entrypoints, and CSP-safe dynamic-modal asset loading.

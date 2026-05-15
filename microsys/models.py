@@ -170,6 +170,7 @@ class SystemSettings(SingletonModel):
     home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="Home URL")
     is_configured = models.BooleanField(default=False, verbose_name="Is Configured")
     email_2fa = models.BooleanField(default=False, verbose_name="Enable Email 2FA")
+    client_ip_config = models.JSONField(default=dict, blank=True, verbose_name="Client IP Configuration")
     public_root = models.BooleanField(default=False, verbose_name="Public Root Access")
     public_root_split_enabled = models.BooleanField(default=False, verbose_name="Separate Public Root From Home")
     public_root_url = models.CharField(max_length=255, default='', blank=True, verbose_name="Public Root URL")
@@ -371,6 +372,36 @@ class Profile(ScopedModel):
             ("manage_staff", "Can manage staff"),
             ("manage_scopes", "Can manage scopes and all users"),
         ]
+
+
+class TrustedDevice(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='trusted_devices',
+        verbose_name="User",
+    )
+    token_hash = models.CharField(max_length=64, unique=True, verbose_name="Token Hash")
+    session_key = models.CharField(max_length=64, blank=True, verbose_name="Session Key")
+    device_label = models.CharField(max_length=255, blank=True, verbose_name="Device Label")
+    ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name="IP Address")
+    user_agent = models.TextField(blank=True, verbose_name="User Agent")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    last_used_at = models.DateTimeField(auto_now=True, verbose_name="Last Used At")
+    trusted_until = models.DateTimeField(verbose_name="Trusted Until")
+    revoked_at = models.DateTimeField(blank=True, null=True, verbose_name="Revoked At")
+
+    class Meta:
+        verbose_name = "Trusted Device"
+        verbose_name_plural = "Trusted Devices"
+        ordering = ['-last_used_at']
+
+    def __str__(self):
+        return f"{self.user} trusted device"
+
+    @property
+    def is_active(self):
+        return self.revoked_at is None and self.trusted_until > timezone.now()
 
 
 class PublicRegistration(models.Model):

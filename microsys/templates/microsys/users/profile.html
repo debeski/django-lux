@@ -283,6 +283,9 @@
                                             {% if session.is_current %}
                                                 <span class="badge bg-success-subtle text-success border">{{ MS_TRANS.current_session|default:"Current session" }}</span>
                                             {% endif %}
+                                            {% if session.is_trusted %}
+                                                <span class="badge bg-light text-primary border">{{ MS_TRANS.trusted_device_badge|default:"Trusted device" }}</span>
+                                            {% endif %}
                                         </div>
                                         <div class="profile-session-meta">
                                             {% if session.ip_address %}
@@ -290,6 +293,9 @@
                                             {% endif %}
                                             {% if session.last_seen %}
                                                 <span><i class="bi bi-clock me-1"></i>{% ms_timesince session.last_seen %}</span>
+                                            {% endif %}
+                                            {% if session.trusted_until %}
+                                                <span><i class="bi bi-shield-check me-1"></i>{{ MS_TRANS.trusted_until|default:"Trusted until" }} {{ session.trusted_until|date:"Y-m-d H:i" }}</span>
                                             {% endif %}
                                             <span><i class="bi bi-hourglass-split me-1"></i>{{ MS_TRANS.session_expires|default:"Expires" }} {{ session.expire_date|date:"Y-m-d H:i" }}</span>
                                         </div>

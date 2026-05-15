@@ -102,6 +102,18 @@ EMAIL_CONFIG_TRANSPORTS = {'direct', 'relay'}
 EMAIL_CONFIG_SECRET_STORAGES = {'env', 'encrypted_db'}
 MICROSYS_INTERNAL_SMTP_RELAY_HOST = 'smtp-relay'
 MICROSYS_INTERNAL_SMTP_RELAY_PORT = 1025
+CLIENT_IP_MODE_REMOTE_ADDR = 'remote_addr'
+CLIENT_IP_MODE_X_FORWARDED_FOR = 'x_forwarded_for'
+CLIENT_IP_MODE_X_REAL_IP = 'x_real_ip'
+CLIENT_IP_MODE_CLOUDFLARE = 'cloudflare'
+CLIENT_IP_MODE_CUSTOM = 'custom'
+CLIENT_IP_MODE_VALUES = {
+    CLIENT_IP_MODE_REMOTE_ADDR,
+    CLIENT_IP_MODE_X_FORWARDED_FOR,
+    CLIENT_IP_MODE_X_REAL_IP,
+    CLIENT_IP_MODE_CLOUDFLARE,
+    CLIENT_IP_MODE_CUSTOM,
+}
 
 
 def default_email_config():
@@ -117,6 +129,48 @@ def default_email_config():
         'encrypted_password': '',
         'password_configured': False,
     }
+
+
+def default_client_ip_config():
+    return {
+        'mode': CLIENT_IP_MODE_X_FORWARDED_FOR,
+        'trusted_proxy_hops': 1,
+        'custom_header': '',
+    }
+
+
+def _normalize_client_ip_header_name(value):
+    raw_value = str(value or '').strip()
+    if not raw_value:
+        return ''
+    normalized = raw_value.upper().replace('-', '_')
+    if normalized in {'REMOTE_ADDR', 'CONTENT_TYPE', 'CONTENT_LENGTH'}:
+        return normalized
+    if not normalized.startswith('HTTP_'):
+        normalized = f'HTTP_{normalized}'
+    return normalized
+
+
+def normalize_client_ip_config(value):
+    normalized = default_client_ip_config()
+    if not isinstance(value, dict):
+        return normalized
+
+    mode = str(value.get('mode') or '').strip().lower()
+    if mode in CLIENT_IP_MODE_VALUES:
+        normalized['mode'] = mode
+
+    try:
+        trusted_proxy_hops = int(value.get('trusted_proxy_hops', normalized['trusted_proxy_hops']))
+    except (TypeError, ValueError):
+        trusted_proxy_hops = normalized['trusted_proxy_hops']
+    normalized['trusted_proxy_hops'] = max(0, min(trusted_proxy_hops, 8))
+
+    normalized['custom_header'] = _normalize_client_ip_header_name(value.get('custom_header'))
+    if normalized['mode'] != CLIENT_IP_MODE_CUSTOM:
+        normalized['custom_header'] = ''
+
+    return normalized
 
 
 def normalize_email_config(value, *, redact_secret=False):
@@ -606,12 +660,47 @@ def get_client_ip(request):
     """Extract client IP address from request."""
     if not request:
         return None
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(",")[0]
-    else:
-        ip = request.META.get("REMOTE_ADDR")
-    return ip
+
+    try:
+        config = normalize_client_ip_config(get_system_config().get('client_ip'))
+    except Exception:
+        config = default_client_ip_config()
+
+    meta = getattr(request, 'META', {}) or {}
+    remote_addr = str(meta.get('REMOTE_ADDR') or '').strip()
+
+    def _header_value(header_name):
+        return str(meta.get(header_name) or '').strip()
+
+    def _parse_chain(raw_value):
+        parts = [part.strip() for part in str(raw_value or '').split(',') if part.strip()]
+        if not parts:
+            return ''
+        trusted_proxy_hops = max(0, int(config.get('trusted_proxy_hops', 1) or 0))
+        if len(parts) > trusted_proxy_hops:
+            return parts[-(trusted_proxy_hops + 1)]
+        return parts[0]
+
+    mode = config.get('mode', CLIENT_IP_MODE_X_FORWARDED_FOR)
+    candidate = ''
+    if mode == CLIENT_IP_MODE_REMOTE_ADDR:
+        candidate = remote_addr
+    elif mode == CLIENT_IP_MODE_X_FORWARDED_FOR:
+        candidate = _parse_chain(_header_value('HTTP_X_FORWARDED_FOR'))
+    elif mode == CLIENT_IP_MODE_X_REAL_IP:
+        candidate = _header_value('HTTP_X_REAL_IP')
+    elif mode == CLIENT_IP_MODE_CLOUDFLARE:
+        candidate = _header_value('HTTP_CF_CONNECTING_IP')
+    elif mode == CLIENT_IP_MODE_CUSTOM:
+        candidate = _header_value(config.get('custom_header'))
+
+    if candidate:
+        return candidate
+
+    fallback_xff = _parse_chain(_header_value('HTTP_X_FORWARDED_FOR'))
+    if fallback_xff:
+        return fallback_xff
+    return remote_addr or None
 
 
 def get_user_scope(user):
@@ -1394,6 +1483,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'allow_user_language_override',
     'default_table_density',
     'email_2fa',
+    'client_ip_config',
     'public_root',
     'public_root_split_enabled',
     'public_root_url',
@@ -1441,6 +1531,8 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_sidebar_behavior(value)
         elif field_name == 'email_config':
             data[field_name] = normalize_email_config(value, redact_secret=True)
+        elif field_name == 'client_ip_config':
+            data[field_name] = normalize_client_ip_config(value)
         elif field_name == 'titlebar_config':
             data[field_name] = normalize_titlebar_config(value)
         elif field_name == 'allowed_themes':
@@ -1480,6 +1572,8 @@ def normalize_system_settings_import_payload(payload):
         normalized['sidebar_config'] = normalize_sidebar_behavior(normalized['sidebar_config'])
     if 'email_config' in normalized:
         normalized['email_config'] = normalize_email_config(normalized['email_config'], redact_secret=True)
+    if 'client_ip_config' in normalized:
+        normalized['client_ip_config'] = normalize_client_ip_config(normalized['client_ip_config'])
     if 'titlebar_config' in normalized:
         normalized['titlebar_config'] = normalize_titlebar_config(normalized['titlebar_config'])
     if 'allowed_themes' in normalized:
@@ -1539,6 +1633,7 @@ def get_system_config():
         'allow_user_language_override': True,
         'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
+        'client_ip': default_client_ip_config(),
         'public_root': False,
         'public_root_split_enabled': False,
         'public_root_url': '',
@@ -1658,6 +1753,9 @@ def get_system_config():
             and _should_apply_db_override(bool(sys_settings.email_2fa), default_config['email_2fa'])
         ):
             db_config['email_2fa'] = bool(sys_settings.email_2fa)
+        client_ip_config = normalize_client_ip_config(getattr(sys_settings, 'client_ip_config', {}))
+        if _should_apply_db_override(client_ip_config, default_config['client_ip']):
+            db_config['client_ip'] = client_ip_config
         if (
             hasattr(sys_settings, 'public_root')
             and _should_apply_db_override(bool(sys_settings.public_root), default_config['public_root'])
@@ -1710,6 +1808,9 @@ def get_system_config():
     user_sidebar = user_config.get('sidebar', {})
     if not isinstance(user_sidebar, dict):
         user_sidebar = {}
+    user_client_ip = user_config.get('client_ip', user_config.get('client_ip_config', {}))
+    if not isinstance(user_client_ip, dict):
+        user_client_ip = {}
     db_sidebar = db_config.get('sidebar', {})
     if not isinstance(db_sidebar, dict):
         db_sidebar = {}
@@ -1764,6 +1865,13 @@ def get_system_config():
         for key, value in layer.items():
             merged_titlebar[key] = value
     final_config['titlebar'] = normalize_titlebar_config(merged_titlebar)
+    merged_client_ip = deepcopy(default_config['client_ip'])
+    if isinstance(user_client_ip, dict):
+        merged_client_ip.update(user_client_ip)
+    if isinstance(db_config.get('client_ip', {}), dict):
+        merged_client_ip.update(db_config.get('client_ip', {}))
+    final_config['client_ip'] = normalize_client_ip_config(merged_client_ip)
+    final_config['client_ip_config'] = deepcopy(final_config['client_ip'])
 
     final_config['allowed_themes'] = list(normalize_allowed_themes(final_config.get('allowed_themes')))
     if final_config.get('default_theme') not in set(final_config['allowed_themes']):

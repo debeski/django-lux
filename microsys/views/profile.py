@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 # Project imports
 from django.utils.module_loading import import_string
 from ..guards import require_current_password
-from ..utils import get_user_management_tier_state_for_user, log_user_action
+from ..utils import get_client_ip, get_user_management_tier_state_for_user, log_user_action
 from ..translations import get_strings
 from .twofa import get_2fa_config
 
@@ -70,10 +70,13 @@ def _session_device_metadata_from_request(request):
         existing = {}
     metadata = {
         'user_agent': request.META.get('HTTP_USER_AGENT', '')[:500],
-        'ip_address': request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip(),
+        'ip_address': str(get_client_ip(request) or existing.get('ip_address') or '').strip(),
         'first_seen': existing.get('first_seen') or now,
         'last_seen': now,
     }
+    if existing.get('trusted_device_id'):
+        metadata['trusted_device_id'] = existing.get('trusted_device_id')
+        metadata['trusted_until'] = existing.get('trusted_until')
     request.session['microsys_device'] = metadata
     request.session.modified = True
     return metadata
@@ -84,6 +87,13 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
     now = timezone.now()
     user_id = str(user.pk)
     has_current_session = False
+    trusted_devices = apps.get_model('microsys', 'TrustedDevice').objects.filter(
+        user=user,
+        revoked_at__isnull=True,
+        trusted_until__gt=now,
+    )
+    trusted_by_id = {device.pk: device for device in trusted_devices}
+    trusted_by_session_key = {device.session_key: device for device in trusted_devices if device.session_key}
 
     for session in Session.objects.filter(expire_date__gt=now).order_by('-expire_date'):
         try:
@@ -101,6 +111,15 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
         user_agent = metadata.get('user_agent') or ''
         last_seen = _parse_session_datetime(metadata.get('last_seen'))
         first_seen = _parse_session_datetime(metadata.get('first_seen'))
+        trusted_device = None
+        trusted_device_id = metadata.get('trusted_device_id')
+        if trusted_device_id is not None:
+            try:
+                trusted_device = trusted_by_id.get(int(trusted_device_id))
+            except (TypeError, ValueError):
+                trusted_device = None
+        if trusted_device is None:
+            trusted_device = trusted_by_session_key.get(session.session_key)
 
         is_current = bool(current_session_key and session.session_key == current_session_key)
         has_current_session = has_current_session or is_current
@@ -114,11 +133,22 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
             'first_seen': first_seen,
             'last_seen': last_seen,
             'expire_date': session.expire_date,
+            'is_trusted': trusted_device is not None,
+            'trusted_until': trusted_device.trusted_until if trusted_device is not None else None,
         })
 
     if current_session_key and not has_current_session:
         metadata = current_session_data.get('microsys_device') if isinstance(current_session_data, dict) and isinstance(current_session_data.get('microsys_device'), dict) else {}
         user_agent = metadata.get('user_agent') or ''
+        trusted_device = None
+        trusted_device_id = metadata.get('trusted_device_id')
+        if trusted_device_id is not None:
+            try:
+                trusted_device = trusted_by_id.get(int(trusted_device_id))
+            except (TypeError, ValueError):
+                trusted_device = None
+        if trusted_device is None:
+            trusted_device = trusted_by_session_key.get(current_session_key)
         sessions.append({
             'session_key': current_session_key,
             'is_current': True,
@@ -128,6 +158,8 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
             'first_seen': _parse_session_datetime(metadata.get('first_seen')),
             'last_seen': _parse_session_datetime(metadata.get('last_seen')) or now,
             'expire_date': current_expire_date or now,
+            'is_trusted': trusted_device is not None,
+            'trusted_until': trusted_device.trusted_until if trusted_device is not None else None,
         })
 
     return sorted(sessions, key=lambda item: (not item['is_current'], -(item['last_seen'] or item['expire_date']).timestamp()))
@@ -327,7 +359,21 @@ def revoke_profile_session(request, session_key):
         return redirect('user_profile')
 
     is_current_session = session_key == request.session.session_key
+    metadata = decoded.get('microsys_device') if isinstance(decoded.get('microsys_device'), dict) else {}
+    trusted_device_id = metadata.get('trusted_device_id')
     target_session.delete()
+    trusted_devices = apps.get_model('microsys', 'TrustedDevice').objects.filter(
+        user=request.user,
+        revoked_at__isnull=True,
+    )
+    if trusted_device_id is not None:
+        try:
+            trusted_devices = trusted_devices.filter(pk=int(trusted_device_id))
+        except (TypeError, ValueError):
+            trusted_devices = trusted_devices.none()
+    else:
+        trusted_devices = trusted_devices.filter(session_key=session_key)
+    trusted_devices.update(revoked_at=timezone.now())
     log_user_action(request, "DELETE", instance=request.user, model_name="session", number=session_key[:8])
 
     messages.success(

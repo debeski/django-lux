@@ -95,9 +95,11 @@ class UtilsTests(TestCase):
 
     def test_get_client_ip_with_x_forwarded_for(self):
         """Test get_client_ip with X-Forwarded-For header."""
-        request = self.factory.get('/')
-        request.META['HTTP_X_FORWARDED_FOR'] = '192.168.1.1, 10.0.0.1'
-        ip = get_client_ip(request)
+        with override_settings(MICROSYS_CONFIG={'client_ip': {'mode': 'x_forwarded_for', 'trusted_proxy_hops': 1}}):
+            request = self.factory.get('/')
+            request.META['HTTP_X_FORWARDED_FOR'] = '192.168.1.1, 10.0.0.1'
+            request.META['REMOTE_ADDR'] = '10.0.0.1'
+            ip = get_client_ip(request)
         self.assertEqual(ip, '192.168.1.1')
 
     def test_get_client_ip_with_remote_addr(self):
@@ -106,6 +108,26 @@ class UtilsTests(TestCase):
         request.META['REMOTE_ADDR'] = '192.168.1.2'
         ip = get_client_ip(request)
         self.assertEqual(ip, '192.168.1.2')
+
+    def test_get_client_ip_with_x_real_ip_mode(self):
+        with override_settings(MICROSYS_CONFIG={'client_ip': {'mode': 'x_real_ip'}}):
+            request = self.factory.get('/')
+            request.META['HTTP_X_REAL_IP'] = '198.51.100.8'
+            request.META['REMOTE_ADDR'] = '10.0.0.1'
+
+            ip = get_client_ip(request)
+
+        self.assertEqual(ip, '198.51.100.8')
+
+    def test_get_client_ip_with_custom_header_mode(self):
+        with override_settings(MICROSYS_CONFIG={'client_ip': {'mode': 'custom', 'custom_header': 'CF-Connecting-IP'}}):
+            request = self.factory.get('/')
+            request.META['HTTP_CF_CONNECTING_IP'] = '203.0.113.40'
+            request.META['REMOTE_ADDR'] = '10.0.0.1'
+
+            ip = get_client_ip(request)
+
+        self.assertEqual(ip, '203.0.113.40')
 
     def test_get_client_ip_without_headers(self):
         """Test get_client_ip without IP headers."""

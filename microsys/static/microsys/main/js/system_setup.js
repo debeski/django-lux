@@ -3222,6 +3222,40 @@
         });
     }
 
+    function initClientIpOptions(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.clientIpBound === 'true') {
+                return;
+            }
+
+            const modeInput = form.querySelector('[data-client-ip-mode-input]');
+            const hopsField = form.querySelector('[data-client-ip-hops]');
+            const customHeaderField = form.querySelector('[data-client-ip-custom-header]');
+            if (!modeInput || !hopsField || !customHeaderField) {
+                return;
+            }
+
+            form.dataset.clientIpBound = 'true';
+
+            function syncClientIpOptions() {
+                const mode = String(modeInput.value || '');
+                const showHops = mode === 'x_forwarded_for';
+                const showCustomHeader = mode === 'custom';
+
+                hopsField.classList.toggle('d-none', !showHops);
+                hopsField.setAttribute('aria-hidden', showHops ? 'false' : 'true');
+                customHeaderField.classList.toggle('d-none', !showCustomHeader);
+                customHeaderField.setAttribute('aria-hidden', showCustomHeader ? 'false' : 'true');
+
+                setNamedFieldDisabled(form, 'client_ip_trusted_proxy_hops', !showHops);
+                setNamedFieldDisabled(form, 'client_ip_custom_header', !showCustomHeader);
+            }
+
+            modeInput.addEventListener('change', syncClientIpOptions);
+            syncClientIpOptions();
+        });
+    }
+
     function initTitlebarBehaviorOptions(root) {
         root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
             if (form.dataset.titlebarBehaviorBound === 'true') {
@@ -3266,6 +3300,7 @@
         initEmailDeliveryOptions(root);
         initPublicRegistrationOptions(root);
         initPublicRootOptions(root);
+        initClientIpOptions(root);
         initTitlebarBehaviorOptions(root);
         initImmediateSystemSettingsPreview(root);
     }

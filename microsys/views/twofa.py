@@ -1,9 +1,12 @@
 # Fundemental imports
 import base64
+import hashlib
 import logging
 import os
 import secrets
 import string
+import time
+from datetime import timedelta
 from io import BytesIO
 
 try:
@@ -23,13 +26,16 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password, identify_hasher, make_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.core.signing import BadSignature
 from django.core.validators import validate_email
 from django.db import DatabaseError
+from django.apps import apps
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, resolve_url
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 # Project imports
@@ -45,6 +51,17 @@ TWOFA_IP_VERIFY_LIMIT = int(getattr(settings, 'MICROSYS_2FA_IP_VERIFY_LIMIT', 20
 TWOFA_IP_VERIFY_WINDOW = int(getattr(settings, 'MICROSYS_2FA_IP_VERIFY_WINDOW', 600))
 TWOFA_IP_SEND_LIMIT = int(getattr(settings, 'MICROSYS_2FA_IP_SEND_LIMIT', 10))
 TWOFA_IP_SEND_WINDOW = int(getattr(settings, 'MICROSYS_2FA_IP_SEND_WINDOW', 3600))
+TRUSTED_DEVICE_COOKIE_NAME = 'microsys_trusted_device'
+TRUSTED_DEVICE_COOKIE_SALT = 'microsys.trusted_device'
+TRUSTED_DEVICE_MAX_AGE = 30 * 24 * 60 * 60
+LOGIN_EMAIL_RESEND_COOLDOWN_SECONDS = 120
+DEFAULT_OTP_RESEND_COOLDOWN_SECONDS = 60
+PRE_2FA_USER_ID_SESSION_KEY = 'pre_2fa_user_id'
+PRE_2FA_METHOD_SESSION_KEY = 'pre_2fa_method'
+PRE_2FA_EMAIL_SENT_SESSION_KEY = 'pre_2fa_email_sent'
+PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY = 'pre_2fa_email_auto_sent'
+PRE_2FA_NEXT_URL_SESSION_KEY = 'pre_2fa_next_url'
+PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY = 'pre_2fa_default_redirect'
 
 
 def _generate_backup_code_values():
@@ -110,6 +127,15 @@ def _consume_backup_code(profile, raw_code):
 
 
 def _resolve_safe_login_redirect(request):
+    session = getattr(request, 'session', None)
+    if session is not None:
+        next_url = str(session.get(PRE_2FA_NEXT_URL_SESSION_KEY) or '').strip()
+        if next_url:
+            return next_url
+        default_redirect = str(session.get(PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY) or '').strip()
+        if default_redirect:
+            return default_redirect
+
     next_url = request.GET.get('next') or request.POST.get('next')
     allowed_hosts = {request.get_host()} if request.get_host() else set()
     if next_url and url_has_allowed_host_and_scheme(
@@ -155,6 +181,35 @@ def _otp_cache_key(user, intent):
 
 def _otp_cooldown_key(user, intent):
     return f"otp_cooldown_{user.pk}_{intent}"
+
+
+def _otp_cooldown_seconds(intent='login'):
+    return LOGIN_EMAIL_RESEND_COOLDOWN_SECONDS if intent == 'login' else DEFAULT_OTP_RESEND_COOLDOWN_SECONDS
+
+
+def _otp_cooldown_scope(intent, recipient_email=None):
+    if intent == 'enable_email' and recipient_email:
+        return f"{intent}:{str(recipient_email).strip().lower()}"
+    return intent
+
+
+def _otp_cooldown_remaining(user, intent='login', recipient_email=None):
+    raw_value = cache.get(_otp_cooldown_key(user, _otp_cooldown_scope(intent, recipient_email)))
+    if not raw_value:
+        return 0
+    if isinstance(raw_value, (int, float)):
+        return max(0, int(raw_value - time.time()))
+    return _otp_cooldown_seconds(intent)
+
+
+def _set_otp_cooldown(user, intent='login', recipient_email=None):
+    cooldown_seconds = _otp_cooldown_seconds(intent)
+    cache.set(
+        _otp_cooldown_key(user, _otp_cooldown_scope(intent, recipient_email)),
+        time.time() + cooldown_seconds,
+        timeout=cooldown_seconds,
+    )
+    return cooldown_seconds
 
 
 def _twofa_ip_key(kind, request, intent='login'):
@@ -204,6 +259,204 @@ def _email_otp_exists(user, intent='login'):
     return bool(cache.get(_otp_cache_key(user, intent)))
 
 
+def _trusted_device_model():
+    return apps.get_model('microsys', 'TrustedDevice')
+
+
+def _trusted_device_token_hash(raw_token):
+    return hashlib.sha256(str(raw_token or '').encode('utf-8')).hexdigest()
+
+
+def _device_label(user_agent):
+    user_agent = str(user_agent or '').strip()
+    lowered = user_agent.lower()
+    if not user_agent:
+        return 'Unknown device'
+    if 'edg/' in lowered or 'edge/' in lowered:
+        browser = 'Edge'
+    elif 'firefox/' in lowered:
+        browser = 'Firefox'
+    elif 'chrome/' in lowered or 'chromium/' in lowered:
+        browser = 'Chrome'
+    elif 'safari/' in lowered:
+        browser = 'Safari'
+    else:
+        browser = 'Browser'
+    if 'android' in lowered:
+        platform = 'Android'
+    elif 'iphone' in lowered or 'ipad' in lowered:
+        platform = 'iOS'
+    elif 'windows' in lowered:
+        platform = 'Windows'
+    elif 'mac os' in lowered or 'macintosh' in lowered:
+        platform = 'macOS'
+    elif 'linux' in lowered:
+        platform = 'Linux'
+    else:
+        platform = 'device'
+    return f'{browser} on {platform}'
+
+
+def _sync_session_device_metadata(request, trusted_device=None):
+    session = getattr(request, 'session', None)
+    if session is None:
+        return {}
+    if not getattr(session, 'session_key', None):
+        session.save()
+    now = timezone.now().isoformat()
+    existing = session.get('microsys_device')
+    if not isinstance(existing, dict):
+        existing = {}
+    metadata = {
+        'user_agent': str(request.META.get('HTTP_USER_AGENT') or existing.get('user_agent') or '')[:500],
+        'ip_address': str(get_client_ip(request) or existing.get('ip_address') or '').strip(),
+        'first_seen': existing.get('first_seen') or now,
+        'last_seen': now,
+    }
+    if trusted_device is not None:
+        metadata['trusted_device_id'] = trusted_device.pk
+        metadata['trusted_until'] = trusted_device.trusted_until.isoformat()
+    elif existing.get('trusted_device_id'):
+        metadata['trusted_device_id'] = existing.get('trusted_device_id')
+        metadata['trusted_until'] = existing.get('trusted_until')
+    session['microsys_device'] = metadata
+    session.modified = True
+    if trusted_device is not None:
+        trusted_device.session_key = getattr(session, 'session_key', '') or ''
+        trusted_device.device_label = _device_label(metadata.get('user_agent'))
+        trusted_device.ip_address = metadata.get('ip_address') or None
+        trusted_device.user_agent = metadata.get('user_agent') or ''
+        trusted_device.last_used_at = timezone.now()
+        trusted_device.save(update_fields=['session_key', 'device_label', 'ip_address', 'user_agent', 'last_used_at'])
+    return metadata
+
+
+def _primary_login_methods(profile):
+    methods = []
+    if getattr(profile, 'is_totp_2fa_enabled', False):
+        methods.append('totp')
+    if getattr(profile, 'is_email_2fa_enabled', False):
+        methods.append('email')
+    if getattr(profile, 'is_phone_2fa_enabled', False):
+        methods.append('phone')
+    return methods
+
+
+def _default_login_method(profile):
+    methods = _primary_login_methods(profile)
+    if 'totp' in methods:
+        return 'totp'
+    if 'email' in methods:
+        return 'email'
+    if 'phone' in methods:
+        return 'phone'
+    return 'email'
+
+
+def _clear_pre_2fa_session_state(request):
+    session = getattr(request, 'session', None)
+    if session is None:
+        return
+    for key in (
+        PRE_2FA_USER_ID_SESSION_KEY,
+        PRE_2FA_METHOD_SESSION_KEY,
+        PRE_2FA_EMAIL_SENT_SESSION_KEY,
+        PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY,
+        PRE_2FA_NEXT_URL_SESSION_KEY,
+        PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY,
+    ):
+        session.pop(key, None)
+
+
+def get_trusted_device_for_login(request, user):
+    if not request or not user:
+        return None
+    try:
+        raw_token = request.get_signed_cookie(
+            TRUSTED_DEVICE_COOKIE_NAME,
+            salt=TRUSTED_DEVICE_COOKIE_SALT,
+        )
+    except (KeyError, BadSignature):
+        return None
+    if not raw_token:
+        return None
+    return _trusted_device_model().objects.filter(
+        user=user,
+        token_hash=_trusted_device_token_hash(raw_token),
+        revoked_at__isnull=True,
+        trusted_until__gt=timezone.now(),
+    ).first()
+
+
+def prepare_login_2fa_challenge(request, user, *, next_url='', default_redirect=''):
+    profile = user.profile
+    primary_methods = _primary_login_methods(profile)
+    default_method = _default_login_method(profile)
+    session = request.session
+    session[PRE_2FA_USER_ID_SESSION_KEY] = user.pk
+    session[PRE_2FA_METHOD_SESSION_KEY] = default_method
+    session[PRE_2FA_EMAIL_SENT_SESSION_KEY] = False
+    session[PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY] = False
+    session[PRE_2FA_NEXT_URL_SESSION_KEY] = str(next_url or '').strip()
+    session[PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY] = str(default_redirect or '').strip()
+
+    auto_sent = False
+    if primary_methods == ['email'] and str(user.email or '').strip():
+        auto_sent = bool(send_otp(request, user, intent='login'))
+        session[PRE_2FA_METHOD_SESSION_KEY] = 'email'
+        session[PRE_2FA_EMAIL_SENT_SESSION_KEY] = bool(auto_sent or _email_otp_exists(user, 'login'))
+        session[PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY] = bool(auto_sent)
+    session.modified = True
+    return auto_sent
+
+
+def _issue_trusted_device(request, response, user):
+    raw_token = secrets.token_urlsafe(32)
+    trusted_device = _trusted_device_model().objects.create(
+        user=user,
+        token_hash=_trusted_device_token_hash(raw_token),
+        trusted_until=timezone.now() + timedelta(days=30),
+    )
+    _sync_session_device_metadata(request, trusted_device=trusted_device)
+    response.set_signed_cookie(
+        TRUSTED_DEVICE_COOKIE_NAME,
+        raw_token,
+        salt=TRUSTED_DEVICE_COOKIE_SALT,
+        max_age=TRUSTED_DEVICE_MAX_AGE,
+        httponly=True,
+        secure=request.is_secure(),
+        samesite='Lax',
+    )
+    return trusted_device
+
+
+def _build_login_challenge_state(request, user):
+    profile = user.profile
+    session = request.session
+    current_method = str(session.get(PRE_2FA_METHOD_SESSION_KEY) or _default_login_method(profile)).strip() or 'email'
+    if current_method == 'phone':
+        current_method = 'email'
+    if current_method == 'backup_code':
+        code_length = 8
+    else:
+        code_length = 6
+    return {
+        'current_method': current_method,
+        'default_method': _default_login_method(profile),
+        'email_available': bool(profile.is_email_2fa_enabled),
+        'totp_available': bool(profile.is_totp_2fa_enabled),
+        'backup_available': bool(profile.backup_codes),
+        'email_only': _primary_login_methods(profile) == ['email'],
+        'email_sent': bool(session.get(PRE_2FA_EMAIL_SENT_SESSION_KEY) or _email_otp_exists(user, 'login')),
+        'email_auto_sent': bool(session.get(PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY)),
+        'email_resend_cooldown_seconds': _otp_cooldown_remaining(user, 'login'),
+        'code_length': code_length,
+        'trust_device_label': 'Trust this device for 30 days',
+        'verify_url': reverse('verify_otp_login'),
+        'resend_url': reverse('resend_otp_login'),
+    }
+
+
 # 2FA Helper — Generates and emails a 6-digit OTP code
 def send_otp(request, user, intent='login', recipient_email=None):
     """
@@ -215,11 +468,7 @@ def send_otp(request, user, intent='login', recipient_email=None):
         return False
 
     recipient_email = str(recipient_email or user.email or '').strip()
-    cooldown_intent = intent
-    if intent == 'enable_email' and recipient_email:
-        cooldown_intent = f"{intent}:{recipient_email.lower()}"
-    cooldown_key = _otp_cooldown_key(user, cooldown_intent)
-    if cache.get(cooldown_key):
+    if _otp_cooldown_remaining(user, intent, recipient_email):
         return False
 
     if not recipient_email:
@@ -233,7 +482,7 @@ def send_otp(request, user, intent='login', recipient_email=None):
     if intent == 'enable_email':
         payload['email'] = recipient_email
     cache.set(cache_key, payload, timeout=300)
-    cache.set(cooldown_key, True, timeout=60)
+    _set_otp_cooldown(user, intent, recipient_email)
 
     s = get_strings()
     subject_key = '2fa_login_email_subject' if intent == 'login' else '2fa_setup_email_subject'
@@ -291,6 +540,15 @@ def get_2fa_config():
     }
 
 
+def _login_user_methods(user):
+    return {
+        'email': user.profile.is_email_2fa_enabled,
+        'phone': user.profile.is_phone_2fa_enabled,
+        'totp': user.profile.is_totp_2fa_enabled,
+        'backup': bool(user.profile.backup_codes),
+    }
+
+
 # 2FA View — Handles OTP verification for login and method activation
 def verify_otp_view(request, intent='login'):
     """
@@ -300,66 +558,61 @@ def verify_otp_view(request, intent='login'):
     s = get_strings()
     error_message = None
     user = None
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
 
     if intent == 'login':
-        user_id = request.session.get('pre_2fa_user_id')
+        user_id = request.session.get(PRE_2FA_USER_ID_SESSION_KEY)
         if not user_id:
             return redirect('login')
         try:
             user = User.objects.get(pk=user_id)
         except User.DoesNotExist:
-            request.session.pop('pre_2fa_user_id', None)
+            _clear_pre_2fa_session_state(request)
             return redirect('login')
     else:
         if not request.user.is_authenticated:
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            if is_ajax:
                 return JsonResponse({'status': 'error', 'message': 'Not authenticated'}, status=403)
             return redirect('login')
         user = request.user
 
+    user_methods = _login_user_methods(user) if intent == 'login' else {}
+
     if request.method == 'POST':
         code = request.POST.get('otp_code', '').strip()
-        method = request.POST.get('method', 'email')
+        method = str(request.POST.get('method') or '').strip() or (
+            request.session.get(PRE_2FA_METHOD_SESSION_KEY, 'email') if intent == 'login' else 'email'
+        )
         posted_intent = request.POST.get('intent')
         if posted_intent:
             intent = posted_intent
 
         if _twofa_ip_limited('verify', request, intent):
             error_msg = s.get('2fa_invalid_code', 'Invalid Code')
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            if is_ajax:
                 return JsonResponse({'status': 'error', 'message': error_msg}, status=429)
             error_message = error_msg
             return render(request, 'microsys/2fa/verify.html', {
                 'intent': intent,
                 'error_message': error_message,
                 'MS_TRANS': s,
-                'user_methods': {
-                    'email': user.profile.is_email_2fa_enabled,
-                    'phone': user.profile.is_phone_2fa_enabled,
-                    'totp': user.profile.is_totp_2fa_enabled,
-                    'backup': bool(user.profile.backup_codes),
-                } if intent == 'login' else {},
+                'user_methods': user_methods,
+                'challenge_state': _build_login_challenge_state(request, user) if intent == 'login' else {},
             }, status=429)
 
         is_valid = False
         error_key = '2fa_invalid_code'
+        pending_email = None
 
-        if intent == 'login' and not request.POST.get('method'):
-            if len(code) == 8 and user.profile.backup_codes:
-                is_valid = _consume_backup_code(user.profile, code)
-            totp_secret = get_profile_totp_secret(user.profile)
-            if not is_valid and user.profile.is_totp_2fa_enabled and pyotp and totp_secret:
-                totp = pyotp.TOTP(totp_secret)
-                is_valid = bool(totp.verify(code, valid_window=1))
-            if not is_valid and user.profile.is_email_2fa_enabled and _email_otp_exists(user, 'login'):
-                is_valid, error_key = verify_otp_logic(user, code, intent='login')
-        elif intent == 'enable_totp' or (intent == 'login' and method == 'totp'):
+        if intent == 'enable_totp' or (intent == 'login' and method == 'totp'):
             totp_secret = get_profile_totp_secret(user.profile)
             if pyotp and totp_secret:
                 totp = pyotp.TOTP(totp_secret)
                 is_valid = bool(totp.verify(code, valid_window=1))
         elif intent == 'login' and method == 'backup_code':
             is_valid = _consume_backup_code(user.profile, code)
+        elif intent == 'login' and method == 'email':
+            is_valid, error_key = verify_otp_logic(user, code, intent='login')
         else:
             check_intent = intent
             if intent == 'enable' and method in {'email', 'phone'}:
@@ -373,8 +626,14 @@ def verify_otp_view(request, intent='login'):
         if is_valid:
             if intent == 'login':
                 login(request, user)
-                request.session.pop('pre_2fa_user_id', None)
-                return redirect(_resolve_safe_login_redirect(request))
+                _sync_session_device_metadata(request)
+                redirect_url = _resolve_safe_login_redirect(request)
+                should_trust_device = str(request.POST.get('trust_device') or '').strip().lower() in {'1', 'true', 'on', 'yes'}
+                response = JsonResponse({'status': 'success', 'redirect_url': redirect_url}) if is_ajax else redirect(redirect_url)
+                if should_trust_device:
+                    _issue_trusted_device(request, response, user)
+                _clear_pre_2fa_session_state(request)
+                return response
 
             was_2fa_enabled = user.profile.is_2fa_enabled
 
@@ -409,7 +668,7 @@ def verify_otp_view(request, intent='login'):
                 user.profile.save(update_fields=['backup_codes'])
                 response_data['backup_codes'] = raw_codes
 
-            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            if is_ajax:
                 return JsonResponse(response_data)
 
             messages.success(request, s.get('2fa_enabled_msg', '2FA Enabled'))
@@ -417,7 +676,7 @@ def verify_otp_view(request, intent='login'):
 
         error_msg = s.get(error_key, 'Invalid Code')
         _record_twofa_ip_event('verify', request, intent)
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        if is_ajax:
             return JsonResponse({'status': 'error', 'message': error_msg})
         error_message = error_msg
 
@@ -425,12 +684,8 @@ def verify_otp_view(request, intent='login'):
         'intent': intent,
         'error_message': error_message,
         'MS_TRANS': s,
-        'user_methods': {
-            'email': user.profile.is_email_2fa_enabled,
-            'phone': user.profile.is_phone_2fa_enabled,
-            'totp': user.profile.is_totp_2fa_enabled,
-            'backup': bool(user.profile.backup_codes),
-        } if intent == 'login' else {},
+        'user_methods': user_methods,
+        'challenge_state': _build_login_challenge_state(request, user) if intent == 'login' else {},
     })
 
 
@@ -560,11 +815,12 @@ def disable_2fa(request):
 @require_POST
 def resend_otp(request, intent='login'):
     intent = request.POST.get('intent') or intent
+    requested_method = str(request.POST.get('method') or '').strip()
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     user = None
 
     if intent == 'login':
-        user_id = request.session.get('pre_2fa_user_id')
+        user_id = request.session.get(PRE_2FA_USER_ID_SESSION_KEY)
         if user_id:
             try:
                 user = User.objects.get(pk=user_id)
@@ -576,14 +832,42 @@ def resend_otp(request, intent='login'):
     can_send = bool(user)
     if intent == 'login' and user:
         can_send = bool(getattr(user.profile, 'is_email_2fa_enabled', False))
+        if requested_method in {'email', 'totp'}:
+            request.session[PRE_2FA_METHOD_SESSION_KEY] = 'email' if requested_method == 'email' else 'totp'
+        cooldown_seconds = _otp_cooldown_remaining(user, 'login')
+        if requested_method == 'email' and cooldown_seconds:
+            if is_ajax:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Unable to send code',
+                    'cooldown_seconds': cooldown_seconds,
+                }, status=400)
+            messages.error(request, 'Unable to send code')
+            return redirect('verify_otp_login')
 
     if can_send and send_otp(request, user, intent=intent):
+        if intent == 'login':
+            request.session[PRE_2FA_METHOD_SESSION_KEY] = 'email'
+            request.session[PRE_2FA_EMAIL_SENT_SESSION_KEY] = True
+            request.session[PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY] = False
+            request.session.modified = True
+        cooldown_seconds = _otp_cooldown_remaining(user, intent, str(user.email or '').strip() if user else None)
         if is_ajax:
-            return JsonResponse({'status': 'success', 'message': 'Code Sent'})
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Code Sent',
+                'cooldown_seconds': cooldown_seconds,
+                'resent_method': 'email',
+            })
         messages.success(request, 'Code Sent')
     else:
+        cooldown_seconds = _otp_cooldown_remaining(user, intent, str(user.email or '').strip() if user else None) if user else 0
         if is_ajax:
-            return JsonResponse({'status': 'error', 'message': 'Unable to send code'}, status=400)
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Unable to send code',
+                'cooldown_seconds': cooldown_seconds,
+            }, status=400)
         messages.error(request, 'Unable to send code')
 
     if intent == 'login':

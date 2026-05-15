@@ -51,6 +51,12 @@ from .constants import (
 from .translations import build_translation_matrix_groups, discover_translation_languages, get_strings, get_current_language_code
 from .themes import get_theme_choices, get_theme_options, is_valid_theme, normalize_allowed_themes
 from .utils import (
+    CLIENT_IP_MODE_CLOUDFLARE,
+    CLIENT_IP_MODE_CUSTOM,
+    CLIENT_IP_MODE_REMOTE_ADDR,
+    CLIENT_IP_MODE_X_FORWARDED_FOR,
+    CLIENT_IP_MODE_X_REAL_IP,
+    default_client_ip_config,
     default_titlebar_config,
     default_email_config,
     encrypt_email_secret,
@@ -62,6 +68,7 @@ from .utils import (
     is_global_staff,
     normalize_system_settings_import_payload,
     normalize_email_config,
+    normalize_client_ip_config,
     normalize_language_catalog,
     normalize_sidebar_behavior,
     normalize_system_names,
@@ -1569,6 +1576,23 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=False,
     )
+    client_ip_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
+    client_ip_mode = forms.ChoiceField(
+        required=False,
+        choices=(),
+    )
+    client_ip_trusted_proxy_hops = forms.IntegerField(
+        required=False,
+        min_value=0,
+        max_value=8,
+    )
+    client_ip_custom_header = forms.CharField(
+        required=False,
+        max_length=255,
+    )
     public_root = forms.BooleanField(
         required=False,
         initial=False,
@@ -1608,6 +1632,7 @@ class SystemSettingsForm(forms.ModelForm):
             'allow_user_language_override',
             'default_table_density',
             'email_2fa',
+            'client_ip_config',
             'public_root',
             'public_root_split_enabled',
             'public_root_url',
@@ -1847,6 +1872,42 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_email_2fa',
             'Allow users to enable two-factor authentication via email. Requires Microsys email delivery to be ready.',
         )
+        self.fields['client_ip_mode'].label = s.get('form_sys_client_ip_mode', 'Client IP source')
+        self.fields['client_ip_mode'].help_text = s.get(
+            'help_sys_client_ip_mode',
+            'Choose which request header Microsys should trust when recording login, session, and security IP addresses.',
+        )
+        self.fields['client_ip_mode'].choices = (
+            (CLIENT_IP_MODE_X_FORWARDED_FOR, s.get('client_ip_mode_x_forwarded_for', 'X-Forwarded-For')),
+            (CLIENT_IP_MODE_REMOTE_ADDR, s.get('client_ip_mode_remote_addr', 'Direct connection')),
+            (CLIENT_IP_MODE_X_REAL_IP, s.get('client_ip_mode_x_real_ip', 'X-Real-IP')),
+            (CLIENT_IP_MODE_CLOUDFLARE, s.get('client_ip_mode_cloudflare', 'Cloudflare')),
+            (CLIENT_IP_MODE_CUSTOM, s.get('client_ip_mode_custom', 'Custom header')),
+        )
+        self.fields['client_ip_mode'].widget.attrs.update({
+            'class': 'form-select glass-input',
+            'data-client-ip-mode-input': 'true',
+        })
+        self.fields['client_ip_trusted_proxy_hops'].label = s.get('form_sys_client_ip_hops', 'Trusted proxy hops')
+        self.fields['client_ip_trusted_proxy_hops'].help_text = s.get(
+            'help_sys_client_ip_hops',
+            'For X-Forwarded-For chains, skip this many trusted proxies from the right before choosing the client IP.',
+        )
+        self.fields['client_ip_trusted_proxy_hops'].widget.attrs.update({
+            'class': 'form-control glass-input',
+            'min': '0',
+            'max': '8',
+        })
+        self.fields['client_ip_custom_header'].label = s.get('form_sys_client_ip_custom_header', 'Custom header name')
+        self.fields['client_ip_custom_header'].help_text = s.get(
+            'help_sys_client_ip_custom_header',
+            'Header name to trust for client IP resolution, such as CF-Connecting-IP or X-Appengine-User-Ip.',
+        )
+        self.fields['client_ip_custom_header'].widget.attrs.update({
+            'class': 'form-control glass-input',
+            'placeholder': 'CF-Connecting-IP',
+            'dir': 'ltr',
+        })
         self.fields['email_config'].label = s.get('form_sys_email_config', 'Email delivery configuration')
         self.fields['email_config_transport'].label = s.get('form_sys_email_transport', 'Delivery path')
         self.fields['email_config_secret_storage'].label = s.get('form_sys_email_secret_storage', 'Secret storage')
@@ -2150,6 +2211,17 @@ class SystemSettingsForm(forms.ModelForm):
             getattr(self.instance, 'email_2fa', False)
             or config.get('email_2fa', False)
         )
+        initial_client_ip_config = normalize_client_ip_config(
+            (
+                getattr(self.instance, 'client_ip_config', None)
+                if isinstance(getattr(self.instance, 'client_ip_config', None), dict) and getattr(self.instance, 'client_ip_config', None)
+                else config.get('client_ip', {})
+            )
+        )
+        self.initial['client_ip_config'] = _json_dump(initial_client_ip_config, ensure_ascii=False)
+        self.initial['client_ip_mode'] = initial_client_ip_config.get('mode', CLIENT_IP_MODE_X_FORWARDED_FOR)
+        self.initial['client_ip_trusted_proxy_hops'] = initial_client_ip_config.get('trusted_proxy_hops', 1)
+        self.initial['client_ip_custom_header'] = initial_client_ip_config.get('custom_header', '')
         self.initial['public_root'] = bool(
             getattr(self.instance, 'public_root', False)
             or config.get('public_root', False)
@@ -2469,6 +2541,34 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(self, 'email_2fa', css_class='col-lg-6'),
                     css_class='g-3 mb-3',
                 ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title', 'Client IP Resolution')}</h6>"),
+                HTML(
+                    f"<p class='small text-muted mb-3'>"
+                    f"{s.get('client_ip_settings_desc', 'Microsys uses this setting for activity logs, signed-in devices, trusted devices, and 2FA rate limits. Keep it simple: choose the header your proxy already sets correctly.')}"
+                    f"</p>"
+                ),
+                Row(
+                    Div(Field('client_ip_mode'), css_class='col-lg-4'),
+                    Div(
+                        Field('client_ip_trusted_proxy_hops'),
+                        css_class=(
+                            "col-lg-4 ms-client-ip-hops-field"
+                            f"{' d-none' if self.initial.get('client_ip_mode') != CLIENT_IP_MODE_X_FORWARDED_FOR else ''}"
+                        ),
+                        data_client_ip_hops='true',
+                        aria_hidden='false' if self.initial.get('client_ip_mode') == CLIENT_IP_MODE_X_FORWARDED_FOR else 'true',
+                    ),
+                    Div(
+                        Field('client_ip_custom_header'),
+                        css_class=(
+                            "col-lg-4 ms-client-ip-custom-header-field"
+                            f"{' d-none' if self.initial.get('client_ip_mode') != CLIENT_IP_MODE_CUSTOM else ''}"
+                        ),
+                        data_client_ip_custom_header='true',
+                        aria_hidden='false' if self.initial.get('client_ip_mode') == CLIENT_IP_MODE_CUSTOM else 'true',
+                    ),
+                ),
+                Field('client_ip_config'),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('root_home_settings_title', 'Home & Public Root Destinations')}</h6>"),
                 Row(
                     Div(Field('home_url_discovered'), css_class='col-lg-6'),
@@ -2863,6 +2963,7 @@ class SystemSettingsForm(forms.ModelForm):
             'allow_user_language_override',
             'default_table_density',
             'email_2fa',
+            'client_ip_config',
             'public_root',
             'public_root_split_enabled',
             'public_registration_enabled',
@@ -2886,6 +2987,14 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['email_config_username'] = email_config.get('username', '')
             cleaned['email_config_default_from_email'] = email_config.get('default_from_email', '')
             cleaned['email_config_password'] = ''
+
+        client_ip_config = imported.get('client_ip_config')
+        if isinstance(client_ip_config, dict):
+            client_ip_config = normalize_client_ip_config(client_ip_config)
+            cleaned['client_ip_config'] = client_ip_config
+            cleaned['client_ip_mode'] = client_ip_config.get('mode', CLIENT_IP_MODE_X_FORWARDED_FOR)
+            cleaned['client_ip_trusted_proxy_hops'] = client_ip_config.get('trusted_proxy_hops', 1)
+            cleaned['client_ip_custom_header'] = client_ip_config.get('custom_header', '')
 
         sidebar = imported.get('sidebar_config')
         if isinstance(sidebar, dict):
@@ -3007,6 +3116,11 @@ class SystemSettingsForm(forms.ModelForm):
             email_config['password_configured'] = bool(email_config.get('encrypted_password'))
             cleaned['email_config'] = email_config
         email_config = normalize_email_config(cleaned.get('email_config') or existing_email_config)
+        cleaned['client_ip_config'] = normalize_client_ip_config({
+            'mode': cleaned.get('client_ip_mode') or CLIENT_IP_MODE_X_FORWARDED_FOR,
+            'trusted_proxy_hops': cleaned.get('client_ip_trusted_proxy_hops'),
+            'custom_header': cleaned.get('client_ip_custom_header') or '',
+        })
         cleaned['titlebar_config'] = normalize_titlebar_config({
             'show_title': bool(cleaned.get('titlebar_show_title', True)),
             'show_logo': bool(cleaned.get('titlebar_show_logo', True)),
@@ -3048,6 +3162,7 @@ class SystemSettingsForm(forms.ModelForm):
         instance.allowed_themes = self.cleaned_data.get('allowed_themes', list(normalize_allowed_themes()))
         instance.allow_user_theme_override = bool(self.cleaned_data.get('allow_user_theme_override', True))
         instance.allow_user_language_override = bool(self.cleaned_data.get('allow_user_language_override', True))
+        instance.client_ip_config = self.cleaned_data.get('client_ip_config', default_client_ip_config())
         instance.titlebar_config = self.cleaned_data.get('titlebar_config', default_titlebar_config())
         instance.public_root_split_enabled = bool(self.cleaned_data.get('public_root_split_enabled', False))
         instance.public_root_url = str(self.cleaned_data.get('public_root_url') or '').strip()

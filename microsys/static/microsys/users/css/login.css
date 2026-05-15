@@ -388,3 +388,45 @@ input.is-invalid:focus {
     border-color: rgba(35, 99, 195, 0.3);
 }
 
+.login-2fa-panel {
+    padding: 1rem 1rem 0.5rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.45);
+    border: 1px solid rgba(35, 99, 195, 0.08);
+}
+
+.login-2fa-actions {
+    align-items: center;
+}
+
+.ms-twofa-inline-alert {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    padding: 0.8rem 0.95rem;
+    text-align: center;
+    word-break: break-word;
+}
+
+.ms-twofa-inline-alert i {
+    flex: 0 0 auto;
+}
+
+.ms-twofa-trust-field {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.ms-twofa-trust-field .form-check-input {
+    margin-top: 0;
+    margin-inline-start: 0;
+    flex: 0 0 auto;
+}
+
+.ms-twofa-trust-field .form-check-label {
+    margin: 0;
+    line-height: 1.45;
+}

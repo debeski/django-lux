@@ -57,6 +57,8 @@ from django.contrib.sessions.models import Session
 from django.urls import reverse
 from django.core.cache import cache
 from django.contrib.auth.hashers import check_password, identify_hasher, make_password
+from django.utils import timezone
+from datetime import timedelta
 import json
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -1462,7 +1464,7 @@ class TwoFactorSecurityViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse('user_profile'))
 
-    def test_login_two_factor_does_not_send_email_until_requested(self):
+    def test_login_two_factor_auto_sends_email_when_email_is_only_primary_method(self):
         self.client.logout()
 
         with patch('microsys.views.twofa.send_microsys_mail', return_value=1) as mocked_mail:
@@ -1472,11 +1474,72 @@ class TwoFactorSecurityViewTests(TestCase):
             })
 
         self.assertRedirects(response, reverse('verify_otp_login'), fetch_redirect_response=False)
-        mocked_mail.assert_not_called()
+        mocked_mail.assert_called_once()
+        session = self.client.session
+        self.assertEqual(session.get('pre_2fa_method'), 'email')
+        self.assertTrue(session.get('pre_2fa_email_sent'))
 
+    def test_login_two_factor_defaults_to_totp_without_auto_sending_email_when_multiple_methods_exist(self):
+        self.client.logout()
+        self.user.profile.totp_secret = 'JBSWY3DPEHPK3PXP'
+        self.user.profile.is_totp_2fa_enabled = True
+        self.user.profile.save(update_fields=['totp_secret', 'is_totp_2fa_enabled'])
+
+        with patch('microsys.views.twofa.send_microsys_mail', return_value=1) as mocked_mail:
+            response = self.client.post(reverse('login'), {
+                'username': 'twofa',
+                'password': 'twofapass123',
+            })
+
+        self.assertRedirects(response, reverse('verify_otp_login'), fetch_redirect_response=False)
+        mocked_mail.assert_not_called()
+        self.assertEqual(self.client.session.get('pre_2fa_method'), 'totp')
+
+    def test_login_verify_returns_ajax_redirect_payload_for_email_code(self):
+        cache.set(
+            f'otp_{self.user.pk}_login',
+            {'code_hash': make_password('123456'), 'attempts': 0},
+            timeout=300,
+        )
+        self._prime_pre_2fa_session()
+
+        response = self.client.post(
+            reverse('verify_otp_login'),
+            {'otp_code': '123456', 'method': 'email'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'success')
+        self.assertTrue(payload['redirect_url'])
+
+    def test_real_login_handoff_allows_email_otp_verification_and_redirects(self):
+        self.client.logout()
+
+        with patch('microsys.views.twofa._generate_email_otp_code', return_value='123456'), \
+             patch('microsys.views.twofa.send_microsys_mail', return_value=1):
+            login_response = self.client.post(reverse('login'), {
+                'username': 'twofa',
+                'password': 'twofapass123',
+            })
+
+        self.assertRedirects(login_response, reverse('verify_otp_login'), fetch_redirect_response=False)
+
+        verify_response = self.client.post(
+            reverse('verify_otp_login'),
+            {'otp_code': '123456', 'method': 'email'},
+        )
+
+        self.assertEqual(verify_response.status_code, 302)
+        self.assertEqual(verify_response.url, reverse('user_profile'))
+
+    def test_login_email_resend_returns_cooldown_payload_for_two_minutes(self):
+        self._prime_pre_2fa_session()
         with patch('microsys.views.twofa.send_microsys_mail', return_value=1) as mocked_mail:
             response = self.client.post(
                 reverse('resend_otp_login'),
+                {'method': 'email'},
                 HTTP_X_REQUESTED_WITH='XMLHttpRequest',
             )
 
@@ -1484,6 +1547,50 @@ class TwoFactorSecurityViewTests(TestCase):
         payload = json.loads(response.content)
         self.assertEqual(payload['status'], 'success')
         mocked_mail.assert_called_once()
+        self.assertGreaterEqual(payload['cooldown_seconds'], 119)
+
+        second = self.client.post(
+            reverse('resend_otp_login'),
+            {'method': 'email'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(second.status_code, 400)
+        second_payload = json.loads(second.content)
+        self.assertGreaterEqual(second_payload['cooldown_seconds'], 1)
+
+    def test_trusted_device_bypasses_login_two_factor_on_next_login(self):
+        trusted_device_model = apps.get_model('microsys', 'TrustedDevice')
+        cache.set(
+            f'otp_{self.user.pk}_login',
+            {'code_hash': make_password('123456'), 'attempts': 0},
+            timeout=300,
+        )
+        self._prime_pre_2fa_session()
+
+        verify_response = self.client.post(
+            reverse('verify_otp_login'),
+            {'otp_code': '123456', 'method': 'email', 'trust_device': '1'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(verify_response.status_code, 200)
+        self.assertEqual(trusted_device_model.objects.filter(user=self.user, revoked_at__isnull=True).count(), 1)
+
+        trusted_cookie = verify_response.cookies.get('microsys_trusted_device')
+        bypass_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        bypass_client.cookies['microsys_trusted_device'] = trusted_cookie.value
+
+        with patch('microsys.views.twofa.send_microsys_mail', return_value=1) as mocked_mail:
+            response = bypass_client.post(reverse('login'), {
+                'username': 'twofa',
+                'password': 'twofapass123',
+            })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertNotEqual(response.url, reverse('verify_otp_login'))
+        mocked_mail.assert_not_called()
+        trusted_device = trusted_device_model.objects.get(user=self.user)
+        self.assertTrue(trusted_device.session_key)
 
 
 class ProfileSessionDeviceTests(TestCase):
@@ -1563,3 +1670,64 @@ class ProfileSessionDeviceTests(TestCase):
 
         self.assertRedirects(response, reverse('user_profile'))
         self.assertTrue(Session.objects.filter(session_key=second_session_key).exists())
+
+    def test_profile_shows_trusted_device_state_in_signed_in_devices(self):
+        trusted_device_model = apps.get_model('microsys', 'TrustedDevice')
+        client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        client.login(username='devices', password='devicespass123')
+        session = client.session
+        trusted_device = trusted_device_model.objects.create(
+            user=self.user,
+            token_hash='test-trusted-device',
+            session_key=session.session_key,
+            trusted_until=timezone.now() + timedelta(days=30),
+        )
+        session['microsys_device'] = {
+            'user_agent': 'Mozilla/5.0 Chrome/122.0 Linux',
+            'ip_address': '127.0.0.1',
+            'first_seen': timezone.now().isoformat(),
+            'last_seen': timezone.now().isoformat(),
+            'trusted_device_id': trusted_device.pk,
+            'trusted_until': trusted_device.trusted_until.isoformat(),
+        }
+        session.save()
+
+        response = client.get(reverse('user_profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Trusted device')
+        self.assertContains(response, 'Trusted until')
+
+    def test_profile_revoke_session_revokes_linked_trusted_device(self):
+        trusted_device_model = apps.get_model('microsys', 'TrustedDevice')
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        second_client.login(username='devices', password='devicespass123')
+        first_client.get(reverse('user_profile'))
+        second_client.get(reverse('user_profile'))
+        second_session = second_client.session
+        trusted_device = trusted_device_model.objects.create(
+            user=self.user,
+            token_hash='trusted-revoke-test',
+            session_key=second_session.session_key,
+            trusted_until=timezone.now() + timedelta(days=30),
+        )
+        second_session['microsys_device'] = {
+            'user_agent': 'Mozilla/5.0 Firefox/123.0 Windows',
+            'ip_address': '127.0.0.1',
+            'first_seen': timezone.now().isoformat(),
+            'last_seen': timezone.now().isoformat(),
+            'trusted_device_id': trusted_device.pk,
+            'trusted_until': trusted_device.trusted_until.isoformat(),
+        }
+        second_session.save()
+
+        response = first_client.post(
+            reverse('revoke_profile_session', args=[second_session.session_key]),
+            {'current_password': 'devicespass123'},
+        )
+
+        self.assertRedirects(response, reverse('user_profile'))
+        trusted_device.refresh_from_db()
+        self.assertIsNotNone(trusted_device.revoked_at)

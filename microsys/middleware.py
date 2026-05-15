@@ -154,10 +154,9 @@ class MicrosysMiddleware:
         }
 
     def _client_ip(self, request):
-        forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if forwarded_for:
-            return forwarded_for.split(',')[0].strip()
-        return request.META.get('REMOTE_ADDR', '')
+        from .utils import get_client_ip
+
+        return str(get_client_ip(request) or '').strip()
 
     def _remember_session_device(self, request):
         user = getattr(request, 'user', None)
@@ -191,6 +190,8 @@ class MicrosysMiddleware:
             'last_seen': now.isoformat(),
             'ip_address': self._client_ip(request),
             'user_agent': user_agent[:320],
+            'trusted_device_id': existing.get('trusted_device_id'),
+            'trusted_until': existing.get('trusted_until'),
         }
 
     def _sync_auth_redirects(self):

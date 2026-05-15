@@ -53,7 +53,38 @@ class CustomLoginView(LoginView):
         
         # Check if 2FA is enabled for this user's profile
         if hasattr(user, 'profile') and user.profile.is_2fa_enabled:
-            self.request.session['pre_2fa_user_id'] = user.pk
+            from django.shortcuts import resolve_url
+            from .twofa import get_trusted_device_for_login, prepare_login_2fa_challenge, _sync_session_device_metadata
+            from microsys.utils import get_system_config
+
+            trusted_device = get_trusted_device_for_login(self.request, user)
+            if trusted_device:
+                response = super().form_valid(form)
+                _sync_session_device_metadata(self.request, trusted_device=trusted_device)
+                return response
+
+            next_url = self.get_redirect_url() or ''
+            default_redirect = ''
+            if not next_url:
+                config_dict = get_system_config()
+                if user.is_superuser and not config_dict.get('is_configured', False):
+                    default_redirect = resolve_url('system_setup')
+                else:
+                    home_url = config_dict.get('home_url')
+                    if home_url:
+                        try:
+                            default_redirect = resolve_url(home_url)
+                        except Exception:
+                            default_redirect = home_url
+                    else:
+                        default_redirect = getattr(settings, 'LOGIN_REDIRECT_URL', DEFAULT_HOME_URL)
+
+            prepare_login_2fa_challenge(
+                self.request,
+                user,
+                next_url=next_url,
+                default_redirect=default_redirect,
+            )
             return redirect('verify_otp_login')
             
         # Standard Login
