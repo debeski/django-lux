@@ -4,13 +4,7 @@
         <div class="ms-user-text">
             <span class="ms-display-name">{{ user.get_full_name|default:user.username }}</span>
             <span class="ms-user-role">
-                {% if user.is_superuser %}
-                    {{ MS_TRANS.role_superuser }}
-                {% elif user.is_staff %}
-                    {{ MS_TRANS.role_staff }}
-                {% else %}
-                    {{ MS_TRANS.role_user }}
-                {% endif %}
+                {{ current_user_management_tier.title }}
             </span>
         </div>
         {% if user.profile.profile_pic %}

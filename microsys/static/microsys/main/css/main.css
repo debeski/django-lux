@@ -115,6 +115,12 @@ select.glass-input,
     background-color: var(--primal) !important;
 }
 
+.badge.bg-primary,
+.text-bg-primary,
+.badge.text-bg-primary {
+    color: #fff !important;
+}
+
 .form-check-input:checked {
     background-color: var(--primal) !important;
     border-color: var(--primal) !important;

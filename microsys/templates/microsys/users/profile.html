@@ -60,13 +60,11 @@
                             <div class="mb-2">
                                 <div class="info-label">{{ MS_TRANS.role_type }}</div>
                                 <div class="info-value">
-                                    {% if user.is_superuser %}
-                                        {{ MS_TRANS.role_superuser }}
-                                    {% elif user.is_staff %}
-                                        {{ MS_TRANS.role_staff }}
-                                    {% else %}
-                                        {{ MS_TRANS.role_user }}
+                                    {{ current_user_management_tier.title }}
+                                    {% if current_user_management_tier.can_delegate_staff %}
+                                        <span class="badge bg-light text-primary border ms-1">{{ current_user_management_tier.delegation_badge_label }}</span>
                                     {% endif %}
+                                    <div class="small text-muted mt-1">{{ current_user_management_tier.description }}</div>
                                 </div>
                             </div>
                         </div>
@@ -100,10 +98,11 @@
                         {% if user.is_active %}<i class="bi bi-check-circle-fill text-success fs-5" title="{{ MS_TRANS.account_active }}"></i>{% endif %}
                     </h3>
                     <div class="mb-3">
-                        {% if user.is_superuser %}
-                            <span class="badge bg-danger badge-role">{{ MS_TRANS.badge_admin }}</span>
-                        {% elif user.is_staff %}
-                            <span class="badge bg-info text-dark badge-role">{{ MS_TRANS.badge_staff }}</span>
+                        <span class="badge {{ current_user_management_tier.badge_classes }} badge-role">
+                            <i class="bi {{ current_user_management_tier.icon }} me-1"></i>{{ current_user_management_tier.title }}
+                        </span>
+                        {% if current_user_management_tier.can_delegate_staff %}
+                            <span class="badge bg-light text-primary border badge-role ms-1">{{ current_user_management_tier.delegation_badge_label }}</span>
                         {% endif %}
                         {% if user.public_registration %}
                             <span class="badge bg-light text-primary border badge-role ms-1">

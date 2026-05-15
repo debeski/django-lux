@@ -529,6 +529,27 @@ class ActivityLogViewsTests(TestCase):
         self.assertEqual(response.context['filter'].form.fields['keyword'].label, '')
         self.assertTrue(response.context['filter'].form.fields['keyword'].widget.attrs.get('placeholder'))
 
+    def test_activity_log_view_uses_table_pagination_without_double_paginating_page_two(self):
+        from microsys.models import UserActivityLog
+
+        initial_count = UserActivityLog.objects.count()
+        for index in range(14):
+            UserActivityLog.objects.create(
+                created_by=self.user,
+                action='CREATE',
+                model_name=f'Entry {index}',
+            )
+
+        response = self.client.get(reverse('user_activity_log'), {'per_page': 10, 'page': 2})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['table'].page.number, 2)
+        self.assertEqual(response.context['table'].paginator.num_pages, 2)
+        self.assertEqual(
+            len(response.context['table'].page.object_list),
+            (initial_count + 14) - 10,
+        )
+
     def test_activity_log_detail_view_renders_structured_changes_and_masks_totp_secret(self):
         from microsys.models import UserActivityLog
 
@@ -720,6 +741,26 @@ class SecurityHardeningViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
 
+    def test_manage_users_uses_table_pagination_without_double_paginating_page_two(self):
+        self._grant_user_permission(self.staff_user, 'view_user')
+        self.client.login(username='staffer', password='staffpass123')
+
+        for index in range(12):
+            user = User.objects.create_user(
+                username=f'scopea{index}',
+                email=f'scopea{index}@example.com',
+                password='scopepass123',
+            )
+            user.profile.scope = self.scope_a
+            user.profile.save(update_fields=['scope'])
+
+        response = self.client.get(reverse('manage_users'), {'per_page': 10, 'page': 2})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['table'].page.number, 2)
+        self.assertEqual(response.context['table'].paginator.num_pages, 2)
+        self.assertEqual(len(response.context['table'].page.object_list), 3)
+
     def test_manage_users_central_staff_excludes_global_staff_group_members(self):
         central_staff = User.objects.create_user(
             username='centralviewer',
@@ -800,6 +841,26 @@ class SecurityHardeningViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(list(response.context['recent_logs']), [])
+
+    def test_user_detail_modal_shows_computed_staff_tier_summary(self):
+        self._grant_user_permission(self.staff_user, 'view_user')
+        profile_type = ContentType.objects.get(app_label='microsys', model='profile')
+        manage_scopes = Permission.objects.get(content_type=profile_type, codename='manage_scopes')
+        manage_staff = Permission.objects.get(content_type=profile_type, codename='manage_staff')
+        target = User.objects.create_user(
+            username='targetglobal',
+            email='targetglobal@example.com',
+            password='targetglobalpass123',
+            is_staff=True,
+        )
+        target.user_permissions.add(manage_scopes, manage_staff)
+        self.client.login(username='root', password='rootpass123')
+
+        response = self.client.get(reverse('user_detail_modal', args=[target.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Global Staff')
+        self.assertContains(response, 'Can Assign Staff Roles')
 
     def test_reset_password_requires_change_user_permission(self):
         self.client.login(username='staffer', password='staffpass123')

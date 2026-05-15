@@ -1,7 +1,7 @@
 # Imports of the required python modules and libraries
 ######################################################
 import json
-from types import MethodType
+from types import MethodType, SimpleNamespace
 
 from django import forms
 from django.contrib.auth.models import Permission as Permissions
@@ -55,6 +55,8 @@ from .utils import (
     default_email_config,
     encrypt_email_secret,
     get_email_service_status,
+    get_user_management_tier_state,
+    get_user_scope,
     has_section_models,
     is_central_staff,
     is_global_staff,
@@ -160,6 +162,120 @@ def _json_dump(value, **kwargs):
     return json.dumps(value, cls=DjangoJSONEncoder, **kwargs)
 
 
+def _extract_permission_codenames(permissions):
+    codenames = set()
+    for permission in permissions or []:
+        codename = getattr(permission, 'codename', None)
+        if codename:
+            codenames.add(str(codename))
+    return codenames
+
+
+def _build_staff_tier_preview_catalog(strings):
+    tier_examples = {
+        'regular_user': get_user_management_tier_state(
+            is_superuser=False,
+            is_staff=False,
+            scope=None,
+            permission_codenames=set(),
+        ),
+        'superuser': get_user_management_tier_state(
+            is_superuser=True,
+            is_staff=True,
+            scope=None,
+            permission_codenames={'manage_scopes', 'manage_staff'},
+        ),
+        'global_staff': get_user_management_tier_state(
+            is_superuser=False,
+            is_staff=True,
+            scope=None,
+            permission_codenames={'manage_scopes'},
+        ),
+        'central_staff': get_user_management_tier_state(
+            is_superuser=False,
+            is_staff=True,
+            scope=None,
+            permission_codenames=set(),
+        ),
+        'scoped_staff': get_user_management_tier_state(
+            is_superuser=False,
+            is_staff=True,
+            scope=SimpleNamespace(name=strings.get('form_scope', 'Scope')),
+            permission_codenames=set(),
+        ),
+    }
+    return {
+        'preview_title': strings.get('staff_tier_preview', 'Staff Tier Preview'),
+        'preview_caption': strings.get(
+            'staff_tier_preview_caption',
+            'Read-only summary based on staff access, scope, and selected permissions.',
+        ),
+        'delegation_badge_label': strings.get('tier_delegate_badge', 'Can Assign Staff Roles'),
+        'tiers': {
+            key: {
+                'title': state['title'],
+                'description': state['description'],
+                'badge_classes': state['badge_classes'],
+                'icon': state['icon'],
+                'capabilities': state['capabilities'],
+            }
+            for key, state in tier_examples.items()
+        },
+        'warnings': {
+            'needs_staff': strings.get(
+                'tier_warning_needs_staff',
+                'Staff-related permissions are selected, but staff access is not enabled yet.',
+            ),
+            'scoped_manage_scopes_conflict': strings.get(
+                'tier_warning_scoped_manage_scopes',
+                'Global Staff access is ineffective while a scope is assigned.',
+            ),
+        },
+    }
+
+
+def _configure_staff_tier_preview(form, *, fixed_scope=None, scope_locked=False):
+    perm_field = form.fields.get('permissions')
+    if not perm_field or not isinstance(perm_field.widget, GroupedPermissionWidget):
+        return
+
+    strings = getattr(perm_field.widget, 'translations', get_strings())
+    instance = getattr(form, 'instance', None)
+    initial_permissions = perm_field.initial
+    if initial_permissions is None and instance is not None and getattr(instance, 'pk', None):
+        initial_permissions = getattr(instance, 'user_permissions', None)
+        if initial_permissions is not None:
+            initial_permissions = initial_permissions.all()
+
+    is_staff_value = bool(
+        form.initial.get('is_staff')
+        if 'is_staff' in getattr(form, 'initial', {})
+        else getattr(getattr(form, 'instance', None), 'is_staff', getattr(form.fields.get('is_staff'), 'initial', False))
+    )
+
+    if fixed_scope is None and 'scope' in form.fields:
+        fixed_scope = form.fields['scope'].initial
+
+    preview_state = get_user_management_tier_state(
+        is_superuser=bool(getattr(instance, 'is_superuser', False)),
+        is_staff=is_staff_value,
+        scope=fixed_scope,
+        permission_codenames=_extract_permission_codenames(initial_permissions),
+    )
+    preview_config = {
+        'catalog': _build_staff_tier_preview_catalog(strings),
+        'initial_state': preview_state,
+        'forced_superuser': bool(getattr(instance, 'is_superuser', False)),
+        'scope_field_name': 'scope' if 'scope' in form.fields else '',
+        'fixed_scope_active': bool(fixed_scope is not None),
+        'fixed_scope_label': getattr(fixed_scope, 'name', '') if fixed_scope is not None else '',
+        'scope_locked': bool(scope_locked),
+    }
+    perm_field.widget.staff_tier_preview = {
+        'config_json': _json_dump(preview_config),
+    }
+
+
 def _system_settings_sidebar_tools_available(cleaned_data):
     allowed_themes = cleaned_data.get('allowed_themes') or []
     theme_picker_enabled = bool(cleaned_data.get('allow_user_theme_override', True)) and len(allowed_themes) > 1
@@ -213,6 +329,7 @@ def _attach_is_staff_permission(form, widget_id=None):
             'id': option_id,
             'data_action': 'other',
             'data_model': 'staff',
+            'data_codename': 'is_staff',
             'disabled': bool(getattr(staff_field, 'disabled', False)),
         }
     }
@@ -509,10 +626,12 @@ class GroupedPermissionWidget(ChoiceWidget):
             # applied in apps.py (which overrides Permission.__str__)
             perm_label = s.get(f"perm_{codename}", str(perm))
 
-            # Special Help Text for manage_staff
+            # Tier-oriented help text for the staff-access controls.
             help_text = ""
             if codename == 'manage_staff':
-                 help_text = s.get('help_perm_manage_staff', "Grants the user permission to assign other users as staff.")
+                 help_text = s.get('help_perm_manage_staff', "Lets this staff user assign staff access to other users. It does not widen their own scope.")
+            elif codename == 'manage_scopes':
+                 help_text = s.get('help_perm_manage_scopes', "Creates Global Staff access only when the user has no assigned scope.")
 
             option = {
                 'name': name,
@@ -524,7 +643,8 @@ class GroupedPermissionWidget(ChoiceWidget):
                 'attrs': {
                     'id': f"{current_id}_{perm.pk}",
                     'data_action': action,
-                    'data_model': model_name
+                    'data_model': model_name,
+                    'data_codename': codename,
                 }
             }
             
@@ -583,6 +703,7 @@ class GroupedPermissionWidget(ChoiceWidget):
                         target_model['permissions'].append(option)
             
         context['widget']['grouped_perms'] = grouped_perms
+        context['widget']['staff_tier_preview'] = getattr(self, 'staff_tier_preview', None)
         context['MS_TRANS'] = s  # Pass translations to template
         return context
 
@@ -678,7 +799,7 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields["email"].label = s.get('form_email', "Email")
         self.fields["first_name"].label = s.get('form_firstname', "First Name")
         self.fields["last_name"].label = s.get('form_lastname', "Last Name")
-        self.fields["is_staff"].label = s.get('form_is_staff', "Staff Status")
+        self.fields["is_staff"].label = s.get('form_is_staff', "Enable Staff Access")
         self.fields["password1"].label = s.get('form_password', "Password")
         self.fields["password2"].label = s.get('form_password_confirm', "Confirm Password")
         self.fields["is_active"].label = s.get('form_is_active', "Active")
@@ -690,7 +811,7 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields["username"].help_text = s.get('help_username', "Username must be unique. 150 characters or fewer. Letters, digits and @/./+/-/_ only.")
         self.fields["email"].help_text = s.get('help_email', "Enter a valid email address (optional).")
         self.fields["is_active"].help_text = s.get('help_is_active', "Designates whether this user should be treated as active.")
-        self.fields["is_staff"].help_text = s.get('help_is_staff', "Designates whether the user can log into this admin site.")
+        self.fields["is_staff"].help_text = s.get('help_is_staff', "Enables staff access. The final tier depends on scope and selected permissions.")
         self.fields["password1"].help_text = s.get('help_password_common', "Your password can't be too similar to your other personal information.")
         self.fields["password2"].help_text = s.get('help_password_match', "Enter the same password as before, for verification.")
         self.fields["phone"].help_text = s.get('help_phone', "Enter a valid phone number (optional).")
@@ -714,6 +835,14 @@ class CustomUserCreationForm(UserCreationForm):
                  self.fields['is_staff'].help_text = s.get('help_is_staff_no_perm', "You don't have permission to assign this user as staff.")
 
         _attach_is_staff_permission(self, self.fields['permissions'].widget.attrs.get('id'))
+        fixed_scope = None
+        scope_locked = False
+        if self.user_context and not self.user_context.is_superuser:
+            actor_scope = get_user_scope(self.user_context)
+            if actor_scope is not None:
+                fixed_scope = actor_scope
+                scope_locked = True
+        _configure_staff_tier_preview(self, fixed_scope=fixed_scope, scope_locked=scope_locked)
 
 
         self.helper = FormHelper()
@@ -787,7 +916,6 @@ class CustomUserCreationForm(UserCreationForm):
             # Check if profile already exists (via signal) or create it
             profile, created = Profile.all_objects.get_or_create(user=user)
             profile.phone = self.cleaned_data.get('phone')
-            from microsys.utils import get_user_scope
             user_scope = get_user_scope(self.user_context)
             if self.user_context and not self.user_context.is_superuser and user_scope:
                 profile.scope = user_scope
@@ -914,7 +1042,6 @@ class CustomUserChangeForm(UserChangeForm):
             Profile = apps.get_model('microsys', 'Profile')
             profile, created = Profile.all_objects.get_or_create(user=user)
             profile.phone = self.cleaned_data.get('phone')
-            from microsys.utils import get_user_scope
             user_scope = get_user_scope(self.user_context)
             if self.user_context and not self.user_context.is_superuser and user_scope:
                 profile.scope = user_scope
@@ -959,8 +1086,8 @@ class CustomUserPermissionsForm(UserChangeForm):
             # Store filtered queryset for widget to use
             self.fields['permissions'].widget._filtered_queryset = filtered_qs
 
-        self.fields["is_staff"].label = s.get('form_is_staff', "Staff Status")
-        self.fields["is_staff"].help_text = s.get('help_is_staff', "Designates whether the user can manage other users.")
+        self.fields["is_staff"].label = s.get('form_is_staff', "Enable Staff Access")
+        self.fields["is_staff"].help_text = s.get('help_is_staff', "Enables staff access. The final tier depends on scope and selected permissions.")
         self.fields["permissions"].label = s.get('form_permissions', "Permissions")
 
         if user_instance:
@@ -1002,6 +1129,8 @@ class CustomUserPermissionsForm(UserChangeForm):
                 self.fields['permissions'].widget._filtered_queryset = filtered_qs
 
         _attach_is_staff_permission(self, self.fields['permissions'].widget.attrs.get('id'))
+        preview_scope = getattr(getattr(user_instance, 'profile', None), 'scope', None)
+        _configure_staff_tier_preview(self, fixed_scope=preview_scope, scope_locked=True)
 
         self.helper = FormHelper()
         self.helper.form_tag = False

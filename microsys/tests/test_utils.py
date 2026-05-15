@@ -1,5 +1,6 @@
 from django.apps import apps
 from django.conf import settings
+from types import SimpleNamespace
 from unittest.mock import mock_open, patch
 
 if not settings.configured:
@@ -60,6 +61,7 @@ from microsys.utils import (
     get_system_config, is_staff, is_superuser, get_client_ip,
     log_user_action, is_scope_enabled, _normalize_asset_url,
     get_secret, microsys_settings, _build_generic_detail_context,
+    get_user_management_tier_state, get_user_management_tier_state_for_user,
     is_central_staff, is_global_staff, user_can_view_user_directory,
     get_profile_totp_secret, set_profile_totp_state,
 )
@@ -491,6 +493,95 @@ class UtilsTests(TestCase):
         self.assertFalse(is_central_staff(user))
         self.assertFalse(is_global_staff(user))
         self.assertFalse(user_can_view_user_directory(user))
+
+    def test_get_user_management_tier_state_classifies_core_tiers(self):
+        self.assertEqual(
+            get_user_management_tier_state(
+                is_superuser=True,
+                is_staff=True,
+                scope=None,
+                permission_codenames={'manage_scopes'},
+            )['tier_key'],
+            'superuser',
+        )
+        self.assertEqual(
+            get_user_management_tier_state(
+                is_superuser=False,
+                is_staff=True,
+                scope=None,
+                permission_codenames={'manage_scopes'},
+            )['tier_key'],
+            'global_staff',
+        )
+        self.assertEqual(
+            get_user_management_tier_state(
+                is_superuser=False,
+                is_staff=True,
+                scope=None,
+                permission_codenames=set(),
+            )['tier_key'],
+            'central_staff',
+        )
+        self.assertEqual(
+            get_user_management_tier_state(
+                is_superuser=False,
+                is_staff=True,
+                scope=SimpleNamespace(name='Finance'),
+                permission_codenames=set(),
+            )['tier_key'],
+            'scoped_staff',
+        )
+        self.assertEqual(
+            get_user_management_tier_state(
+                is_superuser=False,
+                is_staff=False,
+                scope=None,
+                permission_codenames={'manage_staff'},
+            )['tier_key'],
+            'regular_user',
+        )
+
+    def test_get_user_management_tier_state_emits_expected_warnings(self):
+        scoped_conflict = get_user_management_tier_state(
+            is_superuser=False,
+            is_staff=True,
+            scope=SimpleNamespace(name='Finance'),
+            permission_codenames={'manage_scopes'},
+        )
+        self.assertEqual(scoped_conflict['tier_key'], 'scoped_staff')
+        self.assertEqual(
+            [warning['key'] for warning in scoped_conflict['warnings']],
+            ['scoped_manage_scopes_conflict'],
+        )
+
+        no_staff_warning = get_user_management_tier_state(
+            is_superuser=False,
+            is_staff=False,
+            scope=None,
+            permission_codenames={'manage_staff'},
+        )
+        self.assertEqual(
+            [warning['key'] for warning in no_staff_warning['warnings']],
+            ['needs_staff'],
+        )
+
+    def test_get_user_management_tier_state_for_user_reads_effective_permissions(self):
+        content_type = apps.get_model('contenttypes', 'ContentType').objects.get(app_label='microsys', model='profile')
+        manage_scopes = apps.get_model('auth', 'Permission').objects.get(
+            content_type=content_type,
+            codename='manage_scopes',
+        )
+        user = User.objects.create_user(
+            username='globaltier',
+            email='globaltier@example.com',
+            password='globaltierpass123',
+            is_staff=True,
+        )
+        user.user_permissions.add(manage_scopes)
+
+        state = get_user_management_tier_state_for_user(user)
+
+        self.assertEqual(state['tier_key'], 'global_staff')
 
     def test_normalize_asset_url_with_absolute_url(self):
         """Test _normalize_asset_url with absolute URL."""

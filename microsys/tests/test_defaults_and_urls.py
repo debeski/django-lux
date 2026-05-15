@@ -926,6 +926,41 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('justify-content: center;', contents)
         self.assertIn('width: auto;', contents)
 
+    def test_tutorial_uses_modal_user_trigger_on_manage_users(self):
+        script = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'tutorial' / 'js' / 'main.js'
+        contents = script.read_text(encoding='utf-8')
+
+        self.assertIn("button[data-dynamic-modal]", contents)
+        self.assertNotIn('a[href*="create_user"]', contents)
+
+    def test_permissions_css_hardens_staff_tier_preview_for_light_and_dark_themes(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'users' / 'css' / 'permissions.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.ms-staff-tier-preview .badge.bg-primary {', contents)
+        self.assertIn('linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%)', contents)
+        self.assertIn(':root.theme-dark .ms-staff-tier-preview,', contents)
+        self.assertIn(':root.theme-gothic .ms-staff-tier-preview,', contents)
+        self.assertIn(':root.theme-neon .ms-staff-tier-preview,', contents)
+        self.assertIn(':root.theme-retro .ms-staff-tier-preview {', contents)
+
+    def test_tables_css_hardens_staff_tier_badges_for_manage_users(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'tables.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.ms-staff-tier-badge--global_staff {', contents)
+        self.assertIn('linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%)', contents)
+        self.assertIn('.ms-staff-tier-badge--delegate {', contents)
+
+    def test_main_css_forces_readable_primary_badge_text(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'main.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.badge.bg-primary,', contents)
+        self.assertIn('.text-bg-primary,', contents)
+        self.assertIn('.badge.text-bg-primary {', contents)
+        self.assertIn('color: #fff !important;', contents)
+
     def test_titlebar_login_round_uses_shared_shape_and_theme_selectors(self):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'microsys'
         titlebar_css = (static_root / 'main' / 'css' / 'titlebar.css').read_text(encoding='utf-8')
@@ -1027,6 +1062,13 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('<script nonce=', contents)
         self.assertIn('MS_TRANS.system_settings_security', contents)
         self.assertNotIn("default:'Access & Security'", contents)
+
+    def test_base_template_versions_shared_main_stylesheet(self):
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'base.html'
+        contents = template_path.read_text(encoding='utf-8')
+
+        self.assertIn("microsys/main/css/main.css", contents)
+        self.assertIn("?v=20260515a", contents)
 
     def test_dynamic_modal_template_uses_nonce_on_external_loader(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'helpers' / 'dynamic_modal.html'

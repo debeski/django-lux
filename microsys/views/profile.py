@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 # Project imports
 from django.utils.module_loading import import_string
 from ..guards import require_current_password
-from ..utils import log_user_action
+from ..utils import get_user_management_tier_state_for_user, log_user_action
 from ..translations import get_strings
 from .twofa import get_2fa_config
 
@@ -293,6 +293,7 @@ def user_profile(request):
         'joined_date': joined_date,     # If used
         'last_login_date': last_login_date, # If used
         'role': 'Admin' if request.user.is_staff else 'User',
+        'current_user_management_tier': get_user_management_tier_state_for_user(request.user),
         'config_2fa': get_2fa_config(), # Inject 2FA availability
         'active_sessions': _profile_sessions_for_user(
             request.user,

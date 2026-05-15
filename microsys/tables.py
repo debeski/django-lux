@@ -5,9 +5,11 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
 from .constants import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS
 from .translations import get_strings
+from .utils import get_user_management_tier_state_for_user
 
 User = get_user_model()
 
@@ -98,7 +100,7 @@ class UserTable(MicrosysTable):
         accessor='profile.full_name',
         order_by='first_name'
     )
-    is_staff = tables.BooleanColumn(verbose_name="Staff")
+    staff_tier = tables.Column(verbose_name=get_strings().get('tbl_staff_tier', 'Staff Tier'), empty_values=())
     is_active = tables.BooleanColumn(verbose_name="Active")
     last_login = tables.DateColumn(
         format="H:i Y-m-d ",
@@ -107,7 +109,7 @@ class UserTable(MicrosysTable):
 
     class Meta(MicrosysTable.Meta):
         model = User
-        fields = ("username", "phone", "email", "full_name", "scope", "is_staff", "is_active", "last_login")
+        fields = ("username", "phone", "email", "full_name", "scope", "staff_tier", "is_active", "last_login")
         row_attrs = {
             "data-micro-context": "true",
             "data-micro-actions": lambda record: json.dumps(_build_user_row_actions(record))
@@ -126,6 +128,25 @@ class UserTable(MicrosysTable):
                 s.get('account_source_public', 'Public signup'),
             )
         return value
+
+    def render_staff_tier(self, record):
+        tier = get_user_management_tier_state_for_user(record)
+        badges = [
+            format_html(
+                '<span class="badge ms-staff-tier-badge ms-staff-tier-badge--{}"><i class="bi {} me-1"></i>{}</span>',
+                tier['tier_key'],
+                tier['icon'],
+                tier['title'],
+            )
+        ]
+        if tier.get('can_delegate_staff'):
+            badges.append(
+                format_html(
+                    '<span class="badge ms-staff-tier-badge ms-staff-tier-badge--delegate ms-1">{}</span>',
+                    tier['delegation_badge_label'],
+                )
+            )
+        return mark_safe(''.join(str(badge) for badge in badges))
 
 
 class UserActivityLogTable(MicrosysTable):

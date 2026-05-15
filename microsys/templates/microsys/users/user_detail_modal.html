@@ -43,13 +43,11 @@
             <div class="mb-3">
                 <div class="info-label">{{ MS_TRANS.role_type|default:"Role" }}</div>
                 <div class="info-value">
-                    {% if target_user.is_superuser %}
-                        <span class="badge bg-danger"><i class="bi bi-stars me-1"></i> {{ MS_TRANS.role_superuser|default:"Superuser" }}</span>
-                    {% elif target_user.is_staff %}
-                        <span class="badge bg-primary"><i class="bi bi-shield-lock me-1"></i> {{ MS_TRANS.role_staff|default:"Staff" }}</span>
-                    {% else %}
-                        <span class="badge bg-secondary"><i class="bi bi-person me-1"></i> {{ MS_TRANS.role_user|default:"User" }}</span>
+                    <span class="badge {{ target_user_management_tier.badge_classes }}"><i class="bi {{ target_user_management_tier.icon }} me-1"></i> {{ target_user_management_tier.title }}</span>
+                    {% if target_user_management_tier.can_delegate_staff %}
+                        <span class="badge bg-light text-primary border ms-1">{{ target_user_management_tier.delegation_badge_label }}</span>
                     {% endif %}
+                    <div class="small text-muted mt-1">{{ target_user_management_tier.description }}</div>
                 </div>
             </div>
             <div class="mb-3">

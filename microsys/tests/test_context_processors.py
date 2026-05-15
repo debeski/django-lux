@@ -140,6 +140,16 @@ class ContextProcessorsTests(TestCase):
         
         self.assertEqual(context['user'], self.user)
 
+    def test_microsys_context_includes_current_user_management_tier(self):
+        request = self.factory.get('/')
+        self.user.is_staff = True
+        self.user.save(update_fields=['is_staff'])
+        request.user = self.user
+
+        context = microsys_context(request)
+
+        self.assertEqual(context['current_user_management_tier']['tier_key'], 'central_staff')
+
     def test_microsys_context_with_anonymous_user(self):
         """Test microsys_context with anonymous user."""
         from django.contrib.auth.models import AnonymousUser

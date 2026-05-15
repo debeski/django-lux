@@ -52,6 +52,8 @@ import json
 
 import django_tables2 as tables
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.template import Context, Template
 from django.test import RequestFactory, TestCase
 
@@ -145,6 +147,17 @@ class TableRenderingTests(TestCase):
             for index in range(1, 31)
         ]
         User.objects.bulk_create(extra_users)
+        cls.global_staff = User.objects.create_user(
+            username='tableglobal',
+            email='tableglobal@example.com',
+            password='tablepass123',
+            is_staff=True,
+        )
+        profile_type = ContentType.objects.get(app_label='microsys', model='profile')
+        cls.global_staff.user_permissions.add(
+            Permission.objects.get(content_type=profile_type, codename='manage_scopes'),
+            Permission.objects.get(content_type=profile_type, codename='manage_staff'),
+        )
 
     def setUp(self):
         self.factory = RequestFactory()
@@ -220,6 +233,17 @@ class TableRenderingTests(TestCase):
         html = template.render(Context({'table': table, 'request': request}))
 
         self.assertIn('?page=3&amp;sort=-username', html)
+
+    def test_user_table_renders_staff_tier_badges(self):
+        table = UserTable(User.objects.filter(pk=self.global_staff.pk), request=self._request())
+        html = Template('{% load django_tables2 %}{% render_table table %}').render(
+            Context({'table': table, 'request': self._request()})
+        )
+
+        self.assertIn('Global Staff', html)
+        self.assertIn('Can Assign Staff Roles', html)
+        self.assertIn('ms-staff-tier-badge--global_staff', html)
+        self.assertIn('ms-staff-tier-badge--delegate', html)
 
     def test_rendered_table_outputs_per_page_options_and_resets_page(self):
         request = self._request('page=3&sort=username')

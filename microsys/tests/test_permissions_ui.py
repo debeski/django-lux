@@ -53,7 +53,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.template import Context, Template
 from django.test import TestCase
 
-from microsys.forms import CustomUserPermissionsForm
+from microsys.forms import CustomUserCreationForm, CustomUserPermissionsForm
 from microsys.models import Profile
 from microsys.models import SystemSettings
 
@@ -144,3 +144,33 @@ class PermissionsUiTests(TestCase):
         microsys_groups = context['widget']['grouped_perms']['microsys']['models']
 
         self.assertEqual(microsys_groups['profile']['name'], 'Users')
+
+    def test_creation_form_renders_staff_tier_preview(self):
+        form = CustomUserCreationForm(user=self.user)
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('ms-staff-tier-preview', html)
+        self.assertIn('Staff Tier Preview', html)
+        self.assertIn('data-codename="manage_scopes"', html)
+        self.assertIn('data-codename="manage_staff"', html)
+        self.assertIn('Staff Tier &amp; Access', html)
+
+    def test_permissions_form_preview_uses_target_tier_state(self):
+        profile_type = ContentType.objects.get_for_model(Profile)
+        manage_scopes = Permission.objects.get(content_type=profile_type, codename='manage_scopes')
+        manage_staff = Permission.objects.get(content_type=profile_type, codename='manage_staff')
+        target = User.objects.create_user(
+            username='globalstaff',
+            email='globalstaff@example.com',
+            password='globalstaffpass123',
+            is_staff=True,
+        )
+        target.user_permissions.add(manage_scopes, manage_staff)
+
+        form = CustomUserPermissionsForm(instance=target, user=self.user)
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('ms-staff-tier-preview', html)
+        self.assertIn('Global Staff', html)
+        self.assertIn('Can Assign Staff Roles', html)

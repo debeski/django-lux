@@ -2,13 +2,13 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Verified on `2026-05-14`.
+- Verified on `2026-05-15`.
 - Package/version state:
   - `microsys/VERSION` is `2.1.5`.
   - `CHANGELOG.md` now contains the stable `v2.1.5` patch release entry with the major asset and template cleanup history.
   - Root URL hijacking simplified: removed `_is_root_mounted_microsys` introspection; now uses 404-based detection — if `/` returns 404, redirect to `home_url`; if dev has a view at `/`, stay out of the way.
   - Built distributions now exclude `microsys.tests`, `__pycache__`, and compiled Python cache artifacts from both `wheel` and `sdist`.
-- Current verified implementation state:
+  - Current verified implementation state:
   - Pre-setup middleware now guards all non-allowlisted host-app URLs, including a host project's own `/`, and its allowlist follows both root-mounted and prefix-mounted Microsys routes: anonymous users are redirected to `login`, authenticated superusers to `system_setup`, and authenticated non-superusers are logged out then redirected to `login`.
   - Login 2FA uses one challenge input for authenticator codes, requested email OTPs, and backup codes; TOTP secrets are encrypted at rest and OTP actions are throttled.
   - Profile TOTP setup now uses the stable `pyotp.TOTP(...)` path, falls back to username if email is blank, persists TOTP state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, and returns sanitized JSON on provisioning/QR generation or secret-persistence failures instead of raw 500 HTML errors.
@@ -40,6 +40,7 @@
   - Shared modal wizard button navigation now removes/applies Bootstrap `d-none` plus inline `display`/`aria-hidden` on Prev/Next/Submit controls, so the user-create modal keeps its action row working on step 2 after the helper-wide button-state regression.
   - Legacy full-page user create/edit/detail views were removed; routed user management is modal-only, and the obsolete `microsys/templates/microsys/users/user_form.html` fallback template is gone.
   - Shared selector toggle-card grids now have vertical padding in `microsys/static/microsys/main/css/selectors.css`, and the selectors asset version was bumped for browser pickup.
+  - Shared Bootstrap-style primary badges now get explicit white foreground text from `microsys/static/microsys/main/css/main.css`, and the shared `main.css` include in `base.html` is versioned as `20260515a` so light-theme badge contrast fixes propagate instead of sticking behind browser cache.
   - Options use shared external assets in `microsys/static/microsys/main/css/options.css` and `microsys/static/microsys/main/js/options.js`; cards are draggable, order persists, System Info keeps double-card placement, related switches have explicit ids/names/labels, and drag handles use in-flow grip controls to avoid title/icon overlap.
   - Options drag placement uses RTL-aware inline start/end gap indicators rendered from `.ms-options-card`, avoiding clipped markers inside `.ms-options-panel`.
   - Setup/editor template accessibility pass:
@@ -49,6 +50,15 @@
   - The unauthenticated titlebar login trigger now shares the same base shape/hover treatment as `ms-titlebar-home`, and the `dark` / `gothic` / `retro` / `neon` theme overrides now target the live `.ms-login-round` selector instead of only the authenticated home button path.
   - Template/rendered-HTML asset policy cleanup is enforced in code: no inline `<style>`, executable inline `<script>`, or inline `style=` remains in the verified template/form/widget paths, and theme preview swatches use slug-based CSS classes.
   - User permission assignment UI now excludes scaffold infra app labels such as `db` / `health_check`, skips orphaned permissions whose `ContentType.model_class()` no longer resolves, groups `manage_scopes` with `manage_staff` plus the synthetic `is_staff` toggle under the dedicated staff-access card, and labels any remaining `Profile`-backed permission group with `model_user` (`Users`) instead of `model_profile` (`User Profile`).
+  - The three-tier staff-management UI is restored from stash in a targeted way only:
+    - `microsys.utils` now exposes presentation-only helpers `get_user_management_tier_state(...)` and `get_user_management_tier_state_for_user(...)`.
+    - permissions create/edit forms render a live staff-tier preview with scope-aware warnings and `data-codename` hooks for `manage_scopes` / `manage_staff`.
+    - profile, user hub, user detail modal, and the manage-users table now show consistent derived tier badges/descriptions, including the delegation badge for `manage_staff`.
+    - the manage-users tutorial points at the live modal add-user trigger (`button[data-dynamic-modal]`) instead of the removed full-page create-user link.
+  - Permission-step staff-tier preview styling is now self-contained for theme contrast:
+    - the preview card uses explicit dark-surface overrides for `dark` / `gothic` / `neon` / `retro` even when those modes do not rely on `data-bs-theme="dark"`,
+    - the tier badges inside the preview no longer rely on ambient theme `bg-primary` contrast, so `Global Staff` stays readable in the light-based themes.
+  - Manage-users table staff-tier badges now use dedicated table-scoped badge classes in `tables.css` instead of raw Bootstrap `bg-*` tier classes, so Global Staff stays readable in the light-based themes there too.
   - Sidebar/titlebar runtime controls, split-step Options System Settings modals, scope-aware generated CRUD scaffolds, and MSRP-1 authorization hardening are implemented in code.
 
 ### Current Project Adopted Standards:
@@ -145,6 +155,12 @@
     - [ ] signed-in device list and revocation UX
     - [ ] unauthenticated titlebar login trigger in dark/gothic/retro/neon with circle/square/squircle titlebar shapes
     - [ ] light/dark/mono/neon/gothic/retro contrast for secondary buttons
+  - [ ] Browser-check the restored staff-tier UI surfaces in a mounted app:
+    - [ ] create-user permissions step live preview
+    - [ ] edit-permissions preview for scoped, central, and global staff
+    - [ ] profile badge/description rendering
+    - [ ] user detail modal badge/description rendering
+    - [ ] manage-users table staff-tier badge column and tutorial selector target
   - [ ] Review translation coverage for UI labels/messages that were called out by the user and are not yet re-verified in browser/runtime:
     - [ ] signed-in devices card
     - [ ] 2FA enable button in profile
@@ -155,7 +171,16 @@
   - [ ] Validate generated Docker/Celery/health-check baseline in a live boot.
   - [ ] Run full provider OIDC validation after installing `django-oauth-toolkit[oidc]`.
   - [ ] Run full client OIDC validation after installing `mozilla-django-oidc`.
+  - [ ] Plan the unrelated stash refactor as a separate batch before touching it:
+    - [ ] strict password validation and force-2FA-first-login settings
+    - [ ] nested `branding/localization/appearance/navigation/authentication/registration/email/assets` config model
+    - [ ] setup import/export shape migration
+    - [ ] registration branding lookup migration
 - Completed Recently:
+  - [x] Fixed the shared Bootstrap-style primary badge contrast path by adding an explicit readable foreground to primary badges in `main.css` and versioning the shared stylesheet include in `base.html`.
+  - [x] Fixed manage-users table staff-tier badge contrast by replacing the table renderer’s raw Bootstrap tier badges with dedicated table-scoped staff-tier badge classes.
+  - [x] Fixed permission-step staff-tier preview contrast so Global Staff badges stay readable in light/blue/red/gold/green/mono and the preview panel no longer stays light in dark/gothic/neon/retro.
+  - [x] Restored the stashed three-tier staff-management UI without reviving the unrelated auth/config refactor: shared tier helper, live permissions preview, tier badges in profile/user hub/user detail/table, and the modal add-user tutorial selector fix.
   - [x] Removed setup preview step-index restoration so a reload no longer auto-jumps back to the translations step; non-file wizard values still rehydrate after the reload.
   - [x] Fixed the Step 2 default-language setup preview regression by restoring reload-based language switching after persisting wizard state, so labels/help text change with the selected preview language without wiping previously entered non-file values.
   - [x] Fixed the first-launch setup guard so non-Microsys app URLs, including host-project `/` routes, are blocked before configuration is complete, and added middleware/default-route regressions for anonymous, superuser, and non-superuser redirects.
@@ -173,7 +198,7 @@
   - [x] Removed obsolete unrouted full-page user create/edit/detail views, their stale exports, the dead `user_form.html` template.
 
 ### One-line info about last verified Tests:
-- `2026-05-14`: Django `DiscoverRunner` suite passed: `microsys.tests.test_defaults_and_urls` (`63` tests) after removing setup preview step auto-return while keeping reload-based default-language text refresh; earlier middleware suite passed (`25` tests).
+- `2026-05-15`: After the shared primary-badge contrast fix and `main.css` cache-bust update, Django `DiscoverRunner` reran `test_defaults_and_urls` (`68` tests) and passed; earlier same-day reruns also passed for `test_tables` (`20` tests), `test_permissions_ui` (`6` tests), `test_utils` + `test_context_processors` + `test_tables` (`99` tests), and `test_views` (`85` tests).
 
 ### One-line info about last time edited Docs:
 - `2026-05-13`: `CHANGELOG.md` gained a new `v2.1.6` entry, and `docs/README.md`, `docs/FEATURES.md`, `docs/admin-guide.md`, and `docs/security-msrp-1.md` were updated for the Step 3 home/public-root split, focused System Settings modal entrypoints, and CSP-safe dynamic-modal asset loading.
@@ -212,6 +237,7 @@
 ### Agent Handoff Rules:
 - Re-read this tracker at the start of every turn and update it after meaningful project-state changes.
 - The user explicitly corrected earlier assumptions about local testing: they mount this repo over the target app, so do not assume they are running only the packaged PyPI release when they say the local checkout is active.
+- The combined `test_views` + `test_defaults_and_urls` mega-run showed order-sensitive unrelated redirect failures on `2026-05-15`; the isolated reruns of those modules passed, so re-check them separately before attributing future failures to the staff-tier restore.
 - The first-launch Step 2 to Step 5 empty-state bug was caused by the shared wizard helper leaving Bootstrap `d-none` on later steps; if setup navigation regresses again, inspect `microsys/static/microsys/helpers/wizard/js/main.js` before changing form markup.
 - If an unconfigured install can still hit host-project URLs, inspect `microsys/middleware.py` first: the pre-setup gate is expected to block all non-allowlisted requests, including a host project's own `/` route, and its allowlist must stay aligned with both root-mounted and prefix-mounted Microsys URLs.
 - If shared setup toggle labels start stacking vertically again, inspect `microsys/static/microsys/main/css/system_setup.css` before replacing the toggle renderer; `overflow-wrap: anywhere` was too aggressive for narrow Step 3 email cards.

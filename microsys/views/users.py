@@ -17,11 +17,12 @@ from django_tables2 import SingleTableView
 from django.views.generic.detail import DetailView
 
 # Project imports
-from ..constants import DEFAULT_HOME_URL, DEFAULT_TABLE_PAGE_SIZE
+from ..constants import DEFAULT_HOME_URL
 from ..forms import MicrosysAuthenticationForm
 from ..utils import (
     can_manage_target_user,
     exclude_global_staff_users,
+    get_user_management_tier_state_for_user,
     get_user_scope,
     is_central_staff,
     is_global_staff,
@@ -109,7 +110,11 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
     table_class = import_string('microsys.tables.UserTable')
     filterset_class = import_string('microsys.filters.UserFilter')  # Set the filter class to apply filtering
     template_name = "microsys/users/manage_users.html"
-    paginate_by = DEFAULT_TABLE_PAGE_SIZE
+
+    def get_paginate_by(self, queryset):
+        # Let django-tables2 own pagination. Applying ListView pagination here
+        # causes the table to paginate an already-sliced page subset.
+        return None
     
     def test_func(self):
         return user_can_view_user_directory(self.request.user)
@@ -298,4 +303,5 @@ class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
             recent_logs = UserActivityLog._default_manager.filter(created_by=user).order_by('-created_at')[:10]
         context['can_view_activity_logs'] = can_view_activity_logs
         context['recent_logs'] = recent_logs
+        context['target_user_management_tier'] = get_user_management_tier_state_for_user(user)
         return context

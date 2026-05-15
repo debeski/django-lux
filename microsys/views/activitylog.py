@@ -9,7 +9,6 @@ from django_tables2 import SingleTableView
 from django_filters.views import FilterView
 
 # Project imports
-from ..constants import DEFAULT_TABLE_PAGE_SIZE
 from ..utils import get_user_scope, is_scope_enabled, user_can_view_activity_log
 from ..translations import get_strings
 
@@ -20,7 +19,13 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
     table_class = import_string('microsys.tables.UserActivityLogTable')
     filterset_class = import_string('microsys.filters.UserActivityLogFilter')
     template_name = "microsys/activitylog/activity_log.html"
-    paginate_by = DEFAULT_TABLE_PAGE_SIZE
+
+    def get_paginate_by(self, queryset):
+        # Let django-tables2 own pagination. FilterView/ListView pagination here
+        # would slice object_list first, then the table would try to paginate the
+        # sliced subset again, which breaks page > 1 when per_page is smaller
+        # than the full result count.
+        return None
 
     def test_func(self):
         return user_can_view_activity_log(self.request.user)

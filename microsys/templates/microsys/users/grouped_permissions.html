@@ -3,6 +3,23 @@
 {% with id=widget.attrs.id %}
 <div class="grouped-permissions-widget" id="{{ id }}_container">
     <link rel="stylesheet" href="{% static 'microsys/users/css/permissions.css' %}">
+
+    {% if widget.staff_tier_preview %}
+    <div class="ms-staff-tier-preview mb-3"
+         data-tier-preview-config="{{ widget.staff_tier_preview.config_json|escape }}">
+        <div class="ms-staff-tier-preview__header">
+            <div>
+                <div class="ms-staff-tier-preview__eyebrow">{{ MS_TRANS.staff_tier_preview|default:"Staff Tier Preview" }}</div>
+                <h5 class="ms-staff-tier-preview__title mb-1"></h5>
+                <p class="ms-staff-tier-preview__description mb-0"></p>
+                <p class="small text-muted mt-2 mb-0">{{ MS_TRANS.staff_tier_preview_caption|default:"Read-only summary based on staff access, scope, and selected permissions." }}</p>
+            </div>
+            <div class="ms-staff-tier-preview__badges"></div>
+        </div>
+        <ul class="ms-staff-tier-preview__capabilities mb-0"></ul>
+        <div class="ms-staff-tier-preview__warnings"></div>
+    </div>
+    {% endif %}
     
     <div class="detailed-list mt-3">
         {% for app_label, app_data in widget.grouped_perms.items %}
@@ -52,6 +69,7 @@
                                                    id="{{ option.attrs.id }}"
                                                    data-action="{{ option.attrs.data_action }}"
                                                    data-model="{{ option.attrs.data_model }}"
+                                                   data-codename="{{ option.attrs.data_codename }}"
                                                    {% if option.attrs.disabled %}disabled{% endif %}
                                                    {% if option.selected %}checked{% endif %}>
                                             <label class="form-check-label small" for="{{ option.attrs.id }}">

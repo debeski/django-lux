@@ -3,6 +3,7 @@ from urllib.parse import urlsplit
 from .constants import DEFAULT_TABLE_DENSITY, TABLE_DENSITY_CHOICES, TABLE_DENSITY_VALUES
 from .utils import (
     get_effective_allowed_themes,
+    get_user_management_tier_state_for_user,
     has_section_models,
     is_scope_enabled,
     normalize_sidebar_behavior,
@@ -232,6 +233,7 @@ def microsys_context(request):
     context['can_view_user_directory'] = user_can_view_user_directory(request.user)
     context['can_view_activity_log'] = user_can_view_activity_log(request.user)
     context['can_view_sections'] = user_has_section_view_permission(request.user)
+    context['current_user_management_tier'] = get_user_management_tier_state_for_user(request.user)
 
     # 3. User Preferences (for JS injection & server-side logic)
     user_prefs = {}

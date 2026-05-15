@@ -754,6 +754,182 @@ def is_central_staff(user):
     return not user.has_perm('microsys.manage_scopes')
 
 
+def _normalize_permission_codename_set(permission_codenames):
+    normalized = set()
+    for permission in permission_codenames or []:
+        value = str(permission or '').strip()
+        if not value:
+            continue
+        normalized.add(value)
+        if '.' in value:
+            normalized.add(value.rsplit('.', 1)[-1])
+    return normalized
+
+
+def get_user_management_tier_state(
+    *,
+    is_superuser,
+    is_staff,
+    scope,
+    permission_codenames,
+):
+    """
+    Classify the current user-management tier without changing authorization rules.
+
+    The returned payload is intentionally UI-friendly so forms, tables, and templates
+    can present the same tier language consistently.
+    """
+    s = get_strings()
+    normalized_permissions = _normalize_permission_codename_set(permission_codenames)
+    has_scope = scope is not None
+    scope_label = getattr(scope, 'name', '') if has_scope else ''
+    has_manage_scopes = 'manage_scopes' in normalized_permissions
+    has_manage_staff = 'manage_staff' in normalized_permissions
+
+    tier_catalog = {
+        'regular_user': {
+            'title': s.get('tier_regular_user', 'Standard User'),
+            'description': s.get(
+                'tier_desc_regular_user',
+                'No staff user-management access is enabled for this account.',
+            ),
+            'badge_classes': 'bg-secondary',
+            'icon': 'bi-person',
+            'capabilities': [
+                s.get('tier_cap_regular_1', 'No staff access to the user directory.'),
+                s.get('tier_cap_regular_2', 'Can use normal account features only.'),
+                s.get('tier_cap_regular_3', 'Staff-related permissions stay inactive until staff access is enabled.'),
+            ],
+        },
+        'superuser': {
+            'title': s.get('tier_superuser', 'Superuser'),
+            'description': s.get(
+                'tier_desc_superuser',
+                'Full system administration access without scope or permission limits.',
+            ),
+            'badge_classes': 'bg-danger',
+            'icon': 'bi-stars',
+            'capabilities': [
+                s.get('tier_cap_superuser_1', 'Can view and manage all users and scopes.'),
+                s.get('tier_cap_superuser_2', 'Can assign any staff tier or permission.'),
+                s.get('tier_cap_superuser_3', 'Can access full system administration features.'),
+            ],
+        },
+        'global_staff': {
+            'title': s.get('tier_global_staff', 'Global Staff'),
+            'description': s.get(
+                'tier_desc_global_staff',
+                'Staff access across all scopes, including scope management.',
+            ),
+            'badge_classes': 'bg-primary',
+            'icon': 'bi-globe2',
+            'capabilities': [
+                s.get('tier_cap_global_1', 'Can view and manage users across all scopes.'),
+                s.get('tier_cap_global_2', 'Can create and manage scopes.'),
+                s.get('tier_cap_global_3', 'Can assign users to any scope or leave them scopeless.'),
+            ],
+        },
+        'central_staff': {
+            'title': s.get('tier_central_staff', 'Central Staff'),
+            'description': s.get(
+                'tier_desc_central_staff',
+                'Staff access limited to scopeless users in the core system.',
+            ),
+            'badge_classes': 'bg-info text-dark',
+            'icon': 'bi-building',
+            'capabilities': [
+                s.get('tier_cap_central_1', 'Can manage scopeless users only.'),
+                s.get('tier_cap_central_2', 'Cannot view scoped users or their data.'),
+                s.get('tier_cap_central_3', 'Cannot assign scopes or manage scopes.'),
+            ],
+        },
+        'scoped_staff': {
+            'title': s.get('tier_scoped_staff', 'Scoped Staff'),
+            'description': s.get(
+                'tier_desc_scoped_staff',
+                'Staff access is limited to the assigned scope.',
+            ),
+            'badge_classes': 'bg-warning text-dark',
+            'icon': 'bi-diagram-2',
+            'capabilities': [
+                s.get('tier_cap_scoped_1', 'Can manage users inside the assigned scope only.'),
+                s.get('tier_cap_scoped_2', 'Cannot access users outside the assigned scope.'),
+                s.get('tier_cap_scoped_3', 'Scope assignment controls visibility and user-management actions.'),
+            ],
+        },
+    }
+
+    warning_catalog = {
+        'needs_staff': {
+            'key': 'needs_staff',
+            'message': s.get(
+                'tier_warning_needs_staff',
+                'Staff-related permissions are selected, but staff access is not enabled yet.',
+            ),
+        },
+        'scoped_manage_scopes_conflict': {
+            'key': 'scoped_manage_scopes_conflict',
+            'message': s.get(
+                'tier_warning_scoped_manage_scopes',
+                'Global Staff access is ineffective while a scope is assigned.',
+            ),
+        },
+    }
+
+    if is_superuser:
+        tier_key = 'superuser'
+    elif not is_staff:
+        tier_key = 'regular_user'
+    elif has_scope:
+        tier_key = 'scoped_staff'
+    elif has_manage_scopes:
+        tier_key = 'global_staff'
+    else:
+        tier_key = 'central_staff'
+
+    warnings = []
+    if not is_staff and (has_manage_scopes or has_manage_staff):
+        warnings.append(warning_catalog['needs_staff'])
+    if is_staff and has_scope and has_manage_scopes:
+        warnings.append(warning_catalog['scoped_manage_scopes_conflict'])
+
+    tier_state = dict(tier_catalog[tier_key])
+    tier_state.update({
+        'tier_key': tier_key,
+        'scope_label': scope_label,
+        'has_scope': has_scope,
+        'has_manage_scopes': has_manage_scopes,
+        'has_manage_staff': has_manage_staff,
+        'can_delegate_staff': bool(is_staff and has_manage_staff),
+        'delegation_badge_label': s.get('tier_delegate_badge', 'Can Assign Staff Roles'),
+        'warnings': warnings,
+    })
+    return tier_state
+
+
+def get_user_management_tier_state_for_user(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return get_user_management_tier_state(
+            is_superuser=False,
+            is_staff=False,
+            scope=None,
+            permission_codenames=set(),
+        )
+
+    permission_codenames = set()
+    try:
+        permission_codenames = user.get_all_permissions()
+    except Exception:
+        permission_codenames = set()
+
+    return get_user_management_tier_state(
+        is_superuser=bool(getattr(user, 'is_superuser', False)),
+        is_staff=bool(getattr(user, 'is_staff', False)),
+        scope=get_user_scope(user),
+        permission_codenames=permission_codenames,
+    )
+
+
 def user_can_view_user_directory(user):
     """
     The full user-management surfaces stay staff-only.
