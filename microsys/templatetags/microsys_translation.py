@@ -5,7 +5,11 @@ from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 
 from microsys.translations import get_strings
-from microsys.utils import SENSITIVE_ACTIVITY_MASK, is_sensitive_activity_field_name
+from microsys.utils import (
+    SENSITIVE_ACTIVITY_MASK,
+    is_sensitive_activity_field_name,
+    translate_activity_log_model_name,
+)
 
 register = template.Library()
 
@@ -24,7 +28,10 @@ def translate_log(value, prefix=''):
     request = get_current_request()
     ms_trans = get_strings()
         
-    # Construct key: e.g. 'action_login', 'model_user'
+    if prefix == 'model':
+        return translate_activity_log_model_name(value, strings=ms_trans)
+
+    # Construct key: e.g. 'action_login'
     key = f"{prefix}_{str(value).lower()}" if prefix else str(value).lower()
     
     # Look up

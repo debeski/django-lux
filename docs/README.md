@@ -36,8 +36,8 @@ Use the sections below based on what you are trying to do.
 
 ## Current Major Capabilities
 
-- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, a global home URL, an optional separate anonymous public-root destination, and sidebar behavior controls.
-- A full internal-operations UI including user management, profiles, grouped permissions, activity logs, scopes, sections, draggable Options cards, and built-in two-factor authentication flows.
+- Runtime system configuration with a first-launch wizard, live System Settings editing, translation overrides, theme defaults, language defaults, a global home URL, an optional separate anonymous public-root destination, centralized Client IP resolution configuration, and sidebar behavior controls.
+- A full internal-operations UI including user management, profiles, grouped permissions, activity logs, scopes, sections, draggable Options cards, built-in two-factor authentication flows, and 30-day trusted device management.
 - A disabled-by-default public registration playground with mandatory email verification, SMTP readiness checks, throttles, honeypot protection, and optional superuser approval.
 - A resolver-driven sidebar system with discovered app pages, permission-based item visibility, structured groups, runtime tree rendering, optional user-level reordering layered on top of the system default, and a configurable runtime toolbar.
 - A shared theme registry that keeps theme validation, ordering, previews, and CSS inclusion aligned across setup, options, and the live runtime UI.

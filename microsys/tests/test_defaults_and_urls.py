@@ -993,6 +993,14 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%)', contents)
         self.assertIn('.ms-staff-tier-badge--delegate {', contents)
 
+    def test_user_detail_modal_uses_shared_staff_tier_badge_classes(self):
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'users' / 'user_detail_modal.html'
+        contents = template_path.read_text(encoding='utf-8')
+
+        self.assertIn('ms-staff-tier-badge--{{ target_user_management_tier.tier_key }}', contents)
+        self.assertIn('ms-staff-tier-badge--delegate', contents)
+        self.assertNotIn('badge {{ target_user_management_tier.badge_classes }}', contents)
+
     def test_main_css_forces_readable_primary_badge_text(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'main.css'
         contents = stylesheet.read_text(encoding='utf-8')
@@ -1122,19 +1130,43 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         script = script_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/users/css/login.css", contents)
-        self.assertIn("?v=20260515d", contents)
+        self.assertIn("?v=20260515e", contents)
         self.assertIn("microsys/users/js/twofa_verify.js", contents)
-        self.assertIn("?v=20260515d", contents)
+        self.assertIn("?v=20260515e", contents)
         self.assertIn('id="usePrimaryMethodBtn"', contents)
         self.assertIn('name="trust_device"', contents)
         self.assertIn('ms-twofa-login-state', contents)
+        self.assertIn('MS_TRANS.2fa_trust_device_label', contents)
+        self.assertIn('MS_TRANS.login_logo_alt', contents)
+        self.assertNotIn('2fa_backup_instruction|default', contents)
+        self.assertNotIn('2fa_email_request_instruction|default', contents)
+        self.assertNotIn('2fa_send_email_code|default', contents)
+        self.assertNotIn('2fa_return_to_default|default', contents)
         self.assertIn('form.requestSubmit', script)
         self.assertIn('updateModeActions', script)
         self.assertIn('inputEl.readOnly = disabled;', script)
         self.assertNotIn('inputEl.disabled = disabled;', script)
         self.assertIn("new URLSearchParams({ method: 'email' })", script)
+        self.assertNotIn('Return to default method', script)
+        self.assertNotIn('Unable to send code', script)
         self.assertIn('.ms-twofa-inline-alert', stylesheet)
         self.assertIn('.ms-twofa-trust-field', stylesheet)
+
+    def test_recent_2fa_and_client_ip_surfaces_do_not_use_hardcoded_translation_fallbacks(self):
+        project_root = Path(__file__).resolve().parents[1]
+        forms_contents = (project_root / 'forms.py').read_text(encoding='utf-8')
+        profile_contents = (project_root / 'templates' / 'microsys' / 'users' / 'profile.html').read_text(encoding='utf-8')
+        translation_contents = (project_root / 'translations.py').read_text(encoding='utf-8')
+
+        self.assertNotIn("s.get('form_sys_client_ip_mode', 'Client IP source')", forms_contents)
+        self.assertNotIn("s.get('client_ip_settings_title', 'Client IP Resolution')", forms_contents)
+        self.assertNotIn("s.get('client_ip_settings_desc', 'Microsys uses this setting", forms_contents)
+        self.assertNotIn('MS_TRANS.trusted_device_badge|default', profile_contents)
+        self.assertNotIn('MS_TRANS.trusted_until|default', profile_contents)
+        self.assertIn("'form_sys_client_ip_mode':", translation_contents)
+        self.assertIn("'client_ip_settings_title':", translation_contents)
+        self.assertIn("'2fa_trust_device_label':", translation_contents)
+        self.assertIn("'trusted_device_badge':", translation_contents)
 
     def test_dynamic_modal_template_uses_nonce_on_external_loader(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'helpers' / 'dynamic_modal.html'

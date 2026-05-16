@@ -268,10 +268,11 @@ def _trusted_device_token_hash(raw_token):
 
 
 def _device_label(user_agent):
+    s = get_strings()
     user_agent = str(user_agent or '').strip()
     lowered = user_agent.lower()
     if not user_agent:
-        return 'Unknown device'
+        return s.get('device_unknown')
     if 'edg/' in lowered or 'edge/' in lowered:
         browser = 'Edge'
     elif 'firefox/' in lowered:
@@ -293,8 +294,8 @@ def _device_label(user_agent):
     elif 'linux' in lowered:
         platform = 'Linux'
     else:
-        platform = 'device'
-    return f'{browser} on {platform}'
+        platform = s.get('device_platform_generic')
+    return s.get('device_label_pattern').format(browser=browser, platform=platform)
 
 
 def _sync_session_device_metadata(request, trusted_device=None):
@@ -431,6 +432,7 @@ def _issue_trusted_device(request, response, user):
 
 
 def _build_login_challenge_state(request, user):
+    s = get_strings()
     profile = user.profile
     session = request.session
     current_method = str(session.get(PRE_2FA_METHOD_SESSION_KEY) or _default_login_method(profile)).strip() or 'email'
@@ -451,7 +453,7 @@ def _build_login_challenge_state(request, user):
         'email_auto_sent': bool(session.get(PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY)),
         'email_resend_cooldown_seconds': _otp_cooldown_remaining(user, 'login'),
         'code_length': code_length,
-        'trust_device_label': 'Trust this device for 30 days',
+        'trust_device_label': s.get('2fa_trust_device_label'),
         'verify_url': reverse('verify_otp_login'),
         'resend_url': reverse('resend_otp_login'),
     }
@@ -486,8 +488,8 @@ def send_otp(request, user, intent='login', recipient_email=None):
 
     s = get_strings()
     subject_key = '2fa_login_email_subject' if intent == 'login' else '2fa_setup_email_subject'
-    subject = s.get(subject_key, 'Authentication Code')
-    body = s.get('2fa_email_body', 'Your code is {code}').format(code=code)
+    subject = s.get(subject_key)
+    body = s.get('2fa_email_body').format(code=code)
 
     try:
         send_microsys_mail(
@@ -572,7 +574,7 @@ def verify_otp_view(request, intent='login'):
     else:
         if not request.user.is_authenticated:
             if is_ajax:
-                return JsonResponse({'status': 'error', 'message': 'Not authenticated'}, status=403)
+                return JsonResponse({'status': 'error', 'message': s.get('err_not_authenticated')}, status=403)
             return redirect('login')
         user = request.user
 
@@ -588,7 +590,7 @@ def verify_otp_view(request, intent='login'):
             intent = posted_intent
 
         if _twofa_ip_limited('verify', request, intent):
-            error_msg = s.get('2fa_invalid_code', 'Invalid Code')
+            error_msg = s.get('2fa_invalid_code')
             if is_ajax:
                 return JsonResponse({'status': 'error', 'message': error_msg}, status=429)
             error_message = error_msg
@@ -642,7 +644,7 @@ def verify_otp_view(request, intent='login'):
                     try:
                         validate_email(pending_email)
                     except ValidationError:
-                        return JsonResponse({'status': 'error', 'message': s.get('2fa_invalid_email', 'Enter a valid email address.')}, status=400)
+                        return JsonResponse({'status': 'error', 'message': s.get('2fa_invalid_email')}, status=400)
                     if user.email != pending_email:
                         user.email = pending_email
                         user.save(update_fields=['email'])
@@ -671,10 +673,10 @@ def verify_otp_view(request, intent='login'):
             if is_ajax:
                 return JsonResponse(response_data)
 
-            messages.success(request, s.get('2fa_enabled_msg', '2FA Enabled'))
+            messages.success(request, s.get('2fa_enabled_msg'))
             return redirect('user_profile')
 
-        error_msg = s.get(error_key, 'Invalid Code')
+        error_msg = s.get(error_key)
         _record_twofa_ip_event('verify', request, intent)
         if is_ajax:
             return JsonResponse({'status': 'error', 'message': error_msg})
@@ -695,7 +697,7 @@ def verify_otp_view(request, intent='login'):
 def setup_totp(request):
     """Generates secret and QR code."""
     if not pyotp or not qrcode:
-        return JsonResponse({'status': 'error', 'message': 'TOTP is unavailable'}, status=503)
+        return JsonResponse({'status': 'error', 'message': get_strings().get('err_totp_unavailable')}, status=503)
 
     profile = request.user.profile
     raw_secret = get_profile_totp_secret(profile)
@@ -707,13 +709,13 @@ def setup_totp(request):
             logger.exception("Failed to save encrypted TOTP secret for user pk=%s", request.user.pk)
             return JsonResponse({
                 'status': 'error',
-                'message': 'Unable to save authenticator setup. Run database migrations and try again.',
+                'message': get_strings().get('err_unable_save_totp'),
             }, status=500)
         except Exception:
             logger.exception("Failed to persist TOTP secret for user pk=%s", request.user.pk)
             return JsonResponse({
                 'status': 'error',
-                'message': 'Unable to prepare authenticator setup. Check server dependencies and try again.',
+                'message': get_strings().get('2fa_totp_prepare_failed'),
             }, status=500)
 
     try:
@@ -731,7 +733,7 @@ def setup_totp(request):
         logger.exception("Failed to generate TOTP setup payload for user pk=%s", request.user.pk)
         return JsonResponse({
             'status': 'error',
-            'message': 'Unable to generate authenticator setup. Try again.',
+            'message': get_strings().get('2fa_totp_generate_failed'),
         }, status=500)
 
     return JsonResponse({
@@ -749,14 +751,15 @@ def enable_2fa(request):
     Triggers 2FA Setup for Email/Phone.
     Target method specified by POST param 'method' (email/phone).
     """
+    s = get_strings()
     method = request.POST.get('method', 'email')
     if method not in {'email', 'phone'}:
-        return JsonResponse({'status': 'error', 'message': 'Invalid Method'}, status=400)
+        return JsonResponse({'status': 'error', 'message': s.get('err_invalid_method')}, status=400)
 
     if method == 'email' and request.user.profile.is_email_2fa_enabled:
-        return JsonResponse({'status': 'error', 'message': 'Already enabled'})
+        return JsonResponse({'status': 'error', 'message': s.get('err_already_enabled')})
     if method == 'phone' and request.user.profile.is_phone_2fa_enabled:
-        return JsonResponse({'status': 'error', 'message': 'Already enabled'})
+        return JsonResponse({'status': 'error', 'message': s.get('err_already_enabled')})
 
     recipient_email = None
     if method == 'email':
@@ -764,12 +767,12 @@ def enable_2fa(request):
         try:
             validate_email(recipient_email)
         except ValidationError:
-            return JsonResponse({'status': 'error', 'message': get_strings().get('2fa_invalid_email', 'Enter a valid email address.')}, status=400)
+            return JsonResponse({'status': 'error', 'message': s.get('2fa_invalid_email')}, status=400)
 
     if send_otp(request, request.user, intent=f'enable_{method}', recipient_email=recipient_email):
         return JsonResponse({'status': 'success'})
 
-    return JsonResponse({'status': 'error', 'message': 'Failed to send OTP'}, status=500)
+    return JsonResponse({'status': 'error', 'message': s.get('err_failed_send_otp')}, status=500)
 
 
 # 2FA Management — Disables a specific 2FA method and clears its secret
@@ -779,6 +782,7 @@ def disable_2fa(request):
     """
     Disables a specific 2FA method.
     """
+    s = get_strings()
     if failure_response := require_current_password(request):
         return failure_response
 
@@ -797,8 +801,8 @@ def disable_2fa(request):
         update_fields = []
     else:
         if is_ajax:
-            return JsonResponse({'status': 'error', 'message': 'Invalid Method'}, status=400)
-        messages.error(request, 'Invalid Method')
+            return JsonResponse({'status': 'error', 'message': s.get('err_invalid_method')}, status=400)
+        messages.error(request, s.get('err_invalid_method'))
         return redirect('user_profile')
 
     if update_fields:
@@ -807,13 +811,14 @@ def disable_2fa(request):
     if is_ajax:
         return JsonResponse({'status': 'success'})
 
-    messages.success(request, get_strings().get('2fa_disabled_msg', 'Disabled'))
+    messages.success(request, s.get('2fa_disabled_msg'))
     return redirect('user_profile')
 
 
 # 2FA Helper — Resends OTP code for login or method activation
 @require_POST
 def resend_otp(request, intent='login'):
+    s = get_strings()
     intent = request.POST.get('intent') or intent
     requested_method = str(request.POST.get('method') or '').strip()
     is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
@@ -839,10 +844,10 @@ def resend_otp(request, intent='login'):
             if is_ajax:
                 return JsonResponse({
                     'status': 'error',
-                    'message': 'Unable to send code',
+                    'message': s.get('err_unable_send_code'),
                     'cooldown_seconds': cooldown_seconds,
                 }, status=400)
-            messages.error(request, 'Unable to send code')
+            messages.error(request, s.get('err_unable_send_code'))
             return redirect('verify_otp_login')
 
     if can_send and send_otp(request, user, intent=intent):
@@ -855,20 +860,20 @@ def resend_otp(request, intent='login'):
         if is_ajax:
             return JsonResponse({
                 'status': 'success',
-                'message': 'Code Sent',
+                'message': s.get('msg_code_sent'),
                 'cooldown_seconds': cooldown_seconds,
                 'resent_method': 'email',
             })
-        messages.success(request, 'Code Sent')
+        messages.success(request, s.get('msg_code_sent'))
     else:
         cooldown_seconds = _otp_cooldown_remaining(user, intent, str(user.email or '').strip() if user else None) if user else 0
         if is_ajax:
             return JsonResponse({
                 'status': 'error',
-                'message': 'Unable to send code',
+                'message': s.get('err_unable_send_code'),
                 'cooldown_seconds': cooldown_seconds,
             }, status=400)
-        messages.error(request, 'Unable to send code')
+        messages.error(request, s.get('err_unable_send_code'))
 
     if intent == 'login':
         return redirect('verify_otp_login')

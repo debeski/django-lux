@@ -9,7 +9,7 @@ from django.utils.safestring import mark_safe
 
 from .constants import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS
 from .translations import get_strings
-from .utils import get_user_management_tier_state_for_user
+from .utils import get_user_management_tier_state_for_user, translate_activity_log_model_name
 
 User = get_user_model()
 
@@ -197,15 +197,7 @@ class UserActivityLogTable(MicrosysTable):
     def render_model_name(self, value):
         if not value:
             return "-"
-        s = get_strings()
-        keys_to_try = [
-            f"model_{value.lower().replace('.', '_')}",
-            f"model_{value.split('.')[-1].lower()}"
-        ]
-        for key in keys_to_try:
-            if key in s:
-                return s[key]
-        return value
+        return translate_activity_log_model_name(value, strings=get_strings())
 
 
 class UserActivityLogTableNoUser(UserActivityLogTable):

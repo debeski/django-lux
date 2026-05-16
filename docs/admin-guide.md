@@ -27,7 +27,7 @@ The wizard currently runs in five steps:
    This step manages language-keyed system names, the explicit language catalog, default language, user language override policy, and the translation matrix editor. English and Arabic are built in; custom languages are available to users only after an admin adds them here.
 
 3. Access and security
-   This step controls public root access, the global Home URL, the optional split between authenticated Home and anonymous public-root destinations, public registration/email 2FA, and Microsys email delivery. Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
+   This step controls public root access, the global Home URL, the optional split between authenticated Home and anonymous public-root destinations, public registration/email 2FA, Microsys email delivery, and centralized Client IP resolution (direct, header-based, or proxy-aware modes). Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
 
 4. Navigation
    This step manages the sidebar builder and sidebar behavior controls.
@@ -62,7 +62,7 @@ When the wizard is saved:
 - the chosen home URL becomes the global titlebar Home destination
 - the sidebar reorder and toolbar flags become part of the runtime sidebar behavior
 
-Superusers can export the current setup from the Options System Settings card. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, optional anonymous public-root URL/split toggle, sidebar, titlebar, security toggles, themes, and density defaults. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
+Superusers can export the current setup from the Options System Settings card. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, optional anonymous public-root URL/split toggle, Client IP resolution config, sidebar, titlebar, security toggles, themes, and density defaults. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
 
 ## Sidebar Builder and Runtime Navigation
 
@@ -177,7 +177,9 @@ Other admin-facing runtime behaviors to expect:
 2FA operational note:
 
 - enable, disable, backup-code generation, TOTP setup, and OTP resend flows are now POST-backed actions rather than GET-triggered links
+- email 2FA supports background auto-sending on login and enforces a 120s resend cooldown
 - destructive profile security actions now ask for the current password before the backend mutation is allowed to proceed
+- sessions can be marked as "Trusted" for 30 days during 2FA verification to skip subsequent challenges on the same browser
 
 ## Activity Logs in Daily Use
 

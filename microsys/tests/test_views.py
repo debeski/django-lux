@@ -368,6 +368,10 @@ class GeneralViewsTests(TestCase):
 class ProfileViewsTests(TestCase):
     def setUp(self):
         cache.clear()
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.email_2fa = True
+        settings_obj.save()
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
@@ -420,6 +424,13 @@ class ProfileViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['stats']['total_actions'], 1)
         self.assertEqual(response.context['stats']['docs_created'], 1)
+
+    def test_user_profile_two_factor_setup_buttons_render_enable_label(self):
+        response = self.client.get(reverse('user_profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<span class="btn-label">Enable</span>', html=False)
+        self.assertNotContains(response, '<span class="btn-label"></span>', html=False)
 
 
 class ScopeViewsTests(TestCase):
@@ -548,6 +559,23 @@ class ActivityLogViewsTests(TestCase):
         self.assertIn('filter', response.context)
         self.assertIn('table', response.context)
         self.assertEqual(response.context['filter'].form.fields['keyword'].label, '')
+
+    def test_activity_log_view_translates_system_settings_model_name_in_arabic(self):
+        from microsys.models import UserActivityLog
+
+        UserActivityLog.objects.create(
+            created_by=self.user,
+            action='UPDATE',
+            model_name='System Settings',
+        )
+        session = self.client.session
+        session['lang'] = 'ar'
+        session.save()
+
+        response = self.client.get(reverse('user_activity_log'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'إعدادات النظام')
 
     def test_activity_log_view_keeps_inline_filter_labels_on_bound_get_requests(self):
         from microsys.models import UserActivityLog
@@ -897,6 +925,7 @@ class SecurityHardeningViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Global Staff')
         self.assertContains(response, 'Can Assign Staff Roles')
+        self.assertContains(response, 'ms-staff-tier-badge--global_staff')
 
     def test_reset_password_requires_change_user_permission(self):
         self.client.login(username='staffer', password='staffpass123')
@@ -1612,8 +1641,8 @@ class ProfileSessionDeviceTests(TestCase):
         response = client.get(reverse('user_profile'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Signed-in devices')
-        self.assertContains(response, 'Current session')
+        self.assertContains(response, 'Signed-in Devices')
+        self.assertContains(response, 'Current Session')
         self.assertContains(response, 'Chrome on Linux')
 
     def test_profile_falls_back_to_current_session_when_session_row_is_not_decodable(self):
@@ -1695,8 +1724,8 @@ class ProfileSessionDeviceTests(TestCase):
         response = client.get(reverse('user_profile'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Trusted device')
-        self.assertContains(response, 'Trusted until')
+        self.assertContains(response, 'Trusted Device')
+        self.assertContains(response, 'Trusted Until')
 
     def test_profile_revoke_session_revokes_linked_trusted_device(self):
         trusted_device_model = apps.get_model('microsys', 'TrustedDevice')

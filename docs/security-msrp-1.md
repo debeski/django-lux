@@ -24,6 +24,7 @@ authorization decision.
   authenticated users may retain their own personal preference controls.
 - Sensitive stored security material must be hashed or externally protected
   where practical; Microsys backup codes are hashed at rest.
+- All user-facing UI strings must be resolved through the Microsys translation framework. Hardcoded English or Arabic literals are prohibited in Python, templates, and JavaScript to ensure consistent localization and prevent information leakage via untranslated internal labels.
 
 ## Applied Microsys Measures
 
@@ -41,9 +42,14 @@ authorization decision.
   and Scoped Staff tiers.
 - 2FA enable/setup/disable/resend/backup-code mutators are POST-only and backup
   codes are hashed. Email OTPs are generated with `secrets` and stored hashed in
-  cache with short TTL and attempt limits.
+  cache with short TTL and attempt limits. Email OTPs can be automatically
+  delivered on login to reduce challenge friction.
 - Profile session revocation is POST-only and restricted to sessions belonging
-  to the current authenticated user.
+  to the current authenticated user. "Trusted" status can be applied to a session
+  for 30 days to bypass 2FA challenges on the same browser.
+- Client IP resolution is centralized and configurable (direct, header, or
+  proxy-aware) to ensure security logs and throttles remain accurate across
+  varied deployment environments.
 - Public registration is disabled by default, SMTP-gated, email-verified before
   activation, protected by cache throttles plus a honeypot, and uses hashed
   verification tokens only.
@@ -51,6 +57,9 @@ authorization decision.
 - Options diagnostics are restricted to superusers and Global Staff; ordinary
   authenticated users keep personal preference controls and receive no
   diagnostic context values.
+- All new security surfaces (2FA, Trusted Devices, IP resolution) strictly
+  follow the translation-first policy, utilizing the Microsys translation
+  framework for all user-facing copy and challenge messages.
 
 ## Public Registration Boundary
 

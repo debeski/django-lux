@@ -9,7 +9,7 @@ from django_tables2 import SingleTableView
 from django_filters.views import FilterView
 
 # Project imports
-from ..utils import get_user_scope, is_scope_enabled, user_can_view_activity_log
+from ..utils import get_user_scope, is_scope_enabled, translate_activity_log_model_name, user_can_view_activity_log
 from ..translations import get_strings
 
 
@@ -131,5 +131,6 @@ class ActivityLogDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView)
                 pass
                 
         context['related_object'] = related_object
-        context['related_object_model'] = related_object._meta.verbose_name if related_object else (log.model_name or "-")
+        raw_model_name = related_object._meta.verbose_name if related_object else (log.model_name or "-")
+        context['related_object_model'] = translate_activity_log_model_name(raw_model_name, strings=get_strings())
         return context

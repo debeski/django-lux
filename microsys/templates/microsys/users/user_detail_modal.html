@@ -43,9 +43,9 @@
             <div class="mb-3">
                 <div class="info-label">{{ MS_TRANS.role_type|default:"Role" }}</div>
                 <div class="info-value">
-                    <span class="badge {{ target_user_management_tier.badge_classes }}"><i class="bi {{ target_user_management_tier.icon }} me-1"></i> {{ target_user_management_tier.title }}</span>
+                    <span class="badge ms-staff-tier-badge ms-staff-tier-badge--{{ target_user_management_tier.tier_key }}"><i class="bi {{ target_user_management_tier.icon }} me-1"></i> {{ target_user_management_tier.title }}</span>
                     {% if target_user_management_tier.can_delegate_staff %}
-                        <span class="badge bg-light text-primary border ms-1">{{ target_user_management_tier.delegation_badge_label }}</span>
+                        <span class="badge ms-staff-tier-badge ms-staff-tier-badge--delegate ms-1">{{ target_user_management_tier.delegation_badge_label }}</span>
                     {% endif %}
                     <div class="small text-muted mt-1">{{ target_user_management_tier.description }}</div>
                 </div>

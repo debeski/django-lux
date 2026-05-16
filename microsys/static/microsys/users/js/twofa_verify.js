@@ -61,11 +61,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         if (defaultMethod === 'email') {
-            labelEl.textContent = primaryBtn.dataset.labelEmail || 'Return to email code';
+            labelEl.textContent = primaryBtn.dataset.labelEmail || '';
         } else if (defaultMethod === 'totp') {
-            labelEl.textContent = primaryBtn.dataset.labelTotp || 'Return to authenticator app';
+            labelEl.textContent = primaryBtn.dataset.labelTotp || '';
         } else {
-            labelEl.textContent = primaryBtn.dataset.labelDefault || 'Return to default method';
+            labelEl.textContent = primaryBtn.dataset.labelDefault || '';
         }
     }
 
@@ -121,16 +121,16 @@ document.addEventListener('DOMContentLoaded', function () {
         if (labelEl) {
             if (canSend) {
                 labelEl.innerHTML = loginState && loginState.emailSent
-                    ? '<i class="bi bi-envelope me-1"></i>' + (emailBtn.dataset.resendLabel || 'Resend code')
+                    ? '<i class="bi bi-envelope me-1"></i>' + (emailBtn.dataset.resendLabel || '')
                     : emailInitialLabel;
             } else {
-                labelEl.innerHTML = '<i class="bi bi-envelope me-1"></i>' + (emailBtn.dataset.resendLabel || 'Resend code') + ' (' + seconds + 's)';
+                labelEl.innerHTML = '<i class="bi bi-envelope me-1"></i>' + (emailBtn.dataset.resendLabel || '') + ' (' + seconds + 's)';
             }
         }
         if (statusEl) {
             statusEl.textContent = canSend
                 ? ''
-                : (emailBtn.dataset.cooldownTemplate || 'Resend available in {seconds}s.').replace('{seconds}', String(seconds));
+                : (emailBtn.dataset.cooldownTemplate || '').replace('{seconds}', String(seconds));
         }
     }
 
@@ -208,14 +208,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (payload.data.cooldown_seconds) {
                             startCooldown(payload.data.cooldown_seconds);
                         }
-                        throw new Error(payload.data.message || emailBtn.dataset.errorText || 'Unable to send code');
+                        throw new Error(payload.data.message || emailBtn.dataset.errorText || '');
                     }
                     loginState.emailSent = true;
                     setMethod('email');
                     startCooldown(payload.data.cooldown_seconds || 0);
                 })
                 .catch(function (error) {
-                    showError(error.message || emailBtn.dataset.errorText || 'Unable to send code');
+                    showError(error.message || emailBtn.dataset.errorText || '');
                 })
                 .finally(function () {
                     setButtonLoading(emailBtn, false);

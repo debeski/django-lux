@@ -159,7 +159,7 @@
                             {% if config_2fa.email %}
                             <div class="list-group-item bg-transparent d-flex flex-row justify-content-between align-items-center px-0 security-method-row">
                                 <div>
-                                    <i class="bi bi-envelope mx-2"></i> {{ MS_TRANS.2fa_method_email|default:"Email Authentication" }}
+                                    <i class="bi bi-envelope mx-2"></i> {{ MS_TRANS.2fa_method_email }}
                                 </div>
                                 <div>
                                     {% if user.profile.is_email_2fa_enabled %}
@@ -168,7 +168,7 @@
                                                 data-method="email" 
                                                 data-url="{% url 'disable_2fa' %}"
                                                 data-confirm-msg="{{ MS_TRANS.msg_confirm_disable_2fa }}">
-                                            <span class="btn-label">{{ MS_TRANS.2fa_disable|default:"Disable" }}</span>
+                                            <span class="btn-label">{{ MS_TRANS.2fa_disable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
@@ -176,7 +176,7 @@
                                                 data-method="email"
                                                 data-url="{% url 'enable_2fa' %}"
                                                 data-email="{{ user.email|default:'' }}">
-                                            <span class="btn-label">{{ MS_TRANS.enable|default:"Enable" }}</span>
+                                            <span class="btn-label">{{ MS_TRANS.enable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% endif %}
@@ -188,7 +188,7 @@
                             {% if config_2fa.phone %}
                             <div class="list-group-item bg-transparent d-flex flex-row justify-content-between align-items-center px-0 security-method-row">
                                 <div>
-                                    <i class="bi bi-phone mx-2"></i> {{ MS_TRANS.2fa_method_phone|default:"SMS Authentication" }}
+                                    <i class="bi bi-phone mx-2"></i> {{ MS_TRANS.2fa_method_phone }}
                                 </div>
                                 <div>
                                     {% if user.profile.is_phone_2fa_enabled %}
@@ -197,12 +197,12 @@
                                                 data-method="phone" 
                                                 data-url="{% url 'disable_2fa' %}"
                                                 data-confirm-msg="{{ MS_TRANS.msg_confirm_disable_2fa }}">
-                                            <span class="btn-label">{{ MS_TRANS.2fa_disable|default:"Disable" }}</span>
+                                            <span class="btn-label">{{ MS_TRANS.2fa_disable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
                                         <button class="btn btn-sm btn-primary setup-2fa-btn" data-method="phone" data-url="{% url 'enable_2fa' %}">
-                                            <span class="btn-label">{{ MS_TRANS.enable|default:"Enable" }}</span>
+                                            <span class="btn-label">{{ MS_TRANS.enable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% endif %}
@@ -214,7 +214,7 @@
                             {% if config_2fa.totp %}
                             <div class="list-group-item bg-transparent d-flex flex-row justify-content-between align-items-center px-0 security-method-row">
                                 <div>
-                                    <i class="bi bi-app-indicator mx-2"></i> {{ MS_TRANS.2fa_method_totp|default:"Authenticator App" }}
+                                    <i class="bi bi-app-indicator mx-2"></i> {{ MS_TRANS.2fa_method_totp }}
                                 </div>
                                 <div>
                                     {% if user.profile.is_totp_2fa_enabled %}
@@ -223,12 +223,12 @@
                                                 data-method="totp" 
                                                 data-url="{% url 'disable_2fa' %}"
                                                 data-confirm-msg="{{ MS_TRANS.msg_confirm_disable_2fa }}">
-                                            <span class="btn-label">{{ MS_TRANS.2fa_disable|default:"Disable" }}</span>
+                                            <span class="btn-label">{{ MS_TRANS.2fa_disable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
                                         <button class="btn btn-sm btn-primary setup-2fa-btn" data-method="totp" data-url="{% url 'setup_totp' %}">
-                                            <span class="btn-label">{{ MS_TRANS.enable|default:"Enable" }}</span>
+                                            <span class="btn-label">{{ MS_TRANS.enable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% endif %}
@@ -240,7 +240,7 @@
                             {% if user.profile.is_2fa_enabled %}
                             <div class="list-group-item bg-transparent d-flex flex-row justify-content-between align-items-center px-0 security-method-row">
                                 <div>
-                                    <i class="bi bi-safe mx-2"></i> {{ MS_TRANS.2fa_method_backup|default:"Recovery Codes" }}
+                                    <i class="bi bi-safe mx-2"></i> {{ MS_TRANS.2fa_method_backup }}
                                 </div>
                                 <div>
                                     <button class="btn btn-sm btn-outline-warning mx-2" 
@@ -264,11 +264,11 @@
                                     <i class="bi bi-laptop text-light"></i>
                                 </div>
                                 <div>
-                                    <h5 class="mb-0">{{ MS_TRANS.signed_in_devices|default:"Signed-in devices" }}</h5>
-                                    <p class="small mb-0 text-muted">{{ MS_TRANS.signed_in_devices_desc|default:"Review active browser sessions and sign out of devices you no longer use." }}</p>
+                                    <h5 class="mb-0">{{ MS_TRANS.signed_in_devices }}</h5>
+                                    <p class="small mb-0 text-muted">{{ MS_TRANS.signed_in_devices_desc }}</p>
                                 </div>
                             </div>
-                            <span class="badge bg-light text-dark border ms-sm-auto">{{ active_sessions|length }} {{ MS_TRANS.active_sessions|default:"active" }}</span>
+                            <span class="badge bg-light text-dark border ms-sm-auto">{{ active_sessions|length }} {{ MS_TRANS.active_sessions }}</span>
                         </div>
 
                         <div class="profile-session-list">
@@ -281,10 +281,10 @@
                                         <div class="d-flex align-items-center gap-2 flex-wrap">
                                             <strong>{{ session.device_label }}</strong>
                                             {% if session.is_current %}
-                                                <span class="badge bg-success-subtle text-success border">{{ MS_TRANS.current_session|default:"Current session" }}</span>
+                                                <span class="badge bg-success-subtle text-success border">{{ MS_TRANS.current_session }}</span>
                                             {% endif %}
                                             {% if session.is_trusted %}
-                                                <span class="badge bg-light text-primary border">{{ MS_TRANS.trusted_device_badge|default:"Trusted device" }}</span>
+                                                <span class="badge bg-light text-primary border">{{ MS_TRANS.trusted_device_badge }}</span>
                                             {% endif %}
                                         </div>
                                         <div class="profile-session-meta">
@@ -295,9 +295,9 @@
                                                 <span><i class="bi bi-clock me-1"></i>{% ms_timesince session.last_seen %}</span>
                                             {% endif %}
                                             {% if session.trusted_until %}
-                                                <span><i class="bi bi-shield-check me-1"></i>{{ MS_TRANS.trusted_until|default:"Trusted until" }} {{ session.trusted_until|date:"Y-m-d H:i" }}</span>
+                                                <span><i class="bi bi-shield-check me-1"></i>{{ MS_TRANS.trusted_until }} {{ session.trusted_until|date:"Y-m-d H:i" }}</span>
                                             {% endif %}
-                                            <span><i class="bi bi-hourglass-split me-1"></i>{{ MS_TRANS.session_expires|default:"Expires" }} {{ session.expire_date|date:"Y-m-d H:i" }}</span>
+                                            <span><i class="bi bi-hourglass-split me-1"></i>{{ MS_TRANS.session_expires }} {{ session.expire_date|date:"Y-m-d H:i" }}</span>
                                         </div>
                                         {% if session.user_agent %}
                                             <div class="profile-session-agent" title="{{ session.user_agent }}">{{ session.user_agent }}</div>
@@ -306,17 +306,17 @@
                                     <div class="profile-session-action">
                                         {% if session.is_current %}
                                             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" disabled>
-                                                {{ MS_TRANS.current|default:"Current" }}
+                                                {{ MS_TRANS.current }}
                                             </button>
                                         {% else %}
                                             <form method="post"
                                                   action="{% url 'revoke_profile_session' session.session_key %}"
                                                   class="profile-session-revoke-form"
-                                                  data-confirm-msg="{{ MS_TRANS.msg_confirm_sign_out_session|default:'Are you sure you want to sign out this device session?' }}">
+                                                  data-confirm-msg="{{ MS_TRANS.msg_confirm_sign_out_session }}">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="current_password" value="">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
-                                                    <i class="bi bi-box-arrow-right me-1"></i>{{ MS_TRANS.sign_out|default:"Sign out" }}
+                                                    <i class="bi bi-box-arrow-right me-1"></i>{{ MS_TRANS.sign_out }}
                                                 </button>
                                             </form>
                                         {% endif %}
@@ -324,7 +324,7 @@
                                 </div>
                             {% empty %}
                                 <div class="profile-session-empty">
-                                    <i class="bi bi-info-circle me-1"></i>{{ MS_TRANS.no_active_sessions|default:"No active sessions were found." }}
+                                    <i class="bi bi-info-circle me-1"></i>{{ MS_TRANS.no_active_sessions }}
                                 </div>
                             {% endfor %}
                         </div>
@@ -460,25 +460,25 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content glass-card border-0">
             <div class="modal-header border-0">
-                <h5 class="modal-title">{{ MS_TRANS.backup_codes_title|default:"Backup Codes" }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">{{ MS_TRANS.backup_codes_title }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ MS_TRANS.btn_close }}"></button>
             </div>
             <div class="modal-body text-center">
                 <div class="alert alert-warning small text-start">
                     <i class="bi bi-exclamation-triangle-fill me-1"></i> 
-                    {{ MS_TRANS.backup_codes_warning|default:"<strong>Warning:</strong> These codes will only be shown <strong>once</strong>. Save them immediately. Generating new codes will invalidate any previous ones." }}
+                    {{ MS_TRANS.backup_codes_warning }}
                 </div>
                 
                 <div class="p-3 rounded mb-3 border font-monospace profile-code-shell" id="backupCodesContainer">
                     <!-- Codes injected here -->
                     <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+                        <span class="visually-hidden">{{ MS_TRANS.loading }}</span>
                     </div>
                 </div>
 
                 <div class="d-grid gap-2">
                     <button type="button" class="btn btn-outline-primary" id="downloadBackupCodesBtn">
-                        <i class="bi bi-download"></i> {{ MS_TRANS.btn_download_txt|default:"Save as TXT" }}
+                        <i class="bi bi-download"></i> {{ MS_TRANS.btn_download_txt }}
                     </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         {{ MS_TRANS.btn_close }}
@@ -495,7 +495,7 @@
         <div class="modal-content glass-card border-0">
             <div class="modal-header border-0">
                 <h5 class="modal-title">{{ MS_TRANS.2fa_verify_title }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ MS_TRANS.btn_close }}"></button>
             </div>
             <div class="modal-body text-center">
                 <div class="mb-3">
@@ -510,7 +510,7 @@
 
                 <div id="email2faConfirm" class="text-start d-none">
                     <label for="email2faAddressInput" class="form-label">
-                        {{ MS_TRANS.2fa_confirm_email_label|default:"Email address for 2FA" }}
+                        {{ MS_TRANS.2fa_confirm_email_label }}
                     </label>
                     <input type="email"
                            class="form-control form-control-lg"
@@ -518,10 +518,10 @@
                            autocomplete="email"
                            placeholder="name@example.com">
                     <p class="small text-muted mt-2 mb-3">
-                        {{ MS_TRANS.2fa_confirm_email_help|default:"Confirm this is the email address that should receive your 2FA setup code." }}
+                        {{ MS_TRANS.2fa_confirm_email_help }}
                     </p>
                     <button type="button" class="btn btn-primary w-100" id="email2faConfirmBtn">
-                        <span class="btn-label">{{ MS_TRANS.2fa_confirm_email_send|default:"Send setup code" }}</span>
+                        <span class="btn-label">{{ MS_TRANS.2fa_confirm_email_send }}</span>
                         <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                     </button>
                 </div>
@@ -530,12 +530,12 @@
                     data-url="{% url 'verify_otp_enable' %}" 
                     data-csrf="{{ csrf_token }}"
                     data-trans-verify-title="{{ MS_TRANS.2fa_verify_title }}"
-                    data-trans-confirm-email-title="{{ MS_TRANS.2fa_confirm_email_title|default:'Confirm Email 2FA' }}"
-                    data-trans-confirm-email-instruction="{{ MS_TRANS.2fa_confirm_email_instruction|default:'Confirm or update the email address before we send a setup code.' }}"
-                    data-trans-invalid-email="{{ MS_TRANS.2fa_invalid_email|default:'Enter a valid email address.' }}"
+                    data-trans-confirm-email-title="{{ MS_TRANS.2fa_confirm_email_title }}"
+                    data-trans-confirm-email-instruction="{{ MS_TRANS.2fa_confirm_email_instruction }}"
+                    data-trans-invalid-email="{{ MS_TRANS.2fa_invalid_email }}"
                     data-trans-scan-instruction="{{ MS_TRANS.totp_scan_instruction }}"
                     data-trans-otp-sent="{{ MS_TRANS.otp_sent_instruction }}"
-                    data-trans-recovery-codes="{{ MS_TRANS.2fa_method_backup|default:'Recovery Codes' }}">
+                    data-trans-recovery-codes="{{ MS_TRANS.2fa_method_backup }}">
                     <input type="hidden" id="otpMethodInput" name="method" value="">
                     
                     <div class="mb-3">
@@ -555,12 +555,12 @@
                 <!-- Hidden Backup Codes Section for First-Time Setup -->
                 <div id="otpSetupSuccess" class="d-none text-start">
                     <div class="alert alert-success text-center mb-3">
-                        <i class="bi bi-check-circle-fill me-2"></i> {{ MS_TRANS.2fa_enabled_success|default:"Two-Factor Authentication Enabled!" }}
+                        <i class="bi bi-check-circle-fill me-2"></i> {{ MS_TRANS.2fa_enabled_success }}
                     </div>
                     
                     <div class="alert alert-warning small">
                         <i class="bi bi-exclamation-triangle-fill me-1"></i> 
-                        {{ MS_TRANS.backup_codes_warning|default:"<strong>Warning:</strong> These recovery codes will only be shown <strong>once</strong>. Save them immediately." }}
+                        {{ MS_TRANS.backup_codes_warning }}
                     </div>
 
                     <div class="p-3 rounded mb-3 border font-monospace text-center profile-code-shell" id="otpSetupBackupCodesContainer">
@@ -569,10 +569,10 @@
 
                     <div class="d-grid gap-2">
                         <button type="button" class="btn btn-outline-primary" id="downloadSetupBackupCodesBtn">
-                            <i class="bi bi-download"></i> {{ MS_TRANS.btn_download_txt|default:"Save as TXT" }}
+                            <i class="bi bi-download"></i> {{ MS_TRANS.btn_download_txt }}
                         </button>
                         <button type="button" class="btn btn-secondary" id="confirmCodesSavedBtn" data-bs-dismiss="modal">
-                            {{ MS_TRANS.btn_close_reload|default:"I have saved my codes" }}
+                            {{ MS_TRANS.btn_close_reload }}
                         </button>
                     </div>
                 </div>
@@ -615,13 +615,13 @@
                 <h5 class="mb-2 profile-confirmation-title">{{ MS_TRANS.modal_confirm_title }}</h5>
                 <p class="small mb-4 profile-confirmation-copy" id="confirmationMessage">{{ MS_TRANS.modal_confirm_msg }}</p>
                 <div id="confirmationPasswordWrap" class="d-none text-start mb-3">
-                    <label for="confirmationPasswordInput" class="form-label">{{ MS_TRANS.form_old_password|default:"Current Password" }}</label>
+                    <label for="confirmationPasswordInput" class="form-label">{{ MS_TRANS.form_old_password }}</label>
                     <input type="password"
                            class="form-control"
                            id="confirmationPasswordInput"
                            autocomplete="current-password"
-                           data-required-msg="{{ MS_TRANS.current_password_required|default:'Please enter your current password.' }}">
-                    <div class="form-text">{{ MS_TRANS.current_password_prompt|default:"Please enter your current password to continue." }}</div>
+                           data-required-msg="{{ MS_TRANS.current_password_required }}">
+                    <div class="form-text">{{ MS_TRANS.current_password_prompt }}</div>
                     <div class="text-danger small mt-2 d-none" id="confirmationPasswordError"></div>
                 </div>
                 <div class="d-flex justify-content-center gap-2">

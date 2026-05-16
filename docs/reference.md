@@ -124,6 +124,7 @@ Section security contract:
 - backup codes are stored hashed in `Profile.backup_codes`
 - login 2FA redirects validate `next` against allowed hosts before redirecting
 - destructive profile-side 2FA actions such as disable, backup-code regeneration, and session revocation require the current-password guard on the backend
+- email 2FA supports auto-send on login and 120s resend cooldown to reduce authentication friction
 - TOTP setup persists secret/enabled state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, so unrelated profile-save side effects do not block authenticator setup
 
 ## API Endpoints
@@ -159,6 +160,7 @@ Common preference keys:
 - `sidebar_accordions`
 - `sidebar_order`
 - `autofill_enabled`
+- `trusted_device` — (Internal) indicates if the current session is trusted for 30 days
 
 Common runtime sidebar config keys in `get_system_config()["sidebar"]`:
 
@@ -182,6 +184,7 @@ Common runtime feature flags in `get_system_config()`:
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
 - `registration_throttle_enabled` — Enable cache throttles for public signup.
+- `client_ip_config` — Centralized Client IP resolution configuration. Supports `mode` (`direct`, `header`, `proxy`), `header_name`, and `trusted_proxies` (hop count).
 - `default_table_density` — System default table density (`balanced`, `dense`, or `roomy`)
 
 Theme/runtime UI notes:

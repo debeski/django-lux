@@ -1872,40 +1872,31 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_email_2fa',
             'Allow users to enable two-factor authentication via email. Requires Microsys email delivery to be ready.',
         )
-        self.fields['client_ip_mode'].label = s.get('form_sys_client_ip_mode', 'Client IP source')
-        self.fields['client_ip_mode'].help_text = s.get(
-            'help_sys_client_ip_mode',
-            'Choose which request header Microsys should trust when recording login, session, and security IP addresses.',
-        )
+        self.fields['client_ip_mode'].label = s.get('form_sys_client_ip_mode')
+        self.fields['client_ip_mode'].help_text = s.get('help_sys_client_ip_mode')
         self.fields['client_ip_mode'].choices = (
-            (CLIENT_IP_MODE_X_FORWARDED_FOR, s.get('client_ip_mode_x_forwarded_for', 'X-Forwarded-For')),
-            (CLIENT_IP_MODE_REMOTE_ADDR, s.get('client_ip_mode_remote_addr', 'Direct connection')),
-            (CLIENT_IP_MODE_X_REAL_IP, s.get('client_ip_mode_x_real_ip', 'X-Real-IP')),
-            (CLIENT_IP_MODE_CLOUDFLARE, s.get('client_ip_mode_cloudflare', 'Cloudflare')),
-            (CLIENT_IP_MODE_CUSTOM, s.get('client_ip_mode_custom', 'Custom header')),
+            (CLIENT_IP_MODE_X_FORWARDED_FOR, s.get('client_ip_mode_x_forwarded_for')),
+            (CLIENT_IP_MODE_REMOTE_ADDR, s.get('client_ip_mode_remote_addr')),
+            (CLIENT_IP_MODE_X_REAL_IP, s.get('client_ip_mode_x_real_ip')),
+            (CLIENT_IP_MODE_CLOUDFLARE, s.get('client_ip_mode_cloudflare')),
+            (CLIENT_IP_MODE_CUSTOM, s.get('client_ip_mode_custom')),
         )
         self.fields['client_ip_mode'].widget.attrs.update({
             'class': 'form-select glass-input',
             'data-client-ip-mode-input': 'true',
         })
-        self.fields['client_ip_trusted_proxy_hops'].label = s.get('form_sys_client_ip_hops', 'Trusted proxy hops')
-        self.fields['client_ip_trusted_proxy_hops'].help_text = s.get(
-            'help_sys_client_ip_hops',
-            'For X-Forwarded-For chains, skip this many trusted proxies from the right before choosing the client IP.',
-        )
+        self.fields['client_ip_trusted_proxy_hops'].label = s.get('form_sys_client_ip_hops')
+        self.fields['client_ip_trusted_proxy_hops'].help_text = s.get('help_sys_client_ip_hops')
         self.fields['client_ip_trusted_proxy_hops'].widget.attrs.update({
             'class': 'form-control glass-input',
             'min': '0',
             'max': '8',
         })
-        self.fields['client_ip_custom_header'].label = s.get('form_sys_client_ip_custom_header', 'Custom header name')
-        self.fields['client_ip_custom_header'].help_text = s.get(
-            'help_sys_client_ip_custom_header',
-            'Header name to trust for client IP resolution, such as CF-Connecting-IP or X-Appengine-User-Ip.',
-        )
+        self.fields['client_ip_custom_header'].label = s.get('form_sys_client_ip_custom_header')
+        self.fields['client_ip_custom_header'].help_text = s.get('help_sys_client_ip_custom_header')
         self.fields['client_ip_custom_header'].widget.attrs.update({
             'class': 'form-control glass-input',
-            'placeholder': 'CF-Connecting-IP',
+            'placeholder': s.get('client_ip_custom_header_placeholder'),
             'dir': 'ltr',
         })
         self.fields['email_config'].label = s.get('form_sys_email_config', 'Email delivery configuration')
@@ -2541,10 +2532,10 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(self, 'email_2fa', css_class='col-lg-6'),
                     css_class='g-3 mb-3',
                 ),
-                HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title', 'Client IP Resolution')}</h6>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title')}</h6>"),
                 HTML(
                     f"<p class='small text-muted mb-3'>"
-                    f"{s.get('client_ip_settings_desc', 'Microsys uses this setting for activity logs, signed-in devices, trusted devices, and 2FA rate limits. Keep it simple: choose the header your proxy already sets correctly.')}"
+                    f"{s.get('client_ip_settings_desc')}"
                     f"</p>"
                 ),
                 Row(

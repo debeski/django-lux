@@ -1,7 +1,6 @@
-
 # Django-Microsys Complete Feature Reference
 
-**Version:** 2.1.1
+**Version:** 2.1.9
 **Package:** `django-microsys` — A multilingual Django framework layer for internal systems
 
 ---
@@ -47,6 +46,8 @@
   - Translation overrides
   - Sidebar configuration
   - Titlebar configuration
+  - Client IP resolution mode (direct, header-based, proxy-aware)
+  - Trusted proxy hops and custom resolution headers
 
 ### First-Launch Setup Wizard
 - **5-step wizard:** Identity → Localization → Access and security → Navigation → Appearance and personalization
@@ -58,6 +59,7 @@
 - **Theme allowlist matrix** with visual selector cards
 - **Translation matrix editor** plus explicit language-catalog management
 - **Microsys email delivery controls** for delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`)
+- **Centralized IP resolution setup** for configuring how the system identifies client IPs for logs and security throttles
 
 ### Options View (`/sys/options/`)
 - Split System Settings modal entrypoints (Branding, Languages, Access & Security, Sidebar, Titlebar)
@@ -142,7 +144,8 @@
 - JSON preferences storage
 - **2FA state fields:** email, phone, TOTP, backup codes
 - `is_2fa_enabled` property
-- Signed-in device/session list on the profile page with POST-only revocation for the user’s own sessions
+- **Trusted Device tracking**: 30-day browser trust persistence for verified 2FA logins
+- **Signed-in device/session list** on the profile page with POST-only revocation and trust-status indicators
 
 ### Scope & ScopeSettings Models
 - Scope isolation for multi-tenant scenarios
@@ -160,17 +163,21 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 ### Multi-Factor Authentication (2FA)
 | Method | Features |
 |--------|----------|
-| **Email 2FA** | OTP sent via Microsys email delivery, configurable in System Setup/System Settings |
+| **Email 2FA** | OTP sent via Microsys email delivery, configurable in System Setup/System Settings; supports auto-send on login and 120s resend cooldown |
 | **TOTP (App)** | QR code generation, pyotp-based verification |
 | **Backup Codes** | 8x8-digit codes, hashed storage, generation/regeneration |
+| **Trusted Devices** | 30-day browser trust for 2FA-verified sessions to skip subsequent challenges |
 
 **2FA Flows:**
 - Unified login challenge accepts app codes, explicitly requested email OTPs, and backup codes
 - TOTP setup persists secret/enabled state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path
 - Enable/disable endpoints and backup-code regeneration are POST-only
-- Email OTP sends only after an explicit request and keeps hashed cache storage
+- Email OTP supports automatic background delivery on login and enforces a 120s resend cooldown
+- Unified login challenge prioritizes Authenticator (TOTP) codes for accounts with mixed 2FA methods enabled
+- AJAX-driven auto-verification on 2FA challenge screens with automatic form submission on code entry
 - Backup code verification with usage tracking
 - Destructive profile security actions such as 2FA disable, backup-code regeneration, and session revocation require current-password confirmation
+- Trusted device status is managed per-session from the profile page with immediate revocation support
 
 ### Public Registration Playground
 - Disabled by default and SMTP-gated in setup/System Settings
@@ -230,7 +237,8 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - Custom permissions: `manage_staff`, `manage_scopes`
 - Scope-based permission filtering
 - Permission assignment principle: users can only assign permissions they themselves have
-- Four-tier staff authorization: Superuser, Global Staff, Central Staff, Scoped Staff
+- **Four-tier staff authorization**: Superuser, Global Staff, Central Staff, Scoped Staff
+- **Staff Tier Visuals**: Shared badge classes (`ms-staff-tier-badge`) ensure high-contrast tier visibility across all management modals and tables
 
 ---
 
@@ -455,6 +463,7 @@ UserActivityLog.safe_log(
 - **Lazy translator:** Runtime translation resolution
 - **Universal patching:** gettext/gettext_lazy/pgettext patches check MS_TRANS first
 - **Model meta patching:** `verbose_name` and `verbose_name_plural` wrapped with lazy translators
+- **Translation-First Policy**: All new UI components (2FA, Trusted Devices, IP Config) are built without hardcoded strings, utilizing the Microsys translation framework for all user-facing copy
 
 ### Key Translation Keys
 - `label_<field>` — form field labels
@@ -644,5 +653,5 @@ Auto-handles:
 
 ---
 ```markdown
-*Generated from codebase analysis — reflects package version 2.1.1*
+*Generated from codebase analysis — reflects package version 2.1.9*
 ```

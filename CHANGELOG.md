@@ -5,6 +5,23 @@ This file owns the release history for `django-microsys`.
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 
+## v2.1.9
+
+- **Profile 2FA UX Fixes**: Added missing `enable` translation keys to resolve blank setup buttons and switched the verify script from `disabled` to `readOnly` to prevent OTP code stripping during form auto-submission.
+- **Staff Tier Badge Alignment**: Updated the user-detail modal to use shared staff-tier badge classes instead of raw Bootstrap colors, ensuring Global Staff badges remain legible in light themes.
+- **Activity Log Normalization**: Hardened the activity-log model-name translation helper to handle varied name formats (spaced/underscored/dotted) consistently before lookup.
+- **Translation-First Policy Enforcement**: Rewired recent 2FA, trusted-device, and client-IP UI copy through the Microsys translation framework, removing hardcoded English/Arabic literals from Python, templates, and JS.
+- **Regression Fixes**: Restored missing 2FA resend cooldown feedback and fixed the pre-setup middleware gate to properly block host-project root routes before configuration is complete.
+
+## v2.1.8
+
+- **Advanced Login 2FA**: Introduced email-only auto-send with a 120s resend cooldown, authenticator-first default for mixed accounts, and AJAX-driven auto-verification with automatic form submission for seamless login.
+- **Trusted Device Persistence**: Added a `TrustedDevice` model to track browser trust for 30 days, integrated into session metadata and managed directly from the user profile with revocation support.
+- **Centralized Client IP Resolution**: Implemented a unified `get_client_ip(request)` helper with a dedicated System Settings configuration block for resolution modes, trusted proxy hops, and custom headers.
+- **Staff Tier UI Restoration**: Restored the three-tier staff management system (Global, Central, Scoped) with live permission previews, tier-based user hub badges, and high-contrast table badges for all themes.
+- **UI Contrast and Asset Versioning**: Applied explicit white foreground text to primary badges across all themes and bumped shared stylesheet/script versions to ensure browser pickup of contrast and layout fixes.
+- **Generic CRUD Log Optimization**: Suppressed duplicate activity-log entries during generic modal operations, prioritizing canonical signal-backed records for create/update/delete actions.
+
 ## v2.1.7
 
 - **Setup Language Preview Stability**: Prevented first-launch default-language preview from reloading the setup wizard, preserving already entered Step 1 names and selected logo/favicon files while still applying immediate language direction feedback.
@@ -17,6 +34,8 @@ This file owns the release history for `django-microsys`.
 - **Public Root Runtime Alignment**: Root/login/logout redirect behavior and the anonymous public-home titlebar-hide rule now follow the optional anonymous public-root target instead of assuming all users share the same destination.
 - **Setup And Options Reliability**: Fixed setup/System Settings state restore so one modal step no longer overrides another after reloads, hardened public-root dependent-field visibility inside dynamic modal flows, and bumped setup asset versions for reliable browser refreshes.
 - **Translation And CSP Polish**: Added Microsys translation coverage for the new Access & Security section heading and Step 3 public-root controls, removed the remaining hardcoded Access & Security modal label fallback, and made the dynamic-modal loader script nonce-aware for stricter CSP deployments.
+- **Options UI Polishing**: Restored the `bi-grip-vertical` icon for Options card drag handles and transitioned them from absolute positioning to in-flow layout to prevent overlapping with card icons and titles.
+- **Setup and Options Accessibility**: Reduced audit noise by adding missing stable IDs, names, and ARIA labels to Options switches and JS-driven setup editor controls.
 - **Documentation Refresh**: Updated the README, Features reference, admin guide, and MSRP-1 security standard to reflect the Step 3 routing split, the new focused System Settings modal entrypoint, and CSP-safe modal asset loading.
 
 ## v2.1.5
@@ -26,6 +45,8 @@ This file owns the release history for `django-microsys`.
 - **Simplified Root URL Hijacking**: Replaced the complex `_is_root_mounted_microsys` URL introspection and auth-branching logic with a clean 404-based approach. If `/` returns a 404 (no dev view), microsys redirects to the configured `home_url`. If the dev has their own view at `/`, microsys stays out of the way. The `public_root` setting gates anonymous access: when off, anonymous users at `/` are sent to login instead of `home_url`.
 - **Dynamic Auth Redirects**: `LOGIN_REDIRECT_URL` is now dynamically synced to the configured `home_url`. `LOGOUT_REDIRECT_URL` respects `public_root` — when enabled, logout redirects to `home_url`; when disabled, logout redirects to the login page.
 - **Asset and Template Cleanup**: Performed a major cleanup of abandoned static assets and templates. Removed obsolete Plotly and Flatpickr libraries, deleted the abandoned dashboard implementation, and purged unreferenced CSS/JS files and redundant template helpers to reduce package weight and improve maintainability.
+- **Titlebar Login Button Theming**: Fixed the unauthenticated login trigger (`.ms-login-round`) to correctly inherit global titlebar shape rules and apply appropriate theme-specific styling for Dark, Gothic, Retro, and Neon modes.
+- **Wizard Navigation Fix**: Hardened the shared wizard helper to properly manage Bootstrap `d-none` visibility during step transitions, ensuring later setup steps render correctly after navigation.
 
 ## v2.1.4
 

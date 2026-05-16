@@ -13,6 +13,11 @@
   - Login 2FA now uses a modern challenge flow: email-only login 2FA auto-sends the OTP with a `120s` resend cooldown, mixed TOTP+email accounts default to authenticator codes until email is explicitly requested, code entry auto-submits the real verify form as soon as it reaches full length, and the login challenge can mark the browser as trusted for `30` days.
   - The user reported that the first AJAX-only auto-verify attempt looked successful in server logs but did not navigate in the mounted app; the verify UI now uses auto-submit of the real form for the actual sign-in step, while resend/method switching stay JS-enhanced.
   - Follow-up correction from the user: the first form auto-submit patch still left users locked out because the script disabled the OTP input before submit, which stripped `otp_code` from the POST. The verify script now uses `readOnly` instead of `disabled`, and the verify assets are rebumped to `20260515d`.
+  - The recent login-2FA, trusted-device, and client-IP additions now use Microsys translation keys instead of hardcoded English fallback strings across Python, templates, and JS; the verify assets are now rebumped to `20260515e`.
+  - Follow-up fixes on `2026-05-16`:
+    - profile 2FA setup buttons now render `MS_TRANS.enable` correctly in both English and Arabic because the missing `enable` translation key was added,
+    - activity-log model-name translation now normalizes spaced / underscored / dotted names like `System Settings` and `systemsettings` through a shared helper before looking up Microsys model translation keys,
+    - the user-detail modal now uses the shared `ms-staff-tier-badge` classes instead of raw Bootstrap `bg-primary`, so Global Staff remains readable there too.
   - Trusted devices are now stored in a dedicated `TrustedDevice` model, linked into `microsys_device` session metadata, surfaced in the profile Signed-in devices card with `Trusted until ...`, and revoked alongside session revocation.
   - Client IP resolution is now centralized through `get_client_ip(request)` with one JSON-backed `SystemSettings.client_ip_config` UI block (`mode`, `trusted_proxy_hops`, `custom_header`) instead of ad hoc `HTTP_X_FORWARDED_FOR` parsing in auth/session code.
   - Profile TOTP setup now uses the stable `pyotp.TOTP(...)` path, falls back to username if email is blank, persists TOTP state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, and returns sanitized JSON on provisioning/QR generation or secret-persistence failures instead of raw 500 HTML errors.
@@ -103,6 +108,10 @@
   - do not emit inline `style=` attributes from templates or Python HTML helpers when a class, static asset, `json_script`, or `data-*` bridge can be used instead.
 - Generated/scaffolded URL entrypoints must enforce login plus the relevant permission on the backend.
 - Packaged PyPI distributions should exclude repository test packages and Python cache artifacts unless a release explicitly needs them.
+- All new or revised user-facing strings must use Microsys's own translation framework:
+  - do not hardcode English or Arabic UI copy in Python, templates, or JS,
+  - do not add template `|default:"..."` fallbacks for new user-facing copy,
+  - add the needed keys to `microsys/translations.py` and pass them through `MS_TRANS`, `get_strings(...)`, `json_script`, or `data-*` as appropriate.
 
 
 ### Current Project's Unsolved Known Bugs:
@@ -167,9 +176,8 @@
     - [ ] user detail modal badge/description rendering
     - [ ] manage-users table staff-tier badge column and tutorial selector target
   - [ ] Review translation coverage for UI labels/messages that were called out by the user and are not yet re-verified in browser/runtime:
-    - [ ] signed-in devices card
-    - [ ] 2FA enable button in profile
-    - [ ] general setup/options labels and descriptions
+    - [ ] broader profile/user-management legacy defaults outside the recent 2FA/session/client-IP additions
+    - [ ] general setup/options labels and descriptions outside the recent client-IP block
 - Priority 2:
   - [ ] Run one end-to-end generated-project validation for `python -m microsys startproject`.
   - [ ] Run one end-to-end generated-app validation for `python -m microsys startapp --register`.
@@ -182,7 +190,9 @@
     - [ ] setup import/export shape migration
     - [ ] registration branding lookup migration
 - Completed Recently:
+  - [x] Fixed three follow-up regressions in profile/activity-log/user-detail: missing 2FA Enable button text, untranslated `System Settings` activity-log model labels, and the user-detail modal’s weak Global Staff badge class.
   - [x] Tightened login 2FA with email-only auto-send, `120s` resend cooldown, AJAX auto-verify/redirect, trust-this-device for `30` days, signed-in-device trust display/revocation, and one JSON-backed System Settings client-IP config UI wired through `get_client_ip(request)`.
+  - [x] Removed hardcoded fallback copy from the recent login-2FA/trusted-device/client-IP additions and rewired those labels/messages through Microsys translations in views, templates, JS, and the client-IP settings form.
   - [x] Removed the duplicate generic CRUD activity-log writes from the dynamic modal save/delete paths so signal-backed entries remain the only plain create/update/delete records for those models.
   - [x] Fixed the double-pagination bug on table-backed `FilterView + SingleTableView` screens by disabling outer ListView pagination and leaving pagination to `django-tables2` on activity log and manage-users.
   - [x] Fixed the shared Bootstrap-style primary badge contrast path by adding an explicit readable foreground to primary badges in `main.css` and versioning the shared stylesheet include in `base.html`.
@@ -206,10 +216,11 @@
   - [x] Removed obsolete unrouted full-page user create/edit/detail views, their stale exports, the dead `user_form.html` template.
 
 ### One-line info about last verified Tests:
-- `2026-05-15`: After fixing the disabled-input auto-submit bug in the OTP verify screen, the focused verify-template regression reran green (`1` test); earlier same-day reruns also passed for `TwoFactorSecurityViewTests` + `ProfileSessionDeviceTests` (`31` tests), `test_utils` (`50` tests), `test_defaults_and_urls` (`71` tests), `test_views` (`95` tests), duplicate-log regressions (`2` tests), `test_signals` (`11` tests), `test_tables` (`20` tests), `test_permissions_ui` (`6` tests), and `test_context_processors` coverage inside the combined focused runs.
+- `2026-05-16`: After fixing the missing profile 2FA Enable key, System Settings activity-log translation normalization, and the user-detail modal staff-tier badge class, focused reruns passed for `test_defaults_and_urls` (`73` tests) and `ProfileViewsTests` + `ActivityLogViewsTests` + `SecurityHardeningViewTests` (`43` tests); the expected unrelated section-details log noise still appeared during the larger view batch but the batch passed.
 
 ### One-line info about last time edited Docs:
-- `2026-05-13`: `CHANGELOG.md` gained a new `v2.1.6` entry, and `docs/README.md`, `docs/FEATURES.md`, `docs/admin-guide.md`, and `docs/security-msrp-1.md` were updated for the Step 3 home/public-root split, focused System Settings modal entrypoints, and CSP-safe dynamic-modal asset loading.
+- `2026-05-16`: Overhauled `README.md`, `docs/FEATURES.md` (v2.1.9), `docs/admin-guide.md`, `docs/security-msrp-1.md`, and `docs/reference.md` to include Trusted Devices, Client IP Resolution, advanced 2FA UX, and the translation-first policy. Refined `docs/security-msrp-1.md` to explicitly include the translation-first policy as a core rule. Updated `CHANGELOG.md` with missing items from the last 7 days.
+- `2026-05-13`: `docs/README.md`, `docs/FEATURES.md`, `docs/admin-guide.md`, and `docs/security-msrp-1.md` were updated for the Step 3 home/public-root split, focused System Settings modal entrypoints, and CSP-safe dynamic-modal asset loading.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -233,6 +244,9 @@
 - Keep tracker entries grounded in verified code, verified runtime behavior, or explicit user instruction.
 - Do not convert user complaints into “fixed” tracker notes until the real runtime path is verified.
 - Leave unrelated worktree changes untouched.
+- The user explicitly wants a translation-first policy for UI/UX:
+  - for new or revised UI copy, do not leave English/Arabic literals or `|default:"..."` user-facing fallbacks in templates, JS, or Python,
+  - if a key is missing or wrong, fix `microsys/translations.py` instead of hardcoding text locally.
 - No inline CSS/JS in HTML unless there is a real unavoidable runtime reason:
   - prefer dedicated static CSS/JS files,
   - use `json_script` and `data-*` for server-to-client data handoff,

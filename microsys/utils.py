@@ -65,6 +65,35 @@ _SENSITIVE_ACTIVITY_FIELD_NAMES = {
 }
 
 
+def normalize_activity_log_model_key(value):
+    raw = str(value or '').strip().lower()
+    if not raw:
+        return ''
+    normalized = re.sub(r'[^a-z0-9]+', '_', raw)
+    normalized = re.sub(r'_+', '_', normalized).strip('_')
+    return normalized
+
+
+def translate_activity_log_model_name(value, strings=None):
+    if not value:
+        return ""
+    s = strings or get_strings()
+    normalized = normalize_activity_log_model_key(value)
+    keys_to_try = []
+    if normalized:
+        keys_to_try.append(f"model_{normalized}")
+        keys_to_try.append(f"model_{normalized.replace('_', '')}")
+        if '.' in str(value):
+            tail = normalize_activity_log_model_key(str(value).split('.')[-1])
+            if tail:
+                keys_to_try.append(f"model_{tail}")
+                keys_to_try.append(f"model_{tail.replace('_', '')}")
+    for key in keys_to_try:
+        if key in s:
+            return s[key]
+    return value
+
+
 def _coerce_list_setting(scope, key):
     value = scope.get(key)
     if value is None:
