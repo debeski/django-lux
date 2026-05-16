@@ -38,6 +38,7 @@ from .constants import (
     TITLEBAR_SIZE_VALUES,
     TITLEBAR_SURFACE_VALUES,
 )
+from .fonts import get_builtin_fonts
 from .themes import is_valid_theme, normalize_allowed_themes
 from .translations import get_current_language_code, get_strings
 # try-except for django_filters as it might not be installed (though likely is)
@@ -228,6 +229,21 @@ def normalize_email_config(value, *, redact_secret=False):
     if redact_secret:
         normalized.pop('encrypted_password', None)
     return normalized
+
+
+def normalize_allowed_fonts(allowed_fonts=None):
+    from .fonts import get_builtin_fonts
+    available = {f['slug'] for f in get_builtin_fonts()}
+    if allowed_fonts is None:
+        return list(available)
+
+    normalized = []
+    if isinstance(allowed_fonts, (list, tuple, set)):
+        for font in allowed_fonts:
+            if font in available and font not in normalized:
+                normalized.append(font)
+
+    return normalized or list(available)
 
 
 def _email_secret_seed():
@@ -1659,6 +1675,10 @@ def get_system_config():
         'default_theme': 'light',
         'allowed_themes': list(normalize_allowed_themes()),
         'allow_user_theme_override': True,
+        'default_font': 'shabwa',
+        'allowed_fonts': list(normalize_allowed_fonts()),
+        'default_fonts': {},
+        'allow_user_font_override': True,
         'allow_user_language_override': True,
         'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
@@ -1831,6 +1851,24 @@ def get_system_config():
             )
         ):
             db_config['registration_throttle_enabled'] = bool(sys_settings.registration_throttle_enabled)
+
+        if (
+            isinstance(getattr(sys_settings, 'allowed_fonts', None), (list, tuple, set))
+            and _should_apply_db_override(
+                normalize_allowed_fonts(sys_settings.allowed_fonts),
+                default_config['allowed_fonts'],
+            )
+        ):
+            db_config['allowed_fonts'] = normalize_allowed_fonts(sys_settings.allowed_fonts)
+
+        if isinstance(getattr(sys_settings, 'default_fonts', None), dict) and sys_settings.default_fonts:
+            db_config['default_fonts'] = sys_settings.default_fonts
+
+        if _should_apply_db_override(
+            bool(getattr(sys_settings, 'allow_user_font_override', True)),
+            default_config['allow_user_font_override'],
+        ):
+            db_config['allow_user_font_override'] = bool(sys_settings.allow_user_font_override)
     except Exception:
         pass
 

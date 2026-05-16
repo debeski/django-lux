@@ -1,8 +1,24 @@
 /* Themes System refactored to sidebar app */
 
+@font-face {
+    font-family: 'Shabwa';
+    src: url('../../fonts/shabwa-regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Cairo';
+    src: url('../../fonts/cairo-regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     box-sizing: border-box;
-    font-family: 'Shabwa', sans-serif !important;
+    font-family: var(--ms-main-font, 'Shabwa'), sans-serif !important;
 }
 
 :root {
@@ -51,30 +67,6 @@
 :root .btn-warning .bi,
 :root .btn-danger .bi {
     color: #000 !important; /* Force black icons */
-}
-
-@font-face {
-    font-family: 'Shabwa';
-    font-weight: 400; /* Regular */
-    font-style: normal;
-    src: url('../fonts/Shabwa.woff2') format('woff2');
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'Shabwa';
-    font-weight: 600; /* Medium */
-    font-style: normal;
-    src: url('../fonts/Shabwa-Medium.woff2') format('woff2');
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'Shabwa';
-    font-weight: 800; /* Bold */
-    font-style: normal;
-    src: url('../fonts/Shabwa-Bold.woff2') format('woff2');
-    font-display: swap;
 }
 
 .glass-input {

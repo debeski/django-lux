@@ -289,6 +289,25 @@
             {% endif %}
 
         {% endif %}
+        
+        <!-- Typography Section -->
+        {% if font_picker_enabled %}
+        <div class="ms-options-card no-print" data-options-card="typography">
+            <div class="glass-profile option-section h-100 ms-options-panel">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi bi-fonts me-2"></i> {{ MS_TRANS.typography|default:"Typography" }}</h4>
+                <p class="text-muted small mb-4">{{ MS_TRANS.typography_desc|default:"Choose your preferred font for the interface." }}</p>
+
+                {% include 'microsys/includes/font_previews.html' with selected_font=active_font allowed_fonts=APP_CONFIG.allowed_fonts %}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Table Density -->
         <div class="ms-options-card no-print" data-options-card="table-density">

@@ -28,6 +28,11 @@ from datetime import timedelta
 from PIL import Image
 
 
+def default_allowed_fonts():
+    from .fonts import get_builtin_fonts
+    return [f['slug'] for f in get_builtin_fonts()]
+
+
 def default_allowed_themes():
     from .themes import get_theme_names
     return list(get_theme_names())
@@ -144,6 +149,12 @@ class SingletonModel(models.Model):
                     obj.registration_activation_mode = config.get('registration_activation_mode')
                 if hasattr(obj, 'registration_throttle_enabled') and 'registration_throttle_enabled' in config:
                     obj.registration_throttle_enabled = bool(config.get('registration_throttle_enabled'))
+                if hasattr(obj, 'allowed_fonts') and isinstance(config.get('allowed_fonts'), (list, tuple, set)):
+                    obj.allowed_fonts = list(config.get('allowed_fonts'))
+                if hasattr(obj, 'default_fonts') and isinstance(config.get('default_fonts'), dict):
+                    obj.default_fonts = config.get('default_fonts')
+                if hasattr(obj, 'allow_user_font_override') and 'allow_user_font_override' in config:
+                    obj.allow_user_font_override = bool(config.get('allow_user_font_override'))
                 obj.save()
             cache.set(cls.__name__, obj, timeout=86400)
         return obj
@@ -166,6 +177,9 @@ class SystemSettings(SingletonModel):
     )
     allowed_themes = models.JSONField(default=default_allowed_themes, blank=True, verbose_name="Allowed Themes")
     allow_user_theme_override = models.BooleanField(default=True, verbose_name="Allow User Theme Override")
+    allowed_fonts = models.JSONField(default=default_allowed_fonts, blank=True, verbose_name="Allowed Fonts")
+    default_fonts = models.JSONField(default=dict, blank=True, verbose_name="Default Fonts by Language")
+    allow_user_font_override = models.BooleanField(default=True, verbose_name="Allow User Font Override")
     allow_user_language_override = models.BooleanField(default=True, verbose_name="Allow User Language Override")
     home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="Home URL")
     is_configured = models.BooleanField(default=False, verbose_name="Is Configured")

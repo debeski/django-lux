@@ -32,6 +32,13 @@
 
     document.documentElement.classList.add(`theme-${themeToApply}`);
 
+    const allowedFonts = window.MICROSYS_CONFIG.allowed_fonts || [];
+    const savedFont = window.USER_PREFS.font || localStorage.getItem('appFont');
+    if (savedFont && (allowedFonts.length === 0 || allowedFonts.includes(savedFont))) {
+        const familyName = savedFont.charAt(0).toUpperCase() + savedFont.slice(1);
+        document.documentElement.style.setProperty('--ms-main-font', `'${familyName}', sans-serif`);
+    }
+
     if (savedAccessibility) {
         let modes = [];
         try {

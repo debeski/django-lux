@@ -69,6 +69,13 @@
     - the preview card uses explicit dark-surface overrides for `dark` / `gothic` / `neon` / `retro` even when those modes do not rely on `data-bs-theme="dark"`,
     - the tier badges inside the preview no longer rely on ambient theme `bg-primary` contrast, so `Global Staff` stays readable in the light-based themes.
   - Manage-users table staff-tier badges now use dedicated table-scoped badge classes in `tables.css` instead of raw Bootstrap `bg-*` tier classes, so Global Staff stays readable in the light-based themes there too.
+  - Dynamic Font Management system implemented:
+    - Centralized font registry in `microsys/fonts.py`.
+    - `SystemSettings` model extended with `allowed_fonts`, `default_fonts` (per-language), and `allow_user_font_override`.
+    - System Setup wizard (Step 5) now includes Typography settings with a visual font matrix and language-font mapping editor.
+    - User Options panel now features a Typography card for runtime font switching with early-load FOUC prevention in `base_head.js`.
+    - All font files moved to `static/microsys/fonts/` for consistency.
+    - Application-wide font control via CSS variable `--ms-main-font`.
   - Sidebar/titlebar runtime controls, split-step Options System Settings modals, scope-aware generated CRUD scaffolds, and MSRP-1 authorization hardening are implemented in code.
 
 ### Current Project Adopted Standards:
@@ -116,7 +123,9 @@
 
 ### Current Project's Unsolved Known Bugs:
 - First-launch System Setup still has an unresolved runtime issue where the sidebar-toolbar removal warning does not match the Options modal behavior.
-- Live Options -> System Settings Step 3 modal save still returns HTTP 400 in the user's mounted app; local full modal POST reproductions return 200, so the next check must use the new AJAX JSON error/class or server logs from the live app.
+- [x] Fixed persistent 500 Internal Server Error in System Settings modals caused by a missing `normalize_allowed_fonts` import and improper JSON handling in `SystemSettingsForm.__init__`.
+- [x] Fixed 404 error for font files by correctly nesting them under `static/microsys/fonts/` and renaming them to lowercase to match CSS.
+- [ ] Live Options -> System Settings Step 3 modal save still returns HTTP 400 in the user's mounted app; local full modal POST reproductions return 200, so the next check must use the new AJAX JSON error/class or server logs from the live app.
 - `microsys/fetcher.py` still trusts `request.META['HTTP_REFERER']` for fallback redirects in download/export error branches; this should be replaced with an allowlisted local redirect target or validated with `url_has_allowed_host_and_scheme(...)`.
 - Browser/manual validation is still pending for:
   - setup/System Settings wizard behavior,
@@ -219,7 +228,7 @@
 - `2026-05-16`: After fixing the missing profile 2FA Enable key, System Settings activity-log translation normalization, and the user-detail modal staff-tier badge class, focused reruns passed for `test_defaults_and_urls` (`73` tests) and `ProfileViewsTests` + `ActivityLogViewsTests` + `SecurityHardeningViewTests` (`43` tests); the expected unrelated section-details log noise still appeared during the larger view batch but the batch passed.
 
 ### One-line info about last time edited Docs:
-- `2026-05-16`: Overhauled `README.md`, `docs/FEATURES.md` (v2.1.9), `docs/admin-guide.md`, `docs/security-msrp-1.md`, and `docs/reference.md` to include Trusted Devices, Client IP Resolution, advanced 2FA UX, and the translation-first policy. Refined `docs/security-msrp-1.md` to explicitly include the translation-first policy as a core rule. Updated `CHANGELOG.md` with missing items from the last 7 days.
+- `2026-05-16`: Overhauled `README.md`, `docs/FEATURES.md` (v2.1.9), `docs/admin-guide.md`, `docs/security-msrp-1.md`, and `docs/reference.md` to include Trusted Devices, Client IP Resolution, advanced 2FA UX, and the translation-first policy. Refined `docs/security-msrp-1.md` to explicitly include the translation-first policy as a core rule. Restructured static assets by moving all fonts from nested locations to a centralized `static/fonts/` directory and updated CSS imports. Updated `CHANGELOG.md` with missing items from the last 7 days.
 - `2026-05-13`: `docs/README.md`, `docs/FEATURES.md`, `docs/admin-guide.md`, and `docs/security-msrp-1.md` were updated for the Step 3 home/public-root split, focused System Settings modal entrypoints, and CSP-safe dynamic-modal asset loading.
 
 ## Part 2: Global

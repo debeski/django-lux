@@ -114,3 +114,14 @@ def ms_querystring_multi(context, *args):
 
     encoded = querydict.urlencode()
     return f'?{encoded}' if encoded else ''
+
+
+@register.filter
+def get_item(dictionary, key):
+    """
+    Template filter to get an item from a dictionary by key.
+    Usage: {{ my_dict|get_item:my_key }}
+    """
+    if not isinstance(dictionary, dict):
+        return None
+    return dictionary.get(key)

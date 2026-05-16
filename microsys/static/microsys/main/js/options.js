@@ -98,6 +98,25 @@
         });
     }
 
+    function initFontPicker() {
+        document.querySelectorAll('[data-font]').forEach((element) => {
+            element.addEventListener('click', function () {
+                const font = this.getAttribute('data-font');
+                // Update local UI
+                document.querySelectorAll('[data-font]').forEach(el => el.classList.toggle('active', el === this));
+                
+                // Apply immediately
+                const familyName = font.charAt(0).toUpperCase() + font.slice(1);
+                document.documentElement.style.setProperty('--ms-main-font', `'${familyName}', sans-serif`);
+                
+                // Update preferences on server
+                if (window.updatePreferences) {
+                    window.updatePreferences({ font });
+                }
+            });
+        });
+    }
+
     function initDensityPickers() {
         const densityPicker = document.querySelector('.ms-table-density-picker:not([data-setup-table-density-picker]):not(.ms-sidebar-density-picker)');
         const densityOptions = densityPicker
@@ -162,6 +181,7 @@
                 key.startsWith('sidebar_')
                 || key === 'appTheme'
                 || key === 'appLanguage'
+                || key === 'appFont'
                 || key === 'accessibilityMode'
                 || key === 'enable_prefill'
                 || key === storageKey
@@ -404,6 +424,7 @@
         initThemePicker();
         initAccessibilityToggles();
         initLanguagePicker();
+        initFontPicker();
         initDensityPickers();
         initResetDefaults(grid);
     });

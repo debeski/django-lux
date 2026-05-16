@@ -2771,6 +2771,65 @@
         });
     }
 
+    function initSetupFontPicker(root) {
+        root.querySelectorAll('[data-setup-font-picker]').forEach((picker) => {
+            if (picker.dataset.bound === 'true') return;
+            picker.dataset.bound = 'true';
+
+            const allowedCheckboxes = Array.from(picker.querySelectorAll('[data-setup-font-allowed]'));
+
+            allowedCheckboxes.forEach((checkbox) => {
+                checkbox.addEventListener('change', () => {
+                    const container = checkbox.closest('[data-font-option]');
+                    if (container) {
+                        container.classList.toggle('opacity-50', !checkbox.checked);
+                    }
+                });
+                // Initial state
+                const container = checkbox.closest('[data-font-option]');
+                if (container) {
+                    container.classList.toggle('opacity-50', !checkbox.checked);
+                }
+            });
+        });
+    }
+
+    function initLanguageFontsEditor(root) {
+        root.querySelectorAll('#msLanguageFontsEditor').forEach((editor) => {
+            if (editor.dataset.bound === 'true') return;
+            editor.dataset.bound = 'true';
+
+            const hiddenInput = document.getElementById('id_default_fonts');
+            if (!hiddenInput) return;
+
+            function updateHiddenInput() {
+                const config = {};
+                editor.querySelectorAll('.ms-lang-font-select').forEach((select) => {
+                    config[select.getAttribute('data-lang')] = select.value;
+                });
+                hiddenInput.value = JSON.stringify(config);
+                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            editor.querySelectorAll('.ms-lang-font-select').forEach((select) => {
+                select.addEventListener('change', updateHiddenInput);
+            });
+
+            // Sync hidden input to selects if it has value
+            if (hiddenInput.value) {
+                try {
+                    const data = JSON.parse(hiddenInput.value);
+                    editor.querySelectorAll('.ms-lang-font-select').forEach((select) => {
+                        const lang = select.getAttribute('data-lang');
+                        if (data[lang]) {
+                            select.value = data[lang];
+                        }
+                    });
+                } catch (e) {}
+            }
+        });
+    }
+
     function initSetupThemePicker(root) {
         root.querySelectorAll('[data-setup-theme-picker]').forEach((picker) => {
             if (picker.dataset.bound === 'true') return;
@@ -3293,6 +3352,8 @@
         initSystemSetupImportFile(root);
         initSetupLanguagePicker(root);
         initSetupThemePicker(root);
+        initSetupFontPicker(root);
+        initLanguageFontsEditor(root);
         initSetupTableDensityPicker(root);
         initSetupSidebarDensityPicker(root);
         initSidebarBehaviorOptions(root);
@@ -3317,7 +3378,7 @@
             return;
         }
         if (!target.matches(
-            '#id_sidebar_enable_toolbar, #id_sidebar_enabled, #id_sidebar_enable_reorder, #id_sidebar_allow_user_density, #id_allow_user_theme_override, [data-setup-theme-allowed]'
+            '#id_sidebar_enable_toolbar, #id_sidebar_enabled, #id_sidebar_enable_reorder, #id_sidebar_allow_user_density, #id_allow_user_theme_override, [data-setup-theme-allowed], [data-setup-font-allowed]'
         )) {
             return;
         }
@@ -3340,6 +3401,8 @@
 	                        node.querySelector('[data-translation-matrix]') ||
 	                        node.querySelector('[data-setup-language-picker]') ||
                         node.querySelector('[data-setup-table-density-picker]') ||
+                        node.querySelector('[data-setup-font-picker]') ||
+                        node.querySelector('#msLanguageFontsEditor') ||
                         node.querySelector('[data-setup-sidebar-density-picker]')
                     )
                 ) {

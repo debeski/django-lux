@@ -73,12 +73,15 @@ from .utils import (
     normalize_sidebar_behavior,
     normalize_system_names,
     normalize_titlebar_config,
+    normalize_allowed_fonts,
 )
 from .widgets import MicrosysChoiceSelectorWidget
 
 User = get_user_model()
 
 THEME_CHOICES = get_theme_choices()
+from .fonts import get_font_choices
+FONT_CHOICES = get_font_choices()
 PERMISSION_UI_EXCLUDED_APP_LABELS = [
     'admin',
     'contenttypes',
@@ -1456,6 +1459,18 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=True,
     )
+    allowed_fonts = forms.MultipleChoiceField(
+        required=False,
+        choices=FONT_CHOICES,
+    )
+    allow_user_font_override = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    default_fonts = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
     default_table_density = forms.ChoiceField(
         required=True,
         choices=TABLE_DENSITY_CHOICES,
@@ -1629,6 +1644,9 @@ class SystemSettingsForm(forms.ModelForm):
             'default_theme',
             'allowed_themes',
             'allow_user_theme_override',
+            'allowed_fonts',
+            'allow_user_font_override',
+            'default_fonts',
             'allow_user_language_override',
             'default_table_density',
             'email_2fa',
@@ -1748,11 +1766,21 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_allow_user_theme_override',
             'Allow users to switch between the allowed themes at runtime from Options and the sidebar toolbar.',
         )
-        self.fields['allow_user_language_override'].label = s.get('form_sys_allow_user_language_override', 'Allow user language override')
         self.fields['allow_user_language_override'].help_text = s.get(
             'help_sys_allow_user_language_override',
             'Allow users to change their display language from Options. When disabled, the system default language is enforced.',
         )
+        self.fields['allowed_fonts'].label = s.get('form_sys_allowed_fonts', 'Allowed fonts')
+        self.fields['allowed_fonts'].help_text = s.get(
+            'help_sys_allowed_fonts',
+            'Choose which fonts are available in this project. The default fonts for each language must remain enabled.',
+        )
+        self.fields['allow_user_font_override'].label = s.get('form_sys_allow_user_font_override', 'Allow user font override')
+        self.fields['allow_user_font_override'].help_text = s.get(
+            'help_sys_allow_user_font_override',
+            'Allow users to switch between the allowed fonts at runtime from Options.',
+        )
+        self.fields['default_fonts'].label = s.get('form_sys_default_fonts', 'Default fonts by language')
         self.fields['default_table_density'].label = s.get('form_sys_default_table_density', "Default Table Density")
         self.fields['default_table_density'].help_text = s.get(
             'help_sys_default_table_density',
@@ -2136,6 +2164,23 @@ class SystemSettingsForm(forms.ModelForm):
             if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
             else getattr(self.instance, 'allow_user_theme_override', config.get('allow_user_theme_override', True))
         )
+        self.initial['allow_user_font_override'] = bool(
+            config.get('allow_user_font_override', True)
+            if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+            else getattr(self.instance, 'allow_user_font_override', config.get('allow_user_font_override', True))
+        )
+        initial_allowed_fonts = normalize_allowed_fonts(
+            (
+                config.get('allowed_fonts')
+                if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+                else getattr(self.instance, 'allowed_fonts', None)
+            ) or config.get('allowed_fonts')
+        )
+        self.initial['allowed_fonts'] = list(initial_allowed_fonts)
+        instance_default_fonts = getattr(self.instance, 'default_fonts', {}) or {}
+        if not instance_default_fonts:
+             instance_default_fonts = config.get('default_fonts', {})
+        self.initial['default_fonts'] = _json_dump(instance_default_fonts, ensure_ascii=False)
         self.initial['allow_user_language_override'] = bool(
             config.get('allow_user_language_override', True)
             if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
@@ -2267,12 +2312,12 @@ class SystemSettingsForm(forms.ModelForm):
             sidebar_config['home_url_name'] = None
             self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
 
-        try:
-            initial_sidebar_config = json.loads(self.initial.get('sidebar_config') or '{}')
-        except (TypeError, ValueError):
-            initial_sidebar_config = {}
-        if not isinstance(initial_sidebar_config, dict):
-            initial_sidebar_config = {}
+        initial_sidebar_config = self.initial.get('sidebar_config') or {}
+        if isinstance(initial_sidebar_config, str):
+            try:
+                initial_sidebar_config = json.loads(initial_sidebar_config)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                initial_sidebar_config = {}
 
         self.initial['sidebar_enabled'] = bool(initial_sidebar_config.get('enabled', True))
         self.initial['sidebar_enable_reorder'] = bool(initial_sidebar_config.get('enable_reorder', True))
@@ -2329,26 +2374,32 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['public_root_url_discovered'].widget.option_meta = home_url_option_meta
         self.initial['public_root_url_discovered'] = current_public_root_url if current_public_root_url in seen_home_urls else ''
 
-        try:
-            initial_languages = json.loads(self.initial.get('languages') or '{}')
-        except (TypeError, ValueError):
-            initial_languages = {}
+        initial_languages = self.initial.get('languages') or {}
+        if isinstance(initial_languages, str):
+            try:
+                initial_languages = json.loads(initial_languages)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                initial_languages = {}
         current_languages = normalize_language_catalog(initial_languages)
         self.initial['languages'] = _json_dump(current_languages, ensure_ascii=False)
         if self.initial.get('default_language') not in current_languages:
             self.initial['default_language'] = 'en' if 'en' in current_languages else next(iter(current_languages), 'en')
 
-        try:
-            initial_system_names = json.loads(self.initial.get('system_names') or '{}')
-        except (TypeError, ValueError):
-            initial_system_names = {}
+        initial_system_names = self.initial.get('system_names') or {}
+        if isinstance(initial_system_names, str):
+            try:
+                initial_system_names = json.loads(initial_system_names)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                initial_system_names = {}
         initial_system_names = normalize_system_names(initial_system_names)
         self.initial['system_names'] = _json_dump(initial_system_names, ensure_ascii=False)
 
-        try:
-            initial_translation_overrides = json.loads(self.initial.get('translations_override') or '{}')
-        except (TypeError, ValueError):
-            initial_translation_overrides = {}
+        initial_translation_overrides = self.initial.get('translations_override') or {}
+        if isinstance(initial_translation_overrides, str):
+            try:
+                initial_translation_overrides = json.loads(initial_translation_overrides)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                initial_translation_overrides = {}
         if not isinstance(initial_translation_overrides, dict):
             initial_translation_overrides = {}
         suggested_languages = [
@@ -2410,11 +2461,43 @@ class SystemSettingsForm(forms.ModelForm):
                 'picker_mode': 'setup',
                 'input_id': 'id_default_theme',
                 'allowed_input_name': 'allowed_themes',
-                'allowed_themes': set(self.initial.get('allowed_themes', [])),
+                'allowed_themes': set(self.initial.get('allowed_themes') if isinstance(self.initial.get('allowed_themes'), (list, tuple, set)) else []),
                 'MS_TRANS': s,
                 'MICROSYS_THEMES': get_theme_options(s),
                 'label': self.fields['default_theme'].label,
                 'help_text': self.fields['allowed_themes'].help_text,
+            },
+        )
+        
+        from .fonts import get_builtin_fonts
+        self.font_picker_html = render_to_string(
+            'microsys/includes/font_settings_matrix.html',
+            {
+                'picker_mode': 'setup',
+                'input_id': 'id_allowed_fonts',
+                'allowed_input_name': 'allowed_fonts',
+                'allowed_fonts': set(self.initial.get('allowed_fonts') if isinstance(self.initial.get('allowed_fonts'), (list, tuple, set)) else []),
+                'MS_TRANS': s,
+                'MICROSYS_FONTS': get_builtin_fonts(),
+                'label': self.fields['allowed_fonts'].label,
+                'help_text': self.fields['allowed_fonts'].help_text,
+            },
+        )
+        
+        default_fonts_data = self.initial.get('default_fonts') or {}
+        if isinstance(default_fonts_data, str):
+            try:
+                default_fonts_data = json.loads(default_fonts_data)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                default_fonts_data = {}
+
+        self.language_fonts_editor_html = render_to_string(
+            'microsys/includes/language_fonts_editor.html',
+            {
+                'current_languages': current_languages,
+                'default_fonts': default_fonts_data,
+                'MICROSYS_FONTS': get_builtin_fonts(),
+                'MS_TRANS': s,
             },
         )
 
@@ -2424,7 +2507,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'sidebar_catalog': self.sidebar_catalog,
                 'sidebar_catalog_json': _json_dump(self.sidebar_catalog, ensure_ascii=False),
                 'sidebar_catalog_fallback_json': _json_dump(self.sidebar_catalog_fallback, ensure_ascii=False),
-                'sidebar_config_json': self.initial.get('sidebar_config', '{}'),
+                'sidebar_config_json': _json_dump(self.initial.get('sidebar_config', {}), ensure_ascii=False),
                 'mode': self.mode,
                 'MS_TRANS': s,
             },
@@ -2675,6 +2758,12 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     build_settings_toggle_field(self, 'allow_user_theme_override', css_class='col-12')
                 ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('typography_settings_title', 'Typography Settings')}</h6>"),
+                HTML(self.font_picker_html),
+                Field('allowed_fonts'),
+                build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
+                HTML(self.language_fonts_editor_html),
+                Field('default_fonts'),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
                 Row(
                     Div(Field('default_table_density'), css_class='col'),
@@ -2771,6 +2860,24 @@ class SystemSettingsForm(forms.ModelForm):
 
     def clean_default_language(self):
         return str(self.cleaned_data.get('default_language') or 'en').strip().lower().replace('_', '-')
+
+    def clean_allowed_fonts(self):
+        data = self.cleaned_data.get('allowed_fonts')
+        if not data:
+            return []
+        return list(data)
+
+    def clean_default_fonts(self):
+        data = self.cleaned_data.get('default_fonts')
+        if not data:
+            return {}
+        try:
+            parsed = json.loads(data) if isinstance(data, str) else data
+            if not isinstance(parsed, dict):
+                return {}
+            return parsed
+        except json.JSONDecodeError:
+            return {}
 
     def clean_default_theme(self):
         value = self.cleaned_data.get('default_theme') or 'light'
@@ -3152,6 +3259,9 @@ class SystemSettingsForm(forms.ModelForm):
         instance.translations_override = self.cleaned_data.get('translations_override', {})
         instance.allowed_themes = self.cleaned_data.get('allowed_themes', list(normalize_allowed_themes()))
         instance.allow_user_theme_override = bool(self.cleaned_data.get('allow_user_theme_override', True))
+        instance.allowed_fonts = self.cleaned_data.get('allowed_fonts', [])
+        instance.allow_user_font_override = bool(self.cleaned_data.get('allow_user_font_override', True))
+        instance.default_fonts = self.cleaned_data.get('default_fonts', {})
         instance.allow_user_language_override = bool(self.cleaned_data.get('allow_user_language_override', True))
         instance.client_ip_config = self.cleaned_data.get('client_ip_config', default_client_ip_config())
         instance.titlebar_config = self.cleaned_data.get('titlebar_config', default_titlebar_config())
