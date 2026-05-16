@@ -1683,7 +1683,7 @@ class SystemSettingsForm(forms.ModelForm):
                 parsed_step = int(raw_step)
             except (TypeError, ValueError):
                 parsed_step = None
-            if parsed_step in (0, 1, 2, 3, 4):
+            if parsed_step in (0, 1, 2, 3, 4, 5):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
 
@@ -2747,23 +2747,7 @@ class SystemSettingsForm(forms.ModelForm):
                 css_class=_step_css_class(3),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Appearance')}</span></div>"),
-                Row(
-                    Div(
-                        HTML(self.theme_picker_html),
-                        Field('default_theme'),
-                        css_class='mb-3'
-                    ),
-                ),
-                Row(
-                    build_settings_toggle_field(self, 'allow_user_theme_override', css_class='col-12')
-                ),
-                HTML(f"<h6 class='fw-bold my-3'>{s.get('typography_settings_title', 'Typography Settings')}</h6>"),
-                HTML(self.font_picker_html),
-                Field('allowed_fonts'),
-                build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
-                HTML(self.language_fonts_editor_html),
-                Field('default_fonts'),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: UI & Layout')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
                 Row(
                     Div(Field('default_table_density'), css_class='col'),
@@ -2788,6 +2772,26 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('titlebar_surface'), css_class='col-lg-12'),
                 ),
                 css_class=_step_css_class(4),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step6', 'Step 6: Appearance')}</span></div>"),
+                Row(
+                    Div(
+                        HTML(self.theme_picker_html),
+                        Field('default_theme'),
+                        css_class='mb-3'
+                    ),
+                ),
+                Row(
+                    build_settings_toggle_field(self, 'allow_user_theme_override', css_class='col-12')
+                ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('typography_settings_title', 'Typography Settings')}</h6>"),
+                HTML(self.font_picker_html),
+                # Field('allowed_fonts'),
+                build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
+                HTML(self.language_fonts_editor_html),
+                Field('default_fonts'),
+                css_class=_step_css_class(5),
             ),
             FormActions(
                 HTML(

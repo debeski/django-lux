@@ -439,8 +439,13 @@
                     </button>
                     <button class="btn btn-outline-warning rounded-pill fw-bold ms-system-settings-action"
                             data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=4"
+                            data-modal-title="{{ MS_TRANS.system_settings_ui_layout }}">
+                        <i class="bi bi-window-stack me-2"></i> {{ MS_TRANS.system_settings_ui_layout }}
+                    </button>
+                    <button class="btn btn-outline-warning rounded-pill fw-bold ms-system-settings-action"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=5"
                             data-modal-title="{{ MS_TRANS.system_settings_appearance }}">
-                        <i class="bi bi-window-stack me-2"></i> {{ MS_TRANS.system_settings_appearance }}
+                        <i class="bi bi-brush me-2"></i> {{ MS_TRANS.system_settings_appearance }}
                     </button>
                     <a class="btn btn-outline-secondary rounded-pill fw-bold ms-system-settings-action ms-system-settings-action--secondary"
                        href="{% url 'system_settings_export' %}">

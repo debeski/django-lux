@@ -54,7 +54,7 @@ MICROSYS_STRINGS = {
         'go': 'الذهاب',
         'activity_24h': 'النشاط (آخر 24 ساعة)',
         'system_settings_title': 'إعدادات النظام العامة',
-        'system_settings_label': 'إعدادات النظام (System Settings)',
+        'system_settings_label': 'إعدادات النظام',
         'system_settings_btn': 'إدارة إعدادات النظام',
         'system_settings_desc': 'تهيئة إعدادات المنظومة العامة والافتراضيات.',
         'system_settings_export': 'تصدير ملف التهيئة',
@@ -63,7 +63,8 @@ MICROSYS_STRINGS = {
         'system_settings_languages': 'اللغات',
         'system_settings_security': 'الوصول والأمان',
         'system_settings_sidebar': 'الشريط الجانبي',
-        'system_settings_appearance': 'المظهر وشريط العنوان',
+        'system_settings_ui_layout': 'الجداول وشريط العنوان',
+        'system_settings_appearance': 'المظهر والتخصيص',
         'system_setup_title': 'التهيئة الأولى للبرنامج',
         'system_setup_heading': 'ابدأ تهيئة Microsys',
         'system_setup_desc': 'أكمل إعدادات الهوية واللغات والشريط الجانبي والمظهر قبل البدء.',
@@ -72,7 +73,8 @@ MICROSYS_STRINGS = {
         'system_setup_step2': 'الخطوة 2: اللغات والترجمات',
         'system_setup_step3': 'الخطوة 3: الوصول والأمان',
         'system_setup_step4': 'الخطوة 4: الشريط الجانبي والتنقل',
-        'system_setup_step5': 'الخطوة 5: المظهر والتخصيص',
+        'system_setup_step5': 'الخطوة 5: الجداول وشريط العنوان',
+        'system_setup_step6': 'الخطوة 6: المظهر والتخصيص',
         'apply_language': 'تطبيق اللغة',
 
         # System Settings Form
@@ -910,7 +912,8 @@ MICROSYS_STRINGS = {
         'system_settings_languages': 'Languages',
         'system_settings_security': 'Access & Security',
         'system_settings_sidebar': 'Sidebar',
-        'system_settings_appearance': 'Appearance & Titlebar',
+        'system_settings_ui_layout': 'Tables & Titlebar',
+        'system_settings_appearance': 'Themes & Typography',
         'system_setup_title': 'Initial System Setup',
         'system_setup_heading': 'Set up Microsys',
         'system_setup_desc': 'Complete branding, languages, sidebar, and appearance setup before you begin.',
@@ -919,7 +922,8 @@ MICROSYS_STRINGS = {
         'system_setup_step2': 'Step 2: Localization',
         'system_setup_step3': 'Step 3: Access & Security',
         'system_setup_step4': 'Step 4: Navigation',
-        'system_setup_step5': 'Step 5: Appearance & Personalization',
+        'system_setup_step5': 'Step 5: Tables & Titlebar',
+        'system_setup_step6': 'Step 6: Themes & Typography',
         'apply_language': 'Apply language',
 
         # System Settings Form
