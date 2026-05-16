@@ -2,11 +2,10 @@
     'use strict';
 
     function ensureArabicDatepickerLocale() {
-        if (!window.Datepicker) {
+        if (!window.Datepicker || !window.Datepicker.locales) {
             return;
         }
 
-        window.Datepicker.locales = window.Datepicker.locales || {};
         if (!window.Datepicker.locales.ar) {
             window.Datepicker.locales.ar = {
                 days: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],

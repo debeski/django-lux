@@ -7,6 +7,7 @@ from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 import inspect
+import unicodedata
 
 from django import forms
 from django.apps import apps
@@ -19,6 +20,7 @@ from django.db.models.fields.related import ManyToManyField
 from django.forms import modelform_factory
 from django.http import JsonResponse
 from django.core.mail import EmailMessage, get_connection, send_mail
+from django.core.exceptions import FieldDoesNotExist
 from django.utils.module_loading import import_string
 
 from .constants import (
@@ -73,6 +75,32 @@ def normalize_activity_log_model_key(value):
     normalized = re.sub(r'[^a-z0-9]+', '_', raw)
     normalized = re.sub(r'_+', '_', normalized).strip('_')
     return normalized
+
+
+def _normalize_fuzzy_string(s):
+    return unicodedata.normalize('NFKD', str(s)).casefold() if s else ""
+
+
+@lru_cache(maxsize=1)
+def _get_fuzzy_model_mapping():
+    """Builds a cached mapping of normalized model names to model classes."""
+    mapping = {}
+    for model in apps.get_models():
+        # 1. Exact app_label.model_name
+        full_path = f"{model._meta.app_label}.{model._meta.model_name}".lower()
+        mapping[full_path] = model
+        
+        # 2. Object name (Class name)
+        obj_name = _normalize_fuzzy_string(model._meta.object_name)
+        if obj_name and obj_name not in mapping:
+            mapping[obj_name] = model
+            
+        # 3. Verbose name
+        v_name = _normalize_fuzzy_string(model._meta.verbose_name)
+        if v_name and v_name not in mapping:
+            mapping[v_name] = model
+            
+    return mapping
 
 
 def translate_activity_log_model_name(value, strings=None):
@@ -2221,7 +2249,6 @@ def get_user_linked_models():
     pointing to settings.AUTH_USER_MODEL, excluding microsys.Profile.
     Returns: list of dicts with model identifiers.
     """
-    from django.apps import apps
     from django.contrib.auth import get_user_model
     linked_models = []
     
@@ -2248,12 +2275,13 @@ def get_user_linked_models():
 def resolve_model_by_name(model_name, app_label=None):
     """
     Resolve a model by name, optionally constrained to an app label.
-    Falls back to scanning all apps if app_label is not provided.
+    Falls back to fuzzy matching against cached registry if app_label is not provided.
     """
     if not model_name:
         return None
 
-    normalized = model_name.lower()
+    if not isinstance(model_name, str):
+        return model_name
 
     if app_label:
         try:
@@ -2261,12 +2289,16 @@ def resolve_model_by_name(model_name, app_label=None):
         except LookupError:
             return None
 
-    for model in apps.get_models():
-        meta = model._meta
-        if meta.model_name == normalized or model.__name__.lower() == normalized:
-            return model
+    # First, try standard Django app registry if it looks like app_label.model
+    if '.' in model_name:
+        try:
+            return apps.get_model(model_name)
+        except (LookupError, ValueError):
+            pass
 
-    return None
+    # Fallback to fuzzy matching against cached registry
+    norm_name = _normalize_fuzzy_string(model_name)
+    return _get_fuzzy_model_mapping().get(norm_name)
 
 # Model Resolution — Dynamically imports and returns a class from a dotted string path
 def get_class_from_string(class_path):

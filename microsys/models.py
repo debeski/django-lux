@@ -631,27 +631,13 @@ class UserActivityLog(ScopedModel):
         """Auto-resolve related object for dynamic modal detail view."""
         related_object = None
         if self.model_name and self.object_id:
+            from .utils import resolve_model_by_name
             try:
-                target_model = None
-                if '.' in self.model_name:
-                    try:
-                        target_model = apps.get_model(self.model_name)
-                    except LookupError:
-                        pass
-                if not target_model:
-                    import unicodedata
-                    def normalize(s):
-                        return unicodedata.normalize('NFKD', s).casefold() if s else ""
-                    log_model_norm = normalize(self.model_name)
-                    for model in apps.get_models():
-                        if normalize(model._meta.verbose_name) == log_model_norm or \
-                           normalize(model._meta.object_name) == log_model_norm:
-                            target_model = model
-                            break
+                target_model = resolve_model_by_name(self.model_name)
                 if target_model:
                     try:
                         related_object = target_model._default_manager.get(pk=self.object_id)
-                    except target_model.DoesNotExist:
+                    except (target_model.DoesNotExist, ValueError, TypeError):
                         pass
             except Exception:
                 pass
