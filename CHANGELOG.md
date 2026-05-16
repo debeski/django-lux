@@ -5,6 +5,14 @@ This file owns the release history for `django-microsys`.
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 
+## v2.2.0
+
+- **Dynamic Font Management System**: Implemented a centralized font registry in `microsys/fonts.py`, supporting local font hosting with automatic CSS variable injection (`--ms-main-font`) and FOUC prevention.
+- **Typography Configuration**: Added system-wide controls for allowed fonts and language-specific default fonts, manageable through the new Appearance setup step.
+- **User Font Overrides**: Introduced a Typography card in the Options panel, allowing users to choose their preferred font from the system-approved allowlist.
+- **Appearance Wizard Restructuring**: Split the legacy Appearance step into Step 5 (UI & Layout: Tables and Titlebar) and Step 6 (Appearance: Themes and Typography) for better organizational clarity.
+- **Centralized Asset Management**: Consolidated all system fonts under `static/microsys/fonts/` with lowercase normalization for reliable cross-platform serving.
+
 ## v2.1.9
 
 - **Profile 2FA UX Fixes**: Added missing `enable` translation keys to resolve blank setup buttons and switched the verify script from `disabled` to `readOnly` to prevent OTP code stripping during form auto-submission.

@@ -18,7 +18,7 @@ The setup wizard lives at `/sys/setup/` and is only intended for the initial sys
 
 ![Setup wizard capture slot](assets/setup-wizard.webp)
 
-The wizard currently runs in five steps:
+The wizard currently runs in six steps:
 
 1. Identity
    This step sets language-keyed system names (a JSON dict such as `{"en": "System", "ar": "النظام"}`), logo, and favicon. It also includes the JSON setup import control, which can prefill the wizard from a previously exported Microsys setup file.
@@ -32,8 +32,11 @@ The wizard currently runs in five steps:
 4. Navigation
    This step manages the sidebar builder and sidebar behavior controls.
 
-5. Appearance and personalization
-   This step manages theme availability, default theme, theme override policy, table-density defaults, and titlebar controls.
+5. UI and Layout
+   This step manages table-density defaults, titlebar controls (logo/home visibility, shape, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
+
+6. Appearance and Typography
+   This step manages theme availability, default theme, theme override policy, and the Dynamic Font Management system.
 
 Useful language/system-name patterns:
 
@@ -108,6 +111,27 @@ The current official order is:
 - `retro`
 - `neon`
 
+## Typography and Font Management
+
+microSYS features a centralized, dynamic Font Management system that allows admins to control the typography across the entire application without modifying CSS.
+
+### Font Registry
+
+The system maintains a registry of approved fonts located in `microsys/fonts.py`. These fonts are hosted locally under `static/microsys/fonts/`, ensuring the system remains functional in offline or air-gapped environments.
+
+### Admin Controls
+
+From the **Appearance and Typography** setup step (or the corresponding System Settings modal), admins can:
+
+- **Allowed Fonts**: Select which fonts from the registry are available for use in the system.
+- **Default Fonts per Language**: Assign a specific default font for each active language (e.g., a specific font for Arabic and another for English).
+- **Allow User Overrides**: Decide if individual users can choose their own preferred font from the allowed list in their Options panel.
+
+### Technical implementation notes:
+
+- **FOUC Prevention**: The system includes early-load logic in `base_head.js` to inject the selected font CSS variable (`--ms-main-font`) before the page renders, preventing "Flash of Unstyled Content".
+- **Global Control**: The entire UI honors the `--ms-main-font` variable for typography consistency.
+
 ## Options View
 
 After first launch, day-to-day configuration continues in `/sys/options/`.
@@ -120,10 +144,11 @@ The Options screen currently provides:
 - privileged system information such as server time, storage usage, Python version, Django version, DRF version, and the current app version
 - theme switching
 - language switching
+- typography/font switching (if allowed by admin)
 - table-density switching for the current user
 - autofill enable or disable
 - reset-to-defaults for user preferences
-- a superuser-only System Settings button that opens focused Branding, Languages, Access & Security, Sidebar, and Appearance modals
+- a superuser-only System Settings button that opens focused Branding, Languages, Access & Security, Sidebar, UI & Layout, and Appearance modals
 - a superuser-only setup export action for reusing System Settings across development environments
 
 Options layout note:
@@ -142,6 +167,27 @@ Operational note:
 - dark themes are expected to skin both the language picker and theme-preview selectors on this page so inactive choices do not fall back to light/white treatment
 
 That means the setup wizard is for initial onboarding, while the Options view is the ongoing operational hub.
+
+## Detailed Configuration Instructions
+
+### Client IP Resolution Modes
+
+Admins can configure how microSYS identifies the client IP address in Step 3 (Access and Security). This is critical for accurate activity logging and security tracking.
+
+- **Direct**: Use `REMOTE_ADDR` directly. This is the correct choice if the web server is facing the internet directly without a proxy.
+- **Proxy-Aware (X-Forwarded-For)**: Parses the `HTTP_X_FORWARDED_FOR` header. Use this if the application is behind a standard reverse proxy (like Nginx or HAProxy). You can specify the number of **Trusted Proxy Hops** to ignore from the right.
+- **Custom Header**: Use a specific header provided by your infrastructure (e.g., `HTTP_CF_CONNECTING_IP` for Cloudflare).
+
+### Two-Factor Authentication (2FA) & Trusted Devices
+
+microSYS provides multiple layers of authentication security.
+
+- **Email 2FA**: If enabled, the system will send a one-time password (OTP) to the user's registered email during login. Admins must ensure a working **Email Delivery Path** is configured.
+- **Authenticator App (TOTP)**: Users can link an app like Google Authenticator for code-based 2FA.
+- **Trusted Devices**: During 2FA verification, users can check "Trust this device for 30 days". 
+    - Admins can view and revoke these trust records from the user's profile in the **Signed-in Devices** card.
+    - Revoking a device trust forces the user to complete a 2FA challenge on their next login from that browser.
+    - Revoking a session immediately logs the user out from that device.
 
 ## Themes, Languages, and Home URL
 
@@ -204,6 +250,7 @@ User preferences are stored in `Profile.preferences` and updated through the Pre
 - `lang`
 - `table_density`
 - `table_page_size`
+- `font`
 - `sidebar_collapsed`
 - `sidebar_accordions`
 - `sidebar_order`

@@ -4,8 +4,8 @@
 ### Current Verified Snapshot:
 - Verified on `2026-05-15`.
 - Package/version state:
-  - `microsys/VERSION` is `2.1.5`.
-  - `CHANGELOG.md` now contains the stable `v2.1.5` patch release entry with the major asset and template cleanup history.
+  - `microsys/VERSION` is `2.2.0`.
+  - `CHANGELOG.md` now contains the stable `v2.2.0` release entry highlighting the dynamic font system and appearance wizard restructuring.
   - Root URL hijacking simplified: removed `_is_root_mounted_microsys` introspection; now uses 404-based detection — if `/` returns 404, redirect to `home_url`; if dev has a view at `/`, stay out of the way.
   - Built distributions now exclude `microsys.tests`, `__pycache__`, and compiled Python cache artifacts from both `wheel` and `sdist`.
   - Current verified implementation state:
@@ -199,6 +199,9 @@
     - [ ] setup import/export shape migration
     - [ ] registration branding lookup migration
 - Completed Recently:
+  - [x] Implemented Dynamic Font Management system: centralized registry in `fonts.py`, `SystemSettings` integration, Typography cards in setup and options, and CSS variable injection with FOUC prevention.
+  - [x] Restructured System Setup wizard: split Step 5 Appearance into Step 5 (UI & Layout) and Step 6 (Appearance & Typography).
+  - [x] Centralized all font assets under `static/microsys/fonts/` with lowercase normalization for consistency.
   - [x] Fixed three follow-up regressions in profile/activity-log/user-detail: missing 2FA Enable button text, untranslated `System Settings` activity-log model labels, and the user-detail modal’s weak Global Staff badge class.
   - [x] Tightened login 2FA with email-only auto-send, `120s` resend cooldown, AJAX auto-verify/redirect, trust-this-device for `30` days, signed-in-device trust display/revocation, and one JSON-backed System Settings client-IP config UI wired through `get_client_ip(request)`.
   - [x] Removed hardcoded fallback copy from the recent login-2FA/trusted-device/client-IP additions and rewired those labels/messages through Microsys translations in views, templates, JS, and the client-IP settings form.
@@ -228,7 +231,7 @@
 - `2026-05-16`: After fixing the missing profile 2FA Enable key, System Settings activity-log translation normalization, and the user-detail modal staff-tier badge class, focused reruns passed for `test_defaults_and_urls` (`73` tests) and `ProfileViewsTests` + `ActivityLogViewsTests` + `SecurityHardeningViewTests` (`43` tests); the expected unrelated section-details log noise still appeared during the larger view batch but the batch passed.
 
 ### One-line info about last time edited Docs:
-- `2026-05-16`: Overhauled `README.md`, `docs/FEATURES.md` (v2.1.9), `docs/admin-guide.md`, `docs/security-msrp-1.md`, and `docs/reference.md` to include Trusted Devices, Client IP Resolution, advanced 2FA UX, and the translation-first policy. Refined `docs/security-msrp-1.md` to explicitly include the translation-first policy as a core rule. Restructured static assets by moving all fonts from nested locations to a centralized `static/fonts/` directory and updated CSS imports. Updated `CHANGELOG.md` with missing items from the last 7 days.
+- `2026-05-16`: Overhauled `README.md`, `docs/FEATURES.md` (v2.2.0), `docs/admin-guide.md`, `docs/security-msrp-1.md`, and `docs/reference.md` to include Trusted Devices, Client IP Resolution, advanced 2FA UX, Dynamic Font Management, and the Step 5/6 wizard split.
 - `2026-05-13`: `docs/README.md`, `docs/FEATURES.md`, `docs/admin-guide.md`, and `docs/security-msrp-1.md` were updated for the Step 3 home/public-root split, focused System Settings modal entrypoints, and CSP-safe dynamic-modal asset loading.
 
 ## Part 2: Global
