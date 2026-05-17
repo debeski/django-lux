@@ -1766,6 +1766,7 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_allow_user_theme_override',
             'Allow users to switch between the allowed themes at runtime from Options and the sidebar toolbar.',
         )
+        self.fields['allow_user_language_override'].label = s.get('form_sys_allow_user_language_override', 'Allow user language override')
         self.fields['allow_user_language_override'].help_text = s.get(
             'help_sys_allow_user_language_override',
             'Allow users to change their display language from Options. When disabled, the system default language is enforced.',
@@ -1785,6 +1786,11 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['default_table_density'].help_text = s.get(
             'help_sys_default_table_density',
             'Choose the default table density for new users; each user can still override it later from Options.',
+        )
+        self.fields['default_table_density'].choices = (
+            ('dense', s.get('table_density_dense', 'Dense')),
+            (DEFAULT_TABLE_DENSITY, s.get('table_density_balanced', 'Balanced')),
+            ('roomy', s.get('table_density_roomy', 'Roomy')),
         )
         self.fields['logo'].label = s.get('form_sys_logo', "System Logo (Logo)")
         self.fields['favicon'].label = s.get('form_sys_favicon', "Site Icon (Favicon)")
@@ -2747,11 +2753,7 @@ class SystemSettingsForm(forms.ModelForm):
                 css_class=_step_css_class(3),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: UI & Layout')}</span></div>"),
-                HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
-                Row(
-                    Div(Field('default_table_density'), css_class='col'),
-                ),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Titlebar')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
                 Row(
                     build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-3'),
@@ -2791,6 +2793,11 @@ class SystemSettingsForm(forms.ModelForm):
                 build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
                 HTML(self.language_fonts_editor_html),
                 Field('default_fonts'),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
+                Row(
+                    Div(Field('default_table_density'), css_class='col'),
+                    css_class='mb-3'
+                ),
                 css_class=_step_css_class(5),
             ),
             FormActions(

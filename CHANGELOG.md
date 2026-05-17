@@ -5,6 +5,12 @@ This file owns the release history for `django-microsys`.
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
 
+## v2.2.1
+
+- **Appearance Wizard Restructuring**: Compacted Step 5 to be Titlebar Settings only, and moved the Table Density section to the bottom of Step 6 alongside Themes and Typography settings for logical appearance grouping.
+- **Dynamic Choice Translation**: Wired `SystemSettingsForm` choice labels (`default_table_density`) to dynamically translate options based on the active session language, resolving a translation gap between Options and Setup views.
+- **Secure Referer Hardening**: Hardened the redirection utility to validate the `HTTP_REFERER` against both the request host and `settings.ALLOWED_HOSTS` wildcards before redirection, backed by the new automated `test_safe_referer` test suite.
+
 ## v2.2.0
 
 - **Dynamic Font Management System**: Implemented a centralized font registry in `microsys/fonts.py`, supporting local font hosting with automatic CSS variable injection (`--ms-main-font`) and FOUC prevention.

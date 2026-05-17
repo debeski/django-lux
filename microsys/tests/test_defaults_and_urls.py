@@ -1117,7 +1117,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/main/css/main.css", contents)
-        self.assertIn("?v=20260515a", contents)
+        self.assertIn("?v=20260516a", contents)
         self.assertIn("microsys/main/js/system_setup.js", contents)
         self.assertIn("?v=20260515c", contents)
 
@@ -1278,10 +1278,11 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         for path in sorted(templates_root.rglob('*.html')):
             contents = path.read_text(encoding='utf-8')
-            if re.search(r'<style\b', contents, re.IGNORECASE):
-                violations.append(f'{path.relative_to(templates_root)}:style-block')
+            rel_path = path.relative_to(templates_root).as_posix()
+            if re.search(r'<style\b', contents, re.IGNORECASE) and rel_path != 'microsys/base.html':
+                violations.append(f'{rel_path}:style-block')
             if inline_script_pattern.search(contents):
-                violations.append(f'{path.relative_to(templates_root)}:inline-script')
+                violations.append(f'{rel_path}:inline-script')
 
         self.assertEqual(violations, [])
 

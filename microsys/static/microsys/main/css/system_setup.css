@@ -681,3 +681,58 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Font Previews Support */
+.ms-font-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.ms-font-preview-card {
+  width: 100px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border-width: 2px !important;
+  text-align: center;
+}
+
+.ms-font-preview-card.active {
+  border-color: var(--primal) !important;
+  background-color: rgba(var(--primal-rgb), 0.05);
+}
+
+.ms-font-preview-card:hover:not(.active) {
+  border-color: var(--ms-setup-pane-border, rgba(var(--primal-rgb), 0.24)) !important;
+}
+
+.font-preview-sample {
+  font-weight: 500;
+}
+
+/* Specific Font Mapping Rules for Previews */
+.ms-font-preview-card[data-font="shabwa"] .font-preview-sample,
+.ms-font-settings-option[data-font-option="shabwa"] .font-preview-sample {
+  font-family: 'Shabwa', sans-serif !important;
+}
+
+.ms-font-preview-card[data-font="cairo"] .font-preview-sample,
+.ms-font-settings-option[data-font-option="cairo"] .font-preview-sample {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/* Font settings option spacing */
+.ms-font-settings-option__header {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
+[dir="rtl"] .ms-font-settings-option__header {
+  right: auto;
+  left: 8px;
+}
+.ms-font-settings-option {
+  position: relative;
+  min-width: 120px;
+}

@@ -793,3 +793,31 @@ class UtilsTests(TestCase):
         form.helper = FormHelper()
         form.helper.layout = Layout(HTML("<button type='submit' class='btn btn-primary'>Save</button>"))
         self.assertTrue(has_submit_button(form))
+
+    def test_safe_referer(self):
+        """Test _safe_referer to prevent open-redirect vulnerabilities."""
+        from microsys.fetcher import _safe_referer
+        from django.test import RequestFactory
+
+        factory = RequestFactory()
+
+        # 1. No HTTP_REFERER header -> returns '/'
+        request = factory.get('/')
+        self.assertEqual(_safe_referer(request), '/')
+
+        # 2. Local HTTP_REFERER matching host -> returns the referer
+        request = factory.get('/', HTTP_REFERER='http://testserver/some/path/')
+        self.assertEqual(_safe_referer(request), 'http://testserver/some/path/')
+
+        # 3. Local HTTP_REFERER matching ALLOWED_HOSTS -> returns the referer
+        with override_settings(ALLOWED_HOSTS=['allowedhost.com', 'testserver']):
+            request = factory.get('/', HTTP_REFERER='http://allowedhost.com/some/path/')
+            self.assertEqual(_safe_referer(request), 'http://allowedhost.com/some/path/')
+
+        # 4. Untrusted external referer -> returns '/'
+        request = factory.get('/', HTTP_REFERER='http://malicious-external-site.com/evil')
+        self.assertEqual(_safe_referer(request), '/')
+
+        # 5. Relative referer path -> returns the relative referer path
+        request = factory.get('/', HTTP_REFERER='/local/path/')
+        self.assertEqual(_safe_referer(request), '/local/path/')

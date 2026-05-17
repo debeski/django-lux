@@ -2,22 +2,11 @@
 <div class="d-flex flex-wrap gap-3 ms-font-previews" id="msFontPreviews">
     {% for font_slug in allowed_fonts %}
     <div class="ms-font-preview-card border rounded p-2 text-center cursor-pointer {% if selected_font == font_slug %}active{% endif %}" 
-         data-font="{{ font_slug }}"
-         style="width: 100px; cursor: pointer; transition: all 0.2s ease-in-out; border-width: 2px !important;">
-        <div class="font-preview-sample h3 mb-1" style="font-family: '{{ font_slug|title }}', sans-serif !important;">
+         data-font="{{ font_slug }}">
+        <div class="font-preview-sample h3 mb-1">
             Aa
         </div>
         <div class="small fw-semibold">{{ font_slug|title }}</div>
     </div>
     {% endfor %}
 </div>
-
-<style>
-    .ms-font-preview-card.active {
-        border-color: var(--primal) !important;
-        background-color: rgba(var(--primal-rgb), 0.05);
-    }
-    .ms-font-preview-card:hover:not(.active) {
-        border-color: var(--ms-setup-pane-border) !important;
-    }
-</style>

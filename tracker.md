@@ -4,8 +4,8 @@
 ### Current Verified Snapshot:
 - Verified on `2026-05-15`.
 - Package/version state:
-  - `microsys/VERSION` is `2.2.0`.
-  - `CHANGELOG.md` now contains the stable `v2.2.0` release entry highlighting the dynamic font system and appearance wizard restructuring.
+  - `microsys/VERSION` is `2.2.1`.
+  - `CHANGELOG.md` now contains the stable `v2.2.1` release entry.
   - Root URL hijacking simplified: removed `_is_root_mounted_microsys` introspection; now uses 404-based detection — if `/` returns 404, redirect to `home_url`; if dev has a view at `/`, stay out of the way.
   - Built distributions now exclude `microsys.tests`, `__pycache__`, and compiled Python cache artifacts from both `wheel` and `sdist`.
   - Current verified implementation state:
@@ -72,7 +72,7 @@
   - Dynamic Font Management system implemented:
     - Centralized font registry in `microsys/fonts.py`.
     - `SystemSettings` model extended with `allowed_fonts`, `default_fonts` (per-language), and `allow_user_font_override`.
-    - System Setup wizard (Step 5) now includes Typography settings with a visual font matrix and language-font mapping editor.
+    - System Setup wizard now includes Titlebar Settings on Step 5, and Typography & Table Density settings on Step 6.
     - User Options panel now features a Typography card for runtime font switching with early-load FOUC prevention in `base_head.js`.
     - All font files moved to `static/microsys/fonts/` for consistency.
     - Application-wide font control via CSS variable `--ms-main-font`.
@@ -200,7 +200,7 @@
     - [ ] registration branding lookup migration
 - Completed Recently:
   - [x] Implemented Dynamic Font Management system: centralized registry in `fonts.py`, `SystemSettings` integration, Typography cards in setup and options, and CSS variable injection with FOUC prevention.
-  - [x] Restructured System Setup wizard: split Step 5 Appearance into Step 5 (UI & Layout) and Step 6 (Appearance & Typography).
+  - [x] Restructured System Setup wizard: split Step 5 Appearance into Step 5 (Titlebar only) and Step 6 (Themes, Typography & Table Density).
   - [x] Centralized all font assets under `static/microsys/fonts/` with lowercase normalization for consistency.
   - [x] Fixed three follow-up regressions in profile/activity-log/user-detail: missing 2FA Enable button text, untranslated `System Settings` activity-log model labels, and the user-detail modal’s weak Global Staff badge class.
   - [x] Tightened login 2FA with email-only auto-send, `120s` resend cooldown, AJAX auto-verify/redirect, trust-this-device for `30` days, signed-in-device trust display/revocation, and one JSON-backed System Settings client-IP config UI wired through `get_client_ip(request)`.

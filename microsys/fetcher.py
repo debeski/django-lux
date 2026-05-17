@@ -4,11 +4,28 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.db.models.query import QuerySet
 from django.contrib import messages
 from django.db.models import FileField
+from django.utils.http import url_has_allowed_host_and_scheme
 from io import BytesIO
 import mimetypes
 import openpyxl
 import zipfile
 from .utils import log_user_action
+
+def _safe_referer(request, fallback='/'):
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        from django.conf import settings
+        allowed_hosts = {request.get_host()}
+        if hasattr(settings, 'ALLOWED_HOSTS') and settings.ALLOWED_HOSTS:
+            for host in settings.ALLOWED_HOSTS:
+                if host:
+                    if host.startswith('.'):
+                        allowed_hosts.add(host[1:])
+                    elif host != '*':
+                        allowed_hosts.add(host)
+        if url_has_allowed_host_and_scheme(url=referer, allowed_hosts=allowed_hosts, require_https=request.is_secure()):
+            return referer
+    return fallback
 
 # Universal Downloader
 #####################################################################
@@ -38,7 +55,7 @@ def fetch_file(request, data, file_type=None):
         
     if not records:
          messages.error(request, "لا توجد سجلات للتحميل.")
-         return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+         return HttpResponseRedirect(_safe_referer(request))
 
     # 2. Collect Files
     files_to_download = []
@@ -78,7 +95,7 @@ def fetch_file(request, data, file_type=None):
     # 3. Decision: Error, Single File, or Zip
     if not files_to_download:
         messages.error(request, "لا توجد ملفات صالحة للتحميل في السجلات المختارة.")
-        return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+        return HttpResponseRedirect(_safe_referer(request))
         
     if len(files_to_download) == 1:
         # Serve Single File
@@ -248,7 +265,7 @@ def fetch_excel(request, queryset, exclude_fields=None, hidden_fields=None, shee
     """
     if not queryset:
         messages.error(request, "لا توجد بيانات للتصدير.")
-        return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+        return HttpResponseRedirect(_safe_referer(request))
 
     # Normalize to iterable if list passed
     data_list = queryset
@@ -260,7 +277,7 @@ def fetch_excel(request, queryset, exclude_fields=None, hidden_fields=None, shee
         
     if not model:
          messages.error(request, "تعذر تحديد نموذج البيانات.")
-         return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+         return HttpResponseRedirect(_safe_referer(request))
 
     from openpyxl.utils import get_column_letter
     from django.db.models import FileField, DateTimeField

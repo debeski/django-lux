@@ -73,7 +73,7 @@
                 <div class="ms-table-page-size__options">
                     {% for per_page_value in table.microsys_per_page_options %}
                     <a
-                        class="ms-table-page-size__option{% if table.microsys_per_page == per_page_value %} is-active{% endif %}"
+                        class="ms-table-page-size__option{% if table.microsys_per_page|stringformat:'s' == per_page_value|stringformat:'s' %} is-active{% endif %}"
                         href="{% ms_querystring_multi table.prefixed_page_field '' table.microsys_per_page_field per_page_value %}"
                     >
                         {{ per_page_value }}
