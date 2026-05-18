@@ -865,6 +865,39 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertIn('ms-email-config-password-field d-none', html)
 
+    @override_settings(
+        DEFAULT_FROM_EMAIL='deployer@example.com',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+    )
+    @patch.dict('os.environ', {
+        'SMTP_RELAY_HOST': 'smtp.gmail.com',
+        'SMTP_RELAY_PORT': '587',
+    }, clear=False)
+    def test_setup_form_accepts_relay_env_mode_with_upstream_env_hints(self):
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "System"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'email_2fa': 'on',
+                'email_config_transport': 'relay',
+                'email_config_secret_storage': 'env',
+                'email_config_host': '',
+                'email_config_port': '587',
+                'email_config_username': '',
+                'email_config_default_from_email': '',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
     def test_setup_form_shows_email_password_field_for_encrypted_db_secret_storage(self):
         form = SystemSettingsForm(
             instance=SystemSettings(is_configured=False, email_config={
@@ -1438,6 +1471,14 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         )
         self.assertIn('ms-sidebar-catalog-fallback-data', form.sidebar_builder_html)
         self.assertIn('Demo', form.sidebar_builder_html)
+
+    def test_system_setup_js_keeps_last_allowed_theme_postable(self):
+        script = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'js' / 'system_setup.js'
+        contents = script.read_text(encoding='utf-8')
+
+        self.assertNotIn('checkbox.disabled = checkbox.checked && resolvedAllowedThemes.length === 1;', contents)
+        self.assertIn("if (checkbox.checked && getAllowedThemes().length === 1)", contents)
+        self.assertIn("checkbox.setAttribute('aria-disabled', isLocked ? 'true' : 'false');", contents)
 
     @override_settings(MICROSYS_CONFIG={}, MEDIA_URL='')
     def test_uploaded_branding_urls_fall_back_to_absolute_media_paths(self):

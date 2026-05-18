@@ -446,9 +446,12 @@ def get_email_service_status():
     """
     try:
         SystemSettings = apps.get_model('microsys', 'SystemSettings')
-        stored_email_config = normalize_email_config(getattr(SystemSettings.load(), 'email_config', {}))
+        raw_stored_email_config = getattr(SystemSettings.load(), 'email_config', {})
+        stored_email_config = normalize_email_config(raw_stored_email_config)
     except Exception:
+        raw_stored_email_config = {}
         stored_email_config = default_email_config()
+    stored_hint_keys = set(raw_stored_email_config.keys()) if isinstance(raw_stored_email_config, dict) else set()
     email_config = get_microsys_email_config(include_secret=False)
     backend = email_config.get('backend') or 'django.core.mail.backends.smtp.EmailBackend'
     from_email = email_config.get('from_email') or ''
@@ -479,13 +482,28 @@ def get_email_service_status():
         if secret_storage == 'encrypted_db' and email_config.get('username'):
             password_ok = bool(email_config.get('password_configured'))
         if transport == 'relay':
+            relay_upstream_host = (
+                stored_email_config.get('host')
+                if 'host' in stored_hint_keys and stored_email_config.get('host')
+                else (os.getenv('SMTP_RELAY_HOST', '') or '')
+            )
+            relay_upstream_port = (
+                stored_email_config.get('port')
+                if 'port' in stored_hint_keys and stored_email_config.get('port')
+                else int(os.getenv('SMTP_RELAY_PORT', '587') or '587')
+            )
+            relay_from_email = (
+                stored_email_config.get('default_from_email')
+                if 'default_from_email' in stored_hint_keys and stored_email_config.get('default_from_email')
+                else (getattr(settings, 'DEFAULT_FROM_EMAIL', '') or os.getenv('DEFAULT_FROM_EMAIL', '') or '')
+            )
             relay_password_ok = True
             if stored_email_config.get('secret_storage') == 'encrypted_db' and stored_email_config.get('username'):
                 relay_password_ok = bool(stored_email_config.get('password_configured'))
             configured = bool(
-                stored_email_config.get('host')
-                and stored_email_config.get('port')
-                and stored_email_config.get('default_from_email')
+                relay_upstream_host
+                and relay_upstream_port
+                and relay_from_email
                 and relay_password_ok
             )
             return {
@@ -495,8 +513,8 @@ def get_email_service_status():
                 'from_email': from_email,
                 'transport': transport,
                 'secret_storage': secret_storage,
-                'detail': f"{host}:{port} -> {stored_email_config.get('host')}:{stored_email_config.get('port')}"
-                if host and port and stored_email_config.get('host') and stored_email_config.get('port') else '',
+                'detail': f"{host}:{port} -> {relay_upstream_host}:{relay_upstream_port}"
+                if host and port and relay_upstream_host and relay_upstream_port else '',
                 'reason': 'relay_configured' if configured else (
                     'relay_missing_password' if not relay_password_ok else 'relay_missing_upstream_host_port_or_from_email'
                 ),

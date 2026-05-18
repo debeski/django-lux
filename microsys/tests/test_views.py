@@ -215,7 +215,17 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, '?step=2')
         self.assertContains(response, '?step=3')
         self.assertContains(response, '?step=4')
+        self.assertContains(response, '?step=5')
         self.assertContains(response, reverse('system_settings_export'))
+
+    def test_options_view_uses_shared_selector_markup_for_font_picker(self):
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ms-font-picker')
+        self.assertContains(response, 'ms-density-options')
+        self.assertContains(response, 'data-font="shabwa"')
+        self.assertNotContains(response, 'ms-font-preview-card')
 
     def test_system_settings_modal_honors_requested_wizard_step(self):
         response = self.client.get(
@@ -232,6 +242,18 @@ class GeneralViewsTests(TestCase):
         self.assertNotIn('microsys-form-action-neutral', payload['html'])
         self.assertNotIn('ms-btn-next', payload['html'])
         self.assertNotIn('ms-btn-prev', payload['html'])
+
+    def test_system_settings_modal_honors_requested_wizard_step_five(self):
+        response = self.client.get(
+            reverse('modal_manager', args=['microsys', 'SystemSettings', 1]) + '?step=5',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIn('data-ms-wizard-initial-step="5"', payload['html'])
+        self.assertIn('?step=5', payload['html'])
+        self.assertIn('ms-btn-submit', payload['html'])
 
     def test_system_settings_export_downloads_setup_payload_for_superuser(self):
         settings_obj = SystemSettings.load()
@@ -258,6 +280,49 @@ class GeneralViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertIn('class="microsys-form ms-system-setup-form"', payload['html'])
+
+    def test_system_settings_modal_post_preserves_step_six_values_when_omitted(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.allowed_themes = ['dark', 'neon']
+        settings_obj.default_theme = 'dark'
+        settings_obj.allowed_fonts = ['cairo']
+        settings_obj.default_fonts = {'en': 'cairo', 'ar': 'cairo'}
+        settings_obj.default_table_density = 'roomy'
+        settings_obj.save()
+
+        response = self.client.post(
+            reverse('modal_manager', args=['microsys', 'SystemSettings', 1]) + '?step=0',
+            {
+                'system_names': '{"en": "System", "ar": "System"}',
+                'home_url': '/dashboard/',
+                'default_language': 'en',
+                'allow_user_theme_override': 'on',
+                'allow_user_font_override': 'on',
+                'languages': '{"en": {"name": "English", "dir": "ltr", "flag": "EN"}, "ar": {"name": "Arabic", "dir": "rtl", "flag": "AR"}}',
+                'translations_override': '{}',
+                'sidebar_config': '{"enabled": true, "home_url_name": null, "entries": [], "enable_reorder": true, "show_toolbar": true, "show_icons": true, "density": "balanced", "allow_user_density": true, "collapse_mode": "icons"}',
+                'email_config': '{"transport": "direct", "secret_storage": "env", "host": "", "port": 587, "use_tls": true, "use_ssl": false, "username": "", "default_from_email": "", "password_configured": false}',
+                'client_ip_config': '{"mode": "x_forwarded_for", "trusted_proxy_hops": 1, "custom_header": ""}',
+                'titlebar_title_align': 'start',
+                'titlebar_title_size': 'md',
+                'titlebar_home_shape': 'circle',
+                'titlebar_height': 'balanced',
+                'titlebar_surface': 'default',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertTrue(payload['success'])
+
+        settings_obj.refresh_from_db()
+        self.assertEqual(settings_obj.home_url, '/dashboard/')
+        self.assertEqual(settings_obj.allowed_themes, ['dark', 'neon'])
+        self.assertEqual(settings_obj.default_theme, 'dark')
+        self.assertEqual(settings_obj.allowed_fonts, ['cairo'])
+        self.assertEqual(settings_obj.default_fonts, {'en': 'cairo', 'ar': 'cairo'})
+        self.assertEqual(settings_obj.default_table_density, 'roomy')
 
     def test_generic_modal_manager_relies_on_signal_logging_for_scope_create(self):
         fake_request = SimpleNamespace(META={})

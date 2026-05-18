@@ -2858,13 +2858,15 @@
                 input.value = activeTheme;
                 allowedCheckboxes.forEach((checkbox) => {
                     const theme = checkbox.getAttribute('data-setup-theme-allowed');
-                    checkbox.disabled = checkbox.checked && resolvedAllowedThemes.length === 1;
+                    const isLocked = checkbox.checked && resolvedAllowedThemes.length === 1;
+                    checkbox.setAttribute('aria-disabled', isLocked ? 'true' : 'false');
                     const container = checkbox.closest('[data-theme-option]');
                     if (!container) {
                         return;
                     }
                     const isAllowed = resolvedAllowedThemes.includes(theme);
                     const isDefault = theme === activeTheme;
+                    container.classList.toggle('is-locked', isLocked);
                     container.classList.toggle('opacity-50', !isAllowed);
                     container.classList.toggle('is-default', isDefault);
                     const button = container.querySelector('[data-setup-theme-choice]');
@@ -2897,6 +2899,11 @@
             });
 
             allowedCheckboxes.forEach((checkbox) => {
+                checkbox.addEventListener('click', (event) => {
+                    if (checkbox.checked && getAllowedThemes().length === 1) {
+                        event.preventDefault();
+                    }
+                });
                 checkbox.addEventListener('change', () => {
                     if (!getAllowedThemes().length) {
                         checkbox.checked = true;

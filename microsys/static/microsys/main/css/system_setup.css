@@ -683,40 +683,29 @@
 }
 
 /* Font Previews Support */
-.ms-font-previews {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
+.ms-font-option {
+  align-items: center;
 }
 
-.ms-font-preview-card {
-  width: 100px;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  border-width: 2px !important;
-  text-align: center;
-}
-
-.ms-font-preview-card.active {
-  border-color: var(--primal) !important;
-  background-color: rgba(var(--primal-rgb), 0.05);
-}
-
-.ms-font-preview-card:hover:not(.active) {
-  border-color: var(--ms-setup-pane-border, rgba(var(--primal-rgb), 0.24)) !important;
+.ms-font-option__icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1rem;
 }
 
 .font-preview-sample {
   font-weight: 500;
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 /* Specific Font Mapping Rules for Previews */
-.ms-font-preview-card[data-font="shabwa"] .font-preview-sample,
+.ms-font-option[data-font="shabwa"] .font-preview-sample,
 .ms-font-settings-option[data-font-option="shabwa"] .font-preview-sample {
   font-family: 'Shabwa', sans-serif !important;
 }
 
-.ms-font-preview-card[data-font="cairo"] .font-preview-sample,
+.ms-font-option[data-font="cairo"] .font-preview-sample,
 .ms-font-settings-option[data-font-option="cairo"] .font-preview-sample {
   font-family: 'Cairo', sans-serif !important;
 }

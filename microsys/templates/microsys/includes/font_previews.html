@@ -1,12 +1,20 @@
 {% load static %}
-<div class="d-flex flex-wrap gap-3 ms-font-previews" id="msFontPreviews">
-    {% for font_slug in allowed_fonts %}
-    <div class="ms-font-preview-card border rounded p-2 text-center cursor-pointer {% if selected_font == font_slug %}active{% endif %}" 
-         data-font="{{ font_slug }}">
-        <div class="font-preview-sample h3 mb-1">
-            Aa
-        </div>
-        <div class="small fw-semibold">{{ font_slug|title }}</div>
-    </div>
+<div class="ms-font-picker" id="msFontPreviews">
+    <div class="ms-density-options" role="group" aria-label="{{ MS_TRANS.typography }}">
+    {% for font in option_fonts %}
+        <button
+            type="button"
+            class="ms-density-option ms-font-option{% if selected_font == font.slug %} is-active{% endif %}"
+            data-font="{{ font.slug }}"
+        >
+            <span class="ms-density-option__icon ms-font-option__icon" aria-hidden="true">
+                <span class="font-preview-sample">Aa</span>
+            </span>
+            <span class="ms-density-option__copy">
+                <strong>{{ font.label }}</strong>
+                <small>{{ font.slug }}</small>
+            </span>
+        </button>
     {% endfor %}
+    </div>
 </div>

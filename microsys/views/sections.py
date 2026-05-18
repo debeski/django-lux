@@ -948,7 +948,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             return None
 
-        if 0 <= step <= 4:
+        if 0 <= step <= 5:
             return step
         return None
 
@@ -1077,6 +1077,12 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             'hide_form_buttons': getattr(form, "_auto_helper", False) or has_submit_button(form),
             'wizard_initial_step': self._get_wizard_initial_step(model),
         }
+        if self._is_system_settings_model(model):
+            logger.warning(
+                "SystemSettings modal validation failed on step %s: %s",
+                request.GET.get('step'),
+                form.errors.get_json_data(),
+            )
         # Render combined view for validation failure
         html = render_to_string('microsys/helpers/dynamic_modal_combined.html', context, request=request)
         return JsonResponse({'success': False, 'html': html})

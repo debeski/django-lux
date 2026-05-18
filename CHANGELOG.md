@@ -4,6 +4,12 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.2.2
+
+- **Email Relay Environment Support**: Fixed Step 2 email readiness gate to properly recognize internal SMTP relay configurations using `SMTP_RELAY_*` environment variables alongside `DEFAULT_FROM_EMAIL`, resolving deployment issues with relay-based email delivery.
+- **System Settings Modal Step Resolution**: Fixed stale step resolver in `DynamicModalManagerView` to correctly handle wizard steps 0-5 after the Step 5/6 split, preventing invalid modal rerenders.
+- **Single-Step Modal Preservation**: Fixed System Settings modal saves so single-step POSTs that omit Step 6 fields (themes, typography, table density) now preserve existing server-side values instead of failing validation.
+- **Typography Selector Unification**: Replaced the Options typography card's custom font strip with the shared selector pattern used by language and density cards for consistent UI behavior.
 
 ## v2.2.1
 

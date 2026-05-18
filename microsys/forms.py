@@ -1,5 +1,6 @@
 # Imports of the required python modules and libraries
 ######################################################
+import os
 import json
 from types import MethodType, SimpleNamespace
 
@@ -1686,6 +1687,12 @@ class SystemSettingsForm(forms.ModelForm):
             if parsed_step in (0, 1, 2, 3, 4, 5):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
+        if self.mode != 'setup' and self.single_step_mode:
+            # Single-step modal posts can legitimately omit values owned by another
+            # wizard step; field-level required validation must not fire before the
+            # step-preservation cleaners get a chance to restore them.
+            self.fields['default_theme'].required = False
+            self.fields['default_table_density'].required = False
 
         from microsys.discovery import discover_sidebar_catalog, sanitize_sidebar_config
         from microsys.utils import get_system_config
@@ -2873,12 +2880,27 @@ class SystemSettingsForm(forms.ModelForm):
         return str(self.cleaned_data.get('default_language') or 'en').strip().lower().replace('_', '-')
 
     def clean_allowed_fonts(self):
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and 'allowed_fonts' not in self.data:
+            preserved = getattr(self.instance, 'allowed_fonts', None)
+            if preserved in (None, ''):
+                preserved = self.initial.get('allowed_fonts')
+            return list(normalize_allowed_fonts(preserved))
         data = self.cleaned_data.get('allowed_fonts')
         if not data:
             return []
         return list(data)
 
     def clean_default_fonts(self):
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and 'default_fonts' not in self.data:
+            preserved = getattr(self.instance, 'default_fonts', None)
+            if preserved in (None, ''):
+                preserved = self.initial.get('default_fonts')
+            if isinstance(preserved, str):
+                try:
+                    preserved = json.loads(preserved)
+                except json.JSONDecodeError:
+                    preserved = {}
+            return preserved if isinstance(preserved, dict) else {}
         data = self.cleaned_data.get('default_fonts')
         if not data:
             return {}
@@ -2891,12 +2913,27 @@ class SystemSettingsForm(forms.ModelForm):
             return {}
 
     def clean_default_theme(self):
-        value = self.cleaned_data.get('default_theme') or 'light'
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and 'default_theme' not in self.data:
+            value = (
+                getattr(self.instance, 'default_theme', None)
+                or self.initial.get('default_theme')
+                or 'light'
+            )
+        else:
+            value = self.cleaned_data.get('default_theme') or 'light'
         if not is_valid_theme(value):
             raise ValidationError("Invalid theme choice.")
         return value
 
     def clean_allowed_themes(self):
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and 'allowed_themes' not in self.data:
+            values = getattr(self.instance, 'allowed_themes', None)
+            if not values:
+                values = self.initial.get('allowed_themes')
+            normalized = list(normalize_allowed_themes(values))
+            if not normalized:
+                raise ValidationError("At least one theme must remain enabled.")
+            return normalized
         values = self.cleaned_data.get('allowed_themes') or []
         if not values:
             raise ValidationError("At least one theme must remain enabled.")
@@ -2906,7 +2943,14 @@ class SystemSettingsForm(forms.ModelForm):
         return normalized
 
     def clean_default_table_density(self):
-        value = self.cleaned_data.get('default_table_density') or DEFAULT_TABLE_DENSITY
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and 'default_table_density' not in self.data:
+            value = (
+                getattr(self.instance, 'default_table_density', None)
+                or self.initial.get('default_table_density')
+                or DEFAULT_TABLE_DENSITY
+            )
+        else:
+            value = self.cleaned_data.get('default_table_density') or DEFAULT_TABLE_DENSITY
         if value not in TABLE_DENSITY_VALUES:
             raise ValidationError("Invalid table density choice.")
         return value
@@ -3246,12 +3290,42 @@ class SystemSettingsForm(forms.ModelForm):
         if cleaned.get('registration_activation_mode') not in REGISTRATION_ACTIVATION_VALUES:
             cleaned['registration_activation_mode'] = 'auto_login_after_verify'
         email_ready = get_email_service_status().get('available')
-        if email_config.get('secret_storage') == 'encrypted_db':
+        backend = getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+        local_backends = {
+            'django.core.mail.backends.console.EmailBackend',
+            'django.core.mail.backends.locmem.EmailBackend',
+            'django.core.mail.backends.filebased.EmailBackend',
+        }
+        if backend in local_backends and getattr(settings, 'DEBUG', False):
+            email_ready = True
+        elif email_config.get('transport') == 'relay':
+            relay_host = str(email_config.get('host') or os.getenv('SMTP_RELAY_HOST') or '').strip()
+            relay_port = email_config.get('port')
+            relay_from_email = str(
+                email_config.get('default_from_email')
+                or getattr(settings, 'DEFAULT_FROM_EMAIL', '')
+                or os.getenv('DEFAULT_FROM_EMAIL')
+                or ''
+            ).strip()
+            relay_password_ok = True
+            if email_config.get('secret_storage') == 'encrypted_db' and email_config.get('username'):
+                relay_password_ok = bool(email_config.get('encrypted_password'))
+            email_ready = bool(relay_host and relay_port and relay_from_email and relay_password_ok)
+        elif email_config.get('secret_storage') == 'encrypted_db':
             email_ready = bool(
                 email_config.get('host')
                 and email_config.get('port')
                 and email_config.get('default_from_email')
                 and (not email_config.get('username') or email_config.get('encrypted_password'))
+            )
+        elif backend == 'django.core.mail.backends.smtp.EmailBackend':
+            email_ready = bool(
+                (email_config.get('host') or getattr(settings, 'EMAIL_HOST', ''))
+                and (email_config.get('port') or getattr(settings, 'EMAIL_PORT', None))
+                and (
+                    email_config.get('default_from_email')
+                    or getattr(settings, 'DEFAULT_FROM_EMAIL', '')
+                )
             )
         if (cleaned.get('public_registration_enabled') or cleaned.get('email_2fa')) and not email_ready:
             self.add_error(

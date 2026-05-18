@@ -103,7 +103,9 @@
             element.addEventListener('click', function () {
                 const font = this.getAttribute('data-font');
                 // Update local UI
-                document.querySelectorAll('[data-font]').forEach(el => el.classList.toggle('active', el === this));
+                document.querySelectorAll('[data-font]').forEach((option) => {
+                    option.classList.toggle('is-active', option === this);
+                });
                 
                 // Apply immediately
                 const familyName = font.charAt(0).toUpperCase() + font.slice(1);
