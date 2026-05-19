@@ -273,3 +273,23 @@
   - OAuth 2.0 Security BCP / RFC 9700: `https://www.rfc-editor.org/rfc/rfc9700.html`
   - Django OAuth Toolkit OIDC docs: `https://django-oauth-toolkit.readthedocs.io/en/stable/oidc.html`
   - mozilla-django-oidc settings docs: `https://mozilla-django-oidc.readthedocs.io/en/stable/settings.html`
+
+# known bugs:
+- Changing font in options view changes font, but doesnt immidiately highlight the newly chosen font and requires a page reload.
+- Previewing a previously disabled theme in system settings step 6 defaults back to the default theme instead, it is because the newly selected theme for preview was previously unselected/disabled, and so it is being read as a false choice and falls back to original default theme. only way around is to allow the theme, save, then go back and it now previews fine.
+* System settings/step 2/ translation iverrides: only microsys related strings are available in the matrix, with none of the other apps strings. im not sure if this was by design or not, i cant remember. i might have chosen this path to reduce the overhead of loading project-wide strings and their values which can be resources and time consuming.
+- The theme preview/ theme change on click needs to be smoothed out with an animation or fade or something similar, it appears choppy when switching from dark to light modes and vice versa.
+- Options / System Info Card / Server Time (Backend) is showing only a date hour and minutes.
+- Options / Cards can not be re-ordered when using neon theme.
+- Options / System Settings / Step 4 / Desktop Collapse Mode / When Sidebar is set to Icons Only, the parent/folder accordion icons are pushed out of bounds and are not cenetered when the sidebar is collapsed.
+- Options / System Settings / Step 4 / enabling sidebar after it was previously disabled results in the child toggles being toggled off initially and dev/user is required to enable each option individually after. plus the Desktop Collapse Mode gets set to Hide Completely mode because initially, Show sidebar icons was toggled off, because the sidebar was disabled. a suggested solution would be to keep child toggles as is when sidebar is disabled, and just discard child option values from runtime usage. this way if the dev/user enables the sidebar again the options are still how he initially left them rather than them being all toggled off, and subsequentely causing the Desktop Collapse Mode side-effect.
+- The microsys globally used toggle does not show a pointer cursor when hovered.
+- Options / re-order icons inside cards should use drag cursor instead of pointer.
+- Profile / Confirm password modal should automatically catch Enter key being pressed as submit.
+- Profile / User Activity / some session and 2fa related logs are still being rendered under Recent Activity instead of System Interactions
+
+# To ADD:
+- Optional interactive hierarchy-based or history-based breadcrumb navigation style bar (name: nav bar) that can be enabled/disabled from System Settings. It will follow this style: Root / View / Section, Tab, or similar. each of the entries can be clicked for navigation except for root/home/index. "having a modern style, following the same globally used style, looks, and feel in microsys. using microsys' translation system. any child nav bar related options or toggles are hidden by default until nav bar is enabled/selected for enabling."
+- New User report that will summarize a user's entire existance on current project with all useful and useless data that may be collected on any given user. results open inside a microsys dynamic modal, printable, and exportable as xlsx/pdf, and abide by the microsys translation system and MSRP-1 guidelines. "data will range from days spent on-site, total hours, total actions, to ip addresses used, browsers, os, etc." <some modification might have to be made to keep history of some items, i dont thing ActivityLog can be the sole source of truth for everything>
+- Ability to disable/hide and enable/show projects' django apps on demand by superuser directly from UI.
+- Something needs to be done about the DynamicModal's spinner/loading phase. either a smart fast skeleton needs to be implemented to accomodate for all or at least most DynamicModal possible usages by devs. or add a passable var from the modal activating trigger to set an initial height and width of the modal, or set the number of fields to appear in the proposed skeleton.

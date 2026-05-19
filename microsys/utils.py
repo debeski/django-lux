@@ -8,7 +8,6 @@ from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 import inspect
 import unicodedata
-
 from django import forms
 from django.apps import apps
 from django.conf import settings
@@ -22,7 +21,6 @@ from django.http import JsonResponse
 from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.utils.module_loading import import_string
-
 from .constants import (
     DEFAULT_HOME_URL,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -49,7 +47,6 @@ try:
 except ImportError:
     django_filters = None
 
-
 SENSITIVE_ACTIVITY_MASK = "********"
 _SENSITIVE_ACTIVITY_FIELD_NAMES = {
     "password",
@@ -67,7 +64,7 @@ _SENSITIVE_ACTIVITY_FIELD_NAMES = {
     "apitoken",
 }
 
-
+# Normalize activity log model names for translation lookup
 def normalize_activity_log_model_key(value):
     raw = str(value or '').strip().lower()
     if not raw:
@@ -76,11 +73,11 @@ def normalize_activity_log_model_key(value):
     normalized = re.sub(r'_+', '_', normalized).strip('_')
     return normalized
 
-
+# Normalize string for fuzzy model matching
 def _normalize_fuzzy_string(s):
     return unicodedata.normalize('NFKD', str(s)).casefold() if s else ""
 
-
+# Fuzzy Model Lookup — Builds a cached mapping of normalized model names to model classes
 @lru_cache(maxsize=1)
 def _get_fuzzy_model_mapping():
     """Builds a cached mapping of normalized model names to model classes."""
@@ -102,7 +99,7 @@ def _get_fuzzy_model_mapping():
             
     return mapping
 
-
+# Translate activity log model names using MS_TRANS
 def translate_activity_log_model_name(value, strings=None):
     if not value:
         return ""
@@ -122,7 +119,7 @@ def translate_activity_log_model_name(value, strings=None):
             return s[key]
     return value
 
-
+# Coerce a setting value to a list
 def _coerce_list_setting(scope, key):
     value = scope.get(key)
     if value is None:
@@ -132,7 +129,7 @@ def _coerce_list_setting(scope, key):
     scope[key] = value
     return value
 
-
+# Insert middleware at specified position, removing duplicates
 def _insert_middleware_once(middleware, middleware_path, *, after=None, before=None):
     if middleware_path in middleware:
         middleware.remove(middleware_path)
@@ -145,7 +142,7 @@ def _insert_middleware_once(middleware, middleware_path, *, after=None, before=N
 
     middleware.insert(insert_at, middleware_path)
 
-
+# Secret Management — Reads a Docker secret first, then falls back to an environment variable
 def get_secret(secret_name, env_var):
     """Read a Docker secret first, then fall back to an environment variable."""
     secret_path = os.path.join("/run/secrets", secret_name)
@@ -154,7 +151,6 @@ def get_secret(secret_name, env_var):
             return secret_file.read().strip()
     except OSError:
         return os.getenv(env_var)
-
 
 EMAIL_CONFIG_TRANSPORTS = {'direct', 'relay'}
 EMAIL_CONFIG_SECRET_STORAGES = {'env', 'encrypted_db'}
@@ -173,7 +169,7 @@ CLIENT_IP_MODE_VALUES = {
     CLIENT_IP_MODE_CUSTOM,
 }
 
-
+# Return default email configuration structure
 def default_email_config():
     return {
         'transport': 'direct',
@@ -188,7 +184,7 @@ def default_email_config():
         'password_configured': False,
     }
 
-
+# Return default client IP resolution configuration
 def default_client_ip_config():
     return {
         'mode': CLIENT_IP_MODE_X_FORWARDED_FOR,
@@ -196,7 +192,7 @@ def default_client_ip_config():
         'custom_header': '',
     }
 
-
+# Normalize custom header name for client IP resolution
 def _normalize_client_ip_header_name(value):
     raw_value = str(value or '').strip()
     if not raw_value:
@@ -208,7 +204,7 @@ def _normalize_client_ip_header_name(value):
         normalized = f'HTTP_{normalized}'
     return normalized
 
-
+# Normalize and validate client IP configuration
 def normalize_client_ip_config(value):
     normalized = default_client_ip_config()
     if not isinstance(value, dict):
@@ -230,7 +226,7 @@ def normalize_client_ip_config(value):
 
     return normalized
 
-
+# Normalize and validate email configuration
 def normalize_email_config(value, *, redact_secret=False):
     config = value if isinstance(value, dict) else {}
     normalized = default_email_config()
@@ -258,7 +254,7 @@ def normalize_email_config(value, *, redact_secret=False):
         normalized.pop('encrypted_password', None)
     return normalized
 
-
+# Normalize allowed fonts list against available fonts
 def normalize_allowed_fonts(allowed_fonts=None):
     from .fonts import get_builtin_fonts
     available = {f['slug'] for f in get_builtin_fonts()}
@@ -273,7 +269,7 @@ def normalize_allowed_fonts(allowed_fonts=None):
 
     return normalized or list(available)
 
-
+# Get seed key for email encryption
 def _email_secret_seed():
     configured_key = (
         os.getenv('MICROSYS_EMAIL_SECRET_KEY')
@@ -283,21 +279,21 @@ def _email_secret_seed():
     )
     return str(configured_key or 'microsys-email-secret-dev-key')
 
-
+# Get Fernet instance for email encryption
 def _email_fernet():
     from cryptography.fernet import Fernet
 
     digest = hashlib.sha256(_email_secret_seed().encode('utf-8')).digest()
     return Fernet(base64.urlsafe_b64encode(digest))
 
-
+# Encrypt email secret using Fernet
 def encrypt_email_secret(raw_secret):
     raw_secret = str(raw_secret or '')
     if not raw_secret:
         return ''
     return _email_fernet().encrypt(raw_secret.encode('utf-8')).decode('utf-8')
 
-
+# Decrypt email secret using Fernet
 def decrypt_email_secret(encrypted_secret):
     encrypted_secret = str(encrypted_secret or '').strip()
     if not encrypted_secret:
@@ -307,11 +303,10 @@ def decrypt_email_secret(encrypted_secret):
     except Exception:
         return ''
 
-
 TOTP_SECRET_PREFIX = 'fernet$'
 _UNSET = object()
 
-
+# Get seed key for TOTP encryption
 def _totp_secret_seed():
     configured_key = (
         os.getenv('MICROSYS_TOTP_SECRET_KEY')
@@ -321,18 +316,18 @@ def _totp_secret_seed():
     )
     return str(configured_key or 'microsys-totp-secret-dev-key')
 
-
+# Get Fernet instance for TOTP encryption
 def _totp_fernet():
     from cryptography.fernet import Fernet
 
     digest = hashlib.sha256(_totp_secret_seed().encode('utf-8')).digest()
     return Fernet(base64.urlsafe_b64encode(digest))
 
-
+# Check if TOTP secret is encrypted
 def is_encrypted_totp_secret(value):
     return isinstance(value, str) and value.startswith(TOTP_SECRET_PREFIX)
 
-
+# Encrypt TOTP secret using Fernet
 def encrypt_totp_secret(raw_secret):
     raw_secret = str(raw_secret or '').strip()
     if not raw_secret:
@@ -342,7 +337,7 @@ def encrypt_totp_secret(raw_secret):
     encrypted = _totp_fernet().encrypt(raw_secret.encode('utf-8')).decode('utf-8')
     return f'{TOTP_SECRET_PREFIX}{encrypted}'
 
-
+# Decrypt TOTP secret using Fernet
 def decrypt_totp_secret(stored_secret):
     stored_secret = str(stored_secret or '').strip()
     if not stored_secret:
@@ -355,11 +350,11 @@ def decrypt_totp_secret(stored_secret):
     except Exception:
         return ''
 
-
+# Get decrypted TOTP secret from profile
 def get_profile_totp_secret(profile):
     return decrypt_totp_secret(getattr(profile, 'totp_secret', ''))
 
-
+# Update profile TOTP state without full profile save
 def set_profile_totp_state(profile, *, raw_secret=_UNSET, enabled=_UNSET):
     if profile is None or not getattr(profile, 'pk', None):
         raise ValueError('Profile must be saved before updating TOTP state.')
@@ -377,7 +372,7 @@ def set_profile_totp_state(profile, *, raw_secret=_UNSET, enabled=_UNSET):
         setattr(profile, field_name, value)
     return profile
 
-
+# Get effective email configuration from settings or database
 def get_microsys_email_config(*, include_secret=False):
     try:
         SystemSettings = apps.get_model('microsys', 'SystemSettings')
@@ -438,7 +433,7 @@ def get_microsys_email_config(*, include_secret=False):
         'ui_hints': stored_hints,
     }
 
-
+# Get email service status
 def get_email_service_status():
     """
     Report whether Microsys-owned email flows are configured without touching
@@ -545,7 +540,7 @@ def get_email_service_status():
         'reason': 'custom_backend_configured' if configured else 'missing_default_from_email',
     }
 
-
+# Send Microsys-owned transactional email
 def send_microsys_mail(subject, message, recipient_list, *, from_email=None, fail_silently=False):
     """Send Microsys-owned transactional email through the selected delivery path."""
     email_config = get_microsys_email_config(include_secret=True)
@@ -597,6 +592,7 @@ def is_sensitive_activity_field_name(field_name):
     if normalized.endswith("secret") or normalized.endswith("secretkey"):
         return True
     return False
+
 
 def microsys_settings(scope):
     """
@@ -705,6 +701,7 @@ def microsys_settings(scope):
     else:
         scope["FORMAT_MODULE_PATH"] = [format_module_path, "microsys.formats"]
     return scope
+
 
 def _normalize_asset_url(value, fallback_base='/media/'):
     """Ensure stored media paths render as browser-safe absolute URLs."""
@@ -888,7 +885,6 @@ def can_manage_target_user(actor, target_user=None):
         target_scope = get_user_scope(target_user)
         if actor_scope and actor_scope != target_scope:
             return False
-
     return True
 
 
@@ -933,7 +929,7 @@ def is_central_staff(user):
         return False
     return not user.has_perm('microsys.manage_scopes')
 
-
+# Normalize permission codenames to a set
 def _normalize_permission_codename_set(permission_codenames):
     normalized = set()
     for permission in permission_codenames or []:
@@ -1086,7 +1082,7 @@ def get_user_management_tier_state(
     })
     return tier_state
 
-
+# Get user management tier state for a specific user
 def get_user_management_tier_state_for_user(user):
     if not user or not getattr(user, 'is_authenticated', False):
         return get_user_management_tier_state(
@@ -1143,7 +1139,7 @@ def user_can_view_activity_log(user):
         return True
     return user.has_perm('microsys.view_activitylog') or user.has_perm('microsys.view_activity_log')
 
-
+# Check if user has section view permission
 def user_has_section_view_permission(user):
     if not user or not getattr(user, 'is_authenticated', False):
         return False
@@ -1152,6 +1148,7 @@ def user_has_section_view_permission(user):
     return user.has_perm('microsys.view_sections') or user.has_perm('microsys.manage_sections')
 
 
+# Check if user has section manage permission
 def user_has_section_manage_permission(user):
     if not user or not getattr(user, 'is_authenticated', False):
         return False
@@ -1215,7 +1212,6 @@ def user_has_any_permission_tokens(user, permissions, default_visible_to_all=Fal
     if isinstance(permissions, str):
         permissions = [permissions]
     return any(user_matches_permission_token(user, p) for p in permissions)
-
 
 # Activity Logging — Universal logging utility for user actions
 def log_user_action(request, action, instance=None, model_name=None, details=None, number=None, object_id=None):
@@ -1282,7 +1278,7 @@ DEFAULT_LANGUAGE_CATALOG = {
     'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
 }
 
-
+# Normalize language code to standard format
 def _normalize_language_code(code):
     normalized = str(code or '').strip().lower().replace('_', '-')
     if not normalized:
@@ -1320,7 +1316,7 @@ def normalize_language_catalog(*layers):
                 }
     return merged
 
-
+# Normalize system names dictionary
 def normalize_system_names(value):
     names = {}
     if isinstance(value, dict):
@@ -1331,7 +1327,7 @@ def normalize_system_names(value):
                 names[code] = name
     return names
 
-
+# Resolve system name for a given language
 def resolve_system_name(system_names, lang_code=None, default_language='en'):
     names = normalize_system_names(system_names)
     lang = _normalize_language_code(lang_code) or _normalize_language_code(default_language) or 'en'
@@ -1344,7 +1340,7 @@ def resolve_system_name(system_names, lang_code=None, default_language='en'):
             return value
     return 'microSYS'
 
-
+# Build grouped configuration structure
 def build_config_groups(config, current_language=None):
     languages = normalize_language_catalog(config.get('languages', {}))
     default_language = _normalize_language_code(config.get('default_language')) or 'en'
@@ -1413,7 +1409,7 @@ def _dedupe_sidebar_entries(entries):
         deduped.append(entry)
     return deduped
 
-
+# Return default titlebar configuration
 def default_titlebar_config():
     return {
         'show_title': True,
@@ -1427,7 +1423,7 @@ def default_titlebar_config():
         'surface': 'default',
     }
 
-
+# Normalize and validate titlebar configuration
 def normalize_titlebar_config(titlebar_config):
     config = titlebar_config if isinstance(titlebar_config, dict) else {}
     normalized = default_titlebar_config()
@@ -1463,7 +1459,7 @@ def normalize_titlebar_config(titlebar_config):
 
     return normalized
 
-
+# Return default sidebar configuration
 def default_sidebar_config():
     return {
         'enabled': True,
@@ -1477,7 +1473,7 @@ def default_sidebar_config():
         'collapse_mode': DEFAULT_SIDEBAR_COLLAPSE_MODE,
     }
 
-
+# Normalize and validate sidebar behavior configuration
 def normalize_sidebar_behavior(sidebar_config):
     config = sidebar_config if isinstance(sidebar_config, dict) else {}
     normalized = default_sidebar_config()
@@ -1508,13 +1504,13 @@ def normalize_sidebar_behavior(sidebar_config):
 
     return normalized
 
-
+# Get effective allowed themes from configuration
 def get_effective_allowed_themes(config):
     if not isinstance(config, dict):
         return tuple(normalize_allowed_themes())
     return tuple(normalize_allowed_themes(config.get('allowed_themes')))
 
-
+# Resolve user theme preference against allowed themes
 def resolve_user_theme_preference(user_prefs, config):
     prefs = dict(user_prefs or {})
     allowed_themes = set(get_effective_allowed_themes(config))
@@ -1531,7 +1527,7 @@ def resolve_user_theme_preference(user_prefs, config):
         prefs['theme'] = default_theme
     return prefs
 
-
+# Resolve user sidebar density preference
 def resolve_sidebar_density_preference(user_prefs, config):
     prefs = dict(user_prefs or {})
     sidebar_config = normalize_sidebar_behavior(config.get('sidebar', {}))
@@ -1544,7 +1540,7 @@ def resolve_sidebar_density_preference(user_prefs, config):
         prefs['sidebar_density'] = sidebar_config.get('density', DEFAULT_SIDEBAR_DENSITY)
     return prefs
 
-
+# Resolve user sidebar collapsed preference
 def resolve_sidebar_collapsed_preference(user_prefs, config, session_collapsed=False):
     prefs = dict(user_prefs or {})
     collapse_mode = normalize_sidebar_behavior(config.get('sidebar', {})).get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
@@ -1557,10 +1553,8 @@ def resolve_sidebar_collapsed_preference(user_prefs, config, session_collapsed=F
         raw_value = raw_value.lower() == 'true'
     return bool(raw_value), prefs
 
-
 SYSTEM_SETTINGS_EXPORT_FORMAT = 'django-microsys.system-settings'
 SYSTEM_SETTINGS_EXPORT_VERSION = 1
-
 
 SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'system_names',
@@ -1588,13 +1582,13 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'titlebar_config',
 )
 
-
+# Extract filename from FieldFile or string
 def _field_file_name(value):
     if isinstance(value, FieldFile):
         return value.name or ''
     return str(value or '')
 
-
+# Coerce value to boolean for import settings
 def _coerce_import_bool(value):
     if isinstance(value, str):
         return value.strip().lower() in {'1', 'true', 'yes', 'on'}
@@ -1695,7 +1689,6 @@ def normalize_system_settings_import_payload(payload):
     ):
         if bool_field in normalized:
             normalized[bool_field] = _coerce_import_bool(normalized[bool_field])
-
     return normalized
 
 
@@ -2467,7 +2460,7 @@ def collect_related_objects(instance):
                 
     return related_data
 
-
+# Generate detail context from model instance
 def _build_generic_detail_context(instance, request=None):
     """
     Dynamically generates a list of {'label': ..., 'value': ...} dictionaries 
@@ -2532,7 +2525,7 @@ def _build_generic_detail_context(instance, request=None):
 
     return fields_data
 
-
+# Resolve translated display label for detail views
 def resolve_detail_field_label(instance, field, request=None, strings=None):
     """Resolve a translated display label for generic detail views."""
     s = strings or get_strings(get_current_language_code(request))
@@ -2562,7 +2555,6 @@ def resolve_detail_field_label(instance, field, request=None, strings=None):
             return translated
 
     return raw_label or field_name
-
 
 # Dynamic Table Builder — Generates a django-tables2 Table class at runtime
 def _build_generic_table_class(model):
@@ -3127,7 +3119,6 @@ def toggle_sidebar(request):
         return JsonResponse({"status": "success"})
     return JsonResponse({"status": "error"}, status=400)
 
-
 # Form Helper — Applies shared field classes, direction, and optional inline labels
 def set_field_attrs(form, request=None, inline_labels=False):
     """Set common attributes for all fields in the form."""
@@ -3260,7 +3251,7 @@ def set_field_attrs(form, request=None, inline_labels=False):
         if is_date:
             field.widget.attrs['autocomplete'] = 'off'
 
-
+# Set up modern Crispy layout for django-filter FilterSet
 def setup_filter_helper(filter_instance, request=None, preserve_keys=None, inline_labels=True):
     """
     Sets up a modern, responsive Crispy layout for a django-filter FilterSet.
@@ -3333,7 +3324,7 @@ def setup_filter_helper(filter_instance, request=None, preserve_keys=None, inlin
     # Apply shared field attrs, defaulting filters to inline placeholder labels.
     set_field_attrs(filter_instance.form, request, inline_labels=inline_labels)
 
-
+# Build advanced filter helper with expandable fields
 def advanced_filter_helper(filter_instance, config=None, request=None, preserve_keys=None, inline_labels=True):
     """
     Build an "advanced" filter helper with:
@@ -3647,7 +3638,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
     helper.layout = Layout(*layout_items)
     filter_instance.form.helper = helper
 
-# Form Helper — Renames the first choice in a Selection menu
+# Form Helper — Set the first choice of a selection field safely
 def set_first_choice(field, placeholder):
     """Set the first choice of a specified field safely without overwriting data."""
     # 1. Handle fields with explicit empty_label (ModelChoiceField, etc.)
@@ -3681,7 +3672,6 @@ def set_first_choice(field, placeholder):
         
     field.choices = choices
 
-
 # Form Helper — Translates a choices list using MS_TRANS choice_ prefix
 def translate_choices(choices, ms_trans):
     """
@@ -3696,7 +3686,6 @@ def translate_choices(choices, ms_trans):
         else:
             translated.append((value, ms_trans.get(f'choice_{value}', label)))
     return translated
-
 
 # Form Helper — Detects if a Crispy form layout already contains Submit/Button elements
 def has_submit_button(form):
@@ -3747,3 +3736,17 @@ def has_submit_button(form):
             return True
             
     return False
+
+# Return app version from VERSION file at the parent caller's folder
+def get_app_version(calling_file_path: str) -> str:
+    """
+    Reads the VERSION file from the same directory as the calling file.
+    Usage: VERSION = get_app_version(__file__)
+    """
+    try:
+        # Resolves the directory of the file that called this function
+        app_dir = Path(calling_file_path).resolve().parent
+        with open(app_dir / "VERSION", "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "unknown"

@@ -4,6 +4,11 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.2.3
+
+- **utils.py Cleanup**: cleaned up the utils.py helpers file a bit, will split into modules in next versions.
+- **get_app_version helper**: Added a new utils.py helper to fetch individual django app version from VERSION file within the calling function's directory.
+
 ## v2.2.2
 
 - **Email Relay Environment Support**: Fixed Step 2 email readiness gate to properly recognize internal SMTP relay configurations using `SMTP_RELAY_*` environment variables alongside `DEFAULT_FROM_EMAIL`, resolving deployment issues with relay-based email delivery.
