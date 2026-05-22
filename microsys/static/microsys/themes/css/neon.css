@@ -166,7 +166,7 @@
 :root.theme-neon .card:not([class*="text-bg-"]):not([class*="bg-"]),
 :root.theme-neon .card-body:not([class*="text-bg-"]):not([class*="bg-"]),
 :root.theme-neon .dashboard-card:not([class*="text-bg-"]):not([class*="bg-"]), 
-:root.theme-neon .option-section:not([class*="text-bg-"]):not([class*="bg-"]),
+:root.theme-neon .option-section:not(.ms-options-panel):not([class*="text-bg-"]):not([class*="bg-"]),
 :root.theme-neon .list-group-item:not([class*="text-bg-"]):not([class*="bg-"]):not(.active),
 :root.theme-neon .modal-content,
 :root.theme-neon .chart-container-sys {
@@ -1842,7 +1842,7 @@
 
 /* 36. Special Effects - Glowing Corners on Cards */
 :root.theme-neon .card::before,
-:root.theme-neon .option-section::before,
+:root.theme-neon .option-section:not(.ms-options-panel)::before,
 :root.theme-neon .chart-container-sys::before {
     content: '';
     position: absolute;
@@ -1859,20 +1859,20 @@
 }
 
 :root.theme-neon .card:hover::before,
-:root.theme-neon .option-section:hover::before,
+:root.theme-neon .option-section:not(.ms-options-panel):hover::before,
 :root.theme-neon .chart-container-sys:hover::before {
     opacity: 1;
 }
 
 :root.theme-neon .card,
-:root.theme-neon .option-section,
+:root.theme-neon .option-section:not(.ms-options-panel),
 :root.theme-neon .chart-container-sys {
     position: relative;
     isolation: isolate;
 }
 
 :root.theme-neon .card > *,
-:root.theme-neon .option-section > *,
+:root.theme-neon .option-section:not(.ms-options-panel) > *,
 :root.theme-neon .chart-container-sys > * {
     position: relative;
     z-index: 1;

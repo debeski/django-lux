@@ -7,14 +7,14 @@
     {% if entry.kind == 'group' %}
     <div class="accordion-item sidebar-tree-node sidebar-group-node" data-entry-kind="group" data-entry-id="{{ entry.id }}" data-group-id="{{ entry.id }}">
         <h2 class="accordion-header d-flex flex-nowrap align-items-center{% if entry.url and entry.url != '#' %} has-url-btn{% endif %}">
-            <button class="accordion-button sidebar-folder-button flex-grow-1{% if entry.has_active %} has-active-child{% endif %}{% if not entry.is_open %} collapsed{% endif %}"
+            <button class="accordion-button sidebar-folder-button{% if entry.has_active %} has-active-child{% endif %}{% if not entry.is_open %} collapsed{% endif %}"
                     type="button"
                     data-bs-toggle="collapse"
                     data-bs-target="#{{ entry.id }}"
                     aria-expanded="{% if entry.is_open %}true{% else %}false{% endif %}"
                     aria-controls="{{ entry.id }}">
                 <i class="bi {{ entry.icon }} me-2"></i>
-                <span class="flex-grow-1 text-start">{{ entry.label }}</span>
+                <span class="text-start">{{ entry.label }}</span>
             </button>
             {% if entry.url and entry.url != '#' %}
             <a href="{{ entry.url }}" class="group-url-btn" title="{{ entry.label }}">

@@ -10,6 +10,9 @@
   - Options uses the shared selector markup and `--ms-main-font`.
 - Runtime theme allowlisting remains enforced by context and the preferences API. `2026-05-22` setup preview work adds a setup-only path that can load a disabled theme stylesheet for preview without widening runtime preference acceptance.
 - Explicit `setTheme(...)` changes now run through a short veil fade around the class swap; reduced-motion and Microsys `no-animations` skip the fade, and sidebar item/icon transitions pause under that veil so they resolve with the same swap.
+- Neon theme no longer applies its generic `.option-section` overlay/stacking treatment to Options cards; `.ms-options-panel` stays on the dedicated Options styling path instead of inheriting the redundant glow overlay layer.
+- Options System Info now renders backend server time from a dedicated preformatted display key, avoiding generic `current_time` collisions and preserving explicit seconds.
+- Collapsed Icons Only sidebar now removes redundant folder-button/label `flex-grow-1` classes, zeroes hidden label flex space, and applies a dedicated collapsed folder-row centering path so parent/folder accordion icons remain centered and labels vanish immediately.
 - System Settings single-step modal POSTs preserve omitted Step 6 values server-side. Step resolver accepts modal wizard steps `0..5`.
 - Current translation contract from code, docs, and `dhub` runtime inspection:
   - app-local sources are installed app `translations.py` modules exposing `MS_TRANSLATIONS`,
@@ -60,14 +63,14 @@
 - Live confirmation is pending after the `2026-05-22` Options font asset cache-bust. Local `options.js` already marks a clicked `[data-font]` selector `is-active` immediately; the reported missing highlight is production-only.
 - Live confirmation is pending after the `2026-05-22` setup-only disabled-theme preview path for Step 6.
 - Live confirmation is pending for the `2026-05-22` sidebar-item theme-switch follow-up; the veil fade was accepted, but sidebar item transitions still looked choppy until they were paused under the veil.
+- User confirmed on `2026-05-22` that the neon Options reorder fix is working after removing redundant neon `.option-section` overlay/stacking selectors from `.ms-options-panel`.
+- Live confirmation is still pending after the refined `2026-05-22` Options System Info server-time fix; the user still saw date-only output (`2026-05-22`) after the first template-format patch, so Options now uses a dedicated preformatted backend display key instead of the generic `current_time` variable.
+- Live confirmation is still pending after the refined `2026-05-22` Step 4 Icons Only sidebar fix; CSS label collapse alone was not sufficient, so folder accordion templates now also drop redundant Bootstrap `flex-grow-1` classes and collapsed folder rows force instant label suppression plus centered icon/header alignment.
 - First-launch System Setup has a runtime mismatch between the sidebar-toolbar removal warning and Options modal behavior.
 - Live Options -> System Settings Step 3 modal save has returned HTTP 400 in the user's mounted app while local full modal POST reproductions return 200; use AJAX JSON error/class or live server logs next.
 - Browser/runtime confirmation remains pending in the mounted app after the Step 2 relay/env readiness fix.
 - `microsys/fetcher.py` fallback download/export redirects still trust raw `HTTP_REFERER`.
 - User-reported runtime backlog not handled in the current batch:
-  - Options System Info server time shows only date, hour, and minutes,
-  - Options cards cannot be reordered in neon theme,
-  - Step 4 collapsed Icons Only sidebar pushes parent/folder accordion icons out of bounds,
   - re-enabling a previously disabled sidebar drops child toggle state and can force Hide Completely collapse mode,
   - shared toggle cursor should be pointer,
   - Options card reorder handle should use drag cursor,
@@ -81,6 +84,8 @@
     - [ ] Browser-check the `2026-05-22` Options font highlight and Step 6 disabled-theme preview fixes in production/mounted app.
     - [ ] Browser-check sidebar item repaint after pausing sidebar transitions under the accepted theme-switch fade.
     - [ ] Browser-check reduced-motion/no-animation bypass for the theme switch fade.
+    - [ ] Browser-check Options System Info server time after switching to explicit `Y-m-d H:i:s` rendering.
+    - [ ] Browser-check Step 4 Icons Only collapsed sidebar after zeroing hidden folder-label flex space for centered parent/folder icons.
     - [ ] Harden `microsys/fetcher.py` fallback redirects for missing, local, and forged external referers.
     - [ ] Capture the live Step 3 System Settings modal HTTP 400 JSON/log details if it still reproduces.
   - Priority 1 browser validation:
@@ -99,13 +104,19 @@
     - [x] Added setup-only preview support for a Step 6 theme that was disabled when the page loaded.
     - [x] Smoothed explicit theme changes with a short switch veil fade instead of broad element transitions.
     - [x] Paused sidebar item/icon transition repaint while the theme-switch veil is active after the user isolated remaining choppiness to sidebar items.
+    - [x] Removed redundant neon `.option-section` overlay/stacking selectors from Options cards by excluding `.ms-options-panel`.
+    - [x] User confirmed the neon-theme Options card reorder issue is fixed.
+    - [x] Switched Options System Info backend server time to a dedicated preformatted display key so project/global `current_time` collisions cannot collapse it back to a date-only value.
+    - [x] Zeroed collapsed folder-label flex space so Step 4 Icons Only parent/folder accordion icons stay centered.
+    - [x] Removed redundant folder-button/label `flex-grow-1` classes from sidebar accordion templates after the user confirmed the parent item was still pushed sideways when collapsed.
+    - [x] Added a dedicated collapsed folder-row centering path so parent labels do not linger and the folder icon does not hug the wall during sidebar collapse.
     - [x] Bumped the production `options.js` asset key for the existing immediate Options font `is-active` update path.
     - [x] Reproduced the Step 2 matrix source collapse in `dhub` and isolated app translation merges from `MICROSYS_STRINGS` so app source tabs remain claimable.
     - [x] Fixed Step 2 relay/env email readiness detection for scaffolded `SMTP_RELAY_*` plus `DEFAULT_FROM_EMAIL`.
     - [x] Preserved omitted Step 6 values on single-step System Settings modal saves and fixed modal step `5` resolution.
 
 ### One-line info about last verified Tests:
-- `2026-05-22`: focused `DiscoverRunner` checks passed for theme-switch fade/reduced-motion/sidebar-transition coverage, setup theme preview/cache-bust coverage, and translation matrix layer/source-group tests; focused compileall passed for edited Python test/form/translation files. Initial focused runner invocation without importing test settings failed before Django setup and was rerun correctly.
+- `2026-05-22`: focused `DiscoverRunner` checks passed for the dedicated Options server-time display key, collapsed-sidebar folder-label flex collapse, redundant sidebar folder `flex-grow-1` removal, dedicated collapsed folder-row centering/instant-hide rules, setup theme preview/cache-bust coverage, and the targeted global-staff Options diagnostics render; focused compileall and `git diff --check` passed. Full `test_views` remains noisy/unfocused for this batch, so only targeted labels were used here.
 
 ### One-line info about last time edited Docs:
 - `2026-05-16`: main README/docs batch covered Trusted Devices, Client IP Resolution, advanced 2FA UX, Dynamic Font Management, and the Step 5/6 wizard split; no docs changed on `2026-05-22`.
@@ -139,6 +150,8 @@
 - `dhub-web-1` inspected on `2026-05-22` uses the image-installed package, not a repo bind mount; `/app/req.txt` pins `django-microsys==2.2.2` even though this checkout version markers are `2.2.3`.
 - User correction for current runtime bug batch: stay on the bug-fix path, keep impact minimal, and ask or research when evidence is insufficient.
 - User correction for theme animation: the veil fade is desired; remaining theme-switch choppiness was observed only in sidebar items.
+- User correction for the current Options bug batch: the Server Time issue is specifically date-only output with no hour/minutes; neon-theme Options reorder is confirmed fixed.
+- User correction on `2026-05-22`: even after the first local `current_time|date:"Y-m-d H:i:s"` patch, runtime still rendered only `2026-05-22`; avoid assuming the generic `current_time` key is safe in mounted projects.
 - If setup default-language preview refreshes direction but not server-rendered text, inspect `microsys/static/microsys/main/js/system_setup.js` and `microsys/static/microsys/language/js/main.js`; reload preview must persist form state without restoring stale wizard step.
 - If first-launch later steps look empty, inspect shared wizard `d-none` handling before changing form markup.
 - If shared setup toggle layout regresses, inspect `build_settings_toggle_field(...)` plus `system_setup.css` before replacing the renderer.

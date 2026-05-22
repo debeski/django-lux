@@ -133,7 +133,28 @@
     opacity: 0;
     visibility: hidden;
     width: 0;
+    flex: 0 0 0;
     display: inline-block; /* Keep it in flow but hidden */
+    overflow: hidden;
+}
+
+.sidebar.collapsed .accordion-header {
+    justify-content: center;
+}
+
+.sidebar.collapsed .accordion-button.sidebar-folder-button,
+.sidebar.collapsed .accordion-button.sidebar-folder-button:not(.collapsed),
+.sidebar.collapsed .accordion-button.sidebar-folder-button.has-active-child {
+    justify-content: center !important;
+    text-align: center !important;
+    padding-inline: 0 !important;
+}
+
+.sidebar.collapsed .accordion-button.sidebar-folder-button span {
+    position: absolute;
+    inset-inline-start: -9999px;
+    transition: none !important;
+    pointer-events: none;
 }
 
 .sidebar.collapsed .list-group-item,
@@ -151,6 +172,12 @@
 .sidebar.collapsed .accordion-button i {
     width: auto;
     margin: 0 !important;
+}
+
+.sidebar.collapsed .accordion-button.sidebar-folder-button i {
+    width: var(--sidebar-icon-width);
+    min-width: var(--sidebar-icon-width);
+    justify-content: center;
 }
 
 .sidebar .list-group-item span,

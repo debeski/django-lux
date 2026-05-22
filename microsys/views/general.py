@@ -367,9 +367,11 @@ def options_view(request):
             'disk_percent': disk_percent,
         }
 
+    server_time = timezone.localtime(timezone.now())
     context = {
         'show_system_diagnostics': show_system_diagnostics,
-        'current_time': timezone.now(),
+        'current_time': server_time,
+        'server_time_backend_display': server_time.strftime('%Y-%m-%d %H:%M:%S'),
     }
     context.update(diagnostic_context)
     return render(request, 'microsys/includes/options.html', context)

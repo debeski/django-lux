@@ -256,7 +256,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
-        self.assertIn('data-setup-theme-preview-url="/static/microsys/themes/css/light.css?v=20260501b"', form.theme_picker_html)
+        self.assertIn('data-setup-theme-preview-url="/static/microsys/themes/css/light.css?v=20260522c"', form.theme_picker_html)
         self.assertIn('data-setup-theme-allowed="light"', form.theme_picker_html)
         self.assertIn('ms-theme-settings-option__checkbox', form.theme_picker_html)
 
@@ -1060,6 +1060,16 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             self.assertIn('.titlebar .ms-login-round:hover,', theme_css)
             self.assertIn('.titlebar .ms-login-round:focus-visible {', theme_css)
 
+    def test_neon_theme_excludes_options_panels_from_generic_option_section_overlays(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'themes' / 'css' / 'neon.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.option-section:not(.ms-options-panel):not([class*="text-bg-"]):not([class*="bg-"]),', contents)
+        self.assertIn('.option-section:not(.ms-options-panel)::before,', contents)
+        self.assertIn('.option-section:not(.ms-options-panel):hover::before,', contents)
+        self.assertIn('.option-section:not(.ms-options-panel),', contents)
+        self.assertIn('.option-section:not(.ms-options-panel) > *,', contents)
+
     def test_selector_css_adds_vertical_padding_for_toggle_card_grids(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'selectors.css'
         contents = stylesheet.read_text(encoding='utf-8')
@@ -1129,6 +1139,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("microsys/main/css/options.css", contents)
         self.assertIn("?v=20260513b", contents)
         self.assertIn("microsys/main/js/options.js", contents)
+        self.assertIn('{{ server_time_backend_display }}', contents)
         self.assertIn('id="msOptionsGrid"', contents)
         self.assertIn('data-options-card="system-info"', contents)
         self.assertIn('data-options-card="autofill"', contents)
@@ -1151,9 +1162,10 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/main/css/main.css", contents)
-        self.assertIn("?v=20260516a", contents)
+        self.assertIn("?v=20260522b", contents)
         self.assertIn("microsys/main/js/system_setup.js", contents)
-        self.assertIn("?v=20260515c", contents)
+        self.assertIn("?v=20260522a", contents)
+        self.assertIn("{% static theme.css_path %}?v=20260522c", contents)
 
     def test_verify_template_uses_versioned_auto_verify_script_and_trust_device_checkbox(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / '2fa' / 'verify.html'
@@ -1499,6 +1511,39 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn(':root.ms-theme-switching .sidebar .list-group-item,', sidebar_css)
         self.assertIn(':root.ms-theme-switching .sidebar .accordion-button i {', sidebar_css)
         self.assertIn('transition: none !important;', sidebar_css)
+
+    def test_sidebar_collapsed_icons_only_hides_group_label_flex_space(self):
+        sidebar_css = (
+            Path(__file__).resolve().parents[1]
+            / 'static'
+            / 'microsys'
+            / 'sidebar'
+            / 'css'
+            / 'main.css'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('.sidebar.collapsed .accordion-button span {', sidebar_css)
+        self.assertIn('flex: 0 0 0;', sidebar_css)
+        self.assertIn('overflow: hidden;', sidebar_css)
+        self.assertIn('.sidebar.collapsed .accordion-button.sidebar-folder-button span {', sidebar_css)
+        self.assertIn('transition: none !important;', sidebar_css)
+        self.assertIn('inset-inline-start: -9999px;', sidebar_css)
+        self.assertIn('.sidebar.collapsed .accordion-header {', sidebar_css)
+        self.assertIn('.sidebar.collapsed .accordion-button.sidebar-folder-button,', sidebar_css)
+        self.assertIn('.sidebar.collapsed .accordion-button.sidebar-folder-button i {', sidebar_css)
+        self.assertIn('min-width: var(--sidebar-icon-width);', sidebar_css)
+
+    def test_sidebar_folder_buttons_do_not_use_redundant_flex_grow_classes(self):
+        templates_root = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'sidebar'
+        tree_template = (templates_root / 'tree.html').read_text(encoding='utf-8')
+        extra_groups_template = (templates_root / 'extra_groups.html').read_text(encoding='utf-8')
+
+        self.assertNotIn('accordion-button sidebar-folder-button flex-grow-1', tree_template)
+        self.assertNotIn('accordion-button sidebar-folder-button flex-grow-1', extra_groups_template)
+        self.assertNotIn('<span class="flex-grow-1 text-start">', tree_template)
+        self.assertNotIn('<span class="flex-grow-1 text-start">', extra_groups_template)
+        self.assertIn('<span class="text-start">', tree_template)
+        self.assertIn('<span class="text-start">', extra_groups_template)
 
     @override_settings(MICROSYS_CONFIG={}, MEDIA_URL='')
     def test_uploaded_branding_urls_fall_back_to_absolute_media_paths(self):

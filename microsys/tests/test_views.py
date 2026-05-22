@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.apps import apps
 from django.conf import settings
@@ -99,6 +101,7 @@ class GeneralViewsTests(TestCase):
         """Test that options_view includes required context data."""
         response = self.client.get(reverse('options_view'))
         self.assertEqual(response.status_code, 200)
+        self.assertIn('server_time_backend_display', response.context)
         self.assertIn('version', response.context)
         self.assertIn('django_version', response.context)
         self.assertIn('python_version', response.context)
@@ -183,6 +186,7 @@ class GeneralViewsTests(TestCase):
         self.assertTrue(response.context['show_system_diagnostics'])
         self.assertIn('version', response.context)
         self.assertIn('python_version', response.context)
+        self.assertContains(response, response.context['server_time_backend_display'])
 
     def test_staff_missing_profile_does_not_get_staff_tier_access(self):
         staff_without_profile = User.objects.create_user(
