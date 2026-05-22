@@ -1748,8 +1748,11 @@ def _discover_and_merge_translations():
     Looks for 'translations.py' in each app and 'MS_TRANSLATIONS' dict.
     Returns a merged dictionary of all translations.
     """
-    # Start with core strings
-    merged_strings = dict(MICROSYS_STRINGS)
+    # Keep source ownership intact for the translation matrix while merging app keys.
+    merged_strings = {
+        lang: dict(strings) if isinstance(strings, dict) else strings
+        for lang, strings in MICROSYS_STRINGS.items()
+    }
 
     for app_config in apps.get_app_configs():
         # Skip microsys itself as we already loaded it

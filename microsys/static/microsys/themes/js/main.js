@@ -4,18 +4,34 @@ document.addEventListener('DOMContentLoaded', function() {
         ? window.MICROSYS_THEME_NAMES
         : ['light'];
     const defaultTheme = (window.MICROSYS_CONFIG && window.MICROSYS_CONFIG.default_theme) || themes[0] || 'light';
+    const previewThemes = new Set();
+    const themeSwitchFade = {
+        swapTimer: null,
+        cleanupTimer: null,
+        revision: 0,
+    };
 
     // Load saved theme
     const savedTheme = ((window.USER_PREFS && window.USER_PREFS.theme) || localStorage.getItem('appTheme') || defaultTheme);
     themes.forEach(t => root.classList.remove(`theme-${t}`));
     root.classList.add(`theme-${themes.includes(savedTheme) ? savedTheme : defaultTheme}`);
 
-    // Global function to set theme
-    window.setTheme = function(theme) {
-        const resolvedTheme = theme && themes.includes(theme) ? theme : defaultTheme;
+    function loadPreviewStylesheet(theme, url) {
+        if (!theme || !url || document.querySelector(`[data-ms-preview-theme-css="${theme}"]`)) {
+            return;
+        }
 
+        const stylesheet = document.createElement('link');
+        stylesheet.rel = 'stylesheet';
+        stylesheet.href = url;
+        stylesheet.dataset.msPreviewThemeCss = theme;
+        document.head.appendChild(stylesheet);
+    }
+
+    function applyTheme(resolvedTheme) {
         // Remove all current theme classes
         themes.forEach(t => root.classList.remove(`theme-${t}`));
+        previewThemes.forEach(t => root.classList.remove(`theme-${t}`));
 
         root.classList.add(`theme-${resolvedTheme}`);
         localStorage.setItem('appTheme', resolvedTheme);
@@ -30,6 +46,68 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Dispatch event for components that might need resizing (like Plotly)
         window.dispatchEvent(new Event('resize'));
+    }
+
+    function clearThemeSwitchFade() {
+        themeSwitchFade.revision += 1;
+        window.clearTimeout(themeSwitchFade.swapTimer);
+        window.clearTimeout(themeSwitchFade.cleanupTimer);
+        themeSwitchFade.swapTimer = null;
+        themeSwitchFade.cleanupTimer = null;
+        root.classList.remove('ms-theme-switching', 'ms-theme-switching-covered');
+        root.style.removeProperty('--ms-theme-switch-surface');
+    }
+
+    function shouldFadeThemeSwitch() {
+        return Boolean(
+            document.body
+            && !root.classList.contains('accessibility-no-animations')
+            && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+        );
+    }
+
+    function fadeThemeSwitch(resolvedTheme) {
+        if (!shouldFadeThemeSwitch()) {
+            clearThemeSwitchFade();
+            applyTheme(resolvedTheme);
+            return;
+        }
+
+        clearThemeSwitchFade();
+        const revision = themeSwitchFade.revision;
+        root.style.setProperty(
+            '--ms-theme-switch-surface',
+            window.getComputedStyle(document.body).backgroundColor || 'var(--body)'
+        );
+        root.classList.add('ms-theme-switching');
+
+        window.requestAnimationFrame(() => {
+            if (revision !== themeSwitchFade.revision) {
+                return;
+            }
+            root.classList.add('ms-theme-switching-covered');
+            themeSwitchFade.swapTimer = window.setTimeout(() => {
+                if (revision !== themeSwitchFade.revision) {
+                    return;
+                }
+                applyTheme(resolvedTheme);
+                root.classList.remove('ms-theme-switching-covered');
+                themeSwitchFade.cleanupTimer = window.setTimeout(clearThemeSwitchFade, 220);
+            }, 110);
+        });
+    }
+
+    // Global function to set theme
+    window.setTheme = function(theme, options) {
+        const allowPreviewTheme = Boolean(options && options.preview && theme);
+        const resolvedTheme = theme && (themes.includes(theme) || allowPreviewTheme) ? theme : defaultTheme;
+
+        if (allowPreviewTheme && !themes.includes(resolvedTheme)) {
+            previewThemes.add(resolvedTheme);
+            loadPreviewStylesheet(resolvedTheme, options.cssUrl);
+        }
+
+        fadeThemeSwitch(resolvedTheme);
     };
 
     function updateActiveThemeUI(activeTheme) {

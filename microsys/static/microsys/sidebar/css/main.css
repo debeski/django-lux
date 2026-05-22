@@ -252,6 +252,14 @@
     box-shadow: none !important;
 }
 
+:root.ms-theme-switching .sidebar .list-group-item,
+:root.ms-theme-switching .sidebar .accordion-button,
+:root.ms-theme-switching .sidebar .group-url-btn,
+:root.ms-theme-switching .sidebar .list-group-item i,
+:root.ms-theme-switching .sidebar .accordion-button i {
+    transition: none !important;
+}
+
 .sidebar .list-group-item::before,
 .sidebar .accordion-button::before,
 .sidebar .group-url-btn::before {

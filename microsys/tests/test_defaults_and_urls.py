@@ -256,6 +256,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
+        self.assertIn('data-setup-theme-preview-url="/static/microsys/themes/css/light.css?v=20260501b"', form.theme_picker_html)
         self.assertIn('data-setup-theme-allowed="light"', form.theme_picker_html)
         self.assertIn('ms-theme-settings-option__checkbox', form.theme_picker_html)
 
@@ -1479,6 +1480,25 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('checkbox.disabled = checkbox.checked && resolvedAllowedThemes.length === 1;', contents)
         self.assertIn("if (checkbox.checked && getAllowedThemes().length === 1)", contents)
         self.assertIn("checkbox.setAttribute('aria-disabled', isLocked ? 'true' : 'false');", contents)
+        self.assertIn("preview: true,", contents)
+        self.assertIn("option.getAttribute('data-setup-theme-preview-url')", contents)
+
+    def test_theme_runtime_fades_explicit_switches_and_honors_reduced_motion(self):
+        assets_root = Path(__file__).resolve().parents[1] / 'static' / 'microsys'
+        theme_script = (assets_root / 'themes' / 'js' / 'main.js').read_text(encoding='utf-8')
+        main_css = (assets_root / 'main' / 'css' / 'main.css').read_text(encoding='utf-8')
+        sidebar_css = (assets_root / 'sidebar' / 'css' / 'main.css').read_text(encoding='utf-8')
+
+        self.assertIn('function fadeThemeSwitch(resolvedTheme)', theme_script)
+        self.assertIn("root.classList.contains('accessibility-no-animations')", theme_script)
+        self.assertIn("window.matchMedia('(prefers-reduced-motion: reduce)')", theme_script)
+        self.assertIn("root.classList.add('ms-theme-switching-covered')", theme_script)
+        self.assertIn(':root.ms-theme-switching body::after {', main_css)
+        self.assertIn(':root.ms-theme-switching.ms-theme-switching-covered body::after {', main_css)
+        self.assertIn('@media (prefers-reduced-motion: reduce) {', main_css)
+        self.assertIn(':root.ms-theme-switching .sidebar .list-group-item,', sidebar_css)
+        self.assertIn(':root.ms-theme-switching .sidebar .accordion-button i {', sidebar_css)
+        self.assertIn('transition: none !important;', sidebar_css)
 
     @override_settings(MICROSYS_CONFIG={}, MEDIA_URL='')
     def test_uploaded_branding_urls_fall_back_to_absolute_media_paths(self):

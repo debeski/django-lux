@@ -463,6 +463,38 @@ class UtilsTests(TestCase):
         microsys_group = next(group for group in groups if group['id'] == 'microsys')
         self.assertTrue(any(row['key'] == 'app_microsys' for row in microsys_group['rows']))
 
+    def test_translation_matrix_keeps_discovered_app_keys_in_app_source_group(self):
+        from microsys.translations import (
+            _discover_and_merge_translations,
+            _discover_translation_source_layers,
+            build_translation_matrix_groups,
+        )
+
+        app_config = SimpleNamespace(
+            name='demo_matrix_app',
+            label='demo_matrix_app',
+            verbose_name='Demo Matrix App',
+        )
+        app_module = SimpleNamespace(MS_TRANSLATIONS={
+            'en': {'demo_matrix_only_key': 'Demo app value'},
+            'ar': {'demo_matrix_only_key': 'قيمة التطبيق'},
+        })
+
+        _discover_and_merge_translations.cache_clear()
+        _discover_translation_source_layers.cache_clear()
+        with patch('microsys.translations.apps.get_app_configs', return_value=[app_config]), \
+             patch('microsys.translations.import_module', return_value=app_module):
+            groups = build_translation_matrix_groups({'en': {'name': 'English'}})
+        _discover_and_merge_translations.cache_clear()
+        _discover_translation_source_layers.cache_clear()
+
+        group_ids = [group['id'] for group in groups]
+        self.assertIn('demo_matrix_app', group_ids)
+        app_group = next(group for group in groups if group['id'] == 'demo_matrix_app')
+        self.assertTrue(any(row['key'] == 'demo_matrix_only_key' for row in app_group['rows']))
+        microsys_group = next(group for group in groups if group['id'] == 'microsys')
+        self.assertFalse(any(row['key'] == 'demo_matrix_only_key' for row in microsys_group['rows']))
+
     @override_settings(MICROSYS_CONFIG={
         'default_language': 'en',
         'translations': {

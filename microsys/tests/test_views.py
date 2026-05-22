@@ -225,6 +225,7 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, 'ms-font-picker')
         self.assertContains(response, 'ms-density-options')
         self.assertContains(response, 'data-font="shabwa"')
+        self.assertContains(response, 'microsys/main/js/options.js?v=20260522a')
         self.assertNotContains(response, 'ms-font-preview-card')
 
     def test_system_settings_modal_honors_requested_wizard_step(self):

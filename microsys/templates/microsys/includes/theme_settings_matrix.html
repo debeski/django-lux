@@ -1,3 +1,4 @@
+{% load static %}
 <div data-setup-theme-picker data-theme-input="{{ input_id }}">
     {% if label %}
     <label class="form-label d-block">{{ label }}</label>
@@ -36,6 +37,7 @@
                     type="button"
                     class="ms-theme-settings-option__select"
                     data-setup-theme-choice="{{ theme.slug }}"
+                    data-setup-theme-preview-url="{% static theme.css_path %}?v=20260501b"
                     aria-pressed="{% if selected_theme == theme.slug %}true{% else %}false{% endif %}"
                     title="{{ MS_TRANS.form_sys_default_theme|default:'Default Theme' }}: {{ theme.label }}"
                 >

@@ -188,6 +188,27 @@ body {
     background-color: var(--body);
 }
 
+:root.ms-theme-switching body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    pointer-events: none;
+    opacity: 0;
+    background: var(--ms-theme-switch-surface, var(--body));
+    transition: opacity 0.22s ease;
+}
+
+:root.ms-theme-switching.ms-theme-switching-covered body::after {
+    opacity: 0.76;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root.ms-theme-switching body::after {
+        display: none;
+    }
+}
+
 @media print {
     .new-page {
         page-break-inside: avoid;

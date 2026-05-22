@@ -2893,7 +2893,10 @@
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                     syncActive();
                     if (window.setTheme) {
-                        window.setTheme(theme);
+                        window.setTheme(theme, {
+                            preview: true,
+                            cssUrl: option.getAttribute('data-setup-theme-preview-url') || '',
+                        });
                     }
                 });
             });
