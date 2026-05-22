@@ -403,6 +403,46 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertFalse(form.cleaned_data['sidebar_config']['enabled'])
         self.assertFalse(form.cleaned_data['sidebar_enable_toolbar'])
 
+    def test_setup_form_keeps_sidebar_child_settings_when_sidebar_is_disabled(self):
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "Demo"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{"en": {"name": "English", "dir": "ltr", "flag": "EN"}}',
+                'translations_override': '{}',
+                'sidebar_config': json.dumps({
+                    'enabled': False,
+                    'home_url_name': None,
+                    'entries': [],
+                    'enable_reorder': True,
+                    'show_toolbar': True,
+                    'show_icons': True,
+                    'density': 'roomy',
+                    'allow_user_density': True,
+                    'collapse_mode': 'icons',
+                }),
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.cleaned_data['sidebar_config']['enabled'])
+        self.assertTrue(form.cleaned_data['sidebar_config']['enable_reorder'])
+        self.assertTrue(form.cleaned_data['sidebar_config']['show_toolbar'])
+        self.assertTrue(form.cleaned_data['sidebar_config']['show_icons'])
+        self.assertEqual(form.cleaned_data['sidebar_config']['density'], 'roomy')
+        self.assertTrue(form.cleaned_data['sidebar_config']['allow_user_density'])
+        self.assertEqual(form.cleaned_data['sidebar_config']['collapse_mode'], 'icons')
+        self.assertTrue(form.cleaned_data['sidebar_enable_reorder'])
+        self.assertTrue(form.cleaned_data['sidebar_enable_toolbar'])
+        self.assertTrue(form.cleaned_data['sidebar_show_icons'])
+        self.assertTrue(form.cleaned_data['sidebar_allow_user_density'])
+        self.assertEqual(form.cleaned_data['sidebar_collapse_mode'], 'icons')
+
     def test_setup_form_import_does_not_override_when_processed_flag_set(self):
         """When import is marked as processed, user edits are preserved and import is skipped."""
         payload = {
@@ -969,6 +1009,13 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('return null;', contents)
         self.assertIn("input.matches('[data-language-default]')", contents)
         self.assertIn('#id_sidebar_enable_toolbar, #id_sidebar_enabled', contents)
+        self.assertIn('function syncSidebarBehaviorConfig(form) {', contents)
+        self.assertIn('const hiddenInput = form.querySelector(\'input[name="sidebar_config"]\');', contents)
+        self.assertIn('nextConfig.show_toolbar = readBooleanField(form, \'#id_sidebar_enable_toolbar\', true);', contents)
+        self.assertIn('syncSidebarBehaviorConfig(form);', contents)
+        self.assertIn("toolbarToggle.disabled = !available;", contents)
+        self.assertIn("'sidebar_enable_toolbar',\n                    'sidebar_show_icons'", contents)
+        self.assertNotIn('toolbarToggle.checked = false;', contents)
         self.assertIn('data-public-registration-dependent', contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_activation_mode', !enabled)", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled)", contents)

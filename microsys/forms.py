@@ -3201,24 +3201,17 @@ class SystemSettingsForm(forms.ModelForm):
                 sidebar['density'] = cleaned.get('sidebar_density', DEFAULT_SIDEBAR_DENSITY)
                 sidebar['allow_user_density'] = bool(cleaned.get('sidebar_allow_user_density', True))
                 sidebar['collapse_mode'] = cleaned.get('sidebar_collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
-            else:
-                sidebar['enable_reorder'] = False
-                sidebar['show_toolbar'] = False
-                sidebar['show_icons'] = False
-                sidebar['allow_user_density'] = False
-                sidebar['density'] = cleaned.get('sidebar_density', DEFAULT_SIDEBAR_DENSITY)
-                sidebar['collapse_mode'] = 'hidden'
-                cleaned['sidebar_enable_reorder'] = False
-                cleaned['sidebar_enable_toolbar'] = False
-                cleaned['sidebar_show_icons'] = False
-                cleaned['sidebar_allow_user_density'] = False
-                cleaned['sidebar_collapse_mode'] = 'hidden'
-            if not _system_settings_sidebar_tools_available(cleaned):
+            if sidebar['enabled'] and not _system_settings_sidebar_tools_available(cleaned):
                 sidebar['show_toolbar'] = False
                 cleaned['sidebar_enable_toolbar'] = False
             sidebar = normalize_sidebar_behavior(sidebar)
             cleaned['sidebar_config'] = sidebar
             cleaned['sidebar_enabled'] = bool(sidebar.get('enabled', True))
+            cleaned['sidebar_enable_reorder'] = bool(sidebar.get('enable_reorder', True))
+            cleaned['sidebar_enable_toolbar'] = bool(sidebar.get('show_toolbar', True))
+            cleaned['sidebar_show_icons'] = bool(sidebar.get('show_icons', True))
+            cleaned['sidebar_density'] = sidebar.get('density', DEFAULT_SIDEBAR_DENSITY)
+            cleaned['sidebar_allow_user_density'] = bool(sidebar.get('allow_user_density', True))
             cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
         existing_email_config = normalize_email_config(getattr(self.instance, 'email_config', {}))
         email_features_enabled = bool(cleaned.get('public_registration_enabled') or cleaned.get('email_2fa'))

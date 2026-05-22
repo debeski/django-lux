@@ -382,6 +382,29 @@ class UtilsTests(TestCase):
         self.assertFalse(config['sidebar']['enable_reorder'])
         self.assertFalse(config['sidebar']['show_toolbar'])
 
+    def test_get_system_config_preserves_disabled_sidebar_child_flags_for_future_restore(self):
+        with override_settings(MICROSYS_CONFIG={
+            'sidebar': {
+                'enabled': False,
+                'entries': [],
+                'enable_reorder': True,
+                'show_toolbar': True,
+                'show_icons': True,
+                'density': 'roomy',
+                'allow_user_density': True,
+                'collapse_mode': 'icons',
+            }
+        }):
+            config = get_system_config()
+
+        self.assertFalse(config['sidebar']['enabled'])
+        self.assertTrue(config['sidebar']['enable_reorder'])
+        self.assertTrue(config['sidebar']['show_toolbar'])
+        self.assertTrue(config['sidebar']['show_icons'])
+        self.assertEqual(config['sidebar']['density'], 'roomy')
+        self.assertTrue(config['sidebar']['allow_user_density'])
+        self.assertEqual(config['sidebar']['collapse_mode'], 'icons')
+
     @override_settings(MICROSYS_CONFIG={
         'sidebar': {
             'entries': [

@@ -941,6 +941,32 @@
         return Array.from(form.querySelectorAll('[data-setup-theme-allowed]')).filter((checkbox) => checkbox.checked).length;
     }
 
+    function syncSidebarBehaviorConfig(form) {
+        if (!form) {
+            return;
+        }
+        const hiddenInput = form.querySelector('input[name="sidebar_config"]');
+        if (!hiddenInput) {
+            return;
+        }
+        const parsed = parseJson(hiddenInput.value || '{}', {});
+        const nextConfig = parsed && typeof parsed === 'object' ? parsed : {};
+        nextConfig.enabled = readBooleanField(form, '#id_sidebar_enabled', true);
+        nextConfig.enable_reorder = readBooleanField(form, '#id_sidebar_enable_reorder', true);
+        nextConfig.show_toolbar = readBooleanField(form, '#id_sidebar_enable_toolbar', true);
+        nextConfig.show_icons = readBooleanField(form, '#id_sidebar_show_icons', true);
+        nextConfig.density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
+        nextConfig.allow_user_density = readBooleanField(form, '#id_sidebar_allow_user_density', true);
+        nextConfig.collapse_mode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
+        if (!Array.isArray(nextConfig.entries)) {
+            nextConfig.entries = [];
+        }
+        if (!Object.prototype.hasOwnProperty.call(nextConfig, 'home_url_name')) {
+            nextConfig.home_url_name = null;
+        }
+        hiddenInput.value = JSON.stringify(nextConfig);
+    }
+
     function applyTitlebarPreview(form) {
         const titlebar = document.querySelector('.titlebar');
         if (!titlebar) {
@@ -3040,23 +3066,24 @@
                     'sidebar_density',
                     'sidebar_collapse_mode',
                 ].forEach((name) => setNamedFieldDisabled(form, name, !sidebarEnabled));
-                const available = sidebarEnabled && hasLiveToolbarTool();
+                const hasToolbarTool = hasLiveToolbarTool();
+                const available = sidebarEnabled && hasToolbarTool;
                 toolbarToggle.disabled = !available;
-                if (!available) {
-                    toolbarToggle.checked = false;
-                }
                 toolbarNote.classList.toggle('d-none', !available || Boolean(toolbarToggle.checked));
+                syncSidebarBehaviorConfig(form);
                 applyImmediateSystemSettingsPreview(form);
             }
 
             function syncCollapseMode() {
                 if (!showIconsToggle) {
+                    syncSidebarBehaviorConfig(form);
                     applyImmediateSystemSettingsPreview(form);
                     return;
                 }
                 if (!showIconsToggle.checked && getNamedFieldValue(form, 'sidebar_collapse_mode') === 'icons') {
                     setNamedFieldValue(form, 'sidebar_collapse_mode', 'hidden');
                 }
+                syncSidebarBehaviorConfig(form);
                 applyImmediateSystemSettingsPreview(form);
             }
 
@@ -3081,8 +3108,12 @@
             if (showIconsToggle) {
                 showIconsToggle.addEventListener('change', syncToolbarAvailability);
             }
+            getNamedFieldInputs(form, 'sidebar_density').forEach((field) => {
+                field.addEventListener('change', () => syncSidebarBehaviorConfig(form));
+            });
             syncCollapseMode();
             syncToolbarAvailability();
+            syncSidebarBehaviorConfig(form);
         });
     }
 
@@ -3141,9 +3172,6 @@
         const available = sidebarEnabled && hasToolbarTool;
 
         toolbarToggle.disabled = !available;
-        if (!available) {
-            toolbarToggle.checked = false;
-        }
         toolbarNote.classList.toggle('d-none', !available || Boolean(toolbarToggle.checked));
         applyImmediateSystemSettingsPreview(form);
     }

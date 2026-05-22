@@ -13,6 +13,10 @@
 - Neon theme no longer applies its generic `.option-section` overlay/stacking treatment to Options cards; `.ms-options-panel` stays on the dedicated Options styling path instead of inheriting the redundant glow overlay layer.
 - Options System Info now renders backend server time from a dedicated preformatted display key, avoiding generic `current_time` collisions and preserving explicit seconds.
 - Collapsed Icons Only sidebar now removes redundant folder-button/label `flex-grow-1` classes, zeroes hidden label flex space, and applies a dedicated collapsed folder-row centering path so parent/folder accordion icons remain centered and labels vanish immediately.
+- Step 4 / Sidebar settings now preserve child behavior values when the sidebar itself is disabled, instead of rewriting them to `false` / `hidden`; runtime still suppresses sidebar-only surfaces through the existing `enabled` gates.
+- Step 4 sidebar toolbar setup sync no longer auto-unchecks the stored `show_toolbar` choice in the frontend; the legacy toolbar-specific JS state mutation has been removed from both live and fallback sync paths.
+- Step 4 setup now also mirrors the visible sidebar behavior controls back into the hidden `sidebar_config` JSON, so disabling child inputs no longer leaves stale toolbar state as the submitted source of truth.
+- Step 4 toolbar toggle now matches the other sidebar child toggles again: it is disabled when the sidebar is off, but no live frontend path auto-unchecks it.
 - Shared enabled `.form-switch` controls now expose a pointer cursor; Options reorder handles use enabled-handle cursor selectors specific enough to keep both button surface and grip icon on grab/grabbing over Bootstrap's enabled-button pointer rule.
 - Profile confirm-password modals submit the same confirmation path from Enter, keep password-protected Profile actions open through their JSON password check, and render current-password errors inline while the input is corrected.
 - Profile activity grouping treats virtual session-revoke logs as System Interactions.
@@ -77,8 +81,7 @@
 - Live confirmation is pending for the `2026-05-22` Options reorder handle cursor follow-up after the grip icon changed but Bootstrap's enabled-button pointer cursor still won on the surrounding button surface.
 - After `dhub-web-1` restarted at `2026-05-22T18:13:02Z`, a profile-context check on its current admin activity grouped the newest `DELETE session` row under System Interactions; the user's immediately prior browser test hit Gunicorn workers started before that Python classifier change was loaded.
 - Live confirmation is pending after the Profile confirm-password inline-validation follow-up: disable-2FA, backup-code generation, and session revoke now keep wrong-password JSON errors inside the modal instead of relying on page messages.
-- User-reported runtime backlog not handled in the current batch:
-  - re-enabling a previously disabled sidebar drops child toggle state and can force Hide Completely collapse mode.
+- Live confirmation is pending after the `2026-05-22` Step 4 sidebar-preservation follow-up: user verified reorder/icons/density/collapse now persist, then clarified that Cloudflare tunnel caching had masked the latest JS and that the desired end state is “disabled like the other child toggles, but not auto-unchecked”; local `system_setup.js` now matches that behavior, pending mounted-app browser re-check after the latest asset-key bump.
 
 ### Incomplete Tasks:
 - Tasks:
@@ -91,6 +94,7 @@
     - [ ] Browser-check the Options reorder handle button surface after the enabled-handle cursor specificity fix.
     - [ ] Browser re-check Profile User Activity after the `dhub-web-1` restart so the virtual `session` entry stays under System Interactions.
     - [ ] Browser-check inline wrong-password feedback in Profile confirm-password modals for disable-2FA, backup codes, and session revoke.
+    - [ ] Browser-check that disabling then re-enabling Step 4 sidebar preserves reorder, toolbar, icons, density override, and desktop collapse mode selections after the `system_setup.js` `20260522f` asset-key bump.
     - [ ] Harden `microsys/fetcher.py` fallback redirects for missing, local, and forged external referers.
     - [ ] Capture the live Step 3 System Settings modal HTTP 400 JSON/log details if it still reproduces.
   - Priority 1 browser validation:
@@ -121,13 +125,18 @@
     - [x] Kept Profile confirm-password modals open through JSON password checks so wrong passwords render inline and clear while corrected.
     - [x] Added AJAX session-revoke success/error responses for the modal path while preserving non-AJAX message fallback.
     - [x] Classified virtual Profile session-revoke activity logs as System Interactions while leaving mounted-app logs under Recent Activity.
+    - [x] Stopped Step 4 sidebar saves from destructively zeroing child sidebar settings when the parent sidebar toggle is disabled.
+    - [x] Removed the legacy Step 4 frontend toolbar auto-uncheck from both live and fallback toolbar sync paths.
+    - [x] Restored Step 4 toolbar disabled-state parity with the other sidebar child toggles while keeping the no-auto-uncheck behavior.
+    - [x] Synced Step 4 sidebar behavior controls back into hidden `sidebar_config` so disabled child fields do not submit stale toolbar state.
+    - [x] Stopped Step 4 frontend sidebar-disable sync from visually turning the toolbar toggle off before save by excluding it from the generic child-field disable path.
     - [x] Bumped the production `options.js` asset key for the existing immediate Options font `is-active` update path.
     - [x] Reproduced the Step 2 matrix source collapse in `dhub` and isolated app translation merges from `MICROSYS_STRINGS` so app source tabs remain claimable.
     - [x] Fixed Step 2 relay/env email readiness detection for scaffolded `SMTP_RELAY_*` plus `DEFAULT_FROM_EMAIL`.
     - [x] Preserved omitted Step 6 values on single-step System Settings modal saves and fixed modal step `5` resolution.
 
 ### One-line info about last verified Tests:
-- `2026-05-22`: focused `DiscoverRunner` checks passed for Profile confirm-password inline JSON hook coverage, AJAX session-revoke password error/redirect responses, shared switch/Options cursor assets, and virtual session activity grouping; focused compileall and `git diff --check` passed. Restarted `dhub-web-1` after the latest Profile view change.
+- `2026-05-22`: focused `DiscoverRunner` checks passed for the Step 4 `system_setup.js` regressions, including removal of frontend toolbar auto-uncheck and hidden `sidebar_config` sync; focused compileall and `git diff --check` passed. Latest follow-up required a `system_setup.js` asset-key bump, not a Python restart.
 
 ### One-line info about last time edited Docs:
 - `2026-05-22`: updated `CHANGELOG.md` with the new `v2.2.4` release entry; the prior broader README/docs batch was on `2026-05-16`.
@@ -163,6 +172,12 @@
 - User correction for Options reorder cursor: the first cursor patch reached the grip icon only; Bootstrap still kept pointer on the surrounding enabled handle button until the handle selector specificity was raised.
 - User correction for Profile activity grouping: the `2026-05-22` browser retest after session revoke still showed the row under Recent Activity before `dhub-web-1` reloaded the bind-mounted Python view.
 - User correction for Profile confirm-password modals: wrong-password feedback should stay in the live modal flow instead of falling back to stale page-level Django messages.
+- User correction for Step 4 sidebar settings: disabling the sidebar should not erase child sidebar choices; those values should be preserved for future re-enable and ignored only at runtime while the sidebar stays disabled.
+- User correction on `2026-05-22`: after the first Step 4 preservation fix, only `Enable sidebar toolbar` was still being forced off; the other child toggles were already preserved.
+- User correction on `2026-05-22`: after the first toolbar-toggle JS tweak, runtime still behaved the same, so the remaining loss had to be in hidden `sidebar_config` submission rather than the visible checkbox alone.
+- User correction on `2026-05-22`: the remaining toolbar issue was observable before save; when `Enable sidebar` is toggled off, `Enable sidebar toolbar` visibly flips off live in the frontend.
+- User correction on `2026-05-22`: this was not disabled styling confusion; only the toolbar toggle actually flipped off, and the likely source was older toolbar-specific JS from when the sidebar and toolbar toggles were the only related controls.
+- User correction on `2026-05-22`: after Cloudflare tunnel Dev Mode was found to be caching stale JS, the desired Step 4 behavior is that the toolbar toggle should be disabled with the sidebar like the other child toggles, but it must not be auto-turned-off.
 - User correction for theme animation: the veil fade is desired; remaining theme-switch choppiness was observed only in sidebar items.
 - User correction for the current Options bug batch: the Server Time issue is specifically date-only output with no hour/minutes; neon-theme Options reorder is confirmed fixed.
 - User correction on `2026-05-22`: even after the first local `current_time|date:"Y-m-d H:i:s"` patch, runtime still rendered only `2026-05-22`; avoid assuming the generic `current_time` key is safe in mounted projects.

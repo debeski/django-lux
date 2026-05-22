@@ -1486,11 +1486,6 @@ def normalize_sidebar_behavior(sidebar_config):
     normalized['show_icons'] = bool(config.get('show_icons', normalized['show_icons']))
     normalized['allow_user_density'] = bool(config.get('allow_user_density', normalized['allow_user_density']))
 
-    if not normalized['enabled']:
-        normalized['show_toolbar'] = False
-        normalized['enable_reorder'] = False
-        normalized['allow_user_density'] = False
-
     density = config.get('density')
     if density in SIDEBAR_DENSITY_VALUES:
         normalized['density'] = density
