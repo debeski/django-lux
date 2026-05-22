@@ -76,6 +76,12 @@
     max-width: 56ch;
 }
 
+.ms-options-card-handle,
+.ms-options-card-handle:not(:disabled),
+.ms-options-card-handle .bi {
+    cursor: grab;
+}
+
 .ms-options-card-handle {
     position: relative;
     float: inline-end;
@@ -92,7 +98,6 @@
     border-radius: 0.9rem;
     background: rgba(var(--primal-rgb), 0.045);
     color: color-mix(in srgb, var(--title) 76%, var(--primal));
-    cursor: grab;
     transition:
         background 0.18s ease,
         border-color 0.18s ease,
@@ -108,7 +113,9 @@
     transform: translateY(-1px);
 }
 
-.ms-options-card-handle:active {
+.ms-options-card-handle:active,
+.ms-options-card-handle:not(:disabled):active,
+.ms-options-card-handle:active .bi {
     cursor: grabbing;
 }
 

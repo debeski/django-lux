@@ -5,8 +5,10 @@ from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.contrib.sessions.models import Session
 from django.shortcuts import get_object_or_404, render, redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -239,6 +241,7 @@ def user_profile(request):
         "user profile",
         "password",
         "preferences",
+        "session",
     })
 
     def _is_microsys_log(log_entry):
@@ -344,6 +347,7 @@ def revoke_profile_session(request, session_key):
     if failure_response := require_current_password(request):
         return failure_response
 
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
     target_session = get_object_or_404(Session, session_key=session_key)
     try:
         decoded = target_session.get_decoded()
@@ -351,11 +355,10 @@ def revoke_profile_session(request, session_key):
         decoded = {}
 
     if str(decoded.get('_auth_user_id') or '') != str(request.user.pk):
-        messages.error(
-            request,
-            get_strings().get('session_revoke_denied', 'That session does not belong to your account.'),
-            fail_silently=True,
-        )
+        message = get_strings().get('session_revoke_denied', 'That session does not belong to your account.')
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': message}, status=403)
+        messages.error(request, message, fail_silently=True)
         return redirect('user_profile')
 
     is_current_session = session_key == request.session.session_key
@@ -376,11 +379,18 @@ def revoke_profile_session(request, session_key):
     trusted_devices.update(revoked_at=timezone.now())
     log_user_action(request, "DELETE", instance=request.user, model_name="session", number=session_key[:8])
 
-    messages.success(
-        request,
-        get_strings().get('session_revoked_success', 'Session signed out.'),
-        fail_silently=True,
-    )
+    success_message = get_strings().get('session_revoked_success', 'Session signed out.')
+    if is_ajax:
+        redirect_name = 'login' if is_current_session else 'user_profile'
+        if is_current_session:
+            logout(request)
+        return JsonResponse({
+            'status': 'success',
+            'message': success_message,
+            'redirect_url': reverse(redirect_name),
+        })
+
+    messages.success(request, success_message, fail_silently=True)
     if is_current_session:
         logout(request)
         return redirect('login')

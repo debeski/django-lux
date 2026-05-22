@@ -1,5 +1,3 @@
-import re
-
 from django import forms
 from django.apps import apps
 from django.conf import settings
@@ -501,6 +499,27 @@ class ProfileViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '<span class="btn-label">Enable</span>', html=False)
         self.assertNotContains(response, '<span class="btn-label"></span>', html=False)
+
+    def test_user_profile_routes_virtual_session_logs_to_system_interactions(self):
+        from microsys.models import UserActivityLog
+
+        session_log = UserActivityLog.objects.create(
+            created_by=self.user,
+            action='DELETE',
+            model_name='session',
+        )
+        recent_log = UserActivityLog.objects.create(
+            created_by=self.user,
+            action='CREATE',
+            model_name='Mounted App Entry',
+        )
+
+        response = self.client.get(reverse('user_profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(session_log, response.context['system_interactions'])
+        self.assertNotIn(session_log, response.context['recent_activity'])
+        self.assertIn(recent_log, response.context['recent_activity'])
 
 
 class ScopeViewsTests(TestCase):
@@ -1769,6 +1788,46 @@ class ProfileSessionDeviceTests(TestCase):
 
         self.assertRedirects(response, reverse('user_profile'))
         self.assertTrue(Session.objects.filter(session_key=second_session_key).exists())
+
+    def test_profile_session_revoke_reports_password_errors_to_ajax_modal(self):
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        second_client.login(username='devices', password='devicespass123')
+        first_client.get(reverse('user_profile'))
+        second_client.get(reverse('user_profile'))
+        second_session_key = second_client.session.session_key
+
+        response = first_client.post(
+            reverse('revoke_profile_session', args=[second_session_key]),
+            {'current_password': 'wrong-password'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json.loads(response.content)['status'], 'error')
+        self.assertTrue(Session.objects.filter(session_key=second_session_key).exists())
+
+    def test_profile_session_revoke_returns_ajax_redirect_after_password_confirmation(self):
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        second_client.login(username='devices', password='devicespass123')
+        first_client.get(reverse('user_profile'))
+        second_client.get(reverse('user_profile'))
+        second_session_key = second_client.session.session_key
+
+        response = first_client.post(
+            reverse('revoke_profile_session', args=[second_session_key]),
+            {'current_password': 'devicespass123'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'success')
+        self.assertEqual(payload['redirect_url'], reverse('user_profile'))
+        self.assertFalse(Session.objects.filter(session_key=second_session_key).exists())
 
     def test_profile_shows_trusted_device_state_in_signed_in_devices(self):
         trusted_device_model = apps.get_model('microsys', 'TrustedDevice')

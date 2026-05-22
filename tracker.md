@@ -13,11 +13,14 @@
 - Neon theme no longer applies its generic `.option-section` overlay/stacking treatment to Options cards; `.ms-options-panel` stays on the dedicated Options styling path instead of inheriting the redundant glow overlay layer.
 - Options System Info now renders backend server time from a dedicated preformatted display key, avoiding generic `current_time` collisions and preserving explicit seconds.
 - Collapsed Icons Only sidebar now removes redundant folder-button/label `flex-grow-1` classes, zeroes hidden label flex space, and applies a dedicated collapsed folder-row centering path so parent/folder accordion icons remain centered and labels vanish immediately.
+- Shared enabled `.form-switch` controls now expose a pointer cursor; Options reorder handles use enabled-handle cursor selectors specific enough to keep both button surface and grip icon on grab/grabbing over Bootstrap's enabled-button pointer rule.
+- Profile confirm-password modals submit the same confirmation path from Enter, keep password-protected Profile actions open through their JSON password check, and render current-password errors inline while the input is corrected.
+- Profile activity grouping treats virtual session-revoke logs as System Interactions.
 - System Settings single-step modal POSTs preserve omitted Step 6 values server-side. Step resolver accepts modal wizard steps `0..5`.
 - Current translation contract from code, docs, and `dhub` runtime inspection:
   - app-local sources are installed app `translations.py` modules exposing `MS_TRANSLATIONS`,
   - Step 2 matrix is meant to group Microsys, installed app, project-config, and settings-only override keys,
-  - `dhub-web-1` currently pins installed `django-microsys==2.2.2`; it discovers `portfolio` and `documents` app translation sources but reproduces a Microsys-only matrix because merged app keys mutate the core source layer before grouping.
+  - `dhub-web-1` still has `/app/req.txt` pinned to `django-microsys==2.2.2`, but the live web container inspected on `2026-05-22` bind-mounts this workspace's `microsys/` package into `/app/microsys`.
 
 ### Current Project Adopted Standards:
 - Preferred settings integration:
@@ -64,18 +67,18 @@
 - Live confirmation is pending after the `2026-05-22` setup-only disabled-theme preview path for Step 6.
 - Live confirmation is pending for the `2026-05-22` sidebar-item theme-switch follow-up; the veil fade was accepted, but sidebar item transitions still looked choppy until they were paused under the veil.
 - User confirmed on `2026-05-22` that the neon Options reorder fix is working after removing redundant neon `.option-section` overlay/stacking selectors from `.ms-options-panel`.
-- Live confirmation is still pending after the refined `2026-05-22` Options System Info server-time fix; the user still saw date-only output (`2026-05-22`) after the first template-format patch, so Options now uses a dedicated preformatted backend display key instead of the generic `current_time` variable.
+- Verified in restarted `dhub-web-1` on `2026-05-22`: Options System Info rendered backend server time with seconds (`2026-05-22 17:58:56`) after the web worker reloaded the bind-mounted dedicated display-key change. Date-only HTML seen immediately before restart came from the older running worker state.
 - Live confirmation is still pending after the refined `2026-05-22` Step 4 Icons Only sidebar fix; CSS label collapse alone was not sufficient, so folder accordion templates now also drop redundant Bootstrap `flex-grow-1` classes and collapsed folder rows force instant label suppression plus centered icon/header alignment.
 - First-launch System Setup has a runtime mismatch between the sidebar-toolbar removal warning and Options modal behavior.
 - Live Options -> System Settings Step 3 modal save has returned HTTP 400 in the user's mounted app while local full modal POST reproductions return 200; use AJAX JSON error/class or live server logs next.
 - Browser/runtime confirmation remains pending in the mounted app after the Step 2 relay/env readiness fix.
 - `microsys/fetcher.py` fallback download/export redirects still trust raw `HTTP_REFERER`.
+- User confirmed on `2026-05-22` that the shared toggle pointer cursor and Profile confirm-password Enter submit fixes work.
+- Live confirmation is pending for the `2026-05-22` Options reorder handle cursor follow-up after the grip icon changed but Bootstrap's enabled-button pointer cursor still won on the surrounding button surface.
+- After `dhub-web-1` restarted at `2026-05-22T18:13:02Z`, a profile-context check on its current admin activity grouped the newest `DELETE session` row under System Interactions; the user's immediately prior browser test hit Gunicorn workers started before that Python classifier change was loaded.
+- Live confirmation is pending after the Profile confirm-password inline-validation follow-up: disable-2FA, backup-code generation, and session revoke now keep wrong-password JSON errors inside the modal instead of relying on page messages.
 - User-reported runtime backlog not handled in the current batch:
-  - re-enabling a previously disabled sidebar drops child toggle state and can force Hide Completely collapse mode,
-  - shared toggle cursor should be pointer,
-  - Options card reorder handle should use drag cursor,
-  - Profile confirm-password modal should submit on Enter,
-  - some session/2FA activity entries still render under Recent Activity instead of System Interactions.
+  - re-enabling a previously disabled sidebar drops child toggle state and can force Hide Completely collapse mode.
 
 ### Incomplete Tasks:
 - Tasks:
@@ -84,8 +87,10 @@
     - [ ] Browser-check the `2026-05-22` Options font highlight and Step 6 disabled-theme preview fixes in production/mounted app.
     - [ ] Browser-check sidebar item repaint after pausing sidebar transitions under the accepted theme-switch fade.
     - [ ] Browser-check reduced-motion/no-animation bypass for the theme switch fade.
-    - [ ] Browser-check Options System Info server time after switching to explicit `Y-m-d H:i:s` rendering.
     - [ ] Browser-check Step 4 Icons Only collapsed sidebar after zeroing hidden folder-label flex space for centered parent/folder icons.
+    - [ ] Browser-check the Options reorder handle button surface after the enabled-handle cursor specificity fix.
+    - [ ] Browser re-check Profile User Activity after the `dhub-web-1` restart so the virtual `session` entry stays under System Interactions.
+    - [ ] Browser-check inline wrong-password feedback in Profile confirm-password modals for disable-2FA, backup codes, and session revoke.
     - [ ] Harden `microsys/fetcher.py` fallback redirects for missing, local, and forged external referers.
     - [ ] Capture the live Step 3 System Settings modal HTTP 400 JSON/log details if it still reproduces.
   - Priority 1 browser validation:
@@ -107,16 +112,22 @@
     - [x] Removed redundant neon `.option-section` overlay/stacking selectors from Options cards by excluding `.ms-options-panel`.
     - [x] User confirmed the neon-theme Options card reorder issue is fixed.
     - [x] Switched Options System Info backend server time to a dedicated preformatted display key so project/global `current_time` collisions cannot collapse it back to a date-only value.
+    - [x] Restarted `dhub-web-1` and verified its Django Options render now emits backend server time with seconds.
     - [x] Zeroed collapsed folder-label flex space so Step 4 Icons Only parent/folder accordion icons stay centered.
     - [x] Removed redundant folder-button/label `flex-grow-1` classes from sidebar accordion templates after the user confirmed the parent item was still pushed sideways when collapsed.
     - [x] Added a dedicated collapsed folder-row centering path so parent labels do not linger and the folder icon does not hug the wall during sidebar collapse.
+    - [x] Added shared enabled switch pointer cursor behavior and raised Options reorder handle cursor specificity above Bootstrap's enabled-button pointer rule.
+    - [x] Routed Enter in the Profile confirm-password input through the existing confirm modal action without stacking key handlers.
+    - [x] Kept Profile confirm-password modals open through JSON password checks so wrong passwords render inline and clear while corrected.
+    - [x] Added AJAX session-revoke success/error responses for the modal path while preserving non-AJAX message fallback.
+    - [x] Classified virtual Profile session-revoke activity logs as System Interactions while leaving mounted-app logs under Recent Activity.
     - [x] Bumped the production `options.js` asset key for the existing immediate Options font `is-active` update path.
     - [x] Reproduced the Step 2 matrix source collapse in `dhub` and isolated app translation merges from `MICROSYS_STRINGS` so app source tabs remain claimable.
     - [x] Fixed Step 2 relay/env email readiness detection for scaffolded `SMTP_RELAY_*` plus `DEFAULT_FROM_EMAIL`.
     - [x] Preserved omitted Step 6 values on single-step System Settings modal saves and fixed modal step `5` resolution.
 
 ### One-line info about last verified Tests:
-- `2026-05-22`: focused `DiscoverRunner` checks passed for the dedicated Options server-time display key, collapsed-sidebar folder-label flex collapse, redundant sidebar folder `flex-grow-1` removal, dedicated collapsed folder-row centering/instant-hide rules, setup theme preview/cache-bust coverage, and the targeted global-staff Options diagnostics render; focused compileall and `git diff --check` passed. Full `test_views` remains noisy/unfocused for this batch, so only targeted labels were used here.
+- `2026-05-22`: focused `DiscoverRunner` checks passed for Profile confirm-password inline JSON hook coverage, AJAX session-revoke password error/redirect responses, shared switch/Options cursor assets, and virtual session activity grouping; focused compileall and `git diff --check` passed. Restarted `dhub-web-1` after the latest Profile view change.
 
 ### One-line info about last time edited Docs:
 - `2026-05-16`: main README/docs batch covered Trusted Devices, Client IP Resolution, advanced 2FA UX, Dynamic Font Management, and the Step 5/6 wizard split; no docs changed on `2026-05-22`.
@@ -147,8 +158,11 @@
 ### Agent Handoff Rules:
 - Re-read this tracker at the start of every turn and update it after meaningful state, task, bug, test, docs, or handoff changes.
 - User correction: their target app mounts this repo, so do not assume they are running only the packaged PyPI release when local checkout is active.
-- `dhub-web-1` inspected on `2026-05-22` uses the image-installed package, not a repo bind mount; `/app/req.txt` pins `django-microsys==2.2.2` even though this checkout version markers are `2.2.3`.
+- `dhub-web-1` inspected on `2026-05-22` still has `/app/req.txt` pinned to `django-microsys==2.2.2`, but it currently bind-mounts this workspace's `microsys/` directory into `/app/microsys`; restart the web worker after local Python/template changes before judging the live render.
 - User correction for current runtime bug batch: stay on the bug-fix path, keep impact minimal, and ask or research when evidence is insufficient.
+- User correction for Options reorder cursor: the first cursor patch reached the grip icon only; Bootstrap still kept pointer on the surrounding enabled handle button until the handle selector specificity was raised.
+- User correction for Profile activity grouping: the `2026-05-22` browser retest after session revoke still showed the row under Recent Activity before `dhub-web-1` reloaded the bind-mounted Python view.
+- User correction for Profile confirm-password modals: wrong-password feedback should stay in the live modal flow instead of falling back to stale page-level Django messages.
 - User correction for theme animation: the veil fade is desired; remaining theme-switch choppiness was observed only in sidebar items.
 - User correction for the current Options bug batch: the Server Time issue is specifically date-only output with no hour/minutes; neon-theme Options reorder is confirmed fixed.
 - User correction on `2026-05-22`: even after the first local `current_time|date:"Y-m-d H:i:s"` patch, runtime still rendered only `2026-05-22`; avoid assuming the generic `current_time` key is safe in mounted projects.

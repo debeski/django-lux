@@ -1132,12 +1132,19 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('.ms-email-toggle-field__label {', contents)
         self.assertIn('.ms-email-toggle-field__input.form-check-input {', contents)
 
+    def test_shared_switch_css_uses_pointer_for_enabled_toggle_inputs(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'main.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.form-switch .form-check-input:not(:disabled) {', contents)
+        self.assertIn('cursor: pointer;', contents)
+
     def test_options_template_uses_external_assets_and_draggable_cards(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'includes' / 'options.html'
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/main/css/options.css", contents)
-        self.assertIn("?v=20260513b", contents)
+        self.assertIn("?v=20260522b", contents)
         self.assertIn("microsys/main/js/options.js", contents)
         self.assertIn('{{ server_time_backend_display }}', contents)
         self.assertIn('id="msOptionsGrid"', contents)
@@ -1162,7 +1169,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/main/css/main.css", contents)
-        self.assertIn("?v=20260522b", contents)
+        self.assertIn("?v=20260522c", contents)
         self.assertIn("microsys/main/js/system_setup.js", contents)
         self.assertIn("?v=20260522a", contents)
         self.assertIn("{% static theme.css_path %}?v=20260522c", contents)
@@ -1281,6 +1288,12 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('.ms-options-panel {', css_contents)
         self.assertIn('.ms-options-card {', css_contents)
         self.assertIn('.ms-options-card-handle {', css_contents)
+        self.assertIn('.ms-options-card-handle:not(:disabled),', css_contents)
+        self.assertIn('.ms-options-card-handle .bi {', css_contents)
+        self.assertIn('cursor: grab;', css_contents)
+        self.assertIn('.ms-options-card-handle:not(:disabled):active,', css_contents)
+        self.assertIn('.ms-options-card-handle:active .bi {', css_contents)
+        self.assertIn('cursor: grabbing;', css_contents)
         self.assertIn('float: inline-end;', css_contents)
         self.assertNotIn('top: 1rem;', css_contents)
         self.assertIn('.ms-options-card--wide {', css_contents)
@@ -1303,6 +1316,20 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('function shouldInsertBefore(targetCard, event)', js_contents)
         self.assertIn("const direction = window.getComputedStyle(targetCard).direction || document.documentElement.dir || 'ltr';", js_contents)
         self.assertIn('return event.clientX < midpoint;', js_contents)
+
+    def test_profile_confirmation_script_submits_password_modal_on_enter(self):
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'users' / 'profile.html'
+        script_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'users' / 'js' / 'profile_2fa.js'
+        template = template_path.read_text(encoding='utf-8')
+        script = script_path.read_text(encoding='utf-8')
+
+        self.assertIn("microsys/users/js/profile_2fa.js' %}?v=20260522b", template)
+        self.assertIn("passwordInput.addEventListener('keydown', submitOnEnter);", script)
+        self.assertIn("passwordInput.addEventListener('input', clearPasswordError);", script)
+        self.assertIn("if (event.key !== 'Enter') return;", script)
+        self.assertIn('confirmCurrentModal();', script)
+        self.assertIn('.then(parseJsonResponse)', script)
+        self.assertIn("window.location.assign(data.redirect_url || window.location.href);", script)
 
     def test_setup_form_render_does_not_emit_inline_style_attributes(self):
         form = SystemSettingsForm(

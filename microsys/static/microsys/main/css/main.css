@@ -118,6 +118,10 @@ select.glass-input,
     border-color: var(--primal) !important;
 }
 
+.form-switch .form-check-input:not(:disabled) {
+    cursor: pointer;
+}
+
 .form-switch .form-check-input:checked {
     background-color: var(--primal) !important;
     border-color: var(--primal) !important;

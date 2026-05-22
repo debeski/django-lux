@@ -425,6 +425,7 @@ function showConfirmation(message, onConfirm) {
     if (passwordInput) {
         passwordInput.value = '';
         passwordInput.required = requirePassword;
+        passwordInput.classList.remove('is-invalid');
     }
     if (passwordError) {
         passwordError.textContent = '';
@@ -437,22 +438,68 @@ function showConfirmation(message, onConfirm) {
     // Remove old listeners to prevent stacking
     const newBtn = btnEl.cloneNode(true);
     btnEl.parentNode.replaceChild(newBtn, btnEl);
+
+    const clearPasswordError = function() {
+        if (passwordInput) passwordInput.classList.remove('is-invalid');
+        if (passwordError) {
+            passwordError.textContent = '';
+            passwordError.classList.add('d-none');
+        }
+    };
+    const showPasswordError = function(message) {
+        if (passwordInput) {
+            passwordInput.classList.add('is-invalid');
+            passwordInput.focus();
+        }
+        if (passwordError) {
+            passwordError.textContent = message || '';
+            passwordError.classList.toggle('d-none', !message);
+        }
+    };
     
-    newBtn.addEventListener('click', function() {
+    const confirmCurrentModal = function() {
         const currentPassword = passwordInput ? passwordInput.value.trim() : '';
         if (requirePassword && !currentPassword) {
-            if (passwordError) {
-                passwordError.textContent = passwordInput?.dataset.requiredMsg || 'Please enter your current password.';
-                passwordError.classList.remove('d-none');
-            }
-            if (passwordInput) passwordInput.focus();
+            showPasswordError(passwordInput?.dataset.requiredMsg || 'Please enter your current password.');
             return;
         }
-        modal.hide();
-        if (typeof config.onConfirm === 'function') {
-            config.onConfirm(currentPassword);
+        clearPasswordError();
+        if (typeof config.onConfirm !== 'function') {
+            modal.hide();
+            return;
         }
-    });
+
+        const result = config.onConfirm(currentPassword, { showError: showPasswordError });
+        if (!result || typeof result.then !== 'function') {
+            if (result !== false) modal.hide();
+            return;
+        }
+
+        setButtonLoading(newBtn, true);
+        result
+            .then(shouldClose => {
+                if (shouldClose !== false) modal.hide();
+            })
+            .catch(err => showPasswordError(err.message))
+            .finally(() => setButtonLoading(newBtn, false));
+    };
+
+    newBtn.addEventListener('click', confirmCurrentModal);
+    if (requirePassword && passwordInput) {
+        const submitOnEnter = function(event) {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            confirmCurrentModal();
+        };
+        const removeEnterHandler = function() {
+            passwordInput.removeEventListener('keydown', submitOnEnter);
+            passwordInput.removeEventListener('input', clearPasswordError);
+        };
+
+        passwordInput.addEventListener('keydown', submitOnEnter);
+        passwordInput.addEventListener('input', clearPasswordError);
+        modalEl.addEventListener('hidden.bs.modal', removeEnterHandler, { once: true });
+    }
     
     modal.show();
     if (requirePassword && passwordInput) {
@@ -471,29 +518,25 @@ function disable2FA(e) {
         message: confirmMsg,
         requirePassword: true,
         onConfirm: function(currentPassword) {
-        setButtonLoading(btn, true);
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: `method=${encodeURIComponent(method)}&current_password=${encodeURIComponent(currentPassword)}`
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
+            setButtonLoading(btn, true);
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: `method=${encodeURIComponent(method)}&current_password=${encodeURIComponent(currentPassword)}`
+            })
+            .then(parseJsonResponse)
+            .then(data => {
+                if (data.status !== 'success') {
+                    throw new Error(data.message || 'Error disabling 2FA');
+                }
                 window.location.reload();
-            } else {
-                alert(data.message || 'Error disabling 2FA');
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert('Server connection error');
-        })
-        .finally(() => setButtonLoading(btn, false));
+                return true;
+            })
+            .finally(() => setButtonLoading(btn, false));
         }
     });
 }
@@ -503,24 +546,13 @@ function handleBackupCodes(e) {
     const url = btn.dataset.url;
     
     const performGeneration = (currentPassword) => {
-        const container = document.getElementById('backupCodesContainer');
         setButtonLoading(btn, true);
-        
-        // Show modal first with loader
-        const modalEl = document.getElementById('backupCodesModal');
-        let modal = bootstrap.Modal.getInstance(modalEl);
-        if (!modal) {
-            modal = new bootstrap.Modal(modalEl);
-        }
-        modal.show();
-    
-        // Fetch Codes
         let csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
         if (!csrfToken) {
              csrfToken = document.getElementById('otpSetupForm')?.dataset.csrf;
         }
     
-        fetch(url, {
+        return fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -529,25 +561,28 @@ function handleBackupCodes(e) {
             },
             body: `current_password=${encodeURIComponent(currentPassword)}`
         })
-        .then(res => res.json())
+        .then(parseJsonResponse)
         .then(data => {
-            if (data.status === 'success') {
-                const codes = data.codes;
-                let html = '<div class="row text-center">';
-                codes.forEach(code => {
-                    html += `<div class="col-6 mb-2"><strong>${code}</strong></div>`;
-                });
-                html += '</div>';
-                container.innerHTML = html;
-                
-                // Show download button
-                document.getElementById('downloadBackupCodesBtn').classList.remove('d-none');
-            } else {
-                container.innerHTML = `<div class="text-danger">${data.message || 'Error'}</div>`;
+            if (data.status !== 'success') {
+                throw new Error(data.message || 'Error');
             }
-        })
-        .catch(err => {
-            container.innerHTML = `<div class="text-danger">Connection Error</div>`;
+            const container = document.getElementById('backupCodesContainer');
+            const modalEl = document.getElementById('backupCodesModal');
+            let modal = bootstrap.Modal.getInstance(modalEl);
+            if (!modal) {
+                modal = new bootstrap.Modal(modalEl);
+            }
+
+            const codes = data.codes;
+            let html = '<div class="row text-center">';
+            codes.forEach(code => {
+                html += `<div class="col-6 mb-2"><strong>${code}</strong></div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+            document.getElementById('downloadBackupCodesBtn').classList.remove('d-none');
+            modal.show();
+            return true;
         })
         .finally(() => setButtonLoading(btn, false));
     };
@@ -562,17 +597,36 @@ function handleBackupCodes(e) {
 }
 
 function confirmSessionRevoke(form) {
-    const hiddenPasswordInput = form.querySelector('input[name="current_password"]');
     const confirmMsg = form.dataset.confirmMsg || 'Are you sure?';
+    const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    const submitButton = form.querySelector('button[type="submit"]');
 
     showConfirmation({
         message: confirmMsg,
         requirePassword: true,
         onConfirm: function(currentPassword) {
-            if (hiddenPasswordInput) {
-                hiddenPasswordInput.value = currentPassword;
-            }
-            form.submit();
+            const body = new URLSearchParams(new FormData(form));
+            body.set('current_password', currentPassword);
+            setButtonLoading(submitButton, true);
+
+            return fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body.toString()
+            })
+            .then(parseJsonResponse)
+            .then(data => {
+                if (data.status !== 'success') {
+                    throw new Error(data.message || 'Request failed.');
+                }
+                window.location.assign(data.redirect_url || window.location.href);
+                return true;
+            })
+            .finally(() => setButtonLoading(submitButton, false));
         }
     });
 }
