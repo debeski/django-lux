@@ -275,7 +275,7 @@
   - mozilla-django-oidc settings docs: `https://mozilla-django-oidc.readthedocs.io/en/stable/settings.html`
 
 # known bugs:
-- Changing font in options view changes font, but doesnt immidiately highlight the newly chosen font and requires a page reload.
+- Changing font in options view changes font, but doesnt immidiately highlight the newly chosen font and requires a page reload. only in production.
 - Previewing a previously disabled theme in system settings step 6 defaults back to the default theme instead, it is because the newly selected theme for preview was previously unselected/disabled, and so it is being read as a false choice and falls back to original default theme. only way around is to allow the theme, save, then go back and it now previews fine.
 * System settings/step 2/ translation iverrides: only microsys related strings are available in the matrix, with none of the other apps strings. im not sure if this was by design or not, i cant remember. i might have chosen this path to reduce the overhead of loading project-wide strings and their values which can be resources and time consuming.
 - The theme preview/ theme change on click needs to be smoothed out with an animation or fade or something similar, it appears choppy when switching from dark to light modes and vice versa.

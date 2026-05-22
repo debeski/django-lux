@@ -93,6 +93,7 @@ services:
       - target: 80
         published: "${NGINX_PORT:-80}"
         protocol: tcp
+    restart: always
     volumes:
       - ./.nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static:/app/staticfiles:ro

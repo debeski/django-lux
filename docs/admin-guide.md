@@ -312,8 +312,8 @@ Any staff member with `manage_staff` permission can create Scoped Staff. To crea
 5. The new user will only be able to manage other users in that same scope
 
 This tier system ensures that:
-- Ministers and scoped users have privacy from Central Staff
-- Central Staff can handle routine user management for the core system without accessing private ministry data
+- Scoped users have privacy from Central Staff
+- Central Staff can handle routine user management for the core system without accessing private scoped data
 - Global Staff can administer the entire multi-tenant system without needing full superuser privileges
 
 ### Permission Assignment Principle
