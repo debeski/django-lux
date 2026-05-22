@@ -130,7 +130,7 @@
 - `2026-05-22`: focused `DiscoverRunner` checks passed for Profile confirm-password inline JSON hook coverage, AJAX session-revoke password error/redirect responses, shared switch/Options cursor assets, and virtual session activity grouping; focused compileall and `git diff --check` passed. Restarted `dhub-web-1` after the latest Profile view change.
 
 ### One-line info about last time edited Docs:
-- `2026-05-16`: main README/docs batch covered Trusted Devices, Client IP Resolution, advanced 2FA UX, Dynamic Font Management, and the Step 5/6 wizard split; no docs changed on `2026-05-22`.
+- `2026-05-22`: updated `CHANGELOG.md` with the new `v2.2.4` release entry; the prior broader README/docs batch was on `2026-05-16`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

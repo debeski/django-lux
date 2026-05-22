@@ -4,6 +4,14 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.2.4
+
+- **Theme Preview And Switching Polish**: Added a short fade veil for explicit theme changes, paused sidebar repaint during the swap, and allowed Step 6 / Appearance preview to temporarily load a disabled theme stylesheet without widening the runtime theme allowlist.
+- **Collapsed Sidebar Parent Alignment Fix**: Fixed Icons Only collapsed sidebars so folder/parent accordion rows stay centered, hidden labels do not linger during collapse, and redundant `flex-grow` behavior no longer pushes parent icons out of place.
+- **Options And Profile Interaction Fixes**: Added pointer cursors for shared Microsys toggles, corrected Options card reorder handles to keep grab/grabbing cursors on the full handle surface, and kept Profile confirm-password modals open through server validation so wrong-password errors render inline instead of falling back to page messages.
+- **Profile Activity Classification Fix**: Routed virtual session-revoke activity rows into System Interactions instead of Recent Activity, keeping Profile timelines aligned with Microsys-owned security events.
+- **Release Metadata And Scaffold Follow-Up**: Added Django 6 classifiers to the main package and optional SSO package, updated generated nginx services to restart automatically in scaffolded `compose.yml`, and clarified Central Staff wording in the admin guide.
+
 ## v2.2.3
 
 - **utils.py Cleanup**: cleaned up the utils.py helpers file a bit, will split into modules in next versions.
