@@ -3,6 +3,7 @@ import os
 import platform
 import sys
 import json
+import logging
 import urllib.error
 import urllib.request
 import uuid
@@ -12,6 +13,7 @@ from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.cache import caches
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.http import HttpResponse
@@ -22,7 +24,16 @@ from django.utils.module_loading import import_string
 from microsys import __version__
 from microsys.constants import DEFAULT_HOME_URL
 from microsys.translations import get_current_language_code, get_strings
-from microsys.utils import export_system_settings_payload, get_email_service_status, get_system_config, is_global_staff
+from microsys.utils import (
+    apply_system_settings_import,
+    export_system_settings_payload,
+    get_email_service_status,
+    get_system_config,
+    is_global_staff,
+    load_system_settings_config_json,
+)
+
+logger = logging.getLogger(__name__)
 
 try:
     import psutil
@@ -390,6 +401,30 @@ def system_setup_view(request):
 
     SystemSettingsForm = import_string('microsys.forms.SystemSettingsForm')
 
+    if request.method != 'POST':
+        strings = get_strings()
+        try:
+            imported_settings = load_system_settings_config_json()
+        except ValueError as exc:
+            logger.warning("Ignoring invalid first-launch config.json: %s", exc)
+            messages.warning(
+                request,
+                strings.get(
+                    'system_setup_config_auto_invalid',
+                    'config.json could not be loaded; continue with manual setup.',
+                ),
+                fail_silently=True,
+            )
+        else:
+            if imported_settings:
+                apply_system_settings_import(instance, imported_settings, mark_configured=True)
+                messages.success(
+                    request,
+                    strings.get('system_setup_config_auto_loaded', 'System setup loaded from config.json.'),
+                    fail_silently=True,
+                )
+                return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
+
     if request.method == 'POST':
         form = SystemSettingsForm(
             request.POST,
@@ -401,7 +436,6 @@ def system_setup_view(request):
         )
         if form.is_valid():
             form.save()
-            from microsys.utils import get_system_config
             return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
     else:
         form = SystemSettingsForm(

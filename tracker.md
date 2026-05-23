@@ -20,6 +20,8 @@
 - Optional Step 5 Nav Bar config is DB-backed as `navbar_config`: System Settings owns enablement, developer default style, user override gating, and a route/manual-node hierarchy editor; runtime dynamic views can provide `microsys_navbar_crumbs`. History mode keeps one browser-session path trail with active-language labels for known routes, Microsys system routes are hidden from the builder, and accessible system views auto-render under an unclickable `System` crumb.
 - Initial System Setup can seed an enabled empty Nav Bar hierarchy from the configured sidebar accordion/tree structure; this is setup-only and non-destructive once `navbar_config.hierarchy.nodes` has entries.
 - Initial System Setup now has a theme-aware, sticky bullet step bar above the form; each bullet jumps to the matching wizard step and stays synchronized with Next/Prev state.
+- System Settings import/export now includes dynamic font settings and uses shared `apply_system_settings_import(...)` / `load_system_settings_config_json(...)` helpers; first-launch `/sys/setup/` can bootstrap once from `BASE_DIR/config.json` only while `SystemSettings.is_configured=False`, manual setup import can read exported or direct config aliases (`translations`, `sidebar`, `navbar`, `titlebar`), and the sidebar builder receives an explicit import event to rehydrate visible entries from imported sidebar JSON.
+- `microsys_settings` management command is available for singleton dev/operator workflows: status, configure/unconfigure, guarded delete/reset, and portable JSON export/import.
 - Nav Bar hierarchy click suppression applies to crumbs actually labeled Root/Home/Index, not to every route whose URL name ends in `index`; discovered app index routes such as `archive:index` remain clickable when their label is a specific section name like `Archive`.
 - Nav Bar hierarchy matching no longer lets a generic current route leaf like `index` match arbitrary app nodes such as `archive:index`; project root/home falls back to the actual current route.
 - Sidebar active-state resolution now gives exact URL matches priority over parent-prefix matches, so a child route like `/archive/decrees/` does not also mark `/archive/` active.
@@ -150,12 +152,16 @@
     - [x] Split Nav Bar into its own System Settings Step 5 after Sidebar, added the Options entrypoint, and added setup-only seeding from an enabled empty Nav Bar tree to configured sidebar accordions.
     - [x] Redesigned the Options System Settings card as compact icon/title tiles with translated Microsys tooltip descriptions.
     - [x] Added the first-launch System Setup bullet step bar with theme-aware styling and clickable wizard-step navigation.
+    - [x] Expanded setup import/export for dynamic fonts and added one-time first-launch `BASE_DIR/config.json` bootstrap plus the manual finish-from-import CTA.
+    - [x] Rehydrated the visible sidebar matrix after manual setup import so imported `sidebar_config` appears immediately, matching the hidden JSON that already saved correctly.
+    - [x] Added `microsys_settings` management command for System Settings singleton status, configure/unconfigure, guarded delete/reset, and JSON export/import.
+    - [x] Hardened manual setup import preview for direct config aliases and explicit sidebar-builder import rehydration after the user still saw an empty sidebar matrix.
 
 ### One-line info about last verified Tests:
-- `2026-05-23`: focused System Setup bullet nav tests passed (`GeneralViewsTests` 1 selected + `MicrosysDefaultRouteTests` 3 selected), and `git diff --check` passed.
+- `2026-05-24`: `MicrosysDefaultRouteTests` 99 passed and `git diff --check` passed after hardening manual import preview aliases/sidebar rehydration.
 
 ### One-line info about last time edited Docs:
-- `2026-05-23`: updated changelog/admin guide for the initial System Setup bullet step navigation.
+- `2026-05-24`: updated changelog/reference/features docs for `microsys_settings` plus existing setup import/export notes.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

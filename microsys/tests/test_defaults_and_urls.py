@@ -55,11 +55,15 @@ from django.template import Context, Template
 from django.urls import clear_url_caches
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from types import SimpleNamespace
 from unittest.mock import call, patch
 from pathlib import Path
+from io import StringIO
 import json
 import re
+import tempfile
 
 from microsys.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, LEGACY_HOME_URL
 from microsys.context_processors import microsys_context
@@ -90,6 +94,76 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
     def test_system_config_defaults_home_url_to_profile(self):
         self.assertEqual(get_system_config().get('home_url'), DEFAULT_HOME_URL)
 
+    def test_microsys_settings_status_does_not_create_singleton(self):
+        out = StringIO()
+
+        call_command('microsys_settings', 'status', stdout=out)
+
+        self.assertIn('SystemSettings singleton: missing', out.getvalue())
+        self.assertFalse(SystemSettings._default_manager.filter(pk=1).exists())
+
+    def test_microsys_settings_unconfigure_preserves_settings(self):
+        instance = SystemSettings.load()
+        instance.is_configured = True
+        instance.home_url = '/sys/profile/'
+        instance.sidebar_config = {'enabled': False, 'entries': []}
+        instance.save()
+
+        call_command('microsys_settings', 'unconfigure', stdout=StringIO())
+
+        instance.refresh_from_db()
+        self.assertFalse(instance.is_configured)
+        self.assertEqual(instance.home_url, '/sys/profile/')
+        self.assertFalse(instance.sidebar_config['enabled'])
+
+    def test_microsys_settings_delete_requires_yes_and_removes_singleton(self):
+        SystemSettings.load()
+
+        with self.assertRaises(CommandError):
+            call_command('microsys_settings', 'delete', stdout=StringIO())
+
+        self.assertTrue(SystemSettings._default_manager.filter(pk=1).exists())
+        call_command('microsys_settings', 'delete', '--yes', stdout=StringIO())
+        self.assertFalse(SystemSettings._default_manager.filter(pk=1).exists())
+
+    def test_microsys_settings_reset_recreates_unconfigured_defaults(self):
+        instance = SystemSettings.load()
+        instance.is_configured = True
+        instance.home_url = '/custom/'
+        instance.save()
+
+        call_command('microsys_settings', 'reset', '--yes', stdout=StringIO())
+
+        instance = SystemSettings._default_manager.get(pk=1)
+        self.assertFalse(instance.is_configured)
+        self.assertEqual(instance.home_url, DEFAULT_HOME_URL)
+
+    def test_microsys_settings_export_import_roundtrip(self):
+        instance = SystemSettings.load()
+        instance.is_configured = True
+        instance.system_names = {'en': 'Exported'}
+        instance.home_url = '/sys/profile/'
+        instance.allowed_fonts = ['cairo']
+        instance.default_fonts = {'en': 'cairo'}
+        instance.sidebar_config = {'enabled': False, 'entries': []}
+        instance.navbar_config = {'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}}
+        instance.save()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / 'config.json'
+            call_command('microsys_settings', 'export', '--output', str(path), stdout=StringIO())
+            call_command('microsys_settings', 'delete', '--yes', stdout=StringIO())
+            call_command('microsys_settings', 'import', '--input', str(path), stdout=StringIO())
+
+        instance = SystemSettings._default_manager.get(pk=1)
+        self.assertTrue(instance.is_configured)
+        self.assertEqual(instance.system_names['en'], 'Exported')
+        self.assertEqual(instance.home_url, '/sys/profile/')
+        self.assertEqual(instance.allowed_fonts, ['cairo'])
+        self.assertEqual(instance.default_fonts, {'en': 'cairo'})
+        self.assertFalse(instance.sidebar_config['enabled'])
+        self.assertTrue(instance.navbar_config['enabled'])
+
     def test_navbar_config_normalizes_defaults_and_nested_manual_labels(self):
         normalized = normalize_navbar_config({
             'enabled': True,
@@ -110,6 +184,20 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertFalse(normalized['allow_user_mode_override'])
         self.assertEqual(normalized['hierarchy']['nodes'][0]['labels'], {'en': 'Documents'})
         self.assertEqual(normalized['hierarchy']['nodes'][0]['children'][0]['url_name'], 'documents:list')
+
+    def test_system_settings_import_accepts_runtime_config_aliases(self):
+        imported = normalize_system_settings_import_payload({
+            'translations': {'en': {'custom_key': 'Custom'}},
+            'sidebar': {'enabled': False, 'entries': [{'kind': 'item', 'id': 'archive:index'}]},
+            'navbar': {'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}},
+            'titlebar': {'show_title': False},
+        })
+
+        self.assertEqual(imported['translations_override']['en']['custom_key'], 'Custom')
+        self.assertFalse(imported['sidebar_config']['enabled'])
+        self.assertEqual(imported['sidebar_config']['entries'][0]['id'], 'archive:index')
+        self.assertTrue(imported['navbar_config']['enabled'])
+        self.assertFalse(imported['titlebar_config']['show_title'])
 
     def test_navbar_seed_from_sidebar_only_when_enabled_and_empty(self):
         seeded = seed_navbar_config_from_sidebar(
@@ -536,6 +624,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertEqual(html.count('data-archive-file-widget'), 3)
         self.assertIn('data-settings-import-file="true"', html)
+        self.assertIn('data-settings-import-finish', html)
+        self.assertIn('Finish setup from imported config', html)
         self.assertIn('id="id_settings_import_file"', html)
         self.assertIn('id="id_logo"', html)
         self.assertIn('id="id_favicon"', html)
@@ -551,6 +641,9 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
                 'default_language': 'fr',
                 'default_theme': 'dark',
                 'allowed_themes': ['dark'],
+                'allowed_fonts': ['cairo'],
+                'default_fonts': {'fr': 'cairo'},
+                'allow_user_font_override': False,
                 'translations_override': {'fr': {'app_microsys': 'Systeme'}},
                 'home_url': '/imported/',
                 'public_root': True,
@@ -591,6 +684,9 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('fr', form.cleaned_data['languages'])
         self.assertEqual(form.cleaned_data['default_language'], 'fr')
         self.assertEqual(form.cleaned_data['default_theme'], 'dark')
+        self.assertEqual(form.cleaned_data['allowed_fonts'], ['cairo'])
+        self.assertEqual(form.cleaned_data['default_fonts'], {'fr': 'cairo'})
+        self.assertFalse(form.cleaned_data['allow_user_font_override'])
         self.assertEqual(form.cleaned_data['home_url'], '/imported/')
         self.assertTrue(form.cleaned_data['public_root_split_enabled'])
         self.assertEqual(form.cleaned_data['public_root_url'], '/public-imported/')
@@ -1105,6 +1201,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertTrue(email_config['encrypted_password'])
         self.assertNotEqual(email_config['encrypted_password'], 'app-secret-pass')
         self.assertEqual(decrypt_email_secret(email_config['encrypted_password']), 'app-secret-pass')
+        instance = form.save(commit=False)
+        self.assertEqual(decrypt_email_secret(instance.email_config['encrypted_password']), 'app-secret-pass')
 
     def test_setup_form_saves_direct_smtp_with_encrypted_db_secret_axes(self):
         form = SystemSettingsForm(
@@ -1308,6 +1406,18 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("'sidebar_enable_toolbar',\n                    'sidebar_show_icons'", contents)
         self.assertNotIn('toolbarToggle.checked = false;', contents)
         self.assertIn('data-public-registration-dependent', contents)
+        self.assertIn('function setImportedSetupFinishVisible(form, visible)', contents)
+        self.assertIn("showToast(t('system_setup_import_loaded'", contents)
+        self.assertIn("'allow_user_font_override'", contents)
+        self.assertIn('applyImportedFontSettings(form, settings);', contents)
+        self.assertIn("hiddenInput.addEventListener('change', () => {", contents)
+        self.assertIn('function applyImportedSidebarSettings(form, sidebar) {', contents)
+        self.assertIn("builder.dispatchEvent(new CustomEvent('microsys:sidebar-config-imported'", contents)
+        self.assertIn("builder.addEventListener('microsys:sidebar-config-imported'", contents)
+        self.assertIn('const sidebarSource = settings.sidebar_config || settings.sidebar;', contents)
+        self.assertIn('const translationOverrides = settings.translations_override || settings.translations;', contents)
+        self.assertIn('const navbarSource = settings.navbar_config || settings.navbar;', contents)
+        self.assertIn('const titlebarSource = settings.titlebar_config || settings.titlebar;', contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_activation_mode', !enabled)", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled)", contents)
         self.assertIn('initClientIpOptions', contents)
@@ -1747,6 +1857,9 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             default_language='en',
             default_theme='light',
             allowed_themes=['light'],
+            allowed_fonts=['cairo'],
+            default_fonts={'en': 'cairo'},
+            allow_user_font_override=False,
             email_config={
                 'transport': 'direct',
                 'secret_storage': 'encrypted_db',
@@ -1772,10 +1885,16 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertFalse(payload['settings']['sidebar_config']['enabled'])
         self.assertTrue(payload['settings']['navbar_config']['enabled'])
         self.assertEqual(payload['settings']['navbar_config']['default_mode'], 'history')
+        self.assertEqual(payload['settings']['allowed_fonts'], ['cairo'])
+        self.assertEqual(payload['settings']['default_fonts'], {'en': 'cairo'})
+        self.assertFalse(payload['settings']['allow_user_font_override'])
 
         imported = normalize_system_settings_import_payload(payload)
         self.assertNotIn('encrypted_password', imported['email_config'])
         self.assertTrue(imported['email_config']['password_configured'])
+        self.assertEqual(imported['allowed_fonts'], ['cairo'])
+        self.assertEqual(imported['default_fonts'], {'en': 'cairo'})
+        self.assertFalse(imported['allow_user_font_override'])
 
     @override_settings(
         EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',

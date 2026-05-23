@@ -31,6 +31,12 @@ Generated app scaffold baseline:
 | `python manage.py microsys_setup --skip-check` | Skip the validation pass after setup. |
 | `python manage.py microsys_setup --no-migrate` | Skip `makemigrations` and `migrate`. |
 | `python manage.py microsys_check` | Validate apps, middleware, context processors, URLs, and Crispy settings. |
+| `python manage.py microsys_settings status` | Inspect the `SystemSettings` singleton without creating it. |
+| `python manage.py microsys_settings unconfigure` | Preserve settings but mark setup incomplete so `/sys/setup/` opens again. |
+| `python manage.py microsys_settings delete --yes` | Delete the singleton row; the next load recreates it. |
+| `python manage.py microsys_settings reset --yes` | Recreate the singleton from model defaults and mark it unconfigured. |
+| `python manage.py microsys_settings export --output config.json` | Export portable System Settings JSON. |
+| `python manage.py microsys_settings import --input config.json` | Import portable System Settings JSON and mark setup configured. |
 
 ## Optional SSO Packages
 

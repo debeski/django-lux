@@ -7,6 +7,7 @@ from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 import inspect
+from pathlib import Path
 import unicodedata
 from django import forms
 from django.apps import apps
@@ -1715,6 +1716,9 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'default_theme',
     'allowed_themes',
     'allow_user_theme_override',
+    'allowed_fonts',
+    'default_fonts',
+    'allow_user_font_override',
     'allow_user_language_override',
     'default_table_density',
     'email_2fa',
@@ -1775,6 +1779,10 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_titlebar_config(value)
         elif field_name == 'allowed_themes':
             data[field_name] = list(normalize_allowed_themes(value))
+        elif field_name == 'allowed_fonts':
+            data[field_name] = list(normalize_allowed_fonts(value))
+        elif field_name == 'default_fonts':
+            data[field_name] = normalize_default_fonts(value, allowed_fonts=getattr(instance, 'allowed_fonts', None))
         else:
             data[field_name] = deepcopy(value)
 
@@ -1799,6 +1807,15 @@ def normalize_system_settings_import_payload(payload):
     for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
         if field_name in raw_settings:
             normalized[field_name] = deepcopy(raw_settings[field_name])
+    import_aliases = {
+        'translations': 'translations_override',
+        'sidebar': 'sidebar_config',
+        'navbar': 'navbar_config',
+        'titlebar': 'titlebar_config',
+    }
+    for source_name, target_name in import_aliases.items():
+        if target_name not in normalized and source_name in raw_settings:
+            normalized[target_name] = deepcopy(raw_settings[source_name])
 
     if 'system_names' in normalized:
         normalized['system_names'] = normalize_system_names(normalized['system_names'])
@@ -1818,6 +1835,13 @@ def normalize_system_settings_import_payload(payload):
         normalized['titlebar_config'] = normalize_titlebar_config(normalized['titlebar_config'])
     if 'allowed_themes' in normalized:
         normalized['allowed_themes'] = list(normalize_allowed_themes(normalized['allowed_themes']))
+    if 'allowed_fonts' in normalized:
+        normalized['allowed_fonts'] = list(normalize_allowed_fonts(normalized['allowed_fonts']))
+    if 'default_fonts' in normalized:
+        normalized['default_fonts'] = normalize_default_fonts(
+            normalized['default_fonts'],
+            allowed_fonts=normalized.get('allowed_fonts'),
+        )
     if 'default_theme' in normalized and not is_valid_theme(normalized['default_theme']):
         normalized.pop('default_theme', None)
     if 'default_table_density' in normalized and normalized['default_table_density'] not in TABLE_DENSITY_VALUES:
@@ -1835,6 +1859,7 @@ def normalize_system_settings_import_payload(payload):
         normalized.pop('registration_activation_mode', None)
     for bool_field in (
         'allow_user_theme_override',
+        'allow_user_font_override',
         'allow_user_language_override',
         'email_2fa',
         'public_root',
@@ -1845,6 +1870,87 @@ def normalize_system_settings_import_payload(payload):
         if bool_field in normalized:
             normalized[bool_field] = _coerce_import_bool(normalized[bool_field])
     return normalized
+
+
+def normalize_default_fonts(value=None, *, allowed_fonts=None):
+    """Normalize language-keyed default font settings against available fonts."""
+    if not isinstance(value, dict):
+        return {}
+    allowed = set(normalize_allowed_fonts(allowed_fonts))
+    if not allowed:
+        allowed = {font['slug'] for font in get_builtin_fonts()}
+    normalized = {}
+    for raw_code, raw_font in value.items():
+        code = _normalize_language_code(raw_code)
+        font = str(raw_font or '').strip()
+        if code and font in allowed:
+            normalized[code] = font
+    return normalized
+
+
+def apply_system_settings_import(
+    instance,
+    payload,
+    *,
+    mark_configured=True,
+    commit=True,
+    preserve_email_secret=False,
+):
+    """Apply a normalized System Settings import payload to a SystemSettings instance."""
+    raw_settings = payload.get('settings') if isinstance(payload, dict) and payload.get('format') == SYSTEM_SETTINGS_EXPORT_FORMAT else payload
+    raw_email_config = raw_settings.get('email_config') if isinstance(raw_settings, dict) else None
+    normalized = normalize_system_settings_import_payload(payload)
+    if not instance:
+        raise ValueError("A SystemSettings instance is required.")
+
+    for field_name, value in normalized.items():
+        if field_name == 'logo':
+            if value:
+                instance.logo = str(value)
+        elif field_name == 'favicon':
+            if value:
+                instance.favicon = str(value)
+        elif field_name == 'email_config':
+            source = raw_email_config if preserve_email_secret and isinstance(raw_email_config, dict) else value
+            email_config = normalize_email_config(source)
+            if email_config.get('secret_storage') == 'encrypted_db' and not email_config.get('encrypted_password'):
+                email_config['password_configured'] = False
+            instance.email_config = email_config
+        elif field_name == 'allowed_fonts':
+            instance.allowed_fonts = list(normalize_allowed_fonts(value))
+        elif field_name == 'default_fonts':
+            instance.default_fonts = normalize_default_fonts(
+                value,
+                allowed_fonts=normalized.get('allowed_fonts', getattr(instance, 'allowed_fonts', None)),
+            )
+        elif hasattr(instance, field_name):
+            setattr(instance, field_name, value)
+
+    if mark_configured:
+        instance.is_configured = True
+    if commit:
+        instance.save()
+    return instance
+
+
+def load_system_settings_config_json(path=None):
+    """Load and normalize BASE_DIR/config.json for first-launch setup bootstrapping."""
+    if path is None:
+        base_dir = getattr(settings, 'BASE_DIR', None)
+        if not base_dir:
+            return None
+        config_path = Path(base_dir) / 'config.json'
+    else:
+        config_path = Path(path)
+    if not config_path.exists():
+        return None
+    if not config_path.is_file():
+        raise ValueError("config.json exists but is not a file.")
+    try:
+        payload = json.loads(config_path.read_text(encoding='utf-8') or '{}')
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("config.json is not valid JSON.") from exc
+    return normalize_system_settings_import_payload(payload)
 
 
 def get_system_config():

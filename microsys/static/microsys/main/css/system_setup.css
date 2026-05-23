@@ -926,6 +926,25 @@
   color: var(--ms-setup-text);
 }
 
+.ms-import-finish-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(var(--primal-rgb), 0.2);
+  border-radius: 1rem;
+  background: rgba(var(--primal-rgb), 0.08);
+  color: var(--ms-setup-text);
+}
+
+.ms-import-finish-cta small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--ms-setup-muted);
+}
+
 @media (max-width: 991.98px) {
   .ms-sidebar-tree,
   .ms-sidebar-available {

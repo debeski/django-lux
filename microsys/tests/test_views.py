@@ -49,7 +49,7 @@ if not settings.configured:
     import django
     django.setup()
 
-from django.test import TestCase, Client, RequestFactory
+from django.test import TestCase, Client, RequestFactory, override_settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
@@ -60,6 +60,8 @@ from django.contrib.auth.hashers import check_password, identify_hasher, make_pa
 from django.utils import timezone
 from datetime import timedelta
 import json
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -471,6 +473,75 @@ class GeneralViewsTests(TestCase):
         
         response = self.client.get(reverse('system_setup'))
         self.assertEqual(response.status_code, 302)  # Redirect
+
+    def test_system_setup_auto_loads_base_dir_config_json_when_unconfigured(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = False
+        settings_obj.save()
+        with tempfile.TemporaryDirectory() as tmpdir, override_settings(BASE_DIR=Path(tmpdir)):
+            config_path = Path(tmpdir) / 'config.json'
+            config_path.write_text(json.dumps({
+                'format': 'django-microsys.system-settings',
+                'version': 1,
+                'settings': {
+                    'system_names': {'en': 'Imported System'},
+                    'home_url': '/sys/profile/',
+                    'default_language': 'en',
+                    'default_theme': 'light',
+                    'allowed_themes': ['light'],
+                    'allowed_fonts': ['cairo'],
+                    'default_fonts': {'en': 'cairo'},
+                    'allow_user_font_override': False,
+                    'languages': {'en': {'name': 'English', 'dir': 'ltr', 'flag': 'EN'}},
+                    'translations_override': {'en': {'custom_key': 'Custom'}},
+                    'sidebar_config': {'enabled': False, 'entries': []},
+                    'navbar_config': {'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}},
+                    'titlebar_config': {'show_title': False},
+                },
+            }), encoding='utf-8')
+
+            response = self.client.get(reverse('system_setup'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/sys/profile/')
+        settings_obj.refresh_from_db()
+        self.assertTrue(settings_obj.is_configured)
+        self.assertEqual(settings_obj.system_names['en'], 'Imported System')
+        self.assertEqual(settings_obj.allowed_fonts, ['cairo'])
+        self.assertEqual(settings_obj.default_fonts, {'en': 'cairo'})
+        self.assertFalse(settings_obj.allow_user_font_override)
+        self.assertTrue(settings_obj.navbar_config['enabled'])
+        self.assertFalse(settings_obj.titlebar_config['show_title'])
+
+    def test_system_setup_ignores_invalid_config_json_and_renders_setup(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = False
+        settings_obj.save()
+        with tempfile.TemporaryDirectory() as tmpdir, override_settings(BASE_DIR=Path(tmpdir)):
+            (Path(tmpdir) / 'config.json').write_text('{not valid json', encoding='utf-8')
+
+            response = self.client.get(reverse('system_setup'))
+
+        self.assertEqual(response.status_code, 200)
+        settings_obj.refresh_from_db()
+        self.assertFalse(settings_obj.is_configured)
+
+    def test_system_setup_ignores_config_json_after_system_is_configured(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.system_names = {'en': 'Existing'}
+        settings_obj.save()
+        with tempfile.TemporaryDirectory() as tmpdir, override_settings(BASE_DIR=Path(tmpdir)):
+            (Path(tmpdir) / 'config.json').write_text(json.dumps({
+                'system_names': {'en': 'Imported'},
+                'home_url': '/sys/profile/',
+            }), encoding='utf-8')
+
+            response = self.client.get(reverse('system_setup'))
+
+        self.assertEqual(response.status_code, 302)
+        settings_obj.refresh_from_db()
+        self.assertEqual(settings_obj.system_names['en'], 'Existing')
 
 
 class ProfileViewsTests(TestCase):

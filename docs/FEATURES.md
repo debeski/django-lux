@@ -602,6 +602,7 @@ Provides to all templates:
 |---------|---------|
 | `microsys_setup` | Create migrations, apply migrations, run checks |
 | `microsys_check` | Validate settings, apps, middleware, URLs, Crispy |
+| `microsys_settings` | Inspect, unconfigure, reset, delete, export, and import the System Settings singleton |
 
 ---
 

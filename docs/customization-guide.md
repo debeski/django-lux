@@ -206,9 +206,11 @@ The file contains the stable DB-backed setup fields:
 - `languages`
 - `translations_override`
 - `home_url`
-- theme, density, security, sidebar, Nav Bar, and titlebar settings
+- theme, dynamic font, density, security, sidebar, Nav Bar, and titlebar settings
 
 Logo and favicon values are exported as stored file names only. The JSON file does not embed binary media content, so those media files must already exist in the target environment if you want the imported file names to resolve.
+
+For shipped starter projects, place an exported payload or direct settings dict at `BASE_DIR/config.json`. Microsys reads that file only while `SystemSettings.is_configured` is still false and only from the setup view. A valid file bootstraps the singleton, marks setup complete, and redirects to the effective home URL; after setup has completed, the file is ignored until the project is reset to a fresh unconfigured state.
 
 ## Sections and Generated Components
 

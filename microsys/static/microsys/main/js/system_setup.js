@@ -2502,6 +2502,26 @@
             });
         });
 
+        function loadExternalConfig(rawConfig) {
+            state.config = normalizeSidebarConfig(
+                rawConfig && typeof rawConfig === 'object' ? rawConfig : parseJson(hiddenInput.value || '{}', {}),
+                catalogLookup,
+                fallbackCatalogLookup
+            );
+            state.selected = null;
+            state.selectedTargetGroup = null;
+            state.dragging = null;
+            renderAll();
+        }
+
+        hiddenInput.addEventListener('change', () => {
+            loadExternalConfig(parseJson(hiddenInput.value || '{}', {}));
+        });
+
+        builder.addEventListener('microsys:sidebar-config-imported', (event) => {
+            loadExternalConfig(event.detail && event.detail.config);
+        });
+
         renderAll();
     }
 
@@ -3107,6 +3127,56 @@
         field.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
+    function setImportedSetupFinishVisible(form, visible) {
+        const finish = form && form.querySelector('[data-settings-import-finish]');
+        if (!finish) return;
+        finish.classList.toggle('d-none', !visible);
+    }
+
+    function applyImportedFontSettings(form, settings) {
+        if (!form || !settings || typeof settings !== 'object') return;
+
+        if (Array.isArray(settings.allowed_fonts)) {
+            form.querySelectorAll('[data-setup-font-allowed]').forEach((field) => {
+                const slug = field.getAttribute('data-setup-font-allowed') || field.value;
+                field.checked = settings.allowed_fonts.includes(slug);
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+
+        const defaultFonts = settings.default_fonts && typeof settings.default_fonts === 'object' ? settings.default_fonts : null;
+        if (defaultFonts) {
+            setJsonField(form, 'default_fonts', defaultFonts);
+            form.querySelectorAll('.ms-lang-font-select').forEach((select) => {
+                const lang = normalizeLanguageCode(select.getAttribute('data-lang'));
+                if (lang && Object.prototype.hasOwnProperty.call(defaultFonts, lang)) {
+                    select.value = defaultFonts[lang] || select.value;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        }
+    }
+
+    function applyImportedSidebarSettings(form, sidebar) {
+        if (!form || !sidebar || typeof sidebar !== 'object') return;
+        const raw = JSON.stringify(sidebar || {});
+        const hiddenInput = form.querySelector('input[name="sidebar_config"]');
+        if (hiddenInput) {
+            hiddenInput.value = raw;
+        }
+        form.querySelectorAll('.ms-sidebar-config-data').forEach((node) => {
+            node.value = raw;
+        });
+        form.querySelectorAll('.ms-setup-builder').forEach((builder) => {
+            builder.dispatchEvent(new CustomEvent('microsys:sidebar-config-imported', {
+                detail: { config: sidebar }
+            }));
+        });
+        if (hiddenInput) {
+            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
     function applyImportedSetupSettings(form, payload) {
         const settings = extractImportedSettings(payload);
         if (!form || !settings) return false;
@@ -3126,9 +3196,10 @@
 
         if (settings.system_names) setJsonField(form, 'system_names', settings.system_names);
         if (settings.languages) setJsonField(form, 'languages', settings.languages);
-        if (settings.translations_override) {
-            setJsonField(form, 'translations_override', settings.translations_override);
-            applyTranslationOverridesToMatrix(form, settings.translations_override);
+        const translationOverrides = settings.translations_override || settings.translations;
+        if (translationOverrides && typeof translationOverrides === 'object') {
+            setJsonField(form, 'translations_override', translationOverrides);
+            applyTranslationOverridesToMatrix(form, translationOverrides);
         }
 
         ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density'].forEach((name) => {
@@ -3138,7 +3209,7 @@
             }
         });
 
-        ['allow_user_theme_override', 'allow_user_language_override', 'email_2fa', 'public_root', 'public_root_split_enabled', 'public_registration_enabled', 'registration_throttle_enabled'].forEach((name) => {
+        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'public_root', 'public_root_split_enabled', 'public_registration_enabled', 'registration_throttle_enabled'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setCheckboxField(form, name, settings[name]);
             }
@@ -3165,9 +3236,12 @@
             });
         }
 
-        const sidebar = settings.sidebar_config && typeof settings.sidebar_config === 'object' ? settings.sidebar_config : null;
+        applyImportedFontSettings(form, settings);
+
+        const sidebarSource = settings.sidebar_config || settings.sidebar;
+        const sidebar = sidebarSource && typeof sidebarSource === 'object' ? sidebarSource : null;
         if (sidebar) {
-            setJsonField(form, 'sidebar_config', sidebar);
+            applyImportedSidebarSettings(form, sidebar);
             setCheckboxField(form, 'sidebar_enabled', sidebar.enabled !== false);
             setCheckboxField(form, 'sidebar_enable_reorder', sidebar.enable_reorder !== false);
             setCheckboxField(form, 'sidebar_enable_toolbar', sidebar.show_toolbar !== false);
@@ -3177,7 +3251,8 @@
             setNamedFieldValue(form, 'sidebar_collapse_mode', sidebar.collapse_mode || 'icons');
         }
 
-        const navbar = settings.navbar_config && typeof settings.navbar_config === 'object' ? settings.navbar_config : null;
+        const navbarSource = settings.navbar_config || settings.navbar;
+        const navbar = navbarSource && typeof navbarSource === 'object' ? navbarSource : null;
         if (navbar) {
             setJsonField(form, 'navbar_config', navbar);
             setCheckboxField(form, 'navbar_enabled', navbar.enabled === true);
@@ -3188,7 +3263,8 @@
             });
         }
 
-        const titlebar = settings.titlebar_config && typeof settings.titlebar_config === 'object' ? settings.titlebar_config : null;
+        const titlebarSource = settings.titlebar_config || settings.titlebar;
+        const titlebar = titlebarSource && typeof titlebarSource === 'object' ? titlebarSource : null;
         if (titlebar) {
             setCheckboxField(form, 'titlebar_show_title', titlebar.show_title !== false);
             setCheckboxField(form, 'titlebar_show_logo', titlebar.show_logo !== false);
@@ -3218,7 +3294,11 @@
             input.addEventListener('change', () => {
                 const form = input.closest('form');
                 const file = input.files && input.files[0];
-                if (!form || !file) return;
+                if (!form || !file) {
+                    if (form) setImportedSetupFinishVisible(form, false);
+                    return;
+                }
+                setImportedSetupFinishVisible(form, false);
                 const reader = new FileReader();
                 reader.onload = () => {
                     try {
@@ -3231,12 +3311,14 @@
                         if (processedFlag) {
                             processedFlag.value = 'true';
                         }
+                        setImportedSetupFinishVisible(form, true);
                         if (typeof showToast === 'function') {
-                            showToast('System setup file imported.');
+                            showToast(t('system_setup_import_loaded', 'System setup file imported.'));
                         }
                     } catch (error) {
+                        setImportedSetupFinishVisible(form, false);
                         if (typeof showToast === 'function') {
-                            showToast('Invalid system setup file.');
+                            showToast(t('system_setup_import_invalid', 'Invalid system setup file.'));
                         }
                     }
                 };

@@ -65,6 +65,7 @@ from .utils import (
     default_titlebar_config,
     default_email_config,
     encrypt_email_secret,
+    apply_system_settings_import,
     get_email_service_status,
     get_user_management_tier_state,
     get_user_scope,
@@ -2644,6 +2645,13 @@ class SystemSettingsForm(forms.ModelForm):
         if self.mode == 'setup':
             step_1_fields.append(build_archive_file_field('settings_import_file'))
             step_1_fields.append(Field('settings_import_processed'))
+            step_1_fields.append(HTML(
+                "<div class='ms-import-finish-cta d-none' data-settings-import-finish>"
+                f"<div><strong>{s.get('system_setup_import_finish', 'Finish setup from imported config')}</strong>"
+                f"<small>{s.get('system_setup_import_finish_desc', 'Save the imported setup now, or keep editing first.')}</small></div>"
+                f"<button type='submit' class='btn btn-primary'>{s.get('system_setup_import_finish_button', 'Finish setup')}</button>"
+                "</div>"
+            ))
         step_1_fields.extend([
             HTML(self.system_names_html),
             Field('system_names'),
@@ -3233,6 +3241,9 @@ class SystemSettingsForm(forms.ModelForm):
             'default_theme',
             'allowed_themes',
             'allow_user_theme_override',
+            'allowed_fonts',
+            'default_fonts',
+            'allow_user_font_override',
             'allow_user_language_override',
             'default_table_density',
             'email_2fa',
@@ -3468,30 +3479,39 @@ class SystemSettingsForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        instance.is_configured = True
-        instance.sidebar_config = self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []})
-        instance.navbar_config = self.cleaned_data.get('navbar_config', default_navbar_config())
-        instance.email_config = self.cleaned_data.get('email_config', default_email_config())
-        instance.system_names = self.cleaned_data.get('system_names', {})
-        instance.languages = self.cleaned_data.get('languages', normalize_language_catalog())
-        instance.translations_override = self.cleaned_data.get('translations_override', {})
-        instance.allowed_themes = self.cleaned_data.get('allowed_themes', list(normalize_allowed_themes()))
-        instance.allow_user_theme_override = bool(self.cleaned_data.get('allow_user_theme_override', True))
-        instance.allowed_fonts = self.cleaned_data.get('allowed_fonts', [])
-        instance.allow_user_font_override = bool(self.cleaned_data.get('allow_user_font_override', True))
-        instance.default_fonts = self.cleaned_data.get('default_fonts', {})
-        instance.allow_user_language_override = bool(self.cleaned_data.get('allow_user_language_override', True))
-        instance.client_ip_config = self.cleaned_data.get('client_ip_config', default_client_ip_config())
-        instance.titlebar_config = self.cleaned_data.get('titlebar_config', default_titlebar_config())
-        instance.public_root_split_enabled = bool(self.cleaned_data.get('public_root_split_enabled', False))
-        instance.public_root_url = str(self.cleaned_data.get('public_root_url') or '').strip()
+        fallback_home = getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
+        apply_system_settings_import(instance, {
+            'system_names': self.cleaned_data.get('system_names', {}),
+            'languages': self.cleaned_data.get('languages', normalize_language_catalog()),
+            'translations_override': self.cleaned_data.get('translations_override', {}),
+            'home_url': self.cleaned_data.get('home_url') or fallback_home,
+            'default_language': self.cleaned_data.get('default_language') or 'en',
+            'default_theme': self.cleaned_data.get('default_theme') or 'light',
+            'allowed_themes': self.cleaned_data.get('allowed_themes', list(normalize_allowed_themes())),
+            'allow_user_theme_override': bool(self.cleaned_data.get('allow_user_theme_override', True)),
+            'allowed_fonts': self.cleaned_data.get('allowed_fonts', []),
+            'default_fonts': self.cleaned_data.get('default_fonts', {}),
+            'allow_user_font_override': bool(self.cleaned_data.get('allow_user_font_override', True)),
+            'allow_user_language_override': bool(self.cleaned_data.get('allow_user_language_override', True)),
+            'default_table_density': self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),
+            'email_2fa': bool(self.cleaned_data.get('email_2fa', False)),
+            'client_ip_config': self.cleaned_data.get('client_ip_config', default_client_ip_config()),
+            'public_root': bool(self.cleaned_data.get('public_root', False)),
+            'public_root_split_enabled': bool(self.cleaned_data.get('public_root_split_enabled', False)),
+            'public_root_url': str(self.cleaned_data.get('public_root_url') or '').strip(),
+            'public_registration_enabled': bool(self.cleaned_data.get('public_registration_enabled', False)),
+            'registration_activation_mode': self.cleaned_data.get('registration_activation_mode'),
+            'registration_throttle_enabled': bool(self.cleaned_data.get('registration_throttle_enabled', True)),
+            'email_config': self.cleaned_data.get('email_config', default_email_config()),
+            'sidebar_config': self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []}),
+            'navbar_config': self.cleaned_data.get('navbar_config', default_navbar_config()),
+            'titlebar_config': self.cleaned_data.get('titlebar_config', default_titlebar_config()),
+        }, commit=False, preserve_email_secret=True)
         imported = getattr(self, '_imported_settings', {}) or {}
         if imported.get('logo') and not self.files.get('logo'):
             instance.logo = str(imported.get('logo'))
         if imported.get('favicon') and not self.files.get('favicon'):
             instance.favicon = str(imported.get('favicon'))
-        fallback_home = getattr(settings, 'MICROSYS_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
-        instance.home_url = self.cleaned_data.get('home_url') or fallback_home
         if isinstance(instance.sidebar_config, dict):
             instance.sidebar_config['home_url_name'] = None
 
