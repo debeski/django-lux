@@ -1325,6 +1325,11 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("button.classList.toggle('d-none', !isVisible);", contents)
         self.assertIn("button.style.display = isVisible ? '' : 'none';", contents)
         self.assertIn("button.setAttribute('aria-hidden', isVisible ? 'false' : 'true');", contents)
+        self.assertIn("container.querySelectorAll('[data-ms-wizard-step-target]')", contents)
+        self.assertIn("item.classList.toggle('is-active', isActive);", contents)
+        self.assertIn("item.classList.toggle('is-complete', isComplete);", contents)
+        self.assertIn("item.setAttribute('aria-current', isActive ? 'step' : 'false');", contents)
+        self.assertIn("container.dispatchEvent(new CustomEvent('ms:wizard-step-change'", contents)
 
     def test_user_hub_css_clamps_mobile_dropdown_to_viewport(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'users' / 'css' / 'user_hub.css'
@@ -1436,6 +1441,11 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('@container (max-width: 14rem)', contents)
         self.assertIn('flex-direction: column;', contents)
         self.assertIn('justify-content: flex-end;', contents)
+        self.assertIn('.ms-setup-step-nav {', contents)
+        self.assertIn('grid-template-columns: repeat(7, minmax(6.2rem, 1fr));', contents)
+        self.assertIn('.ms-setup-step-nav__item.is-active {', contents)
+        self.assertIn('.ms-setup-step-nav__item.is-complete {', contents)
+        self.assertIn('backdrop-filter: blur(14px);', contents)
 
     def test_shared_toggle_helper_uses_neutral_switch_wrapper(self):
         form = SystemSettingsForm(
@@ -1508,6 +1518,10 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertIn("microsys/main/css/main.css", contents)
         self.assertIn("?v=20260522c", contents)
+        self.assertIn("microsys/main/css/system_setup.css", contents)
+        self.assertIn("?v=20260523f", contents)
+        self.assertIn("microsys/helpers/wizard/js/main.js", contents)
+        self.assertIn("?v=20260523b", contents)
         self.assertIn("microsys/main/js/system_setup.js", contents)
         self.assertIn("?v=20260523d", contents)
         self.assertIn("microsys/main/js/navbar.js", contents)

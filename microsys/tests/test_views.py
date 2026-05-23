@@ -456,6 +456,11 @@ class GeneralViewsTests(TestCase):
         
         response = self.client.get(reverse('system_setup'))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-ms-wizard-step-nav')
+        self.assertContains(response, 'data-ms-wizard-step-target="0"')
+        self.assertContains(response, 'data-ms-wizard-step-target="6"')
+        self.assertContains(response, 'aria-label="Setup step navigation"')
+        self.assertContains(response, 'ms-setup-step-nav__bullet')
 
     def test_system_setup_redirects_if_configured(self):
         """Test that system_setup redirects if system is already configured."""

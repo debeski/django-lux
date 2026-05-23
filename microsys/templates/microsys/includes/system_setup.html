@@ -6,7 +6,7 @@
 
 {% block extra_head %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'microsys/main/css/system_setup.css' %}?v=20260513a">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/system_setup.css' %}?v=20260523f">
 {% endblock %}
 
 {% block layout %}
@@ -23,6 +23,52 @@
 
                     <form method="post" enctype="multipart/form-data" class="ms-system-setup-form microsys-form">
                         {% csrf_token %}
+                        <nav class="ms-setup-step-nav"
+                             aria-label="{{ MS_TRANS.system_setup_step_nav_aria }}"
+                             data-ms-wizard-step-nav>
+                            <button class="ms-setup-step-nav__item"
+                                    type="button"
+                                    data-ms-wizard-step-target="0">
+                                <span class="ms-setup-step-nav__bullet">1</span>
+                                <span class="ms-setup-step-nav__label">{{ MS_TRANS.system_settings_branding }}</span>
+                            </button>
+                            <button class="ms-setup-step-nav__item"
+                                    type="button"
+                                    data-ms-wizard-step-target="1">
+                                <span class="ms-setup-step-nav__bullet">2</span>
+                                <span class="ms-setup-step-nav__label">{{ MS_TRANS.system_settings_languages }}</span>
+                            </button>
+                            <button class="ms-setup-step-nav__item"
+                                    type="button"
+                                    data-ms-wizard-step-target="2">
+                                <span class="ms-setup-step-nav__bullet">3</span>
+                                <span class="ms-setup-step-nav__label">{{ MS_TRANS.system_settings_security }}</span>
+                            </button>
+                            <button class="ms-setup-step-nav__item"
+                                    type="button"
+                                    data-ms-wizard-step-target="3">
+                                <span class="ms-setup-step-nav__bullet">4</span>
+                                <span class="ms-setup-step-nav__label">{{ MS_TRANS.system_settings_sidebar }}</span>
+                            </button>
+                            <button class="ms-setup-step-nav__item"
+                                    type="button"
+                                    data-ms-wizard-step-target="4">
+                                <span class="ms-setup-step-nav__bullet">5</span>
+                                <span class="ms-setup-step-nav__label">{{ MS_TRANS.system_settings_navbar }}</span>
+                            </button>
+                            <button class="ms-setup-step-nav__item"
+                                    type="button"
+                                    data-ms-wizard-step-target="5">
+                                <span class="ms-setup-step-nav__bullet">6</span>
+                                <span class="ms-setup-step-nav__label">{{ MS_TRANS.system_settings_ui_layout }}</span>
+                            </button>
+                            <button class="ms-setup-step-nav__item"
+                                    type="button"
+                                    data-ms-wizard-step-target="6">
+                                <span class="ms-setup-step-nav__bullet">7</span>
+                                <span class="ms-setup-step-nav__label">{{ MS_TRANS.system_settings_appearance }}</span>
+                            </button>
+                        </nav>
                         {% crispy form %}
                     </form>
                 </div>

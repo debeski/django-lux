@@ -29,6 +29,7 @@
         const btnNext = container.querySelector('.ms-btn-next');
         const btnPrev = container.querySelector('.ms-btn-prev');
         const btnSubmit = container.querySelector('.ms-btn-submit');
+        const stepNavItems = Array.from(container.querySelectorAll('[data-ms-wizard-step-target]'));
 
         if (!btnNext || !btnPrev || !btnSubmit) return;
 
@@ -68,6 +69,17 @@
             button.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
         }
 
+        function syncStepNav(index) {
+            stepNavItems.forEach(function(item) {
+                const target = Number(item.dataset.msWizardStepTarget);
+                const isActive = target === index;
+                const isComplete = Number.isInteger(target) && target < index;
+                item.classList.toggle('is-active', isActive);
+                item.classList.toggle('is-complete', isComplete);
+                item.setAttribute('aria-current', isActive ? 'step' : 'false');
+            });
+        }
+
         function showStep(index) {
             steps.forEach(function(step, i) {
                 const isActive = i === index;
@@ -82,7 +94,24 @@
             setButtonVisibility(btnSubmit, index === steps.length - 1);
 
             currentStep = index;
+            syncStepNav(index);
+            container.dispatchEvent(new CustomEvent('ms:wizard-step-change', {
+                bubbles: true,
+                detail: {
+                    currentStep: index,
+                    totalSteps: steps.length
+                }
+            }));
         }
+
+        stepNavItems.forEach(function(item) {
+            item.addEventListener('click', function() {
+                const target = Number(item.dataset.msWizardStepTarget);
+                if (Number.isInteger(target) && target >= 0 && target < steps.length) {
+                    showStep(target);
+                }
+            });
+        });
 
         btnNext.addEventListener('click', function() {
             // Validate visible required fields in the current step before proceeding

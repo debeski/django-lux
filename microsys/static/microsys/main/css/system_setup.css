@@ -9,6 +9,106 @@
   width: auto;
 }
 
+.ms-setup-step-nav {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(6.2rem, 1fr));
+  gap: 0.45rem;
+  margin: 0 0 1.25rem;
+  padding: 0.55rem;
+  overflow-x: auto;
+  border: 1px solid var(--ms-setup-pane-border);
+  border-radius: 1.3rem;
+  background:
+    linear-gradient(135deg, rgba(var(--primal-rgb), 0.08), transparent 38%),
+    var(--ms-setup-pane-bg);
+  box-shadow:
+    var(--ms-setup-item-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px);
+  scrollbar-width: thin;
+}
+
+.ms-setup-step-nav__item {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.48rem;
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.48rem 0.58rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  background: transparent;
+  color: var(--ms-setup-muted);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.ms-setup-step-nav__item:hover,
+.ms-setup-step-nav__item:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(var(--primal-rgb), 0.28);
+  background: var(--ms-setup-item-hover-bg);
+  color: var(--ms-setup-text);
+}
+
+.ms-setup-step-nav__item.is-active {
+  border-color: rgba(var(--primal-rgb), 0.42);
+  background: var(--ms-setup-item-active-bg);
+  color: var(--ms-setup-text);
+  box-shadow: 0 0 0 3px var(--ms-setup-item-active-ring);
+}
+
+.ms-setup-step-nav__item.is-complete {
+  color: color-mix(in srgb, var(--ms-setup-text) 74%, var(--primal));
+}
+
+.ms-setup-step-nav__bullet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  background: var(--ms-setup-badge-bg);
+  color: var(--ms-setup-badge-color);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.12);
+}
+
+.ms-setup-step-nav__item.is-active .ms-setup-step-nav__bullet {
+  background: var(--primal);
+  color: #fff;
+}
+
+.ms-setup-step-nav__item.is-complete .ms-setup-step-nav__bullet {
+  background: color-mix(in srgb, var(--primal) 18%, var(--ms-setup-badge-bg));
+  color: var(--primal);
+}
+
+.ms-setup-step-nav__label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 760;
+  line-height: 1.08;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ms-system-settings-shell .wizard-step {
   padding: 1rem 0;
 }
@@ -109,6 +209,11 @@
 }
 
 @media (max-width: 991.98px) {
+  .ms-setup-step-nav {
+    grid-template-columns: repeat(7, minmax(5.8rem, 1fr));
+    margin-inline: -0.25rem;
+  }
+
   .ms-email-toggle-field {
     min-height: auto;
   }
@@ -119,6 +224,29 @@
 
   .ms-navbar-builder__header {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .ms-setup-step-nav {
+    top: 0.35rem;
+    grid-template-columns: repeat(7, minmax(4.55rem, 1fr));
+    padding: 0.45rem;
+    border-radius: 1rem;
+  }
+
+  .ms-setup-step-nav__item {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 0.28rem;
+    min-height: 3.35rem;
+    padding: 0.42rem 0.38rem;
+    text-align: center;
+  }
+
+  .ms-setup-step-nav__label {
+    max-width: 100%;
+    font-size: 0.68rem;
   }
 }
 

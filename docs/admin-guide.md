@@ -41,6 +41,8 @@ The wizard currently runs in seven steps:
 7. Appearance and Typography
    This step manages theme availability, default theme, theme override policy, and the Dynamic Font Management system.
 
+The first-launch page includes a bullet-style step navigation bar above the setup form. Each bullet jumps to its corresponding setup step while staying synchronized with the wizard's Next and Previous buttons.
+
 Useful language/system-name patterns:
 
 ```json

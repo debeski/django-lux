@@ -19,6 +19,7 @@
 - Step 4 toolbar toggle now matches the other sidebar child toggles again: it is disabled when the sidebar is off, but no live frontend path auto-unchecks it.
 - Optional Step 5 Nav Bar config is DB-backed as `navbar_config`: System Settings owns enablement, developer default style, user override gating, and a route/manual-node hierarchy editor; runtime dynamic views can provide `microsys_navbar_crumbs`. History mode keeps one browser-session path trail with active-language labels for known routes, Microsys system routes are hidden from the builder, and accessible system views auto-render under an unclickable `System` crumb.
 - Initial System Setup can seed an enabled empty Nav Bar hierarchy from the configured sidebar accordion/tree structure; this is setup-only and non-destructive once `navbar_config.hierarchy.nodes` has entries.
+- Initial System Setup now has a theme-aware, sticky bullet step bar above the form; each bullet jumps to the matching wizard step and stays synchronized with Next/Prev state.
 - Nav Bar hierarchy click suppression applies to crumbs actually labeled Root/Home/Index, not to every route whose URL name ends in `index`; discovered app index routes such as `archive:index` remain clickable when their label is a specific section name like `Archive`.
 - Nav Bar hierarchy matching no longer lets a generic current route leaf like `index` match arbitrary app nodes such as `archive:index`; project root/home falls back to the actual current route.
 - Sidebar active-state resolution now gives exact URL matches priority over parent-prefix matches, so a child route like `/archive/decrees/` does not also mark `/archive/` active.
@@ -67,6 +68,7 @@
 - All new or revised user-facing copy must use Microsys translations, not local English/Arabic literals or new template `|default:"..."` fallbacks.
 - Generated/scaffolded URL entrypoints must enforce login and the relevant permission on the backend.
 - Published distributions should exclude `microsys.tests`, Python caches, and compiled Python artifacts unless a release explicitly needs them.
+- Every aspect of django-microsys must remain always theme, language and direction aware, using built-in microsys solutions and systems.
 
 ### Cross-Cutting Audits if any:
 - Prior verified audits cover CSP-oriented template cleanup, setup toggle consistency, permissions UI filtering, modal JSON error tolerance, staff-tier surface restoration, and packaged-distribution exclusions.
@@ -147,12 +149,13 @@
     - [x] Fixed sidebar exact-vs-prefix active matching, Nav Bar generic `index` hierarchy collisions, Mono active sidebar icon color/highlight weight, and Mono/Gothic/Retro advanced-filter primary icon background mismatches.
     - [x] Split Nav Bar into its own System Settings Step 5 after Sidebar, added the Options entrypoint, and added setup-only seeding from an enabled empty Nav Bar tree to configured sidebar accordions.
     - [x] Redesigned the Options System Settings card as compact icon/title tiles with translated Microsys tooltip descriptions.
+    - [x] Added the first-launch System Setup bullet step bar with theme-aware styling and clickable wizard-step navigation.
 
 ### One-line info about last verified Tests:
-- `2026-05-23`: focused Options System Settings tile tests passed (`GeneralViewsTests` 2 selected + `MicrosysDefaultRouteTests` 1 selected), and `git diff --check` passed.
+- `2026-05-23`: focused System Setup bullet nav tests passed (`GeneralViewsTests` 1 selected + `MicrosysDefaultRouteTests` 3 selected), and `git diff --check` passed.
 
 ### One-line info about last time edited Docs:
-- `2026-05-23`: updated changelog for the Options System Settings compact tile redesign.
+- `2026-05-23`: updated changelog/admin guide for the initial System Setup bullet step navigation.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
