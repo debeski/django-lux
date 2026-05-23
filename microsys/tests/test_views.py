@@ -237,7 +237,11 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, '?step=3')
         self.assertContains(response, '?step=4')
         self.assertContains(response, '?step=5')
+        self.assertContains(response, '?step=6')
         self.assertContains(response, reverse('system_settings_export'))
+        self.assertContains(response, 'ms-system-settings-grid')
+        self.assertContains(response, 'ms-system-settings-tile')
+        self.assertContains(response, 'data-ms-tooltip="System names, logo, favicon, and home route."')
 
     def test_options_view_uses_shared_selector_markup_for_font_picker(self):
         response = self.client.get(reverse('options_view'))
@@ -275,6 +279,18 @@ class GeneralViewsTests(TestCase):
         payload = json.loads(response.content)
         self.assertIn('data-ms-wizard-initial-step="5"', payload['html'])
         self.assertIn('?step=5', payload['html'])
+        self.assertIn('ms-btn-submit', payload['html'])
+
+    def test_system_settings_modal_honors_requested_wizard_step_six(self):
+        response = self.client.get(
+            reverse('modal_manager', args=['microsys', 'SystemSettings', 1]) + '?step=6',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIn('data-ms-wizard-initial-step="6"', payload['html'])
+        self.assertIn('?step=6', payload['html'])
         self.assertIn('ms-btn-submit', payload['html'])
 
     def test_system_settings_export_downloads_setup_payload_for_superuser(self):

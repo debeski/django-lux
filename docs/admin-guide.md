@@ -18,7 +18,7 @@ The setup wizard lives at `/sys/setup/` and is only intended for the initial sys
 
 ![Setup wizard capture slot](assets/setup-wizard.webp)
 
-The wizard currently runs in six steps:
+The wizard currently runs in seven steps:
 
 1. Identity
    This step sets language-keyed system names (a JSON dict such as `{"en": "System", "ar": "النظام"}`), logo, and favicon. It also includes the JSON setup import control, which can prefill the wizard from a previously exported Microsys setup file.
@@ -29,13 +29,16 @@ The wizard currently runs in six steps:
 3. Access and security
    This step controls public root access, the global Home URL, the optional split between authenticated Home and anonymous public-root destinations, public registration/email 2FA, Microsys email delivery, and centralized Client IP resolution (direct, header-based, or proxy-aware modes). Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
 
-4. Navigation
+4. Sidebar
    This step manages the sidebar builder and sidebar behavior controls.
 
-5. UI and Layout
-   This step manages table-density defaults, titlebar controls (logo/home visibility, shape, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
+5. Nav Bar
+   This step manages the optional authenticated Nav Bar, including hierarchy/history mode, user override policy, and the static hierarchy tree. During first-launch setup, enabling an empty Nav Bar tree can seed it from the configured sidebar accordions.
 
-6. Appearance and Typography
+6. UI and Layout
+   This step manages titlebar controls (logo/home visibility, shape, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
+
+7. Appearance and Typography
    This step manages theme availability, default theme, theme override policy, and the Dynamic Font Management system.
 
 Useful language/system-name patterns:
@@ -90,9 +93,9 @@ Operationally, that means you can keep a carefully curated default navigation wh
 
 ## Optional Nav Bar
 
-Step 4 also owns the optional authenticated Nav Bar. When enabled, it appears above page content beside the sidebar and uses the same translated UI layer as the rest of Microsys.
+Step 5 owns the optional authenticated Nav Bar. When enabled, it appears above page content beside the sidebar and uses the same translated UI layer as the rest of Microsys.
 
-- **Hierarchy** uses the visual Step 4 tree editor. Discovered routes provide translated labels, and manual grouping nodes can add non-clickable labels or URL-backed shared ancestors.
+- **Hierarchy** uses the visual Step 5 tree editor. Discovered routes provide translated labels, and manual grouping nodes can add non-clickable labels or URL-backed shared ancestors.
 - **History** keeps one six-entry recent trail in the current browser session, deduplicates repeated paths without treating filters, sorting, or pagination query strings as new pages, and resolves known route labels in the active interface language.
 - **User override** is available in Options only when the developer allows it. Otherwise the developer-selected default style stays authoritative.
 - Microsys-owned system views are not manually placed from the hierarchy builder; they are automatically grouped under an unclickable `System` crumb when accessible.

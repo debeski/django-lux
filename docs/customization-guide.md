@@ -69,7 +69,7 @@ Those defaults are then layered with runtime System Settings edits in the normal
 
 ## Nav Bar Hierarchy and Runtime Crumbs
 
-The optional Nav Bar is controlled from Step 4 in setup/System Settings. The developer enables it, picks the default `hierarchy` or `history` mode, chooses whether Options may expose a personal style override, and builds static hierarchy nodes from the discovered route catalog.
+The optional Nav Bar is controlled from Step 5 in setup/System Settings. The developer enables it, picks the default `hierarchy` or `history` mode, chooses whether Options may expose a personal style override, and builds static hierarchy nodes from the discovered route catalog. During first-launch setup, an enabled empty Nav Bar hierarchy can be seeded from the configured sidebar accordion structure.
 
 The stored `navbar` block is normalized to this shape:
 

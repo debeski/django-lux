@@ -80,6 +80,7 @@ from .utils import (
     normalize_system_names,
     normalize_titlebar_config,
     normalize_allowed_fonts,
+    seed_navbar_config_from_sidebar,
 )
 from .widgets import MicrosysChoiceSelectorWidget
 
@@ -1707,13 +1708,13 @@ class SystemSettingsForm(forms.ModelForm):
                 parsed_step = int(raw_step)
             except (TypeError, ValueError):
                 parsed_step = None
-            if parsed_step in (0, 1, 2, 3, 4, 5):
+            if parsed_step in (0, 1, 2, 3, 4, 5, 6):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
         if self.mode != 'setup' and self.single_step_mode:
-            # Single-step modal posts can legitimately omit values owned by another
-            # wizard step; field-level required validation must not fire before the
-            # step-preservation cleaners get a chance to restore them.
+            # Single-step modal posts can legitimately omit values owned by
+            # another wizard step; field-level required validation must not fire
+            # before the step-preservation cleaners get a chance to restore them.
             self.fields['default_theme'].required = False
             self.fields['default_table_density'].required = False
 
@@ -2403,6 +2404,13 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['sidebar_density'] = initial_sidebar_config.get('density', DEFAULT_SIDEBAR_DENSITY)
         self.initial['sidebar_allow_user_density'] = bool(initial_sidebar_config.get('allow_user_density', True))
         self.initial['sidebar_collapse_mode'] = initial_sidebar_config.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+        if self.mode == 'setup' and not getattr(self.instance, 'is_configured', False):
+            initial_navbar_config = seed_navbar_config_from_sidebar(
+                initial_navbar_config,
+                initial_sidebar_config,
+                lang_code=self.initial.get('default_language') or 'en',
+            )
+            self.initial['navbar_config'] = _json_dump(initial_navbar_config, ensure_ascii=False)
         self.initial['navbar_enabled'] = bool(initial_navbar_config.get('enabled', False))
         self.initial['navbar_default_mode'] = initial_navbar_config.get('default_mode', DEFAULT_NAVBAR_MODE)
         self.initial['navbar_allow_user_mode_override'] = bool(
@@ -2836,7 +2844,11 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(self.sidebar_builder_html),
                 HTML("</div>"),
                 Field('sidebar_config'),
-                HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'>{s.get('navbar_settings_title', '')}</h6>"),
+                css_class=_step_css_class(3),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Nav Bar')}</span></div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('navbar_settings_title', '')}</h6>"),
                 Row(
                     build_settings_toggle_field(self, 'navbar_enabled', css_class='col-lg-12'),
                     css_class='g-3 mb-3',
@@ -2853,10 +2865,10 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(self.navbar_builder_html),
                 HTML("</div>"),
                 Field('navbar_config'),
-                css_class=_step_css_class(3),
+                css_class=_step_css_class(4),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Titlebar')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step6', 'Step 6: Titlebar')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
                 Row(
                     build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-3'),
@@ -2876,10 +2888,10 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(Field('titlebar_surface'), css_class='col-lg-12'),
                 ),
-                css_class=_step_css_class(4),
+                css_class=_step_css_class(5),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step6', 'Step 6: Appearance')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step7', 'Step 7: Appearance')}</span></div>"),
                 Row(
                     Div(
                         HTML(self.theme_picker_html),
@@ -2901,7 +2913,7 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('default_table_density'), css_class='col'),
                     css_class='mb-3'
                 ),
-                css_class=_step_css_class(5),
+                css_class=_step_css_class(6),
             ),
             FormActions(
                 HTML(

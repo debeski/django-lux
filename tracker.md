@@ -3,7 +3,7 @@
 ## Part 1: Project Related
 ### Current Verified Snapshot:
 - Verified through `2026-05-22`: local package version markers are on `v2.2.3`; `v2.2.4` work now includes the optional authenticated Nav Bar feature alongside the runtime bug-fix batch.
-- System setup/System Settings uses a six-step wizard. Step 2 owns language catalog, system names, default language, language override policy, and the translation matrix. Step 6 owns themes, fonts, and table density.
+- System setup/System Settings uses a seven-step wizard. Step 2 owns language catalog, system names, default language, language override policy, and the translation matrix. Step 4 owns Sidebar, Step 5 owns Nav Bar, Step 6 owns Titlebar, and Step 7 owns themes, fonts, and table density.
 - Dynamic Font Management is active:
   - font registry lives in `microsys/fonts.py`,
   - `SystemSettings` stores `allowed_fonts`, language-keyed `default_fonts`, and `allow_user_font_override`,
@@ -17,15 +17,17 @@
 - Step 4 sidebar toolbar setup sync no longer auto-unchecks the stored `show_toolbar` choice in the frontend; the legacy toolbar-specific JS state mutation has been removed from both live and fallback sync paths.
 - Step 4 setup now also mirrors the visible sidebar behavior controls back into the hidden `sidebar_config` JSON, so disabling child inputs no longer leaves stale toolbar state as the submitted source of truth.
 - Step 4 toolbar toggle now matches the other sidebar child toggles again: it is disabled when the sidebar is off, but no live frontend path auto-unchecks it.
-- Optional Step 4 Nav Bar config is DB-backed as `navbar_config`: System Settings owns enablement, developer default style, user override gating, and a route/manual-node hierarchy editor; runtime dynamic views can provide `microsys_navbar_crumbs`. History mode keeps one browser-session path trail with active-language labels for known routes, Microsys system routes are hidden from the builder, and accessible system views auto-render under an unclickable `System` crumb.
+- Optional Step 5 Nav Bar config is DB-backed as `navbar_config`: System Settings owns enablement, developer default style, user override gating, and a route/manual-node hierarchy editor; runtime dynamic views can provide `microsys_navbar_crumbs`. History mode keeps one browser-session path trail with active-language labels for known routes, Microsys system routes are hidden from the builder, and accessible system views auto-render under an unclickable `System` crumb.
+- Initial System Setup can seed an enabled empty Nav Bar hierarchy from the configured sidebar accordion/tree structure; this is setup-only and non-destructive once `navbar_config.hierarchy.nodes` has entries.
 - Nav Bar hierarchy click suppression applies to crumbs actually labeled Root/Home/Index, not to every route whose URL name ends in `index`; discovered app index routes such as `archive:index` remain clickable when their label is a specific section name like `Archive`.
 - Nav Bar hierarchy matching no longer lets a generic current route leaf like `index` match arbitrary app nodes such as `archive:index`; project root/home falls back to the actual current route.
 - Sidebar active-state resolution now gives exact URL matches priority over parent-prefix matches, so a child route like `/archive/decrees/` does not also mark `/archive/` active.
 - Mono theme sidebar active item styling is lighter and forces active icons to inherit the inverted white text color; Mono/Gothic/Retro advanced-filter primary action icons no longer receive a separate theme button background.
+- Options System Settings card now uses compact tile actions with icons, translated titles, and Microsys `data-ms-tooltip` descriptions instead of a vertical pill-button stack.
 - Shared enabled `.form-switch` controls now expose a pointer cursor; Options reorder handles use enabled-handle cursor selectors specific enough to keep both button surface and grip icon on grab/grabbing over Bootstrap's enabled-button pointer rule.
 - Profile confirm-password modals submit the same confirmation path from Enter, keep password-protected Profile actions open through their JSON password check, and render current-password errors inline while the input is corrected.
 - Profile activity grouping treats virtual session-revoke logs as System Interactions.
-- System Settings single-step modal POSTs preserve omitted Step 6 values server-side. Step resolver accepts modal wizard steps `0..5`.
+- System Settings single-step modal POSTs preserve omitted Step 7 values server-side. Step resolver accepts modal wizard steps `0..6`.
 - Current translation contract from code, docs, and `dhub` runtime inspection:
   - app-local sources are installed app `translations.py` modules exposing `MS_TRANSLATIONS`,
   - Step 2 matrix is meant to group Microsys, installed app, project-config, and settings-only override keys,
@@ -99,8 +101,8 @@
     - [ ] Browser-check the Options reorder handle button surface after the enabled-handle cursor specificity fix.
     - [ ] Browser re-check Profile User Activity after the `dhub-web-1` restart so the virtual `session` entry stays under System Interactions.
     - [ ] Browser-check inline wrong-password feedback in Profile confirm-password modals for disable-2FA, backup codes, and session revoke.
-    - [ ] Browser-check that disabling then re-enabling Step 4 sidebar preserves reorder, toolbar, icons, density override, and desktop collapse mode selections after the `system_setup.js` `20260522g` asset-key bump.
-    - [ ] Browser-check Step 4 Nav Bar enable/reveal flow, hierarchy editor, Options style override, single history trail with active-language labels, URL-backed hierarchy crumb clicks, automatic `System` grouping, RTL/LTR rendering, and sidebar expanded/collapsed/disabled layouts.
+    - [ ] Browser-check that disabling then re-enabling Step 4 sidebar preserves reorder, toolbar, icons, density override, and desktop collapse mode selections after the latest `system_setup.js` asset-key bump.
+    - [ ] Browser-check Step 5 Nav Bar enable/reveal flow, hierarchy editor, setup-only sidebar-to-navbar seeding, Options style override, single history trail with active-language labels, URL-backed hierarchy crumb clicks, automatic `System` grouping, RTL/LTR rendering, and sidebar expanded/collapsed/disabled layouts.
     - [ ] Harden `microsys/fetcher.py` fallback redirects for missing, local, and forged external referers.
     - [ ] Capture the live Step 3 System Settings modal HTTP 400 JSON/log details if it still reproduces.
   - Priority 1 browser validation:
@@ -143,12 +145,14 @@
     - [x] Added the optional authenticated Nav Bar with System Settings hierarchy editor, Options mode override gate, session-history mode, runtime crumb hook, translations, docs, and focused tests.
     - [x] Polished Nav Bar follow-ups: single history trail with active-language route labels, automatic unclickable `System` grouping for Microsys views, hidden system routes in the builder, clickable URL-backed hierarchy crumbs including discovered app `index` routes with specific labels, and removed the background smudge.
     - [x] Fixed sidebar exact-vs-prefix active matching, Nav Bar generic `index` hierarchy collisions, Mono active sidebar icon color/highlight weight, and Mono/Gothic/Retro advanced-filter primary icon background mismatches.
+    - [x] Split Nav Bar into its own System Settings Step 5 after Sidebar, added the Options entrypoint, and added setup-only seeding from an enabled empty Nav Bar tree to configured sidebar accordions.
+    - [x] Redesigned the Options System Settings card as compact icon/title tiles with translated Microsys tooltip descriptions.
 
 ### One-line info about last verified Tests:
-- `2026-05-23`: focused compileall passed for changed Python, `MicrosysDefaultRouteTests` passed (`92` tests), `test_sidebar_discovery` passed (`15` tests), and `git diff --check` passed. Prior `2026-05-22` broader defaults/context/API `DiscoverRunner` batch passed (`141` tests).
+- `2026-05-23`: focused Options System Settings tile tests passed (`GeneralViewsTests` 2 selected + `MicrosysDefaultRouteTests` 1 selected), and `git diff --check` passed.
 
 ### One-line info about last time edited Docs:
-- `2026-05-23`: updated changelog with Nav Bar `index` collision, sidebar active-state, Mono highlight, and advanced-filter icon polish; Nav Bar docs also cover single-trail active-language history labels and System grouping.
+- `2026-05-23`: updated changelog for the Options System Settings compact tile redesign.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

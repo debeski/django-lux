@@ -1573,6 +1573,87 @@ def normalize_navbar_config(navbar_config):
     }
     return normalized
 
+
+def seed_navbar_config_from_sidebar(navbar_config, sidebar_config, lang_code='en'):
+    navbar = normalize_navbar_config(navbar_config)
+    if not navbar.get('enabled'):
+        return navbar
+    if navbar.get('hierarchy', {}).get('nodes'):
+        return navbar
+
+    sidebar = normalize_sidebar_behavior(sidebar_config)
+    language_code = _normalize_language_code(lang_code) or 'en'
+
+    def labels_for(entry):
+        label = str((entry or {}).get('label') or '').strip()
+        return {language_code: label} if label else {}
+
+    def node_id(prefix, entry, index):
+        return str(
+            (entry or {}).get('url_name')
+            or (entry or {}).get('id')
+            or (entry or {}).get('url')
+            or f'{prefix}-{index}'
+        ).strip()
+
+    def convert_entry(entry, index=0):
+        if not isinstance(entry, dict):
+            return None
+
+        kind = entry.get('kind') or 'item'
+        if kind == 'group':
+            children = [
+                child_node
+                for child_index, child in enumerate(entry.get('items') or [])
+                for child_node in [convert_entry(child, child_index)]
+                if child_node
+            ]
+            if not children:
+                return None
+            url_name = str(entry.get('url_name') or '').strip()
+            node = {
+                'kind': 'route' if url_name else 'manual',
+                'id': node_id('sidebar-group', entry, index),
+                'children': children,
+            }
+            if url_name:
+                node['url_name'] = url_name
+            url = str(entry.get('url') or '').strip()
+            if url:
+                node['url'] = url
+            labels = labels_for(entry)
+            if labels:
+                node['labels'] = labels
+            return node
+
+        url_name = str(entry.get('url_name') or '').strip()
+        url = str(entry.get('url') or '').strip()
+        if not url_name and not url:
+            return None
+        node = {
+            'kind': 'route' if url_name else 'manual',
+            'id': node_id('sidebar-item', entry, index),
+            'children': [],
+        }
+        if url_name:
+            node['url_name'] = url_name
+        if url:
+            node['url'] = url
+        labels = labels_for(entry)
+        if labels:
+            node['labels'] = labels
+        return node
+
+    nodes = [
+        node
+        for index, entry in enumerate(sidebar.get('entries') or [])
+        for node in [convert_entry(entry, index)]
+        if node
+    ]
+    if nodes:
+        navbar['hierarchy'] = {'nodes': nodes}
+    return normalize_navbar_config(navbar)
+
 # Get effective allowed themes from configuration
 def get_effective_allowed_themes(config):
     if not isinstance(config, dict):

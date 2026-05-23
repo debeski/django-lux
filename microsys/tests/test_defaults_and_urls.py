@@ -73,6 +73,7 @@ from microsys.utils import (
     get_system_config,
     normalize_navbar_config,
     normalize_system_settings_import_payload,
+    seed_navbar_config_from_sidebar,
 )
 from microsys.navbar import build_navbar_hierarchy_crumbs
 
@@ -109,6 +110,41 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertFalse(normalized['allow_user_mode_override'])
         self.assertEqual(normalized['hierarchy']['nodes'][0]['labels'], {'en': 'Documents'})
         self.assertEqual(normalized['hierarchy']['nodes'][0]['children'][0]['url_name'], 'documents:list')
+
+    def test_navbar_seed_from_sidebar_only_when_enabled_and_empty(self):
+        seeded = seed_navbar_config_from_sidebar(
+            {'enabled': True, 'hierarchy': {'nodes': []}},
+            {
+                'enabled': True,
+                'entries': [{
+                    'kind': 'group',
+                    'id': 'archive',
+                    'label': 'Archive',
+                    'items': [{
+                        'kind': 'item',
+                        'id': 'archive:decree_list',
+                        'url_name': 'archive:decree_list',
+                        'label': 'Decrees',
+                    }],
+                }],
+            },
+            lang_code='en',
+        )
+
+        archive = seeded['hierarchy']['nodes'][0]
+        self.assertEqual(archive['kind'], 'manual')
+        self.assertEqual(archive['labels'], {'en': 'Archive'})
+        self.assertEqual(archive['children'][0]['kind'], 'route')
+        self.assertEqual(archive['children'][0]['url_name'], 'archive:decree_list')
+
+        preserved = seed_navbar_config_from_sidebar(
+            {
+                'enabled': True,
+                'hierarchy': {'nodes': [{'kind': 'manual', 'id': 'kept', 'children': []}]},
+            },
+            {'entries': []},
+        )
+        self.assertEqual(preserved['hierarchy']['nodes'][0]['id'], 'kept')
 
     def test_navbar_hierarchy_runtime_crumbs_win_over_static_route_tree(self):
         request = RequestFactory().get('/documents/record/')
@@ -1265,6 +1301,9 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('const hiddenInput = form.querySelector(\'input[name="sidebar_config"]\');', contents)
         self.assertIn('nextConfig.show_toolbar = readBooleanField(form, \'#id_sidebar_enable_toolbar\', true);', contents)
         self.assertIn('syncSidebarBehaviorConfig(form);', contents)
+        self.assertIn('function seedNavbarConfigFromSidebar(form) {', contents)
+        self.assertIn("shell.classList.contains('mode-setup')", contents)
+        self.assertIn('navbarHierarchyHasNodes(navbarConfig)', contents)
         self.assertIn("toolbarToggle.disabled = !available;", contents)
         self.assertIn("'sidebar_enable_toolbar',\n                    'sidebar_show_icons'", contents)
         self.assertNotIn('toolbarToggle.checked = false;', contents)
@@ -1443,7 +1482,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/main/css/options.css", contents)
-        self.assertIn("?v=20260522b", contents)
+        self.assertIn("?v=20260523e", contents)
         self.assertIn("microsys/main/js/options.js", contents)
         self.assertIn('{{ server_time_backend_display }}', contents)
         self.assertIn('id="msOptionsGrid"', contents)
@@ -1470,7 +1509,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("microsys/main/css/main.css", contents)
         self.assertIn("?v=20260522c", contents)
         self.assertIn("microsys/main/js/system_setup.js", contents)
-        self.assertIn("?v=20260523b", contents)
+        self.assertIn("?v=20260523d", contents)
         self.assertIn("microsys/main/js/navbar.js", contents)
         self.assertIn("microsys/main/css/navbar.css", contents)
         self.assertIn("{% static theme.css_path %}?v=20260523c", contents)

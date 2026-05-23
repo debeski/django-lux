@@ -1034,6 +1034,106 @@
         hiddenInput.value = JSON.stringify(config);
     }
 
+    function navbarHierarchyHasNodes(config) {
+        return Boolean(config && config.hierarchy && Array.isArray(config.hierarchy.nodes) && config.hierarchy.nodes.length);
+    }
+
+    function currentSetupLanguageCode(form) {
+        return normalizeLanguageCode(getNamedFieldValue(form, 'default_language') || 'en') || 'en';
+    }
+
+    function sidebarLabelPayload(entry, langCode) {
+        const label = String(entry && entry.label ? entry.label : '').trim();
+        return label ? { [langCode]: label } : {};
+    }
+
+    function sidebarNodeId(prefix, entry, index) {
+        return String(
+            (entry && (entry.url_name || entry.id || entry.url)) || `${prefix}-${index}`
+        ).trim();
+    }
+
+    function sidebarEntryToNavbarNode(entry, index, langCode) {
+        if (!entry || typeof entry !== 'object') {
+            return null;
+        }
+        if ((entry.kind || 'item') === 'group') {
+            const children = (Array.isArray(entry.items) ? entry.items : [])
+                .map((child, childIndex) => sidebarEntryToNavbarNode(child, childIndex, langCode))
+                .filter(Boolean);
+            if (!children.length) {
+                return null;
+            }
+            const urlName = String(entry.url_name || '').trim();
+            const node = {
+                kind: urlName ? 'route' : 'manual',
+                id: sidebarNodeId('sidebar-group', entry, index),
+                children,
+            };
+            if (urlName) {
+                node.url_name = urlName;
+            }
+            const url = String(entry.url || '').trim();
+            if (url) {
+                node.url = url;
+            }
+            const labels = sidebarLabelPayload(entry, langCode);
+            if (Object.keys(labels).length) {
+                node.labels = labels;
+            }
+            return node;
+        }
+
+        const urlName = String(entry.url_name || '').trim();
+        const url = String(entry.url || '').trim();
+        if (!urlName && !url) {
+            return null;
+        }
+        const node = {
+            kind: urlName ? 'route' : 'manual',
+            id: sidebarNodeId('sidebar-item', entry, index),
+            children: [],
+        };
+        if (urlName) {
+            node.url_name = urlName;
+        }
+        if (url) {
+            node.url = url;
+        }
+        const labels = sidebarLabelPayload(entry, langCode);
+        if (Object.keys(labels).length) {
+            node.labels = labels;
+        }
+        return node;
+    }
+
+    function seedNavbarConfigFromSidebar(form) {
+        const shell = form ? form.closest('.ms-system-settings-shell') : null;
+        if (!shell || !shell.classList.contains('mode-setup')) {
+            return;
+        }
+        const navbarInput = form.querySelector('input[name="navbar_config"]');
+        const sidebarInput = form.querySelector('input[name="sidebar_config"]');
+        if (!navbarInput || !sidebarInput) {
+            return;
+        }
+        const navbarConfig = readNavbarBuilderConfig(parseJson(navbarInput.value || '{}', {}));
+        if (!navbarConfig.enabled || navbarHierarchyHasNodes(navbarConfig)) {
+            return;
+        }
+        const sidebarConfig = parseJson(sidebarInput.value || '{}', {});
+        const langCode = currentSetupLanguageCode(form);
+        const nodes = (Array.isArray(sidebarConfig.entries) ? sidebarConfig.entries : [])
+            .map((entry, index) => sidebarEntryToNavbarNode(entry, index, langCode))
+            .filter(Boolean);
+        if (!nodes.length) {
+            return;
+        }
+        navbarConfig.hierarchy = { nodes };
+        navbarInput.value = JSON.stringify(readNavbarBuilderConfig(navbarConfig));
+        navbarInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
     function initNavbarBuilder(builder) {
         if (!builder || builder.dataset.navbarBuilderBound === 'true') {
             return;
@@ -3482,6 +3582,7 @@
                 dependentSection.classList.toggle('d-none', !enabledToggle.checked);
                 dependentSection.setAttribute('aria-hidden', enabledToggle.checked ? 'false' : 'true');
                 syncNavbarBehaviorConfig(form);
+                seedNavbarConfigFromSidebar(form);
             }
 
             enabledToggle.addEventListener('change', syncNavbarAvailability);
