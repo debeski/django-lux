@@ -104,6 +104,28 @@ class ContextProcessorsTests(TestCase):
         context = microsys_context(request)
         self.assertIn('sidebar', context)
 
+    def test_microsys_context_resolves_navbar_mode_and_filters_locked_user_override(self):
+        from microsys.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.navbar_config = {
+            'enabled': True,
+            'default_mode': 'history',
+            'allow_user_mode_override': False,
+            'hierarchy': {'nodes': []},
+        }
+        settings_obj.save()
+        self.user.profile.preferences = {'navbar_mode': 'hierarchy'}
+        self.user.profile.save(update_fields=['preferences'])
+
+        request = self.factory.get('/')
+        request.user = self.user
+        context = microsys_context(request)
+
+        self.assertTrue(context['navbar_enabled'])
+        self.assertEqual(context['navbar_mode'], 'history')
+        self.assertNotIn('navbar_mode', context['user_preferences'])
+
     def test_microsys_context_includes_languages(self):
         """Test that microsys_context includes languages."""
         request = self.factory.get('/')

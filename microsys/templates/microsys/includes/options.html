@@ -325,6 +325,23 @@
             </div>
         </div>
 
+        {% if navbar.enabled and navbar.allow_user_mode_override %}
+        <div class="ms-options-card no-print" data-options-card="navbar-mode">
+            <div class="glass-profile option-section h-100 ms-options-panel">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder }}"
+                        title="{{ MS_TRANS.sidebar_reorder }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi bi-signpost-split me-2"></i> {{ MS_TRANS.navbar_options_title }}</h4>
+                <p class="text-muted small mb-4">{{ MS_TRANS.navbar_options_desc }}</p>
+                {% include 'microsys/includes/navbar_mode_previews.html' with selected_mode=user_preferences.navbar_mode|default:navbar.default_mode MS_TRANS=MS_TRANS %}
+            </div>
+        </div>
+        {% endif %}
+
         {% if config.sidebar.allow_user_density %}
         <!-- Sidebar Density -->
         <div class="ms-options-card no-print" data-options-card="sidebar-density">
@@ -460,5 +477,5 @@
 
 {% block scripts %}
     {{ block.super }}
-    <script src="{% static 'microsys/main/js/options.js' %}?v=20260522a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'microsys/main/js/options.js' %}?v=20260522b" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

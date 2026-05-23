@@ -581,6 +581,14 @@
     box-shadow: 0 0 20px rgba(212, 165, 116, 0.3) !important;
 }
 
+:root.theme-retro .microsys-filter .microsys-filter-action.btn-primary > .bi,
+.theme-retro .microsys-filter .microsys-filter-action.btn-primary > .bi {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
+}
+
 :root.theme-retro .btn-secondary,
 :root.theme-retro .btn-success,
 :root.theme-retro .btn-info,

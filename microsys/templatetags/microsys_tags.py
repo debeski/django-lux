@@ -6,6 +6,7 @@ from django.utils.timesince import timesince
 from django.utils.html import avoid_wrapping
 from django.conf import settings
 from ..translations import get_strings
+from ..navbar import build_navbar_hierarchy_crumbs, build_navbar_route_label_map
 
 register = template.Library()
 
@@ -61,6 +62,33 @@ def include_if_exists(context, template_name):
         return t.render(context.flatten())
     except TemplateDoesNotExist:
         return ""
+
+
+@register.inclusion_tag('microsys/includes/navbar.html', takes_context=True)
+def microsys_navbar(context):
+    request = context.get('request')
+    navbar = context.get('navbar') or {}
+    if request is None or not navbar.get('enabled', False):
+        return {'navbar_enabled': False}
+
+    hierarchy_crumbs = build_navbar_hierarchy_crumbs(
+        request,
+        navbar,
+        context.get('CURRENT_LANG', 'en'),
+        context.get('MS_TRANS') or {},
+        runtime_crumbs=context.get('microsys_navbar_crumbs'),
+    )
+    page_crumb = hierarchy_crumbs[-1] if hierarchy_crumbs else {}
+    return {
+        'navbar_enabled': True,
+        'navbar_mode': navbar.get('mode', 'hierarchy'),
+        'navbar_crumbs': hierarchy_crumbs,
+        'navbar_hierarchy_crumbs': hierarchy_crumbs,
+        'navbar_route_labels': build_navbar_route_label_map(context.get('CURRENT_LANG', 'en')),
+        'navbar_current_label': page_crumb.get('label', ''),
+        'navbar_current_path': getattr(request, 'path', ''),
+        'MS_TRANS': context.get('MS_TRANS') or {},
+    }
 
 
 @register.simple_tag(takes_context=True)

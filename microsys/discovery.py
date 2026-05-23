@@ -177,6 +177,10 @@ def _route_name_tokens(value):
     return [token for token in re.split(r'[_:\-]+', (value or '').lower()) if token]
 
 
+def _route_leaf(url_name):
+    return str(url_name or '').split(':')[-1]
+
+
 def _plain_text(value, fallback=''):
     if value is None:
         return fallback
@@ -214,7 +218,7 @@ def _normalize_permissions(value):
 
 
 def _is_configurable_system_url(url_name):
-    return isinstance(url_name, str) and url_name in CONFIGURABLE_SYSTEM_ROUTE_NAMES
+    return isinstance(url_name, str) and _route_leaf(url_name) in CONFIGURABLE_SYSTEM_ROUTE_NAMES
 
 
 def _infer_model(pattern):
@@ -251,8 +255,9 @@ def _infer_group_key(url_name, model, callback):
     callback_app = _infer_callback_app_label(callback)
     if callback_app:
         return callback_app
-    if url_name in SYSTEM_ROUTE_META:
-        return SYSTEM_ROUTE_META[url_name]['group_key']
+    leaf = _route_leaf(url_name)
+    if leaf in SYSTEM_ROUTE_META:
+        return SYSTEM_ROUTE_META[leaf]['group_key']
     if ':' in url_name:
         return url_name.split(':')[0]
     return 'general'
@@ -283,13 +288,13 @@ def _infer_label(url_name, strings, model=None, callback=None):
     if explicit:
         return _plain_text(explicit)
 
-    leaf = url_name.split(':')[-1]
+    leaf = _route_leaf(url_name)
     namespace = url_name.split(':')[0] if ':' in url_name else ''
     group_key = _infer_group_key(url_name, model, callback)
     group_label = _group_label(group_key, strings)
 
-    if url_name in SYSTEM_ROUTE_META:
-        return _plain_text(strings.get(SYSTEM_ROUTE_META[url_name]['label_key'], _humanize(leaf)))
+    if leaf in SYSTEM_ROUTE_META:
+        return _plain_text(strings.get(SYSTEM_ROUTE_META[leaf]['label_key'], _humanize(leaf)))
 
     candidates = [
         f'view_{leaf}',
@@ -329,8 +334,9 @@ def _infer_permissions(url_name, model, callback):
     if explicit:
         return explicit, True
 
-    if url_name in SYSTEM_ROUTE_META:
-        perms = list(SYSTEM_ROUTE_META[url_name].get('permissions', []))
+    leaf = _route_leaf(url_name)
+    if leaf in SYSTEM_ROUTE_META:
+        perms = list(SYSTEM_ROUTE_META[leaf].get('permissions', []))
         return perms, True
 
     if model is not None:
@@ -386,7 +392,7 @@ def _infer_permissions(url_name, model, callback):
 def _is_hidden_sidebar_url(url_name, allow_system_items=False):
     if not url_name or not isinstance(url_name, str):
         return False
-    if url_name in SYSTEM_ROUTE_META:
+    if _route_leaf(url_name) in SYSTEM_ROUTE_META:
         if allow_system_items and _is_configurable_system_url(url_name):
             return False
         return True
@@ -766,6 +772,43 @@ def _is_active_path(request_path, url):
     return request_path == url or request_path.startswith(url.rstrip('/') + '/')
 
 
+def _normalized_active_path(value):
+    value = str(value or '').split('?', 1)[0].strip()
+    if not value:
+        return ''
+    return value.rstrip('/') or '/'
+
+
+def _iter_render_sidebar_items(entries):
+    for entry in entries if isinstance(entries, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get('kind') == 'group':
+            yield from _iter_render_sidebar_items(entry.get('items'))
+            continue
+        yield entry
+
+
+def _apply_sidebar_active_state(entries, request_path, open_accordions):
+    items = list(_iter_render_sidebar_items(entries))
+    current_path = _normalized_active_path(request_path)
+    exact_match = any(_normalized_active_path(item.get('url')) == current_path for item in items)
+    for item in items:
+        item_url = item.get('url')
+        item['active'] = (
+            _normalized_active_path(item_url) == current_path
+            if exact_match
+            else _is_active_path(request_path, item_url)
+        )
+
+    open_ids = set(open_accordions or [])
+    for entry in entries if isinstance(entries, list) else []:
+        if isinstance(entry, dict) and entry.get('kind') == 'group':
+            has_active = any(item.get('active') for item in entry.get('items', []))
+            entry['has_active'] = has_active
+            entry['is_open'] = entry.get('id') in open_ids or has_active
+
+
 def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, request_path='', open_accordions=None):
     """
     Transform sidebar JSON config into a single render-ready sidebar tree.
@@ -810,11 +853,9 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
                 for raw_item in entry.get('items', []):
                     resolved_item = _resolve_sidebar_item(raw_item, catalog)
                     if resolved_item and _user_has_sidebar_permission(user, resolved_item.get('permissions'), resolved_item.get('permissions_explicit', False)):
-                        resolved_item['active'] = _is_active_path(request_path, resolved_item.get('url'))
                         items.append(resolved_item)
                 if items:
                     group_id = entry.get('id') or f"group-{len(render_entries) + 1}"
-                    has_active = any(item.get('active') for item in items)
                     inferred_group_label = next((item.get('group_label') for item in items if item.get('group_label')), None)
                     inferred_group_icon = next((item.get('group_icon') for item in items if item.get('group_icon')), None)
                     render_entries.append({
@@ -825,22 +866,23 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
                         'url': _resolve_group_url(entry),
                         'url_name': entry.get('url_name'),
                         'items': items,
-                        'has_active': has_active,
-                        'is_open': (group_id in open_accordions) or has_active,
+                        'has_active': False,
+                        'is_open': group_id in open_accordions,
                         'raw_name': entry.get('id') or group_id,
                     })
                 continue
 
             resolved = _resolve_sidebar_item(entry, catalog)
             if resolved and _user_has_sidebar_permission(user, resolved.get('permissions'), resolved.get('permissions_explicit', False)):
-                resolved['active'] = _is_active_path(request_path, resolved.get('url'))
                 render_entries.append(resolved)
         return render_entries
 
     render_entries = render_sidebar_entries(sidebar.get('entries', []) if isinstance(sidebar, dict) else [])
+    _apply_sidebar_active_state(render_entries, request_path, open_accordions)
     if override_sidebar and override_sidebar.get('entries') and not render_entries and base_sidebar.get('entries'):
         sidebar = base_sidebar
         render_entries = render_sidebar_entries(base_sidebar.get('entries', []))
+        _apply_sidebar_active_state(render_entries, request_path, open_accordions)
 
     return {
         'entries': render_entries,

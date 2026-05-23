@@ -393,6 +393,36 @@ class APIEndpointsTests(TestCase):
         self.user.profile.refresh_from_db()
         self.assertNotIn('sidebar_density', self.user.profile.preferences)
 
+    def test_update_preferences_validates_navbar_mode_against_system_gate(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.navbar_config = {
+            'enabled': True,
+            'default_mode': 'hierarchy',
+            'allow_user_mode_override': True,
+            'hierarchy': {'nodes': []},
+        }
+        settings_obj.save()
+
+        response = self.client.post(
+            reverse('update_preferences'),
+            json.dumps({'navbar_mode': 'history'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.preferences['navbar_mode'], 'history')
+
+        settings_obj.navbar_config['allow_user_mode_override'] = False
+        settings_obj.save(update_fields=['navbar_config'])
+        response = self.client.post(
+            reverse('update_preferences'),
+            json.dumps({'navbar_mode': 'invalid'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertNotIn('navbar_mode', self.user.profile.preferences)
+
     def test_update_preferences_rejects_sidebar_collapsed_when_locked_expanded(self):
         settings_obj = SystemSettings.load()
         settings_obj.sidebar_config = {

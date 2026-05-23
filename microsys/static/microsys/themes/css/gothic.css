@@ -602,6 +602,14 @@
     transform: translateY(-1px);
 }
 
+:root.theme-gothic .microsys-filter .microsys-filter-action.btn-primary > .bi,
+.theme-gothic .microsys-filter .microsys-filter-action.btn-primary > .bi {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
+}
+
 :root.theme-gothic .btn-secondary,
 :root.theme-gothic .btn-success,
 :root.theme-gothic .btn-info,

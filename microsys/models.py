@@ -52,6 +52,15 @@ def default_titlebar_config():
     }
 
 
+def default_navbar_config():
+    return {
+        'enabled': False,
+        'default_mode': 'hierarchy',
+        'allow_user_mode_override': True,
+        'hierarchy': {'nodes': []},
+    }
+
+
 class Scope(models.Model):
     name = models.CharField(max_length=100, verbose_name="Scope")
 
@@ -135,6 +144,8 @@ class SingletonModel(models.Model):
                     obj.allow_user_language_override = bool(config.get('allow_user_language_override'))
                 if hasattr(obj, 'titlebar_config') and isinstance(config.get('titlebar'), dict):
                     obj.titlebar_config = config.get('titlebar')
+                if hasattr(obj, 'navbar_config') and isinstance(config.get('navbar'), dict):
+                    obj.navbar_config = config.get('navbar')
                 if hasattr(obj, 'email_2fa') and 'email_2fa' in config:
                     obj.email_2fa = bool(config.get('email_2fa'))
                 if hasattr(obj, 'public_root') and 'public_root' in config:
@@ -200,6 +211,7 @@ class SystemSettings(SingletonModel):
     languages = models.JSONField(default=dict, blank=True, verbose_name="Available Languages")
     translations_override = models.JSONField(default=dict, blank=True, verbose_name="Translations Override")
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="Sidebar Configuration")
+    navbar_config = models.JSONField(default=default_navbar_config, blank=True, verbose_name="Nav Bar Configuration")
     titlebar_config = models.JSONField(default=default_titlebar_config, blank=True, verbose_name="Titlebar Configuration")
 
     class Meta:

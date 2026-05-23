@@ -62,10 +62,11 @@ When the wizard is saved:
 - the system is marked configured
 - the selected default theme and language become the starting point for new users
 - the saved sidebar tree becomes the runtime base sidebar
+- optional Nav Bar settings decide whether an authenticated top-of-content trail uses a configured hierarchy or session history
 - the chosen home URL becomes the global titlebar Home destination
 - the sidebar reorder and toolbar flags become part of the runtime sidebar behavior
 
-Superusers can export the current setup from the Options System Settings card. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, optional anonymous public-root URL/split toggle, Client IP resolution config, sidebar, titlebar, security toggles, themes, and density defaults. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
+Superusers can export the current setup from the Options System Settings card. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, optional anonymous public-root URL/split toggle, Client IP resolution config, sidebar, Nav Bar, titlebar, security toggles, themes, and density defaults. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
 
 ## Sidebar Builder and Runtime Navigation
 
@@ -86,6 +87,17 @@ Important behaviors:
 - the runtime sidebar now uses one shared flat rail layout across themes, while each theme can still supply its own accent colors, active states, and toolbar styling without changing the geometry
 
 Operationally, that means you can keep a carefully curated default navigation while still letting users personalize their own ordering later.
+
+## Optional Nav Bar
+
+Step 4 also owns the optional authenticated Nav Bar. When enabled, it appears above page content beside the sidebar and uses the same translated UI layer as the rest of Microsys.
+
+- **Hierarchy** uses the visual Step 4 tree editor. Discovered routes provide translated labels, and manual grouping nodes can add non-clickable labels or URL-backed shared ancestors.
+- **History** keeps one six-entry recent trail in the current browser session, deduplicates repeated paths without treating filters, sorting, or pagination query strings as new pages, and resolves known route labels in the active interface language.
+- **User override** is available in Options only when the developer allows it. Otherwise the developer-selected default style stays authoritative.
+- Microsys-owned system views are not manually placed from the hierarchy builder; they are automatically grouped under an unclickable `System` crumb when accessible.
+
+Dynamic object and tab pages can supply a `microsys_navbar_crumbs` runtime context list when their labels cannot be modeled by the static hierarchy tree. Runtime crumbs take precedence over the stored tree; unconfigured pages fall back to a translated Root and current-view pair.
 
 ## Themes and the Shared Theme Registry
 

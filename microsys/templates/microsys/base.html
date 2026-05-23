@@ -25,6 +25,7 @@
     {% endif %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap-icons.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/main/css/main.css' %}?v=20260522c">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/navbar.css' %}?v=20260523b">
     <link rel="stylesheet" href="{% static 'microsys/main/css/buttons.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/main/css/titlebar.css' %}?v=20260501c">
     <link rel="stylesheet" href="{% static 'microsys/main/css/tables.css' %}?v=20260501a">
@@ -33,9 +34,9 @@
     <link rel="stylesheet" href="{% static 'microsys/main/css/template_cleanup.css' %}?v=20260506a">
     
     <link rel="stylesheet" href="{% static 'microsys/main/css/pagination.css' %}">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/system_setup.css' %}?v=20260516a">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/system_setup.css' %}?v=20260522b">
     {% for theme in MICROSYS_THEMES %}
-    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260522c">
+    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260523c">
     {% endfor %}
     <link rel="stylesheet" href="{% static 'microsys/accessibility/css/main.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/language/css/main.css' %}?v=20260516a">
@@ -59,7 +60,8 @@
     <script src="{% static 'microsys/helpers/wizard/js/main.js' %}?v=20260508a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/main/js/tables.js' %}?v=20260423a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'microsys/main/js/selectors.js' %}?v=20260422a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'microsys/main/js/system_setup.js' %}?v=20260522f" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'microsys/main/js/system_setup.js' %}?v=20260523b" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'microsys/main/js/navbar.js' %}?v=20260523b" nonce="{{ request.csp_nonce }}" defer></script>
 
 </head>
 <body>
@@ -84,6 +86,7 @@
                 {% endif %}
                 <!-- Main Content -->
                 <div class="col p-3 flex-column flex-fill p-4" id="mainContent">
+                    {% microsys_navbar %}
     {% else %}
         <main class="flex-fill w-100 p-4" id="mainContent">
     {% endif %}

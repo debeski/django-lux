@@ -7,7 +7,7 @@ import json
 from datetime import date, datetime
 import logging
 # Project imports
-from .constants import SIDEBAR_DENSITY_VALUES, TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
+from .constants import NAVBAR_MODE_VALUES, SIDEBAR_DENSITY_VALUES, TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
 from .utils import (
     get_effective_allowed_themes,
     get_system_config,
@@ -15,6 +15,7 @@ from .utils import (
     is_global_staff,
     is_scope_enabled,
     log_user_action,
+    normalize_navbar_config,
     normalize_sidebar_behavior,
     user_has_model_permission,
 )
@@ -208,6 +209,7 @@ def update_preferences(request):
             system_config = get_system_config()
             allowed_themes = set(get_effective_allowed_themes(system_config))
             sidebar_config = normalize_sidebar_behavior(system_config.get('sidebar', {}))
+            navbar_config = normalize_navbar_config(system_config.get('navbar', {}))
             
             language_preview_requested = bool(data.get('__language_preview'))
 
@@ -254,6 +256,14 @@ def update_preferences(request):
                             continue
                         if value not in SIDEBAR_DENSITY_VALUES:
                             prefs.pop('sidebar_density', None)
+                            continue
+                    if key == 'navbar_mode':
+                        if (
+                            not navbar_config.get('enabled', False)
+                            or not navbar_config.get('allow_user_mode_override', True)
+                            or value not in NAVBAR_MODE_VALUES
+                        ):
+                            prefs.pop('navbar_mode', None)
                             continue
                     if key == 'table_page_size':
                         try:

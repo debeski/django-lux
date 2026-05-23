@@ -71,8 +71,10 @@ from microsys.utils import (
     export_system_settings_payload,
     get_microsys_email_config,
     get_system_config,
+    normalize_navbar_config,
     normalize_system_settings_import_payload,
 )
+from microsys.navbar import build_navbar_hierarchy_crumbs
 
 
 class MicrosysDefaultRouteTests(SimpleTestCase):
@@ -86,6 +88,218 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
     @override_settings(MICROSYS_CONFIG={})
     def test_system_config_defaults_home_url_to_profile(self):
         self.assertEqual(get_system_config().get('home_url'), DEFAULT_HOME_URL)
+
+    def test_navbar_config_normalizes_defaults_and_nested_manual_labels(self):
+        normalized = normalize_navbar_config({
+            'enabled': True,
+            'default_mode': 'invalid',
+            'allow_user_mode_override': False,
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'documents',
+                    'labels': {'en': 'Documents', '': 'Ignored'},
+                    'children': [{'kind': 'route', 'id': 'documents:list', 'url_name': 'documents:list'}],
+                }],
+            },
+        })
+
+        self.assertTrue(normalized['enabled'])
+        self.assertEqual(normalized['default_mode'], 'hierarchy')
+        self.assertFalse(normalized['allow_user_mode_override'])
+        self.assertEqual(normalized['hierarchy']['nodes'][0]['labels'], {'en': 'Documents'})
+        self.assertEqual(normalized['hierarchy']['nodes'][0]['children'][0]['url_name'], 'documents:list')
+
+    def test_navbar_hierarchy_runtime_crumbs_win_over_static_route_tree(self):
+        request = RequestFactory().get('/documents/record/')
+        request.resolver_match = SimpleNamespace(view_name='documents:list', url_name='list')
+        config = {
+            'enabled': True,
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'static',
+                    'labels': {'en': 'Static'},
+                    'children': [{'kind': 'route', 'id': 'documents:list', 'url_name': 'documents:list'}],
+                }],
+            },
+        }
+
+        with patch('microsys.navbar.discover_sidebar_catalog', return_value=[]):
+            crumbs = build_navbar_hierarchy_crumbs(
+                request,
+                config,
+                'en',
+                {'navbar_root': 'Root', 'documents': 'Documents'},
+                runtime_crumbs=[
+                    {'label_key': 'documents', 'url': '/documents/'},
+                    {'label': 'Record 7', 'url': '/documents/7/'},
+                ],
+            )
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Documents', 'Record 7'])
+        self.assertTrue(crumbs[1]['clickable'])
+
+    def test_navbar_hierarchy_resolves_manual_group_and_route_label_fallback(self):
+        request = RequestFactory().get('/documents/')
+        request.resolver_match = SimpleNamespace(view_name='documents:list', url_name='list')
+        config = {
+            'enabled': True,
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'library',
+                    'labels': {'en': 'Library'},
+                    'children': [{'kind': 'route', 'id': 'documents:list', 'url_name': 'documents:list'}],
+                }],
+            },
+        }
+        catalog = [{'url_name': 'documents:list', 'label': 'Documents', 'url': '/documents/'}]
+
+        with patch('microsys.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Library', 'Documents'])
+        self.assertFalse(crumbs[1]['clickable'])
+        self.assertTrue(crumbs[2]['clickable'])
+
+    def test_navbar_hierarchy_keeps_manual_url_ancestor_clickable_for_current_route(self):
+        request = RequestFactory().get('/archive/decrees/')
+        request.resolver_match = SimpleNamespace(view_name='archive:decree_list', url_name='decree_list')
+        config = {
+            'enabled': True,
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'archive',
+                    'labels': {'en': 'Archive'},
+                    'url': '/archive/',
+                    'children': [{'kind': 'route', 'id': 'decree_list', 'url_name': 'decree_list'}],
+                }],
+            },
+        }
+        catalog = [{'url_name': 'decree_list', 'label': 'Decrees', 'url': '/archive/decrees/'}]
+
+        with patch('microsys.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Archive', 'Decrees'])
+        self.assertTrue(crumbs[1]['clickable'])
+        self.assertEqual(crumbs[1]['url'], '/archive/')
+
+    def test_navbar_hierarchy_keeps_root_level_manual_index_url_clickable(self):
+        request = RequestFactory().get('/archive/decrees/')
+        request.resolver_match = SimpleNamespace(view_name='archive:decree_list', url_name='decree_list')
+        config = {
+            'enabled': True,
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'archive-index',
+                    'labels': {'en': 'Index'},
+                    'url': '/archive/',
+                    'children': [{'kind': 'route', 'id': 'decree_list', 'url_name': 'decree_list'}],
+                }],
+            },
+        }
+        catalog = [{'url_name': 'decree_list', 'label': 'Decrees', 'url': '/archive/decrees/'}]
+
+        with patch('microsys.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Index', 'Decrees'])
+        self.assertTrue(crumbs[1]['clickable'])
+        self.assertEqual(crumbs[1]['url'], '/archive/')
+
+    def test_navbar_hierarchy_keeps_discovered_index_route_clickable_when_label_is_specific(self):
+        request = RequestFactory().get('/archive/decrees/')
+        request.resolver_match = SimpleNamespace(view_name='archive:decree_list', url_name='decree_list')
+        config = {
+            'enabled': True,
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'route',
+                    'id': 'archive:index',
+                    'url_name': 'archive:index',
+                    'labels': {'en': 'Archive'},
+                    'children': [{
+                        'kind': 'route',
+                        'id': 'archive:decree_list',
+                        'url_name': 'archive:decree_list',
+                    }],
+                }],
+            },
+        }
+        catalog = [
+            {'url_name': 'archive:index', 'label': 'Archive Index', 'url': '/archive/'},
+            {'url_name': 'archive:decree_list', 'label': 'Decree List', 'url': '/archive/decrees/'},
+        ]
+
+        with patch('microsys.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Archive', 'Decree List'])
+        self.assertTrue(crumbs[1]['clickable'])
+        self.assertEqual(crumbs[1]['url'], '/archive/')
+
+    def test_navbar_hierarchy_does_not_match_app_index_node_for_project_root(self):
+        request = RequestFactory().get('/')
+        request.resolver_match = SimpleNamespace(view_name='index', url_name='index')
+        config = {
+            'enabled': True,
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'route',
+                    'id': 'archive:index',
+                    'url_name': 'archive:index',
+                    'labels': {'en': 'Archive'},
+                    'children': [],
+                }],
+            },
+        }
+        catalog = [
+            {'url_name': 'index', 'label': 'Home', 'url': '/'},
+            {'url_name': 'archive:index', 'label': 'Archive', 'url': '/archive/'},
+        ]
+
+        with patch('microsys.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Home'])
+        self.assertFalse(crumbs[1]['clickable'])
+
+    def test_navbar_hierarchy_wraps_microsys_routes_in_system_group(self):
+        request = RequestFactory().get('/sys/options/')
+        request.resolver_match = SimpleNamespace(view_name='microsys:options_view', url_name='options_view')
+        catalog = [{
+            'url_name': 'options_view',
+            'label': 'Application Options',
+            'url': '/sys/options/',
+            'group_key': 'microsys',
+        }]
+
+        with patch('microsys.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(
+                request,
+                {'enabled': True, 'hierarchy': {'nodes': []}},
+                'en',
+                {'navbar_root': 'Root', 'navbar_system': 'System'},
+            )
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'System', 'Application Options'])
+        self.assertFalse(crumbs[1]['clickable'])
+        self.assertTrue(crumbs[2]['clickable'])
+
+    def test_navbar_frontend_uses_language_aware_history_and_hides_system_routes_from_builder(self):
+        navbar_js = Path('microsys/static/microsys/main/js/navbar.js').read_text(encoding='utf-8')
+        setup_js = Path('microsys/static/microsys/main/js/system_setup.js').read_text(encoding='utf-8')
+
+        self.assertIn("const HISTORY_KEY = 'microsys.navbar.history.v1';", navbar_js)
+        self.assertIn('labels[language] = label;', navbar_js)
+        self.assertIn('labelsByPath[normalizedPath(entry.path)]', navbar_js)
+        self.assertIn('trail.replaceChildren(fragment);', navbar_js)
+        self.assertIn('!entry.is_system', setup_js)
+        self.assertNotIn('crumb.clickable && crumb.url && !isCurrent', navbar_js)
 
     def test_unconfigured_root_url_redirects_to_system_setup(self):
         response = Client().get('/')
@@ -256,7 +470,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
-        self.assertIn('data-setup-theme-preview-url="/static/microsys/themes/css/light.css?v=20260522c"', form.theme_picker_html)
+        self.assertIn('data-setup-theme-preview-url="/static/microsys/themes/css/light.css?v=20260523c"', form.theme_picker_html)
         self.assertIn('data-setup-theme-allowed="light"', form.theme_picker_html)
         self.assertIn('ms-theme-settings-option__checkbox', form.theme_picker_html)
 
@@ -401,7 +615,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.cleaned_data['email_config']['host'], 'smtp.example.com')
         self.assertFalse(form.cleaned_data['email_config']['password_configured'])
         self.assertFalse(form.cleaned_data['sidebar_config']['enabled'])
-        self.assertFalse(form.cleaned_data['sidebar_enable_toolbar'])
+        self.assertTrue(form.cleaned_data['sidebar_enable_toolbar'])
 
     def test_setup_form_keeps_sidebar_child_settings_when_sidebar_is_disabled(self):
         form = SystemSettingsForm(
@@ -442,6 +656,44 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertTrue(form.cleaned_data['sidebar_show_icons'])
         self.assertTrue(form.cleaned_data['sidebar_allow_user_density'])
         self.assertEqual(form.cleaned_data['sidebar_collapse_mode'], 'icons')
+
+    def test_setup_form_saves_navbar_config_and_manual_hierarchy_nodes(self):
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "Demo"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{"en": {"name": "English", "dir": "ltr", "flag": "EN"}}',
+                'translations_override': '{}',
+                'sidebar_config': '{"entries":[]}',
+                'navbar_enabled': 'on',
+                'navbar_default_mode': 'history',
+                'navbar_allow_user_mode_override': 'on',
+                'navbar_config': json.dumps({
+                    'enabled': False,
+                    'default_mode': 'hierarchy',
+                    'allow_user_mode_override': False,
+                    'hierarchy': {
+                        'nodes': [{
+                            'kind': 'manual',
+                            'id': 'areas',
+                            'labels': {'en': 'Areas'},
+                            'children': [],
+                        }],
+                    },
+                }),
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertTrue(form.cleaned_data['navbar_config']['enabled'])
+        self.assertEqual(form.cleaned_data['navbar_config']['default_mode'], 'history')
+        self.assertTrue(form.cleaned_data['navbar_config']['allow_user_mode_override'])
+        self.assertEqual(form.cleaned_data['navbar_config']['hierarchy']['nodes'][0]['labels']['en'], 'Areas')
 
     def test_setup_form_import_does_not_override_when_processed_flag_set(self):
         """When import is marked as processed, user edits are preserved and import is skipped."""
@@ -1218,8 +1470,10 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("microsys/main/css/main.css", contents)
         self.assertIn("?v=20260522c", contents)
         self.assertIn("microsys/main/js/system_setup.js", contents)
-        self.assertIn("?v=20260522a", contents)
-        self.assertIn("{% static theme.css_path %}?v=20260522c", contents)
+        self.assertIn("?v=20260523b", contents)
+        self.assertIn("microsys/main/js/navbar.js", contents)
+        self.assertIn("microsys/main/css/navbar.css", contents)
+        self.assertIn("{% static theme.css_path %}?v=20260523c", contents)
 
     def test_verify_template_uses_versioned_auto_verify_script_and_trust_device_checkbox(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / '2fa' / 'verify.html'
@@ -1452,6 +1706,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
                 'password_configured': True,
             },
             sidebar_config={'enabled': False, 'entries': []},
+            navbar_config={'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}},
         )
 
         payload = export_system_settings_payload(settings_obj)
@@ -1462,6 +1717,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(email_config['transport'], 'direct')
         self.assertEqual(email_config['secret_storage'], 'encrypted_db')
         self.assertFalse(payload['settings']['sidebar_config']['enabled'])
+        self.assertTrue(payload['settings']['navbar_config']['enabled'])
+        self.assertEqual(payload['settings']['navbar_config']['default_mode'], 'history')
 
         imported = normalize_system_settings_import_payload(payload)
         self.assertNotIn('encrypted_password', imported['email_config'])

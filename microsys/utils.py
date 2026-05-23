@@ -23,12 +23,14 @@ from django.core.exceptions import FieldDoesNotExist
 from django.utils.module_loading import import_string
 from .constants import (
     DEFAULT_HOME_URL,
+    DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
     LEGACY_HOME_URL,
     REGISTRATION_ACTIVATION_AUTO_LOGIN,
     REGISTRATION_ACTIVATION_VALUES,
+    NAVBAR_MODE_VALUES,
     SIDEBAR_COLLAPSE_MODE_VALUES,
     SIDEBAR_DENSITY_VALUES,
     TABLE_DENSITY_VALUES,
@@ -1379,6 +1381,7 @@ def build_config_groups(config, current_language=None):
         'navigation': {
             'home_url': config.get('home_url') or DEFAULT_HOME_URL,
             'sidebar': config.get('sidebar', default_sidebar_config()),
+            'navbar': config.get('navbar', default_navbar_config()),
         },
         'appearance': {
             'default_theme': config.get('default_theme', 'light'),
@@ -1499,6 +1502,77 @@ def normalize_sidebar_behavior(sidebar_config):
 
     return normalized
 
+
+def default_navbar_config():
+    return {
+        'enabled': False,
+        'default_mode': DEFAULT_NAVBAR_MODE,
+        'allow_user_mode_override': True,
+        'hierarchy': {'nodes': []},
+    }
+
+
+def _normalize_navbar_labels(value):
+    if not isinstance(value, dict):
+        return {}
+    labels = {}
+    for raw_code, raw_label in value.items():
+        code = _normalize_language_code(raw_code)
+        label = str(raw_label or '').strip()
+        if code and label:
+            labels[code] = label
+    return labels
+
+
+def _normalize_navbar_nodes(value, depth=0):
+    if not isinstance(value, list) or depth > 6:
+        return []
+
+    nodes = []
+    for raw_node in value:
+        if not isinstance(raw_node, dict):
+            continue
+        kind = 'route' if raw_node.get('kind') == 'route' else 'manual'
+        node_id = str(raw_node.get('id') or '').strip()
+        if not node_id:
+            continue
+        node = {
+            'kind': kind,
+            'id': node_id[:180],
+            'children': _normalize_navbar_nodes(raw_node.get('children'), depth + 1),
+        }
+        labels = _normalize_navbar_labels(raw_node.get('labels'))
+        if labels:
+            node['labels'] = labels
+        url = str(raw_node.get('url') or '').strip()
+        if url:
+            node['url'] = url[:500]
+        if kind == 'route':
+            url_name = str(raw_node.get('url_name') or node_id).strip()
+            if not url_name:
+                continue
+            node['url_name'] = url_name[:255]
+        nodes.append(node)
+    return nodes
+
+
+def normalize_navbar_config(navbar_config):
+    config = navbar_config if isinstance(navbar_config, dict) else {}
+    normalized = default_navbar_config()
+    normalized['enabled'] = bool(config.get('enabled', normalized['enabled']))
+    mode = config.get('default_mode')
+    if mode in NAVBAR_MODE_VALUES:
+        normalized['default_mode'] = mode
+    normalized['allow_user_mode_override'] = bool(
+        config.get('allow_user_mode_override', normalized['allow_user_mode_override'])
+    )
+    hierarchy = config.get('hierarchy')
+    hierarchy = hierarchy if isinstance(hierarchy, dict) else {}
+    normalized['hierarchy'] = {
+        'nodes': _normalize_navbar_nodes(hierarchy.get('nodes')),
+    }
+    return normalized
+
 # Get effective allowed themes from configuration
 def get_effective_allowed_themes(config):
     if not isinstance(config, dict):
@@ -1574,6 +1648,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'languages',
     'translations_override',
     'sidebar_config',
+    'navbar_config',
     'titlebar_config',
 )
 
@@ -1609,6 +1684,8 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_system_names(value)
         elif field_name == 'sidebar_config':
             data[field_name] = normalize_sidebar_behavior(value)
+        elif field_name == 'navbar_config':
+            data[field_name] = normalize_navbar_config(value)
         elif field_name == 'email_config':
             data[field_name] = normalize_email_config(value, redact_secret=True)
         elif field_name == 'client_ip_config':
@@ -1650,6 +1727,8 @@ def normalize_system_settings_import_payload(payload):
         normalized['translations_override'] = {}
     if 'sidebar_config' in normalized:
         normalized['sidebar_config'] = normalize_sidebar_behavior(normalized['sidebar_config'])
+    if 'navbar_config' in normalized:
+        normalized['navbar_config'] = normalize_navbar_config(normalized['navbar_config'])
     if 'email_config' in normalized:
         normalized['email_config'] = normalize_email_config(normalized['email_config'], redact_secret=True)
     if 'client_ip_config' in normalized:
@@ -1727,6 +1806,7 @@ def get_system_config():
         'languages': deepcopy(DEFAULT_LANGUAGE_CATALOG),
         'translations': {},
         'sidebar': default_sidebar_config(),
+        'navbar': default_navbar_config(),
         'titlebar': default_titlebar_config(),
         'is_configured': False,
     }
@@ -1818,6 +1898,8 @@ def get_system_config():
             db_config['translations'] = sys_settings.translations_override
         if isinstance(getattr(sys_settings, 'sidebar_config', None), dict) and sys_settings.sidebar_config:
             db_config['sidebar'] = sys_settings.sidebar_config
+        if isinstance(getattr(sys_settings, 'navbar_config', None), dict) and sys_settings.navbar_config:
+            db_config['navbar'] = sys_settings.navbar_config
         if isinstance(getattr(sys_settings, 'email_config', None), dict) and sys_settings.email_config:
             db_config['email_config'] = normalize_email_config(sys_settings.email_config)
         if (
@@ -1915,6 +1997,12 @@ def get_system_config():
     db_sidebar = db_config.get('sidebar', {})
     if not isinstance(db_sidebar, dict):
         db_sidebar = {}
+    user_navbar = user_config.get('navbar', {})
+    if not isinstance(user_navbar, dict):
+        user_navbar = {}
+    db_navbar = db_config.get('navbar', {})
+    if not isinstance(db_navbar, dict):
+        db_navbar = {}
     user_titlebar = user_config.get('titlebar', {})
     if not isinstance(user_titlebar, dict):
         user_titlebar = {}
@@ -1925,7 +2013,7 @@ def get_system_config():
     final_config = deepcopy(default_config)
     for layer in (user_config, db_config):
         for key, value in layer.items():
-            if key in ['system_names', 'languages', 'translations', 'sidebar', 'titlebar']:
+            if key in ['system_names', 'languages', 'translations', 'sidebar', 'navbar', 'titlebar']:
                 continue
             final_config[key] = value
 
@@ -1961,6 +2049,11 @@ def get_system_config():
     )
     merged_sidebar = sanitize_sidebar_config(merged_sidebar, allow_system_items=True)
     final_config['sidebar'] = normalize_sidebar_behavior(merged_sidebar)
+    merged_navbar = deepcopy(default_config['navbar'])
+    for layer in (user_navbar, db_navbar):
+        if isinstance(layer, dict):
+            merged_navbar.update(layer)
+    final_config['navbar'] = normalize_navbar_config(merged_navbar)
     merged_titlebar = deepcopy(default_config['titlebar'])
     for layer in (user_titlebar, db_titlebar):
         for key, value in layer.items():

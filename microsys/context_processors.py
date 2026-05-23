@@ -1,11 +1,13 @@
 from urllib.parse import urlsplit
 
 from .constants import DEFAULT_TABLE_DENSITY, TABLE_DENSITY_CHOICES, TABLE_DENSITY_VALUES
+from .navbar import resolve_navbar_mode, strip_navbar_mode_preference
 from .utils import (
     get_effective_allowed_themes,
     get_user_management_tier_state_for_user,
     has_section_models,
     is_scope_enabled,
+    normalize_navbar_config,
     normalize_sidebar_behavior,
     resolve_sidebar_collapsed_preference,
     resolve_sidebar_density_preference,
@@ -244,6 +246,8 @@ def microsys_context(request):
     if not allow_user_language_override and not request.session.get('ms_force_language_preview'):
         user_prefs = {key: value for key, value in user_prefs.items() if key != 'language'}
     user_prefs = resolve_user_theme_preference(user_prefs, final_config)
+    navbar_runtime_config = normalize_navbar_config(final_config.get('navbar', {}))
+    user_prefs = strip_navbar_mode_preference(user_prefs, navbar_runtime_config)
     default_table_density = final_config.get('default_table_density', DEFAULT_TABLE_DENSITY)
     if default_table_density not in TABLE_DENSITY_VALUES:
         default_table_density = DEFAULT_TABLE_DENSITY
@@ -318,6 +322,15 @@ def microsys_context(request):
         context['sidebar_reorder_enabled'],
         context['sidebar_has_sections_manager'],
     ])
+    current_route_name = getattr(getattr(request, 'resolver_match', None), 'url_name', '')
+    navbar_enabled = bool(navbar_runtime_config.get('enabled', False)) and current_route_name != 'system_setup'
+    context['navbar_enabled'] = navbar_enabled
+    context['navbar_mode'] = resolve_navbar_mode(user_prefs, navbar_runtime_config)
+    context['navbar'] = {
+        **navbar_runtime_config,
+        'enabled': navbar_enabled,
+        'mode': context['navbar_mode'],
+    }
 
     # 7. Sidebar State (Collapsed/Expanded)
     # Prioritize DB preference if available, else session, else default

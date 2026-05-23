@@ -20,6 +20,12 @@ SIDEBAR_COLLAPSE_MODE_CHOICES = (
     ('locked_expanded', 'Locked Expanded'),
 )
 SIDEBAR_COLLAPSE_MODE_VALUES = {value for value, _label in SIDEBAR_COLLAPSE_MODE_CHOICES}
+DEFAULT_NAVBAR_MODE = 'hierarchy'
+NAVBAR_MODE_CHOICES = (
+    (DEFAULT_NAVBAR_MODE, 'Hierarchy'),
+    ('history', 'History'),
+)
+NAVBAR_MODE_VALUES = {value for value, _label in NAVBAR_MODE_CHOICES}
 TITLEBAR_HOME_SHAPE_CHOICES = (
     ('circle', 'Circle'),
     ('square', 'Square'),

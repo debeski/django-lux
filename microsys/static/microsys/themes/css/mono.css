@@ -309,6 +309,14 @@
     box-shadow: 0 2px 12px rgba(71, 85, 105, 0.25) !important;
 }
 
+:root.theme-mono .microsys-filter .microsys-filter-action.btn-primary > .bi,
+.theme-mono .microsys-filter .microsys-filter-action.btn-primary > .bi {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
+}
+
 /* Soft button text fix */
 :root.theme-mono .btn-secondary,
 :root.theme-mono .btn-success,
@@ -379,12 +387,19 @@
 .theme-mono .sidebar .sidebar-root-item.active,
 .theme-mono .sidebar .sidebar-group-item.active {
     color: #ffffff !important;
-    background: linear-gradient(135deg, var(--mono-600) 0%, var(--mono-700) 100%) !important;
-    box-shadow: 0 4px 12px rgba(71, 85, 105, 0.2) !important;
+    background: linear-gradient(135deg, var(--mono-500) 0%, var(--mono-600) 100%) !important;
+    box-shadow: 0 4px 12px rgba(71, 85, 105, 0.16) !important;
 }
 
-:root.theme-mono .sidebar .sidebar-root-item:hover,
-:root.theme-mono .sidebar .sidebar-group-item:hover {
+:root.theme-mono .sidebar .sidebar-root-item.active i,
+:root.theme-mono .sidebar .sidebar-group-item.active i,
+.theme-mono .sidebar .sidebar-root-item.active i,
+.theme-mono .sidebar .sidebar-group-item.active i {
+    color: #ffffff !important;
+}
+
+:root.theme-mono .sidebar .sidebar-root-item:not(.active):hover,
+:root.theme-mono .sidebar .sidebar-group-item:not(.active):hover {
     background-color: var(--sidebar-hover-bg) !important;
     color: var(--mono-800) !important;
 }

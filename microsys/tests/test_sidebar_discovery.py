@@ -374,6 +374,48 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
     @patch("microsys.discovery.discover_sidebar_catalog")
     @patch("microsys.utils.get_system_config")
+    def test_build_sidebar_navigation_exact_match_wins_over_parent_prefix(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {
+                        "kind": "item",
+                        "id": "archive-index",
+                        "url": "/archive/",
+                        "permissions": ["__ms_authenticated__"],
+                    },
+                    {
+                        "kind": "group",
+                        "id": "archive-group",
+                        "label": "Archive",
+                        "items": [
+                            {
+                                "kind": "item",
+                                "id": "archive-decree-list",
+                                "url": "/archive/decrees/",
+                                "permissions": ["__ms_authenticated__"],
+                            },
+                        ],
+                    },
+                ],
+            },
+        }
+        mock_discover_sidebar_catalog.return_value = []
+
+        navigation = build_sidebar_navigation(
+            lang_code="en",
+            user=_StubUser(),
+            request_path="/archive/decrees/",
+        )
+
+        self.assertFalse(navigation["entries"][0]["active"])
+        self.assertTrue(navigation["entries"][1]["items"][0]["active"])
+        self.assertTrue(navigation["entries"][1]["has_active"])
+
+    @patch("microsys.discovery.discover_sidebar_catalog")
+    @patch("microsys.utils.get_system_config")
     def test_build_sidebar_navigation_falls_back_to_system_sidebar_for_stale_override(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
             "default_language": "en",

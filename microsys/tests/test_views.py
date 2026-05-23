@@ -104,6 +104,25 @@ class GeneralViewsTests(TestCase):
         self.assertIn('django_version', response.context)
         self.assertIn('python_version', response.context)
 
+    def test_options_view_shows_navbar_mode_card_only_when_override_is_allowed(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.navbar_config = {
+            'enabled': True,
+            'default_mode': 'hierarchy',
+            'allow_user_mode_override': True,
+            'hierarchy': {'nodes': []},
+        }
+        settings_obj.save()
+
+        response = self.client.get(reverse('options_view'))
+
+        self.assertContains(response, 'data-options-card="navbar-mode"')
+        self.assertContains(response, 'data-ms-navbar')
+        settings_obj.navbar_config['allow_user_mode_override'] = False
+        settings_obj.save(update_fields=['navbar_config'])
+        response = self.client.get(reverse('options_view'))
+        self.assertNotContains(response, 'data-options-card="navbar-mode"')
+
     def test_options_email_diagnostics_only_render_when_email_features_enabled(self):
         settings_obj = SystemSettings.load()
         settings_obj.email_2fa = False
@@ -227,7 +246,7 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, 'ms-font-picker')
         self.assertContains(response, 'ms-density-options')
         self.assertContains(response, 'data-font="shabwa"')
-        self.assertContains(response, 'microsys/main/js/options.js?v=20260522a')
+        self.assertContains(response, 'microsys/main/js/options.js?v=20260522b')
         self.assertNotContains(response, 'ms-font-preview-card')
 
     def test_system_settings_modal_honors_requested_wizard_step(self):

@@ -26,12 +26,15 @@ from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
 from .constants import (
     DEFAULT_HOME_URL,
+    DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
     LEGACY_HOME_URL,
     REGISTRATION_ACTIVATION_CHOICES,
     REGISTRATION_ACTIVATION_VALUES,
+    NAVBAR_MODE_CHOICES,
+    NAVBAR_MODE_VALUES,
     SIDEBAR_COLLAPSE_MODE_CHOICES,
     SIDEBAR_COLLAPSE_MODE_VALUES,
     SIDEBAR_DENSITY_CHOICES,
@@ -58,6 +61,7 @@ from .utils import (
     CLIENT_IP_MODE_X_FORWARDED_FOR,
     CLIENT_IP_MODE_X_REAL_IP,
     default_client_ip_config,
+    default_navbar_config,
     default_titlebar_config,
     default_email_config,
     encrypt_email_secret,
@@ -71,6 +75,7 @@ from .utils import (
     normalize_email_config,
     normalize_client_ip_config,
     normalize_language_catalog,
+    normalize_navbar_config,
     normalize_sidebar_behavior,
     normalize_system_names,
     normalize_titlebar_config,
@@ -1517,6 +1522,10 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.HiddenInput(),
         required=False,
     )
+    navbar_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
     sidebar_enabled = forms.BooleanField(
         required=False,
         initial=True,
@@ -1546,6 +1555,19 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         choices=SIDEBAR_COLLAPSE_MODE_CHOICES,
         initial=DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    )
+    navbar_enabled = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    navbar_default_mode = forms.ChoiceField(
+        required=False,
+        choices=NAVBAR_MODE_CHOICES,
+        initial=DEFAULT_NAVBAR_MODE,
+    )
+    navbar_allow_user_mode_override = forms.BooleanField(
+        required=False,
+        initial=True,
     )
     titlebar_show_logo = forms.BooleanField(
         required=False,
@@ -1662,6 +1684,7 @@ class SystemSettingsForm(forms.ModelForm):
             'languages',
             'translations_override',
             'sidebar_config',
+            'navbar_config',
             'titlebar_config',
         ]
 
@@ -1854,6 +1877,23 @@ class SystemSettingsForm(forms.ModelForm):
             ('icons', s.get('sidebar_collapse_icons', 'Icons only')),
             ('hidden', s.get('sidebar_collapse_hidden', 'Hide completely')),
             ('locked_expanded', s.get('sidebar_collapse_locked_expanded', 'Always expanded')),
+        )
+        self.fields['navbar_config'].label = s.get('form_sys_navbar', '')
+        self.fields['navbar_enabled'].label = s.get('form_sys_navbar_enabled', '')
+        self.fields['navbar_enabled'].help_text = s.get('help_sys_navbar_enabled', '')
+        self.fields['navbar_default_mode'].label = s.get('form_sys_navbar_default_mode', '')
+        self.fields['navbar_default_mode'].help_text = s.get('help_sys_navbar_default_mode', '')
+        self.fields['navbar_default_mode'].choices = (
+            ('hierarchy', s.get('navbar_mode_hierarchy', '')),
+            ('history', s.get('navbar_mode_history', '')),
+        )
+        self.fields['navbar_allow_user_mode_override'].label = s.get(
+            'form_sys_navbar_allow_user_mode_override',
+            '',
+        )
+        self.fields['navbar_allow_user_mode_override'].help_text = s.get(
+            'help_sys_navbar_allow_user_mode_override',
+            '',
         )
         self.fields['titlebar_show_title'].label = s.get('form_sys_titlebar_show_title', 'Show titlebar title')
         self.fields['titlebar_show_logo'].label = s.get('form_sys_titlebar_show_logo', 'Show titlebar logo')
@@ -2149,6 +2189,22 @@ class SystemSettingsForm(forms.ModelForm):
                 },
             ),
         )
+        _bind_choice_selector_widget(
+            self.fields['navbar_default_mode'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'hierarchy': {
+                        'icon': 'bi-diagram-3',
+                        'description': s.get('navbar_mode_hierarchy_desc', ''),
+                    },
+                    'history': {
+                        'icon': 'bi-clock-history',
+                        'description': s.get('navbar_mode_history_desc', ''),
+                    },
+                },
+            ),
+        )
         project_config = getattr(settings, 'MICROSYS_CONFIG', {})
         instance_system_names = normalize_system_names(getattr(self.instance, 'system_names', {}))
         if not instance_system_names:
@@ -2236,6 +2292,14 @@ class SystemSettingsForm(forms.ModelForm):
             sidebar_config = sanitize_sidebar_config(self.instance.sidebar_config, allow_system_items=True)
             sidebar_config['home_url_name'] = None
             self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
+        initial_navbar_config = normalize_navbar_config(
+            (
+                config.get('navbar', {})
+                if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+                else getattr(self.instance, 'navbar_config', None)
+            ) or config.get('navbar', {})
+        )
+        self.initial['navbar_config'] = _json_dump(initial_navbar_config, ensure_ascii=False)
         initial_titlebar_config = normalize_titlebar_config(
             (
                 config.get('titlebar', {})
@@ -2339,6 +2403,11 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['sidebar_density'] = initial_sidebar_config.get('density', DEFAULT_SIDEBAR_DENSITY)
         self.initial['sidebar_allow_user_density'] = bool(initial_sidebar_config.get('allow_user_density', True))
         self.initial['sidebar_collapse_mode'] = initial_sidebar_config.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+        self.initial['navbar_enabled'] = bool(initial_navbar_config.get('enabled', False))
+        self.initial['navbar_default_mode'] = initial_navbar_config.get('default_mode', DEFAULT_NAVBAR_MODE)
+        self.initial['navbar_allow_user_mode_override'] = bool(
+            initial_navbar_config.get('allow_user_mode_override', True)
+        )
         self.initial['titlebar_show_title'] = bool(initial_titlebar_config.get('show_title', True))
         self.initial['titlebar_show_logo'] = bool(initial_titlebar_config.get('show_logo', True))
         self.initial['titlebar_show_home_button'] = bool(initial_titlebar_config.get('show_home_button', True))
@@ -2521,6 +2590,16 @@ class SystemSettingsForm(forms.ModelForm):
                 'sidebar_catalog_json': _json_dump(self.sidebar_catalog, ensure_ascii=False),
                 'sidebar_catalog_fallback_json': _json_dump(self.sidebar_catalog_fallback, ensure_ascii=False),
                 'sidebar_config_json': _json_dump(self.initial.get('sidebar_config', {}), ensure_ascii=False),
+                'mode': self.mode,
+                'MS_TRANS': s,
+            },
+        )
+        self.navbar_builder_html = render_to_string(
+            'microsys/includes/navbar_builder.html',
+            {
+                'navbar_catalog_json': _json_dump(self.sidebar_catalog, ensure_ascii=False),
+                'navbar_config_json': _json_dump(initial_navbar_config, ensure_ascii=False),
+                'languages_json': _json_dump(current_languages, ensure_ascii=False),
                 'mode': self.mode,
                 'MS_TRANS': s,
             },
@@ -2757,6 +2836,23 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(self.sidebar_builder_html),
                 HTML("</div>"),
                 Field('sidebar_config'),
+                HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'>{s.get('navbar_settings_title', '')}</h6>"),
+                Row(
+                    build_settings_toggle_field(self, 'navbar_enabled', css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
+                ),
+                HTML(
+                    f"<div class='ms-navbar-dependent-settings{' d-none' if not self.initial.get('navbar_enabled', False) else ''}' "
+                    f"data-navbar-dependent>"
+                ),
+                Row(
+                    build_settings_toggle_field(self, 'navbar_allow_user_mode_override', css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
+                ),
+                Div(Field('navbar_default_mode'), css_class='mb-3'),
+                HTML(self.navbar_builder_html),
+                HTML("</div>"),
+                Field('navbar_config'),
                 css_class=_step_css_class(3),
             ),
             Div(
@@ -3058,6 +3154,18 @@ class SystemSettingsForm(forms.ModelForm):
             'collapse_mode': parsed.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE),
         }, allow_system_items=True)
 
+    def clean_navbar_config(self):
+        data = self.cleaned_data.get('navbar_config')
+        if not data:
+            return default_navbar_config()
+        try:
+            parsed = json.loads(data)
+        except json.JSONDecodeError:
+            raise ValidationError("Invalid nav bar JSON format.")
+        if not isinstance(parsed, dict):
+            raise ValidationError("Nav bar configuration must be a valid JSON object.")
+        return normalize_navbar_config(parsed)
+
     def clean_email_config(self):
         existing = normalize_email_config(getattr(self.instance, 'email_config', {}))
         transport = self.cleaned_data.get('email_config_transport') or existing.get('transport', 'direct')
@@ -3160,6 +3268,14 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['sidebar_allow_user_density'] = bool(sidebar.get('allow_user_density', True))
             cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
 
+        navbar = imported.get('navbar_config')
+        if isinstance(navbar, dict):
+            navbar = normalize_navbar_config(navbar)
+            cleaned['navbar_config'] = navbar
+            cleaned['navbar_enabled'] = bool(navbar.get('enabled', False))
+            cleaned['navbar_default_mode'] = navbar.get('default_mode', DEFAULT_NAVBAR_MODE)
+            cleaned['navbar_allow_user_mode_override'] = bool(navbar.get('allow_user_mode_override', True))
+
         titlebar = imported.get('titlebar_config')
         if isinstance(titlebar, dict):
             cleaned['titlebar_show_title'] = bool(titlebar.get('show_title', True))
@@ -3213,6 +3329,17 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['sidebar_density'] = sidebar.get('density', DEFAULT_SIDEBAR_DENSITY)
             cleaned['sidebar_allow_user_density'] = bool(sidebar.get('allow_user_density', True))
             cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+        navbar = cleaned.get('navbar_config')
+        if isinstance(navbar, dict):
+            navbar['enabled'] = bool(cleaned.get('navbar_enabled', False))
+            mode = cleaned.get('navbar_default_mode') or DEFAULT_NAVBAR_MODE
+            navbar['default_mode'] = mode if mode in NAVBAR_MODE_VALUES else DEFAULT_NAVBAR_MODE
+            navbar['allow_user_mode_override'] = bool(cleaned.get('navbar_allow_user_mode_override', True))
+            navbar = normalize_navbar_config(navbar)
+            cleaned['navbar_config'] = navbar
+            cleaned['navbar_enabled'] = navbar.get('enabled', False)
+            cleaned['navbar_default_mode'] = navbar.get('default_mode', DEFAULT_NAVBAR_MODE)
+            cleaned['navbar_allow_user_mode_override'] = navbar.get('allow_user_mode_override', True)
         existing_email_config = normalize_email_config(getattr(self.instance, 'email_config', {}))
         email_features_enabled = bool(cleaned.get('public_registration_enabled') or cleaned.get('email_2fa'))
         email_fields_posted = any(
@@ -3331,6 +3458,7 @@ class SystemSettingsForm(forms.ModelForm):
         instance = super().save(commit=False)
         instance.is_configured = True
         instance.sidebar_config = self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []})
+        instance.navbar_config = self.cleaned_data.get('navbar_config', default_navbar_config())
         instance.email_config = self.cleaned_data.get('email_config', default_email_config())
         instance.system_names = self.cleaned_data.get('system_names', {})
         instance.languages = self.cleaned_data.get('languages', normalize_language_catalog())

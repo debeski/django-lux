@@ -28,6 +28,12 @@ MICROSYS_CONFIG = {
         "enable_reorder": True,
         "show_toolbar": True,
     },
+    "navbar": {
+        "enabled": False,
+        "default_mode": "hierarchy",
+        "allow_user_mode_override": True,
+        "hierarchy": {"nodes": []},
+    },
 }
 ```
 
@@ -37,6 +43,7 @@ Keep in mind:
 - runtime language and translation overrides can live in the database without deleting your code defaults
 - `sidebar.enable_reorder` controls whether end users can save their own sidebar order
 - `sidebar.show_toolbar` controls whether the runtime sidebar footer toolbar is rendered
+- `navbar` seeds the optional authenticated Nav Bar before System Settings edits its runtime hierarchy
 
 ## Themes and Sidebar Runtime Controls
 
@@ -59,6 +66,35 @@ For sidebar behavior defaults, the code-owned `MICROSYS_CONFIG["sidebar"]` layer
 - `collapse_mode`
 
 Those defaults are then layered with runtime System Settings edits in the normal configuration flow.
+
+## Nav Bar Hierarchy and Runtime Crumbs
+
+The optional Nav Bar is controlled from Step 4 in setup/System Settings. The developer enables it, picks the default `hierarchy` or `history` mode, chooses whether Options may expose a personal style override, and builds static hierarchy nodes from the discovered route catalog.
+
+The stored `navbar` block is normalized to this shape:
+
+```python
+{
+    "enabled": False,
+    "default_mode": "hierarchy",
+    "allow_user_mode_override": True,
+    "hierarchy": {"nodes": []},
+}
+```
+
+Route nodes inherit discovered translated route labels unless the hierarchy editor gives them language-specific label overrides. Manual hierarchy nodes are useful for shared grouping labels such as a section or tab family; a manual node with no URL renders as text rather than a broken link.
+
+Static route discovery cannot know an object title or the active tab for a dynamic page. For those views, pass `microsys_navbar_crumbs` in the template context:
+
+```python
+context["microsys_navbar_crumbs"] = [
+    {"label_key": "documents", "url": documents_url},
+    {"label": record.title, "url": record_url},
+    {"label": active_tab_label, "url": active_tab_url},
+]
+```
+
+Explicit runtime crumbs win over the System Settings hierarchy. If neither exists for the current route, Microsys falls back to `Root / Current View`. Microsys-owned system routes are grouped automatically under an unclickable `System` crumb instead of being placed from the hierarchy builder. History mode stores one browser-session path trail, resolves known route labels in the active interface language, ignores query-string-only route changes, and keeps six recent non-root entries.
 
 ### Sidebar Permission Enforcement
 
@@ -170,7 +206,7 @@ The file contains the stable DB-backed setup fields:
 - `languages`
 - `translations_override`
 - `home_url`
-- theme, density, security, sidebar, and titlebar settings
+- theme, density, security, sidebar, Nav Bar, and titlebar settings
 
 Logo and favicon values are exported as stored file names only. The JSON file does not embed binary media content, so those media files must already exist in the target environment if you want the imported file names to resolve.
 

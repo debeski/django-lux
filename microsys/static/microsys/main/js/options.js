@@ -172,6 +172,32 @@
         }
     }
 
+    function initNavbarModePicker() {
+        const picker = document.querySelector('[data-navbar-mode-picker]');
+        const options = picker ? Array.from(picker.querySelectorAll('[data-navbar-mode]')) : [];
+        if (!options.length) {
+            return;
+        }
+        const currentMode = (window.USER_PREFS && window.USER_PREFS.navbar_mode)
+            || getActiveOptionValue(options, 'data-navbar-mode', 'hierarchy');
+        updateActiveOption(options, 'data-navbar-mode', currentMode);
+        options.forEach((option) => {
+            option.addEventListener('click', () => {
+                const navbarMode = option.getAttribute('data-navbar-mode') === 'history' ? 'history' : 'hierarchy';
+                updateActiveOption(options, 'data-navbar-mode', navbarMode);
+                if (window.USER_PREFS) {
+                    window.USER_PREFS.navbar_mode = navbarMode;
+                }
+                if (window.setNavbarMode) {
+                    window.setNavbarMode(navbarMode);
+                }
+                if (window.updatePreferences) {
+                    window.updatePreferences({ navbar_mode: navbarMode });
+                }
+            });
+        });
+    }
+
     function clearPreferenceStorage(storageKey) {
         const keysToRemove = [];
         for (let index = 0; index < localStorage.length; index += 1) {
@@ -428,6 +454,7 @@
         initLanguagePicker();
         initFontPicker();
         initDensityPickers();
+        initNavbarModePicker();
         initResetDefaults(grid);
     });
 })();

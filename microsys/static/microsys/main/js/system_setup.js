@@ -967,6 +967,343 @@
         hiddenInput.value = JSON.stringify(nextConfig);
     }
 
+    function normalizeNavbarBuilderNode(rawNode) {
+        if (!rawNode || typeof rawNode !== 'object') {
+            return null;
+        }
+        const id = String(rawNode.id || '').trim();
+        if (!id) {
+            return null;
+        }
+        const kind = rawNode.kind === 'route' ? 'route' : 'manual';
+        const labels = {};
+        Object.entries(rawNode.labels || {}).forEach(([rawCode, rawLabel]) => {
+            const code = normalizeLanguageCode(rawCode);
+            const label = String(rawLabel || '').trim();
+            if (code && label) {
+                labels[code] = label;
+            }
+        });
+        const node = {
+            kind,
+            id,
+            children: (Array.isArray(rawNode.children) ? rawNode.children : [])
+                .map(normalizeNavbarBuilderNode)
+                .filter(Boolean),
+        };
+        if (Object.keys(labels).length) {
+            node.labels = labels;
+        }
+        const url = String(rawNode.url || '').trim();
+        if (url) {
+            node.url = url;
+        }
+        if (kind === 'route') {
+            node.url_name = String(rawNode.url_name || id).trim() || id;
+        }
+        return node;
+    }
+
+    function readNavbarBuilderConfig(rawConfig) {
+        const config = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
+        const hierarchy = config.hierarchy && typeof config.hierarchy === 'object' ? config.hierarchy : {};
+        return {
+            enabled: Boolean(config.enabled),
+            default_mode: config.default_mode === 'history' ? 'history' : 'hierarchy',
+            allow_user_mode_override: config.allow_user_mode_override !== false,
+            hierarchy: {
+                nodes: (Array.isArray(hierarchy.nodes) ? hierarchy.nodes : [])
+                    .map(normalizeNavbarBuilderNode)
+                    .filter(Boolean),
+            },
+        };
+    }
+
+    function syncNavbarBehaviorConfig(form) {
+        if (!form) {
+            return;
+        }
+        const hiddenInput = form.querySelector('input[name="navbar_config"]');
+        if (!hiddenInput) {
+            return;
+        }
+        const config = readNavbarBuilderConfig(parseJson(hiddenInput.value || '{}', {}));
+        config.enabled = readBooleanField(form, '#id_navbar_enabled', false);
+        config.default_mode = getNamedFieldValue(form, 'navbar_default_mode') === 'history' ? 'history' : 'hierarchy';
+        config.allow_user_mode_override = readBooleanField(form, '#id_navbar_allow_user_mode_override', true);
+        hiddenInput.value = JSON.stringify(config);
+    }
+
+    function initNavbarBuilder(builder) {
+        if (!builder || builder.dataset.navbarBuilderBound === 'true') {
+            return;
+        }
+        builder.dataset.navbarBuilderBound = 'true';
+
+        const form = builder.closest('form');
+        const hiddenInput = form ? form.querySelector('input[name="navbar_config"]') : null;
+        if (!form || !hiddenInput) {
+            return;
+        }
+
+        const catalog = parseJson(builder.querySelector('.ms-navbar-catalog-data')?.value || '[]', [])
+            .filter((entry) => entry && entry.kind === 'item' && entry.url_name && !entry.is_system);
+        const languages = parseJson(builder.querySelector('.ms-navbar-languages-data')?.value || '{}', {});
+        const state = {
+            config: readNavbarBuilderConfig(parseJson(hiddenInput.value || builder.querySelector('.ms-navbar-config-data')?.value || '{}', {})),
+            selectedId: '',
+            search: '',
+        };
+
+        const refs = {
+            tree: builder.querySelector('[data-navbar-tree]'),
+            routeList: builder.querySelector('[data-navbar-route-list]'),
+            routeSearch: builder.querySelector('[data-navbar-route-search]'),
+            inspector: builder.querySelector('[data-navbar-inspector]'),
+            inspectorEmpty: builder.querySelector('[data-navbar-inspector-empty]'),
+            labelInputs: builder.querySelector('[data-navbar-label-inputs]'),
+            urlInput: builder.querySelector('[data-navbar-node-url]'),
+        };
+
+        function findNode(nodes, id, parent, index) {
+            for (let nodeIndex = 0; nodeIndex < nodes.length; nodeIndex += 1) {
+                const node = nodes[nodeIndex];
+                if (node.id === id) {
+                    return { node, parent: parent || nodes, index: index === undefined ? nodeIndex : index };
+                }
+                const childLocation = findNode(node.children || [], id);
+                if (childLocation) {
+                    return childLocation;
+                }
+            }
+            return null;
+        }
+
+        function catalogEntry(urlName) {
+            return catalog.find((entry) => entry.url_name === urlName);
+        }
+
+        function nodeLabel(node) {
+            const configuredLabel = Object.values(node.labels || {}).find((label) => String(label || '').trim());
+            if (configuredLabel) {
+                return configuredLabel;
+            }
+            const route = node.kind === 'route' ? catalogEntry(node.url_name) : null;
+            return String((route && route.label) || node.id || '').trim();
+        }
+
+        function serialize() {
+            state.config.enabled = readBooleanField(form, '#id_navbar_enabled', false);
+            state.config.default_mode = getNamedFieldValue(form, 'navbar_default_mode') === 'history' ? 'history' : 'hierarchy';
+            state.config.allow_user_mode_override = readBooleanField(form, '#id_navbar_allow_user_mode_override', true);
+            hiddenInput.value = JSON.stringify(state.config);
+        }
+
+        function selectNode(id) {
+            state.selectedId = id || '';
+            renderAll();
+        }
+
+        function appendNode(node) {
+            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
+            const parent = selected ? selected.node.children : state.config.hierarchy.nodes;
+            parent.push(node);
+            selectNode(node.id);
+        }
+
+        function createTreeNode(node) {
+            const shell = document.createElement('div');
+            shell.className = 'ms-navbar-node';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `ms-navbar-node__surface${state.selectedId === node.id ? ' is-active' : ''}`;
+            button.innerHTML = `
+                <span class="ms-navbar-node__label">
+                    <i class="bi ${node.kind === 'route' ? 'bi-link-45deg' : 'bi-folder2-open'}"></i>
+                    <span>${escapeHtml(nodeLabel(node))}</span>
+                </span>
+                <small>${escapeHtml(node.kind === 'route' ? node.url_name : t('navbar_manual_node', ''))}</small>
+            `;
+            button.addEventListener('click', () => selectNode(node.id));
+            shell.appendChild(button);
+            if ((node.children || []).length) {
+                const children = document.createElement('div');
+                children.className = 'ms-navbar-node__children';
+                node.children.forEach((child) => children.appendChild(createTreeNode(child)));
+                shell.appendChild(children);
+            }
+            return shell;
+        }
+
+        function renderTree() {
+            refs.tree.innerHTML = '';
+            state.config.hierarchy.nodes.forEach((node) => refs.tree.appendChild(createTreeNode(node)));
+            if (!refs.tree.children.length) {
+                refs.tree.innerHTML = `<p class="text-muted small mb-0">${t('navbar_empty_tree', '')}</p>`;
+            }
+        }
+
+        function routeMatches(entry) {
+            const needle = state.search.toLowerCase();
+            if (!needle) {
+                return true;
+            }
+            return [entry.label, entry.url_name, entry.group_label]
+                .some((value) => String(value || '').toLowerCase().includes(needle));
+        }
+
+        function renderRoutes() {
+            refs.routeList.innerHTML = '';
+            const groups = {};
+            catalog.filter(routeMatches).forEach((entry) => {
+                const key = entry.group_label || entry.group_key || t('navbar_routes', '');
+                groups[key] = groups[key] || [];
+                groups[key].push(entry);
+            });
+            Object.entries(groups).forEach(([groupLabel, entries]) => {
+                const group = document.createElement('section');
+                group.className = 'ms-navbar-route-group';
+                group.innerHTML = `<h6>${escapeHtml(groupLabel)}</h6>`;
+                entries.forEach((entry) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'ms-navbar-route';
+                    button.innerHTML = `
+                        <span>${escapeHtml(entry.label)}</span>
+                        <small>${escapeHtml(entry.url_name)}</small>
+                    `;
+                    button.addEventListener('click', () => appendNode({
+                        kind: 'route',
+                        id: entry.url_name,
+                        url_name: entry.url_name,
+                        children: [],
+                    }));
+                    group.appendChild(button);
+                });
+                refs.routeList.appendChild(group);
+            });
+            if (!refs.routeList.children.length) {
+                refs.routeList.innerHTML = `<p class="text-muted small mb-0">${t('navbar_no_routes', '')}</p>`;
+            }
+        }
+
+        function languageRows(node) {
+            const languageEntries = Object.entries(languages && typeof languages === 'object' ? languages : {});
+            return languageEntries.length ? languageEntries : [['en', { name: 'en' }]];
+        }
+
+        function renderInspector() {
+            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
+            refs.inspector.classList.toggle('d-none', !selected);
+            refs.inspectorEmpty.classList.toggle('d-none', Boolean(selected));
+            if (!selected) {
+                return;
+            }
+            const node = selected.node;
+            refs.urlInput.value = node.url || '';
+            refs.labelInputs.innerHTML = '';
+            languageRows(node).forEach(([code, payload]) => {
+                const field = document.createElement('label');
+                field.className = 'form-label ms-navbar-label-field';
+                field.innerHTML = `
+                    <span>${escapeHtml((payload && payload.name) || code)} <small>${escapeHtml(code)}</small></span>
+                    <input type="text" class="form-control glass-input" value="${escapeHtml((node.labels || {})[code] || '')}"
+                           placeholder="${escapeHtml(node.kind === 'route' ? t('navbar_route_label_fallback', '') : t('navbar_manual_label_placeholder', ''))}">
+                `;
+                field.querySelector('input').addEventListener('input', (event) => {
+                    node.labels = node.labels || {};
+                    const value = String(event.target.value || '').trim();
+                    if (value) {
+                        node.labels[code] = value;
+                    } else {
+                        delete node.labels[code];
+                    }
+                    if (!Object.keys(node.labels).length) {
+                        delete node.labels;
+                    }
+                    serialize();
+                    renderTree();
+                });
+                refs.labelInputs.appendChild(field);
+            });
+        }
+
+        function renderAll() {
+            serialize();
+            renderTree();
+            renderRoutes();
+            renderInspector();
+        }
+
+        function addManualNode() {
+            appendNode({
+                kind: 'manual',
+                id: `manual-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+                children: [],
+            });
+        }
+
+        function moveSelected(delta) {
+            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
+            if (!selected) {
+                return;
+            }
+            const nextIndex = selected.index + delta;
+            if (nextIndex < 0 || nextIndex >= selected.parent.length) {
+                return;
+            }
+            selected.parent.splice(selected.index, 1);
+            selected.parent.splice(nextIndex, 0, selected.node);
+            renderAll();
+        }
+
+        refs.routeSearch.addEventListener('input', () => {
+            state.search = refs.routeSearch.value || '';
+            renderRoutes();
+        });
+        refs.urlInput.addEventListener('input', () => {
+            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
+            if (!selected) {
+                return;
+            }
+            const value = String(refs.urlInput.value || '').trim();
+            if (value) {
+                selected.node.url = value;
+            } else {
+                delete selected.node.url;
+            }
+            serialize();
+        });
+        builder.querySelector('[data-navbar-add-manual]')?.addEventListener('click', addManualNode);
+        builder.querySelector('[data-navbar-move-up]')?.addEventListener('click', () => moveSelected(-1));
+        builder.querySelector('[data-navbar-move-down]')?.addEventListener('click', () => moveSelected(1));
+        builder.querySelector('[data-navbar-move-root]')?.addEventListener('click', () => {
+            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
+            if (!selected || selected.parent === state.config.hierarchy.nodes) {
+                return;
+            }
+            selected.parent.splice(selected.index, 1);
+            state.config.hierarchy.nodes.push(selected.node);
+            renderAll();
+        });
+        builder.querySelector('[data-navbar-remove-node]')?.addEventListener('click', () => {
+            const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
+            if (!selected) {
+                return;
+            }
+            selected.parent.splice(selected.index, 1);
+            state.selectedId = '';
+            renderAll();
+        });
+        hiddenInput.addEventListener('change', () => {
+            state.config = readNavbarBuilderConfig(parseJson(hiddenInput.value || '{}', {}));
+            state.selectedId = '';
+            renderAll();
+        });
+
+        renderAll();
+    }
+
     function applyTitlebarPreview(form) {
         const titlebar = document.querySelector('.titlebar');
         if (!titlebar) {
@@ -2740,6 +3077,17 @@
             setNamedFieldValue(form, 'sidebar_collapse_mode', sidebar.collapse_mode || 'icons');
         }
 
+        const navbar = settings.navbar_config && typeof settings.navbar_config === 'object' ? settings.navbar_config : null;
+        if (navbar) {
+            setJsonField(form, 'navbar_config', navbar);
+            setCheckboxField(form, 'navbar_enabled', navbar.enabled === true);
+            setCheckboxField(form, 'navbar_allow_user_mode_override', navbar.allow_user_mode_override !== false);
+            setNamedFieldValue(form, 'navbar_default_mode', navbar.default_mode === 'history' ? 'history' : 'hierarchy');
+            getNamedFieldInputs(form, 'navbar_default_mode').forEach((field) => {
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+
         const titlebar = settings.titlebar_config && typeof settings.titlebar_config === 'object' ? settings.titlebar_config : null;
         if (titlebar) {
             setCheckboxField(form, 'titlebar_show_title', titlebar.show_title !== false);
@@ -3117,6 +3465,36 @@
         });
     }
 
+    function initNavbarBehaviorOptions(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.navbarBehaviorBound === 'true') {
+                return;
+            }
+            const enabledToggle = form.querySelector('#id_navbar_enabled');
+            const dependentSection = form.querySelector('[data-navbar-dependent]');
+            const hiddenInput = form.querySelector('input[name="navbar_config"]');
+            if (!enabledToggle || !dependentSection || !hiddenInput) {
+                return;
+            }
+            form.dataset.navbarBehaviorBound = 'true';
+
+            function syncNavbarAvailability() {
+                dependentSection.classList.toggle('d-none', !enabledToggle.checked);
+                dependentSection.setAttribute('aria-hidden', enabledToggle.checked ? 'false' : 'true');
+                syncNavbarBehaviorConfig(form);
+            }
+
+            enabledToggle.addEventListener('change', syncNavbarAvailability);
+            form.querySelector('#id_navbar_allow_user_mode_override')?.addEventListener('change', () => {
+                syncNavbarBehaviorConfig(form);
+            });
+            getNamedFieldInputs(form, 'navbar_default_mode').forEach((field) => {
+                field.addEventListener('change', () => syncNavbarBehaviorConfig(form));
+            });
+            syncNavbarAvailability();
+        });
+    }
+
     function syncSidebarToolbarWarningFallback(form) {
         if (!form || !form.classList || !form.classList.contains('ms-system-setup-form')) {
             return;
@@ -3384,6 +3762,7 @@
         restoreSetupFormState(root);
         initSetupHomeFields(root);
         root.querySelectorAll('.ms-setup-builder').forEach(initBuilder);
+        root.querySelectorAll('[data-navbar-builder]').forEach(initNavbarBuilder);
         initLanguageCatalogEditor(root);
         initTranslationMatrixEditor(root);
         initSystemSetupEnterBehavior(root);
@@ -3395,6 +3774,7 @@
         initSetupTableDensityPicker(root);
         initSetupSidebarDensityPicker(root);
         initSidebarBehaviorOptions(root);
+        initNavbarBehaviorOptions(root);
         root.querySelectorAll('form.ms-system-setup-form').forEach(syncSidebarToolbarWarningFallback);
         initEmailDeliveryOptions(root);
         initPublicRegistrationOptions(root);
@@ -3431,8 +3811,10 @@
                     node.matches && (
                         node.matches('form.ms-system-setup-form') ||
                         node.matches('.ms-setup-builder') ||
+                        node.matches('[data-navbar-builder]') ||
                         node.matches('[data-ms-selector]') ||
                         node.querySelector('.ms-setup-builder') ||
+                        node.querySelector('[data-navbar-builder]') ||
                         node.querySelector('form.ms-system-setup-form') ||
 	                        node.querySelector('[data-ms-selector]') ||
 	                        node.querySelector('[data-language-catalog-editor]') ||
