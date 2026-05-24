@@ -61,6 +61,7 @@ class Command(BaseCommand):
         self.stdout.write(f"home_url: {instance.home_url or ''}")
         self.stdout.write(f"default_language: {instance.default_language or ''}")
         self.stdout.write(f"default_theme: {instance.default_theme or ''}")
+        self.stdout.write(f"prevent_multiple_active_sessions: {bool(getattr(instance, 'prevent_multiple_active_sessions', False))}")
         self.stdout.write(f"sidebar_enabled: {bool((instance.sidebar_config or {}).get('enabled', True))}")
         self.stdout.write(f"navbar_enabled: {bool((instance.navbar_config or {}).get('enabled', False))}")
 

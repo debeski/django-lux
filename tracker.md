@@ -30,6 +30,7 @@
 - Shared enabled `.form-switch` controls now expose a pointer cursor; Options reorder handles use enabled-handle cursor selectors specific enough to keep both button surface and grip icon on grab/grabbing over Bootstrap's enabled-button pointer rule.
 - Profile confirm-password modals submit the same confirmation path from Enter, keep password-protected Profile actions open through their JSON password check, and render current-password errors inline while the input is corrected.
 - Profile activity grouping treats virtual session-revoke logs as System Interactions.
+- Step 3 Access & Security now includes `prevent_multiple_active_sessions`; trusted devices are managed through shared `microsys.trust` helpers, Profile can trust the current device after current-password confirmation, and untrusted sessions cannot revoke trusted sessions.
 - System Settings single-step modal POSTs preserve omitted Step 7 values server-side. Step resolver accepts modal wizard steps `0..6`.
 - Current translation contract from code, docs, and `dhub` runtime inspection:
   - app-local sources are installed app `translations.py` modules exposing `MS_TRANSLATIONS`,
@@ -114,6 +115,7 @@
     - [ ] Options card order persistence, System Info placement, autofill/reset, selector widgets, and theme persistence.
     - [ ] Pre-setup mounted-project guard for anonymous, superuser, and non-superuser requests.
     - [ ] POST-only 2FA setup, verify, resend, disable, backup-code, and trusted-device/session UX.
+    - [ ] Browser-check Step 3 `Prevent multiple active sessions`, Profile trust-current-device action, trusted-session eviction, and untrusted-session protected revoke messaging.
     - [ ] Staff-tier create/edit/profile/detail/manage-table surfaces and user-hub mobile toolbar wrap.
   - Priority 2:
     - [ ] Run generated-project validation for `python -m microsys startproject`.
@@ -156,12 +158,13 @@
     - [x] Rehydrated the visible sidebar matrix after manual setup import so imported `sidebar_config` appears immediately, matching the hidden JSON that already saved correctly.
     - [x] Added `microsys_settings` management command for System Settings singleton status, configure/unconfigure, guarded delete/reset, and JSON export/import.
     - [x] Hardened manual setup import preview for direct config aliases and explicit sidebar-builder import rehydration after the user still saw an empty sidebar matrix.
+    - [x] Added trusted-session precedence with Profile trust-current-device, Step 3 single-active-session enforcement, generic trust helpers, translations, docs, and focused tests.
 
 ### One-line info about last verified Tests:
-- `2026-05-24`: `MicrosysDefaultRouteTests` 99 passed and `git diff --check` passed after hardening manual import preview aliases/sidebar rehydration.
+- `2026-05-24`: `MicrosysDefaultRouteTests` 99 passed, focused `TwoFactorSecurityViewTests` + `ProfileSessionDeviceTests` 39 passed, `compileall microsys` passed, and `git diff --check` passed after trusted-session precedence work.
 
 ### One-line info about last time edited Docs:
-- `2026-05-24`: updated changelog/reference/features docs for `microsys_settings` plus existing setup import/export notes.
+- `2026-05-24`: updated v2.2.4 changelog to include trusted-session migration/config coverage and the new shared `microsys.trust` helper layer.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

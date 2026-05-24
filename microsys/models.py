@@ -148,6 +148,8 @@ class SingletonModel(models.Model):
                     obj.navbar_config = config.get('navbar')
                 if hasattr(obj, 'email_2fa') and 'email_2fa' in config:
                     obj.email_2fa = bool(config.get('email_2fa'))
+                if hasattr(obj, 'prevent_multiple_active_sessions') and 'prevent_multiple_active_sessions' in config:
+                    obj.prevent_multiple_active_sessions = bool(config.get('prevent_multiple_active_sessions'))
                 if hasattr(obj, 'public_root') and 'public_root' in config:
                     obj.public_root = bool(config.get('public_root'))
                 if hasattr(obj, 'public_root_split_enabled') and 'public_root_split_enabled' in config:
@@ -213,6 +215,7 @@ class SystemSettings(SingletonModel):
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="Sidebar Configuration")
     navbar_config = models.JSONField(default=default_navbar_config, blank=True, verbose_name="Nav Bar Configuration")
     titlebar_config = models.JSONField(default=default_titlebar_config, blank=True, verbose_name="Titlebar Configuration")
+    prevent_multiple_active_sessions = models.BooleanField(default=False, verbose_name="Prevent Multiple Active Sessions")
 
     class Meta:
         verbose_name = "System Settings"

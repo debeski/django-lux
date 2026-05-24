@@ -1722,6 +1722,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'allow_user_language_override',
     'default_table_density',
     'email_2fa',
+    'prevent_multiple_active_sessions',
     'client_ip_config',
     'public_root',
     'public_root_split_enabled',
@@ -1862,6 +1863,7 @@ def normalize_system_settings_import_payload(payload):
         'allow_user_font_override',
         'allow_user_language_override',
         'email_2fa',
+        'prevent_multiple_active_sessions',
         'public_root',
         'public_root_split_enabled',
         'public_registration_enabled',
@@ -1982,6 +1984,7 @@ def get_system_config():
         'allow_user_language_override': True,
         'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
+        'prevent_multiple_active_sessions': False,
         'client_ip': default_client_ip_config(),
         'public_root': False,
         'public_root_split_enabled': False,
@@ -2105,6 +2108,14 @@ def get_system_config():
             and _should_apply_db_override(bool(sys_settings.email_2fa), default_config['email_2fa'])
         ):
             db_config['email_2fa'] = bool(sys_settings.email_2fa)
+        if (
+            hasattr(sys_settings, 'prevent_multiple_active_sessions')
+            and _should_apply_db_override(
+                bool(sys_settings.prevent_multiple_active_sessions),
+                default_config['prevent_multiple_active_sessions'],
+            )
+        ):
+            db_config['prevent_multiple_active_sessions'] = bool(sys_settings.prevent_multiple_active_sessions)
         client_ip_config = normalize_client_ip_config(getattr(sys_settings, 'client_ip_config', {}))
         if _should_apply_db_override(client_ip_config, default_config['client_ip']):
             db_config['client_ip'] = client_ip_config

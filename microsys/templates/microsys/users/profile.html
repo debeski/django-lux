@@ -305,10 +305,23 @@
                                     </div>
                                     <div class="profile-session-action">
                                         {% if session.is_current %}
-                                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" disabled>
-                                                {{ MS_TRANS.current }}
-                                            </button>
-                                        {% else %}
+                                            {% if session.is_trusted %}
+                                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" disabled>
+                                                    {{ MS_TRANS.current }}
+                                                </button>
+                                            {% else %}
+                                                <form method="post"
+                                                      action="{% url 'trust_current_device' %}"
+                                                      class="profile-session-trust-form"
+                                                      data-confirm-msg="{{ MS_TRANS.msg_confirm_trust_current_device }}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="current_password" value="">
+                                                    <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill">
+                                                        <i class="bi bi-shield-plus me-1"></i>{{ MS_TRANS.trust_this_device }}
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                        {% elif session.can_revoke %}
                                             <form method="post"
                                                   action="{% url 'revoke_profile_session' session.session_key %}"
                                                   class="profile-session-revoke-form"
@@ -319,6 +332,13 @@
                                                     <i class="bi bi-box-arrow-right me-1"></i>{{ MS_TRANS.sign_out }}
                                                 </button>
                                             </form>
+                                        {% else %}
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-secondary rounded-pill"
+                                                    data-ms-tooltip="{{ MS_TRANS.session_revoke_trusted_denied }}"
+                                                    disabled>
+                                                <i class="bi bi-shield-lock me-1"></i>{{ MS_TRANS.protected }}
+                                            </button>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -635,5 +655,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{% static 'microsys/users/js/profile_2fa.js' %}?v=20260522b" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% static 'microsys/users/js/profile_2fa.js' %}?v=20260524a" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

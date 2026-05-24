@@ -15,6 +15,13 @@ from django.views.decorators.http import require_POST
 # Project imports
 from django.utils.module_loading import import_string
 from ..guards import require_current_password
+from ..trust import (
+    current_session_trusted_device,
+    enforce_single_active_trusted_session,
+    issue_trusted_device,
+    revoke_linked_session_trust,
+    trusted_device_for_session,
+)
 from ..utils import get_client_ip, get_user_management_tier_state_for_user, log_user_action
 from ..translations import get_strings
 from .twofa import get_2fa_config
@@ -164,7 +171,12 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
             'trusted_until': trusted_device.trusted_until if trusted_device is not None else None,
         })
 
-    return sorted(sessions, key=lambda item: (not item['is_current'], -(item['last_seen'] or item['expire_date']).timestamp()))
+    sessions = sorted(sessions, key=lambda item: (not item['is_current'], -(item['last_seen'] or item['expire_date']).timestamp()))
+    current_is_trusted = any(item['is_current'] and item['is_trusted'] for item in sessions)
+    for item in sessions:
+        item['is_revoke_protected'] = bool(item['is_trusted'] and not item['is_current'] and not current_is_trusted)
+        item['can_revoke'] = bool(not item['is_current'] and not item['is_revoke_protected'])
+    return sessions
 
 
 # Profile View — Displays user profile with stats, activity timeline, and password change
@@ -364,19 +376,22 @@ def revoke_profile_session(request, session_key):
     is_current_session = session_key == request.session.session_key
     metadata = decoded.get('microsys_device') if isinstance(decoded.get('microsys_device'), dict) else {}
     trusted_device_id = metadata.get('trusted_device_id')
+    target_trusted_device = trusted_device_for_session(request.user, session_key, decoded)
+    if target_trusted_device is not None and current_session_trusted_device(request) is None:
+        message = get_strings().get('session_revoke_trusted_denied')
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': message}, status=403)
+        messages.error(request, message, fail_silently=True)
+        return redirect('user_profile')
+
     target_session.delete()
-    trusted_devices = apps.get_model('microsys', 'TrustedDevice').objects.filter(
-        user=request.user,
-        revoked_at__isnull=True,
-    )
+    trusted_device_ids = []
     if trusted_device_id is not None:
         try:
-            trusted_devices = trusted_devices.filter(pk=int(trusted_device_id))
+            trusted_device_ids.append(int(trusted_device_id))
         except (TypeError, ValueError):
-            trusted_devices = trusted_devices.none()
-    else:
-        trusted_devices = trusted_devices.filter(session_key=session_key)
-    trusted_devices.update(revoked_at=timezone.now())
+            pass
+    revoke_linked_session_trust(request.user, [session_key], trusted_device_ids=trusted_device_ids)
     log_user_action(request, "DELETE", instance=request.user, model_name="session", number=session_key[:8])
 
     success_message = get_strings().get('session_revoked_success', 'Session signed out.')
@@ -395,3 +410,32 @@ def revoke_profile_session(request, session_key):
         logout(request)
         return redirect('login')
     return redirect('user_profile')
+
+
+@login_required
+@require_POST
+def trust_current_device(request):
+    if failure_response := require_current_password(request):
+        return failure_response
+
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+    trusted_device = current_session_trusted_device(request)
+    success_message = get_strings().get('trusted_device_added_success')
+
+    if is_ajax:
+        response = JsonResponse({
+            'status': 'success',
+            'message': success_message,
+            'redirect_url': reverse('user_profile'),
+        })
+    else:
+        messages.success(request, success_message, fail_silently=True)
+        response = redirect('user_profile')
+
+    if trusted_device is None:
+        trusted_device = issue_trusted_device(request, response, request.user)
+        log_user_action(request, "CREATE", instance=request.user, model_name="trusted device")
+    else:
+        enforce_single_active_trusted_session(request, request.user, trusted_device)
+
+    return response

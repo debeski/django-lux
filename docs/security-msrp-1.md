@@ -46,7 +46,9 @@ authorization decision.
   delivered on login to reduce challenge friction.
 - Profile session revocation is POST-only and restricted to sessions belonging
   to the current authenticated user. "Trusted" status can be applied to a session
-  for 30 days to bypass 2FA challenges on the same browser.
+  for 30 days to bypass 2FA challenges on the same browser, and untrusted
+  sessions cannot revoke trusted sessions. When configured, a newly trusted
+  session can revoke every other active session for that user.
 - Client IP resolution is centralized and configurable (direct, header, or
   proxy-aware) to ensure security logs and throttles remain accurate across
   varied deployment environments.

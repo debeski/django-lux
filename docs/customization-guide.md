@@ -15,6 +15,7 @@ MICROSYS_CONFIG = {
     "default_language": "en",
     "default_theme": "light",
     "home_url": "/accounts/profile/",
+    "prevent_multiple_active_sessions": False,
     "languages": {
         "ar": {"name": "العربية", "dir": "rtl", "flag": "🇱🇾"},
         "en": {"name": "English", "dir": "ltr", "flag": "🇬🇧"},

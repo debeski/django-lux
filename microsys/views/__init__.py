@@ -62,7 +62,7 @@ from .activitylog import (
 )
 
 # Profile
-from .profile import revoke_profile_session, user_profile
+from .profile import revoke_profile_session, trust_current_device, user_profile
 
 # Public registration
 from .registration import (

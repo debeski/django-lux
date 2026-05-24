@@ -15,6 +15,7 @@ urlpatterns = [
     path('accounts/register/verify/<str:token>/', views.register_verify_view, name='register_verify'),
     path('accounts/profile/', views.user_profile, name='user_profile'),
     path('accounts/profile/sessions/<str:session_key>/revoke/', views.revoke_profile_session, name='revoke_profile_session'),
+    path('accounts/profile/device/trust/', views.trust_current_device, name='trust_current_device'),
     path('accounts/profile/edit/<str:pk>/modal/', views.DynamicModalManagerView.as_view(
         model=views.User,
         form_class=views.UserProfileEditForm,

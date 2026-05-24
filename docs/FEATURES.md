@@ -166,7 +166,7 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 | **Email 2FA** | OTP sent via Microsys email delivery, configurable in System Setup/System Settings; supports auto-send on login and 120s resend cooldown |
 | **TOTP (App)** | QR code generation, pyotp-based verification |
 | **Backup Codes** | 8x8-digit codes, hashed storage, generation/regeneration |
-| **Trusted Devices** | 30-day browser trust for 2FA-verified sessions to skip subsequent challenges |
+| **Trusted Devices** | 30-day browser trust for 2FA-verified or Profile-confirmed sessions, with trusted-session precedence |
 
 **2FA Flows:**
 - Unified login challenge accepts app codes, explicitly requested email OTPs, and backup codes
@@ -178,6 +178,7 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - Backup code verification with usage tracking
 - Destructive profile security actions such as 2FA disable, backup-code regeneration, and session revocation require current-password confirmation
 - Trusted device status is managed per-session from the profile page with immediate revocation support
+- Optional single active trusted-session enforcement can force out every other active session when a new trusted session connects
 
 ### Public Registration Playground
 - Disabled by default and SMTP-gated in setup/System Settings

@@ -203,10 +203,10 @@ microSYS provides multiple layers of authentication security.
 
 - **Email 2FA**: If enabled, the system will send a one-time password (OTP) to the user's registered email during login. Admins must ensure a working **Email Delivery Path** is configured.
 - **Authenticator App (TOTP)**: Users can link an app like Google Authenticator for code-based 2FA.
-- **Trusted Devices**: During 2FA verification, users can check "Trust this device for 30 days". 
-    - Admins can view and revoke these trust records from the user's profile in the **Signed-in Devices** card.
-    - Revoking a device trust forces the user to complete a 2FA challenge on their next login from that browser.
-    - Revoking a session immediately logs the user out from that device.
+- **Trusted Devices**: During 2FA verification, users can check "Trust this device for 30 days", and users may also trust the current browser from the Profile **Signed-in Devices** card after confirming their password.
+    - Trusted sessions take precedence over untrusted sessions. An untrusted current session cannot sign out a trusted session from Profile.
+    - Step 3 / Access & Security includes **Prevent multiple active sessions**. When enabled, a newly trusted session signs out every other active session for the same user.
+    - Revoking a device trust forces the user to complete a 2FA challenge on their next login from that browser, and revoking a session immediately logs the user out from that device.
 
 ## Themes, Languages, and Home URL
 

@@ -1616,6 +1616,10 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=False,
     )
+    prevent_multiple_active_sessions = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
     client_ip_config = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -1675,6 +1679,7 @@ class SystemSettingsForm(forms.ModelForm):
             'allow_user_language_override',
             'default_table_density',
             'email_2fa',
+            'prevent_multiple_active_sessions',
             'client_ip_config',
             'public_root',
             'public_root_split_enabled',
@@ -1955,6 +1960,8 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_email_2fa',
             'Allow users to enable two-factor authentication via email. Requires Microsys email delivery to be ready.',
         )
+        self.fields['prevent_multiple_active_sessions'].label = s.get('form_sys_prevent_multiple_active_sessions')
+        self.fields['prevent_multiple_active_sessions'].help_text = s.get('help_sys_prevent_multiple_active_sessions')
         self.fields['client_ip_mode'].label = s.get('form_sys_client_ip_mode')
         self.fields['client_ip_mode'].help_text = s.get('help_sys_client_ip_mode')
         self.fields['client_ip_mode'].choices = (
@@ -2325,6 +2332,10 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['email_2fa'] = bool(
             getattr(self.instance, 'email_2fa', False)
             or config.get('email_2fa', False)
+        )
+        self.initial['prevent_multiple_active_sessions'] = bool(
+            getattr(self.instance, 'prevent_multiple_active_sessions', False)
+            or config.get('prevent_multiple_active_sessions', False)
         )
         initial_client_ip_config = normalize_client_ip_config(
             (
@@ -2721,6 +2732,7 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
                     build_settings_toggle_field(self, 'email_2fa', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'prevent_multiple_active_sessions', css_class='col-lg-12'),
                     css_class='g-3 mb-3',
                 ),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title')}</h6>"),
@@ -3071,6 +3083,17 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Invalid table density choice.")
         return value
 
+    def clean_prevent_multiple_active_sessions(self):
+        if (
+            self.is_bound
+            and self.mode != 'setup'
+            and self.single_step_mode
+            and self.single_step_index != 2
+            and 'prevent_multiple_active_sessions' not in self.data
+        ):
+            return bool(getattr(self.instance, 'prevent_multiple_active_sessions', False))
+        return bool(self.cleaned_data.get('prevent_multiple_active_sessions', False))
+
     def clean_sidebar_density(self):
         value = self.cleaned_data.get('sidebar_density') or DEFAULT_SIDEBAR_DENSITY
         if value not in SIDEBAR_DENSITY_VALUES:
@@ -3247,6 +3270,7 @@ class SystemSettingsForm(forms.ModelForm):
             'allow_user_language_override',
             'default_table_density',
             'email_2fa',
+            'prevent_multiple_active_sessions',
             'client_ip_config',
             'public_root',
             'public_root_split_enabled',
@@ -3495,6 +3519,7 @@ class SystemSettingsForm(forms.ModelForm):
             'allow_user_language_override': bool(self.cleaned_data.get('allow_user_language_override', True)),
             'default_table_density': self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),
             'email_2fa': bool(self.cleaned_data.get('email_2fa', False)),
+            'prevent_multiple_active_sessions': bool(self.cleaned_data.get('prevent_multiple_active_sessions', False)),
             'client_ip_config': self.cleaned_data.get('client_ip_config', default_client_ip_config()),
             'public_root': bool(self.cleaned_data.get('public_root', False)),
             'public_root_split_enabled': bool(self.cleaned_data.get('public_root_split_enabled', False)),

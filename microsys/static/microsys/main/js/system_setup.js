@@ -3209,7 +3209,7 @@
             }
         });
 
-        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'public_root', 'public_root_split_enabled', 'public_registration_enabled', 'registration_throttle_enabled'].forEach((name) => {
+        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'prevent_multiple_active_sessions', 'public_root', 'public_root_split_enabled', 'public_registration_enabled', 'registration_throttle_enabled'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setCheckboxField(form, name, settings[name]);
             }

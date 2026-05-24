@@ -29,9 +29,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.body.addEventListener('submit', function(e) {
         const revokeForm = e.target.closest('.profile-session-revoke-form');
-        if (!revokeForm) return;
-        e.preventDefault();
-        confirmSessionRevoke(revokeForm);
+        if (revokeForm) {
+            e.preventDefault();
+            confirmSessionRevoke(revokeForm);
+            return;
+        }
+
+        const trustForm = e.target.closest('.profile-session-trust-form');
+        if (trustForm) {
+            e.preventDefault();
+            confirmSessionTrust(trustForm);
+        }
     });
 
     if (otpSetupForm) {
@@ -598,6 +606,41 @@ function handleBackupCodes(e) {
 
 function confirmSessionRevoke(form) {
     const confirmMsg = form.dataset.confirmMsg || 'Are you sure?';
+    const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    const submitButton = form.querySelector('button[type="submit"]');
+
+    showConfirmation({
+        message: confirmMsg,
+        requirePassword: true,
+        onConfirm: function(currentPassword) {
+            const body = new URLSearchParams(new FormData(form));
+            body.set('current_password', currentPassword);
+            setButtonLoading(submitButton, true);
+
+            return fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body.toString()
+            })
+            .then(parseJsonResponse)
+            .then(data => {
+                if (data.status !== 'success') {
+                    throw new Error(data.message || 'Request failed.');
+                }
+                window.location.assign(data.redirect_url || window.location.href);
+                return true;
+            })
+            .finally(() => setButtonLoading(submitButton, false));
+        }
+    });
+}
+
+function confirmSessionTrust(form) {
+    const confirmMsg = form.dataset.confirmMsg || '';
     const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
     const submitButton = form.querySelector('button[type="submit"]');
 

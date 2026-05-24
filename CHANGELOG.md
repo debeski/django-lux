@@ -4,6 +4,11 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.2.5
+
+- **Trusted Session Precedence**: Added a Step 3 `Prevent multiple active sessions` security toggle, including DB migration, `MICROSYS_CONFIG`, setup import/export, and `microsys_settings` coverage. Trusted sessions can now be created from Profile through a current-password-confirmed `Trust This Device` action as well as from 2FA, a newly trusted session can force out all other sessions when the toggle is enabled, and untrusted sessions can no longer revoke trusted sessions from Profile.
+- **Trusted Device Helper Layer**: Centralized trusted-device cookies, token hashing, session metadata sync, trust lookup, trust issuance, linked trust revocation, and single-active-session enforcement in a shared `microsys.trust` module while keeping the existing 2FA helper entrypoints compatible.
+
 ## v2.2.4
 
 - **Optional Nav Bar**: Added a System Settings-owned authenticated Nav Bar with hierarchy and browser-session history styles, a visual hierarchy editor with translated manual nodes, an allowed Options style override, and a runtime `microsys_navbar_crumbs` hook for dynamic record or tab crumbs. Follow-up polish keeps one browser-session history trail with language-aware labels, hides Microsys system routes from the hierarchy builder, wraps system views under an unclickable `System` crumb, keeps URL-backed hierarchy crumbs clickable, avoids generic `index` leaf collisions with app index nodes, removes the Nav Bar background smudge, separates Nav Bar setup into its own Step 5 after Sidebar, and can seed an enabled empty first-launch Nav Bar tree from configured sidebar accordions.

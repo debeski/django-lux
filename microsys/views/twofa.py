@@ -1,12 +1,10 @@
 # Fundemental imports
 import base64
-import hashlib
 import logging
 import os
 import secrets
 import string
 import time
-from datetime import timedelta
 from io import BytesIO
 
 try:
@@ -26,10 +24,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password, identify_hasher, make_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.core.signing import BadSignature
 from django.core.validators import validate_email
 from django.db import DatabaseError
-from django.apps import apps
 from django.http import JsonResponse
 from django.shortcuts import redirect, render, resolve_url
 from django.utils import timezone
@@ -42,6 +38,17 @@ from django.views.decorators.http import require_POST
 from ..constants import DEFAULT_HOME_URL
 from ..guards import require_current_password
 from ..translations import get_strings
+from ..trust import (
+    TRUSTED_DEVICE_COOKIE_NAME,
+    TRUSTED_DEVICE_COOKIE_SALT,
+    TRUSTED_DEVICE_MAX_AGE,
+    device_label as trust_device_label,
+    get_trusted_device_for_login as trust_get_trusted_device_for_login,
+    issue_trusted_device,
+    sync_session_device_metadata,
+    trusted_device_model,
+    trusted_device_token_hash,
+)
 from ..utils import get_client_ip, get_profile_totp_secret, get_system_config, send_microsys_mail, set_profile_totp_state
 
 User = get_user_model()
@@ -51,9 +58,6 @@ TWOFA_IP_VERIFY_LIMIT = int(getattr(settings, 'MICROSYS_2FA_IP_VERIFY_LIMIT', 20
 TWOFA_IP_VERIFY_WINDOW = int(getattr(settings, 'MICROSYS_2FA_IP_VERIFY_WINDOW', 600))
 TWOFA_IP_SEND_LIMIT = int(getattr(settings, 'MICROSYS_2FA_IP_SEND_LIMIT', 10))
 TWOFA_IP_SEND_WINDOW = int(getattr(settings, 'MICROSYS_2FA_IP_SEND_WINDOW', 3600))
-TRUSTED_DEVICE_COOKIE_NAME = 'microsys_trusted_device'
-TRUSTED_DEVICE_COOKIE_SALT = 'microsys.trusted_device'
-TRUSTED_DEVICE_MAX_AGE = 30 * 24 * 60 * 60
 LOGIN_EMAIL_RESEND_COOLDOWN_SECONDS = 120
 DEFAULT_OTP_RESEND_COOLDOWN_SECONDS = 60
 PRE_2FA_USER_ID_SESSION_KEY = 'pre_2fa_user_id'
@@ -260,76 +264,19 @@ def _email_otp_exists(user, intent='login'):
 
 
 def _trusted_device_model():
-    return apps.get_model('microsys', 'TrustedDevice')
+    return trusted_device_model()
 
 
 def _trusted_device_token_hash(raw_token):
-    return hashlib.sha256(str(raw_token or '').encode('utf-8')).hexdigest()
+    return trusted_device_token_hash(raw_token)
 
 
 def _device_label(user_agent):
-    s = get_strings()
-    user_agent = str(user_agent or '').strip()
-    lowered = user_agent.lower()
-    if not user_agent:
-        return s.get('device_unknown')
-    if 'edg/' in lowered or 'edge/' in lowered:
-        browser = 'Edge'
-    elif 'firefox/' in lowered:
-        browser = 'Firefox'
-    elif 'chrome/' in lowered or 'chromium/' in lowered:
-        browser = 'Chrome'
-    elif 'safari/' in lowered:
-        browser = 'Safari'
-    else:
-        browser = 'Browser'
-    if 'android' in lowered:
-        platform = 'Android'
-    elif 'iphone' in lowered or 'ipad' in lowered:
-        platform = 'iOS'
-    elif 'windows' in lowered:
-        platform = 'Windows'
-    elif 'mac os' in lowered or 'macintosh' in lowered:
-        platform = 'macOS'
-    elif 'linux' in lowered:
-        platform = 'Linux'
-    else:
-        platform = s.get('device_platform_generic')
-    return s.get('device_label_pattern').format(browser=browser, platform=platform)
+    return trust_device_label(user_agent)
 
 
 def _sync_session_device_metadata(request, trusted_device=None):
-    session = getattr(request, 'session', None)
-    if session is None:
-        return {}
-    if not getattr(session, 'session_key', None):
-        session.save()
-    now = timezone.now().isoformat()
-    existing = session.get('microsys_device')
-    if not isinstance(existing, dict):
-        existing = {}
-    metadata = {
-        'user_agent': str(request.META.get('HTTP_USER_AGENT') or existing.get('user_agent') or '')[:500],
-        'ip_address': str(get_client_ip(request) or existing.get('ip_address') or '').strip(),
-        'first_seen': existing.get('first_seen') or now,
-        'last_seen': now,
-    }
-    if trusted_device is not None:
-        metadata['trusted_device_id'] = trusted_device.pk
-        metadata['trusted_until'] = trusted_device.trusted_until.isoformat()
-    elif existing.get('trusted_device_id'):
-        metadata['trusted_device_id'] = existing.get('trusted_device_id')
-        metadata['trusted_until'] = existing.get('trusted_until')
-    session['microsys_device'] = metadata
-    session.modified = True
-    if trusted_device is not None:
-        trusted_device.session_key = getattr(session, 'session_key', '') or ''
-        trusted_device.device_label = _device_label(metadata.get('user_agent'))
-        trusted_device.ip_address = metadata.get('ip_address') or None
-        trusted_device.user_agent = metadata.get('user_agent') or ''
-        trusted_device.last_used_at = timezone.now()
-        trusted_device.save(update_fields=['session_key', 'device_label', 'ip_address', 'user_agent', 'last_used_at'])
-    return metadata
+    return sync_session_device_metadata(request, trusted_device=trusted_device)
 
 
 def _primary_login_methods(profile):
@@ -370,23 +317,7 @@ def _clear_pre_2fa_session_state(request):
 
 
 def get_trusted_device_for_login(request, user):
-    if not request or not user:
-        return None
-    try:
-        raw_token = request.get_signed_cookie(
-            TRUSTED_DEVICE_COOKIE_NAME,
-            salt=TRUSTED_DEVICE_COOKIE_SALT,
-        )
-    except (KeyError, BadSignature):
-        return None
-    if not raw_token:
-        return None
-    return _trusted_device_model().objects.filter(
-        user=user,
-        token_hash=_trusted_device_token_hash(raw_token),
-        revoked_at__isnull=True,
-        trusted_until__gt=timezone.now(),
-    ).first()
+    return trust_get_trusted_device_for_login(request, user)
 
 
 def prepare_login_2fa_challenge(request, user, *, next_url='', default_redirect=''):
@@ -412,23 +343,7 @@ def prepare_login_2fa_challenge(request, user, *, next_url='', default_redirect=
 
 
 def _issue_trusted_device(request, response, user):
-    raw_token = secrets.token_urlsafe(32)
-    trusted_device = _trusted_device_model().objects.create(
-        user=user,
-        token_hash=_trusted_device_token_hash(raw_token),
-        trusted_until=timezone.now() + timedelta(days=30),
-    )
-    _sync_session_device_metadata(request, trusted_device=trusted_device)
-    response.set_signed_cookie(
-        TRUSTED_DEVICE_COOKIE_NAME,
-        raw_token,
-        salt=TRUSTED_DEVICE_COOKIE_SALT,
-        max_age=TRUSTED_DEVICE_MAX_AGE,
-        httponly=True,
-        secure=request.is_secure(),
-        samesite='Lax',
-    )
-    return trusted_device
+    return issue_trusted_device(request, response, user)
 
 
 def _build_login_challenge_state(request, user):

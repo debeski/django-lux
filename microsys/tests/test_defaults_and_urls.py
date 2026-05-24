@@ -191,6 +191,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             'sidebar': {'enabled': False, 'entries': [{'kind': 'item', 'id': 'archive:index'}]},
             'navbar': {'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}},
             'titlebar': {'show_title': False},
+            'prevent_multiple_active_sessions': 'true',
         })
 
         self.assertEqual(imported['translations_override']['en']['custom_key'], 'Custom')
@@ -198,6 +199,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(imported['sidebar_config']['entries'][0]['id'], 'archive:index')
         self.assertTrue(imported['navbar_config']['enabled'])
         self.assertFalse(imported['titlebar_config']['show_title'])
+        self.assertTrue(imported['prevent_multiple_active_sessions'])
 
     def test_navbar_seed_from_sidebar_only_when_enabled_and_empty(self):
         seeded = seed_navbar_config_from_sidebar(
@@ -1356,6 +1358,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-client-ip-custom-header="true"', html)
         self.assertIn('client_ip_trusted_proxy_hops', html)
         self.assertIn('client_ip_custom_header', html)
+        self.assertIn('id_prevent_multiple_active_sessions', html)
 
     def test_setup_form_saves_client_ip_config_as_single_json_field(self):
         form = SystemSettingsForm(
@@ -1420,6 +1423,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('const titlebarSource = settings.titlebar_config || settings.titlebar;', contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_activation_mode', !enabled)", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled)", contents)
+        self.assertIn("'prevent_multiple_active_sessions'", contents)
         self.assertIn('initClientIpOptions', contents)
         self.assertIn('data-client-ip-mode-input', contents)
         self.assertIn("setNamedFieldDisabled(form, 'client_ip_trusted_proxy_hops', !showHops)", contents)
@@ -1787,8 +1791,12 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         template = template_path.read_text(encoding='utf-8')
         script = script_path.read_text(encoding='utf-8')
 
-        self.assertIn("microsys/users/js/profile_2fa.js' %}?v=20260522b", template)
+        self.assertIn("microsys/users/js/profile_2fa.js' %}?v=20260524a", template)
         self.assertIn("passwordInput.addEventListener('keydown', submitOnEnter);", script)
+        self.assertIn('profile-session-trust-form', template)
+        self.assertIn('MS_TRANS.msg_confirm_trust_current_device', template)
+        self.assertIn('MS_TRANS.session_revoke_trusted_denied', template)
+        self.assertIn('function confirmSessionTrust(form)', script)
         self.assertIn("passwordInput.addEventListener('input', clearPasswordError);", script)
         self.assertIn("if (event.key !== 'Enter') return;", script)
         self.assertIn('confirmCurrentModal();', script)
@@ -1873,6 +1881,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             },
             sidebar_config={'enabled': False, 'entries': []},
             navbar_config={'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}},
+            prevent_multiple_active_sessions=True,
         )
 
         payload = export_system_settings_payload(settings_obj)
@@ -1888,6 +1897,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(payload['settings']['allowed_fonts'], ['cairo'])
         self.assertEqual(payload['settings']['default_fonts'], {'en': 'cairo'})
         self.assertFalse(payload['settings']['allow_user_font_override'])
+        self.assertTrue(payload['settings']['prevent_multiple_active_sessions'])
 
         imported = normalize_system_settings_import_payload(payload)
         self.assertNotIn('encrypted_password', imported['email_config'])
@@ -1895,6 +1905,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(imported['allowed_fonts'], ['cairo'])
         self.assertEqual(imported['default_fonts'], {'en': 'cairo'})
         self.assertFalse(imported['allow_user_font_override'])
+        self.assertTrue(imported['prevent_multiple_active_sessions'])
 
     @override_settings(
         EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',

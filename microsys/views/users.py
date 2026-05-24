@@ -55,12 +55,14 @@ class CustomLoginView(LoginView):
         if hasattr(user, 'profile') and user.profile.is_2fa_enabled:
             from django.shortcuts import resolve_url
             from .twofa import get_trusted_device_for_login, prepare_login_2fa_challenge, _sync_session_device_metadata
+            from ..trust import enforce_single_active_trusted_session
             from microsys.utils import get_system_config
 
             trusted_device = get_trusted_device_for_login(self.request, user)
             if trusted_device:
                 response = super().form_valid(form)
                 _sync_session_device_metadata(self.request, trusted_device=trusted_device)
+                enforce_single_active_trusted_session(self.request, user, trusted_device)
                 return response
 
             next_url = self.get_redirect_url() or ''

@@ -1821,6 +1821,30 @@ class TwoFactorSecurityViewTests(TestCase):
         trusted_device = trusted_device_model.objects.get(user=self.user)
         self.assertTrue(trusted_device.session_key)
 
+    def test_trusted_two_factor_login_evicts_other_sessions_when_enabled(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.is_configured = True
+        settings_obj.save()
+        other_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        other_client.login(username='twofa', password='twofapass123')
+        other_session_key = other_client.session.session_key
+        cache.set(
+            f'otp_{self.user.pk}_login',
+            {'code_hash': make_password('123456'), 'attempts': 0},
+            timeout=300,
+        )
+        self._prime_pre_2fa_session()
+
+        response = self.client.post(
+            reverse('verify_otp_login'),
+            {'otp_code': '123456', 'method': 'email', 'trust_device': '1'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Session.objects.filter(session_key=other_session_key).exists())
+
 
 class ProfileSessionDeviceTests(TestCase):
     def setUp(self):
@@ -1833,6 +1857,26 @@ class ProfileSessionDeviceTests(TestCase):
         settings_obj = SystemSettings.load()
         settings_obj.is_configured = True
         settings_obj.save()
+
+    def _mark_session_trusted(self, client, token_hash):
+        trusted_device_model = apps.get_model('microsys', 'TrustedDevice')
+        session = client.session
+        trusted_device = trusted_device_model.objects.create(
+            user=self.user,
+            token_hash=token_hash,
+            session_key=session.session_key,
+            trusted_until=timezone.now() + timedelta(days=30),
+        )
+        session['microsys_device'] = {
+            'user_agent': client.defaults.get('HTTP_USER_AGENT', ''),
+            'ip_address': '127.0.0.1',
+            'first_seen': timezone.now().isoformat(),
+            'last_seen': timezone.now().isoformat(),
+            'trusted_device_id': trusted_device.pk,
+            'trusted_until': trusted_device.trusted_until.isoformat(),
+        }
+        session.save()
+        return trusted_device
 
     def test_profile_lists_current_signed_in_session(self):
         client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
@@ -1975,6 +2019,7 @@ class ProfileSessionDeviceTests(TestCase):
         second_client.login(username='devices', password='devicespass123')
         first_client.get(reverse('user_profile'))
         second_client.get(reverse('user_profile'))
+        self._mark_session_trusted(first_client, 'trusted-revoke-actor')
         second_session = second_client.session
         trusted_device = trusted_device_model.objects.create(
             user=self.user,
@@ -2000,3 +2045,95 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertRedirects(response, reverse('user_profile'))
         trusted_device.refresh_from_db()
         self.assertIsNotNone(trusted_device.revoked_at)
+
+    def test_profile_trust_current_device_creates_trusted_device(self):
+        client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        client.login(username='devices', password='devicespass123')
+
+        response = client.post(
+            reverse('trust_current_device'),
+            {'current_password': 'devicespass123'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('microsys_trusted_device', response.cookies)
+        trusted_device_model = apps.get_model('microsys', 'TrustedDevice')
+        trusted_device = trusted_device_model.objects.get(user=self.user, revoked_at__isnull=True)
+        self.assertEqual(trusted_device.session_key, client.session.session_key)
+
+    def test_profile_trust_current_device_evicts_other_sessions_when_enabled(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.save()
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        second_client.login(username='devices', password='devicespass123')
+        second_session_key = second_client.session.session_key
+
+        response = first_client.post(
+            reverse('trust_current_device'),
+            {'current_password': 'devicespass123'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Session.objects.filter(session_key=second_session_key).exists())
+
+    def test_untrusted_session_cannot_revoke_trusted_session(self):
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        second_client.login(username='devices', password='devicespass123')
+        trusted_device = self._mark_session_trusted(second_client, 'trusted-protected-target')
+        target_session_key = second_client.session.session_key
+
+        response = first_client.post(
+            reverse('revoke_profile_session', args=[target_session_key]),
+            {'current_password': 'devicespass123'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(Session.objects.filter(session_key=target_session_key).exists())
+        trusted_device.refresh_from_db()
+        self.assertIsNone(trusted_device.revoked_at)
+
+    def test_trusted_session_can_revoke_trusted_session(self):
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        second_client.login(username='devices', password='devicespass123')
+        self._mark_session_trusted(first_client, 'trusted-current-session')
+        trusted_device = self._mark_session_trusted(second_client, 'trusted-target-session')
+        target_session_key = second_client.session.session_key
+
+        response = first_client.post(
+            reverse('revoke_profile_session', args=[target_session_key]),
+            {'current_password': 'devicespass123'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Session.objects.filter(session_key=target_session_key).exists())
+        trusted_device.refresh_from_db()
+        self.assertIsNotNone(trusted_device.revoked_at)
+
+    def test_untrusted_login_does_not_evict_existing_trusted_session(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.save()
+        trusted_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        untrusted_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        trusted_client.login(username='devices', password='devicespass123')
+        trusted_session_key = trusted_client.session.session_key
+        self._mark_session_trusted(trusted_client, 'trusted-session-survives-login')
+
+        response = untrusted_client.post(reverse('login'), {
+            'username': 'devices',
+            'password': 'devicespass123',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Session.objects.filter(session_key=trusted_session_key).exists())

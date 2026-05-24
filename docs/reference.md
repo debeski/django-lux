@@ -130,6 +130,8 @@ Section security contract:
 - backup codes are stored hashed in `Profile.backup_codes`
 - login 2FA redirects validate `next` against allowed hosts before redirecting
 - destructive profile-side 2FA actions such as disable, backup-code regeneration, and session revocation require the current-password guard on the backend
+- Profile can trust the current browser after current-password confirmation; untrusted sessions cannot revoke trusted sessions
+- when `prevent_multiple_active_sessions` is enabled, each newly trusted session revokes every other active session for that user
 - email 2FA supports auto-send on login and 120s resend cooldown to reduce authentication friction
 - TOTP setup persists secret/enabled state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, so unrelated profile-save side effects do not block authenticator setup
 
@@ -186,6 +188,7 @@ sidebar toolbar/reorder/density controls, and lets the main layout expand.
 Common runtime feature flags in `get_system_config()`:
 
 - `email_2fa` — Enable email-based 2FA (set via `MICROSYS_CONFIG['email_2fa']` or the System Settings UI)
+- `prevent_multiple_active_sessions` — When true, a newly trusted session becomes the user's only active session; untrusted logins remain allowed and do not evict trusted sessions.
 - `email_config` — Redacted Microsys email delivery config. Supports delivery `transport` (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never include SMTP secrets.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
