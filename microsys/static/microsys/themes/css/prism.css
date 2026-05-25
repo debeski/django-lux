@@ -305,18 +305,25 @@
 
 :root.theme-prism .titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {
     background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04) 62%),
         rgba(232, 236, 242, 0.92) !important;
     border-color: var(--prism-line) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 8px 18px -14px rgba(0, 0, 0, 0.72) !important;
 }
 
 :root.theme-prism .titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)) !important;
+    filter:
+        drop-shadow(0 0 0.32rem rgba(232, 236, 242, 0.28))
+        drop-shadow(0 0.24rem 0.62rem rgba(0, 0, 0, 0.38)) !important;
 }
 
 :root.theme-prism .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {
-    filter: brightness(1.08) contrast(1.12) !important;
+    filter:
+        brightness(1.1)
+        contrast(1.14)
+        drop-shadow(0 0.18rem 0.5rem rgba(0, 0, 0, 0.32)) !important;
 }
 
 :root.theme-prism .lang-option,
@@ -442,6 +449,63 @@
 
 :root.theme-prism .form-control[type="file"]::file-selector-button:hover {
     background: #ffffff !important;
+}
+
+:root.theme-prism .archive-file-card {
+    border-color: var(--prism-line) !important;
+    background: linear-gradient(180deg, rgba(42, 47, 56, 0.98), rgba(34, 38, 47, 0.96)) !important;
+    box-shadow: inset 0 1px 0 var(--prism-line-soft) !important;
+}
+
+:root.theme-prism .archive-file-field.is-dragover .archive-file-card,
+:root.theme-prism .archive-file-card:hover,
+:root.theme-prism .archive-file-card:focus-visible {
+    border-color: rgba(232, 236, 242, 0.34) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 10px 22px -20px rgba(0, 0, 0, 0.76) !important;
+}
+
+:root.theme-prism .archive-file-tag {
+    background: rgba(232, 236, 242, 0.1) !important;
+    color: var(--prism-pearl) !important;
+    border-color: rgba(232, 236, 242, 0.16) !important;
+}
+
+:root.theme-prism .archive-file-tool {
+    background: rgba(255, 255, 255, 0.07) !important;
+    color: var(--prism-pearl) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: none !important;
+}
+
+:root.theme-prism .archive-file-tool-upload {
+    background: rgba(125, 211, 252, 0.14) !important;
+    color: var(--prism-pearl) !important;
+}
+
+:root.theme-prism .archive-file-tool-scan {
+    background: rgba(232, 236, 242, 0.12) !important;
+    color: var(--prism-silver) !important;
+}
+
+:root.theme-prism .archive-file-tool-clear {
+    background: rgba(248, 113, 113, 0.14) !important;
+    color: #fecaca !important;
+}
+
+:root.theme-prism .archive-file-icon {
+    background: rgba(232, 236, 242, 0.1) !important;
+    color: var(--prism-pearl) !important;
+    box-shadow: inset 0 0 0 1px rgba(232, 236, 242, 0.12) !important;
+}
+
+:root.theme-prism .archive-file-name {
+    color: var(--prism-pearl) !important;
+}
+
+:root.theme-prism .archive-file-meta {
+    color: var(--prism-muted) !important;
 }
 
 /* Tables */

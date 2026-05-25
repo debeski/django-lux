@@ -1548,7 +1548,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-titlebar-logo-treatment="{{ titlebar.logo_treatment|default:\'none\' }}"', titlebar_markup)
         self.assertIn('data-titlebar-logo-treatment-shape="{{ titlebar.logo_treatment_shape|default:\'soft\' }}"', titlebar_markup)
 
-        for theme_name in ('dark', 'gothic', 'retro', 'neon', 'prism'):
+        for theme_name in ('dark', 'gothic', 'retro', 'neon', 'prism', 'aether'):
             theme_css = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
             self.assertIn('.titlebar .ms-login-round {', theme_css)
             self.assertIn('.titlebar .ms-login-round:hover,', theme_css)
@@ -1644,7 +1644,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/main/css/options.css", contents)
-        self.assertIn("?v=20260523e", contents)
+        self.assertIn("?v=20260525a", contents)
         self.assertIn("microsys/main/js/options.js", contents)
         self.assertIn('{{ server_time_backend_display }}', contents)
         self.assertIn('id="msOptionsGrid"', contents)
@@ -1678,7 +1678,50 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("?v=20260525a", contents)
         self.assertIn("microsys/main/js/navbar.js", contents)
         self.assertIn("microsys/main/css/navbar.css", contents)
-        self.assertIn("{% static theme.css_path %}?v=20260525d", contents)
+        self.assertIn("{% static theme.css_path %}?v=20260525f", contents)
+        self.assertIn("microsys/main/css/template_cleanup.css", contents)
+        self.assertIn("?v=20260525e", contents)
+
+    def test_theme_preview_surfaces_include_aether_and_light_mono(self):
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'template_cleanup.css'
+        contents = css_path.read_text(encoding='utf-8')
+
+        self.assertIn('.ms-theme-preview--mono', contents)
+        self.assertIn('#ffffff 0%', contents)
+        self.assertIn('#f4f6f8 48%', contents)
+        self.assertIn('#cbd5df 49%', contents)
+        self.assertIn('#94a3b8 100%', contents)
+        self.assertNotIn('#475569 39%', contents)
+        self.assertNotIn('#0f172a 100%', contents)
+        self.assertIn('.ms-theme-preview--prism', contents)
+        self.assertIn('.ms-theme-preview--aether', contents)
+        self.assertIn('#a8ffe4', contents)
+
+    def test_prism_and_aether_theme_owned_file_field_and_logo_overrides(self):
+        static_root = Path(__file__).resolve().parents[1] / 'static' / 'microsys'
+
+        for theme_name in ('prism', 'aether'):
+            contents = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
+            self.assertIn(f':root.theme-{theme_name} .archive-file-card {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .archive-file-field.is-dragover .archive-file-card,', contents)
+            self.assertIn(f':root.theme-{theme_name} .archive-file-tool-upload {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .archive-file-tool-scan {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .archive-file-tool-clear {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .archive-file-meta {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {{', contents)
+            self.assertIn(f':root.theme-{theme_name} .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {{', contents)
+
+    def test_options_theme_system_settings_tiles_include_aether(self):
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'options.css'
+        contents = css_path.read_text(encoding='utf-8')
+
+        self.assertIn(':root.theme-aether .ms-system-settings-actions .ms-system-settings-tile,', contents)
+        self.assertIn(':root.theme-aether .ms-system-settings-tile-icon,', contents)
+        self.assertIn(':root.theme-aether .ms-system-settings-actions .ms-system-settings-tile i,', contents)
+        self.assertIn(':root.theme-aether .ms-system-settings-actions .ms-system-settings-tile:hover,', contents)
+        self.assertIn(':root.theme-aether .ms-system-settings-actions .ms-system-settings-tile:focus-visible,', contents)
+        self.assertIn(':root.theme-aether .ms-system-settings-actions .ms-system-settings-action--secondary,', contents)
 
     def test_verify_template_uses_versioned_auto_verify_script_and_trust_device_checkbox(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / '2fa' / 'verify.html'
@@ -1734,9 +1777,15 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         script = script_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/helpers/dynamic_modal/js/main.js", contents)
-        self.assertIn("?v=20260513a", contents)
+        self.assertIn("?v=20260525e", contents)
         self.assertIn('nonce="{{ request.csp_nonce }}"', contents)
         self.assertIn("'Accept': 'application/json'", script)
+        self.assertIn("dynamic-modal-loading-shell", script)
+        self.assertIn("dynamic-modal-overlay", script)
+        self.assertIn("hasUsablePreviousFallback", script)
+        self.assertIn("Node.ELEMENT_NODE", script)
+        self.assertIn("skeletonBlock", script)
+        self.assertIn("hasPreviousFallback", script)
         self.assertIn("Request failed with HTTP ${res.status}", script)
 
     def test_setup_editor_templates_use_ids_not_post_names_for_js_controls(self):

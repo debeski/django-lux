@@ -6,6 +6,8 @@
 - Package version markers remain around `v2.2.3`; recent tracked work targets `v2.2.4+` runtime/setup fixes and `v2.2.6` User Existence Report work.
 - System setup/System Settings uses seven steps: identity, languages/translations, access/security, sidebar, navbar, titlebar, appearance/fonts.
 - Dynamic fonts, runtime theme allowlisting, optional Nav Bar, Titlebar logo treatments, shared tooltips, and User Existence Report are active feature areas.
+- DynamicModal loading keeps the existing AJAX contract; real previous content is a covered sizing fallback, empty loads use a self-contained skeleton.
+- Theme picker surfaces include Aether/Mono polish; Prism/Aether cover archive file widgets, titlebar logo treatments, and Aether Options System Settings tiles.
 
 ### Current Project Adopted Standards:
 - Preferred settings integration: `from microsys.utils import microsys_settings`; `microsys_settings(globals())`.
@@ -41,10 +43,13 @@
 - **Priority 2:**
   - [ ] Validate generated `startproject`, generated `startapp --register`, Docker/Celery/health baseline, and optional SSO provider/client dependencies.
 - **Completed Recently:**
-  - [x] Validated and rewired `utils_split_plan.md` against actual `microsys/utils.py` definitions and current import structure.
+  - [x] Added Prism/Aether archive file widget and titlebar logo treatment overrides; extended Options System Settings tile theme coverage to Aether.
+  - [x] Updated Mono shared theme preview swatch to a clean light diagonal split without a dark ribbon.
+  - [x] Added missing Aether theme preview swatch surface in `template_cleanup.css` and bumped base asset version.
+  - [x] Refined DynamicModal loading fallback: real-content detection, covered sizing fallback, self-contained empty-load skeleton, and stale-response guard.
 
 ### One-line info about last verified Tests:
-- 2026-05-25 static validation: AST check found 114 top-level `utils.py` defs and 0 missing assignments in `utils_split_plan.md`; no runtime tests run.
+- 2026-05-25: `node --check microsys/static/microsys/helpers/dynamic_modal/js/main.js` and focused theme asset/version/CSS coverage tests passed.
 
 ### One-line info about last time edited Docs:
 - 2026-05-25: edited `utils_split_plan.md` to document module moves, compatibility exports, import-cycle wiring, and verification commands.

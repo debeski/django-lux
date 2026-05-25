@@ -87,7 +87,7 @@
 }
 
 .ms-theme-preview--mono {
-    background: linear-gradient(135deg, #f8fafc 0%, #64748b 52%, #0f172a 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f4f6f8 48%, #cbd5df 49%, #94a3b8 100%);
 }
 
 .ms-theme-preview--dark {
@@ -108,6 +108,10 @@
 
 .ms-theme-preview--prism {
     background: linear-gradient(145deg, #eef2f7 0%, #9aa8bc 24%, #3a4150 52%, #181b22 100%);
+}
+
+.ms-theme-preview--aether {
+    background: linear-gradient(135deg, #0d1116 0%, #19212b 34%, #a8ffe4 56%, #83c9ff 72%, #c8a4ff 100%);
 }
 
 .ms-user-detail-timeline {

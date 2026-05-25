@@ -4,6 +4,13 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.2.7
+
+- **Dynamic Modal Loading Fallback**: Refined `dynamic_modal/js/main.js` loading behavior to keep real previous modal content as the sizing fallback when available, ignore empty template comments, cover fallback content with a theme-aware loading overlay, and use a self-contained default skeleton only for first/empty modal loads while preserving the existing AJAX modal contract.
+- **Prism And Aether Theme Surface Coverage**: Added Prism/Aether overrides for Microsys-owned `.archive-file-*` upload widgets and titlebar logo treatment surfaces, and extended `options.css` System Settings action tile overrides to Aether.
+- **Aether Theme Picker Surface**: Added the missing shared `.ms-theme-preview--aether` swatch in `template_cleanup.css` and bumped the base template asset version so Aether appears with a proper surface in System Settings and sidebar theme pickers.
+- **Mono Theme Picker Surface**: Updated the shared `.ms-theme-preview--mono` swatch to a clean diagonal split between white and light monochrome gray, making Mono visually distinct from the darker Prism picker surface without making it read as a dark theme.
+
 ## v2.2.6
 
 - **User Existence Report**: Added a permission-gated User Report dynamic modal with print/PDF-friendly layout and XLSX export. The report summarizes identity/status, staff tier, activity counts, recent logs, device/network history, browser/OS observations, trusted-device context, request counts, and estimated active time.

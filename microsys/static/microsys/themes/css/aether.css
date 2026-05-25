@@ -367,18 +367,25 @@
 
 :root.theme-aether .titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {
     background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
-        rgba(242, 240, 234, 0.92) !important;
+        linear-gradient(135deg, rgba(168, 255, 228, 0.2), rgba(131, 201, 255, 0.08) 38%, rgba(255, 255, 255, 0.05) 66%),
+        rgba(242, 240, 234, 0.94) !important;
     border-color: rgba(168, 255, 228, 0.28) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.36),
+        0 10px 24px -16px rgba(168, 255, 228, 0.28) !important;
 }
 
 :root.theme-aether .titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)) !important;
+    filter:
+        drop-shadow(0 0 0.36rem rgba(168, 255, 228, 0.34))
+        drop-shadow(0 0.3rem 0.7rem rgba(131, 201, 255, 0.18)) !important;
 }
 
 :root.theme-aether .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {
-    filter: brightness(1.08) contrast(1.12) !important;
+    filter:
+        brightness(1.1)
+        contrast(1.14)
+        drop-shadow(0 0.18rem 0.52rem rgba(168, 255, 228, 0.22)) !important;
 }
 
 :root.theme-aether .lang-option,
@@ -504,6 +511,67 @@
 
 :root.theme-aether .form-control[type="file"]::file-selector-button:hover {
     background: #ffffff !important;
+}
+
+:root.theme-aether .archive-file-card {
+    border-color: rgba(168, 255, 228, 0.18) !important;
+    background:
+        linear-gradient(180deg, rgba(35, 44, 55, 0.96), rgba(25, 33, 43, 0.96)),
+        var(--aether-cut) !important;
+    box-shadow:
+        inset 0 1px 0 var(--aether-line-soft),
+        0 12px 30px -26px rgba(0, 0, 0, 0.72) !important;
+}
+
+:root.theme-aether .archive-file-field.is-dragover .archive-file-card,
+:root.theme-aether .archive-file-card:hover,
+:root.theme-aether .archive-file-card:focus-visible {
+    border-color: rgba(168, 255, 228, 0.42) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 14px 28px -22px rgba(168, 255, 228, 0.26) !important;
+}
+
+:root.theme-aether .archive-file-tag {
+    background: rgba(168, 255, 228, 0.11) !important;
+    color: var(--aether-mint) !important;
+    border-color: rgba(168, 255, 228, 0.22) !important;
+}
+
+:root.theme-aether .archive-file-tool {
+    background: rgba(255, 255, 255, 0.07) !important;
+    color: var(--aether-pearl) !important;
+    border-color: rgba(168, 255, 228, 0.14) !important;
+    box-shadow: none !important;
+}
+
+:root.theme-aether .archive-file-tool-upload {
+    background: rgba(168, 255, 228, 0.15) !important;
+    color: var(--aether-mint) !important;
+}
+
+:root.theme-aether .archive-file-tool-scan {
+    background: rgba(131, 201, 255, 0.15) !important;
+    color: var(--aether-sky) !important;
+}
+
+:root.theme-aether .archive-file-tool-clear {
+    background: rgba(255, 173, 152, 0.14) !important;
+    color: var(--aether-coral) !important;
+}
+
+:root.theme-aether .archive-file-icon {
+    background: rgba(168, 255, 228, 0.11) !important;
+    color: var(--aether-mint) !important;
+    box-shadow: inset 0 0 0 1px rgba(168, 255, 228, 0.18) !important;
+}
+
+:root.theme-aether .archive-file-name {
+    color: var(--aether-pearl) !important;
+}
+
+:root.theme-aether .archive-file-meta {
+    color: var(--aether-muted) !important;
 }
 
 /* Tables */

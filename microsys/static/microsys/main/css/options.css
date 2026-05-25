@@ -371,6 +371,7 @@
 :root.theme-retro .ms-options-reset-action-shell,
 :root.theme-gothic .ms-options-reset-action-shell,
 :root.theme-prism .ms-options-reset-action-shell,
+:root.theme-aether .ms-options-reset-action-shell,
 :root.theme-neon .ms-options-reset-action-shell {
     border-color: rgba(248, 113, 113, 0.24) !important;
 }
@@ -379,6 +380,7 @@
 :root.theme-retro .ms-system-settings-actions .ms-system-settings-tile,
 :root.theme-gothic .ms-system-settings-actions .ms-system-settings-tile,
 :root.theme-prism .ms-system-settings-actions .ms-system-settings-tile,
+:root.theme-aether .ms-system-settings-actions .ms-system-settings-tile,
 :root.theme-neon .ms-system-settings-actions .ms-system-settings-tile {
     background:
         linear-gradient(135deg, rgba(var(--primal-rgb), 0.075), rgba(255, 255, 255, 0.018)) !important;
@@ -393,6 +395,7 @@
 :root.theme-retro .ms-system-settings-tile-icon,
 :root.theme-gothic .ms-system-settings-tile-icon,
 :root.theme-prism .ms-system-settings-tile-icon,
+:root.theme-aether .ms-system-settings-tile-icon,
 :root.theme-neon .ms-system-settings-tile-icon {
     background: rgba(var(--primal-rgb), 0.12);
     box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.2);
@@ -402,6 +405,7 @@
 :root.theme-retro .ms-system-settings-actions .ms-system-settings-tile i,
 :root.theme-gothic .ms-system-settings-actions .ms-system-settings-tile i,
 :root.theme-prism .ms-system-settings-actions .ms-system-settings-tile i,
+:root.theme-aether .ms-system-settings-actions .ms-system-settings-tile i,
 :root.theme-neon .ms-system-settings-actions .ms-system-settings-tile i {
     color: currentColor !important;
 }
@@ -410,11 +414,13 @@
 :root.theme-retro .ms-system-settings-actions .ms-system-settings-tile:hover,
 :root.theme-gothic .ms-system-settings-actions .ms-system-settings-tile:hover,
 :root.theme-prism .ms-system-settings-actions .ms-system-settings-tile:hover,
+:root.theme-aether .ms-system-settings-actions .ms-system-settings-tile:hover,
 :root.theme-neon .ms-system-settings-actions .ms-system-settings-tile:hover,
 :root.theme-dark .ms-system-settings-actions .ms-system-settings-tile:focus-visible,
 :root.theme-retro .ms-system-settings-actions .ms-system-settings-tile:focus-visible,
 :root.theme-gothic .ms-system-settings-actions .ms-system-settings-tile:focus-visible,
 :root.theme-prism .ms-system-settings-actions .ms-system-settings-tile:focus-visible,
+:root.theme-aether .ms-system-settings-actions .ms-system-settings-tile:focus-visible,
 :root.theme-neon .ms-system-settings-actions .ms-system-settings-tile:focus-visible {
     background:
         linear-gradient(135deg, rgba(var(--primal-rgb), 0.14), rgba(255, 255, 255, 0.032)) !important;
@@ -429,6 +435,7 @@
 :root.theme-retro .ms-system-settings-actions .ms-system-settings-action--secondary,
 :root.theme-gothic .ms-system-settings-actions .ms-system-settings-action--secondary,
 :root.theme-prism .ms-system-settings-actions .ms-system-settings-action--secondary,
+:root.theme-aether .ms-system-settings-actions .ms-system-settings-action--secondary,
 :root.theme-neon .ms-system-settings-actions .ms-system-settings-action--secondary {
     color: color-mix(in srgb, var(--title) 86%, var(--primal)) !important;
     border-color: rgba(var(--primal-rgb), 0.18) !important;

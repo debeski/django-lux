@@ -14,11 +14,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalBody = document.getElementById('universalDynamicModalBody');
     const titleText = document.getElementById('dynamicModalTitleText');
     const footer = document.getElementById('universalDynamicModalFooter');
+    const DEFAULT_LOADING_MIN_HEIGHT = 320;
     
     // Hide footer since the form includes its own submit button
     if (footer) footer.style.display = 'none';
 
     let currentBaseUrl = '';
+    let activeLoadToken = 0;
 
     function persistModalState() {
         if (!currentBaseUrl) {
@@ -46,6 +48,23 @@ document.addEventListener('DOMContentLoaded', function() {
         persistModalState();
     };
 
+    function hasUsablePreviousFallback() {
+        return Array.from(modalBody.childNodes).some(node => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent.trim().length > 0;
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return false;
+            }
+            return !node.classList.contains('dynamic-modal-overlay')
+                && !node.classList.contains('dynamic-modal-loading-shell');
+        });
+    }
+
+    function skeletonBlock(width, height = '1rem') {
+        return `<span aria-hidden="true" class="d-block rounded" style="width: ${width}; height: ${height}; background: rgba(108, 117, 125, 0.22);"></span>`;
+    }
+
     // Initialize modal instance safely
     const dynamicModal = bootstrap.Modal.getOrCreateInstance(modalEl);
 
@@ -67,12 +86,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     modalEl.addEventListener('hidden.bs.modal', function () {
+        activeLoadToken += 1;
         // Remove any lingering backdrops
         document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
         // Ensure body scrolling is restored
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
+        modalBody.style.minHeight = '';
         clearModalState();
     });
 
@@ -107,35 +128,46 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 2. Load Content via AJAX
     function openModalAndLoad(url, trigger = null) {
-        
-        // Show loading state without changing size
-        let existingOverlay = modalBody.querySelector('.dynamic-modal-overlay');
-        if (!existingOverlay) {
-            // If there's content, add an overlay to keep the size. If empty, just show simple loading.
-            if (modalBody.innerHTML.trim() && !modalBody.innerHTML.includes('spinner-border')) {
-                const overlay = document.createElement('div');
-                overlay.className = 'dynamic-modal-overlay position-absolute top-0 start-0 w-100 h-100 bg-white d-flex align-items-center justify-content-center';
-                overlay.style.zIndex = '1055';
-                overlay.style.opacity = '0.7';
-                
-                // Spinner inside overlay
-                overlay.innerHTML = `
-                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                        <span class="visually-hidden">Loading...</span>
+        const loadToken = activeLoadToken + 1;
+        activeLoadToken = loadToken;
+
+        const hasPreviousFallback = hasUsablePreviousFallback();
+
+        if (hasPreviousFallback) {
+            const overlay = document.createElement('div');
+            overlay.className = 'dynamic-modal-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center';
+            overlay.style.zIndex = '1055';
+            overlay.style.background = 'var(--bs-body-bg, #fff)';
+            overlay.style.opacity = '0.96';
+            overlay.innerHTML = `
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            `;
+            modalBody.style.position = 'relative';
+            modalBody.appendChild(overlay);
+        } else {
+            modalBody.style.position = '';
+            modalBody.style.minHeight = `${DEFAULT_LOADING_MIN_HEIGHT}px`;
+            modalBody.innerHTML = `
+                <div class="dynamic-modal-loading-shell w-100 p-4" style="min-height: ${DEFAULT_LOADING_MIN_HEIGHT}px;">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        ${skeletonBlock('42%', '1.4rem')}
+                        ${skeletonBlock('18%', '1.1rem')}
                     </div>
-                `;
-                // Make sure modal body is positioned relative so overlay covers it
-                modalBody.style.position = 'relative';
-                modalBody.appendChild(overlay);
-            } else {
-                // Initial load, no content yet. Show simple spinner.
-                modalBody.innerHTML = `
-                    <div class="d-flex align-items-center justify-content-center w-100 p-5" style="min-height: 200px;">
-                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6 d-grid gap-2">${skeletonBlock('34%', '0.75rem')}${skeletonBlock('100%', '2.4rem')}</div>
+                        <div class="col-12 col-md-6 d-grid gap-2">${skeletonBlock('36%', '0.75rem')}${skeletonBlock('100%', '2.4rem')}</div>
+                        <div class="col-12 col-md-6 d-grid gap-2">${skeletonBlock('28%', '0.75rem')}${skeletonBlock('86%', '2.4rem')}</div>
+                        <div class="col-12 col-md-6 d-grid gap-2">${skeletonBlock('26%', '0.75rem')}${skeletonBlock('72%', '2.4rem')}</div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-center mt-4">
+                        <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
-                    </div>`;
-            }
+                    </div>
+                </div>
+            `;
         }
         
         dynamicModal.show(trigger);
@@ -148,7 +180,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
+            if (loadToken !== activeLoadToken) return;
             if (data.html) {
+                modalBody.style.minHeight = '';
                 modalBody.innerHTML = data.html;
                 attachListeners();
                 
@@ -180,6 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(err => {
+            if (loadToken !== activeLoadToken) return;
             console.error('Error loading modal content:', err);
             showError('Failed to load content. Please try again.');
         });
@@ -361,6 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function showError(msg) {
+        modalBody.style.minHeight = '';
         modalBody.innerHTML = `
             <div class="text-center p-5 text-danger">
                 <i class="bi bi-exclamation-circle display-1 mb-3"></i>
