@@ -56,6 +56,19 @@ TITLEBAR_SURFACE_CHOICES = (
     ('glass', 'Glass'),
 )
 TITLEBAR_SURFACE_VALUES = {value for value, _label in TITLEBAR_SURFACE_CHOICES}
+TITLEBAR_LOGO_TREATMENT_CHOICES = (
+    ('none', 'None'),
+    ('plate', 'Plate'),
+    ('halo', 'Halo'),
+    ('contrast', 'Contrast'),
+)
+TITLEBAR_LOGO_TREATMENT_VALUES = {value for value, _label in TITLEBAR_LOGO_TREATMENT_CHOICES}
+TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES = (
+    ('soft', 'Soft'),
+    ('pill', 'Pill'),
+    ('square', 'Square'),
+)
+TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES = {value for value, _label in TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES}
 
 REGISTRATION_ACTIVATION_AUTO_LOGIN = 'auto_login_after_verify'
 REGISTRATION_ACTIVATION_PENDING_APPROVAL = 'verified_pending_approval'

@@ -504,14 +504,6 @@
     line-height: 1;
 }
 
-.tooltip-custom .tooltip-inner {
-    font-size: 1.2rem;
-    background-color: var(--title);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 5px;
-}
-
 .sidebar-toolbar {
     padding: 12px 10px 11px;
     position: absolute;

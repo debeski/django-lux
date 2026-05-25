@@ -225,7 +225,8 @@
 :root.theme-dark .ms-staff-tier-preview,
 :root.theme-gothic .ms-staff-tier-preview,
 :root.theme-neon .ms-staff-tier-preview,
-:root.theme-retro .ms-staff-tier-preview {
+:root.theme-retro .ms-staff-tier-preview,
+:root.theme-prism .ms-staff-tier-preview {
     --ms-tier-preview-panel-bg: linear-gradient(160deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.94));
     --ms-tier-preview-panel-border: rgba(148, 163, 184, 0.22);
     --ms-tier-preview-panel-shadow: 0 16px 34px rgba(2, 6, 23, 0.34);
@@ -245,6 +246,7 @@
 :root.theme-gothic .ms-staff-tier-preview .badge.bg-primary,
 :root.theme-neon .ms-staff-tier-preview .badge.bg-primary,
 :root.theme-retro .ms-staff-tier-preview .badge.bg-primary,
+:root.theme-prism .ms-staff-tier-preview .badge.bg-primary,
 [data-bs-theme="dark"] .ms-staff-tier-preview .badge.bg-primary {
     background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%) !important;
     color: #eff6ff !important;
@@ -255,7 +257,8 @@
 :root.theme-dark .ms-staff-tier-preview__warning,
 :root.theme-gothic .ms-staff-tier-preview__warning,
 :root.theme-neon .ms-staff-tier-preview__warning,
-:root.theme-retro .ms-staff-tier-preview__warning {
+:root.theme-retro .ms-staff-tier-preview__warning,
+:root.theme-prism .ms-staff-tier-preview__warning {
     background: rgba(255, 193, 7, 0.18);
     color: #ffe69c;
     border-color: rgba(255, 193, 7, 0.22);

@@ -77,6 +77,7 @@ from microsys.utils import (
     get_system_config,
     normalize_navbar_config,
     normalize_system_settings_import_payload,
+    normalize_titlebar_config,
     seed_navbar_config_from_sidebar,
 )
 from microsys.navbar import build_navbar_hierarchy_crumbs
@@ -190,7 +191,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             'translations': {'en': {'custom_key': 'Custom'}},
             'sidebar': {'enabled': False, 'entries': [{'kind': 'item', 'id': 'archive:index'}]},
             'navbar': {'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}},
-            'titlebar': {'show_title': False},
+            'titlebar': {'show_title': False, 'logo_treatment': 'plate', 'logo_treatment_shape': 'pill'},
             'prevent_multiple_active_sessions': 'true',
         })
 
@@ -199,7 +200,21 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(imported['sidebar_config']['entries'][0]['id'], 'archive:index')
         self.assertTrue(imported['navbar_config']['enabled'])
         self.assertFalse(imported['titlebar_config']['show_title'])
+        self.assertEqual(imported['titlebar_config']['logo_treatment'], 'plate')
+        self.assertEqual(imported['titlebar_config']['logo_treatment_shape'], 'pill')
         self.assertTrue(imported['prevent_multiple_active_sessions'])
+
+    def test_titlebar_logo_treatment_normalizes_defaults_and_invalid_values(self):
+        defaults = normalize_titlebar_config({})
+        invalid = normalize_titlebar_config({
+            'logo_treatment': 'flash',
+            'logo_treatment_shape': 'hexagon',
+        })
+
+        self.assertEqual(defaults['logo_treatment'], 'none')
+        self.assertEqual(defaults['logo_treatment_shape'], 'soft')
+        self.assertEqual(invalid['logo_treatment'], 'none')
+        self.assertEqual(invalid['logo_treatment_shape'], 'soft')
 
     def test_navbar_seed_from_sidebar_only_when_enabled_and_empty(self):
         seeded = seed_navbar_config_from_sidebar(
@@ -537,6 +552,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
             'title_size': 'lg',
             'height': 'roomy',
             'surface': 'glass',
+            'logo_treatment': 'plate',
+            'logo_treatment_shape': 'pill',
         },
     })
     def test_setup_form_surfaces_allowed_themes_sidebar_and_titlebar_defaults(self):
@@ -561,6 +578,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.initial['titlebar_title_size'], 'lg')
         self.assertEqual(form.initial['titlebar_height'], 'roomy')
         self.assertEqual(form.initial['titlebar_surface'], 'glass')
+        self.assertEqual(form.initial['titlebar_logo_treatment'], 'plate')
+        self.assertEqual(form.initial['titlebar_logo_treatment_shape'], 'pill')
 
     @override_settings(MICROSYS_CONFIG={
         'titlebar': {
@@ -657,6 +676,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
                     'show_title': False,
                     'hide_on_public_unauthenticated_index': True,
                     'title_align': 'center',
+                    'logo_treatment': 'halo',
+                    'logo_treatment_shape': 'square',
                 },
             },
         }
@@ -695,6 +716,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.cleaned_data['sidebar_config']['density'], 'dense')
         self.assertFalse(form.cleaned_data['titlebar_config']['show_title'])
         self.assertTrue(form.cleaned_data['titlebar_config']['hide_on_public_unauthenticated_index'])
+        self.assertEqual(form.cleaned_data['titlebar_config']['logo_treatment'], 'halo')
+        self.assertEqual(form.cleaned_data['titlebar_config']['logo_treatment_shape'], 'square')
 
     def test_setup_form_import_restores_email_config_and_sidebar_enabled_flag(self):
         payload = {
@@ -878,6 +901,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('ms-choice-selector--toggle', html)
         self.assertIn('id="id_default_table_density"', html)
         self.assertIn('id="id_titlebar_title_align"', html)
+        self.assertIn('id="id_titlebar_logo_treatment"', html)
+        self.assertIn('id="id_titlebar_logo_treatment_shape"', html)
         self.assertNotIn('<fieldset aria-describedby="id_default_table_density_helptext">', html)
         self.assertNotIn('<fieldset> <legend', html)
 
@@ -1421,6 +1446,9 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('const translationOverrides = settings.translations_override || settings.translations;', contents)
         self.assertIn('const navbarSource = settings.navbar_config || settings.navbar;', contents)
         self.assertIn('const titlebarSource = settings.titlebar_config || settings.titlebar;', contents)
+        self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment', titlebar.logo_treatment || 'none');", contents)
+        self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment_shape', titlebar.logo_treatment_shape || 'soft');", contents)
+        self.assertIn("setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showLogoToggle.checked || logoTreatment !== 'plate');", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_activation_mode', !enabled)", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled)", contents)
         self.assertIn("'prevent_multiple_active_sessions'", contents)
@@ -1474,7 +1502,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn(':root.theme-dark .ms-staff-tier-preview,', contents)
         self.assertIn(':root.theme-gothic .ms-staff-tier-preview,', contents)
         self.assertIn(':root.theme-neon .ms-staff-tier-preview,', contents)
-        self.assertIn(':root.theme-retro .ms-staff-tier-preview {', contents)
+        self.assertIn(':root.theme-retro .ms-staff-tier-preview,', contents)
+        self.assertIn(':root.theme-prism .ms-staff-tier-preview {', contents)
 
     def test_tables_css_hardens_staff_tier_badges_for_manage_users(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'tables.css'
@@ -1510,12 +1539,21 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('.titlebar[data-titlebar-home-shape="squircle"] .ms-login-round {', titlebar_css)
         self.assertIn('.titlebar .ms-login-round:hover,', titlebar_css)
         self.assertIn('.titlebar .ms-login-round:focus-visible {', titlebar_css)
+        self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {', titlebar_css)
+        self.assertIn('.titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {', titlebar_css)
+        self.assertIn('.titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {', titlebar_css)
+        self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"][data-titlebar-logo-treatment-shape="pill"] .titlebar__logo {', titlebar_css)
+        titlebar_template = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / 'includes' / 'titlebar.html'
+        titlebar_markup = titlebar_template.read_text(encoding='utf-8')
+        self.assertIn('data-titlebar-logo-treatment="{{ titlebar.logo_treatment|default:\'none\' }}"', titlebar_markup)
+        self.assertIn('data-titlebar-logo-treatment-shape="{{ titlebar.logo_treatment_shape|default:\'soft\' }}"', titlebar_markup)
 
-        for theme_name in ('dark', 'gothic', 'retro', 'neon'):
+        for theme_name in ('dark', 'gothic', 'retro', 'neon', 'prism'):
             theme_css = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
             self.assertIn('.titlebar .ms-login-round {', theme_css)
             self.assertIn('.titlebar .ms-login-round:hover,', theme_css)
             self.assertIn('.titlebar .ms-login-round:focus-visible {', theme_css)
+            self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {', theme_css)
 
     def test_neon_theme_excludes_options_panels_from_generic_option_section_overlays(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'themes' / 'css' / 'neon.css'
@@ -1631,16 +1669,16 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/main/css/main.css", contents)
-        self.assertIn("?v=20260522c", contents)
+        self.assertIn("?v=20260525a", contents)
         self.assertIn("microsys/main/css/system_setup.css", contents)
         self.assertIn("?v=20260523f", contents)
         self.assertIn("microsys/helpers/wizard/js/main.js", contents)
         self.assertIn("?v=20260523b", contents)
         self.assertIn("microsys/main/js/system_setup.js", contents)
-        self.assertIn("?v=20260523d", contents)
+        self.assertIn("?v=20260525a", contents)
         self.assertIn("microsys/main/js/navbar.js", contents)
         self.assertIn("microsys/main/css/navbar.css", contents)
-        self.assertIn("{% static theme.css_path %}?v=20260523c", contents)
+        self.assertIn("{% static theme.css_path %}?v=20260525d", contents)
 
     def test_verify_template_uses_versioned_auto_verify_script_and_trust_device_checkbox(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'microsys' / '2fa' / 'verify.html'

@@ -9,6 +9,7 @@ This file owns the release history for `django-microsys`.
 - **User Existence Report**: Added a permission-gated User Report dynamic modal with print/PDF-friendly layout and XLSX export. The report summarizes identity/status, staff tier, activity counts, recent logs, device/network history, browser/OS observations, trusted-device context, request counts, and estimated active time.
 - **Durable Device And Presence History**: Added DB-backed `UserKnownDevice` and `UserPresenceSession` history. Microsys now records forward-looking known-device and presence-session data using a signed neutral `microsys_device_id` cookie stored only as a hash, while continuing to use Django sessions for authentication and `TrustedDevice` for 2FA trust/security decisions. IP observations use the existing System Settings-aware `get_client_ip(request)` helper.
 - **Report Access And Export Hardening**: Added `user_can_view_user_report(...)` so User Reports require user-directory access, target-management access, and activity-log access. XLSX export normalizes timezone-aware values for Excel compatibility and avoids exposing raw session keys, device tokens, trusted-cookie tokens, or secrets.
+- **Titlebar Logo Treatments**: Added Step 6 logo treatment controls for titlebar branding, supporting unchanged, adaptive plate, halo, and contrast-assist modes with plate shape choices for better logo visibility across themes.
 - **License Update**: Updated the project license to be under `MIT license`.
 
 ## v2.2.5

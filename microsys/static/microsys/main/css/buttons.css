@@ -65,11 +65,13 @@
 :root.theme-retro .btn-primary > .bi,
 :root.theme-gothic .btn-primary > .bi,
 :root.theme-neon .btn-primary > .bi,
+:root.theme-prism .btn-primary > .bi,
 .theme-mono .btn-primary > .bi,
 .theme-dark .btn-primary > .bi,
 .theme-retro .btn-primary > .bi,
 .theme-gothic .btn-primary > .bi,
 .theme-neon .btn-primary > .bi,
+.theme-prism .btn-primary > .bi,
 .btn-primary > .bi {
     background: transparent !important;
     border-color: transparent !important;

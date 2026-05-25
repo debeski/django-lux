@@ -114,6 +114,8 @@ The system config layer now also supports governed theme exposure and titlebar l
 - `allow_user_theme_override`: hides runtime theme pickers and ignores saved user theme preferences when false
 - `titlebar.show_logo`
 - `titlebar.show_home_button`
+- `titlebar.logo_treatment`: `none`, `plate`, `halo`, or `contrast`
+- `titlebar.logo_treatment_shape`: `soft`, `pill`, or `square` for the `plate` treatment
 - `titlebar.home_shape`: `circle`, `square`, or `squircle`
 - `titlebar.title_align`: `start`, `center`, or `end`
 - `titlebar.title_size`: `sm`, `md`, or `lg`

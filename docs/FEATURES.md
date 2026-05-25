@@ -295,6 +295,8 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - `show_logo` — logo visibility
 - `show_title` — title visibility
 - `show_home_button` — home button visibility
+- `logo_treatment` — none, plate, halo, contrast
+- `logo_treatment_shape` — soft, pill, square for plate treatment
 - `home_shape` — circle, square, rounded, pill
 - `title_align` — start, center, end
 - `title_size` — sm, md, lg

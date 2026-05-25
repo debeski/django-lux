@@ -333,6 +333,26 @@
     box-shadow: 0 0 15px rgba(157, 78, 221, 0.3) !important;
 }
 
+:root.theme-gothic .titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {
+    background:
+        linear-gradient(135deg, rgba(0, 180, 216, 0.16), rgba(157, 78, 221, 0.08)),
+        rgba(224, 224, 224, 0.9) !important;
+    border-color: rgba(0, 180, 216, 0.35) !important;
+}
+
+:root.theme-gothic .titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {
+    filter:
+        drop-shadow(0 0 0.45rem rgba(0, 180, 216, 0.52))
+        drop-shadow(0 0 0.8rem rgba(157, 78, 221, 0.28)) !important;
+}
+
+:root.theme-gothic .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {
+    filter:
+        brightness(1.16)
+        contrast(1.18)
+        drop-shadow(0 0 0.5rem rgba(0, 180, 216, 0.42)) !important;
+}
+
 :root.theme-gothic .lang-option,
 .theme-gothic .lang-option {
     background-color: rgba(26, 16, 37, 0.92) !important;
@@ -1029,6 +1049,9 @@
 }
 
 :root.theme-gothic .ms-tooltip {
+    --ms-tooltip-bg: rgba(10, 5, 16, 0.95);
+    --ms-tooltip-color: var(--gothic-teal);
+    --ms-tooltip-border: rgba(0, 180, 216, 0.22);
     background: rgba(10, 5, 16, 0.95) !important;
     color: var(--gothic-teal) !important;
     border-color: rgba(0, 180, 216, 0.22) !important;

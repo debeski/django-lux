@@ -1417,6 +1417,8 @@
         const titleSize = getNamedFieldValue(form, 'titlebar_title_size') || 'md';
         const height = getNamedFieldValue(form, 'titlebar_height') || 'balanced';
         const surface = getNamedFieldValue(form, 'titlebar_surface') || 'default';
+        const logoTreatment = getNamedFieldValue(form, 'titlebar_logo_treatment') || 'none';
+        const logoTreatmentShape = getNamedFieldValue(form, 'titlebar_logo_treatment_shape') || 'soft';
         const homeShape = getNamedFieldValue(form, 'titlebar_home_shape') || 'circle';
         const homeUrl = readTrimmedValue(form, '#id_home_url', titlebar.querySelector('[data-titlebar-home]')?.getAttribute('href') || '/');
         const scopeName = String(titlebar.dataset.titlebarScopeName || '').trim();
@@ -1435,6 +1437,8 @@
         titlebar.dataset.titleSize = titleSize;
         titlebar.dataset.titlebarHeight = height;
         titlebar.dataset.titlebarSurface = surface;
+        titlebar.dataset.titlebarLogoTreatment = logoTreatment;
+        titlebar.dataset.titlebarLogoTreatmentShape = logoTreatmentShape;
         titlebar.dataset.titlebarHomeShape = homeShape;
         titlebar.dataset.titlebarShowTitle = showTitle ? 'true' : 'false';
         titlebar.dataset.titlebarShowLogo = showLogo ? 'true' : 'false';
@@ -3279,6 +3283,8 @@
             setNamedFieldValue(form, 'titlebar_title_size', titlebar.title_size || 'md');
             setNamedFieldValue(form, 'titlebar_height', titlebar.height || 'balanced');
             setNamedFieldValue(form, 'titlebar_surface', titlebar.surface || 'default');
+            setNamedFieldValue(form, 'titlebar_logo_treatment', titlebar.logo_treatment || 'none');
+            setNamedFieldValue(form, 'titlebar_logo_treatment_shape', titlebar.logo_treatment_shape || 'soft');
         }
 
         syncLanguageCatalog(form);
@@ -3921,22 +3927,39 @@
             }
 
             const showTitleToggle = form.querySelector('#id_titlebar_show_title');
+            const showLogoToggle = form.querySelector('#id_titlebar_show_logo');
             const showHomeButtonToggle = form.querySelector('#id_titlebar_show_home_button');
-            if (!showTitleToggle || !showHomeButtonToggle) {
+            if (!showTitleToggle || !showLogoToggle || !showHomeButtonToggle) {
                 return;
             }
 
             form.dataset.titlebarBehaviorBound = 'true';
 
             function syncTitlebarDependencies() {
+                const logoTreatment = getNamedFieldValue(form, 'titlebar_logo_treatment') || 'none';
                 setNamedFieldReadonly(form, 'titlebar_title_align', !showTitleToggle.checked);
                 setNamedFieldReadonly(form, 'titlebar_title_size', !showTitleToggle.checked);
+                setNamedFieldReadonly(form, 'titlebar_logo_treatment', !showLogoToggle.checked);
+                setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showLogoToggle.checked || logoTreatment !== 'plate');
+                form.querySelectorAll('.ms-titlebar-logo-dependent').forEach((node) => {
+                    node.classList.toggle('d-none', !showLogoToggle.checked);
+                    node.setAttribute('aria-hidden', showLogoToggle.checked ? 'false' : 'true');
+                });
+                form.querySelectorAll('.ms-titlebar-logo-plate-dependent').forEach((node) => {
+                    const visible = showLogoToggle.checked && logoTreatment === 'plate';
+                    node.classList.toggle('d-none', !visible);
+                    node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+                });
                 setNamedFieldReadonly(form, 'titlebar_home_shape', !showHomeButtonToggle.checked);
                 applyImmediateSystemSettingsPreview(form);
             }
 
             showTitleToggle.addEventListener('change', syncTitlebarDependencies);
+            showLogoToggle.addEventListener('change', syncTitlebarDependencies);
             showHomeButtonToggle.addEventListener('change', syncTitlebarDependencies);
+            form.querySelectorAll('[name="titlebar_logo_treatment"]').forEach((input) => {
+                input.addEventListener('change', syncTitlebarDependencies);
+            });
             syncTitlebarDependencies();
         });
     }

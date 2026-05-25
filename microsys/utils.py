@@ -38,6 +38,8 @@ from .constants import (
     TITLEBAR_ALIGN_VALUES,
     TITLEBAR_HEIGHT_VALUES,
     TITLEBAR_HOME_SHAPE_VALUES,
+    TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES,
+    TITLEBAR_LOGO_TREATMENT_VALUES,
     TITLEBAR_SIZE_VALUES,
     TITLEBAR_SURFACE_VALUES,
 )
@@ -1437,6 +1439,8 @@ def default_titlebar_config():
         'title_size': 'md',
         'height': 'balanced',
         'surface': 'default',
+        'logo_treatment': 'none',
+        'logo_treatment_shape': 'soft',
     }
 
 # Normalize and validate titlebar configuration
@@ -1472,6 +1476,14 @@ def normalize_titlebar_config(titlebar_config):
     surface = config.get('surface')
     if surface in TITLEBAR_SURFACE_VALUES:
         normalized['surface'] = surface
+
+    logo_treatment = config.get('logo_treatment')
+    if logo_treatment in TITLEBAR_LOGO_TREATMENT_VALUES:
+        normalized['logo_treatment'] = logo_treatment
+
+    logo_treatment_shape = config.get('logo_treatment_shape')
+    if logo_treatment_shape in TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES:
+        normalized['logo_treatment_shape'] = logo_treatment_shape
 
     return normalized
 

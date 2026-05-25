@@ -208,6 +208,21 @@
     color: #fff !important;
 }
 
+:root.theme-dark .titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {
+    background:
+        linear-gradient(135deg, rgba(203, 213, 225, 0.12), transparent 58%),
+        rgba(248, 249, 250, 0.92) !important;
+    border-color: rgba(203, 213, 225, 0.35) !important;
+}
+
+:root.theme-dark .titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo,
+:root.theme-dark .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {
+    filter:
+        brightness(1.14)
+        contrast(1.16)
+        drop-shadow(0 0 0.45rem rgba(203, 213, 225, 0.45)) !important;
+}
+
 /* 3. Forms & Inputs */
 :root.theme-dark .microsys-form,
 :root.theme-dark .archive-document-form,

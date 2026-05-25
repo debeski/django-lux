@@ -880,6 +880,9 @@
 }
 
 :root.theme-mono .ms-tooltip {
+    --ms-tooltip-bg: rgba(15, 23, 42, 0.94);
+    --ms-tooltip-color: #ffffff;
+    --ms-tooltip-border: var(--mono-700);
     background: rgba(15, 23, 42, 0.94) !important;
     color: #ffffff !important;
     border-color: var(--mono-700) !important;

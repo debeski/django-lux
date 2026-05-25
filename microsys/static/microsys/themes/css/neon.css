@@ -313,6 +313,29 @@
     color: var(--neon-pink) !important;
 }
 
+:root.theme-neon .titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {
+    background:
+        linear-gradient(135deg, rgba(0, 255, 255, 0.18), rgba(255, 0, 255, 0.08)),
+        rgba(224, 224, 255, 0.88) !important;
+    border-color: rgba(0, 255, 255, 0.42) !important;
+    box-shadow:
+        0 0 16px rgba(0, 255, 255, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.26) !important;
+}
+
+:root.theme-neon .titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {
+    filter:
+        drop-shadow(0 0 0.5rem rgba(0, 255, 255, 0.68))
+        drop-shadow(0 0 0.9rem rgba(255, 0, 255, 0.32)) !important;
+}
+
+:root.theme-neon .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {
+    filter:
+        brightness(1.16)
+        contrast(1.2)
+        drop-shadow(0 0 0.48rem rgba(0, 255, 255, 0.52)) !important;
+}
+
 /* 3. Forms & Inputs - Neon Glowing Fields */
 :root.theme-neon .microsys-form,
 :root.theme-neon .archive-document-form,
@@ -2094,6 +2117,9 @@
 }
 
 :root.theme-neon .ms-tooltip {
+    --ms-tooltip-bg: rgba(10, 10, 15, 0.95);
+    --ms-tooltip-color: var(--neon-cyan);
+    --ms-tooltip-border: rgba(0, 255, 255, 0.22);
     background: rgba(10, 10, 15, 0.95) !important;
     color: var(--neon-cyan) !important;
     border-color: rgba(0, 255, 255, 0.22) !important;

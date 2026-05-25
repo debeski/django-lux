@@ -36,7 +36,7 @@ The wizard currently runs in seven steps:
    This step manages the optional authenticated Nav Bar, including hierarchy/history mode, user override policy, and the static hierarchy tree. During first-launch setup, enabling an empty Nav Bar tree can seed it from the configured sidebar accordions.
 
 6. UI and Layout
-   This step manages titlebar controls (logo/home visibility, shape, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
+   This step manages titlebar controls (logo/home visibility, logo treatment, home shape, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
 
 7. Appearance and Typography
    This step manages theme availability, default theme, theme override policy, and the Dynamic Font Management system.

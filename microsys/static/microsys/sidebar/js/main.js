@@ -73,26 +73,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const sidebarItems = document.querySelectorAll(".sidebar.collapsed .list-group-item, .sidebar.collapsed .accordion-button");
         sidebarItems.forEach(item => {
-            if (item._tooltip) {
-                item._tooltip.dispose();
-            }
             const label = item.querySelector("span");
-            item._tooltip = new bootstrap.Tooltip(item, {
-                title: label ? label.textContent : '',
-                placement: "right",
-                customClass: "tooltip-custom",
-                trigger: 'hover'
-            });
+            const tooltipText = label ? label.textContent.trim() : '';
+            if (tooltipText) {
+                item.setAttribute('data-ms-sidebar-tooltip', tooltipText);
+                item.setAttribute('data-ms-sidebar-tooltip-placement', 'right');
+            }
         });
     }
 
     function deinitializeTooltips() {
         const sidebarItems = document.querySelectorAll(".sidebar .list-group-item, .sidebar .accordion-button");
         sidebarItems.forEach(item => {
-            if (item._tooltip) {
-                item._tooltip.dispose();
-                item._tooltip = null;
-            }
+            item.removeAttribute('data-ms-sidebar-tooltip');
+            item.removeAttribute('data-ms-sidebar-tooltip-placement');
         });
     }
 

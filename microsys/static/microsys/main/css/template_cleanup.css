@@ -106,6 +106,10 @@
     background: linear-gradient(135deg, #00ffff 0%, #ff00ff 50%, #0a0a0f 100%);
 }
 
+.ms-theme-preview--prism {
+    background: linear-gradient(145deg, #eef2f7 0%, #9aa8bc 24%, #3a4150 52%, #181b22 100%);
+}
+
 .ms-user-detail-timeline {
     max-height: 250px;
     overflow-y: auto;

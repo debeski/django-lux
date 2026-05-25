@@ -49,6 +49,8 @@ def default_titlebar_config():
         'title_size': 'md',
         'height': 'balanced',
         'surface': 'default',
+        'logo_treatment': 'none',
+        'logo_treatment_shape': 'soft',
     }
 
 

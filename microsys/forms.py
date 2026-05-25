@@ -47,6 +47,10 @@ from .constants import (
     TITLEBAR_HEIGHT_VALUES,
     TITLEBAR_HOME_SHAPE_CHOICES,
     TITLEBAR_HOME_SHAPE_VALUES,
+    TITLEBAR_LOGO_TREATMENT_CHOICES,
+    TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES,
+    TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES,
+    TITLEBAR_LOGO_TREATMENT_VALUES,
     TITLEBAR_SIZE_CHOICES,
     TITLEBAR_SIZE_VALUES,
     TITLEBAR_SURFACE_CHOICES,
@@ -1612,6 +1616,16 @@ class SystemSettingsForm(forms.ModelForm):
         choices=TITLEBAR_SURFACE_CHOICES,
         initial='default',
     )
+    titlebar_logo_treatment = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_LOGO_TREATMENT_CHOICES,
+        initial='none',
+    )
+    titlebar_logo_treatment_shape = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES,
+        initial='soft',
+    )
     email_2fa = forms.BooleanField(
         required=False,
         initial=False,
@@ -1914,6 +1928,11 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['titlebar_title_size'].label = s.get('form_sys_titlebar_title_size', 'Title size')
         self.fields['titlebar_height'].label = s.get('form_sys_titlebar_height', 'Titlebar height')
         self.fields['titlebar_surface'].label = s.get('form_sys_titlebar_surface', 'Titlebar surface')
+        self.fields['titlebar_logo_treatment'].label = s.get('form_sys_titlebar_logo_treatment', 'Logo treatment')
+        self.fields['titlebar_logo_treatment_shape'].label = s.get(
+            'form_sys_titlebar_logo_treatment_shape',
+            'Logo treatment shape',
+        )
         self.fields['titlebar_show_title'].help_text = s.get(
             'help_sys_titlebar_show_title',
             'Show the system title in the titlebar.',
@@ -1929,6 +1948,14 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['titlebar_hide_on_public_unauthenticated_index'].help_text = s.get(
             'help_sys_titlebar_hide_on_public_unauthenticated_index',
             'Hide the titlebar when an anonymous user opens the public root/home page.',
+        )
+        self.fields['titlebar_logo_treatment'].help_text = s.get(
+            'help_sys_titlebar_logo_treatment',
+            'Choose how Microsys visually assists the logo on mixed theme surfaces.',
+        )
+        self.fields['titlebar_logo_treatment_shape'].help_text = s.get(
+            'help_sys_titlebar_logo_treatment_shape',
+            'Choose the plate silhouette when the Plate treatment is active.',
         )
         self.fields['titlebar_home_shape'].choices = (
             ('circle', s.get('titlebar_home_shape_circle', 'Circle')),
@@ -1954,6 +1981,17 @@ class SystemSettingsForm(forms.ModelForm):
             ('default', s.get('titlebar_surface_default', 'Default')),
             ('muted', s.get('titlebar_surface_muted', 'Muted')),
             ('glass', s.get('titlebar_surface_glass', 'Glass')),
+        )
+        self.fields['titlebar_logo_treatment'].choices = (
+            ('none', s.get('titlebar_logo_treatment_none', 'None')),
+            ('plate', s.get('titlebar_logo_treatment_plate', 'Plate')),
+            ('halo', s.get('titlebar_logo_treatment_halo', 'Halo')),
+            ('contrast', s.get('titlebar_logo_treatment_contrast', 'Contrast')),
+        )
+        self.fields['titlebar_logo_treatment_shape'].choices = (
+            ('soft', s.get('titlebar_logo_treatment_shape_soft', 'Soft')),
+            ('pill', s.get('titlebar_logo_treatment_shape_pill', 'Pill')),
+            ('square', s.get('titlebar_logo_treatment_shape_square', 'Square')),
         )
         self.fields['email_2fa'].label = s.get('form_sys_email_2fa', 'Enable Email 2FA')
         self.fields['email_2fa'].help_text = s.get(
@@ -2199,6 +2237,50 @@ class SystemSettingsForm(forms.ModelForm):
             ),
         )
         _bind_choice_selector_widget(
+            self.fields['titlebar_logo_treatment'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'none': {
+                        'icon': 'bi-slash-circle',
+                        'description': s.get('titlebar_logo_treatment_none_desc', 'Leave the logo as uploaded.'),
+                    },
+                    'plate': {
+                        'icon': 'bi-badge-ad',
+                        'description': s.get('titlebar_logo_treatment_plate_desc', 'Place the logo on an adaptive material plate.'),
+                    },
+                    'halo': {
+                        'icon': 'bi-brightness-high',
+                        'description': s.get('titlebar_logo_treatment_halo_desc', 'Add a subtle adaptive glow behind the logo.'),
+                    },
+                    'contrast': {
+                        'icon': 'bi-circle-half',
+                        'description': s.get('titlebar_logo_treatment_contrast_desc', 'Apply contrast and shadow assistance for simple logos.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['titlebar_logo_treatment_shape'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'soft': {
+                        'icon': 'bi-app',
+                        'description': s.get('titlebar_logo_treatment_shape_soft_desc', 'A modern rounded plate.'),
+                    },
+                    'pill': {
+                        'icon': 'bi-capsule',
+                        'description': s.get('titlebar_logo_treatment_shape_pill_desc', 'A fully rounded capsule plate.'),
+                    },
+                    'square': {
+                        'icon': 'bi-square',
+                        'description': s.get('titlebar_logo_treatment_shape_square_desc', 'A sharper compact plate.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
             self.fields['navbar_default_mode'],
             MicrosysChoiceSelectorWidget(
                 variant='toggle',
@@ -2439,6 +2521,8 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['titlebar_title_size'] = initial_titlebar_config.get('title_size', 'md')
         self.initial['titlebar_height'] = initial_titlebar_config.get('height', 'balanced')
         self.initial['titlebar_surface'] = initial_titlebar_config.get('surface', 'default')
+        self.initial['titlebar_logo_treatment'] = initial_titlebar_config.get('logo_treatment', 'none')
+        self.initial['titlebar_logo_treatment_shape'] = initial_titlebar_config.get('logo_treatment_shape', 'soft')
 
         catalog_lang = self.initial.get('default_language') or self.instance.default_language or config.get('default_language', 'en')
         public_sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=False)
@@ -2908,6 +2992,28 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(Field('titlebar_surface'), css_class='col-lg-12'),
                 ),
+                Row(
+                    Div(
+                        Field('titlebar_logo_treatment'),
+                        css_class=(
+                            "col-lg-8 ms-titlebar-logo-dependent"
+                            f"{' d-none' if not self.initial.get('titlebar_show_logo', True) else ''}"
+                        ),
+                        aria_hidden='false' if self.initial.get('titlebar_show_logo', True) else 'true',
+                    ),
+                    Div(
+                        Field('titlebar_logo_treatment_shape'),
+                        css_class=(
+                            "col-lg-4 ms-titlebar-logo-plate-dependent"
+                            f"{' d-none' if not (self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') == 'plate') else ''}"
+                        ),
+                        aria_hidden='false' if (
+                            self.initial.get('titlebar_show_logo', True)
+                            and self.initial.get('titlebar_logo_treatment', 'none') == 'plate'
+                        ) else 'true',
+                    ),
+                    css_class='g-3 mb-3',
+                ),
                 css_class=_step_css_class(5),
             ),
             Div(
@@ -3136,6 +3242,18 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Invalid titlebar surface.")
         return value
 
+    def clean_titlebar_logo_treatment(self):
+        value = self.cleaned_data.get('titlebar_logo_treatment') or 'none'
+        if value not in TITLEBAR_LOGO_TREATMENT_VALUES:
+            raise ValidationError("Invalid titlebar logo treatment.")
+        return value
+
+    def clean_titlebar_logo_treatment_shape(self):
+        value = self.cleaned_data.get('titlebar_logo_treatment_shape') or 'soft'
+        if value not in TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES:
+            raise ValidationError("Invalid titlebar logo treatment shape.")
+        return value
+
     def clean_home_url(self):
         value = str(self.cleaned_data.get('home_url') or '').strip()
         discovered_value = str(self.cleaned_data.get('home_url_discovered') or '').strip()
@@ -3336,6 +3454,8 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['titlebar_title_size'] = titlebar.get('title_size', 'md')
             cleaned['titlebar_height'] = titlebar.get('height', 'balanced')
             cleaned['titlebar_surface'] = titlebar.get('surface', 'default')
+            cleaned['titlebar_logo_treatment'] = titlebar.get('logo_treatment', 'none')
+            cleaned['titlebar_logo_treatment_shape'] = titlebar.get('logo_treatment_shape', 'soft')
 
     def clean(self):
         cleaned = super().clean()
@@ -3453,6 +3573,8 @@ class SystemSettingsForm(forms.ModelForm):
             'title_size': cleaned.get('titlebar_title_size', 'md'),
             'height': cleaned.get('titlebar_height', 'balanced'),
             'surface': cleaned.get('titlebar_surface', 'default'),
+            'logo_treatment': cleaned.get('titlebar_logo_treatment', 'none'),
+            'logo_treatment_shape': cleaned.get('titlebar_logo_treatment_shape', 'soft'),
         })
         if cleaned.get('registration_activation_mode') not in REGISTRATION_ACTIVATION_VALUES:
             cleaned['registration_activation_mode'] = 'auto_login_after_verify'

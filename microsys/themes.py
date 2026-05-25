@@ -73,6 +73,20 @@ _THEME_REGISTRY = (
         'preview_style': 'background: linear-gradient(135deg, #00ffff 0%, #ff00ff 50%, #0a0a0f 100%);',
         'css_path': 'microsys/themes/css/neon.css',
     },
+    {
+        'slug': 'prism',
+        'color': '#e8ecf2',
+        'label_key': 'theme_prism',
+        'preview_style': 'background: linear-gradient(145deg, #eef2f7 0%, #9aa8bc 24%, #3a4150 52%, #181b22 100%);',
+        'css_path': 'microsys/themes/css/prism.css',
+    },
+    {
+        'slug': 'aether',
+        'color': '#a8ffe4',
+        'label_key': 'theme_aether',
+        'preview_style': 'background: linear-gradient(135deg, #0d1116 0%, #19212b 34%, #a8ffe4 56%, #83c9ff 72%, #c8a4ff 100%);',
+        'css_path': 'microsys/themes/css/aether.css',
+    },
 )
 
 

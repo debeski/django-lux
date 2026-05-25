@@ -321,6 +321,21 @@
     box-shadow: 0 0 15px rgba(212, 165, 116, 0.2) !important;
 }
 
+:root.theme-retro .titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {
+    background:
+        linear-gradient(135deg, rgba(212, 165, 116, 0.18), rgba(184, 115, 51, 0.08)),
+        rgba(245, 235, 224, 0.92) !important;
+    border-color: rgba(212, 165, 116, 0.36) !important;
+}
+
+:root.theme-retro .titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo,
+:root.theme-retro .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {
+    filter:
+        brightness(1.12)
+        contrast(1.14)
+        drop-shadow(0 0 0.42rem rgba(212, 165, 116, 0.42)) !important;
+}
+
 :root.theme-retro .bi-three-dots,
 :root.theme-retro .bi-three-dots-vertical,
 :root.theme-retro .bi:not(.btn-primary .bi):not(.btn-light .bi):not(.btn-secondary .bi):not(.btn-success .bi):not(.btn-info .bi):not(.btn-warning .bi):not(.btn-danger .bi) {
@@ -945,6 +960,9 @@
 }
 
 :root.theme-retro .ms-tooltip {
+    --ms-tooltip-bg: rgba(13, 11, 10, 0.95);
+    --ms-tooltip-color: var(--retro-amber);
+    --ms-tooltip-border: rgba(212, 165, 116, 0.22);
     background: rgba(13, 11, 10, 0.95) !important;
     color: var(--retro-amber) !important;
     border-color: rgba(212, 165, 116, 0.22) !important;

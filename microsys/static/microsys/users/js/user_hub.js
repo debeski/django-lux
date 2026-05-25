@@ -39,37 +39,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 trigger.classList.remove('active');
             }
         });
-        // Tooltip Manager
-        const tooltip = document.createElement('div');
-        tooltip.className = 'ms-tooltip';
-        document.body.appendChild(tooltip);
-
-        function showTooltip(e) {
-            const target = e.currentTarget;
-            const text = target.getAttribute('data-ms-tooltip');
-            if (!text) return;
-
-            tooltip.innerText = text;
-            const rect = target.getBoundingClientRect();
-            
-            tooltip.style.left = (rect.left + rect.width / 2) + 'px';
-            tooltip.style.top = (rect.top - 10 - tooltip.offsetHeight) + 'px';
-            
-            // Adjust for positioning after text is set
-            requestAnimationFrame(() => {
-                tooltip.style.top = (rect.top - 8 - tooltip.offsetHeight) + 'px';
-                tooltip.classList.add('show');
-            });
-        }
-
-        function hideTooltip() {
-            tooltip.classList.remove('show');
-        }
-
-        document.querySelectorAll('[data-ms-tooltip]').forEach(el => {
-            el.addEventListener('mouseenter', showTooltip);
-            el.addEventListener('mouseleave', hideTooltip);
-            el.addEventListener('click', hideTooltip);
-        });
     }
+
 });
