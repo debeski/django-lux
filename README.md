@@ -6,6 +6,11 @@
   <img src="https://raw.githubusercontent.com/debeski/django-microsys/main/microsys/static/img/login_logo.webp" alt="microSys Logo" width="450"/>
 </p>
 
+<p align="center">
+  <a href="https://chatgpt.com/g/g-6a14ac8cbb0c8191aad3b3619e5bef21-microsys-agent"><strong>Open microSYS Agent on ChatGPT</strong></a><br/>
+  <sub>Specialized custom GPT for django-microsys integration, configuration, extension, and troubleshooting.</sub>
+</p>
+
 microSYS is a multilingual Django app that gives a project-level system layer for user management, branding, translations, scopes, navigation, activity logging, guided onboarding, data export, and dynamic CRUD tooling. It is not just a themed admin shell: it is a fairly large internal-systems toolkit that bundles runtime configuration, user operations, auditability, UI infrastructure, and zero-boilerplate management patterns into one package. The package keeps the landing README short, You can view the long-form operating and integration guidance at [`docs/`](docs/README.md).
 
 ## What microSYS gives you

@@ -52,7 +52,7 @@
 - 2026-05-25: `node --check microsys/static/microsys/helpers/dynamic_modal/js/main.js` and focused theme asset/version/CSS coverage tests passed.
 
 ### One-line info about last time edited Docs:
-- 2026-05-25: edited `utils_split_plan.md` to document module moves, compatibility exports, import-cycle wiring, and verification commands.
+- 2026-05-25: edited `README.md` to add the published microSYS Agent ChatGPT link.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
