@@ -10,10 +10,12 @@
     {{ MS_TRANS|json_script:"ms-trans-data" }}
     {{ MICROSYS_THEME_NAMES|json_script:"microsys-theme-names" }}
     {{ config|json_script:"microsys-config-data" }}
+    {{ font_families|json_script:"microsys-font-families" }}
     <style id="ms-dynamic-fonts" nonce="{{ request.csp_nonce }}">
         {{ font_face_css|safe }}
         :root {
-            --ms-main-font: '{{ active_font|title }}', sans-serif;
+            --ms-font-fallback: '{{ default_font_family }}', sans-serif;
+            --ms-main-font: '{{ active_font_family }}', sans-serif;
         }
     </style>
     <script src="{% static 'microsys/main/js/base_head.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}"></script>
@@ -24,19 +26,19 @@
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.rtl.min.css' %}" id="bootstrap-css">
     {% endif %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap-icons.css' %}">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/main.css' %}?v=20260522c">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/main.css' %}?v=20260525a">
     <link rel="stylesheet" href="{% static 'microsys/main/css/navbar.css' %}?v=20260523b">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/buttons.css' %}">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/buttons.css' %}?v=20260525b">
     <link rel="stylesheet" href="{% static 'microsys/main/css/titlebar.css' %}?v=20260501c">
     <link rel="stylesheet" href="{% static 'microsys/main/css/tables.css' %}?v=20260501a">
     <link rel="stylesheet" href="{% static 'microsys/main/css/dropdowns.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/main/css/selectors.css' %}?v=20260506b">
-    <link rel="stylesheet" href="{% static 'microsys/main/css/template_cleanup.css' %}?v=20260506a">
+    <link rel="stylesheet" href="{% static 'microsys/main/css/template_cleanup.css' %}?v=20260525b">
     
     <link rel="stylesheet" href="{% static 'microsys/main/css/pagination.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/main/css/system_setup.css' %}?v=20260523f">
     {% for theme in MICROSYS_THEMES %}
-    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260523c">
+    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260525c">
     {% endfor %}
     <link rel="stylesheet" href="{% static 'microsys/accessibility/css/main.css' %}">
     <link rel="stylesheet" href="{% static 'microsys/language/css/main.css' %}?v=20260516a">

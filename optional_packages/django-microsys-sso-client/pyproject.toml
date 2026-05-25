@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Lightweight Django OIDC client SDK for Microsys SSO providers."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "NON-COMMERCIAL" }
+license = { text = "MIT" }
 authors = [
     { name = "DeBeski", email = "debeski1@gmail.com" }
 ]
@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: Other/Proprietary License",
+    "License :: OSI Approved :: MIT License",
 ]
 
 [project.urls]
@@ -31,4 +31,3 @@ Homepage = "https://github.com/debeski/django-microsys"
 
 [tool.setuptools.packages.find]
 include = ["microsys_sso_client", "microsys_sso_client.*"]
-

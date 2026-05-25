@@ -49,6 +49,8 @@ urlpatterns = [
     ), name='modal_user_permissions'),
     # User Detail Modal
     path('sys/users/<int:pk>/modal/', views.UserDetailModalView.as_view(), name='user_detail_modal'),
+    path('sys/users/<int:pk>/report/', views.user_report_modal_view, name='user_report_modal'),
+    path('sys/users/<int:pk>/report.xlsx', views.user_report_xlsx_view, name='user_report_xlsx'),
     # User Reset Password
     path('sys/reset_password/<int:pk>/', views.reset_password, name='reset_password'),
     # User Activity Log URLs

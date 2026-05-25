@@ -119,3 +119,145 @@
 .ms-user-detail-empty-icon {
     font-size: 1.5rem;
 }
+
+.ms-user-report {
+    --ms-user-report-border: rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+    --ms-user-report-surface: color-mix(in srgb, var(--hbody, #f8fafc) 88%, transparent);
+    --ms-user-report-surface-strong: color-mix(in srgb, var(--table-row, var(--hbody, #ffffff)) 88%, transparent);
+    --ms-user-report-muted-surface: color-mix(in srgb, var(--body, #f8fafc) 78%, var(--hbody, #ffffff));
+    --ms-user-report-text: var(--title, #334155);
+    --ms-user-report-muted: var(--htitle, #64748b);
+    color: var(--ms-user-report-text);
+}
+
+.ms-user-report-tile,
+.ms-user-report-card {
+    border: 1px solid var(--ms-user-report-border);
+    border-radius: 1.1rem;
+    background:
+        linear-gradient(135deg, rgba(var(--primal-rgb, 13, 110, 253), 0.055), transparent 44%),
+        var(--ms-user-report-surface);
+    color: var(--ms-user-report-text);
+    box-shadow: 0 0.75rem 1.8rem rgba(0, 0, 0, 0.08);
+}
+
+.ms-user-report-tile {
+    padding: 1rem;
+    min-height: 6rem;
+}
+
+.ms-user-report-tile span,
+.ms-user-report-list dt {
+    display: block;
+    color: var(--ms-user-report-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.ms-user-report-tile strong {
+    display: block;
+    color: var(--ms-user-report-text);
+    font-size: 1.55rem;
+    margin-top: 0.35rem;
+}
+
+.ms-user-report-card {
+    height: 100%;
+    padding: 1.1rem;
+}
+
+.ms-user-report-card h5 {
+    color: color-mix(in srgb, var(--primal, #0d6efd) 84%, var(--ms-user-report-text));
+    font-weight: 800;
+    margin-bottom: 1rem;
+}
+
+.ms-user-report-list {
+    display: grid;
+    gap: 0.65rem 1rem;
+    grid-template-columns: minmax(8rem, 0.45fr) 1fr;
+    margin: 0;
+}
+
+.ms-user-report-list dd {
+    color: var(--ms-user-report-text);
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.ms-user-report-stack,
+.ms-user-report-timeline {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.ms-user-report-meter,
+.ms-user-report-log {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.13);
+    border-radius: 0.85rem;
+    background: var(--ms-user-report-muted-surface);
+    color: var(--ms-user-report-text);
+}
+
+.ms-user-report-log {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+.ms-user-report-log small {
+    color: var(--ms-user-report-muted);
+    margin-inline-start: auto;
+}
+
+.ms-user-report-badge {
+    background: color-mix(in srgb, var(--primal, #0d6efd) 14%, var(--ms-user-report-surface-strong)) !important;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.22);
+    color: color-mix(in srgb, var(--primal, #0d6efd) 78%, var(--ms-user-report-text)) !important;
+}
+
+.ms-user-report-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.65rem;
+    margin-top: 0.9rem;
+    color: var(--ms-user-report-muted);
+}
+
+.ms-user-report-pagination .btn:disabled {
+    opacity: 0.55;
+}
+
+.ms-user-report .table {
+    --bs-table-bg: var(--ms-user-report-surface);
+    --bs-table-color: var(--ms-user-report-text);
+    --bs-table-border-color: var(--ms-user-report-border);
+    --bs-table-striped-bg: var(--ms-user-report-muted-surface);
+    --bs-table-hover-bg: color-mix(in srgb, var(--ms-user-report-muted-surface) 84%, var(--primal, #0d6efd));
+    color: var(--ms-user-report-text);
+}
+
+.ms-user-report .text-muted,
+.ms-user-report .text-secondary,
+.ms-user-report .small {
+    color: var(--ms-user-report-muted) !important;
+}
+
+.ms-user-report .alert-info {
+    background:
+        linear-gradient(135deg, rgba(var(--primal-rgb, 13, 110, 253), 0.12), transparent 56%),
+        var(--ms-user-report-muted-surface);
+    color: var(--ms-user-report-text);
+    border: 1px solid var(--ms-user-report-border) !important;
+}
+
+.ms-user-report .bg-light {
+    background-color: var(--ms-user-report-muted-surface) !important;
+}

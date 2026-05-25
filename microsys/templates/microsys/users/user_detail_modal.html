@@ -128,5 +128,13 @@
 </div>
 
 <div class="modal-footer border-0 pt-0">
+    {% if can_view_user_report %}
+        <button type="button"
+                class="btn btn-primary rounded-pill px-4"
+                data-dynamic-modal="{% url 'user_report_modal' target_user.pk %}"
+                data-modal-title="{{ MS_TRANS.user_report_title }}">
+            <i class="bi bi-file-earmark-person me-1"></i>{{ MS_TRANS.user_report_title }}
+        </button>
+    {% endif %}
     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">{{ MS_TRANS.btn_close|default:"Close" }}</button>
 </div>

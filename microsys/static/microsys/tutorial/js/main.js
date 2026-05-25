@@ -151,7 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .driver-popover-title, .driver-popover-description {
                 direction: rtl !important;
                 text-align: right !important;
-                font-family: 'Shabwa', sans-serif !important;
+                font-family: var(--ms-main-font, var(--ms-font-fallback, sans-serif)) !important;
                 color: #333 !important;
             }
             
@@ -225,7 +225,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 border: none;
                 border-radius: 50px;
                 padding: 8px 20px;
-                font-family: 'Shabwa', sans-serif;
+                font-family: var(--ms-main-font, var(--ms-font-fallback, sans-serif));
                 font-size: 0.95rem;
                 cursor: pointer;
                 transition: all 0.2s;
@@ -255,7 +255,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .tut-btn-skip:hover { background-color: var(--tut-skip-bg-hover); }
 
             .tut-progress {
-                font-family: 'Shabwa', sans-serif;
+                font-family: var(--ms-main-font, var(--ms-font-fallback, sans-serif));
                 color: var(--tut-progress-color);
                 font-weight: bold;
                 min-width: 60px;

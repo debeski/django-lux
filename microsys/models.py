@@ -433,6 +433,93 @@ class TrustedDevice(models.Model):
         return self.revoked_at is None and self.trusted_until > timezone.now()
 
 
+class UserKnownDevice(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='microsys_known_devices',
+        verbose_name="User",
+    )
+    device_hash = models.CharField(max_length=64, verbose_name="Device Hash")
+    device_label = models.CharField(max_length=255, blank=True, verbose_name="Device Label")
+    trusted_device = models.ForeignKey(
+        'microsys.TrustedDevice',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='known_device_links',
+        verbose_name="Trusted Device",
+    )
+    ip_addresses = models.JSONField(default=list, blank=True, verbose_name="IP Addresses")
+    user_agents = models.JSONField(default=list, blank=True, verbose_name="User Agents")
+    browser_names = models.JSONField(default=list, blank=True, verbose_name="Browsers")
+    os_names = models.JSONField(default=list, blank=True, verbose_name="Operating Systems")
+    first_seen_at = models.DateTimeField(default=timezone.now, verbose_name="First Seen At")
+    last_seen_at = models.DateTimeField(default=timezone.now, verbose_name="Last Seen At")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+
+    class Meta:
+        verbose_name = "Known Device"
+        verbose_name_plural = "Known Devices"
+        ordering = ['-last_seen_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'device_hash'], name='microsys_unique_known_device'),
+        ]
+        indexes = [
+            models.Index(fields=['user', '-last_seen_at'], name='microsys_known_device_seen_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user} known device"
+
+
+class UserPresenceSession(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='microsys_presence_sessions',
+        verbose_name="User",
+    )
+    known_device = models.ForeignKey(
+        'microsys.UserKnownDevice',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='presence_sessions',
+        verbose_name="Known Device",
+    )
+    session_key_hash = models.CharField(max_length=64, verbose_name="Session Key Hash")
+    device_label = models.CharField(max_length=255, blank=True, verbose_name="Device Label")
+    ip_addresses = models.JSONField(default=list, blank=True, verbose_name="IP Addresses")
+    user_agents = models.JSONField(default=list, blank=True, verbose_name="User Agents")
+    browser_names = models.JSONField(default=list, blank=True, verbose_name="Browsers")
+    os_names = models.JSONField(default=list, blank=True, verbose_name="Operating Systems")
+    first_seen_at = models.DateTimeField(default=timezone.now, verbose_name="First Seen At")
+    last_seen_at = models.DateTimeField(default=timezone.now, verbose_name="Last Seen At")
+    estimated_seconds = models.PositiveIntegerField(default=0, verbose_name="Estimated Seconds")
+    request_count = models.PositiveIntegerField(default=0, verbose_name="Request Count")
+    ended_at = models.DateTimeField(blank=True, null=True, verbose_name="Ended At")
+    revoked_at = models.DateTimeField(blank=True, null=True, verbose_name="Revoked At")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+
+    class Meta:
+        verbose_name = "Presence Session"
+        verbose_name_plural = "Presence Sessions"
+        ordering = ['-last_seen_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'session_key_hash'], name='microsys_unique_presence_session'),
+        ]
+        indexes = [
+            models.Index(fields=['user', '-last_seen_at'], name='microsys_presence_seen_idx'),
+            models.Index(fields=['session_key_hash'], name='microsys_presence_session_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user} presence session"
+
+
 class PublicRegistration(models.Model):
     microsys_auto_create_user_profile = False
 

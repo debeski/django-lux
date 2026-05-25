@@ -472,6 +472,9 @@ Important implementation details:
 - `UserActivityLog` inherits from `ScopedModel`, so logs carry audit fields and can participate in scope-aware filtering
 - `UserActivityLog.safe_log()` debounces duplicates within a short time window
 - middleware stores the current request and user in thread-local state so saves and signals can still know the actor
+- durable user-presence reporting is split from the action log: `UserKnownDevice` groups a browser/device through a signed `microsys_device_id` cookie stored only as a hash, and `UserPresenceSession` records session-level first/last seen, request count, estimated seconds, IPs, browsers, and operating systems
+- all IP observations for activity/security/reporting should use `microsys.utils.get_client_ip(request)` so System Settings proxy/header rules stay authoritative
+- User Reports are intentionally permission-gated through user-directory access, target-management access, and activity-log access; do not expose equivalent project reports without matching backend checks
 
 Manual logging stays simple:
 

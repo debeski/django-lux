@@ -9,7 +9,13 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .translations import get_strings
-from .utils import get_client_ip, get_system_config
+from .utils import get_system_config
+from .session_history import (
+    attach_presence_cookie,
+    link_current_known_device_to_trusted_device,
+    mark_presence_sessions_ended,
+    remember_request_presence,
+)
 
 
 TRUSTED_DEVICE_COOKIE_NAME = 'microsys_trusted_device'
@@ -77,36 +83,10 @@ def get_trusted_device_for_login(request, user):
 
 
 def sync_session_device_metadata(request, trusted_device=None):
-    session = getattr(request, 'session', None)
-    if session is None:
-        return {}
-    if not getattr(session, 'session_key', None):
-        session.save()
-    now = timezone.now().isoformat()
-    existing = session.get('microsys_device')
-    if not isinstance(existing, dict):
-        existing = {}
-    metadata = {
-        'user_agent': str(request.META.get('HTTP_USER_AGENT') or existing.get('user_agent') or '')[:500],
-        'ip_address': str(get_client_ip(request) or existing.get('ip_address') or '').strip(),
-        'first_seen': existing.get('first_seen') or now,
-        'last_seen': now,
-    }
+    result = remember_request_presence(request, trusted_device=trusted_device, force=True)
+    metadata = result.get('metadata') or {}
     if trusted_device is not None:
-        metadata['trusted_device_id'] = trusted_device.pk
-        metadata['trusted_until'] = trusted_device.trusted_until.isoformat()
-    elif existing.get('trusted_device_id'):
-        metadata['trusted_device_id'] = existing.get('trusted_device_id')
-        metadata['trusted_until'] = existing.get('trusted_until')
-    session['microsys_device'] = metadata
-    session.modified = True
-    if trusted_device is not None:
-        trusted_device.session_key = getattr(session, 'session_key', '') or ''
-        trusted_device.device_label = device_label(metadata.get('user_agent'))
-        trusted_device.ip_address = metadata.get('ip_address') or None
-        trusted_device.user_agent = metadata.get('user_agent') or ''
-        trusted_device.last_used_at = timezone.now()
-        trusted_device.save(update_fields=['session_key', 'device_label', 'ip_address', 'user_agent', 'last_used_at'])
+        link_current_known_device_to_trusted_device(request, trusted_device)
     return metadata
 
 
@@ -185,6 +165,7 @@ def revoke_other_user_sessions(user, keep_session_key=None, keep_trusted_device_
                 pass
     if target_keys:
         Session.objects.filter(session_key__in=target_keys).delete()
+        mark_presence_sessions_ended(target_keys, revoked=True)
     revoke_linked_session_trust(
         user,
         target_keys,
@@ -214,6 +195,7 @@ def issue_trusted_device(request, response, user):
         trusted_until=timezone.now() + timedelta(days=30),
     )
     sync_session_device_metadata(request, trusted_device=trusted_device)
+    link_current_known_device_to_trusted_device(request, trusted_device)
     response.set_signed_cookie(
         TRUSTED_DEVICE_COOKIE_NAME,
         raw_token,
@@ -223,5 +205,6 @@ def issue_trusted_device(request, response, user):
         secure=request.is_secure(),
         samesite='Lax',
     )
+    attach_presence_cookie(response, request)
     enforce_single_active_trusted_session(request, user, trusted_device)
     return trusted_device

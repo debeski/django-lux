@@ -9,7 +9,10 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
 from django.core.exceptions import PermissionDenied
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, get_object_or_404
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.module_loading import import_string
 from django_filters.views import FilterView
@@ -31,8 +34,10 @@ from ..utils import (
     is_superuser,
     log_user_action,
     user_can_view_activity_log,
+    user_can_view_user_report,
     user_can_view_user_directory,
 )
+from ..user_reports import build_user_report, build_user_report_xlsx
 from ..translations import get_strings
 
 
@@ -335,6 +340,41 @@ class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
             UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
             recent_logs = UserActivityLog._default_manager.filter(created_by=user).order_by('-created_at')[:10]
         context['can_view_activity_logs'] = can_view_activity_logs
+        context['can_view_user_report'] = user_can_view_user_report(self.request.user, user)
         context['recent_logs'] = recent_logs
         context['target_user_management_tier'] = get_user_management_tier_state_for_user(user)
         return context
+
+
+@login_required
+def user_report_modal_view(request, pk):
+    target_user = get_object_or_404(User, pk=pk)
+    if not user_can_view_user_report(request.user, target_user):
+        raise PermissionDenied
+
+    report = build_user_report(target_user)
+    context = {
+        'MS_TRANS': get_strings(),
+        'report': report,
+        'target_user': target_user,
+        'xlsx_url': reverse('user_report_xlsx', args=[target_user.pk]),
+    }
+    html = render_to_string('microsys/users/user_report_modal.html', context, request=request)
+    return JsonResponse({'html': html})
+
+
+@login_required
+def user_report_xlsx_view(request, pk):
+    target_user = get_object_or_404(User, pk=pk)
+    if not user_can_view_user_report(request.user, target_user):
+        raise PermissionDenied
+
+    report = build_user_report(target_user)
+    content = build_user_report_xlsx(report)
+    filename = f"microsys-user-report-{target_user.pk}.xlsx"
+    response = HttpResponse(
+        content,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response

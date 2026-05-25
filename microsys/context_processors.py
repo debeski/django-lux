@@ -356,10 +356,22 @@ def microsys_context(request):
         context['titlebar'],
     )
     # 8. Font Resolution
-    from .fonts import generate_font_face_css, get_builtin_fonts
+    from .fonts import (
+        DEFAULT_FONT_SLUG,
+        generate_font_face_css,
+        get_builtin_fonts,
+        get_default_font_family,
+        get_font_by_slug,
+    )
+    builtin_fonts = get_builtin_fonts()
     allowed_fonts = normalize_allowed_fonts(final_config.get('allowed_fonts'))
     context['font_face_css'] = generate_font_face_css(allowed_fonts)
-    context['option_fonts'] = [font for font in get_builtin_fonts() if font.get('slug') in allowed_fonts]
+    context['default_font_family'] = get_default_font_family()
+    context['font_families'] = {
+        font['slug']: font['family']
+        for font in builtin_fonts
+    }
+    context['option_fonts'] = [font for font in builtin_fonts if font.get('slug') in allowed_fonts]
     
     allow_user_font_override = bool(final_config.get('allow_user_font_override', True))
     default_fonts_by_lang = final_config.get('default_fonts', {})
@@ -372,16 +384,21 @@ def microsys_context(request):
         active_font = default_fonts_by_lang.get(current_lang)
     
     if not active_font or active_font not in allowed_fonts:
-        # Global fallback based on current language
-        active_font = 'shabwa' if current_lang == 'ar' else 'cairo'
-        
-    # Ensure active_font is valid, else hard fallback to shabwa
+        active_font = DEFAULT_FONT_SLUG
+
+    # Ensure active_font is valid, else hard fallback to cairo
     if active_font not in allowed_fonts and allowed_fonts:
         active_font = allowed_fonts[0]
     elif not active_font:
-        active_font = 'shabwa'
-        
+        active_font = DEFAULT_FONT_SLUG
+
+    active_font_config = get_font_by_slug(active_font) if active_font else None
     context['active_font'] = active_font
+    context['active_font_family'] = (
+        active_font_config.get('family')
+        if active_font_config
+        else get_default_font_family()
+    )
     context['font_picker_enabled'] = bool(allow_user_font_override and len(allowed_fonts) > 1)
     
     return context

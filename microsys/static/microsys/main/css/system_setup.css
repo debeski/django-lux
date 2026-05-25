@@ -982,14 +982,29 @@
 }
 
 /* Specific Font Mapping Rules for Previews */
-.ms-font-option[data-font="shabwa"] .font-preview-sample,
-.ms-font-settings-option[data-font-option="shabwa"] .font-preview-sample {
-  font-family: 'Shabwa', sans-serif !important;
-}
-
 .ms-font-option[data-font="cairo"] .font-preview-sample,
 .ms-font-settings-option[data-font-option="cairo"] .font-preview-sample {
   font-family: 'Cairo', sans-serif !important;
+}
+
+.ms-font-option[data-font="alexandria"] .font-preview-sample,
+.ms-font-settings-option[data-font-option="alexandria"] .font-preview-sample {
+  font-family: 'Alexandria', sans-serif !important;
+}
+
+.ms-font-option[data-font="changa"] .font-preview-sample,
+.ms-font-settings-option[data-font-option="changa"] .font-preview-sample {
+  font-family: 'Changa', sans-serif !important;
+}
+
+.ms-font-option[data-font="markazi_text"] .font-preview-sample,
+.ms-font-settings-option[data-font-option="markazi_text"] .font-preview-sample {
+  font-family: 'Markazi Text', serif !important;
+}
+
+.ms-font-option[data-font="readex_pro"] .font-preview-sample,
+.ms-font-settings-option[data-font-option="readex_pro"] .font-preview-sample {
+  font-family: 'Readex Pro', sans-serif !important;
 }
 
 /* Font settings option spacing */

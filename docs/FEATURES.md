@@ -408,6 +408,14 @@ UserActivityLog.safe_log(
 - Activity log list (staff/superuser scoped)
 - Detail modal with structured field cards
 - Profile timeline (compact format)
+- User Report modal with print/PDF browser flow and XLSX export for authorized staff
+- Durable known-device and presence-session history for forward-looking device, IP, browser, OS, request, and estimated-time reporting
+
+### User Report Data Sources
+- `UserActivityLog` remains the action/audit source.
+- `UserKnownDevice` groups browser/device observations through a signed first-party device cookie stored only as a hash.
+- `UserPresenceSession` tracks session-level presence estimates while Django sessions remain authoritative for authentication.
+- `TrustedDevice` remains the 2FA trust source and can be linked to known devices for reporting context.
 
 ---
 

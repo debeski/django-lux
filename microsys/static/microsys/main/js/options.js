@@ -108,8 +108,10 @@
                 });
                 
                 // Apply immediately
-                const familyName = font.charAt(0).toUpperCase() + font.slice(1);
-                document.documentElement.style.setProperty('--ms-main-font', `'${familyName}', sans-serif`);
+                const familyName = window.MICROSYS_FONT_FAMILIES && window.MICROSYS_FONT_FAMILIES[font];
+                if (familyName) {
+                    document.documentElement.style.setProperty('--ms-main-font', `'${familyName}', sans-serif`);
+                }
                 
                 // Update preferences on server
                 if (window.updatePreferences) {

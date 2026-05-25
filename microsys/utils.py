@@ -41,7 +41,7 @@ from .constants import (
     TITLEBAR_SIZE_VALUES,
     TITLEBAR_SURFACE_VALUES,
 )
-from .fonts import get_builtin_fonts
+from .fonts import DEFAULT_FONT_SLUG, get_builtin_fonts
 from .themes import is_valid_theme, normalize_allowed_themes
 from .translations import get_current_language_code, get_strings
 # try-except for django_filters as it might not be installed (though likely is)
@@ -1142,6 +1142,18 @@ def user_can_view_activity_log(user):
         return True
     return user.has_perm('microsys.view_activitylog') or user.has_perm('microsys.view_activity_log')
 
+
+def user_can_view_user_report(actor, target_user=None):
+    """
+    Full user reports expose activity, network, and device history.
+    Require both user-management visibility and activity-log access.
+    """
+    if not user_can_view_user_directory(actor):
+        return False
+    if not user_can_view_activity_log(actor):
+        return False
+    return can_manage_target_user(actor, target_user)
+
 # Check if user has section view permission
 def user_has_section_view_permission(user):
     if not user or not getattr(user, 'is_authenticated', False):
@@ -1977,7 +1989,7 @@ def get_system_config():
         'default_theme': 'light',
         'allowed_themes': list(normalize_allowed_themes()),
         'allow_user_theme_override': True,
-        'default_font': 'shabwa',
+        'default_font': DEFAULT_FONT_SLUG,
         'allowed_fonts': list(normalize_allowed_fonts()),
         'default_fonts': {},
         'allow_user_font_override': True,

@@ -1,4 +1,4 @@
-# NON-COMMERCIAL LICENSE
+# MIT License
 
 Software: django-microsys
 Repository: https://github.com/debeski/django-microsys
@@ -6,40 +6,25 @@ Author: DeBeski (micro)
 Website: https://github.com/debeski
 Copyright (c) 2026
 
-Permission is hereby granted, free of charge, to any person obtaining a copy 
-of this Software, associated documentation, and/or source code files, to deal 
-in the Software without restriction, including without limitation the rights 
-to use, copy, modify, merge, host, publish, distribute, and/or sublicense 
-copies of the Software, subject to the following conditions:
+---
 
-1. NON-COMMERCIAL USE ONLY: The Software is provided strictly for non-commercial
-and free use. You may include this Software or parts of it in your own projects
-as long as those projects are entirely free of charge and not intended for
-commercial gain, including but not limited to selling the software or only parts
-of it or using it in a commercial or subscription based product or service.
-   
-2. NO PROFIT: Any attempt to make a profit using this Software, either directly
-by selling the Software (as a whole or in part), or indirectly by incorporating
-it or any part of it into a commercial product or service, is strictly prohibited
-and illegal. Violators will be prosecuted to the fullest extent of the law.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-3. ATTRIBUTION AND CREDIT: The user of this Software must provide clear and
-visible credit to the Software and its original author in any project or
-application that utilizes its code. This credit must include a direct link to
-the official repository. 
-
-This attribution must be prominently displayed in the project's documentation,
-about page, or any other appropriate user-facing location.
-
-* The above copyright notice and this permission notice shall be included in all
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-`THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
-OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.`
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ---
 
@@ -48,18 +33,73 @@ OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.`
 This Software utilizes the following open-source packages. By using this Software,
 you agree to the terms of their respective licenses:
 
-1. Permissive Licenses (MIT, BSD-3, BSD-2, HPND)
-The following libraries are used under permissive terms. These licenses allow for
-use in commercial, closed-source software provided the original copyright notices
-are preserved.
+## Python Runtime Dependencies
+The following Python dependencies are declared by the main `django-microsys`
+package and should retain their upstream license notices.
 
 - Python (3.9+) - Python Software Foundation License (PSFL)
+  https://docs.python.org/3/license.html
 - Django (5.1+) - BSD-3-Clause License
-- django-crispy-forms, crispy-bootstrap5 - MIT License
+  https://github.com/django/django/blob/main/LICENSE
+- django-crispy-forms - MIT License
+  https://github.com/django-crispy-forms/django-crispy-forms/blob/main/LICENSE.txt
+- crispy-bootstrap5 - MIT License
+  https://github.com/django-crispy-forms/crispy-bootstrap5/blob/main/LICENSE
 - django-tables2 - BSD-2-Clause License
+  https://github.com/jieter/django-tables2/blob/master/LICENSE
 - django-filter - BSD-3-Clause License
+  https://github.com/carltongibson/django-filter/blob/main/LICENSE
 - psutil - BSD-3-Clause License
+  https://github.com/giampaolo/psutil/blob/master/LICENSE
 - pyotp - MIT License
+  https://github.com/pyauth/pyotp/blob/main/LICENSE
 - qrcode - BSD-3-Clause License
+  https://github.com/lincolnloop/python-qrcode/blob/main/LICENSE
 - Pillow - HPND (Pillow License)
+  https://github.com/python-pillow/Pillow/blob/main/LICENSE
 - Babel - BSD-3-Clause License
+  https://github.com/python-babel/babel/blob/master/LICENSE
+- cryptography - Apache-2.0 OR BSD-3-Clause
+  https://github.com/pyca/cryptography/blob/main/LICENSE
+- openpyxl - MIT License
+  https://foss.heptapod.net/openpyxl/openpyxl/-/blob/branch/default/LICENCE.rst
+
+## Bundled Frontend Assets
+The following third-party frontend assets are bundled under `microsys/static/`
+and should also retain their upstream license notices.
+
+- Bootstrap - MIT License
+  https://github.com/twbs/bootstrap/blob/main/LICENSE
+- Bootstrap Icons - MIT License
+  https://github.com/twbs/icons/blob/main/LICENSE
+- vanillajs-datepicker - MIT License
+  https://github.com/mymth/vanillajs-datepicker/blob/master/LICENSE
+- Driver.js - MIT License
+  https://github.com/nilbuild/driver.js/blob/master/license
+
+## Bundled Font Assets
+The following bundled font assets should also retain their upstream license
+notices and attribution where applicable.
+
+- Cairo - SIL Open Font License 1.1
+  https://github.com/Gue3bara/Cairo/blob/main/OFL.txt
+- Alexandria - SIL Open Font License 1.1
+  https://github.com/Gue3bara/Alexandria/blob/master/OFL.txt
+- Changa - SIL Open Font License 1.1
+  https://github.com/google/fonts/blob/main/ofl/changa/OFL.txt
+- Markazi Text - SIL Open Font License 1.1
+  https://github.com/google/fonts/blob/main/ofl/markazitext/OFL.txt
+- Readex Pro - SIL Open Font License 1.1
+  https://github.com/google/fonts/blob/main/ofl/readexpro/OFL.txt
+- Twemoji Country Flags / Twemoji Mozilla derived asset
+  Upstream references:
+  https://github.com/PasteBar/country-flags-emoji-polyfill-builder
+  https://github.com/mozilla/twemoji-colr/blob/master/LICENSE.md
+  https://github.com/twitter/twemoji/blob/master/LICENSE-GRAPHICS
+
+## Optional Package Note
+This repository also includes optional packages under `optional_packages/`
+with their own dependency trees, such as `django-microsys-sso` and
+`django-microsys-sso-client`. If you distribute those optional packages, keep
+their dependency notices aligned with their own `pyproject.toml` metadata as
+well.

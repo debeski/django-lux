@@ -49,6 +49,10 @@ authorization decision.
   for 30 days to bypass 2FA challenges on the same browser, and untrusted
   sessions cannot revoke trusted sessions. When configured, a newly trusted
   session can revoke every other active session for that user.
+- User Reports are sensitive audit surfaces. They must remain backend-gated by
+  user-directory access, target-management access, and activity-log access.
+  Durable non-auth device grouping uses a signed first-party cookie stored only
+  as a hash and must not be treated as authentication or trusted-device proof.
 - Client IP resolution is centralized and configurable (direct, header, or
   proxy-aware) to ensure security logs and throttles remain accurate across
   varied deployment environments.

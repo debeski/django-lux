@@ -248,6 +248,17 @@ def _build_user_row_actions(record):
             "permissions": ["auth.change_user"],
         },
         {
+            "label": s.get("user_report_title"),
+            "icon": "bi bi-file-earmark-text",
+            "type": "event",
+            "event": "micro:dynamic_modal:open",
+            "data": {
+                "url": reverse('user_report_modal', args=[record.pk]),
+                "title": f"{s.get('user_report_title')} {display_name}".strip(),
+            },
+            "permissions": ["microsys.view_activitylog", "auth.view_user"],
+        },
+        {
             "label": s.get("edit_permissions_label", "Edit Permissions"),
             "icon": "bi bi-shield-lock",
             "type": "event",

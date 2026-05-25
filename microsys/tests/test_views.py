@@ -251,9 +251,25 @@ class GeneralViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'ms-font-picker')
         self.assertContains(response, 'ms-density-options')
-        self.assertContains(response, 'data-font="shabwa"')
+        self.assertContains(response, 'data-font="cairo"')
+        self.assertContains(response, 'data-font="alexandria"')
         self.assertContains(response, 'microsys/main/js/options.js?v=20260522b')
         self.assertNotContains(response, 'ms-font-preview-card')
+
+    def test_options_view_uses_real_font_family_for_underscore_slug(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.allowed_fonts = ['cairo', 'readex_pro']
+        settings_obj.save(update_fields=['allowed_fonts'])
+        cache.clear()
+        profile = self.user.profile
+        profile.preferences = {'font': 'readex_pro'}
+        profile.save(update_fields=['preferences'])
+
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['font_families']['readex_pro'], 'Readex Pro')
+        self.assertContains(response, '"readex_pro": "Readex Pro"', html=False)
 
     def test_system_settings_modal_honors_requested_wizard_step(self):
         response = self.client.get(
@@ -2137,3 +2153,114 @@ class ProfileSessionDeviceTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Session.objects.filter(session_key=trusted_session_key).exists())
+
+    def test_presence_history_uses_device_cookie_across_ip_changes(self):
+        client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        client.login(username='devices', password='devicespass123')
+
+        response = client.get(
+            reverse('user_profile'),
+            HTTP_X_FORWARDED_FOR='203.0.113.5, 127.0.0.1',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('microsys_device_id', response.cookies)
+        KnownDevice = apps.get_model('microsys', 'UserKnownDevice')
+        PresenceSession = apps.get_model('microsys', 'UserPresenceSession')
+        known_device = KnownDevice.objects.get(user=self.user)
+        self.assertIn('203.0.113.5', known_device.ip_addresses)
+
+        session = client.session
+        metadata = session.get('microsys_device')
+        metadata['last_seen'] = (timezone.now() - timedelta(minutes=2)).isoformat()
+        session['microsys_device'] = metadata
+        session.save()
+        presence = PresenceSession.objects.get(user=self.user)
+        presence.last_seen_at = timezone.now() - timedelta(minutes=2)
+        presence.save(update_fields=['last_seen_at'])
+
+        response = client.get(
+            reverse('user_profile'),
+            HTTP_X_FORWARDED_FOR='198.51.100.9, 127.0.0.1',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(KnownDevice.objects.filter(user=self.user).count(), 1)
+        known_device.refresh_from_db()
+        self.assertIn('198.51.100.9', known_device.ip_addresses)
+        presence.refresh_from_db()
+        self.assertGreater(presence.estimated_seconds, 0)
+
+    def test_revoke_session_marks_presence_session_revoked(self):
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        second_client.login(username='devices', password='devicespass123')
+        first_client.get(reverse('user_profile'))
+        second_client.get(reverse('user_profile'))
+        second_session_key = second_client.session.session_key
+        PresenceSession = apps.get_model('microsys', 'UserPresenceSession')
+        presence = PresenceSession.objects.get(user=self.user, session_key_hash__isnull=False, device_label__contains='Firefox')
+
+        response = first_client.post(
+            reverse('revoke_profile_session', args=[second_session_key]),
+            {'current_password': 'devicespass123'},
+        )
+
+        self.assertRedirects(response, reverse('user_profile'))
+        presence.refresh_from_db()
+        self.assertIsNotNone(presence.ended_at)
+        self.assertIsNotNone(presence.revoked_at)
+
+    def test_user_report_modal_and_xlsx_require_report_permission(self):
+        ActivityLog = apps.get_model('microsys', 'UserActivityLog')
+        ActivityLog.objects.create(
+            created_by=self.user,
+            action='VIEW',
+            model_name='session',
+            ip_address='203.0.113.10',
+            user_agent='Mozilla/5.0 Chrome/122.0 Linux',
+        )
+        for index in range(10):
+            ActivityLog.objects.create(
+                created_by=self.user,
+                action='UPDATE',
+                model_name=f'report-model-{index}',
+                ip_address='203.0.113.10',
+                user_agent='Mozilla/5.0 Chrome/122.0 Linux',
+            )
+        denied_client = Client()
+        denied_client.login(username='devices', password='devicespass123')
+
+        denied = denied_client.get(reverse('user_report_modal', args=[self.user.pk]))
+        self.assertEqual(denied.status_code, 403)
+
+        admin = User.objects.create_superuser(
+            username='report-admin',
+            email='report-admin@example.com',
+            password='reportpass123',
+        )
+        admin_client = Client()
+        admin_client.login(username='report-admin', password='reportpass123')
+        response = admin_client.get(
+            reverse('user_report_modal', args=[self.user.pk]),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIn('User Report', payload['html'])
+        self.assertIn('data-ms-user-report-activity', payload['html'])
+        self.assertIn('data-ms-user-report-activity-item', payload['html'])
+        self.assertIn('data-ms-user-report-activity-pagination', payload['html'])
+        self.assertIn('ms-user-report-badge', payload['html'])
+        self.assertNotIn('bg-secondary-subtle text-secondary', payload['html'])
+        self.assertNotIn('session_key_hash', payload['html'])
+
+        xlsx = admin_client.get(reverse('user_report_xlsx', args=[self.user.pk]))
+        self.assertEqual(xlsx.status_code, 200)
+        self.assertEqual(
+            xlsx['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        self.assertGreater(len(xlsx.content), 1000)

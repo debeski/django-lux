@@ -6,7 +6,6 @@ from django.core.exceptions import SuspiciousOperation
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils import timezone
 
 from .constants import DEFAULT_HOME_URL
 
@@ -153,46 +152,10 @@ class MicrosysMiddleware:
             'anonymous_public_target': anonymous_public_target,
         }
 
-    def _client_ip(self, request):
-        from .utils import get_client_ip
-
-        return str(get_client_ip(request) or '').strip()
-
     def _remember_session_device(self, request):
-        user = getattr(request, 'user', None)
-        session = getattr(request, 'session', None)
-        if not user or not getattr(user, 'is_authenticated', False) or session is None:
-            return
+        from .session_history import remember_request_presence
 
-        session_key = getattr(session, 'session_key', None)
-        if not session_key:
-            return
-
-        now = timezone.now()
-        existing = session.get('microsys_device') if hasattr(session, 'get') else {}
-        if not isinstance(existing, dict):
-            existing = {}
-
-        try:
-            previous_seen = timezone.datetime.fromisoformat(str(existing.get('last_seen') or ''))
-            if timezone.is_naive(previous_seen):
-                previous_seen = timezone.make_aware(previous_seen, timezone.get_current_timezone())
-        except (TypeError, ValueError):
-            previous_seen = None
-
-        # Keep this cheap: refresh user-agent/IP immediately, but persist last_seen at most once per minute.
-        if previous_seen and (now - previous_seen).total_seconds() < 60:
-            return
-
-        user_agent = str(request.META.get('HTTP_USER_AGENT') or '').strip()
-        session['microsys_device'] = {
-            'first_seen': existing.get('first_seen') or now.isoformat(),
-            'last_seen': now.isoformat(),
-            'ip_address': self._client_ip(request),
-            'user_agent': user_agent[:320],
-            'trusted_device_id': existing.get('trusted_device_id'),
-            'trusted_until': existing.get('trusted_until'),
-        }
+        remember_request_presence(request)
 
     def _sync_auth_redirects(self):
         """
@@ -230,7 +193,9 @@ class MicrosysMiddleware:
 
             setup_redirect = self._setup_redirect_response(request)
             if setup_redirect is not None:
-                return setup_redirect
+                from .session_history import attach_presence_cookie
+
+                return attach_presence_cookie(setup_redirect, request)
 
             try:
                 response = self.get_response(request)
@@ -244,8 +209,14 @@ class MicrosysMiddleware:
 
             root_redirect = self._root_redirect(request, response)
             if root_redirect is not None:
-                return root_redirect
+                from .session_history import attach_presence_cookie
 
+                return attach_presence_cookie(root_redirect, request)
+
+            from .session_history import attach_presence_cookie
+
+            self._remember_session_device(request)
+            attach_presence_cookie(response, request)
             return response
         finally:
             if hasattr(_thread_locals, 'user'):

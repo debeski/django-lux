@@ -8,8 +8,11 @@
   - font registry lives in `microsys/fonts.py`,
   - `SystemSettings` stores `allowed_fonts`, language-keyed `default_fonts`, and `allow_user_font_override`,
   - Options uses the shared selector markup and `--ms-main-font`.
+  - `Shabwa` has been removed due to unclear licensing provenance; bundled recognized fonts are now `Cairo`, `Alexandria`, `Changa`, `Markazi Text`, and `Readex Pro`, with runtime fallback/default moved to `Cairo`.
+  - Fallback font cleanup is now centralized: Python uses shared default-font constants, base template seeds `--ms-font-fallback`, and static CSS/JS consume that variable instead of repeating literal `Cairo` fallbacks; the old static `@font-face` in `main.css` has been removed.
+  - Verified `Markazi Text` / `Readex Pro` runtime issue root cause on `2026-05-24`: initial render and JS font switching were incorrectly deriving family names from slugs (`markazi_text` -> `Markazi_Text`, `readex_pro` -> `Readex_Pro`). Runtime now uses a shared slug-to-family map from the font registry.
 - Runtime theme allowlisting remains enforced by context and the preferences API. `2026-05-22` setup preview work adds a setup-only path that can load a disabled theme stylesheet for preview without widening runtime preference acceptance.
-- Explicit `setTheme(...)` changes now run through a short veil fade around the class swap; reduced-motion and Microsys `no-animations` skip the fade, and sidebar item/icon transitions pause under that veil so they resolve with the same swap.
+- Explicit `setTheme(...)` changes now run through a short veil fade around the class swap; reduced-motion and Microsys `no-animations` skip the fade. During the veil, page transitions are paused so borders, shadows, and pseudo-elements resolve with the same swap instead of briefly repainting.
 - Neon theme no longer applies its generic `.option-section` overlay/stacking treatment to Options cards; `.ms-options-panel` stays on the dedicated Options styling path instead of inheriting the redundant glow overlay layer.
 - Options System Info now renders backend server time from a dedicated preformatted display key, avoiding generic `current_time` collisions and preserving explicit seconds.
 - Collapsed Icons Only sidebar now removes redundant folder-button/label `flex-grow-1` classes, zeroes hidden label flex space, and applies a dedicated collapsed folder-row centering path so parent/folder accordion icons remain centered and labels vanish immediately.
@@ -26,11 +29,17 @@
 - Nav Bar hierarchy matching no longer lets a generic current route leaf like `index` match arbitrary app nodes such as `archive:index`; project root/home falls back to the actual current route.
 - Sidebar active-state resolution now gives exact URL matches priority over parent-prefix matches, so a child route like `/archive/decrees/` does not also mark `/archive/` active.
 - Mono theme sidebar active item styling is lighter and forces active icons to inherit the inverted white text color; Mono/Gothic/Retro advanced-filter primary action icons no longer receive a separate theme button background.
+- The shared button layer now prevents themed `.btn-primary *` rules from painting primary-button Bootstrap icons with a separate background, covering Retro/Gothic Add User and similar primary icon buttons.
+- Dark theme now styles normal Bootstrap `.tooltip-inner` text as light, not only Microsys `.tooltip-custom` tooltips.
 - Options System Settings card now uses compact tile actions with icons, translated titles, and Microsys `data-ms-tooltip` descriptions instead of a vertical pill-button stack.
 - Shared enabled `.form-switch` controls now expose a pointer cursor; Options reorder handles use enabled-handle cursor selectors specific enough to keep both button surface and grip icon on grab/grabbing over Bootstrap's enabled-button pointer rule.
 - Profile confirm-password modals submit the same confirmation path from Enter, keep password-protected Profile actions open through their JSON password check, and render current-password errors inline while the input is corrected.
 - Profile activity grouping treats virtual session-revoke logs as System Interactions.
 - Step 3 Access & Security now includes `prevent_multiple_active_sessions`; trusted devices are managed through shared `microsys.trust` helpers, Profile can trust the current device after current-password confirmation, and untrusted sessions cannot revoke trusted sessions.
+- User Existence Report work is tracked for `v2.2.6`: authorized staff can open a dynamic-modal User Report with print/PDF browser flow and XLSX export; durable `UserKnownDevice` and `UserPresenceSession` records now track forward-looking device/IP/browser/OS/session history through a signed non-auth `microsys_device_id` cookie stored only as a hash, while Django `Session` and `TrustedDevice` remain authoritative for auth and trust.
+- User Existence Report modal styles now use Microsys theme tokens (`--body`, `--hbody`, `--title`, `--htitle`, `--table-row`, `--primal-rgb`) instead of Bootstrap light body RGB tokens, so report tiles/cards/meters/tables/alerts stay readable in dark themes.
+- Global `btn-outline-primary` now has a Microsys surface treatment aligned with `btn-primary`; User Existence Report keeps standard `btn btn-outline-primary` and `btn btn-primary` markup instead of local action-button classes.
+- User Existence Report recent activity now paginates inside the dynamic modal card with report-scoped controls, and action badges use a theme-aware `ms-user-report-badge` instead of Bootstrap's light `bg-secondary-subtle text-secondary` pairing.
 - System Settings single-step modal POSTs preserve omitted Step 7 values server-side. Step resolver accepts modal wizard steps `0..6`.
 - Current translation contract from code, docs, and `dhub` runtime inspection:
   - app-local sources are installed app `translations.py` modules exposing `MS_TRANSLATIONS`,
@@ -81,7 +90,7 @@
 - Live confirmation is pending after the `2026-05-22` Step 2 matrix source fix. The `dhub` container reproduced a Microsys-only matrix with discovered `portfolio` and `documents` sources under installed Microsys `2.2.2`; local merge isolation now keeps app keys out of the core source claim path.
 - Live confirmation is pending after the `2026-05-22` Options font asset cache-bust. Local `options.js` already marks a clicked `[data-font]` selector `is-active` immediately; the reported missing highlight is production-only.
 - Live confirmation is pending after the `2026-05-22` setup-only disabled-theme preview path for Step 6.
-- Live confirmation is pending for the `2026-05-22` sidebar-item theme-switch follow-up; the veil fade was accepted, but sidebar item transitions still looked choppy until they were paused under the veil.
+- Live confirmation is pending for the `2026-05-25` expanded theme-switch flicker fix; the veil fade was accepted, and transition pausing now covers page elements/pseudo-elements plus a near-opaque veil to hide border/shadow repaint.
 - User confirmed on `2026-05-22` that the neon Options reorder fix is working after removing redundant neon `.option-section` overlay/stacking selectors from `.ms-options-panel`.
 - Verified in restarted `dhub-web-1` on `2026-05-22`: Options System Info rendered backend server time with seconds (`2026-05-22 17:58:56`) after the web worker reloaded the bind-mounted dedicated display-key change. Date-only HTML seen immediately before restart came from the older running worker state.
 - Live confirmation is still pending after the refined `2026-05-22` Step 4 Icons Only sidebar fix; CSS label collapse alone was not sufficient, so folder accordion templates now also drop redundant Bootstrap `flex-grow-1` classes and collapsed folder rows force instant label suppression plus centered icon/header alignment.
@@ -100,7 +109,7 @@
   - Priority 1:
     - [ ] Re-check Step 2 app source tabs after the fixed local code/package reaches `dhub`.
     - [ ] Browser-check the `2026-05-22` Options font highlight and Step 6 disabled-theme preview fixes in production/mounted app.
-    - [ ] Browser-check sidebar item repaint after pausing sidebar transitions under the accepted theme-switch fade.
+    - [ ] Browser-check light/dark theme-switch repaint after pausing page transitions and raising veil opacity.
     - [ ] Browser-check reduced-motion/no-animation bypass for the theme switch fade.
     - [ ] Browser-check Step 4 Icons Only collapsed sidebar after zeroing hidden folder-label flex space for centered parent/folder icons.
     - [ ] Browser-check the Options reorder handle button surface after the enabled-handle cursor specificity fix.
@@ -116,6 +125,7 @@
     - [ ] Pre-setup mounted-project guard for anonymous, superuser, and non-superuser requests.
     - [ ] POST-only 2FA setup, verify, resend, disable, backup-code, and trusted-device/session UX.
     - [ ] Browser-check Step 3 `Prevent multiple active sessions`, Profile trust-current-device action, trusted-session eviction, and untrusted-session protected revoke messaging.
+    - [ ] Browser-check User Report dynamic modal, recent-activity pagination, print/PDF layout, XLSX download, permission gating, RTL/LTR, and known-device grouping after real navigation across changed IP/proxy headers.
     - [ ] Staff-tier create/edit/profile/detail/manage-table surfaces and user-hub mobile toolbar wrap.
   - Priority 2:
     - [ ] Run generated-project validation for `python -m microsys startproject`.
@@ -127,6 +137,7 @@
     - [x] Added setup-only preview support for a Step 6 theme that was disabled when the page loaded.
     - [x] Smoothed explicit theme changes with a short switch veil fade instead of broad element transitions.
     - [x] Paused sidebar item/icon transition repaint while the theme-switch veil is active after the user isolated remaining choppiness to sidebar items.
+    - [x] Expanded theme-switch transition pause beyond sidebar items to cover page elements/pseudo-elements and raised veil opacity for border/shadow repaint glitches.
     - [x] Removed redundant neon `.option-section` overlay/stacking selectors from Options cards by excluding `.ms-options-panel`.
     - [x] User confirmed the neon-theme Options card reorder issue is fixed.
     - [x] Switched Options System Info backend server time to a dedicated preformatted display key so project/global `current_time` collisions cannot collapse it back to a date-only value.
@@ -159,12 +170,13 @@
     - [x] Added `microsys_settings` management command for System Settings singleton status, configure/unconfigure, guarded delete/reset, and JSON export/import.
     - [x] Hardened manual setup import preview for direct config aliases and explicit sidebar-builder import rehydration after the user still saw an empty sidebar matrix.
     - [x] Added trusted-session precedence with Profile trust-current-device, Step 3 single-active-session enforcement, generic trust helpers, translations, docs, and focused tests.
+    - [x] Added User Existence Report with durable known-device/presence-session history, dynamic-modal report, print flow, XLSX export, permission helper, translations, docs, and focused tests.
 
 ### One-line info about last verified Tests:
-- `2026-05-24`: `MicrosysDefaultRouteTests` 99 passed, focused `TwoFactorSecurityViewTests` + `ProfileSessionDeviceTests` 39 passed, `compileall microsys` passed, and `git diff --check` passed after trusted-session precedence work.
+- `2026-05-25`: `compileall microsys` and `git diff --check` passed after primary-button icon background and dark Bootstrap tooltip text fixes.
 
 ### One-line info about last time edited Docs:
-- `2026-05-24`: updated v2.2.4 changelog to include trusted-session migration/config coverage and the new shared `microsys.trust` helper layer.
+- `2026-05-25`: tracker updated for expanded theme-switch border/shadow flicker mitigation; broader docs remain at the 2026-05-24 licensing/font update.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -179,6 +191,9 @@
   - Full compile check without repo pycache churn: `PYTHONPYCACHEPREFIX=/tmp/microsys-pycache ./.venv/bin/python -m compileall microsys`
   - Packaging check: build wheel/sdist, then inspect for `microsys/tests`, `__pycache__`, `.pyc`, and `.pyo`.
 - Known environment note: `node` is not available locally, so `node --check` is not a current JS validation path.
+- User/device history boundary: browser apps cannot identify physical devices by MAC address; use a signed first-party random device cookie stored only as a hash for non-auth device continuity, and keep real auth/trust decisions on Django `Session` plus explicit trusted-device records.
+- License/compliance note: when third-party files are redistributed inside `microsys/static/` or package data, keep them listed in `LICENSE` with upstream license references instead of documenting only Python package dependencies.
+- Font compliance note: if a bundled font has ambiguous provenance or unclear redistribution rights, remove it rather than guessing; keep only fonts with verified upstream license references in `LICENSE`.
 
 ### Global Rulesets:
 - Prefer explicit reusable helpers over template shadowing or duplicated inline HTML.

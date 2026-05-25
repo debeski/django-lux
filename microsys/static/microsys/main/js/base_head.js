@@ -18,6 +18,7 @@
     window.__MS_TRANS = parseJsonScript('ms-trans-data', {});
     window.MICROSYS_THEME_NAMES = parseJsonScript('microsys-theme-names', ['light']);
     window.MICROSYS_CONFIG = parseJsonScript('microsys-config-data', {});
+    window.MICROSYS_FONT_FAMILIES = parseJsonScript('microsys-font-families', {});
 
     window.USER_PREFS._lang = document.documentElement.getAttribute('lang') || 'en';
     window.USER_PREFS._dir = document.documentElement.getAttribute('dir') || 'ltr';
@@ -35,8 +36,10 @@
     const allowedFonts = window.MICROSYS_CONFIG.allowed_fonts || [];
     const savedFont = window.USER_PREFS.font || localStorage.getItem('appFont');
     if (savedFont && (allowedFonts.length === 0 || allowedFonts.includes(savedFont))) {
-        const familyName = savedFont.charAt(0).toUpperCase() + savedFont.slice(1);
+        const familyName = window.MICROSYS_FONT_FAMILIES[savedFont];
+        if (familyName) {
         document.documentElement.style.setProperty('--ms-main-font', `'${familyName}', sans-serif`);
+        }
     }
 
     if (savedAccessibility) {

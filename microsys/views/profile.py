@@ -20,9 +20,11 @@ from ..trust import (
     enforce_single_active_trusted_session,
     issue_trusted_device,
     revoke_linked_session_trust,
+    sync_session_device_metadata,
     trusted_device_for_session,
 )
-from ..utils import get_client_ip, get_user_management_tier_state_for_user, log_user_action
+from ..session_history import hash_session_key, mark_presence_sessions_ended
+from ..utils import get_user_management_tier_state_for_user, log_user_action
 from ..translations import get_strings
 from .twofa import get_2fa_config
 
@@ -73,22 +75,7 @@ def _device_label(user_agent):
 
 
 def _session_device_metadata_from_request(request):
-    now = timezone.now().isoformat()
-    existing = request.session.get('microsys_device')
-    if not isinstance(existing, dict):
-        existing = {}
-    metadata = {
-        'user_agent': request.META.get('HTTP_USER_AGENT', '')[:500],
-        'ip_address': str(get_client_ip(request) or existing.get('ip_address') or '').strip(),
-        'first_seen': existing.get('first_seen') or now,
-        'last_seen': now,
-    }
-    if existing.get('trusted_device_id'):
-        metadata['trusted_device_id'] = existing.get('trusted_device_id')
-        metadata['trusted_until'] = existing.get('trusted_until')
-    request.session['microsys_device'] = metadata
-    request.session.modified = True
-    return metadata
+    return sync_session_device_metadata(request)
 
 
 def _profile_sessions_for_user(user, current_session_key=None, current_session_data=None, current_expire_date=None):
@@ -103,6 +90,11 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
     )
     trusted_by_id = {device.pk: device for device in trusted_devices}
     trusted_by_session_key = {device.session_key: device for device in trusted_devices if device.session_key}
+    PresenceSession = apps.get_model('microsys', 'UserPresenceSession')
+    presence_by_session_hash = {
+        item.session_key_hash: item
+        for item in PresenceSession.objects.filter(user=user)
+    }
 
     for session in Session.objects.filter(expire_date__gt=now).order_by('-expire_date'):
         try:
@@ -117,9 +109,15 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
             metadata = current_session_data.get('microsys_device') if isinstance(current_session_data.get('microsys_device'), dict) else {}
         else:
             metadata = data.get('microsys_device') if isinstance(data.get('microsys_device'), dict) else {}
-        user_agent = metadata.get('user_agent') or ''
+        presence_session = presence_by_session_hash.get(hash_session_key(session.session_key))
+        observed_user_agents = presence_session.user_agents if presence_session is not None and isinstance(presence_session.user_agents, list) else []
+        observed_ips = presence_session.ip_addresses if presence_session is not None and isinstance(presence_session.ip_addresses, list) else []
+        user_agent = metadata.get('user_agent') or (observed_user_agents[0] if observed_user_agents else '')
         last_seen = _parse_session_datetime(metadata.get('last_seen'))
         first_seen = _parse_session_datetime(metadata.get('first_seen'))
+        if presence_session is not None:
+            last_seen = last_seen or presence_session.last_seen_at
+            first_seen = first_seen or presence_session.first_seen_at
         trusted_device = None
         trusted_device_id = metadata.get('trusted_device_id')
         if trusted_device_id is not None:
@@ -138,12 +136,14 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
             'is_current': is_current,
             'device_label': _device_label(user_agent),
             'user_agent': user_agent,
-            'ip_address': metadata.get('ip_address') or '',
+            'ip_address': metadata.get('ip_address') or (observed_ips[0] if observed_ips else ''),
             'first_seen': first_seen,
             'last_seen': last_seen,
             'expire_date': session.expire_date,
             'is_trusted': trusted_device is not None,
             'trusted_until': trusted_device.trusted_until if trusted_device is not None else None,
+            'estimated_seconds': presence_session.estimated_seconds if presence_session is not None else 0,
+            'request_count': presence_session.request_count if presence_session is not None else 0,
         })
 
     if current_session_key and not has_current_session:
@@ -158,17 +158,23 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
                 trusted_device = None
         if trusted_device is None:
             trusted_device = trusted_by_session_key.get(current_session_key)
+        presence_session = presence_by_session_hash.get(hash_session_key(current_session_key))
+        observed_user_agents = presence_session.user_agents if presence_session is not None and isinstance(presence_session.user_agents, list) else []
+        observed_ips = presence_session.ip_addresses if presence_session is not None and isinstance(presence_session.ip_addresses, list) else []
+        user_agent = user_agent or (observed_user_agents[0] if observed_user_agents else '')
         sessions.append({
             'session_key': current_session_key,
             'is_current': True,
             'device_label': _device_label(user_agent),
             'user_agent': user_agent,
-            'ip_address': metadata.get('ip_address') or '',
-            'first_seen': _parse_session_datetime(metadata.get('first_seen')),
-            'last_seen': _parse_session_datetime(metadata.get('last_seen')) or now,
+            'ip_address': metadata.get('ip_address') or (observed_ips[0] if observed_ips else ''),
+            'first_seen': _parse_session_datetime(metadata.get('first_seen')) or (presence_session.first_seen_at if presence_session is not None else None),
+            'last_seen': _parse_session_datetime(metadata.get('last_seen')) or (presence_session.last_seen_at if presence_session is not None else None) or now,
             'expire_date': current_expire_date or now,
             'is_trusted': trusted_device is not None,
             'trusted_until': trusted_device.trusted_until if trusted_device is not None else None,
+            'estimated_seconds': presence_session.estimated_seconds if presence_session is not None else 0,
+            'request_count': presence_session.request_count if presence_session is not None else 0,
         })
 
     sessions = sorted(sessions, key=lambda item: (not item['is_current'], -(item['last_seen'] or item['expire_date']).timestamp()))
@@ -385,6 +391,7 @@ def revoke_profile_session(request, session_key):
         return redirect('user_profile')
 
     target_session.delete()
+    mark_presence_sessions_ended([session_key], revoked=True)
     trusted_device_ids = []
     if trusted_device_id is not None:
         try:
@@ -436,6 +443,7 @@ def trust_current_device(request):
         trusted_device = issue_trusted_device(request, response, request.user)
         log_user_action(request, "CREATE", instance=request.user, model_name="trusted device")
     else:
+        sync_session_device_metadata(request, trusted_device=trusted_device)
         enforce_single_active_trusted_session(request, request.user, trusted_device)
 
     return response

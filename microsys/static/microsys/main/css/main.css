@@ -1,24 +1,8 @@
 /* Themes System refactored to sidebar app */
 
-@font-face {
-    font-family: 'Shabwa';
-    src: url('../../fonts/shabwa-regular.woff2') format('woff2');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'Cairo';
-    src: url('../../fonts/cairo-regular.woff2') format('woff2');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-}
-
 * {
     box-sizing: border-box;
-    font-family: var(--ms-main-font, 'Shabwa'), sans-serif !important;
+    font-family: var(--ms-main-font, var(--ms-font-fallback, sans-serif)) !important;
 }
 
 :root {
@@ -203,8 +187,14 @@ body {
     transition: opacity 0.22s ease;
 }
 
+:root.ms-theme-switching body *,
+:root.ms-theme-switching body *::before,
+:root.ms-theme-switching body *::after {
+    transition-property: none !important;
+}
+
 :root.ms-theme-switching.ms-theme-switching-covered body::after {
-    opacity: 0.76;
+    opacity: 0.98;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -242,6 +232,17 @@ body {
     .card {
         border: 1px solid #ddd !important;
         break-inside: avoid;
+    }
+
+    .ms-user-report {
+        color: #111 !important;
+    }
+
+    .ms-user-report-card,
+    .ms-user-report-tile {
+        border: 1px solid #ddd !important;
+        break-inside: avoid;
+        background: #fff !important;
     }
 
     /* Keep at the bottom to ensure display:none wins over display:block utility classes */

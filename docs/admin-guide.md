@@ -238,6 +238,7 @@ Other admin-facing runtime behaviors to expect:
 - permission labels are translated dynamically
 - profile pages expose 2FA controls and backup-code workflows
 - activity logs show diffs and download/export context
+- user rows expose a sensitive User Report for authorized staff with activity-log access
 
 2FA operational note:
 
@@ -260,6 +261,14 @@ What admins and staff can expect to see there:
 - scope-aware visibility for staff who should not see every system-wide action
 
 The detail modal resolves the related object when possible, so an audit row can often be traced back to the underlying model instance instead of staying as a dead log record.
+
+## User Reports
+
+The User Report is available from `/sys/users/` for authorized staff who can view the user directory, manage the target user, and view activity logs. It opens in a Microsys dynamic modal, can be printed or saved as PDF through the browser print flow, and can be exported as XLSX.
+
+The report combines account status, staff tier, public-registration provenance, activity counts, recent logs, known devices, trusted-device state, IP observations, browser/OS observations, and estimated active time. Precise device and presence analytics start only after the durable history migration is installed; older projects still show whatever can be derived from existing activity logs and trusted-device rows.
+
+Microsys uses a signed first-party `microsys_device_id` cookie to group non-trusted browser/device history across IP changes. The raw token is never exposed in the UI and is stored server-side only as a hash. This cookie is for reporting continuity only; Django sessions remain authoritative for active authentication, and `TrustedDevice` remains authoritative for 2FA trust decisions.
 
 ## User Preferences
 

@@ -921,6 +921,12 @@
 }
 
 /* 19. Sidebar Tooltip Dark Mode Fix */
+:root.theme-dark .tooltip-inner {
+    background-color: #343a40 !important; /* Slate-700 (Dark but visible against Slate-900 body) */
+    color: #f8f9fa !important; /* Slate-50 - Bright white/gray text */
+    border: 1px solid #495057 !important; /* Subtle border for definition */
+}
+
 :root.theme-dark .tooltip-custom .tooltip-inner {
     background-color: #343a40 !important; /* Slate-700 (Dark but visible against Slate-900 body) */
     color: #f8f9fa !important; /* Slate-50 - Bright white/gray text */
@@ -1168,18 +1174,21 @@ html[dir="rtl"] :root.theme-dark .activity-timeline {
 }
 
 :root.theme-dark .btn-outline-primary {
-    color: var(--primal) !important;
-    border-color: var(--primal) !important;
-    border-width: 1.5px !important;
-    font-weight: 500 !important;
-    transition: all 0.1s ease;
+    background:
+        linear-gradient(180deg, rgba(var(--primal-rgb), 0.18), rgba(var(--primal-rgb), 0.08)),
+        color-mix(in srgb, var(--hbody) 88%, transparent) !important;
+    border-color: rgba(var(--primal-rgb), 0.42) !important;
+    color: color-mix(in srgb, var(--primal) 82%, var(--title)) !important;
+    font-weight: 700 !important;
 }
 
 :root.theme-dark .btn-outline-primary:hover {
-    background-color: var(--hbody) !important;
-    border-color: var(--hbody) !important;
-    color: var(--primal) !important;
-    box-shadow: 0 0 10px rgba(var(--primal-rgb), 0.3);
+    background:
+        linear-gradient(180deg, rgba(var(--primal-rgb), 0.26), rgba(var(--primal-rgb), 0.14)),
+        color-mix(in srgb, var(--hbody) 78%, var(--primal)) !important;
+    border-color: rgba(var(--primal-rgb), 0.56) !important;
+    color: color-mix(in srgb, var(--primal) 88%, var(--title)) !important;
+    box-shadow: 0 0 10px rgba(var(--primal-rgb), 0.3) !important;
 }
 
 /* Update active sidebar and nav items to match the metallic silver */
