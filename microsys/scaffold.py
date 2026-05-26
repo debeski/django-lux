@@ -93,7 +93,7 @@ def create_project(project_name, destination=None):
         "project/entrypoint.sh.tmpl": target_root / "entrypoint.sh",
         "project/tools/smtp_relay.py.tmpl": target_root / "tools" / "smtp_relay.py",
         "project/gunicorn.py.tmpl": target_root / "gunicorn.py",
-        "project/req.txt.tmpl": target_root / "req.txt",
+        "project/requirements.txt.tmpl": target_root / "requirements.txt",
         "project/.nginx/nginx.conf.tmpl": target_root / ".nginx" / "nginx.conf",
         "project/start.sh.tmpl": target_root / "start.sh",
         "project/start.ps1.tmpl": target_root / "start.ps1",
