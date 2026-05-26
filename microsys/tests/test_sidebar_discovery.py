@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from django.conf import settings
+from django.core.cache import cache
 from django.test import SimpleTestCase
 
 if not settings.configured:
@@ -67,6 +68,9 @@ class _StubUser:
 
 
 class SidebarDiscoveryTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
     def test_discovery_excludes_ajax_and_add_edit_route_names(self):
         self.assertFalse(_is_candidate("ajax_search_decrees", "/ajax/search/decrees/", callback=None))
         self.assertFalse(_is_candidate("ajax-check-duplicate", "/ajax/check-duplicate/", callback=None))
@@ -318,6 +322,99 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         self.assertEqual([entry["url_name"] for entry in navigation["entries"]], ["manage_users"])
         self.assertTrue(navigation["entries"][0]["active"])
+
+    @patch("microsys.discovery.discover_sidebar_catalog")
+    @patch("microsys.utils.get_system_config")
+    def test_build_sidebar_navigation_reuses_cached_render_base_without_stale_active_state(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {"kind": "item", "id": "options_view", "url_name": "options_view"},
+                    {"kind": "item", "id": "manage_users", "url_name": "manage_users"},
+                ],
+            },
+        }
+        mock_discover_sidebar_catalog.return_value = [
+            {
+                "kind": "item",
+                "id": "options_view",
+                "url_name": "options_view",
+                "url": "/sys/options/",
+                "label": "Options",
+                "icon": "bi-link",
+                "permissions": ["__ms_authenticated__"],
+                "permissions_explicit": True,
+                "group_key": "core",
+                "group_label": "Core",
+                "group_icon": "bi-grid",
+            },
+            {
+                "kind": "item",
+                "id": "manage_users",
+                "url_name": "manage_users",
+                "url": "/sys/users/",
+                "label": "Users",
+                "icon": "bi-link",
+                "permissions": ["__ms_authenticated__"],
+                "permissions_explicit": True,
+                "group_key": "core",
+                "group_label": "Core",
+                "group_icon": "bi-grid",
+            },
+        ]
+
+        first = build_sidebar_navigation(lang_code="en", user=_StubUser(is_superuser=True), request_path="/sys/options/")
+        second = build_sidebar_navigation(lang_code="en", user=_StubUser(is_superuser=True), request_path="/sys/users/")
+
+        self.assertEqual(mock_discover_sidebar_catalog.call_count, 1)
+        self.assertTrue(first["entries"][0]["active"])
+        self.assertFalse(first["entries"][1]["active"])
+        self.assertFalse(second["entries"][0]["active"])
+        self.assertTrue(second["entries"][1]["active"])
+
+    @patch("microsys.discovery.discover_sidebar_catalog")
+    @patch("microsys.utils.get_system_config")
+    def test_build_sidebar_navigation_cache_keeps_user_permissions_separate(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {"kind": "item", "id": "manage_users", "url_name": "manage_users"},
+                ],
+            },
+        }
+        mock_discover_sidebar_catalog.return_value = [
+            {
+                "kind": "item",
+                "id": "manage_users",
+                "url_name": "manage_users",
+                "url": "/sys/users/",
+                "label": "Users",
+                "icon": "bi-people",
+                "permissions": ["__ms_user_directory__"],
+                "permissions_explicit": True,
+                "group_key": "microsys",
+                "group_label": "System",
+                "group_icon": "bi-sliders",
+            }
+        ]
+
+        denied = build_sidebar_navigation(
+            lang_code="en",
+            user=_StubUser(is_staff=True, permissions=set(), scope="scope-a"),
+            request_path="/sys/users/",
+        )
+        allowed = build_sidebar_navigation(
+            lang_code="en",
+            user=_StubUser(is_staff=True, permissions={"auth.view_user"}, scope="scope-a"),
+            request_path="/sys/users/",
+        )
+
+        self.assertEqual(denied["entries"], [])
+        self.assertEqual([entry["url_name"] for entry in allowed["entries"]], ["manage_users"])
 
     @patch("microsys.discovery.discover_sidebar_catalog")
     @patch("microsys.utils.get_system_config")

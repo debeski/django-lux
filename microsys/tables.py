@@ -130,7 +130,8 @@ class UserTable(MicrosysTable):
         return value
 
     def render_staff_tier(self, record):
-        tier = get_user_management_tier_state_for_user(record)
+        strings = getattr(self, 'translations', None) or get_strings()
+        tier = get_user_management_tier_state_for_user(record, strings=strings)
         badges = [
             format_html(
                 '<span class="badge ms-staff-tier-badge ms-staff-tier-badge--{}"><i class="bi {} me-1"></i>{}</span>',

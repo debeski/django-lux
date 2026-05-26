@@ -33,7 +33,11 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
     def get_queryset(self):
         # Order by timestamp descending by default
         # Using .all() ensures we use the ScopedManager which handles scope filtering automatically
-        qs = super().get_queryset().order_by('-created_at')
+        qs = (
+            super().get_queryset()
+            .select_related('created_by__profile__scope')
+            .order_by('-created_at')
+        )
         
         # When scopes are disabled, defer the scope column to avoid loading unused data
         if not is_scope_enabled():
@@ -86,7 +90,7 @@ class ActivityLogDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView)
         return user_can_view_activity_log(self.request.user)
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related('created_by__profile__scope')
         if not self.request.user.is_superuser:
             qs = qs.exclude(created_by__is_superuser=True)
         return qs

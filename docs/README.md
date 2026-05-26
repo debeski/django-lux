@@ -5,6 +5,7 @@ microSYS now uses a layered documentation structure:
 - `README.md` is the package landing page.
 - `docs/` is the operating and integration manual.
 - `CHANGELOG.md` is the release-history archive.
+- Root policy files cover security reporting, contribution expectations, and project conduct.
 
 Use the sections below based on what you are trying to do.
 
@@ -12,6 +13,7 @@ Use the sections below based on what you are trying to do.
 
 - [Getting Started](getting-started.md) for installation, Django configuration, and first launch.
 - [Changelog](../CHANGELOG.md) for release-by-release history and migration context.
+- [Security Policy](../SECURITY.md), [Contributing Guide](../CONTRIBUTING.md), and [Code of Conduct](../CODE_OF_CONDUCT.md) for repository governance.
 
 ## I am Configuring microSYS
 

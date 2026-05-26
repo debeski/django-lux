@@ -125,6 +125,9 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 ## Documentation
 
 - [Documentation Hub](docs/README.md)
+- [Security Policy](SECURITY.md)
+- [Contributing Guide](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Getting Started](docs/getting-started.md)
 - [Admin Guide](docs/admin-guide.md)
 - [Developer Guide](docs/developer-guide.md)

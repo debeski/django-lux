@@ -953,6 +953,7 @@ def get_user_management_tier_state(
     is_staff,
     scope,
     permission_codenames,
+    strings=None,
 ):
     """
     Classify the current user-management tier without changing authorization rules.
@@ -960,7 +961,7 @@ def get_user_management_tier_state(
     The returned payload is intentionally UI-friendly so forms, tables, and templates
     can present the same tier language consistently.
     """
-    s = get_strings()
+    s = strings or get_strings()
     normalized_permissions = _normalize_permission_codename_set(permission_codenames)
     has_scope = scope is not None
     scope_label = getattr(scope, 'name', '') if has_scope else ''
@@ -1087,19 +1088,51 @@ def get_user_management_tier_state(
     })
     return tier_state
 
+
+def _get_prefetched_permission_codenames(user):
+    prefetched = getattr(user, '_prefetched_objects_cache', None)
+    if not isinstance(prefetched, dict):
+        return None
+    if 'user_permissions' not in prefetched or 'groups' not in prefetched:
+        return None
+
+    permissions = set()
+    for permission in prefetched.get('user_permissions') or []:
+        content_type = getattr(permission, 'content_type', None)
+        app_label = getattr(content_type, 'app_label', None)
+        codename = getattr(permission, 'codename', None)
+        if app_label and codename:
+            permissions.add(f'{app_label}.{codename}')
+
+    for group in prefetched.get('groups') or []:
+        group_prefetched = getattr(group, '_prefetched_objects_cache', {})
+        if 'permissions' not in group_prefetched:
+            return None
+        for permission in group_prefetched.get('permissions') or []:
+            content_type = getattr(permission, 'content_type', None)
+            app_label = getattr(content_type, 'app_label', None)
+            codename = getattr(permission, 'codename', None)
+            if app_label and codename:
+                permissions.add(f'{app_label}.{codename}')
+    return permissions
+
+
 # Get user management tier state for a specific user
-def get_user_management_tier_state_for_user(user):
+def get_user_management_tier_state_for_user(user, strings=None):
     if not user or not getattr(user, 'is_authenticated', False):
         return get_user_management_tier_state(
             is_superuser=False,
             is_staff=False,
             scope=None,
             permission_codenames=set(),
+            strings=strings,
         )
 
     permission_codenames = set()
     try:
-        permission_codenames = user.get_all_permissions()
+        permission_codenames = _get_prefetched_permission_codenames(user)
+        if permission_codenames is None:
+            permission_codenames = user.get_all_permissions()
     except Exception:
         permission_codenames = set()
 
@@ -1108,6 +1141,7 @@ def get_user_management_tier_state_for_user(user):
         is_staff=bool(getattr(user, 'is_staff', False)),
         scope=get_user_scope(user),
         permission_codenames=permission_codenames,
+        strings=strings,
     )
 
 

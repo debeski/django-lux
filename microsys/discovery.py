@@ -6,11 +6,20 @@ This module powers:
 2. Default zero-boilerplate sidebar configuration generation.
 3. Transformation of stored sidebar JSON into render-ready items/groups.
 """
+import copy
+import hashlib
+import json
 import re
 
 from django.apps import apps
+from django.conf import settings
+from django.core.cache import cache
 from django.urls import NoReverseMatch, URLPattern, URLResolver, get_resolver, reverse
 from django.utils.encoding import force_str
+
+
+SIDEBAR_CACHE_TIMEOUT = 300
+SIDEBAR_CACHE_VERSION_KEY = 'microsys:sidebar:version'
 
 
 EXCLUDED_EXACT_NAMES = {
@@ -185,6 +194,88 @@ def _plain_text(value, fallback=''):
     if value is None:
         return fallback
     return force_str(value)
+
+
+def _stable_hash(value):
+    try:
+        payload = json.dumps(value, sort_keys=True, default=str, separators=(',', ':'))
+    except TypeError:
+        payload = repr(value)
+    return hashlib.md5(payload.encode()).hexdigest()[:12]
+
+
+def _sidebar_cache_version():
+    version = cache.get(SIDEBAR_CACHE_VERSION_KEY)
+    if version is None:
+        version = 1
+        cache.set(SIDEBAR_CACHE_VERSION_KEY, version, timeout=None)
+    return version
+
+
+def bump_sidebar_cache_version():
+    try:
+        cache.incr(SIDEBAR_CACHE_VERSION_KEY)
+    except ValueError:
+        cache.set(SIDEBAR_CACHE_VERSION_KEY, 2, timeout=None)
+
+
+def _urlconf_cache_identity():
+    resolver = get_resolver()
+    return {
+        'root': getattr(settings, 'ROOT_URLCONF', ''),
+        'module': getattr(getattr(resolver, 'urlconf_module', None), '__name__', ''),
+        'patterns_id': id(getattr(resolver, 'url_patterns', None)),
+    }
+
+
+def _sidebar_catalog_cache_key(lang_code, include_system_items, config):
+    return 'microsys:sidebar:catalog:{version}:{payload}'.format(
+        version=_sidebar_cache_version(),
+        payload=_stable_hash({
+            'lang': lang_code,
+            'include_system_items': bool(include_system_items),
+            'urlconf': _urlconf_cache_identity(),
+            'config': {
+                'default_language': config.get('default_language'),
+                'translations': config.get('translations'),
+            },
+        }),
+    )
+
+
+def _user_sidebar_permission_hash(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return 'anonymous'
+    permissions = []
+    try:
+        permissions = sorted(user.get_all_permissions())
+    except Exception:
+        permissions = sorted(getattr(user, '_permissions', []) or [])
+    try:
+        profile = getattr(user, 'profile', None)
+    except Exception:
+        profile = None
+    scope_id = getattr(profile, 'scope_id', None) if profile is not None else getattr(user, 'scope_id', None)
+    return _stable_hash({
+        'user_id': getattr(user, 'pk', None),
+        'is_staff': bool(getattr(user, 'is_staff', False)),
+        'is_superuser': bool(getattr(user, 'is_superuser', False)),
+        'scope_id': scope_id,
+        'permissions': permissions,
+    })
+
+
+def _sidebar_render_cache_key(lang_code, sidebar, override_sidebar, user):
+    return 'microsys:sidebar:render:{version}:{payload}'.format(
+        version=_sidebar_cache_version(),
+        payload=_stable_hash({
+            'lang': lang_code,
+            'sidebar': sidebar,
+            'override': override_sidebar,
+            'user': _user_sidebar_permission_hash(user),
+            'urlconf': _urlconf_cache_identity(),
+        }),
+    )
 
 
 def _guess_icon(url_name, model=None, callback=None):
@@ -661,12 +752,12 @@ def _is_candidate(url_name, url, callback, include_system_items=False):
     return True
 
 
-def discover_sidebar_catalog(lang_code=None, include_system_items=False):
+def _discover_sidebar_catalog_uncached(lang_code=None, include_system_items=False, config=None):
     """Return all valid, reversible sidebar candidates."""
     from .translations import get_strings
     from .utils import get_system_config
 
-    config = get_system_config()
+    config = config if isinstance(config, dict) else get_system_config()
     lang_code = (lang_code or config.get('default_language', 'en')).split('-')[0]
     strings = get_strings(lang_code, overrides=config.get('translations'))
 
@@ -706,6 +797,24 @@ def discover_sidebar_catalog(lang_code=None, include_system_items=False):
 
     catalog.sort(key=lambda entry: (entry['group_label'], entry['label']))
     return catalog
+
+
+def discover_sidebar_catalog(lang_code=None, include_system_items=False):
+    """Return all valid, reversible sidebar candidates."""
+    from .utils import get_system_config
+
+    config = get_system_config()
+    lang_code = (lang_code or config.get('default_language', 'en')).split('-')[0]
+    cache_key = _sidebar_catalog_cache_key(lang_code, include_system_items, config)
+    catalog = cache.get(cache_key)
+    if catalog is None:
+        catalog = _discover_sidebar_catalog_uncached(
+            lang_code=lang_code,
+            include_system_items=include_system_items,
+            config=config,
+        )
+        cache.set(cache_key, catalog, timeout=SIDEBAR_CACHE_TIMEOUT)
+    return copy.deepcopy(catalog)
 
 
 def build_default_sidebar_config(lang_code=None):
@@ -836,9 +945,7 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
 
     open_accordions = set(open_accordions or [])
 
-    catalog = {entry['id']: entry for entry in discover_sidebar_catalog(lang_code=lang_code, include_system_items=True)}
-
-    def render_sidebar_entries(raw_entries):
+    def render_sidebar_entries(raw_entries, catalog):
         if not isinstance(raw_entries, list):
             return []
 
@@ -867,7 +974,7 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
                         'url_name': entry.get('url_name'),
                         'items': items,
                         'has_active': False,
-                        'is_open': group_id in open_accordions,
+                        'is_open': False,
                         'raw_name': entry.get('id') or group_id,
                     })
                 continue
@@ -877,18 +984,36 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
                 render_entries.append(resolved)
         return render_entries
 
-    render_entries = render_sidebar_entries(sidebar.get('entries', []) if isinstance(sidebar, dict) else [])
+    render_cache_key = _sidebar_render_cache_key(lang_code, sidebar, override_sidebar, user)
+    cached_navigation = cache.get(render_cache_key)
+    if cached_navigation is None:
+        catalog = {entry['id']: entry for entry in discover_sidebar_catalog(lang_code=lang_code, include_system_items=True)}
+        render_entries = render_sidebar_entries(sidebar.get('entries', []) if isinstance(sidebar, dict) else [], catalog)
+        fallback_used = False
+        if override_sidebar and override_sidebar.get('entries') and not render_entries and base_sidebar.get('entries'):
+            sidebar = base_sidebar
+            render_entries = render_sidebar_entries(base_sidebar.get('entries', []), catalog)
+            fallback_used = True
+        cached_navigation = {
+            'entries': render_entries,
+            'home_url_name': sidebar.get('home_url_name'),
+            'sidebar': sidebar,
+            'fallback_used': fallback_used,
+        }
+        cache.set(render_cache_key, cached_navigation, timeout=SIDEBAR_CACHE_TIMEOUT)
+
+    cached_navigation = copy.deepcopy(cached_navigation)
+    render_entries = cached_navigation.get('entries', [])
     _apply_sidebar_active_state(render_entries, request_path, open_accordions)
-    if override_sidebar and override_sidebar.get('entries') and not render_entries and base_sidebar.get('entries'):
+    sidebar = cached_navigation.get('sidebar') or sidebar
+    if cached_navigation.get('fallback_used'):
         sidebar = base_sidebar
-        render_entries = render_sidebar_entries(base_sidebar.get('entries', []))
-        _apply_sidebar_active_state(render_entries, request_path, open_accordions)
 
     return {
         'entries': render_entries,
         'auto_items': [entry for entry in render_entries if entry.get('kind') != 'group'],
         'extra_groups': [entry for entry in render_entries if entry.get('kind') == 'group'],
-        'home_url_name': sidebar.get('home_url_name'),
+        'home_url_name': cached_navigation.get('home_url_name'),
         'sidebar': sidebar,
     }
 

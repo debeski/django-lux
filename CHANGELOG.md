@@ -4,8 +4,16 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.2.8
+
+- **Repository Governance Docs**: Added root `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md` covering private vulnerability reporting, compatibility-focused contribution guidance, maintainer contact paths, and expected project conduct.
+
 ## v2.2.7
 
+- **Critical Query Path Optimization**: Added `select_related('profile__scope', 'public_registration')` and permission prefetching to `UserListView`, added `created_by__profile__scope` eager loading to Activity Log views, and reused prefetched permission objects in staff-tier rendering to remove row-linear user/profile/scope/permission lookups.
+- **Sidebar Discovery Cache**: Added versioned Django-cache keys for discovered sidebar catalogs and permission-filtered sidebar render bases, with per-request active/open state reapplied after deep-copying cached entries and `SystemSettings` saves bumping the sidebar cache version.
+- **User Permission Form Query Reduction**: Replaced duplicated user/group permission queryset unions in user creation and permission-edit forms with a private per-user assignable-permission id helper reused across form instances.
+- **Performance Regression Coverage**: Added focused tests for user-list relation access, activity-log relation access, sidebar render-base cache reuse without stale active state, and user-permission cache separation.
 - **Dynamic Modal Loading Fallback**: Refined `dynamic_modal/js/main.js` loading behavior to keep real previous modal content as the sizing fallback when available, ignore empty template comments, cover fallback content with a theme-aware loading overlay, and use a self-contained default skeleton only for first/empty modal loads while preserving the existing AJAX modal contract.
 - **Prism And Aether Theme Surface Coverage**: Added Prism/Aether overrides for Microsys-owned `.archive-file-*` upload widgets and titlebar logo treatment surfaces, and extended `options.css` System Settings action tile overrides to Aether.
 - **Aether Theme Picker Surface**: Added the missing shared `.ms-theme-preview--aether` swatch in `template_cleanup.css` and bumped the base template asset version so Aether appears with a proper surface in System Settings and sidebar theme pickers.

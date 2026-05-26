@@ -2,8 +2,8 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Verified 2026-05-25: `microsys/utils.py` is 4,062 lines / ~160KB with 114 top-level defs; `utils_split_plan.md` now assigns all defs and documents compatibility wiring.
-- Package version markers remain around `v2.2.3`; recent tracked work targets `v2.2.4+` runtime/setup fixes and `v2.2.6` User Existence Report work.
+- Verified 2026-05-25: critical/high performance remediation added user/activity eager loading, permission-form query helpers, and versioned sidebar caching.
+- Package version markers include `microsys/VERSION` 2.2.7; changelog now has unreleased/next `v2.2.8` performance notes.
 - System setup/System Settings uses seven steps: identity, languages/translations, access/security, sidebar, navbar, titlebar, appearance/fonts.
 - Dynamic fonts, runtime theme allowlisting, optional Nav Bar, Titlebar logo treatments, shared tooltips, and User Existence Report are active feature areas.
 - DynamicModal loading keeps the existing AJAX contract; real previous content is a covered sizing fallback, empty loads use a self-contained skeleton.
@@ -43,16 +43,17 @@
 - **Priority 2:**
   - [ ] Validate generated `startproject`, generated `startapp --register`, Docker/Celery/health baseline, and optional SSO provider/client dependencies.
 - **Completed Recently:**
+  - [x] Added root GitHub governance docs: `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md`.
+  - [x] Added critical/high performance fixes for UserListView, Activity Log relation access, permission-form filtering, and sidebar discovery/render caching.
   - [x] Added Prism/Aether archive file widget and titlebar logo treatment overrides; extended Options System Settings tile theme coverage to Aether.
   - [x] Updated Mono shared theme preview swatch to a clean light diagonal split without a dark ribbon.
   - [x] Added missing Aether theme preview swatch surface in `template_cleanup.css` and bumped base asset version.
-  - [x] Refined DynamicModal loading fallback: real-content detection, covered sizing fallback, self-contained empty-load skeleton, and stale-response guard.
 
 ### One-line info about last verified Tests:
-- 2026-05-25: `node --check microsys/static/microsys/helpers/dynamic_modal/js/main.js` and focused theme asset/version/CSS coverage tests passed.
+- 2026-05-26: `git diff --check` and trailing-whitespace scan passed for governance docs/links; runtime tests not run for docs-only change.
 
 ### One-line info about last time edited Docs:
-- 2026-05-25: edited `README.md` to add the published microSYS Agent ChatGPT link.
+- 2026-05-26: added root governance docs and linked them from `README.md` / `docs/README.md`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

@@ -160,11 +160,17 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
     
     def get_queryset(self):
         # Apply the filter and order by any logic you need
-        qs = super().get_queryset().select_related('profile').order_by('date_joined')
+        qs = (
+            super().get_queryset()
+            .select_related('profile__scope', 'public_registration')
+            .prefetch_related('user_permissions__content_type', 'groups__permissions__content_type')
+            .order_by('date_joined')
+        )
         # Exclude soft-deleted users by checking profile's deleted_at
         qs = qs.filter(profile__deleted_at__isnull=True)
         
         user = self.request.user
+        actor_scope = get_user_scope(user)
         
         # Hide superuser entries from non-superusers
         if not user.is_superuser:
@@ -175,8 +181,8 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
                 qs = qs.filter(profile__scope__isnull=True)
                 qs = exclude_global_staff_users(qs)
             # Scoped staff: can only see same scope
-            elif get_user_scope(user):
-                qs = qs.filter(profile__scope=get_user_scope(user))
+            elif actor_scope:
+                qs = qs.filter(profile__scope=actor_scope)
             elif not is_global_staff(user):
                 qs = qs.none()
             # Global Staff: sees all users (no scope filter)
@@ -191,9 +197,10 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
     def get_table(self, **kwargs):
         table = super().get_table(**kwargs)
         # Hide scope column when scopes are off, or when user is already scoped
+        actor_scope = get_user_scope(self.request.user)
         if not is_scope_enabled():
             table.exclude = ('scope',)
-        elif get_user_scope(self.request.user) and not self.request.user.is_superuser:
+        elif actor_scope and not self.request.user.is_superuser:
             table.exclude = ('scope',)
         return table
 
@@ -338,7 +345,12 @@ class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         recent_logs = []
         if can_view_activity_logs:
             UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
-            recent_logs = UserActivityLog._default_manager.filter(created_by=user).order_by('-created_at')[:10]
+            recent_logs = (
+                UserActivityLog._default_manager
+                .filter(created_by=user)
+                .select_related('created_by__profile__scope')
+                .order_by('-created_at')[:10]
+            )
         context['can_view_activity_logs'] = can_view_activity_logs
         context['can_view_user_report'] = user_can_view_user_report(self.request.user, user)
         context['recent_logs'] = recent_logs

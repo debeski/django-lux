@@ -50,12 +50,14 @@ if not settings.configured:
     django.setup()
 
 from django.test import TestCase, Client, RequestFactory, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.sessions.models import Session
 from django.urls import reverse
 from django.core.cache import cache
+from django.db import connection
 from django.contrib.auth.hashers import check_password, identify_hasher, make_password
 from django.utils import timezone
 from datetime import timedelta
@@ -66,6 +68,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from microsys.models import Scope, Section, SystemSettings
+from microsys.utils import get_user_management_tier_state_for_user
 
 User = get_user_model()
 
@@ -830,6 +833,37 @@ class ActivityLogViewsTests(TestCase):
             (initial_count + 14) - 10,
         )
 
+    def test_activity_log_queryset_prefetches_table_accessor_relations(self):
+        from microsys.models import UserActivityLog
+        from microsys.views.activitylog import UserActivityLogView
+
+        scope = Scope.objects.create(name='Log Scope')
+        self.user.profile.scope = scope
+        self.user.profile.save(update_fields=['scope'])
+        for index in range(8):
+            UserActivityLog.objects.create(
+                created_by=self.user,
+                action='CREATE',
+                model_name=f'Entry {index}',
+            )
+
+        request = RequestFactory().get(reverse('user_activity_log'))
+        request.user = self.user
+        view = UserActivityLogView()
+        view.request = request
+        view.args = ()
+        view.kwargs = {}
+
+        with CaptureQueriesContext(connection) as captured:
+            logs = list(view.get_queryset())
+            for log in logs:
+                if log.created_by and getattr(log.created_by, 'profile', None):
+                    scope = getattr(log.created_by.profile, 'scope', None)
+                    if scope:
+                        _ = scope.name
+
+        self.assertLessEqual(len(captured), 6)
+
     def test_activity_log_detail_view_renders_structured_changes_and_masks_totp_secret(self):
         from microsys.models import UserActivityLog
 
@@ -1040,6 +1074,58 @@ class SecurityHardeningViewTests(TestCase):
         self.assertEqual(response.context['table'].page.number, 2)
         self.assertEqual(response.context['table'].paginator.num_pages, 2)
         self.assertEqual(len(response.context['table'].page.object_list), 3)
+
+    def test_manage_users_queryset_prefetches_table_accessor_relations(self):
+        from microsys.models import PublicRegistration
+        from microsys.views.users import UserListView
+
+        self._grant_user_permission(self.staff_user, 'view_user')
+        manage_staff = Permission.objects.get(
+            content_type=ContentType.objects.get(app_label='microsys', model='profile'),
+            codename='manage_staff',
+        )
+        group = Group.objects.create(name='Scoped Delegators')
+        group.permissions.add(manage_staff)
+
+        for index in range(8):
+            user = User.objects.create_user(
+                username=f'perf-scope-{index}',
+                email=f'perf-scope-{index}@example.com',
+                password='scopepass123',
+                is_staff=index % 2 == 0,
+            )
+            user.profile.scope = self.scope_a
+            user.profile.phone = f'555-010{index}'
+            user.profile.save(update_fields=['scope', 'phone'])
+            if index % 2 == 0:
+                user.groups.add(group)
+            if index == 0:
+                PublicRegistration.objects.create(
+                    user=user,
+                    email=user.email,
+                    expires_at=timezone.now() + timedelta(days=1),
+                )
+
+        request = RequestFactory().get(reverse('manage_users'))
+        request.user = self.staff_user
+        view = UserListView()
+        view.request = request
+        view.args = ()
+        view.kwargs = {}
+
+        users = list(view.get_queryset())
+        with CaptureQueriesContext(connection) as captured:
+            for user in users:
+                _ = user.profile.phone
+                if user.profile.scope:
+                    _ = user.profile.scope.name
+                try:
+                    _ = user.public_registration
+                except PublicRegistration.DoesNotExist:
+                    pass
+                get_user_management_tier_state_for_user(user, strings={'_': '_'})
+
+        self.assertEqual(len(captured), 0)
 
     def test_manage_users_central_staff_excludes_global_staff_group_members(self):
         central_staff = User.objects.create_user(

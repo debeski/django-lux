@@ -408,8 +408,6 @@ def clear_sidebar_cache():
     Clear the sidebar items cache.
     Call this when models or URLs change and sidebar needs refresh.
     """
-    # Note: We can't easily clear specific hash keys, so we might need a more robust clearing strategy
-    # or just rely on timeout. For now, this function is a placeholder or partial implementation.
-    # To truly clear, we'd need to track keys or use a specific prefix clear if supported by backend.
-    # Simpler: Just rely on short timeout during dev.
-    pass
+    from .discovery import bump_sidebar_cache_version
+
+    bump_sidebar_cache_version()

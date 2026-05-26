@@ -115,6 +115,32 @@ def get_assignable_permissions_queryset():
     )
 
 
+def _get_assignable_permission_ids_for_user(user):
+    if not user or getattr(user, 'is_superuser', False):
+        return None
+
+    cache_attr = '_microsys_assignable_permission_ids'
+    if hasattr(user, cache_attr):
+        return getattr(user, cache_attr)
+
+    permission_ids = list(
+        Permissions.objects.filter(
+            Q(user=user) | Q(group__user=user)
+        ).values_list('id', flat=True).distinct()
+    )
+    setattr(user, cache_attr, permission_ids)
+    return permission_ids
+
+
+def _apply_assignable_permission_filter(form, user):
+    if not user or getattr(user, 'is_superuser', False):
+        return
+    permission_ids = _get_assignable_permission_ids_for_user(user)
+    filtered_qs = form.fields['permissions'].queryset.filter(id__in=permission_ids)
+    form.fields['permissions'].queryset = filtered_qs
+    form.fields['permissions'].widget._filtered_queryset = filtered_qs
+
+
 class MicrosysAuthenticationForm(AuthenticationForm):
     """
     Preserve normal username login while allowing verified public-registration
@@ -766,12 +792,7 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields['scope'].queryset = Scope.objects.all()
 
         # Permission check: Non-superusers can only assign permissions they already have
-        if self.user_context and not self.user_context.is_superuser:
-            user_perms = self.user_context.user_permissions.all() | Permissions.objects.filter(group__user=self.user_context)
-            filtered_qs = self.fields['permissions'].queryset.filter(id__in=user_perms.values_list('id', flat=True))
-            self.fields['permissions'].queryset = filtered_qs
-            # Store filtered queryset for widget to use
-            self.fields['permissions'].widget._filtered_queryset = filtered_qs
+        _apply_assignable_permission_filter(self, self.user_context)
 
         lock_scope = bool(
             self.user_context
@@ -1099,14 +1120,7 @@ class CustomUserPermissionsForm(UserChangeForm):
         self.modal_heading = s.get('edit_permissions_label', 'Edit Permissions')
         self.fields['permissions'].widget.translations = s
 
-        if self.user_context and not self.user_context.is_superuser:
-            user_perms = self.user_context.user_permissions.all() | Permissions.objects.filter(group__user=self.user_context)
-            filtered_qs = self.fields['permissions'].queryset.filter(
-                id__in=user_perms.values_list('id', flat=True)
-            )
-            self.fields['permissions'].queryset = filtered_qs
-            # Store filtered queryset for widget to use
-            self.fields['permissions'].widget._filtered_queryset = filtered_qs
+        _apply_assignable_permission_filter(self, self.user_context)
 
         self.fields["is_staff"].label = s.get('form_is_staff', "Enable Staff Access")
         self.fields["is_staff"].help_text = s.get('help_is_staff', "Enables staff access. The final tier depends on scope and selected permissions.")

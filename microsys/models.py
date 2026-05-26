@@ -176,6 +176,12 @@ class SingletonModel(models.Model):
 
     def refresh_cache(self):
          cache.set(self.__class__.__name__, self, timeout=86400)
+         if self.__class__.__name__ == 'SystemSettings':
+             try:
+                 from .context_processors import clear_sidebar_cache
+                 clear_sidebar_cache()
+             except Exception:
+                 pass
 
 
 class SystemSettings(SingletonModel):
