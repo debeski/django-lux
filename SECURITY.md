@@ -6,6 +6,12 @@ Security fixes are prioritized for the latest released `django-microsys` package
 
 Optional packages such as `django-microsys-sso` and `django-microsys-sso-client` are maintained separately. Report vulnerabilities for them through their own repositories when available, or include the affected package name in your report.
 
+## Required Security Standard
+
+All Microsys security-sensitive work must follow the active [MSRP-1 Security Standard](docs/security-msrp-1.md). MSRP-1 is the required baseline for authorization boundaries, security-flow design, backend enforcement, CSP/runtime asset expectations, and related review decisions.
+
+Contributions, fixes, refactors, configuration changes, and documentation updates must not weaken or bypass MSRP-1. If a proposed change conflicts with MSRP-1, update the design so it complies before merging or releasing it.
+
 ## Reporting a Vulnerability
 
 Do not open a public GitHub issue for a suspected vulnerability.

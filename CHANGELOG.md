@@ -6,7 +6,7 @@ This file owns the release history for `django-microsys`.
 
 ## v2.2.8
 
-- **Repository Governance Docs**: Added root `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md` covering private vulnerability reporting, compatibility-focused contribution guidance, maintainer contact paths, and expected project conduct.
+- **Repository Governance Docs**: Added root `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md` covering private vulnerability reporting, mandatory MSRP-1 security-standard compliance, compatibility-focused contribution guidance, maintainer contact paths, and expected project conduct.
 
 ## v2.2.7
 

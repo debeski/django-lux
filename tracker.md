@@ -43,6 +43,7 @@
 - **Priority 2:**
   - [ ] Validate generated `startproject`, generated `startapp --register`, Docker/Celery/health baseline, and optional SSO provider/client dependencies.
 - **Completed Recently:**
+  - [x] Added mandatory MSRP-1 compliance language to root `SECURITY.md`.
   - [x] Added root GitHub governance docs: `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md`.
   - [x] Added critical/high performance fixes for UserListView, Activity Log relation access, permission-form filtering, and sidebar discovery/render caching.
   - [x] Added Prism/Aether archive file widget and titlebar logo treatment overrides; extended Options System Settings tile theme coverage to Aether.
@@ -50,10 +51,10 @@
   - [x] Added missing Aether theme preview swatch surface in `template_cleanup.css` and bumped base asset version.
 
 ### One-line info about last verified Tests:
-- 2026-05-26: `git diff --check` and trailing-whitespace scan passed for governance docs/links; runtime tests not run for docs-only change.
+- 2026-05-26: `git diff --check` and trailing-whitespace scan passed for governance docs including MSRP-1 policy note; runtime tests not run.
 
 ### One-line info about last time edited Docs:
-- 2026-05-26: added root governance docs and linked them from `README.md` / `docs/README.md`.
+- 2026-05-26: updated `SECURITY.md` to require MSRP-1 compliance for security-sensitive work.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
