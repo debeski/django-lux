@@ -199,11 +199,6 @@ class _MicrosysSelectorMixin:
             'lang-option',
             'ms-choice-option__surface',
             'ms-choice-option__surface--toggle',
-            'rounded',
-            'border',
-            'shadow-sm',
-            'p-2',
-            'mb-1',
         ]
         if option.get('selected'):
             surface_classes.append('lang-active')

@@ -1023,6 +1023,31 @@
     background: var(--tut-next-bg-hover) !important;
 }
 
+/* Toggle cards — sharper contrast between inactive/active for grayscale palette */
+:root.theme-mono .lang-option,
+.theme-mono .lang-option {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.96)) !important;
+    border-color: rgba(71, 85, 105, 0.1) !important;
+    color: var(--mono-500) !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+:root.theme-mono .lang-option:hover,
+.theme-mono .lang-option:hover {
+    background: linear-gradient(180deg, #f8fafc, #f1f5f9) !important;
+    border-color: rgba(71, 85, 105, 0.28) !important;
+    color: var(--mono-700) !important;
+    box-shadow: 0 4px 12px rgba(71, 85, 105, 0.08) !important;
+}
+:root.theme-mono .lang-option.lang-active,
+:root.theme-mono .lang-active,
+.theme-mono .lang-option.lang-active,
+.theme-mono .lang-active {
+    background: linear-gradient(180deg, #dde4ee, #c8d4e0) !important;
+    border-color: var(--mono-600) !important;
+    color: var(--mono-900) !important;
+    box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.22), 0 4px 12px rgba(71, 85, 105, 0.14) !important;
+}
+
 /* Print */
 @media print {
     :root.theme-mono * {

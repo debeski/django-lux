@@ -204,7 +204,7 @@ MICROSYS_STRINGS = {
         'navbar_no_routes': 'لا توجد مسارات تطابق هذا البحث.',
         'navbar_route_label_fallback': 'استخدم تسمية المسار المترجمة',
         'navbar_manual_label_placeholder': 'تسمية التجميع',
-        'navbar_root': 'الجذر',
+        'navbar_root': 'الرئيسية',
         'navbar_system': 'النظام',
         'navbar_aria_label': 'مسار التنقل',
         'navbar_options_title': 'نمط شريط التنقل',

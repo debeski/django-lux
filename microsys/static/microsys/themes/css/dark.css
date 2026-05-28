@@ -481,6 +481,35 @@
 :root.theme-dark .archive-file-meta {
     color: #cbd5e1 !important;
 }
+/* Toggle cards (lang-option / ms-choice-selector--toggle) */
+:root.theme-dark .lang-option,
+.theme-dark .lang-option {
+    background-color: rgba(38, 38, 38, 0.92) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: #cbd5e1 !important;
+    box-shadow: none !important;
+}
+:root.theme-dark .lang-option:hover,
+.theme-dark .lang-option:hover {
+    background-color: rgba(50, 50, 50, 0.96) !important;
+    border-color: rgba(var(--primal-rgb), 0.22) !important;
+    color: var(--title) !important;
+}
+:root.theme-dark .lang-option.lang-active,
+:root.theme-dark .lang-active,
+.theme-dark .lang-option.lang-active,
+.theme-dark .lang-active {
+    background-color: rgba(var(--primal-rgb), 0.1) !important;
+    border-color: var(--primal) !important;
+    color: var(--title) !important;
+    box-shadow: 0 0 0 3px rgba(var(--primal-rgb), 0.14) !important;
+}
+/* ms-settings-toggle-field card (bg-light override) */
+:root.theme-dark .ms-settings-toggle-field {
+    background-color: rgba(38, 38, 38, 0.92) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: var(--title) !important;
+}
 /* 4. Tables */
 :root.theme-dark .table {
     color: #e9ecef !important;

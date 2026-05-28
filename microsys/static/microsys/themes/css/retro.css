@@ -1238,6 +1238,112 @@
     box-shadow: 0 0 14px rgba(212, 165, 116, 0.12) !important;
 }
 
+/* Form action buttons (archive-form-action / microsys-form-action) */
+:root.theme-retro .archive-form-action,
+:root.theme-retro .microsys-form-action,
+:root.theme-retro .microsys-filter .microsys-filter-chip,
+:root.theme-retro .microsys-filter .microsys-filter-action {
+    border-color: rgba(212, 165, 116, 0.16) !important;
+    background: linear-gradient(180deg, rgba(30, 24, 20, 0.98), rgba(18, 15, 12, 0.96)) !important;
+    color: var(--title) !important;
+    box-shadow: none !important;
+}
+:root.theme-retro .archive-form-action:hover,
+:root.theme-retro .archive-form-action:focus-visible,
+:root.theme-retro .microsys-form-action:hover,
+:root.theme-retro .microsys-form-action:focus-visible,
+:root.theme-retro .microsys-filter .microsys-filter-chip:hover,
+:root.theme-retro .microsys-filter .microsys-filter-action:hover {
+    border-color: rgba(212, 165, 116, 0.32) !important;
+    box-shadow: none !important;
+}
+:root.theme-retro .archive-form-action-icon,
+:root.theme-retro .microsys-form-action-icon {
+    color: var(--retro-amber) !important;
+}
+:root.theme-retro .archive-form-action-primary {
+    border-color: rgba(139, 110, 75, 0.28) !important;
+    background: linear-gradient(180deg, rgba(26, 22, 18, 0.98), rgba(18, 15, 12, 0.96)) !important;
+}
+:root.theme-retro .archive-form-action-primary .archive-form-action-icon {
+    background: rgba(212, 165, 116, 0.14) !important;
+    color: #c8e6c9 !important;
+}
+:root.theme-retro .archive-form-action-secondary .archive-form-action-icon {
+    background: rgba(212, 165, 116, 0.12) !important;
+    color: var(--retro-amber) !important;
+}
+:root.theme-retro .archive-form-action-neutral .archive-form-action-icon {
+    background: rgba(139, 58, 58, 0.18) !important;
+    color: #ffcdd2 !important;
+}
+:root.theme-retro .microsys-form-action-primary {
+    border-color: rgba(139, 110, 75, 0.24) !important;
+    background: linear-gradient(180deg, rgba(26, 22, 18, 0.98), rgba(18, 15, 12, 0.96)) !important;
+}
+:root.theme-retro .microsys-form-action-neutral {
+    border-color: rgba(139, 58, 58, 0.2) !important;
+    background:
+        radial-gradient(circle at top, rgba(139, 58, 58, 0.1), transparent 56%),
+        linear-gradient(180deg, rgba(32, 18, 18, 0.98), rgba(20, 13, 13, 0.96)) !important;
+}
+:root.theme-retro .microsys-filter .btn.microsys-filter-submit {
+    color: var(--retro-amber) !important;
+    border-color: rgba(212, 165, 116, 0.22) !important;
+    background: linear-gradient(180deg, rgba(28, 22, 18, 0.98), rgba(18, 15, 12, 0.96)) !important;
+}
+
+/* Archive file upload widget */
+:root.theme-retro .archive-file-card {
+    border-color: rgba(212, 165, 116, 0.14) !important;
+    background: linear-gradient(180deg, rgba(26, 22, 20, 0.98), rgba(15, 13, 12, 0.96)) !important;
+    box-shadow: none !important;
+}
+:root.theme-retro .archive-file-field.is-dragover .archive-file-card,
+:root.theme-retro .archive-file-card:hover,
+:root.theme-retro .archive-file-card:focus-visible {
+    border-color: rgba(212, 165, 116, 0.3) !important;
+    box-shadow: none !important;
+}
+:root.theme-retro .archive-file-tag {
+    background: rgba(212, 165, 116, 0.12) !important;
+    color: var(--retro-amber) !important;
+}
+:root.theme-retro .archive-file-tool {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: var(--retro-amber) !important;
+    box-shadow: none !important;
+}
+:root.theme-retro .archive-file-tool-upload {
+    background: rgba(212, 165, 116, 0.14) !important;
+    color: var(--retro-amber) !important;
+}
+:root.theme-retro .archive-file-tool-scan {
+    background: rgba(201, 162, 39, 0.16) !important;
+    color: #f0d060 !important;
+}
+:root.theme-retro .archive-file-tool-clear {
+    background: rgba(139, 58, 58, 0.16) !important;
+    color: #ffcdd2 !important;
+}
+:root.theme-retro .archive-file-icon {
+    background: rgba(212, 165, 116, 0.12) !important;
+    color: var(--retro-amber) !important;
+}
+:root.theme-retro .archive-file-name {
+    color: var(--title) !important;
+}
+:root.theme-retro .archive-file-meta {
+    color: #a09084 !important;
+}
+
+/* ms-settings-toggle-field card (bg-light override on dark background) */
+:root.theme-retro .ms-settings-toggle-field {
+    background-color: rgba(26, 22, 20, 0.92) !important;
+    border-color: rgba(212, 165, 116, 0.14) !important;
+    color: var(--title) !important;
+}
+
 /* Print - Disable effects */
 @media print {
     :root.theme-retro * {

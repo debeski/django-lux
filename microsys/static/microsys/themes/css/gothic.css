@@ -394,6 +394,12 @@
     box-shadow: 0 0 18px rgba(0, 180, 216, 0.24) !important;
 }
 
+/* ms-settings-toggle-field card (bg-light override) */
+:root.theme-gothic .ms-settings-toggle-field {
+    background-color: rgba(26, 16, 37, 0.92) !important;
+    border-color: rgba(0, 180, 216, 0.14) !important;
+    color: var(--title) !important;
+}
 /* 3. Forms & Inputs - Chrome Glowing Fields */
 :root.theme-gothic .microsys-form,
 :root.theme-gothic .archive-document-form,

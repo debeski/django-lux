@@ -6,7 +6,10 @@ This file owns the release history for `django-microsys`.
 
 ## v2.2.8
 
-- **Repository Governance Docs**: Added root `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md` covering private vulnerability reporting, mandatory MSRP-1 security-standard compliance, compatibility-focused contribution guidance, maintainer contact paths, and expected project conduct.
+- **Fix (MicrosysChoiceSelectorWidget — Toggle)**: Removed Bootstrap utility classes (`rounded border shadow-sm p-2 mb-1`) from the toggle surface HTML to eliminate `!important` specificity conflicts; replaced `var(--bs-light)` inactive background with a microsys glass gradient (primal radial + white linear + inset highlight); active/checked state uses a pronounced primary-tinted gradient with primary-colored surface text, caption label, and a dual-shadow ring; `:focus-visible` scoped to `:not(:checked)` and switched to `outline` for both toggle and card/chip variants, eliminating the persistent blue-fill illusion after mouse-click unchecking in Chrome/Edge. `dark.css` given `lang-option` rules (was falling back to white `var(--bs-light)` surface); `mono.css` active state replaced with a `#dde4ee → #c8d4e0` gradient giving unambiguous three-state distinction on a grayscale palette.
+- **Fix (ms-settings-toggle-field)**: Overrode Bootstrap form-switch `:focus`/`:focus-visible` in `system_setup.css` — zeroed `box-shadow`, neutralized `border-color`, and replaced the blue-thumb SVG (`fill='#86b7fe'`) with the neutral dark-thumb SVG for unchecked+focused state; `checked:focus` restores the white thumb. Added `ms-settings-toggle-field` background/border overrides to `dark.css`, `gothic.css`, and `retro.css` to prevent `bg-light` from rendering a white card on dark pages.
+- **Fix (Retro Theme — Forms)**: Added `archive-form-action`/`microsys-form-action` button overrides and full `archive-file-card` widget overrides to `retro.css` using the amber/dark-panel palette — dark gradient surfaces, amber borders and tool icons, warm-green primary save icon, crimson neutral cancel.
+- **Repository Governance Docs**: Added root `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md` covering private vulnerability reporting, mandatory MSRP-1 compliance, contribution guidance, and maintainer contact paths.
 
 ## v2.2.7
 

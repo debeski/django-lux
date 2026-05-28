@@ -27,16 +27,6 @@ _FONT_REGISTRY = (
             {'weight': 800, 'path': 'microsys/fonts/Changa-Bold.woff2'},
         ]
     },
-    # {
-    #     'slug': 'markazi_text',
-    #     'family': 'Markazi Text',
-    #     'label': 'Markazi Text',
-    #     'variants': [
-    #         {'weight': 400, 'path': 'microsys/fonts/MarkaziText-Regular.woff2'},
-    #         {'weight': 600, 'path': 'microsys/fonts/MarkaziText-Medium.woff2'},
-    #         {'weight': 800, 'path': 'microsys/fonts/MarkaziText-Bold.woff2'},
-    #     ]
-    # },
     {
         'slug': 'readex_pro',
         'family': 'Readex Pro',

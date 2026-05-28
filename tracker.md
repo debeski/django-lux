@@ -43,12 +43,13 @@
 - **Priority 2:**
   - [ ] Validate generated `startproject`, generated `startapp --register`, Docker/Celery/health baseline, and optional SSO provider/client dependencies.
 - **Completed Recently:**
+  - [x] Fixed `MicrosysChoiceSelectorWidget` toggle: `:focus-visible` now scoped to `:not(:checked)` + uses `outline` → unchecking no longer looks like still-checked.
+  - [x] Fixed toggle theme consistency: inactive surface uses `--ms-choice-surface`/`--ms-choice-border` (theme-aware CSS vars); neon/retro `lang-option !important` overrides still take precedence.
+  - [x] Removed Bootstrap utility classes (`rounded border shadow-sm p-2 mb-1`) from toggle surface HTML to eliminate `!important` specificity fights with CSS rules.
   - [x] Added mandatory MSRP-1 compliance language to root `SECURITY.md`.
   - [x] Added root GitHub governance docs: `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md`.
   - [x] Added critical/high performance fixes for UserListView, Activity Log relation access, permission-form filtering, and sidebar discovery/render caching.
   - [x] Added Prism/Aether archive file widget and titlebar logo treatment overrides; extended Options System Settings tile theme coverage to Aether.
-  - [x] Updated Mono shared theme preview swatch to a clean light diagonal split without a dark ribbon.
-  - [x] Added missing Aether theme preview swatch surface in `template_cleanup.css` and bumped base asset version.
 
 ### One-line info about last verified Tests:
 - 2026-05-26: `git diff --check` and trailing-whitespace scan passed for governance docs including MSRP-1 policy note; runtime tests not run.
