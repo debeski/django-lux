@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import timedelta
 from io import BytesIO
 
@@ -81,28 +81,49 @@ def build_user_report(target_user):
             for key, count in counter.most_common()
         ]
 
+    def _fmt_model_actions(model_action_map):
+        """Merge model + action breakdowns: one entry per model, each carrying its
+        own action-type breakdown and total, sorted by total descending."""
+        models = []
+        for model_key, action_counter in model_action_map.items():
+            models.append({
+                'key': model_key,
+                'label': translate_activity_log_model_name(model_key, strings=s),
+                'count': sum(action_counter.values()),
+                'actions': _fmt_actions(action_counter),
+            })
+        models.sort(key=lambda m: m['count'], reverse=True)
+        return models
+
     # Single pass over the activity log, bucketed into rolling time windows.
     _now = timezone.now()
     _week_cutoff = _now - timedelta(days=7)
     _month_cutoff = _now - timedelta(days=30)
     window_action = {'week': Counter(), 'month': Counter(), 'all': Counter()}
     window_model = {'week': Counter(), 'month': Counter(), 'all': Counter()}
+    window_model_action = {
+        'week': defaultdict(Counter),
+        'month': defaultdict(Counter),
+        'all': defaultdict(Counter),
+    }
     for action, model_name, created_at in activity_qs.values_list('action', 'model_name', 'created_at'):
         model_key = model_name or s.get('user_report_unknown')
         window_action['all'][action] += 1
         window_model['all'][model_key] += 1
+        window_model_action['all'][model_key][action] += 1
         if created_at and created_at >= _month_cutoff:
             window_action['month'][action] += 1
             window_model['month'][model_key] += 1
+            window_model_action['month'][model_key][action] += 1
             if created_at >= _week_cutoff:
                 window_action['week'][action] += 1
                 window_model['week'][model_key] += 1
+                window_model_action['week'][model_key][action] += 1
 
     windows = {
         window: {
             'activity_count': sum(window_action[window].values()),
-            'action_counts': _fmt_actions(window_action[window]),
-            'model_counts': _fmt_models(window_model[window]),
+            'models': _fmt_model_actions(window_model_action[window]),
         }
         for window in ('week', 'month', 'all')
     }

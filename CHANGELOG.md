@@ -4,6 +4,11 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.2.11
+
+- **User Activity Reports**: Re-architected the user report window to display combined model-action groups instead of separate model and action stacks. Added dynamic pill/chip styling to cleanly list activity types inside each model row.
+- **Advanced Search UI**: Added `filter_advanced_search_action` translation strings to properly localize Advanced Search toggle buttons.
+
 ## v2.2.10
 
 - **Fix (Context Menu — Handler Harmony)**: `micro:record:view|edit|delete` events are now dispatched `cancelable`, and the generic scaffold-navigation fallbacks were moved to `window` (running last in the bubble chain) and bail when `event.defaultPrevented`. Hosts that handle a record action themselves (e.g. open a modal) now opt out with a plain `event.preventDefault()` listener instead of needing capture-phase + `stopImmediatePropagation`, so custom handlers and the default navigation no longer fight.

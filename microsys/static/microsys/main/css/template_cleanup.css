@@ -230,6 +230,51 @@
     color: color-mix(in srgb, var(--primal, #0d6efd) 78%, var(--ms-user-report-text)) !important;
 }
 
+/* Merged per-model activity breakdown (model header + its action-type chips) */
+.ms-user-report-model {
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.13);
+    border-radius: 0.95rem;
+    background: var(--ms-user-report-muted-surface);
+    color: var(--ms-user-report-text);
+}
+
+.ms-user-report-model-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.7rem;
+}
+
+.ms-user-report-model-head strong {
+    color: var(--ms-user-report-text);
+    font-weight: 700;
+}
+
+.ms-user-report-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.ms-user-report-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.18);
+    background: color-mix(in srgb, var(--primal, #0d6efd) 8%, var(--ms-user-report-surface));
+    color: var(--ms-user-report-text);
+}
+
+.ms-user-report-chip-count {
+    font-weight: 800;
+    color: color-mix(in srgb, var(--primal, #0d6efd) 78%, var(--ms-user-report-text));
+}
+
 .ms-user-report-pagination {
     display: flex;
     align-items: center;

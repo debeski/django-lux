@@ -463,6 +463,7 @@ MICROSYS_STRINGS = {
         'filter_all': 'الكل',
         'filter_from': 'من ',
         'filter_to': 'إلى ',
+        'filter_advanced_search_action': 'متقدم',
 
         # Template strings (manage_users)
         'add_user': 'إضافة مستخدم جديد',
@@ -1472,6 +1473,7 @@ MICROSYS_STRINGS = {
         'filter_all': 'All',
         'filter_from': 'From ',
         'filter_to': 'To ',
+        'filter_advanced_search_action': 'Advanced',
 
         # Template strings (manage_users)
         'add_user': 'Add New User',

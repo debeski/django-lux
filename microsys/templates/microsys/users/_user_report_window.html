@@ -1,35 +1,28 @@
 {% load microsys_translation %}
-<div class="row g-4">
-    <div class="col-12">
-        <div class="ms-user-report-tile">
-            <span>{{ MS_TRANS.user_report_total_actions }}</span>
-            <strong>{{ window.activity_count }}</strong>
-        </div>
+<div class="ms-user-report-window">
+    <div class="ms-user-report-tile mb-4">
+        <span>{{ MS_TRANS.user_report_total_actions }}</span>
+        <strong>{{ window.activity_count }}</strong>
     </div>
-    <div class="col-lg-6">
-        <h6 class="text-muted text-uppercase small fw-bold mb-2">{{ MS_TRANS.user_report_activity_breakdown }}</h6>
-        <div class="ms-user-report-stack">
-            {% for item in window.action_counts %}
-                <div class="ms-user-report-meter">
-                    <span>{{ item.label }}</span>
-                    <strong>{{ item.count }}</strong>
+
+    <div class="ms-user-report-stack">
+        {% for model in window.models %}
+            <div class="ms-user-report-model">
+                <div class="ms-user-report-model-head">
+                    <strong><i class="bi bi-diagram-3 me-2"></i>{{ model.label }}</strong>
+                    <span class="badge ms-user-report-badge">{{ model.count }}</span>
                 </div>
-            {% empty %}
-                <p class="text-muted mb-0">{{ MS_TRANS.user_report_empty_activity }}</p>
-            {% endfor %}
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <h6 class="text-muted text-uppercase small fw-bold mb-2">{{ MS_TRANS.user_report_model_breakdown }}</h6>
-        <div class="ms-user-report-stack">
-            {% for item in window.model_counts %}
-                <div class="ms-user-report-meter">
-                    <span>{{ item.label }}</span>
-                    <strong>{{ item.count }}</strong>
+                <div class="ms-user-report-chips">
+                    {% for action in model.actions %}
+                        <span class="ms-user-report-chip">
+                            <span class="ms-user-report-chip-label">{{ action.label }}</span>
+                            <span class="ms-user-report-chip-count">{{ action.count }}</span>
+                        </span>
+                    {% endfor %}
                 </div>
-            {% empty %}
-                <p class="text-muted mb-0">{{ MS_TRANS.user_report_empty_activity }}</p>
-            {% endfor %}
-        </div>
+            </div>
+        {% empty %}
+            <p class="text-muted mb-0">{{ MS_TRANS.user_report_empty_activity }}</p>
+        {% endfor %}
     </div>
 </div>
