@@ -97,34 +97,38 @@
             </section>
         </div>
 
-        <div class="col-lg-6">
+        <div class="col-12">
             <section class="ms-user-report-card">
-                <h5><i class="bi bi-bar-chart me-2"></i>{{ MS_TRANS.user_report_activity_breakdown }}</h5>
-                <div class="ms-user-report-stack">
-                    {% for item in report.action_counts %}
-                        <div class="ms-user-report-meter">
-                            <span>{{ item.label }}</span>
-                            <strong>{{ item.count }}</strong>
-                        </div>
-                    {% empty %}
-                        <p class="text-muted mb-0">{{ MS_TRANS.user_report_empty_activity }}</p>
-                    {% endfor %}
+                <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>{{ MS_TRANS.user_report_activity_breakdown }}</h5>
+                    <ul class="nav nav-tabs ms-user-report-tabs border-0" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#ms-report-window-week" type="button" role="tab">
+                                {{ MS_TRANS.user_report_window_week }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#ms-report-window-month" type="button" role="tab">
+                                {{ MS_TRANS.user_report_window_month }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#ms-report-window-all" type="button" role="tab">
+                                {{ MS_TRANS.user_report_window_all }}
+                            </button>
+                        </li>
+                    </ul>
                 </div>
-            </section>
-        </div>
-
-        <div class="col-lg-6">
-            <section class="ms-user-report-card">
-                <h5><i class="bi bi-diagram-3 me-2"></i>{{ MS_TRANS.user_report_model_breakdown }}</h5>
-                <div class="ms-user-report-stack">
-                    {% for item in report.model_counts %}
-                        <div class="ms-user-report-meter">
-                            <span>{{ item.label }}</span>
-                            <strong>{{ item.count }}</strong>
-                        </div>
-                    {% empty %}
-                        <p class="text-muted mb-0">{{ MS_TRANS.user_report_empty_activity }}</p>
-                    {% endfor %}
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="ms-report-window-week" role="tabpanel">
+                        {% include "microsys/users/_user_report_window.html" with window=report.windows.week %}
+                    </div>
+                    <div class="tab-pane fade" id="ms-report-window-month" role="tabpanel">
+                        {% include "microsys/users/_user_report_window.html" with window=report.windows.month %}
+                    </div>
+                    <div class="tab-pane fade" id="ms-report-window-all" role="tabpanel">
+                        {% include "microsys/users/_user_report_window.html" with window=report.windows.all %}
+                    </div>
                 </div>
             </section>
         </div>

@@ -323,6 +323,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }))
         .then(data => {
             if (data.success) {
+                if (data.add_more) {
+                    // "Save and add more": reload the page so the parent table reflects
+                    // the new record (preserving the current URL/query), then reopen this
+                    // modal with a fresh form via the persisted modal state.
+                    persistModalState();
+                    window.location.reload();
+                    return;
+                }
                 if (data.refresh_parent) {
                     clearModalState();
                     window.location.reload();

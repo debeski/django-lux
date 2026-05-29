@@ -93,10 +93,11 @@
                  const eventName = quickAction.action || quickAction.event;
                  const event = new CustomEvent(eventName, {
                     bubbles: true,
-                    detail: { 
-                        originalTarget: target, 
+                    cancelable: true,
+                    detail: {
+                        originalTarget: target,
                         action: quickAction,
-                        data: quickAction.data 
+                        data: quickAction.data
                     }
                 });
                 document.body.dispatchEvent(event);
@@ -255,6 +256,7 @@
             const eventName = action.event;
             const event = new CustomEvent(eventName, {
                 bubbles: true,
+                cancelable: true,
                 detail: {
                     originalTarget: target,
                     action: action,
@@ -683,8 +685,12 @@
         return !!document.getElementById('sectionData');
     }
 
-    document.body.addEventListener('micro:record:view', function(e) {
-        if (isSectionManagerActive()) return;
+    // These are attached on `window` so they run LAST in the bubble chain, after
+    // any host listener. A host that handles the record itself (e.g. opens a modal)
+    // should call `event.preventDefault()` on a normal listener to opt out of the
+    // scaffold navigation — no capture phase or stopImmediatePropagation required.
+    window.addEventListener('micro:record:view', function(e) {
+        if (e.defaultPrevented || isSectionManagerActive()) return;
 
         const data = e.detail.data;
         if (!data || !data.app || !data.model) return;
@@ -695,8 +701,8 @@
         }
     });
 
-    document.body.addEventListener('micro:record:edit', function(e) {
-        if (isSectionManagerActive()) return;
+    window.addEventListener('micro:record:edit', function(e) {
+        if (e.defaultPrevented || isSectionManagerActive()) return;
 
         const data = e.detail.data;
         if (!data || !data.app || !data.model) return;
@@ -707,8 +713,8 @@
         }
     });
 
-    document.body.addEventListener('micro:record:delete', function(e) {
-        if (isSectionManagerActive()) return;
+    window.addEventListener('micro:record:delete', function(e) {
+        if (e.defaultPrevented || isSectionManagerActive()) return;
 
         const data = e.detail.data;
         if (!data || !data.app || !data.model) return;

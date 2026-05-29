@@ -1065,7 +1065,8 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             
             return JsonResponse({
                 'success': True,
-                'refresh_parent': getattr(form, 'refresh_parent', False)
+                'refresh_parent': getattr(form, 'refresh_parent', False),
+                'add_more': getattr(form, 'add_more', False),
             })
         
         # Form invalid, return form HTML with errors

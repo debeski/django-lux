@@ -1183,7 +1183,15 @@ def user_can_view_user_report(actor, target_user=None):
     """
     Full user reports expose activity, network, and device history.
     Require both user-management visibility and activity-log access.
+    A user may always view their own report (self-service).
     """
+    if (
+        actor is not None
+        and getattr(actor, 'is_authenticated', False)
+        and target_user is not None
+        and target_user.pk == actor.pk
+    ):
+        return True
     if not user_can_view_user_directory(actor):
         return False
     if not user_can_view_activity_log(actor):
@@ -3747,7 +3755,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
 
     clear_preserve_keys = config.get('clear_preserve_keys')
     if clear_preserve_keys is None:
-        clear_preserve_keys = ['sort', 'page']
+        clear_preserve_keys = ['sort', 'page', 'per_page']
 
     from microsys.translations import get_current_language_code
     lang = get_current_language_code(request)

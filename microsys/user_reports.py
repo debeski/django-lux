@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import timedelta
 from io import BytesIO
 
 from django.apps import apps
@@ -59,8 +60,55 @@ def build_user_report(target_user):
     last_activity = activity_qs.first()
     first_presence = presence_qs.order_by('first_seen_at').first()
     last_presence = presence_qs.first()
-    action_counts = Counter(activity_qs.values_list('action', flat=True))
-    model_counts = Counter(value or s.get('user_report_unknown') for value in activity_qs.values_list('model_name', flat=True))
+
+    def _fmt_actions(counter):
+        return [
+            {
+                'key': key,
+                'label': s.get(f'action_{str(key or "").lower()}', key or s.get('user_report_unknown')),
+                'count': count,
+            }
+            for key, count in counter.most_common()
+        ]
+
+    def _fmt_models(counter):
+        return [
+            {
+                'key': key,
+                'label': translate_activity_log_model_name(key, strings=s),
+                'count': count,
+            }
+            for key, count in counter.most_common()
+        ]
+
+    # Single pass over the activity log, bucketed into rolling time windows.
+    _now = timezone.now()
+    _week_cutoff = _now - timedelta(days=7)
+    _month_cutoff = _now - timedelta(days=30)
+    window_action = {'week': Counter(), 'month': Counter(), 'all': Counter()}
+    window_model = {'week': Counter(), 'month': Counter(), 'all': Counter()}
+    for action, model_name, created_at in activity_qs.values_list('action', 'model_name', 'created_at'):
+        model_key = model_name or s.get('user_report_unknown')
+        window_action['all'][action] += 1
+        window_model['all'][model_key] += 1
+        if created_at and created_at >= _month_cutoff:
+            window_action['month'][action] += 1
+            window_model['month'][model_key] += 1
+            if created_at >= _week_cutoff:
+                window_action['week'][action] += 1
+                window_model['week'][model_key] += 1
+
+    windows = {
+        window: {
+            'activity_count': sum(window_action[window].values()),
+            'action_counts': _fmt_actions(window_action[window]),
+            'model_counts': _fmt_models(window_model[window]),
+        }
+        for window in ('week', 'month', 'all')
+    }
+
+    action_counts = window_action['all']
+    model_counts = window_model['all']
     presence_days = set()
     total_seconds = 0
     total_requests = 0
@@ -135,22 +183,9 @@ def build_user_report(target_user):
             'browser_count': len(browsers),
             'os_count': len(operating_systems),
         },
-        'action_counts': [
-            {
-                'key': key,
-                'label': s.get(f'action_{str(key or "").lower()}', key or s.get('user_report_unknown')),
-                'count': count,
-            }
-            for key, count in action_counts.most_common()
-        ],
-        'model_counts': [
-            {
-                'key': key,
-                'label': translate_activity_log_model_name(key, strings=s),
-                'count': count,
-            }
-            for key, count in model_counts.most_common()
-        ],
+        'action_counts': _fmt_actions(action_counts),
+        'model_counts': _fmt_models(model_counts),
+        'windows': windows,
         'known_devices': list(known_devices),
         'presence_sessions': list(presence_qs[:100]),
         'trusted_devices': list(trusted_devices[:100]),

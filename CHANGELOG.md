@@ -4,6 +4,17 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.2.10
+
+- **Fix (Context Menu — Handler Harmony)**: `micro:record:view|edit|delete` events are now dispatched `cancelable`, and the generic scaffold-navigation fallbacks were moved to `window` (running last in the bubble chain) and bail when `event.defaultPrevented`. Hosts that handle a record action themselves (e.g. open a modal) now opt out with a plain `event.preventDefault()` listener instead of needing capture-phase + `stopImmediatePropagation`, so custom handlers and the default navigation no longer fight.
+- **Feature (Dynamic Modal — Save & Add More)**: form submissions may now return `add_more: true`; the dynamic-modal client persists the modal state and reloads the page (parent table reflects the new record, current URL/query preserved) then reopens a fresh form via the restored state — giving "save and continue adding" the same instant-reflect behavior as a normal save.
+- **Refinement (User Report — Profile Launcher)**: Moved the self-service report launcher into the Profile edit/change-password action row and restyled it `btn-info` (theme-stable; `btn-success`/`btn-danger` are already used by the edit and change-password buttons).
+
+## v2.2.9
+
+- **Feature (User Report — Time Windows)**: `build_user_report()` buckets the activity log into rolling Week (7d) / Month (30d) / All windows in a single `values_list` pass, exposing a new `windows` map (`activity_count`, `action_counts`, `model_counts` per window) while preserving the all-time flat keys so the XLSX export contract is unchanged. The report modal renders Bootstrap nav-tabs (default Week) over the activity/model breakdowns via a new `users/_user_report_window.html` partial; identity, presence, devices, and the recent-activity timeline stay all-time. Added `user_report_window_week|month|all` strings (AR/EN). Per-model granularity is derived from the existing `UserActivityLog.model_name` — no schema change.
+- **Feature (User Report — Self-Service Access)**: `user_can_view_user_report()` short-circuits to allow any authenticated user to view their own report (self-targeted request), and the Profile page gains a launcher button opening the existing dynamic report modal for `request.user`. The manager/admin access path (directory + activity-log + target-management gating) is unchanged.
+
 ## v2.2.8
 
 - **Fix (MicrosysChoiceSelectorWidget — Toggle)**: Removed Bootstrap utility classes (`rounded border shadow-sm p-2 mb-1`) from the toggle surface HTML to eliminate `!important` specificity conflicts; replaced `var(--bs-light)` inactive background with a microsys glass gradient (primal radial + white linear + inset highlight); active/checked state uses a pronounced primary-tinted gradient with primary-colored surface text, caption label, and a dual-shadow ring; `:focus-visible` scoped to `:not(:checked)` and switched to `outline` for both toggle and card/chip variants, eliminating the persistent blue-fill illusion after mouse-click unchecking in Chrome/Edge. `dark.css` given `lang-option` rules (was falling back to white `var(--bs-light)` surface); `mono.css` active state replaced with a `#dde4ee → #c8d4e0` gradient giving unambiguous three-state distinction on a grayscale palette.
