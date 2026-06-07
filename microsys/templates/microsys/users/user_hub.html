@@ -37,6 +37,12 @@
                 <i class="bi bi-clock-history"></i>
             </a>
             {% endif %}
+
+            {% if can_view_reports %}
+            <a href="{% url 'reports_overview' %}" class="ms-tool-btn" data-ms-tooltip="{{ MS_TRANS.reports_title }}">
+                <i class="bi bi-bar-chart-fill"></i>
+            </a>
+            {% endif %}
             
             <a href="{% url 'options_view' %}" class="ms-tool-btn" data-ms-tooltip="{{ MS_TRANS.options_title }}">
                 <i class="bi bi-gear-fill"></i>

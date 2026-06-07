@@ -408,6 +408,8 @@ class Profile(ScopedModel):
         permissions = [
             ("manage_staff", "Can manage staff"),
             ("manage_scopes", "Can manage scopes and all users"),
+            ("view_reports", "Can view reports"),
+            ("download_backup", "Can download backup"),
         ]
 
 

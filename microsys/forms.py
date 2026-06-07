@@ -110,7 +110,7 @@ def get_assignable_permissions_queryset():
     return Permissions.objects.exclude(
         Q(codename__regex=r'^(delete_)') |
         Q(content_type__app_label__in=PERMISSION_UI_EXCLUDED_APP_LABELS) |
-        (Q(content_type__app_label='microsys') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'view_activitylog']) & ~Q(content_type__model='section')) |
+        (Q(content_type__app_label='microsys') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'view_activitylog', 'view_reports', 'download_backup']) & ~Q(content_type__model='section')) |
         Q(content_type__app_label='auth', content_type__model__in=['group', 'user', 'permission'])
     )
 

@@ -56,6 +56,10 @@ urlpatterns = [
     # User Activity Log URLs
     path('sys/logs/', views.UserActivityLogView.as_view(), name='user_activity_log'),
     path('sys/logs/<int:pk>/details/', views.ActivityLogDetailView.as_view(), name='user_activity_log_detail'),
+    # Reports URLs
+    path('sys/reports/', views.reports_overview_view, name='reports_overview'),
+    path('sys/reports/export.xlsx', views.reports_overview_xlsx_view, name='reports_overview_xlsx'),
+    path('sys/reports/backup.zip', views.reports_backup_zip_view, name='reports_backup_zip'),
     # Scope Management URLs
     path('sys/scopes/manage/', views.manage_scopes, name='manage_scopes'),
     path('sys/scopes/form/', views.get_scope_form, name='get_scope_form'),

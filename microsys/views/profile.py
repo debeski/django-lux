@@ -24,11 +24,23 @@ from ..trust import (
     trusted_device_for_session,
 )
 from ..session_history import hash_session_key, mark_presence_sessions_ended
-from ..utils import get_user_management_tier_state_for_user, log_user_action
+from ..reports import filter_report_eligible_activity, is_report_eligible_activity_model_name
+from ..utils import get_user_management_tier_state_for_user, log_user_action, normalize_activity_log_model_key
 from ..translations import get_strings
 from .twofa import get_2fa_config
 
 logger = logging.getLogger('microsys')
+
+_PROFILE_SYSTEM_ACTIONS = {"login", "logout"}
+_PROFILE_RECENT_ACTIVITY_LIMIT = 5
+_PROFILE_SYSTEM_INTERACTION_LIMIT = 10
+
+
+def _is_profile_system_interaction(log_entry):
+    action_key = normalize_activity_log_model_key(getattr(log_entry, "action", ""))
+    if action_key in _PROFILE_SYSTEM_ACTIONS:
+        return True
+    return not is_report_eligible_activity_model_name(getattr(log_entry, "model_name", ""))
 
 
 def _parse_session_datetime(value):
@@ -190,7 +202,6 @@ def _profile_sessions_for_user(user, current_session_key=None, current_session_d
 def user_profile(request):
     CustomPasswordChangeForm = import_string('microsys.forms.CustomPasswordChangeForm')
     user = request.user
-    _session_device_metadata_from_request(request)
     
     # Use dynamic form
     password_form = CustomPasswordChangeForm(user)
@@ -220,74 +231,35 @@ def user_profile(request):
 
     # --- Profile Stats & Activity ---
     UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
+    user_activity_qs = UserActivityLog.objects.filter(created_by=user)
+    project_activity_qs = filter_report_eligible_activity(user_activity_qs)
+    for system_action in _PROFILE_SYSTEM_ACTIONS:
+        project_activity_qs = project_activity_qs.exclude(action__iexact=system_action)
     
     # 1. Stats
-    total_actions = UserActivityLog.objects.filter(created_by=user).count()
-    docs_created = UserActivityLog.objects.filter(created_by=user, action='CREATE').count()
-    total_edits = UserActivityLog.objects.filter(created_by=user, action='UPDATE').count()
-    total_downloads = UserActivityLog.objects.filter(created_by=user, action__in=['DOWNLOAD', 'EXPORT']).count()
+    total_actions = project_activity_qs.count()
+    docs_created = project_activity_qs.filter(action='CREATE').count()
+    total_edits = project_activity_qs.filter(action='UPDATE').count()
+    total_downloads = project_activity_qs.filter(action__in=['DOWNLOAD', 'EXPORT']).count()
     
     # 2. Activity Feeds
-    # Split by app ownership:
-    # - `system_interactions`: logs related to microsys app models.
-    # - `recent_activity`: logs from all other apps.
-    def _normalize_model_name(value):
-        return str(value).strip().casefold() if value else ""
-
-    microsys_model_names = set()
-    try:
-        microsys_app = apps.get_app_config('microsys')
-        for model in microsys_app.get_models():
-            meta = model._meta
-            microsys_model_names.update({
-                _normalize_model_name(meta.model_name),
-                _normalize_model_name(meta.object_name),
-                _normalize_model_name(meta.verbose_name),
-                _normalize_model_name(meta.verbose_name_plural),
-            })
-    except LookupError:
-        pass
-
-    # Virtual and legacy labels used by microsys logging helpers/signals.
-    microsys_model_names.update({
-        "auth",
-        "user",
-        "profile",
-        "scope",
-        "scopesettings",
-        "useractivitylog",
-        "user profile",
-        "password",
-        "preferences",
-        "session",
-    })
-
-    def _is_microsys_log(log_entry):
-        model_key = _normalize_model_name(log_entry.model_name)
-        action_key = _normalize_model_name(log_entry.action)
-        if action_key in {"login", "logout"}:
-            return True
-        if not model_key:
-            return False
-        if model_key in microsys_model_names:
-            return True
-        # Support explicit "app_label.ModelName" payloads if logged that way.
-        if "." in model_key:
-            return model_key.split(".", 1)[0] == "microsys"
-        return False
-
+    # Project/section activity stays in Recent Activity; Microsys operational logs
+    # stay in System Interactions.
     recent_activity = []
     system_interactions = []
-    all_user_logs = UserActivityLog.objects.filter(created_by=user).order_by('-created_at')[:200]
+    all_user_logs = user_activity_qs.order_by('-created_at')[:200]
 
     for log in all_user_logs:
-        if _is_microsys_log(log):
-            if len(system_interactions) < 5:
+        if _is_profile_system_interaction(log):
+            if len(system_interactions) < _PROFILE_SYSTEM_INTERACTION_LIMIT:
                 system_interactions.append(log)
         else:
-            if len(recent_activity) < 5:
+            if len(recent_activity) < _PROFILE_RECENT_ACTIVITY_LIMIT:
                 recent_activity.append(log)
-        if len(system_interactions) >= 5 and len(recent_activity) >= 5:
+        if (
+            len(system_interactions) >= _PROFILE_SYSTEM_INTERACTION_LIMIT
+            and len(recent_activity) >= _PROFILE_RECENT_ACTIVITY_LIMIT
+        ):
             break
 
     # 3. Completeness & Health
@@ -334,6 +306,8 @@ def user_profile(request):
         'completeness': completeness, # Passed to template even if not used in cards, used in progress bar
         'health': account_health,     # Used in Health section
     }
+
+    _session_device_metadata_from_request(request)
 
     context = {
         'user': request.user, # Ensure user is passed if template uses it directly

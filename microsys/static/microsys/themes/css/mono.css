@@ -293,20 +293,40 @@
 
 /* 6. Buttons - Minimal Primary */
 :root.theme-mono .btn-primary, 
-:root.theme-mono .btn-primary *,
 :root.theme-mono .btn-primary:hover,
 :root.theme-mono .btn-primary:active,
-.theme-mono .btn-primary,
-.theme-mono .btn-primary * {
-    background: linear-gradient(135deg, var(--mono-600) 0%, var(--mono-700) 100%) !important;
-    border-color: var(--mono-600) !important;
-    color: #ffffff !important;
+.theme-mono .btn-primary {
+    background: linear-gradient(135deg, #ffffff 0%, var(--mono-100) 100%) !important;
+    border-color: var(--mono-400) !important;
+    color: var(--mono-900) !important;
     font-weight: 500 !important;
 }
 
+:root.theme-mono .btn-primary *,
+.theme-mono .btn-primary * {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
+}
+
 :root.theme-mono .btn-primary:hover {
-    background: linear-gradient(135deg, var(--mono-700) 0%, var(--mono-800) 100%) !important;
-    box-shadow: 0 2px 12px rgba(71, 85, 105, 0.25) !important;
+    background: linear-gradient(135deg, var(--mono-50) 0%, var(--mono-200) 100%) !important;
+    border-color: var(--mono-500) !important;
+    color: var(--mono-950) !important;
+    box-shadow: 0 2px 12px rgba(71, 85, 105, 0.16) !important;
+}
+
+:root.theme-mono .btn-primary:focus,
+:root.theme-mono .btn-primary:active,
+:root.theme-mono .btn-primary.active,
+.theme-mono .btn-primary:focus,
+.theme-mono .btn-primary:active,
+.theme-mono .btn-primary.active {
+    background: linear-gradient(135deg, var(--mono-100) 0%, var(--mono-200) 100%) !important;
+    border-color: var(--mono-500) !important;
+    color: var(--mono-950) !important;
+    box-shadow: 0 0 0 0.18rem rgba(71, 85, 105, 0.16) !important;
 }
 
 :root.theme-mono .microsys-filter .microsys-filter-action.btn-primary > .bi,
@@ -324,7 +344,7 @@
 :root.theme-mono .btn-warning,
 :root.theme-mono .btn-danger,
 :root.theme-mono .btn-light {
-    color: #ffffff !important;
+    color: var(--mono-900) !important;
 }
 
 :root.theme-mono .btn-secondary .bi,
@@ -333,7 +353,7 @@
 :root.theme-mono .btn-warning .bi,
 :root.theme-mono .btn-danger .bi,
 :root.theme-mono .btn-light .bi {
-    color: #ffffff !important;
+    color: inherit !important;
 }
 
 :root.theme-mono .microsys-filter .btn.microsys-filter-submit.btn-secondary {
@@ -565,6 +585,29 @@
 
 :root.theme-mono .btn[class*="btn-outline-"] {
     border-color: var(--mono-400) !important;
+    color: var(--mono-800) !important;
+}
+
+:root.theme-mono .btn[class*="btn-outline-"]:hover,
+:root.theme-mono .btn[class*="btn-outline-"]:focus,
+:root.theme-mono .btn[class*="btn-outline-"]:active,
+:root.theme-mono .btn[class*="btn-outline-"].active,
+.theme-mono .btn[class*="btn-outline-"]:hover,
+.theme-mono .btn[class*="btn-outline-"]:focus,
+.theme-mono .btn[class*="btn-outline-"]:active,
+.theme-mono .btn[class*="btn-outline-"].active,
+:root.theme-mono .btn-check:checked + .btn,
+.theme-mono .btn-check:checked + .btn {
+    background: linear-gradient(135deg, var(--mono-50) 0%, var(--mono-200) 100%) !important;
+    border-color: var(--mono-500) !important;
+    color: var(--mono-950) !important;
+}
+
+:root.theme-mono .btn[class*="btn-outline-"] *,
+:root.theme-mono .btn-check:checked + .btn *,
+.theme-mono .btn[class*="btn-outline-"] *,
+.theme-mono .btn-check:checked + .btn * {
+    color: inherit !important;
 }
 
 /* 11. Reports & Gen Report - Clean */

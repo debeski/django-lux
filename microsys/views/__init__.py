@@ -63,6 +63,13 @@ from .activitylog import (
     ActivityLogDetailView,
 )
 
+# Reports
+from .reports import (
+    reports_backup_zip_view,
+    reports_overview_view,
+    reports_overview_xlsx_view,
+)
+
 # Profile
 from .profile import revoke_profile_session, trust_current_device, user_profile
 

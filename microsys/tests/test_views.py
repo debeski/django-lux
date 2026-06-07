@@ -387,7 +387,8 @@ class GeneralViewsTests(TestCase):
         fake_request = SimpleNamespace(META={})
         with patch('microsys.models.UserActivityLog.safe_log') as safe_log, \
              patch('microsys.signals.get_current_user', return_value=self.user), \
-             patch('microsys.signals.get_current_request', return_value=fake_request):
+             patch('microsys.signals.get_current_request', return_value=fake_request), \
+             patch('microsys.session_history.remember_request_presence'):
             response = self.client.post(
                 reverse('modal_manager', args=['microsys', 'Scope', 'new']),
                 {'name': 'NoDupScope'},
@@ -405,7 +406,8 @@ class GeneralViewsTests(TestCase):
         fake_request = SimpleNamespace(META={})
         with patch('microsys.models.UserActivityLog.safe_log') as safe_log, \
              patch('microsys.signals.get_current_user', return_value=self.user), \
-             patch('microsys.signals.get_current_request', return_value=fake_request):
+             patch('microsys.signals.get_current_request', return_value=fake_request), \
+             patch('microsys.session_history.remember_request_presence'):
             response = self.client.post(
                 reverse('modal_delete', args=['microsys', 'Scope', scope.pk]),
                 HTTP_X_REQUESTED_WITH='XMLHttpRequest',
@@ -651,6 +653,59 @@ class ProfileViewsTests(TestCase):
         self.assertNotIn(session_log, response.context['recent_activity'])
         self.assertIn(recent_log, response.context['recent_activity'])
 
+    def test_user_profile_routes_operational_labels_to_system_interactions(self):
+        from microsys.models import UserActivityLog
+
+        presence_log = UserActivityLog.objects.create(
+            created_by=self.user,
+            action='UPDATE',
+            model_name='Presence Session',
+        )
+        auth_log = UserActivityLog.objects.create(
+            created_by=self.user,
+            action='LOGIN',
+            model_name='Mounted App Entry',
+        )
+        project_log = UserActivityLog.objects.create(
+            created_by=self.user,
+            action='CREATE',
+            model_name='Mounted App Entry',
+        )
+
+        response = self.client.get(reverse('user_profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(presence_log, response.context['system_interactions'])
+        self.assertIn(auth_log, response.context['system_interactions'])
+        self.assertNotIn(presence_log, response.context['recent_activity'])
+        self.assertNotIn(auth_log, response.context['recent_activity'])
+        self.assertIn(project_log, response.context['recent_activity'])
+
+    def test_user_profile_keeps_report_eligible_microsys_activity_recent(self):
+        from microsys.models import UserActivityLog
+
+        section_log = UserActivityLog.objects.create(
+            created_by=self.user,
+            action='CREATE',
+            model_name='Microsys Section Entry',
+        )
+        system_log = UserActivityLog.objects.create(
+            created_by=self.user,
+            action='UPDATE',
+            model_name='System Settings',
+        )
+
+        def eligible_model_names(model_name):
+            return model_name == 'Microsys Section Entry'
+
+        with patch('microsys.views.profile.is_report_eligible_activity_model_name', side_effect=eligible_model_names):
+            response = self.client.get(reverse('user_profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(section_log, response.context['recent_activity'])
+        self.assertNotIn(section_log, response.context['system_interactions'])
+        self.assertIn(system_log, response.context['system_interactions'])
+
 
 class ScopeViewsTests(TestCase):
     def setUp(self):
@@ -828,10 +883,8 @@ class ActivityLogViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['table'].page.number, 2)
         self.assertEqual(response.context['table'].paginator.num_pages, 2)
-        self.assertEqual(
-            len(response.context['table'].page.object_list),
-            (initial_count + 14) - 10,
-        )
+        total = response.context['table'].paginator.count
+        self.assertEqual(len(response.context['table'].page.object_list), total - 10)
 
     def test_activity_log_queryset_prefetches_table_accessor_relations(self):
         from microsys.models import UserActivityLog
@@ -2315,8 +2368,13 @@ class ProfileSessionDeviceTests(TestCase):
                 ip_address='203.0.113.10',
                 user_agent='Mozilla/5.0 Chrome/122.0 Linux',
             )
+        other_user = User.objects.create_user(
+            username='report-denied',
+            email='report-denied@example.com',
+            password='deniedpass123',
+        )
         denied_client = Client()
-        denied_client.login(username='devices', password='devicespass123')
+        denied_client.login(username='report-denied', password='deniedpass123')
 
         denied = denied_client.get(reverse('user_report_modal', args=[self.user.pk]))
         self.assertEqual(denied.status_code, 403)
@@ -2350,3 +2408,117 @@ class ProfileSessionDeviceTests(TestCase):
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
         self.assertGreater(len(xlsx.content), 1000)
+
+    def test_user_report_filters_operational_activity_and_exports_selected_window(self):
+        ActivityLog = apps.get_model('microsys', 'UserActivityLog')
+        project_log = ActivityLog.objects.create(
+            created_by=self.user,
+            action='CREATE',
+            model_name='Project Entry',
+        )
+        old_project_log = ActivityLog.objects.create(
+            created_by=self.user,
+            action='CREATE',
+            model_name='Project Entry',
+        )
+        ActivityLog.all_objects.filter(pk=old_project_log.pk).update(
+            created_at=timezone.now() - timedelta(days=40)
+        )
+        ActivityLog.objects.create(
+            created_by=self.user,
+            action='LOGIN',
+            model_name='auth',
+        )
+        ActivityLog.objects.create(
+            created_by=self.user,
+            action='UPDATE',
+            model_name='System Settings',
+        )
+
+        admin = User.objects.create_superuser(
+            username='report-filter-admin',
+            email='report-filter-admin@example.com',
+            password='reportpass123',
+        )
+        admin_client = Client()
+        admin_client.login(username='report-filter-admin', password='reportpass123')
+
+        response = admin_client.get(reverse('user_report_modal', args=[self.user.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIn('Project Entry', payload['html'])
+        self.assertNotIn('System Settings', payload['html'])
+        self.assertNotIn('auth', payload['html'])
+
+        week_xlsx = admin_client.get(reverse('user_report_xlsx', args=[self.user.pk]), {'window': 'week'})
+        all_xlsx = admin_client.get(reverse('user_report_xlsx', args=[self.user.pk]), {'window': 'all'})
+
+        self.assertEqual(week_xlsx.status_code, 200)
+        self.assertEqual(all_xlsx.status_code, 200)
+        self.assertIn(b'PK', week_xlsx.content[:4])
+        self.assertIn(b'PK', all_xlsx.content[:4])
+        self.assertTrue(project_log.pk)
+
+    def test_reports_overview_requires_permission_and_renders_staff_entry_data(self):
+        ActivityLog = apps.get_model('microsys', 'UserActivityLog')
+        ActivityLog.objects.create(
+            created_by=self.user,
+            action='CREATE',
+            model_name='Project Entry',
+        )
+        ActivityLog.objects.create(
+            created_by=self.user,
+            action='UPDATE',
+            model_name='Known Device',
+        )
+        staff = User.objects.create_user(
+            username='reports-staff',
+            email='reports-staff@example.com',
+            password='reportspass123',
+            is_staff=True,
+        )
+        staff_client = Client()
+        staff_client.login(username='reports-staff', password='reportspass123')
+
+        denied = staff_client.get(reverse('reports_overview'))
+        self.assertEqual(denied.status_code, 403)
+
+        view_reports = Permission.objects.get(codename='view_reports')
+        staff.user_permissions.add(view_reports)
+
+        response = staff_client.get(reverse('reports_overview'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Reports')
+        self.assertContains(response, 'Project Entry')
+        overview_model_labels = {item['label'] for item in response.context['overview']['models']}
+        self.assertNotIn('Known Device', overview_model_labels)
+
+        xlsx = staff_client.get(reverse('reports_overview_xlsx'), {'window': 'week'})
+        self.assertEqual(xlsx.status_code, 200)
+        self.assertEqual(
+            xlsx['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+    def test_reports_backup_requires_separate_permission(self):
+        staff = User.objects.create_user(
+            username='backup-staff',
+            email='backup-staff@example.com',
+            password='backuppass123',
+            is_staff=True,
+        )
+        staff.user_permissions.add(Permission.objects.get(codename='view_reports'))
+        staff_client = Client()
+        staff_client.login(username='backup-staff', password='backuppass123')
+
+        denied = staff_client.get(reverse('reports_backup_zip'))
+        self.assertEqual(denied.status_code, 403)
+
+        staff.user_permissions.add(Permission.objects.get(codename='download_backup'))
+        allowed = staff_client.get(reverse('reports_backup_zip'))
+
+        self.assertEqual(allowed.status_code, 200)
+        self.assertEqual(allowed['Content-Type'], 'application/zip')
+        self.assertIn(b'PK', allowed.content[:4])

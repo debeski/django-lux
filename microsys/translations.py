@@ -701,6 +701,8 @@ MICROSYS_STRINGS = {
         # Messages
         'msg_password_changed': 'تم تغيير كلمة المرور بنجاح!',
         'msg_form_error': 'هناك خطأ في البيانات المدخلة',
+        'search': 'بحث',
+        'btn_apply': 'تطبيق',
 
         # User Detail View
         'user_details_title': 'تفاصيل مستخدم',
@@ -774,6 +776,24 @@ MICROSYS_STRINGS = {
         'user_report_count': 'العدد',
         'user_report_ip_address': 'عنوان IP',
         'user_report_user_agent': 'وكيل المستخدم',
+        'reports_title': 'التقارير',
+        'reports_subtitle': 'ملخص نشاط التطبيق حسب الفترة والمستخدم والنموذج والعملية.',
+        'reports_window': 'الفترة',
+        'reports_current_total': 'إجمالي الفترة الحالية',
+        'reports_previous_week_total': 'إجمالي الأسبوع السابق',
+        'reports_all_total': 'الإجمالي الكلي',
+        'reports_delta': 'الفرق',
+        'reports_average_per_day': 'متوسط الإدخالات لكل يوم نشط',
+        'reports_average_per_user': 'متوسط الإدخالات لكل مستخدم',
+        'reports_by_user': 'حسب المستخدم',
+        'reports_by_model': 'حسب النموذج',
+        'reports_by_action': 'حسب العملية',
+        'reports_by_day': 'حسب اليوم',
+        'reports_user_drilldown': 'تقارير المستخدمين',
+        'reports_export_xlsx': 'تصدير XLSX',
+        'reports_backup_zip': 'تحميل نسخة احتياطية ZIP',
+        'reports_empty': 'لا توجد بيانات تقرير ضمن النطاق الحالي.',
+        'reports_sheet_summary': 'الملخص',
 
         # Profile Enhancements
         'stats_total_actions': 'إجمالي العمليات',
@@ -1710,6 +1730,8 @@ MICROSYS_STRINGS = {
         # Messages
         'msg_password_changed': 'Password changed successfully!',
         'msg_form_error': 'There was an error with the submitted data',
+        'search': 'Search',
+        'btn_apply': 'Apply',
 
         # User Detail View
         'user_details_title': 'User Details',
@@ -1783,6 +1805,24 @@ MICROSYS_STRINGS = {
         'user_report_count': 'Count',
         'user_report_ip_address': 'IP Address',
         'user_report_user_agent': 'User Agent',
+        'reports_title': 'Reports',
+        'reports_subtitle': 'Application activity overview by period, user, model, and action.',
+        'reports_window': 'Window',
+        'reports_current_total': 'Current Total',
+        'reports_previous_week_total': 'Previous Week Total',
+        'reports_all_total': 'All-Time Total',
+        'reports_delta': 'Delta',
+        'reports_average_per_day': 'Average Entries Per Active Day',
+        'reports_average_per_user': 'Average Entries Per User',
+        'reports_by_user': 'By User',
+        'reports_by_model': 'By Model',
+        'reports_by_action': 'By Action',
+        'reports_by_day': 'By Day',
+        'reports_user_drilldown': 'User Reports',
+        'reports_export_xlsx': 'Export XLSX',
+        'reports_backup_zip': 'Download Backup ZIP',
+        'reports_empty': 'No report data is available for the current scope.',
+        'reports_sheet_summary': 'Summary',
 
         # Profile Enhancements
         'stats_total_actions': 'Total Actions',

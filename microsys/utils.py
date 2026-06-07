@@ -1198,6 +1198,33 @@ def user_can_view_user_report(actor, target_user=None):
         return False
     return can_manage_target_user(actor, target_user)
 
+
+def user_can_view_reports(user):
+    """
+    Project-level report overview access.
+    This is staff-only and explicit, unlike the self-service per-user report.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    if not getattr(user, 'is_staff', False):
+        return False
+    return user.has_perm('microsys.view_reports')
+
+
+def user_can_download_backup(user):
+    """
+    Backup ZIP access is intentionally separate from report viewing.
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    if not getattr(user, 'is_staff', False):
+        return False
+    return user.has_perm('microsys.download_backup')
+
 # Check if user has section view permission
 def user_has_section_view_permission(user):
     if not user or not getattr(user, 'is_authenticated', False):

@@ -364,7 +364,8 @@ def user_report_modal_view(request, pk):
     if not user_can_view_user_report(request.user, target_user):
         raise PermissionDenied
 
-    report = build_user_report(target_user)
+    window = request.GET.get('window') or 'week'
+    report = build_user_report(target_user, actor=request.user, window=window)
     context = {
         'MS_TRANS': get_strings(),
         'report': report,
@@ -381,9 +382,10 @@ def user_report_xlsx_view(request, pk):
     if not user_can_view_user_report(request.user, target_user):
         raise PermissionDenied
 
-    report = build_user_report(target_user)
-    content = build_user_report_xlsx(report)
-    filename = f"microsys-user-report-{target_user.pk}.xlsx"
+    window = request.GET.get('window') or 'week'
+    report = build_user_report(target_user, actor=request.user, window=window)
+    content = build_user_report_xlsx(report, window=window)
+    filename = f"microsys-user-report-{target_user.pk}-{report['selected_window']}.xlsx"
     response = HttpResponse(
         content,
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

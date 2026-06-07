@@ -13,6 +13,7 @@ from .utils import (
     resolve_sidebar_density_preference,
     resolve_user_theme_preference,
     user_can_view_activity_log,
+    user_can_view_reports,
     user_can_view_user_directory,
     user_has_any_permission_tokens,
     user_has_section_view_permission,
@@ -234,6 +235,7 @@ def microsys_context(request):
     context['scope_settings'] = {'is_enabled': is_scope_enabled()}
     context['can_view_user_directory'] = user_can_view_user_directory(request.user)
     context['can_view_activity_log'] = user_can_view_activity_log(request.user)
+    context['can_view_reports'] = user_can_view_reports(request.user)
     context['can_view_sections'] = user_has_section_view_permission(request.user)
     context['current_user_management_tier'] = get_user_management_tier_state_for_user(request.user)
 

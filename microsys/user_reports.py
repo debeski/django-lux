@@ -8,6 +8,12 @@ from django.utils import timezone
 
 from .translations import get_strings
 from .utils import get_user_management_tier_state_for_user, translate_activity_log_model_name
+from .reports import (
+    build_activity_windows,
+    apply_report_window,
+    filter_report_eligible_activity,
+    normalize_report_window,
+)
 
 
 def _safe_list(value):
@@ -44,20 +50,23 @@ def _distinct_values(queryset, field_name):
     return values
 
 
-def build_user_report(target_user):
+def build_user_report(target_user, actor=None, window='week'):
     s = get_strings()
+    window = normalize_report_window(window)
     ActivityLog = apps.get_model('microsys', 'UserActivityLog')
     TrustedDevice = apps.get_model('microsys', 'TrustedDevice')
     KnownDevice = apps.get_model('microsys', 'UserKnownDevice')
     PresenceSession = apps.get_model('microsys', 'UserPresenceSession')
 
     activity_qs = ActivityLog._default_manager.filter(created_by=target_user).order_by('-created_at')
+    eligible_activity_qs = filter_report_eligible_activity(activity_qs).order_by('-created_at')
+    selected_activity_qs = apply_report_window(eligible_activity_qs, window).order_by('-created_at')
     presence_qs = PresenceSession.objects.filter(user=target_user).select_related('known_device').order_by('-last_seen_at')
     known_devices = KnownDevice.objects.filter(user=target_user).select_related('trusted_device').order_by('-last_seen_at')
     trusted_devices = TrustedDevice.objects.filter(user=target_user).order_by('-last_used_at')
 
-    first_activity = activity_qs.order_by('created_at').first()
-    last_activity = activity_qs.first()
+    first_activity = eligible_activity_qs.order_by('created_at').first()
+    last_activity = eligible_activity_qs.first()
     first_presence = presence_qs.order_by('first_seen_at').first()
     last_presence = presence_qs.first()
 
@@ -95,41 +104,12 @@ def build_user_report(target_user):
         models.sort(key=lambda m: m['count'], reverse=True)
         return models
 
-    # Single pass over the activity log, bucketed into rolling time windows.
-    _now = timezone.now()
-    _week_cutoff = _now - timedelta(days=7)
-    _month_cutoff = _now - timedelta(days=30)
-    window_action = {'week': Counter(), 'month': Counter(), 'all': Counter()}
-    window_model = {'week': Counter(), 'month': Counter(), 'all': Counter()}
-    window_model_action = {
-        'week': defaultdict(Counter),
-        'month': defaultdict(Counter),
-        'all': defaultdict(Counter),
-    }
-    for action, model_name, created_at in activity_qs.values_list('action', 'model_name', 'created_at'):
-        model_key = model_name or s.get('user_report_unknown')
-        window_action['all'][action] += 1
-        window_model['all'][model_key] += 1
-        window_model_action['all'][model_key][action] += 1
-        if created_at and created_at >= _month_cutoff:
-            window_action['month'][action] += 1
-            window_model['month'][model_key] += 1
-            window_model_action['month'][model_key][action] += 1
-            if created_at >= _week_cutoff:
-                window_action['week'][action] += 1
-                window_model['week'][model_key] += 1
-                window_model_action['week'][model_key][action] += 1
-
-    windows = {
-        window: {
-            'activity_count': sum(window_action[window].values()),
-            'models': _fmt_model_actions(window_model_action[window]),
-        }
-        for window in ('week', 'month', 'all')
-    }
-
-    action_counts = window_action['all']
-    model_counts = window_model['all']
+    windows = build_activity_windows(eligible_activity_qs, strings=s)
+    action_counts = Counter()
+    model_counts = Counter()
+    for action, model_name in selected_activity_qs.values_list('action', 'model_name'):
+        action_counts[action] += 1
+        model_counts[model_name or s.get('user_report_unknown')] += 1
     presence_days = set()
     total_seconds = 0
     total_requests = 0
@@ -141,8 +121,8 @@ def build_user_report(target_user):
         if item.last_seen_at:
             presence_days.add(timezone.localtime(item.last_seen_at).date())
 
-    ip_addresses = set(_distinct_values(activity_qs, 'ip_address'))
-    user_agents = set(_distinct_values(activity_qs, 'user_agent'))
+    ip_addresses = set(_distinct_values(eligible_activity_qs, 'ip_address'))
+    user_agents = set(_distinct_values(eligible_activity_qs, 'user_agent'))
     browsers = set()
     operating_systems = set()
     for device in known_devices:
@@ -174,6 +154,7 @@ def build_user_report(target_user):
 
     return {
         'generated_at': generated_at,
+        'selected_window': window,
         'history_started_at': history_started_at,
         'target_user': target_user,
         'profile': profile,
@@ -188,7 +169,7 @@ def build_user_report(target_user):
             'is_superuser': bool(target_user.is_superuser),
             'date_joined': target_user.date_joined,
             'last_login': target_user.last_login,
-            'activity_count': activity_qs.count(),
+            'activity_count': eligible_activity_qs.count(),
             'known_device_count': known_devices.count(),
             'presence_session_count': presence_qs.count(),
             'trusted_device_count': trusted_devices.filter(revoked_at__isnull=True, trusted_until__gt=generated_at).count(),
@@ -214,12 +195,13 @@ def build_user_report(target_user):
         'user_agents': sorted(user_agents),
         'browsers': sorted(browsers),
         'operating_systems': sorted(operating_systems),
-        'recent_activity': list(activity_qs[:25]),
-        'activity_qs': activity_qs,
+        'recent_activity': list(eligible_activity_qs[:25]),
+        'activity_qs': eligible_activity_qs,
+        'selected_activity_qs': selected_activity_qs,
     }
 
 
-def build_user_report_xlsx(report):
+def build_user_report_xlsx(report, window=None):
     from openpyxl import Workbook
     from openpyxl.styles import Font
 
@@ -322,7 +304,10 @@ def build_user_report_xlsx(report):
         s.get('user_report_ip_address'),
         s.get('user_report_user_agent'),
     ]]
-    for item in report['activity_qs'][:1000]:
+    selected_qs = report.get('selected_activity_qs') or report['activity_qs']
+    if window:
+        selected_qs = apply_report_window(selected_qs, normalize_report_window(window)).order_by('-created_at')
+    for item in selected_qs[:1000]:
         rows.append([
             item.created_at,
             s.get(f'action_{str(item.action or "").lower()}', item.action),
