@@ -13,6 +13,9 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
+from datetime import timedelta
+
+from django.db.models import Exists, OuterRef
 from django.utils import timezone
 from django.utils.module_loading import import_string
 from django_filters.views import FilterView
@@ -99,15 +102,25 @@ class CustomLoginView(LoginView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # 1. Check for manual language switch via GET param
+        from ..utils import get_system_config
+        config = get_system_config()
+        allow_lang_override = bool(config.get('allow_user_language_override', True))
+
+        # Only honour ?lang= when the system permits language switching
         lang_param = self.request.GET.get('lang')
-        
-        # Only set if provided (the helper will read it from session automatically)
-        if lang_param in ['ar', 'en']:
+        if allow_lang_override and lang_param in config.get('languages', {'ar', 'en'}):
             self.request.session['lang'] = lang_param
-            
-        # 2. Use the smart helper (now handles session automatically)
+
         context['MS_TRANS'] = get_strings()
+        context['allow_language_override'] = allow_lang_override
+        login_cfg = config.get('login', {})
+        context['login_config'] = login_cfg
+        # Resolve hero message for the current language
+        hero = login_cfg.get('hero_message', '')
+        if isinstance(hero, dict):
+            current_lang = self.request.session.get('lang') or config.get('default_language', 'en')
+            hero = hero.get(current_lang) or next(iter(hero.values()), '') if hero else ''
+        context['login_hero_message'] = hero
         from ..registration import public_registration_config
         context['public_registration_enabled'] = public_registration_config().get('enabled', False)
 
@@ -160,10 +173,20 @@ class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTa
     
     def get_queryset(self):
         # Apply the filter and order by any logic you need
+        PresenceSession = apps.get_model('microsys', 'UserPresenceSession')
+        online_cutoff = timezone.now() - timedelta(minutes=5)
         qs = (
             super().get_queryset()
             .select_related('profile__scope', 'public_registration')
             .prefetch_related('user_permissions__content_type', 'groups__permissions__content_type')
+            .annotate(
+                is_online=Exists(
+                    PresenceSession.objects.filter(
+                        user=OuterRef('pk'),
+                        last_seen_at__gte=online_cutoff,
+                    )
+                )
+            )
             .order_by('date_joined')
         )
         # Exclude soft-deleted users by checking profile's deleted_at

@@ -18,7 +18,7 @@ The setup wizard lives at `/sys/setup/` and is only intended for the initial sys
 
 ![Setup wizard capture slot](assets/setup-wizard.webp)
 
-The wizard currently runs in seven steps:
+The wizard currently runs in eight steps:
 
 1. Identity
    This step sets language-keyed system names (a JSON dict such as `{"en": "System", "ar": "النظام"}`), logo, and favicon. It also includes the JSON setup import control, which can prefill the wizard from a previously exported Microsys setup file.
@@ -27,18 +27,21 @@ The wizard currently runs in seven steps:
    This step manages language-keyed system names, the explicit language catalog, default language, user language override policy, and the translation matrix editor. English and Arabic are built in; custom languages are available to users only after an admin adds them here.
 
 3. Access and security
-   This step controls public root access, the global Home URL, the optional split between authenticated Home and anonymous public-root destinations, public registration/email 2FA, Microsys email delivery, and centralized Client IP resolution (direct, header-based, or proxy-aware modes). Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
+   This step controls public root access, the global Home URL, the optional split between authenticated Home and anonymous public-root destinations, public registration/email 2FA, Microsys email delivery, and centralized Client IP resolution (auto-detect, direct, header-based, or proxy-aware modes). Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
 
-4. Sidebar
+4. Login Page
+   This step controls how the public login screen is presented: the layout **style** (Split, Centered, Minimal, or Full-page split), a **Show Logo** toggle, the **logo treatment** (none / plate / halo / contrast, with plate shape), an optional **banner colour** (any CSS colour; empty = theme default), and — for the Full-page split style only — a per-language Markdown **hero message** shown on the start half beside the form. Settings persist to `SystemSettings.login_config`.
+
+5. Sidebar
    This step manages the sidebar builder and sidebar behavior controls.
 
-5. Nav Bar
+6. Nav Bar
    This step manages the optional authenticated Nav Bar, including hierarchy/history mode, user override policy, and the static hierarchy tree. During first-launch setup, enabling an empty Nav Bar tree can seed it from the configured sidebar accordions.
 
-6. UI and Layout
+7. UI and Layout
    This step manages titlebar controls (logo/home visibility, logo treatment, home shape, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
 
-7. Appearance and Typography
+8. Appearance and Typography
    This step manages theme availability, default theme, theme override policy, and the Dynamic Font Management system.
 
 The first-launch page includes a bullet-style step navigation bar above the setup form. Each bullet jumps to its corresponding setup step while staying synchronized with the wizard's Next and Previous buttons.
@@ -167,7 +170,7 @@ The Options screen currently provides:
 - table-density switching for the current user
 - autofill enable or disable
 - reset-to-defaults for user preferences
-- a superuser-only System Settings button that opens focused Branding, Languages, Access & Security, Sidebar, UI & Layout, and Appearance modals
+- a superuser-only System Settings button that opens focused Branding, Languages, Access & Security, Login Page, Sidebar, Nav Bar, UI & Layout, and Appearance modals
 - a superuser-only setup export action for reusing System Settings across development environments
 
 Options layout note:
@@ -193,9 +196,12 @@ That means the setup wizard is for initial onboarding, while the Options view is
 
 Admins can configure how microSYS identifies the client IP address in Step 3 (Access and Security). This is critical for accurate activity logging and security tracking.
 
+- **Auto-detect** (recommended default): Tries sources in priority order — `X-Forwarded-For` (leftmost) → `X-Real-IP` → `CF-Connecting-IP` → `REMOTE_ADDR` — and uses the first non-empty value. Sensible for most deployments without manual tuning.
 - **Direct**: Use `REMOTE_ADDR` directly. This is the correct choice if the web server is facing the internet directly without a proxy.
 - **Proxy-Aware (X-Forwarded-For)**: Parses the `HTTP_X_FORWARDED_FOR` header. Use this if the application is behind a standard reverse proxy (like Nginx or HAProxy). You can specify the number of **Trusted Proxy Hops** to ignore from the right.
 - **Custom Header**: Use a specific header provided by your infrastructure (e.g., `HTTP_CF_CONNECTING_IP` for Cloudflare).
+
+All modes share a hardened fallback: if the configured source returns nothing, microSYS still tries `X-Forwarded-For` (leftmost) → `X-Real-IP` → `REMOTE_ADDR` before giving up, so a misconfigured header no longer yields an empty client IP.
 
 ### Two-Factor Authentication (2FA) & Trusted Devices
 

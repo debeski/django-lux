@@ -152,13 +152,16 @@ python -m microsys startapp billing --register
 
 On a fresh install, Microsys protects ordinary requests until the system is configured. In practice, an anonymous visitor can be redirected toward `/sys/setup/`, then on to login, and the first superuser who signs in is guided through the wizard.
 
-The setup wizard runs in five steps:
+The setup wizard runs in eight steps:
 
 1. Identity: language-keyed system names (JSON dict), logo, favicon, and setup import.
 2. Localization: explicit language catalog, default language, user language override policy, and the translation matrix editor.
-3. Access and security: public root access, public registration/email 2FA toggles, trusted-session enforcement, and Microsys email delivery path/secret storage.
-4. Navigation: global home URL, sidebar builder, and sidebar behavior controls.
-5. Appearance and personalization: theme availability, default theme, theme override policy, table-density defaults, and titlebar controls.
+3. Access and security: public root access, global home URL, public registration/email 2FA toggles, trusted-session enforcement, Microsys email delivery path/secret storage, and client IP resolution.
+4. Login Page: login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message.
+5. Sidebar: sidebar builder and sidebar behavior controls.
+6. Nav Bar: optional authenticated nav bar mode, override policy, and hierarchy tree.
+7. UI and Layout: titlebar controls (logo/home visibility, treatment, shape, alignment, height, surface).
+8. Appearance and Typography: theme availability, default theme, theme override policy, fonts, and table-density defaults.
 
 When the form is saved:
 

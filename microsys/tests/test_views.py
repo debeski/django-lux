@@ -656,11 +656,14 @@ class ProfileViewsTests(TestCase):
     def test_user_profile_routes_operational_labels_to_system_interactions(self):
         from microsys.models import UserActivityLog
 
+        # Operational tracking noise (presence/device churn) must not appear in
+        # either feed — it is excluded entirely (see reports.exclude_log_noise).
         presence_log = UserActivityLog.objects.create(
             created_by=self.user,
             action='UPDATE',
             model_name='Presence Session',
         )
+        # A kept operational event (login) still routes to System Interactions.
         auth_log = UserActivityLog.objects.create(
             created_by=self.user,
             action='LOGIN',
@@ -675,9 +678,9 @@ class ProfileViewsTests(TestCase):
         response = self.client.get(reverse('user_profile'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(presence_log, response.context['system_interactions'])
-        self.assertIn(auth_log, response.context['system_interactions'])
+        self.assertNotIn(presence_log, response.context['system_interactions'])
         self.assertNotIn(presence_log, response.context['recent_activity'])
+        self.assertIn(auth_log, response.context['system_interactions'])
         self.assertNotIn(auth_log, response.context['recent_activity'])
         self.assertIn(project_log, response.context['recent_activity'])
 

@@ -466,6 +466,15 @@
                     <button class="ms-system-settings-action ms-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=3"
+                            data-modal-title="{{ MS_TRANS.system_settings_login_page }}"
+                            data-ms-tooltip="{{ MS_TRANS.system_settings_login_page_desc }}"
+                            aria-label="{{ MS_TRANS.system_settings_login_page }}. {{ MS_TRANS.system_settings_login_page_desc }}">
+                        <span class="ms-system-settings-tile-icon"><i class="bi bi-box-arrow-in-right"></i></span>
+                        <span class="ms-system-settings-tile-title">{{ MS_TRANS.system_settings_login_page }}</span>
+                    </button>
+                    <button class="ms-system-settings-action ms-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=4"
                             data-modal-title="{{ MS_TRANS.system_settings_sidebar }}"
                             data-ms-tooltip="{{ MS_TRANS.system_settings_sidebar_desc }}"
                             aria-label="{{ MS_TRANS.system_settings_sidebar }}. {{ MS_TRANS.system_settings_sidebar_desc }}">
@@ -474,7 +483,7 @@
                     </button>
                     <button class="ms-system-settings-action ms-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=4"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=5"
                             data-modal-title="{{ MS_TRANS.system_settings_navbar }}"
                             data-ms-tooltip="{{ MS_TRANS.system_settings_navbar_desc }}"
                             aria-label="{{ MS_TRANS.system_settings_navbar }}. {{ MS_TRANS.system_settings_navbar_desc }}">
@@ -483,7 +492,7 @@
                     </button>
                     <button class="ms-system-settings-action ms-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=5"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=6"
                             data-modal-title="{{ MS_TRANS.system_settings_ui_layout }}"
                             data-ms-tooltip="{{ MS_TRANS.system_settings_ui_layout_desc }}"
                             aria-label="{{ MS_TRANS.system_settings_ui_layout }}. {{ MS_TRANS.system_settings_ui_layout_desc }}">
@@ -492,7 +501,7 @@
                     </button>
                     <button class="ms-system-settings-action ms-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=6"
+                            data-dynamic-modal="{% url 'modal_manager' 'microsys' 'SystemSettings' 1 %}?step=7"
                             data-modal-title="{{ MS_TRANS.system_settings_appearance }}"
                             data-ms-tooltip="{{ MS_TRANS.system_settings_appearance_desc }}"
                             aria-label="{{ MS_TRANS.system_settings_appearance }}. {{ MS_TRANS.system_settings_appearance_desc }}">

@@ -91,6 +91,12 @@ class MicrosysTable(tables.Table):
 
 
 class UserTable(MicrosysTable):
+    online_status = tables.Column(
+        verbose_name="",
+        empty_values=(),
+        orderable=False,
+        attrs={"td": {"class": "text-center ps-2 pe-1"}, "th": {"class": "text-center ps-2 pe-1", "style": "width:28px"}},
+    )
     username = tables.Column(verbose_name="Username")
     phone = tables.Column(verbose_name="Phone Number", accessor='profile.phone', default='-')
     email = tables.Column(verbose_name="Email")
@@ -101,6 +107,11 @@ class UserTable(MicrosysTable):
         order_by='first_name'
     )
     staff_tier = tables.Column(verbose_name=get_strings().get('tbl_staff_tier', 'Staff Tier'), empty_values=())
+    twofa_status = tables.Column(
+        verbose_name=get_strings().get('tbl_2fa_status', '2FA'),
+        empty_values=(),
+        orderable=False,
+    )
     is_active = tables.BooleanColumn(verbose_name="Active")
     last_login = tables.DateColumn(
         format="H:i Y-m-d ",
@@ -109,11 +120,21 @@ class UserTable(MicrosysTable):
 
     class Meta(MicrosysTable.Meta):
         model = User
-        fields = ("username", "phone", "email", "full_name", "scope", "staff_tier", "is_active", "last_login")
+        fields = ("online_status", "username", "phone", "email", "full_name", "scope", "staff_tier", "twofa_status", "is_active", "last_login")
         row_attrs = {
             "data-micro-context": "true",
             "data-micro-actions": lambda record: json.dumps(_build_user_row_actions(record))
         }
+
+    def render_online_status(self, record):
+        s = getattr(self, 'translations', None) or get_strings()
+        is_online = getattr(record, 'is_online', False)
+        if is_online:
+            return format_html(
+                '<span class="ms-online-dot ms-online-dot--on" title="{}"></span>',
+                s.get('user_is_online', 'Online now'),
+            )
+        return format_html('<span class="ms-online-dot ms-online-dot--off" title="{}"></span>', s.get('user_is_offline', 'Offline'))
 
     def render_username(self, value, record):
         s = get_strings()
@@ -148,6 +169,26 @@ class UserTable(MicrosysTable):
                 )
             )
         return mark_safe(''.join(str(badge) for badge in badges))
+
+    def render_twofa_status(self, record):
+        s = getattr(self, 'translations', None) or get_strings()
+        profile = getattr(record, 'profile', None)
+        if profile is None:
+            return format_html('<span class="text-muted small">{}</span>', s.get('twofa_none', 'No'))
+        methods = []
+        if getattr(profile, 'is_totp_2fa_enabled', False):
+            methods.append(format_html(
+                '<span class="badge ms-2fa-badge ms-2fa-badge--totp" title="TOTP"><i class="bi bi-phone me-1"></i>{}</span>',
+                s.get('twofa_totp_method', 'App'),
+            ))
+        if getattr(profile, 'is_email_2fa_enabled', False):
+            methods.append(format_html(
+                '<span class="badge ms-2fa-badge ms-2fa-badge--email" title="Email 2FA"><i class="bi bi-envelope me-1"></i>{}</span>',
+                s.get('twofa_email_method', 'Email'),
+            ))
+        if not methods:
+            return format_html('<span class="text-muted small">{}</span>', s.get('twofa_none', 'No'))
+        return mark_safe(''.join(str(b) for b in methods))
 
 
 class UserActivityLogTable(MicrosysTable):

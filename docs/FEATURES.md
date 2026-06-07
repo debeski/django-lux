@@ -46,12 +46,14 @@
   - Translation overrides
   - Sidebar configuration
   - Titlebar configuration
-  - Client IP resolution mode (direct, header-based, proxy-aware)
+  - Login page configuration (`login_config`): layout style, show-logo toggle, logo treatment + shape, banner colour, and per-language Markdown hero message
+  - Client IP resolution mode (auto-detect, direct, header-based, proxy-aware)
   - Trusted proxy hops and custom resolution headers
 
 ### First-Launch Setup Wizard
-- **5-step wizard:** Identity → Localization → Access and security → Navigation → Appearance and personalization
+- **8-step wizard:** Identity → Localization → Access and security → Login Page → Sidebar → Nav Bar → UI and Layout → Appearance and Typography
 - **Step 3 routing controls** for the main Home URL plus optional anonymous public-root split when public root access is enabled
+- **Step 4 Login Page** controls login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message
 - **Setup import/export path** for reusing System Settings payloads across environments
 - **Live preview** for theme, language, sidebar, and titlebar changes
 - **Unsaved preview state** with session-based language switching
@@ -62,7 +64,7 @@
 - **Centralized IP resolution setup** for configuring how the system identifies client IPs for logs and security throttles
 
 ### Options View (`/sys/options/`)
-- Split System Settings modal entrypoints (Branding, Languages, Access & Security, Sidebar, Titlebar)
+- Split System Settings modal entrypoints (Branding, Languages, Access & Security, Login Page, Sidebar, Nav Bar, Titlebar, Appearance)
 - Theme picker with live preview
 - Language picker (when enabled)
 - Table density picker
@@ -223,6 +225,8 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 
 ### User Management Interface
 - User list view with filtering
+- **Online status indicator**: a live presence dot per row (pulsing green when the user was seen within the last 5 minutes via `UserPresenceSession`, muted when offline), driven by an `Exists` subquery annotation — no extra field or polling endpoint
+- **2FA method badges**: a `2FA` column showing coloured badges for each active method (TOTP app / Email), or a muted "No" when none is configured
 - User detail page with recent activity
 - User detail modal
 - Create/Edit/Permissions modals
@@ -430,6 +434,10 @@ UserActivityLog.safe_log(
 - Section-based model allowlisting
 - Permission enforcement
 - External modal loader asset shipped with CSP nonce support in the shared base layout
+- **Responsive sizing**: centered `modal-xl` at ≥1200px, full-screen below 1200px (split-screen / laptop friendly)
+- **Sticky header + footer, scrolling body** (`modal-dialog-scrollable`): the title/close row and the action bar stay pinned while only the content scrolls, with a themed thin scrollbar
+- **Action-bar relocation**: the standard action bar (`.microsys-form-actions` / `.ms-setup-wizard-actions` / `.ms-modal-form-actions`) is auto-moved into the pinned footer with form association preserved via the `form=` attribute; multi-step wizard bars (with prev/next) are left in place for the wizard controller, and table/detail/dev-custom views simply keep a hidden footer
+- **Dev opt-in footer pinning**: add `data-ms-modal-footer` to any container in a custom modal template / options view to have it pinned into the sticky footer (takes priority over the built-in bars). Submit buttons inside it are auto-associated to the modal form via `form=`; for custom buttons that need their own JS, bind via document-level delegation since the element is moved out of the modal body
 
 ### AJAX Endpoints
 | Endpoint | Purpose |

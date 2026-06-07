@@ -24,7 +24,7 @@ from ..trust import (
     trusted_device_for_session,
 )
 from ..session_history import hash_session_key, mark_presence_sessions_ended
-from ..reports import filter_report_eligible_activity, is_report_eligible_activity_model_name
+from ..reports import exclude_log_noise, filter_report_eligible_activity, is_report_eligible_activity_model_name
 from ..utils import get_user_management_tier_state_for_user, log_user_action, normalize_activity_log_model_key
 from ..translations import get_strings
 from .twofa import get_2fa_config
@@ -231,7 +231,9 @@ def user_profile(request):
 
     # --- Profile Stats & Activity ---
     UserActivityLog = apps.get_model('microsys', 'UserActivityLog')
-    user_activity_qs = UserActivityLog.objects.filter(created_by=user)
+    # Drop operational tracking noise (presence/device churn) up front so it never
+    # surfaces in either Recent Activity or System Interactions.
+    user_activity_qs = exclude_log_noise(UserActivityLog.objects.filter(created_by=user))
     project_activity_qs = filter_report_eligible_activity(user_activity_qs)
     for system_action in _PROFILE_SYSTEM_ACTIONS:
         project_activity_qs = project_activity_qs.exclude(action__iexact=system_action)

@@ -458,3 +458,72 @@ form label {
         display: block;
     }
 }
+
+
+/* ============================================================
+   Dynamic Modal — refined thin scrollbar
+   The modal body scrolls (modal-dialog-scrollable). Replace the
+   chunky browser-default scrollbar with a slim one matching the
+   Microsys style. Per-theme rules color the thumb/track via the
+   global ::-webkit-scrollbar-thumb selectors; this sets the width
+   and provides the default (light) fallback colors.
+   ============================================================ */
+#universalDynamicModalBody {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--primal-rgb, 35, 99, 195), 0.32) transparent;
+}
+
+#universalDynamicModalBody::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#universalDynamicModalBody::-webkit-scrollbar-track {
+    background: transparent;
+    margin-block: 0.35rem;
+}
+
+#universalDynamicModalBody::-webkit-scrollbar-thumb {
+    background-color: rgba(var(--primal-rgb, 35, 99, 195), 0.28);
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+#universalDynamicModalBody::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(var(--primal-rgb, 35, 99, 195), 0.45);
+    background-clip: padding-box;
+}
+
+/* Pinned header/footer sit still while the body scrolls — give them
+   breathing room and a faint divider so they read as separate from
+   the scrolling content. */
+#universalDynamicModal .modal-header {
+    padding-top: 0.5rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.1);
+}
+
+#universalDynamicModal .modal-footer {
+    /* Compact pinned footer that holds the relocated action bar.
+       Equal top/bottom padding keeps the buttons' gap symmetric, and the small
+       margin-top mirrors the header so the divider sits off the scrolling body. */
+    padding: 0.7rem 1rem;
+    margin-top: 0.35rem;
+    border-top: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.1);
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+/* Relocated action bars carry their own mt/pt/border utilities meant for
+   in-body placement; neutralize them inside the footer so they don't stack a
+   second divider/gap on top of the footer's own. */
+#universalDynamicModalFooter .microsys-form-actions,
+#universalDynamicModalFooter .ms-setup-wizard-actions,
+#universalDynamicModalFooter .ms-modal-form-actions,
+#universalDynamicModalFooter > [data-ms-modal-footer] {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}

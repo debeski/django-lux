@@ -10,7 +10,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const tab = e.target.closest('[data-ms-user-report-window]');
         if (!tab) return;
         const report = tab.closest('[data-ms-user-report]');
-        const exportLink = report?.querySelector('[data-ms-user-report-export-base]');
+        // The export button may have been pinned into the modal footer (moved out of
+        // [data-ms-user-report]); fall back to a document-wide lookup. Only one report
+        // modal is open at a time, so this is unambiguous.
+        const exportLink = report?.querySelector('[data-ms-user-report-export-base]')
+            || document.querySelector('[data-ms-user-report-export-base]');
         if (!exportLink) return;
         const baseUrl = exportLink.dataset.msUserReportExportBase;
         const windowName = tab.dataset.msUserReportWindow || 'week';

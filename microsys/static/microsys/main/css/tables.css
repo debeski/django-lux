@@ -300,6 +300,49 @@
     border-color: rgba(var(--primal-rgb, 13, 110, 253), 0.22) !important;
 }
 
+/* Online presence dot */
+.ms-online-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+    border: 1.5px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+}
+.ms-online-dot--on {
+    background: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.22), 0 0 6px rgba(22, 163, 74, 0.35);
+    animation: ms-online-pulse 2.2s ease-in-out infinite;
+}
+.ms-online-dot--off {
+    background: rgba(148, 163, 184, 0.4);
+}
+@keyframes ms-online-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.22), 0 0 6px rgba(22, 163, 74, 0.35); }
+    50% { box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.14), 0 0 10px rgba(22, 163, 74, 0.22); }
+}
+
+/* 2FA method badges */
+.ms-2fa-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.2em 0.5em;
+    border-radius: 6px;
+    border: 1px solid transparent;
+}
+.ms-2fa-badge--totp {
+    background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%) !important;
+    color: #faf5ff !important;
+    border-color: rgba(91, 33, 182, 0.28) !important;
+}
+.ms-2fa-badge--email {
+    background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%) !important;
+    color: #f0f9ff !important;
+    border-color: rgba(3, 105, 161, 0.28) !important;
+}
+
 .ms-table-empty-state__copy span {
     max-width: 34rem;
     color: var(--ms-table-empty-muted);

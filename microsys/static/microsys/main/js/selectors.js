@@ -44,7 +44,7 @@
 
         const options = Array.from(selector.querySelectorAll('[data-ms-selector-option]'));
         const visibleOptions = options.filter((option) => option.style.display !== 'none');
-        const columnCount = Math.min(Math.max(visibleOptions.length || options.length || 1, 1), 3);
+        const columnCount = Math.max(visibleOptions.length || options.length || 1, 1);
         selector.style.setProperty('--ms-choice-toggle-columns', String(columnCount));
 
         options.forEach((option) => {

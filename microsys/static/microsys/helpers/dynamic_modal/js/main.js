@@ -15,9 +15,67 @@ document.addEventListener('DOMContentLoaded', function() {
     const titleText = document.getElementById('dynamicModalTitleText');
     const footer = document.getElementById('universalDynamicModalFooter');
     const DEFAULT_LOADING_MIN_HEIGHT = 320;
-    
-    // Hide footer since the form includes its own submit button
-    if (footer) footer.style.display = 'none';
+    const RELOCATED_FORM_ID = 'universalDynamicModalForm';
+
+    // Footer starts hidden; syncModalFooter() reveals it only when the loaded
+    // content has a standard action bar to pin.
+    function resetModalFooter() {
+        if (!footer) return;
+        footer.innerHTML = '';
+        footer.style.display = 'none';
+    }
+
+    // Built-in action bars auto-detected for relocation:
+    //  - .microsys-form-actions  → auto-form template + crispy auto-helper
+    //  - .ms-setup-wizard-actions → System Settings wizard FormActions
+    //  - .ms-modal-form-actions   → _build_submit_actions / _build_wizard_actions
+    const BUILTIN_ACTION_SELECTOR =
+        '.microsys-form-actions, .ms-setup-wizard-actions, .ms-modal-form-actions';
+
+    // Dev opt-in: put `data-ms-modal-footer` on ANY container in a custom modal
+    // template / options view to have it pinned into the sticky footer. It takes
+    // priority over the built-in bars. For custom buttons that need their own JS,
+    // bind via document-level delegation (the element is moved out of the modal body)
+    // or rely on the `form=` association added below for submit buttons.
+    const DEV_FOOTER_SELECTOR = '[data-ms-modal-footer]';
+
+    // Relocate an action bar into the sticky modal footer so it stays on screen while
+    // the body scrolls. Buttons keep working: submit buttons are re-associated to the
+    // form via the `form=` attribute (which still fires the form's submit event the JS
+    // intercepts), and the cancel/back button keeps the click listener attached earlier
+    // in attachListeners() (moving a node preserves its listeners).
+    //
+    // Resolution order:
+    //  1. an explicit [data-ms-modal-footer] container (dev opt-in), else
+    //  2. the first built-in action bar.
+    // Skips:
+    //  - multi-step wizard bars (contain .ms-btn-next / .ms-btn-prev): the wizard JS
+    //    scans the body for these and toggles them per step — relocating would break it.
+    //  - nothing matched (tables / detail / dev-custom with no marker): footer stays hidden.
+    function syncModalFooter() {
+        if (!footer) return;
+        resetModalFooter();
+
+        const actions = modalBody.querySelector(DEV_FOOTER_SELECTOR)
+            || modalBody.querySelector(BUILTIN_ACTION_SELECTOR);
+        if (!actions) return;
+
+        // Leave multi-step wizard navigation bars in place for the wizard controller.
+        if (actions.querySelector('.ms-btn-next, .ms-btn-prev')) return;
+
+        const form = modalBody.querySelector('form');
+        if (form) {
+            if (!form.id) form.id = RELOCATED_FORM_ID;
+            actions.querySelectorAll('button[type="submit"], button:not([type])').forEach(btn => {
+                btn.setAttribute('form', form.id);
+            });
+        }
+
+        footer.appendChild(actions);
+        footer.style.display = '';
+    }
+
+    resetModalFooter();
 
     let currentBaseUrl = '';
     let activeLoadToken = 0;
@@ -94,6 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
         modalBody.style.minHeight = '';
+        resetModalFooter();
         clearModalState();
     });
 
@@ -130,6 +189,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function openModalAndLoad(url, trigger = null) {
         const loadToken = activeLoadToken + 1;
         activeLoadToken = loadToken;
+
+        // New content is coming — clear any pinned footer from the previous view.
+        resetModalFooter();
 
         const hasPreviousFallback = hasUsablePreviousFallback();
 
@@ -285,11 +347,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
         }
+
+        // Pin the standard action bar to the sticky footer (must run last, after the
+        // back/edit/delete listeners are attached so moving the bar keeps them).
+        syncModalFooter();
     }
 
     // 4. Form Submission Logic
     function submitForm(form) {
-        const submitBtn = form.querySelector('[type="submit"]');
+        // The submit button may have been relocated into the sticky footer
+        // (associated back via the form= attribute), so look there too.
+        const submitBtn = form.querySelector('[type="submit"]')
+            || (footer && footer.querySelector('[type="submit"]'));
         if (submitBtn) submitBtn.disabled = true;
 
         const formData = new FormData(form);

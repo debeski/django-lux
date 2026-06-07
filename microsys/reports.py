@@ -54,7 +54,20 @@ _MICROSYS_REPORT_EXCLUDED_KEYS = {
     "otp",
     "backup_code",
     "backup_codes",
+    # Microsys-internal meta actions (not project work; classified as system interactions)
+    "microsys_reports_backup",
+    "reports_backup",
 }
+
+# Verbose names of the high-frequency operational tracking models that are no longer
+# logged (see signals.EXCLUDED_MODELS). Historical rows may still exist; use
+# exclude_log_noise() to keep them out of activity feeds and reports entirely.
+LOG_NOISE_MODEL_NAMES = ("Trusted Device", "Known Device", "Presence Session")
+
+
+def exclude_log_noise(queryset):
+    """Drop operational tracking-model rows (presence/device churn) from a log queryset."""
+    return queryset.exclude(model_name__in=LOG_NOISE_MODEL_NAMES)
 _EXCLUDED_APP_LABELS = {
     "admin",
     "auth",

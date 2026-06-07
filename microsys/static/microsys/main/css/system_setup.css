@@ -116,8 +116,10 @@
 .ms-settings-toggle-field {
   width: 100%;
   min-width: 0;
-  overflow: hidden;
-  container-type: inline-size;
+  /* NOTE: container-type: inline-size was removed — in the flex grid columns
+     (e.g. step 7's col-xl-3 toggle row) inline-size containment collapsed the
+     field to ~0 width, breaking the label one character per line. The row
+     layout (label + switch) wraps fine on its own at any realistic width. */
 }
 
 .ms-settings-toggle-field__content {
@@ -194,7 +196,10 @@
   flex: 0 0 auto;
 }
 
-@container (max-width: 14rem) {
+/* Very narrow viewports: stack the switch beneath the label so neither
+   gets squeezed. Plain media query (the previous @container rule relied on
+   container-type, which was removed — see note above). */
+@media (max-width: 400px) {
   .ms-settings-toggle-field {
     flex-direction: column;
     align-items: stretch !important;

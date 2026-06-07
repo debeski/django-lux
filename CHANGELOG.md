@@ -4,6 +4,53 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.3.0
+
+### Manage Users
+
+- **Online Status Indicator**: Added a live presence dot column to the Manage Users table. A pulsing green dot marks users seen within the last 5 minutes (via `UserPresenceSession`); a muted dot marks the rest. The indicator is driven by an `Exists` subquery annotation on the existing presence-tracking data — no new field, no polling endpoint.
+- **2FA Method Badges**: Added a `2FA` column that shows coloured badges for each active method (TOTP app / Email). If no 2FA is configured the cell shows a muted "No". Badge styles live in `tables.css` alongside the staff-tier badges.
+
+### Client IP Resolution
+
+- **Auto-detect Mode**: Added a new `auto` client-IP mode (now the recommended default) that tries sources in priority order — `X-Forwarded-For` (leftmost) → `X-Real-IP` → `CF-Connecting-IP` → `REMOTE_ADDR` — using the first non-empty value. It appears first in the System Settings IP mode selector.
+- **Hardened fallback**: All modes now share a fallback — if the configured source returns empty, the system tries XFF leftmost → X-Real-IP → REMOTE_ADDR before giving up, so a misconfigured header no longer yields an empty client IP.
+
+### Login Page (new System Settings step)
+
+- **Step 4 "Login Page"**: A dedicated wizard step (between Access & Security and Sidebar; all later steps renumbered, total now eight) configuring the public login screen. Settings persist to the new `SystemSettings.login_config` JSON field (migration `0010_systemsettings_login_config`).
+- **Four layout styles**: **Split** (default two-panel card + banner), **Centered** (single centred card, logo above the form), **Minimal** (floating card on a gradient, banner hidden), and **Full-page split** (true 50/50 — hero message on the start half, form on the end half). The active style is applied as a `ms-login--{style}` class; all layouts live in `login.css`.
+- **Per-language Markdown hero message**: Full-page split shows an admin-authored hero message beside the form, with one textarea per configured language and a placeholder. Rendered client-side by a dependency-free Markdown converter supporting headings, bold/italic (`*`/`_`), `~~strikethrough~~`, inline `code`, links, and lists.
+- **Show Logo toggle**: A single switch hides/shows the logo across every login style. In full-page split the logo sits centered above the form.
+- **Adaptive frosted-plate logo**: The login logo frame is now a premium near-white frosted plate that gives any logo (dark or multi-colour) a clean, high-contrast surface that pops on dark themes and reads subtly on light ones — fixing the previous low-tier look in dark modes. Logo treatments (`none` / `plate` / `halo` / `contrast`, with plate shape) are now chosen via the same visual selector cards as the titlebar, with `halo` glowing the plate.
+- **Banner colour**: Optional CSS-colour text input (hex/rgb/named) for the banner panel; empty = theme default (no more confusing forced-black picker).
+- **Language toggle reliability**: The desktop language toggle is now viewport-`fixed` at the top corner so it can no longer be buried under the form card (previously invisible in English/LTR). It iterates all configured languages and marks the active one via `CURRENT_LANG`, and is gated by `language_picker_enabled` so it respects the system-wide language-override setting on both desktop and mobile.
+
+### Sidebar
+
+- **Breakpoint alignment**: The mobile/off-canvas breakpoint in CSS (`max-width: 1099.98px`) now matches the JS comparison (`< 1100`), fixing a one-pixel dead zone at exactly 1100px where the sidebar switched sides and outside-click dismissal stopped working.
+- **Correct off-canvas side**: The mobile sidebar now anchors to `inset-inline-start`, so it slides in from the same side as the desktop sidebar in both LTR and RTL (previously appeared on the opposite side).
+- **No open/close animation on mobile**: Removed the width transition that caused open/close stutter on small/split screens, matching desktop behaviour.
+
+### Dynamic Modal
+
+- **Responsive sizing**: Centered `modal-xl` at ≥1200px, full-screen below 1200px — far more usable on laptops and split-screen setups.
+- **Sticky header + footer, scrolling body** (`modal-dialog-scrollable`): The title/close row and the action bar stay pinned while only the content scrolls, with a themed thin scrollbar and compact spacing/dividers.
+- **Action-bar relocation**: The standard action bar (`.microsys-form-actions` / `.ms-setup-wizard-actions` / `.ms-modal-form-actions`) is automatically moved into the pinned footer, with form association preserved via the `form=` attribute so submit interception, cancel/back listeners, and validation re-renders all keep working. Multi-step wizard bars (with prev/next) are intentionally left in place for the wizard controller, and table/detail/dev-custom views keep a hidden footer — a safe, non-breaking degrade across the component's many reuse scenarios.
+- **Dev opt-in footer pinning**: Custom modal templates and options views can mark any button container with `data-ms-modal-footer` to have it pinned into the sticky footer (takes priority over the built-in bars; submit buttons auto-associated via `form=`).
+
+### UI Fixes
+
+- **Choice selector columns**: The toggle-style choice selector (`MicrosysChoiceSelectorWidget`) now sizes its grid to the actual option count instead of a hard cap of 3, with responsive caps at smaller widths — so 4-option groups (e.g. login styles) render evenly.
+- **Settings step clamp**: Extended the single-step modal whitelist to include step 7, fixing the System Settings "Themes & Typography" tile that previously opened step 1.
+- **Toggle label wrapping**: Removed `container-type: inline-size` from the settings toggle field, which in narrow flex columns collapsed the field and broke the label one character per line.
+- **Duplicate hero label**: Removed a redundant manual `<label>` on the per-language hero fields so only the accessible crispy label renders.
+
+### Internal
+
+- **New field & migration**: `SystemSettings.login_config` (JSON) plus `normalize_login_config()` / `default_login_config()` helpers, wired through `get_system_config()` and the settings export/import payload.
+- **Dependencies**: No new packages required. New features use Django's built-in ORM (`Exists`, `OuterRef`), CSS custom properties, and existing Microsys helpers.
+
 ## v2.2.12
 
 - **Supervisor Reports Overview**: Added `/sys/reports/` — a staff-only activity overview showing current-week total, previous-week total, delta, all-time total, average entries per active day, average entries per user, and breakdowns by user, model, action, and day. Accessible from a new Reports icon in the Microsys user-hub staff toolbar (shown only when the requesting user holds `microsys.view_reports`). Drill-down buttons open the existing per-user report modal for any visible user directly from the overview.

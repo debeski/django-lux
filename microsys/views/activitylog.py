@@ -32,12 +32,14 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
     
     def get_queryset(self):
         # Order by timestamp descending by default
-        # Using .all() ensures we use the ScopedManager which handles scope filtering automatically
-        qs = (
+        # Using .all() ensures we use the ScopedManager which handles scope filtering automatically.
+        # exclude_log_noise() drops historical presence/device tracking rows (these models are no
+        # longer logged at all — see signals.EXCLUDED_MODELS — but old rows may still exist).
+        from ..reports import exclude_log_noise
+        qs = exclude_log_noise(
             super().get_queryset()
             .select_related('created_by__profile__scope')
-            .order_by('-created_at')
-        )
+        ).order_by('-created_at')
         
         # When scopes are disabled, defer the scope column to avoid loading unused data
         if not is_scope_enabled():

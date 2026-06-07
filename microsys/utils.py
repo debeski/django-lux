@@ -166,12 +166,14 @@ CLIENT_IP_MODE_X_FORWARDED_FOR = 'x_forwarded_for'
 CLIENT_IP_MODE_X_REAL_IP = 'x_real_ip'
 CLIENT_IP_MODE_CLOUDFLARE = 'cloudflare'
 CLIENT_IP_MODE_CUSTOM = 'custom'
+CLIENT_IP_MODE_AUTO = 'auto'
 CLIENT_IP_MODE_VALUES = {
     CLIENT_IP_MODE_REMOTE_ADDR,
     CLIENT_IP_MODE_X_FORWARDED_FOR,
     CLIENT_IP_MODE_X_REAL_IP,
     CLIENT_IP_MODE_CLOUDFLARE,
     CLIENT_IP_MODE_CUSTOM,
+    CLIENT_IP_MODE_AUTO,
 }
 
 # Return default email configuration structure
@@ -776,7 +778,20 @@ def get_client_ip(request):
 
     mode = config.get('mode', CLIENT_IP_MODE_X_FORWARDED_FOR)
     candidate = ''
-    if mode == CLIENT_IP_MODE_REMOTE_ADDR:
+
+    if mode == CLIENT_IP_MODE_AUTO:
+        # Try each source in order; take the first non-empty result.
+        # Leftmost XFF is the original client when a single trusted proxy is in play.
+        xff_raw = _header_value('HTTP_X_FORWARDED_FOR')
+        if xff_raw:
+            candidate = xff_raw.split(',')[0].strip()
+        if not candidate:
+            candidate = _header_value('HTTP_X_REAL_IP')
+        if not candidate:
+            candidate = _header_value('HTTP_CF_CONNECTING_IP')
+        if not candidate:
+            candidate = remote_addr
+    elif mode == CLIENT_IP_MODE_REMOTE_ADDR:
         candidate = remote_addr
     elif mode == CLIENT_IP_MODE_X_FORWARDED_FOR:
         candidate = _parse_chain(_header_value('HTTP_X_FORWARDED_FOR'))
@@ -790,9 +805,15 @@ def get_client_ip(request):
     if candidate:
         return candidate
 
-    fallback_xff = _parse_chain(_header_value('HTTP_X_FORWARDED_FOR'))
-    if fallback_xff:
-        return fallback_xff
+    # Ordered fallback: XFF leftmost → X-Real-IP → REMOTE_ADDR
+    xff_raw = _header_value('HTTP_X_FORWARDED_FOR')
+    if xff_raw:
+        leftmost = xff_raw.split(',')[0].strip()
+        if leftmost:
+            return leftmost
+    x_real = _header_value('HTTP_X_REAL_IP')
+    if x_real:
+        return x_real
     return remote_addr or None
 
 
@@ -1556,6 +1577,49 @@ def normalize_titlebar_config(titlebar_config):
 
     return normalized
 
+LOGIN_STYLE_VALUES = {'split', 'centered', 'minimal', 'fullpage'}
+
+
+def default_login_config():
+    return {
+        'style': 'split',
+        'show_logo': True,
+        'banner_color': '',
+        'logo_treatment': 'none',
+        'logo_treatment_shape': 'soft',
+        'hero_message': '',
+    }
+
+
+def normalize_login_config(value):
+    config = value if isinstance(value, dict) else {}
+    normalized = default_login_config()
+    style = config.get('style')
+    if style in LOGIN_STYLE_VALUES:
+        normalized['style'] = style
+    normalized['show_logo'] = bool(config.get('show_logo', True))
+    banner_color = str(config.get('banner_color') or '').strip()
+    if banner_color:
+        normalized['banner_color'] = banner_color
+    logo_treatment = config.get('logo_treatment')
+    if logo_treatment in TITLEBAR_LOGO_TREATMENT_VALUES:
+        normalized['logo_treatment'] = logo_treatment
+    logo_treatment_shape = config.get('logo_treatment_shape')
+    if logo_treatment_shape in TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES:
+        normalized['logo_treatment_shape'] = logo_treatment_shape
+    raw_hero = config.get('hero_message')
+    if isinstance(raw_hero, dict):
+        normalized['hero_message'] = {
+            str(k): str(v or '').strip()
+            for k, v in raw_hero.items()
+            if str(k or '').strip()
+        }
+    else:
+        # Legacy plain string — store as-is for backwards compatibility
+        normalized['hero_message'] = str(raw_hero or '').strip()
+    return normalized
+
+
 # Return default sidebar configuration
 def default_sidebar_config():
     return {
@@ -1829,6 +1893,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'sidebar_config',
     'navbar_config',
     'titlebar_config',
+    'login_config',
 )
 
 # Extract filename from FieldFile or string
@@ -1871,6 +1936,8 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_client_ip_config(value)
         elif field_name == 'titlebar_config':
             data[field_name] = normalize_titlebar_config(value)
+        elif field_name == 'login_config':
+            data[field_name] = normalize_login_config(value)
         elif field_name == 'allowed_themes':
             data[field_name] = list(normalize_allowed_themes(value))
         elif field_name == 'allowed_fonts':
@@ -1927,6 +1994,8 @@ def normalize_system_settings_import_payload(payload):
         normalized['client_ip_config'] = normalize_client_ip_config(normalized['client_ip_config'])
     if 'titlebar_config' in normalized:
         normalized['titlebar_config'] = normalize_titlebar_config(normalized['titlebar_config'])
+    if 'login_config' in normalized:
+        normalized['login_config'] = normalize_login_config(normalized['login_config'])
     if 'allowed_themes' in normalized:
         normalized['allowed_themes'] = list(normalize_allowed_themes(normalized['allowed_themes']))
     if 'allowed_fonts' in normalized:
@@ -2079,6 +2148,7 @@ def get_system_config():
         'email_2fa': False,
         'prevent_multiple_active_sessions': False,
         'client_ip': default_client_ip_config(),
+        'login': default_login_config(),
         'public_root': False,
         'public_root_split_enabled': False,
         'public_root_url': '',
@@ -2194,6 +2264,8 @@ def get_system_config():
             )
         ):
             db_config['titlebar'] = sys_settings.titlebar_config
+        if isinstance(getattr(sys_settings, 'login_config', None), dict) and sys_settings.login_config:
+            db_config['login'] = sys_settings.login_config
         if system_is_configured:
             db_config['is_configured'] = True
         if (
@@ -2357,6 +2429,13 @@ def get_system_config():
         merged_client_ip.update(db_config.get('client_ip', {}))
     final_config['client_ip'] = normalize_client_ip_config(merged_client_ip)
     final_config['client_ip_config'] = deepcopy(final_config['client_ip'])
+    user_login = user_config.get('login', {})
+    if not isinstance(user_login, dict):
+        user_login = {}
+    merged_login = deepcopy(default_config['login'])
+    merged_login.update(user_login)
+    merged_login.update(db_config.get('login', {}))
+    final_config['login'] = normalize_login_config(merged_login)
 
     final_config['allowed_themes'] = list(normalize_allowed_themes(final_config.get('allowed_themes')))
     if final_config.get('default_theme') not in set(final_config['allowed_themes']):

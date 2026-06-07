@@ -16,8 +16,13 @@ from .utils import (
 )
 
 # Models to exclude from activity logging (e.g., internal Django models with non-integer PKs)
+# and high-frequency operational tracking models (presence/device churn that updates every
+# few minutes and would otherwise flood the activity log).
 EXCLUDED_MODELS = [
     'django.contrib.sessions.models.Session',
+    'microsys.models.TrustedDevice',
+    'microsys.models.UserKnownDevice',
+    'microsys.models.UserPresenceSession',
 ]
 
 @receiver(user_logged_in)

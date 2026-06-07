@@ -223,6 +223,7 @@ class SystemSettings(SingletonModel):
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="Sidebar Configuration")
     navbar_config = models.JSONField(default=default_navbar_config, blank=True, verbose_name="Nav Bar Configuration")
     titlebar_config = models.JSONField(default=default_titlebar_config, blank=True, verbose_name="Titlebar Configuration")
+    login_config = models.JSONField(default=dict, blank=True, verbose_name="Login Page Configuration")
     prevent_multiple_active_sessions = models.BooleanField(default=False, verbose_name="Prevent Multiple Active Sessions")
 
     class Meta:

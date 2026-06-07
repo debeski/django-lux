@@ -53,6 +53,18 @@
   padding-block: 0.8rem;
 }
 
+@media (max-width: 991.98px) {
+  .ms-choice-selector--toggle .ms-choice-selector__options {
+    grid-template-columns: repeat(min(var(--ms-choice-toggle-columns, 3), 3), minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .ms-choice-selector--toggle .ms-choice-selector__options {
+    grid-template-columns: repeat(min(var(--ms-choice-toggle-columns, 2), 2), minmax(0, 1fr));
+  }
+}
+
 .ms-choice-selector--searchable-list .ms-choice-selector__options {
   grid-template-columns: 1fr;
   max-height: 18rem;
@@ -346,4 +358,17 @@
   .ms-choice-selector--toggle .ms-choice-selector__options {
     grid-template-columns: 1fr;
   }
+}
+
+/* When two toggle selectors share a stretched row, make each fill its column height
+   so grid-auto-rows: 1fr distributes the same shared height to all tiles uniformly. */
+.d-flex.flex-column > .ms-choice-selector-field--toggle,
+.d-flex.flex-column > .ms-choice-selector-field--toggle > .ms-choice-selector--toggle {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.d-flex.flex-column > .ms-choice-selector-field--toggle > .ms-choice-selector--toggle > .ms-choice-selector__options {
+  flex: 1;
 }

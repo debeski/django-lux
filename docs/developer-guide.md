@@ -161,6 +161,32 @@ Use dynamic modals when:
 
 In both cases, the discovery system is the same. What changes is the entry point and the surrounding UI.
 
+### Pinning buttons to the modal footer
+
+The dynamic modal keeps its header and footer fixed while only the body scrolls. Built-in action bars (auto-form buttons, the System Settings wizard bar, and `_build_submit_actions` bars) are detected and moved into the pinned footer automatically.
+
+For a **custom modal template** (a view that sets `template_name`, or a custom options screen), mark your own button container with `data-ms-modal-footer` to have it pinned the same way:
+
+```html
+<form method="post" action="{{ request.path }}">
+  {% csrf_token %}
+  {% crispy form %}
+
+  <!-- This bar is lifted into the sticky modal footer automatically -->
+  <div class="d-flex justify-content-end gap-2" data-ms-modal-footer>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+  </div>
+</form>
+```
+
+Notes:
+
+- The marked container takes priority over the built-in bars.
+- Submit buttons inside it are auto-associated to the modal's form via the `form=` attribute, so the modal's AJAX submit interception still fires even though the button now lives in the footer.
+- The element is physically moved out of the modal body, so any custom JS for those buttons should use document-level event delegation rather than querying the modal body after load.
+- A container that includes multi-step wizard navigation (`.ms-btn-next` / `.ms-btn-prev`) is intentionally left in the body so the wizard controller can manage it.
+
 ## Users, Profiles, and Permissions
 
 The user side of microSYS has a few important defaults:

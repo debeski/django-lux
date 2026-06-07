@@ -207,7 +207,7 @@
     flex-shrink: 0;
 } */
 
-@media (max-width: 1100px) {
+@media (max-width: 1099.98px) {
     .ms-sidebar-precollapse .sidebar {
         width: 0 !important;
         min-width: 0 !important;
@@ -222,21 +222,23 @@
     .sidebar {
         position: fixed;
         top: var(--header-height, 60px);
-        inset-inline-end: 0;
+        inset-inline-start: 0;
         width: 250px;
-        transition: width 0.1s ease-in-out;
+        /* No width animation — matches desktop (which can't animate width:auto).
+           Avoids the open/close stutter on mobile/split-screen. */
+        transition: none;
         height: calc(100vh - var(--header-height, 60px));
         z-index: 1000;
         --sidebar-item-px: 12px;
     }
-    
+
     .sidebar.collapsed {
         width: 0 !important; /* Completely hide when collapsed on mobile */
         min-width: 0 !important;
         border: none !important;
         overflow: hidden !important;
-        inset-inline-end: 0; 
-        position: fixed; 
+        inset-inline-start: 0;
+        position: fixed;
     }
 }
 /* Sidebar rail layout */

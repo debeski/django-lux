@@ -948,7 +948,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             return None
 
-        if 0 <= step <= 6:
+        if 0 <= step <= 7:
             return step
         return None
 

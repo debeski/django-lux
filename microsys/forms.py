@@ -59,12 +59,14 @@ from .constants import (
 from .translations import build_translation_matrix_groups, discover_translation_languages, get_strings, get_current_language_code
 from .themes import get_theme_choices, get_theme_options, is_valid_theme, normalize_allowed_themes
 from .utils import (
+    CLIENT_IP_MODE_AUTO,
     CLIENT_IP_MODE_CLOUDFLARE,
     CLIENT_IP_MODE_CUSTOM,
     CLIENT_IP_MODE_REMOTE_ADDR,
     CLIENT_IP_MODE_X_FORWARDED_FOR,
     CLIENT_IP_MODE_X_REAL_IP,
     default_client_ip_config,
+    default_login_config,
     default_navbar_config,
     default_titlebar_config,
     default_email_config,
@@ -80,6 +82,8 @@ from .utils import (
     normalize_email_config,
     normalize_client_ip_config,
     normalize_language_catalog,
+    LOGIN_STYLE_VALUES,
+    normalize_login_config,
     normalize_navbar_config,
     normalize_sidebar_behavior,
     normalize_system_names,
@@ -1640,6 +1644,45 @@ class SystemSettingsForm(forms.ModelForm):
         choices=TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES,
         initial='soft',
     )
+    login_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
+    login_style = forms.ChoiceField(
+        required=False,
+        choices=(
+            ('split', ''),
+            ('centered', ''),
+            ('minimal', ''),
+            ('fullpage', ''),
+        ),
+        initial='split',
+    )
+    login_show_logo = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    login_banner_color = forms.CharField(
+        required=False,
+        initial='',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '#2b3035',
+            'pattern': r'^(#[0-9a-fA-F]{3,8}|[a-z]+)?$',
+            'spellcheck': 'false',
+        }),
+    )
+    login_logo_treatment = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_LOGO_TREATMENT_CHOICES,
+        initial='none',
+    )
+    login_logo_treatment_shape = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES,
+        initial='soft',
+    )
+    # login_hero_message_{lang} fields are added dynamically per language in __init__
     email_2fa = forms.BooleanField(
         required=False,
         initial=False,
@@ -1721,6 +1764,7 @@ class SystemSettingsForm(forms.ModelForm):
             'sidebar_config',
             'navbar_config',
             'titlebar_config',
+            'login_config',
         ]
 
     def __init__(self, *args, request=None, user=None, mode='modal', **kwargs):
@@ -1742,7 +1786,7 @@ class SystemSettingsForm(forms.ModelForm):
                 parsed_step = int(raw_step)
             except (TypeError, ValueError):
                 parsed_step = None
-            if parsed_step in (0, 1, 2, 3, 4, 5, 6):
+            if parsed_step in (0, 1, 2, 3, 4, 5, 6, 7):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
         if self.mode != 'setup' and self.single_step_mode:
@@ -2007,6 +2051,97 @@ class SystemSettingsForm(forms.ModelForm):
             ('pill', s.get('titlebar_logo_treatment_shape_pill', 'Pill')),
             ('square', s.get('titlebar_logo_treatment_shape_square', 'Square')),
         )
+        self.fields['login_style'].label = s.get('form_sys_login_style', 'Login Layout Style')
+        self.fields['login_style'].help_text = ''
+        self.fields['login_style'].choices = (
+            ('split', s.get('login_style_split', 'Split (form + banner)')),
+            ('centered', s.get('login_style_centered', 'Centered card')),
+            ('minimal', s.get('login_style_minimal', 'Floating with background')),
+            ('fullpage', s.get('login_style_fullpage', 'Full-page split')),
+        )
+        self.fields['login_show_logo'].label = s.get('form_sys_login_show_logo', 'Show Logo')
+        self.fields['login_show_logo'].help_text = s.get(
+            'help_sys_login_show_logo',
+            'Show the logo on the login screen. When off, the logo is hidden across all login styles.',
+        )
+        self.fields['login_banner_color'].label = s.get('form_sys_login_banner_color', 'Banner Colour')
+        self.fields['login_banner_color'].help_text = s.get(
+            'help_sys_login_banner_color',
+            'Optional — enter a CSS colour (hex, rgb, named). Leave empty for the theme default.',
+        )
+        self.fields['login_logo_treatment'].label = s.get('form_sys_login_logo_treatment', 'Login Logo Treatment')
+        self.fields['login_logo_treatment'].help_text = ''
+        self.fields['login_logo_treatment'].choices = (
+            ('none', s.get('titlebar_logo_treatment_none', 'None')),
+            ('plate', s.get('titlebar_logo_treatment_plate', 'Plate')),
+            ('halo', s.get('titlebar_logo_treatment_halo', 'Halo')),
+            ('contrast', s.get('titlebar_logo_treatment_contrast', 'Contrast')),
+        )
+        self.fields['login_logo_treatment_shape'].label = s.get('form_sys_login_logo_treatment_shape', 'Treatment Shape')
+        self.fields['login_logo_treatment_shape'].choices = (
+            ('soft', s.get('titlebar_logo_treatment_shape_soft', 'Soft')),
+            ('pill', s.get('titlebar_logo_treatment_shape_pill', 'Pill')),
+            ('square', s.get('titlebar_logo_treatment_shape_square', 'Square')),
+        )
+        initial_login_config = normalize_login_config(
+            getattr(self.instance, 'login_config', None) or config.get('login', {})
+        )
+        initial_hero = initial_login_config.get('hero_message', {})
+        if not isinstance(initial_hero, dict):
+            initial_hero = {}
+        self._login_hero_lang_fields = []
+        for lang_code, lang_meta in current_languages.items():
+            field_name = f'login_hero_message_{lang_code}'
+            lang_label = lang_meta.get('name', lang_code) if isinstance(lang_meta, dict) else str(lang_meta)
+            lang_dir = lang_meta.get('dir', 'ltr') if isinstance(lang_meta, dict) else 'ltr'
+            placeholder = s.get('login_hero_placeholder', 'Welcome! Sign in to continue.')
+            self.fields[field_name] = forms.CharField(
+                required=False,
+                initial=initial_hero.get(lang_code, ''),
+                label=lang_label,
+                widget=forms.Textarea(attrs={
+                    'rows': 5,
+                    'class': 'form-control font-monospace',
+                    'dir': lang_dir,
+                    'placeholder': placeholder,
+                }),
+            )
+            self._login_hero_lang_fields.append((lang_code, lang_label, field_name))
+        _bind_choice_selector_widget(
+            self.fields['login_style'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'split': {'icon': 'bi-layout-split'},
+                    'centered': {'icon': 'bi-credit-card-2-front'},
+                    'minimal': {'icon': 'bi-window-fullscreen'},
+                    'fullpage': {'icon': 'bi-layout-text-sidebar-reverse'},
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['login_logo_treatment'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'none': {'icon': 'bi-slash-circle'},
+                    'plate': {'icon': 'bi-badge-ad'},
+                    'halo': {'icon': 'bi-brightness-high'},
+                    'contrast': {'icon': 'bi-circle-half'},
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['login_logo_treatment_shape'],
+            MicrosysChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'soft': {'icon': 'bi-app'},
+                    'pill': {'icon': 'bi-capsule'},
+                    'square': {'icon': 'bi-square'},
+                },
+            ),
+        )
         self.fields['email_2fa'].label = s.get('form_sys_email_2fa', 'Enable Email 2FA')
         self.fields['email_2fa'].help_text = s.get(
             'help_sys_email_2fa',
@@ -2017,6 +2152,7 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['client_ip_mode'].label = s.get('form_sys_client_ip_mode')
         self.fields['client_ip_mode'].help_text = s.get('help_sys_client_ip_mode')
         self.fields['client_ip_mode'].choices = (
+            (CLIENT_IP_MODE_AUTO, s.get('client_ip_mode_auto', 'Auto-detect')),
             (CLIENT_IP_MODE_X_FORWARDED_FOR, s.get('client_ip_mode_x_forwarded_for')),
             (CLIENT_IP_MODE_REMOTE_ADDR, s.get('client_ip_mode_remote_addr')),
             (CLIENT_IP_MODE_X_REAL_IP, s.get('client_ip_mode_x_real_ip')),
@@ -2433,6 +2569,16 @@ class SystemSettingsForm(forms.ModelForm):
             getattr(self.instance, 'prevent_multiple_active_sessions', False)
             or config.get('prevent_multiple_active_sessions', False)
         )
+        initial_login_config = normalize_login_config(
+            getattr(self.instance, 'login_config', None) or config.get('login', {})
+        )
+        self.initial['login_config'] = _json_dump(initial_login_config, ensure_ascii=False)
+        self.initial['login_style'] = initial_login_config.get('style', 'split')
+        self.initial['login_show_logo'] = initial_login_config.get('show_logo', True)
+        self.initial['login_banner_color'] = initial_login_config.get('banner_color', '')
+        self.initial['login_logo_treatment'] = initial_login_config.get('logo_treatment', 'none')
+        self.initial['login_logo_treatment_shape'] = initial_login_config.get('logo_treatment_shape', 'soft')
+        # per-language hero message initial values set dynamically in __init__ above
         initial_client_ip_config = normalize_client_ip_config(
             (
                 getattr(self.instance, 'client_ip_config', None)
@@ -2923,7 +3069,72 @@ class SystemSettingsForm(forms.ModelForm):
                 css_class=_step_css_class(2),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'Step 4: Sidebar')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'Step 4: Login Page')}</span></div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('login_page_settings_title', 'Login Page Settings')}</h6>"),
+                HTML(f"<p class='small text-muted mb-3'>{s.get('login_page_settings_desc', 'Choose the login page layout and customise the side banner and logo treatment.')}</p>"),
+                # Row 1: layout style — full width, as-is
+                Field('login_style'),
+                # Logo visibility toggle
+                Row(
+                    build_settings_toggle_field(self, 'login_show_logo', css_class='col-12'),
+                    css_class='g-3 mt-1 mb-2',
+                ),
+                # Row 2: hero message textareas — one column per language
+                Div(
+                    HTML(
+                        f"<h6 class='fw-bold mt-4 mb-2'>{s.get('form_sys_login_hero_message', 'Hero Message')}</h6>"
+                        f"<p class='small text-muted mb-3'>{s.get('help_sys_login_hero_message', 'Text shown on the start half. Supports Markdown: **bold**, *italic*, # Heading, [link](url), lists.')}</p>"
+                    ),
+                    Row(
+                        *[
+                            Div(
+                                Field(field_name),
+                                css_class=(
+                                    'col-lg-6' if len(getattr(self, '_login_hero_lang_fields', [])) == 2
+                                    else 'col-lg-4' if len(getattr(self, '_login_hero_lang_fields', [])) == 3
+                                    else 'col-lg-3' if len(getattr(self, '_login_hero_lang_fields', [])) >= 4
+                                    else 'col-12'
+                                ),
+                            )
+                            for _lang_code, _lang_label, field_name in getattr(self, '_login_hero_lang_fields', [])
+                        ],
+                        css_class='g-3',
+                    ),
+                    css_class=(
+                        "ms-login-hero-field"
+                        f"{' d-none' if self.initial.get('login_style', 'split') != 'fullpage' else ''}"
+                    ),
+                    data_login_hero_field='true',
+                    aria_hidden='false' if self.initial.get('login_style', 'split') == 'fullpage' else 'true',
+                ),
+                # Row 3: logo treatment + plate shape side by side
+                # col-lg-7 (4 tiles) vs col-lg-5 (3 tiles) gives near-equal tile widths:
+                # 7/12÷4 ≈ 14.6%  vs  5/12÷3 ≈ 13.9% — visually uniform.
+                # align-items-stretch ensures both grids share the same row height.
+                HTML(f"<h6 class='fw-bold mt-4 mb-2'>{s.get('form_sys_login_logo_treatment', 'Logo Treatment')}</h6>"),
+                Row(
+                    Div(Field('login_logo_treatment'), css_class='col-lg-7 d-flex flex-column'),
+                    Div(
+                        Field('login_logo_treatment_shape'),
+                        css_class=(
+                            "col-lg-5 d-flex flex-column ms-login-plate-shape-field"
+                            f"{' d-none' if self.initial.get('login_logo_treatment', 'none') != 'plate' else ''}"
+                        ),
+                        data_login_plate_shape='true',
+                        aria_hidden='false' if self.initial.get('login_logo_treatment', 'none') == 'plate' else 'true',
+                    ),
+                    css_class='g-3 align-items-stretch',
+                ),
+                # Row 4: optional banner colour (transparent by default)
+                Row(
+                    Div(Field('login_banner_color'), css_class='col-lg-4'),
+                    css_class='g-3 mt-2 mb-3',
+                ),
+                Field('login_config'),
+                css_class=_step_css_class(3),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Sidebar')}</span></div>"),
                 Row(
                     build_settings_toggle_field(self, 'sidebar_enabled', css_class='col-lg-12'),
                     css_class='g-3 mb-3',
@@ -2962,11 +3173,12 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(self.sidebar_builder_html),
                 HTML("</div>"),
                 Field('sidebar_config'),
-                css_class=_step_css_class(3),
+                css_class=_step_css_class(4),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Nav Bar')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step6', 'Step 6: Nav Bar')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('navbar_settings_title', '')}</h6>"),
+
                 Row(
                     build_settings_toggle_field(self, 'navbar_enabled', css_class='col-lg-12'),
                     css_class='g-3 mb-3',
@@ -2983,10 +3195,10 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(self.navbar_builder_html),
                 HTML("</div>"),
                 Field('navbar_config'),
-                css_class=_step_css_class(4),
+                css_class=_step_css_class(5),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step6', 'Step 6: Titlebar')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step7', 'Step 7: Titlebar')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
                 Row(
                     build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-3'),
@@ -3028,10 +3240,10 @@ class SystemSettingsForm(forms.ModelForm):
                     ),
                     css_class='g-3 mb-3',
                 ),
-                css_class=_step_css_class(5),
+                css_class=_step_css_class(6),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step7', 'Step 7: Appearance')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step8', 'Step 8: Themes & Typography')}</span></div>"),
                 Row(
                     Div(
                         HTML(self.theme_picker_html),
@@ -3053,7 +3265,7 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('default_table_density'), css_class='col'),
                     css_class='mb-3'
                 ),
-                css_class=_step_css_class(6),
+                css_class=_step_css_class(7),
             ),
             FormActions(
                 HTML(
@@ -3575,6 +3787,18 @@ class SystemSettingsForm(forms.ModelForm):
             'trusted_proxy_hops': cleaned.get('client_ip_trusted_proxy_hops'),
             'custom_header': cleaned.get('client_ip_custom_header') or '',
         })
+        hero_dict = {
+            lang_code: str(cleaned.get(field_name) or '').strip()
+            for lang_code, _label, field_name in getattr(self, '_login_hero_lang_fields', [])
+        }
+        cleaned['login_config'] = normalize_login_config({
+            'style': cleaned.get('login_style') or 'split',
+            'show_logo': bool(cleaned.get('login_show_logo', True)),
+            'banner_color': cleaned.get('login_banner_color') or '',
+            'logo_treatment': cleaned.get('login_logo_treatment') or 'none',
+            'logo_treatment_shape': cleaned.get('login_logo_treatment_shape') or 'soft',
+            'hero_message': hero_dict or '',
+        })
         cleaned['titlebar_config'] = normalize_titlebar_config({
             'show_title': bool(cleaned.get('titlebar_show_title', True)),
             'show_logo': bool(cleaned.get('titlebar_show_logo', True)),
@@ -3667,6 +3891,7 @@ class SystemSettingsForm(forms.ModelForm):
             'sidebar_config': self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []}),
             'navbar_config': self.cleaned_data.get('navbar_config', default_navbar_config()),
             'titlebar_config': self.cleaned_data.get('titlebar_config', default_titlebar_config()),
+            'login_config': self.cleaned_data.get('login_config', default_login_config()),
         }, commit=False, preserve_email_secret=True)
         imported = getattr(self, '_imported_settings', {}) or {}
         if imported.get('logo') and not self.files.get('logo'):

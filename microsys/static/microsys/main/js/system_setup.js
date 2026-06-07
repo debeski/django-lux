@@ -3920,6 +3920,50 @@
         });
     }
 
+    function initLoginPageOptions(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.loginPageBound === 'true') return;
+
+            const hasStyle = getNamedFieldInputs(form, 'login_style').length > 0;
+            const hasTreatment = getNamedFieldInputs(form, 'login_logo_treatment').length > 0;
+            if (!hasStyle && !hasTreatment) return;
+
+            form.dataset.loginPageBound = 'true';
+
+            function syncLoginPageOptions() {
+                const style = getNamedFieldValue(form, 'login_style') || 'split';
+                const isFullpage = style === 'fullpage';
+                const treatment = getNamedFieldValue(form, 'login_logo_treatment') || 'none';
+                const isPlate = treatment === 'plate';
+
+                form.querySelectorAll('[data-login-hero-field]').forEach((node) => {
+                    node.classList.toggle('d-none', !isFullpage);
+                    node.setAttribute('aria-hidden', isFullpage ? 'false' : 'true');
+                    // Enable/disable all textareas inside the hero field
+                    node.querySelectorAll('textarea').forEach((ta) => {
+                        ta.disabled = !isFullpage;
+                    });
+                });
+
+                form.querySelectorAll('[data-login-plate-shape]').forEach((node) => {
+                    node.classList.toggle('d-none', !isPlate);
+                    node.setAttribute('aria-hidden', isPlate ? 'false' : 'true');
+                    setNamedFieldDisabled(form, 'login_logo_treatment_shape', !isPlate);
+                });
+            }
+
+            // Delegate from the form so ALL radio inputs in the selector fire it
+            form.addEventListener('change', function (e) {
+                const name = e.target && e.target.name;
+                if (name === 'login_style' || name === 'login_logo_treatment') {
+                    syncLoginPageOptions();
+                }
+            });
+
+            syncLoginPageOptions();
+        });
+    }
+
     function initTitlebarBehaviorOptions(root) {
         root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
             if (form.dataset.titlebarBehaviorBound === 'true') {
@@ -3986,6 +4030,7 @@
         initPublicRegistrationOptions(root);
         initPublicRootOptions(root);
         initClientIpOptions(root);
+        initLoginPageOptions(root);
         initTitlebarBehaviorOptions(root);
         initImmediateSystemSettingsPreview(root);
     }
