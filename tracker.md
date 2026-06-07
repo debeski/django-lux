@@ -35,8 +35,6 @@
 ### Incomplete Tasks:
 - **Priority 1:**
   - [ ] Implement validated `microsys/utils.py` split using `utils_split_plan.md`, preserving `microsys.utils` compatibility exports and `toggle_sidebar` wiring.
-  - [ ] Browser-check Nav Bar, Aether, sidebar collapsed Icons Only, Options font highlight, Step 6 preview, tooltips, theme-switch veil, and Profile confirm-password flows.
-  - [ ] Capture live Step 3 System Settings modal HTTP 400 JSON/log details if it still reproduces.
   - [ ] Harden `microsys/fetcher.py` fallback redirects for missing/local/forged external referers.
 - **Priority 1 browser validation:**
   - [ ] Setup/System Settings wizard, Options persistence/selectors, pre-setup guard, 2FA flows, trusted devices/sessions, User Report modal/XLSX, staff-tier surfaces.
