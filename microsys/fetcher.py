@@ -355,7 +355,7 @@ def fetch_excel(request, queryset, exclude_fields=None, hidden_fields=None, shee
     # Log Action
     try:
         if request.user.is_authenticated:
-            log_user_action(request, "EXPORT", model_name=model._meta.verbose_name, details={'filename': filename, 'count': obj_count})
+            log_user_action(request, "EXPORT", model_name=model._meta.verbose_name, model_key=model._meta.label_lower, details={'filename': filename, 'count': obj_count})
     except Exception as e:
         # Don't fail download if logging fails
         print(f"Logging failed: {e}")

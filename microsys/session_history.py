@@ -25,6 +25,62 @@ def hash_session_key(session_key):
     return hash_token(session_key)
 
 
+# ── Force sign-out signalling ────────────────────────────────────────────────
+# When a session is ended by someone/something other than its own browser (single
+# active-session eviction, or a remote "sign out this device"), we can't push to the
+# evicted browser — it only comes back on its next request carrying the now-dead session
+# cookie. We leave a short-lived flag, keyed by the hashed session key, so that next
+# request can show a "you were signed out" interstitial instead of a silent redirect.
+SESSION_REVOKED_CACHE_PREFIX = 'microsys:session_revoked:'
+
+
+def _session_revoked_ttl():
+    from django.conf import settings
+    try:
+        return int(getattr(settings, 'SESSION_COOKIE_AGE', None) or 1209600)
+    except (TypeError, ValueError):
+        return 1209600
+
+
+def flag_sessions_revoked(session_keys, reason='ended'):
+    """Mark one or more *raw* session keys as force-revoked so the affected browsers get
+    a 'signed out' interstitial on their next visit."""
+    keys = [key for key in (session_keys or []) if key]
+    if not keys:
+        return
+    try:
+        from django.core.cache import cache
+    except Exception:
+        return
+    ttl = _session_revoked_ttl()
+    for key in keys:
+        try:
+            cache.set(SESSION_REVOKED_CACHE_PREFIX + hash_session_key(key), str(reason or 'ended'), ttl)
+        except Exception:
+            # Best-effort UX only — never let it block sign-out/eviction.
+            pass
+
+
+def get_session_revoked_reason(raw_session_key):
+    if not raw_session_key:
+        return None
+    try:
+        from django.core.cache import cache
+        return cache.get(SESSION_REVOKED_CACHE_PREFIX + hash_session_key(raw_session_key))
+    except Exception:
+        return None
+
+
+def clear_session_revoked_flag(raw_session_key):
+    if not raw_session_key:
+        return
+    try:
+        from django.core.cache import cache
+        cache.delete(SESSION_REVOKED_CACHE_PREFIX + hash_session_key(raw_session_key))
+    except Exception:
+        pass
+
+
 def _model(name):
     return apps.get_model('microsys', name)
 

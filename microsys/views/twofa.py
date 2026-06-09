@@ -544,6 +544,8 @@ def verify_otp_view(request, intent='login'):
             if intent == 'login':
                 login(request, user)
                 _sync_session_device_metadata(request)
+                from ..trust import enforce_single_active_session
+                enforce_single_active_session(request, user)
                 redirect_url = _resolve_safe_login_redirect(request)
                 should_trust_device = str(request.POST.get('trust_device') or '').strip().lower() in {'1', 'true', 'on', 'yes'}
                 response = JsonResponse({'status': 'success', 'redirect_url': redirect_url}) if is_ajax else redirect(redirect_url)

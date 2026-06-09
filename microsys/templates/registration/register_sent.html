@@ -1,11 +1,14 @@
-{% extends 'microsys/base.html' %}
+{% extends 'registration/public_auth_base.html' %}
 {% block title %}{{ MS_TRANS.check_email|default:'Check your email' }}{% endblock %}
-{% block titlebar %}{% endblock %}
+{% block public_auth_page_class %}ms-public-auth-page--state{% endblock %}
 
-{% block layout %}
-<main class="container py-5 ms-register-main">
-    <h1 class="h3 mb-3">{{ MS_TRANS.check_email|default:'Check your email' }}</h1>
+{% block public_auth_panel %}
+<div class="ms-public-auth-status">
+    <div class="ms-public-auth-status__icon"><i class="bi bi-envelope-check"></i></div>
+    <h1>{{ MS_TRANS.check_email|default:'Check your email' }}</h1>
     <p>{{ MS_TRANS.registration_sent_desc|default:'If the address can be registered, a verification link has been sent.' }}</p>
-    <a class="btn btn-primary" href="{% url 'login' %}">{{ MS_TRANS.back_to_login|default:'Back to login' }}</a>
-</main>
+    <a class="w-100 btn btn-lg mt-3" id="submit" href="{% url 'login' %}">
+        <i class="bi bi-box-arrow-in-right me-2"></i>{{ MS_TRANS.back_to_login|default:'Back to login' }}
+    </a>
+</div>
 {% endblock %}

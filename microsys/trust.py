@@ -12,6 +12,7 @@ from .translations import get_strings
 from .utils import get_system_config
 from .session_history import (
     attach_presence_cookie,
+    flag_sessions_revoked,
     link_current_known_device_to_trusted_device,
     mark_presence_sessions_ended,
     remember_request_presence,
@@ -141,11 +142,18 @@ def revoke_linked_session_trust(user, session_keys, trusted_device_ids=None, exc
     return devices.filter(criteria).update(revoked_at=timezone.now())
 
 
-def revoke_other_user_sessions(user, keep_session_key=None, keep_trusted_device_id=None):
+def terminate_other_user_sessions(user, keep_session_key=None):
+    """End every other active session for ``user`` (delete the session row + close its
+    presence record), keeping only ``keep_session_key``.
+
+    Single active session is purely about session concurrency, so this does not touch
+    trusted-device records — trust is independent of which session is currently live,
+    and an evicted device can still skip 2FA when it signs back in. (Revoking a device's
+    trust is a separate, explicit action in the profile's trusted-devices UI.)
+    """
     now = timezone.now()
-    target_keys = []
-    trusted_ids = []
     user_id = str(user.pk)
+    target_keys = []
     for session in Session.objects.filter(expire_date__gt=now):
         if keep_session_key and session.session_key == keep_session_key:
             continue
@@ -156,35 +164,30 @@ def revoke_other_user_sessions(user, keep_session_key=None, keep_trusted_device_
         if str(data.get('_auth_user_id') or '') != user_id:
             continue
         target_keys.append(session.session_key)
-        metadata = data.get('microsys_device') if isinstance(data.get('microsys_device'), dict) else {}
-        trusted_device_id = metadata.get('trusted_device_id')
-        if trusted_device_id is not None:
-            try:
-                trusted_ids.append(int(trusted_device_id))
-            except (TypeError, ValueError):
-                pass
     if target_keys:
         Session.objects.filter(session_key__in=target_keys).delete()
         mark_presence_sessions_ended(target_keys, revoked=True)
-    revoke_linked_session_trust(
-        user,
-        target_keys,
-        trusted_device_ids=trusted_ids,
-        exclude_trusted_device_id=keep_trusted_device_id,
-    )
+        flag_sessions_revoked(target_keys, reason='signed_in_elsewhere')
     return len(target_keys)
 
 
-def enforce_single_active_trusted_session(request, user, trusted_device):
-    if not trusted_device:
+def enforce_single_active_session(request, user):
+    """When ``prevent_multiple_active_sessions`` is enabled, make the just-authenticated
+    session the user's only active one by evicting every other session. Trust is
+    irrelevant here: newest login wins, full stop — a trusted session is evicted just
+    like any other. Evicted devices have no session on their next request and are
+    bounced to the login screen."""
+    if not user:
         return 0
     if not bool(get_system_config().get('prevent_multiple_active_sessions', False)):
         return 0
-    return revoke_other_user_sessions(
-        user,
-        keep_session_key=getattr(getattr(request, 'session', None), 'session_key', None),
-        keep_trusted_device_id=trusted_device.pk,
-    )
+    keep_session_key = getattr(getattr(request, 'session', None), 'session_key', None)
+    # Safety: never run an eviction we can't anchor to the current session — without a
+    # known key we'd delete *every* session for the user, including this just-logged-in
+    # one, signing the user out of the device they're actively using.
+    if not keep_session_key:
+        return 0
+    return terminate_other_user_sessions(user, keep_session_key=keep_session_key)
 
 
 def issue_trusted_device(request, response, user):
@@ -206,5 +209,5 @@ def issue_trusted_device(request, response, user):
         samesite='Lax',
     )
     attach_presence_cookie(response, request)
-    enforce_single_active_trusted_session(request, user, trusted_device)
+    enforce_single_active_session(request, user)
     return trusted_device

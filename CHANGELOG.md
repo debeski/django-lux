@@ -4,6 +4,48 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.3.3
+
+### Public Registration UI
+
+- **Registration screen now follows the configured login style**: Public registration, email-sent, and verification-result pages now reuse the Microsys login shell instead of rendering as plain centered forms. They inherit the active login layout (`split`, `centered`, `minimal`, or `fullpage`), logo visibility/treatment, banner color, language switcher, hero text, themes, and Microsys translations.
+- **Form polish and sizing**: Registration fields now use the Microsys login input styling, tighter vertical spacing, translated user-field labels, RTL-aware back navigation, and layout-specific sizing so the longer signup form stays inside the card across the default split, centered, minimal, and full-page login styles.
+
+### Login Page Fixes
+
+- **Default split layout with signup link**: When public registration is enabled, the default split login card now gets a dedicated `ms-login-has-register` state so the create-account link stays inside the card instead of clipping below the bounds.
+- **Login logo treatment `none` respected**: The login logo no longer receives the adaptive frosted plate/background when System Settings selects the `none` treatment. Plate, halo, and contrast treatments remain available when explicitly selected.
+
+## v2.3.2
+
+### Single Active Session
+
+- **Fix — "Prevent multiple active sessions" now actually enforces one session**: Previously the setting only acted on part of the 2FA login path, and only when the *logging-in* device was already trusted — so non-2FA logins and untrusted logins coexisted, and a second device was never blocked. Enforcement (`enforce_single_active_session`) now runs at **every** login completion point (standard login, trusted skip-2FA login, and 2FA-verified login) plus the "trust this device" action. On any successful login the user's **other** sessions are ended; the evicted device has no session on its next request.
+- **Trust decoupled from session concurrency**: Single active session is now purely "newest login wins" — a trusted session is evicted exactly like any untrusted one, and an evicted device keeps its trusted-device record (it can still skip 2FA when it signs back in). The trust-coupled variants (`enforce_single_active_trusted_session`, `revoke_other_user_sessions`) were removed in favour of one `enforce_single_active_session` / `terminate_other_user_sessions` path.
+- **Self-eviction guard**: Enforcement no longer runs when the current session key can't be resolved, so a transient missing key can never delete *every* session for the user (including the one they just signed in on).
+
+### Signed-out Interstitial
+
+- **"You were signed out" page**: A device whose session was force-ended — by single-session eviction or a remote "sign out this device" — is now sent to a dedicated interstitial (`/accounts/session-ended/`) on its next request instead of being silently bounced to the login form. It is a deliberate dead-end with a single **Home** button, which resolves to the login page when the public home is disabled. Messages distinguish "signed in elsewhere" from "signed out remotely" (AR/EN).
+- **Detection**: Force-ended sessions are recorded as a short-lived, hashed-key cache flag (TTL follows `SESSION_COOKIE_AGE`); `MicrosysMiddleware` consumes the flag one-shot for anonymous GETs carrying the stale session cookie and redirects to the interstitial. Best-effort and dependency-light — with no shared cache it simply degrades to the previous redirect-to-login behaviour. Also fixed a prefix check that treated a root (`/`) `MEDIA_URL`/`STATIC_URL` as matching every path.
+
+## v2.3.1
+
+### Reports (Localization Fix)
+
+- **Fix — reports always showed 0 in non-Latin locales**: The supervisor overview (`/sys/reports/`) and every per-user report counted **0 operations** for projects running a non-Latin `LANGUAGE_CODE` (e.g. Arabic). Root cause: `_patch_model_meta()` wraps every model's `verbose_name` in a lazy translator, so the activity logger stored the **translated** label in `UserActivityLog.model_name`; the report eligibility check ran that label through `normalize_activity_log_model_key()` (which strips everything outside `[a-z0-9]`), so a fully non-ASCII label collapsed to an empty key and the guard rejected **every** row. The eligibility guard now only rejects genuinely empty names and falls through to model resolution, so a label is judged by its underlying model rather than by whether it happens to be ASCII.
+
+### Locale-Independent Activity Key
+
+- **New `UserActivityLog.model_key` field**: Activity logs now store a stable, locale-independent `app_label.model_name` key (e.g. `documents.decree`) alongside the human-readable `model_name` label. Reports group, filter, and resolve on this key — so the same model logged under different UI languages no longer fragments into separate rows, and eligibility resolution is deterministic (`apps.get_model`) instead of depending on a locale-sensitive fuzzy match. Display labels are still derived from `translate_activity_log_model_name()`.
+- **Key population**: `safe_log()`, `log_user_action()`, and the `post_save`/`post_delete` signals now record `model_key` from `instance._meta.label_lower`. Synthetic events (login, password, session, trusted-device) are intentionally left unkeyed so they continue to fall under the operational-internals exclusion. `UserActivityLog.get_modal_context()` resolves related objects via the stable key first.
+- **Migration `0011_useractivitylog_model_key`**: Adds the indexed `model_key` field and best-effort backfills legacy rows by resolving each stored label back to its model under the system default language (rows whose label no longer resolves stay null and fall back to `model_name`). The backfill is a no-op to reverse.
+
+### Internal
+
+- **Reusable helpers**: `reports.py` exposes `activity_report_key(model_key, model_name)` and `log_report_key(log)` for the "prefer the stable key, fall back to the label" rule, used across the overview, per-user report, activity windows, and the Profile system-interaction split.
+- **Test coverage**: Added regressions for non-ASCII labels remaining eligible (the original bug) and for stable-key grouping collapsing the same model across locales while keeping operational internals excluded.
+
 ## v2.3.0
 
 ### Manage Users

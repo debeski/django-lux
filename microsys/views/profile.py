@@ -17,14 +17,19 @@ from django.utils.module_loading import import_string
 from ..guards import require_current_password
 from ..trust import (
     current_session_trusted_device,
-    enforce_single_active_trusted_session,
+    enforce_single_active_session,
     issue_trusted_device,
     revoke_linked_session_trust,
     sync_session_device_metadata,
     trusted_device_for_session,
 )
-from ..session_history import hash_session_key, mark_presence_sessions_ended
-from ..reports import exclude_log_noise, filter_report_eligible_activity, is_report_eligible_activity_model_name
+from ..session_history import flag_sessions_revoked, hash_session_key, mark_presence_sessions_ended
+from ..reports import (
+    exclude_log_noise,
+    filter_report_eligible_activity,
+    is_report_eligible_activity_model_name,
+    log_report_key,
+)
 from ..utils import get_user_management_tier_state_for_user, log_user_action, normalize_activity_log_model_key
 from ..translations import get_strings
 from .twofa import get_2fa_config
@@ -40,7 +45,7 @@ def _is_profile_system_interaction(log_entry):
     action_key = normalize_activity_log_model_key(getattr(log_entry, "action", ""))
     if action_key in _PROFILE_SYSTEM_ACTIONS:
         return True
-    return not is_report_eligible_activity_model_name(getattr(log_entry, "model_name", ""))
+    return not is_report_eligible_activity_model_name(log_report_key(log_entry))
 
 
 def _parse_session_datetime(value):
@@ -368,6 +373,9 @@ def revoke_profile_session(request, session_key):
 
     target_session.delete()
     mark_presence_sessions_ended([session_key], revoked=True)
+    if not is_current_session:
+        # The other browser will get a "signed out remotely" interstitial next visit.
+        flag_sessions_revoked([session_key], reason='signed_out_remotely')
     trusted_device_ids = []
     if trusted_device_id is not None:
         try:
@@ -420,6 +428,6 @@ def trust_current_device(request):
         log_user_action(request, "CREATE", instance=request.user, model_name="trusted device")
     else:
         sync_session_device_metadata(request, trusted_device=trusted_device)
-        enforce_single_active_trusted_session(request, request.user, trusted_device)
+        enforce_single_active_session(request, request.user)
 
     return response

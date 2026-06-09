@@ -9,6 +9,7 @@ from django.utils import timezone
 from .translations import get_strings
 from .utils import get_user_management_tier_state_for_user, translate_activity_log_model_name
 from .reports import (
+    activity_report_key,
     build_activity_windows,
     apply_report_window,
     filter_report_eligible_activity,
@@ -107,9 +108,9 @@ def build_user_report(target_user, actor=None, window='week'):
     windows = build_activity_windows(eligible_activity_qs, strings=s)
     action_counts = Counter()
     model_counts = Counter()
-    for action, model_name in selected_activity_qs.values_list('action', 'model_name'):
+    for action, row_model_key, row_model_name in selected_activity_qs.values_list('action', 'model_key', 'model_name'):
         action_counts[action] += 1
-        model_counts[model_name or s.get('user_report_unknown')] += 1
+        model_counts[activity_report_key(row_model_key, row_model_name) or s.get('user_report_unknown')] += 1
     presence_days = set()
     total_seconds = 0
     total_requests = 0

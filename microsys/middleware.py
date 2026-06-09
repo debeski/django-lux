@@ -45,6 +45,7 @@ class MicrosysMiddleware:
             allowed_exact_paths.update({
                 reverse('login'),
                 reverse('logout'),
+                reverse('session_ended'),
             })
             allowed_prefixes.extend([
                 reverse('system_setup'),
@@ -157,6 +158,42 @@ class MicrosysMiddleware:
 
         remember_request_presence(request)
 
+    def _signed_out_redirect(self, request):
+        """If this anonymous request is carrying a session cookie whose session was
+        force-revoked (single-session eviction or a remote sign-out), send the browser to
+        the 'signed out' interstitial instead of silently bouncing it to the login form."""
+        if request.method != 'GET':
+            return None
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return None
+        user = getattr(request, 'user', None)
+        if user is not None and getattr(user, 'is_authenticated', False):
+            return None
+        cookie_name = getattr(settings, 'SESSION_COOKIE_NAME', 'sessionid')
+        raw_session_key = request.COOKIES.get(cookie_name)
+        if not raw_session_key:
+            return None
+        try:
+            ended_path = reverse('session_ended')
+        except Exception:
+            ended_path = '/accounts/session-ended/'
+        if request.path == ended_path:
+            return None
+        for prefix in (getattr(settings, 'STATIC_URL', None), getattr(settings, 'MEDIA_URL', None)):
+            prefix = str(prefix or '').strip()
+            # Ignore a bare "/" prefix (a common MEDIA_URL default) — it would match every path.
+            if prefix and prefix != '/' and request.path.startswith(prefix):
+                return None
+        from .session_history import clear_session_revoked_flag, get_session_revoked_reason
+        reason = get_session_revoked_reason(raw_session_key)
+        if not reason:
+            return None
+        # One-shot: clear it now (we still have the cookie here; by the time the browser
+        # reaches the interstitial the stale session cookie has been dropped) so the
+        # interstitial doesn't recur.
+        clear_session_revoked_flag(raw_session_key)
+        return redirect(f'{ended_path}?reason={reason}')
+
     def _sync_auth_redirects(self):
         """
         Dynamically update LOGIN_REDIRECT_URL and LOGOUT_REDIRECT_URL
@@ -190,6 +227,10 @@ class MicrosysMiddleware:
         try:
             self._sync_auth_redirects()
             self._remember_session_device(request)
+
+            signed_out_redirect = self._signed_out_redirect(request)
+            if signed_out_redirect is not None:
+                return signed_out_redirect
 
             setup_redirect = self._setup_redirect_response(request)
             if setup_redirect is not None:

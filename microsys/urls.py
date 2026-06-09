@@ -10,6 +10,7 @@ urlpatterns = [
     # Auth URLs (Django defaults - no prefix needed when mounted at root)
     path('accounts/login/', views.CustomLoginView.as_view(), name='login'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('accounts/session-ended/', views.session_ended_view, name='session_ended'),
     path('accounts/register/', views.register_view, name='register'),
     path('accounts/register/sent/', views.register_sent_view, name='register_sent'),
     path('accounts/register/verify/<str:token>/', views.register_verify_view, name='register_verify'),

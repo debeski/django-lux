@@ -2278,23 +2278,88 @@ class ProfileSessionDeviceTests(TestCase):
         trusted_device.refresh_from_db()
         self.assertIsNotNone(trusted_device.revoked_at)
 
-    def test_untrusted_login_does_not_evict_existing_trusted_session(self):
+    def test_standard_login_evicts_other_sessions_when_single_session_enabled(self):
         settings_obj = SystemSettings.load()
         settings_obj.prevent_multiple_active_sessions = True
         settings_obj.save()
-        trusted_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
-        untrusted_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
-        trusted_client.login(username='devices', password='devicespass123')
-        trusted_session_key = trusted_client.session.session_key
-        self._mark_session_trusted(trusted_client, 'trusted-session-survives-login')
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        first_session_key = first_client.session.session_key
+        trusted_device = self._mark_session_trusted(first_client, 'trusted-session-evicted-on-new-login')
 
-        response = untrusted_client.post(reverse('login'), {
+        response = second_client.post(reverse('login'), {
             'username': 'devices',
             'password': 'devicespass123',
         })
 
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(Session.objects.filter(session_key=trusted_session_key).exists())
+        # The newest login becomes the only active session; the older one is evicted...
+        self.assertFalse(Session.objects.filter(session_key=first_session_key).exists())
+        self.assertTrue(Session.objects.filter(session_key=second_client.session.session_key).exists())
+        # ...but the evicted device keeps its trusted-device record (trust != session).
+        trusted_device.refresh_from_db()
+        self.assertIsNone(trusted_device.revoked_at)
+
+    def test_standard_login_keeps_other_sessions_when_single_session_disabled(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.prevent_multiple_active_sessions = False
+        settings_obj.save()
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        first_session_key = first_client.session.session_key
+
+        response = second_client.post(reverse('login'), {
+            'username': 'devices',
+            'password': 'devicespass123',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Session.objects.filter(session_key=first_session_key).exists())
+
+    def test_single_session_enforcement_no_op_without_current_session_key(self):
+        from types import SimpleNamespace
+        from microsys.trust import enforce_single_active_session
+        settings_obj = SystemSettings.load()
+        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.save()
+        other = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        other.login(username='devices', password='devicespass123')
+        other_key = other.session.session_key
+        # A request with no resolvable current session key must evict nothing — otherwise
+        # it would delete every session for the user, including the live one.
+        fake_request = SimpleNamespace(session=SimpleNamespace(session_key=None))
+        self.assertEqual(enforce_single_active_session(fake_request, self.user), 0)
+        self.assertTrue(Session.objects.filter(session_key=other_key).exists())
+
+    def test_evicted_device_is_redirected_to_signed_out_interstitial(self):
+        from django.core.cache import cache
+        cache.clear()
+        settings_obj = SystemSettings.load()
+        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.is_configured = True
+        settings_obj.save()
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        first_client.login(username='devices', password='devicespass123')
+        first_session_key = first_client.session.session_key
+
+        second_client.post(reverse('login'), {'username': 'devices', 'password': 'devicespass123'})
+        self.assertFalse(Session.objects.filter(session_key=first_session_key).exists())
+
+        # The evicted device's next page load is intercepted and pointed at the interstitial.
+        from microsys.session_history import get_session_revoked_reason
+        bounced = first_client.get(reverse('user_profile'))
+        self.assertEqual(bounced.status_code, 302)
+        self.assertIn(reverse('session_ended'), bounced.url)
+        # Detection is one-shot — the flag is consumed so the interstitial can't recur.
+        self.assertIsNone(get_session_revoked_reason(first_session_key))
+
+        # The interstitial itself renders for the (now anonymous) browser.
+        ended = self.client.get(reverse('session_ended'), {'reason': 'signed_in_elsewhere'})
+        self.assertEqual(ended.status_code, 200)
+        self.assertContains(ended, 'Signed out')
 
     def test_presence_history_uses_device_cookie_across_ip_changes(self):
         client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
@@ -2525,3 +2590,67 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertEqual(allowed.status_code, 200)
         self.assertEqual(allowed['Content-Type'], 'application/zip')
         self.assertIn(b'PK', allowed.content[:4])
+
+    def test_reports_count_non_ascii_model_labels(self):
+        """Translated (non-ASCII) verbose names are stored as the activity log
+        model_name. They normalize to an empty key, so the eligibility filter must
+        not reject them outright — otherwise every operation in a non-Latin locale
+        (e.g. Arabic) drops out and reports always show 0. Regression for that bug."""
+        from microsys.reports import (
+            is_report_eligible_activity_model_name,
+            build_reports_overview,
+        )
+        from microsys.user_reports import build_user_report
+
+        ActivityLog = apps.get_model('microsys', 'UserActivityLog')
+        arabic_label = 'قرار'  # "decree" — a host-model verbose name in Arabic
+
+        # The label normalizes to '' yet must remain eligible (it is not a known
+        # operational internal, so it falls through to the default-include path).
+        self.assertTrue(is_report_eligible_activity_model_name(arabic_label))
+        # Operational internals stay excluded regardless.
+        self.assertFalse(is_report_eligible_activity_model_name('System Settings'))
+
+        ActivityLog.objects.create(created_by=self.user, action='CREATE', model_name=arabic_label)
+        ActivityLog.objects.create(created_by=self.user, action='UPDATE', model_name=arabic_label)
+        ActivityLog.objects.create(created_by=self.user, action='UPDATE', model_name='System Settings')
+
+        overview = build_reports_overview(self.user, window='all')
+        self.assertEqual(overview['all_total'], 2)
+        overview_labels = {item['label'] for item in overview['models']}
+        self.assertIn(arabic_label, overview_labels)
+
+        report = build_user_report(self.user, actor=self.user, window='all')
+        self.assertEqual(report['summary']['activity_count'], 2)
+
+    def test_reports_group_by_stable_model_key_regardless_of_locale(self):
+        """The stable model_key drives grouping/eligibility. The same model logged
+        under different UI languages collapses into one row, and operational internals
+        stay excluded via their key even when the displayed label differs."""
+        from microsys.reports import build_reports_overview
+
+        ActivityLog = apps.get_model('microsys', 'UserActivityLog')
+        # Same logical host model, logged under two languages → identical stable key.
+        ActivityLog.objects.create(
+            created_by=self.user, action='CREATE',
+            model_key='documents.decree', model_name='قرار',
+        )
+        ActivityLog.objects.create(
+            created_by=self.user, action='UPDATE',
+            model_key='documents.decree', model_name='Decree',
+        )
+        # A microsys-internal model stays excluded via its stable key.
+        ActivityLog.objects.create(
+            created_by=self.user, action='UPDATE',
+            model_key='microsys.systemsettings', model_name='System Settings',
+        )
+
+        overview = build_reports_overview(self.user, window='all')
+        self.assertEqual(overview['all_total'], 2)
+        decree_rows = [m for m in overview['models'] if m['key'] == 'documents.decree']
+        self.assertEqual(len(decree_rows), 1)
+        self.assertEqual(decree_rows[0]['count'], 2)
+        self.assertNotIn(
+            'microsys.systemsettings',
+            {m['key'] for m in overview['models']},
+        )

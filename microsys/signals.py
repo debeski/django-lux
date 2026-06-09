@@ -133,11 +133,14 @@ def log_save(sender, instance, created, **kwargs):
     # Normalize Model and Object ID for User/Profile unification
     is_user_entry = False
     target_user_id = None
-    
+    # Stable, locale-independent key ("app_label.model_name"). Left None for the unified
+    # User/Profile entry (keyed off its "User Profile" label, which reports already exclude).
+    model_key = None
+
     # Use proper class checks instead of string matching
     User = get_user_model()
     Profile = apps.get_model('microsys', 'Profile')
-    
+
     if isinstance(instance, User):
         is_user_entry = True
         target_user_id = instance.pk
@@ -150,6 +153,7 @@ def log_save(sender, instance, created, **kwargs):
         obj_id = int(instance.user_id) # Log against the User ID for unification
     else:
         model_name = instance._meta.verbose_name
+        model_key = instance._meta.label_lower
         try:
             obj_id = int(instance.pk) if instance.pk is not None else None
         except (ValueError, TypeError):
@@ -215,6 +219,7 @@ def log_save(sender, instance, created, **kwargs):
         user=user,
         action=action,
         model_name=model_name,
+        model_key=model_key,
         object_id=obj_id,
         number=obj_str[:50] if obj_str else None,
         details=details,
@@ -241,9 +246,10 @@ def log_delete(sender, instance, **kwargs):
     action = "DELETE"
     # Normalize Model and Object ID for User/Profile unification
     is_user_entry = False
+    model_key = None
     User = get_user_model()
     Profile = apps.get_model('microsys', 'Profile')
-    
+
     if isinstance(instance, User):
         is_user_entry = True
         model_name = "User Profile"
@@ -254,6 +260,7 @@ def log_delete(sender, instance, **kwargs):
         obj_id = int(instance.user_id) # Profile's User ID
     else:
         model_name = instance._meta.verbose_name
+        model_key = instance._meta.label_lower
         try:
             obj_id = int(instance.pk) if instance.pk is not None else None
         except (ValueError, TypeError):
@@ -284,6 +291,7 @@ def log_delete(sender, instance, **kwargs):
         user=user,
         action=action,
         model_name=model_name,
+        model_key=model_key,
         object_id=obj_id,
         number=obj_str[:50] if obj_str else None,
         details=None,

@@ -20,7 +20,8 @@ from ..registration import (
     registration_throttle_allows,
     send_registration_verification_email,
 )
-from ..utils import log_user_action
+from ..translations import get_strings
+from ..utils import get_system_config, log_user_action
 
 
 def _ensure_public_registration():
@@ -28,8 +29,45 @@ def _ensure_public_registration():
         raise Http404
 
 
+def _public_auth_context(request):
+    config = get_system_config()
+    languages = config.get('localization', {}).get('languages') or config.get('languages', {})
+    allow_lang_override = bool(
+        config.get('localization', {}).get(
+            'allow_user_language_override',
+            config.get('allow_user_language_override', True),
+        )
+    )
+
+    lang_param = request.GET.get('lang')
+    if allow_lang_override and lang_param in languages:
+        request.session['lang'] = lang_param
+
+    current_lang = (
+        request.session.get('lang')
+        or config.get('localization', {}).get('default_language')
+        or config.get('default_language', 'en')
+    )
+    default_lang = config.get('localization', {}).get('default_language') or config.get('default_language', 'en')
+    if languages and current_lang not in languages:
+        current_lang = default_lang if default_lang in languages else 'en'
+
+    login_cfg = config.get('login', {})
+    hero = login_cfg.get('hero_message', '')
+    if isinstance(hero, dict):
+        hero = hero.get(current_lang) or (next(iter(hero.values()), '') if hero else '')
+    project_overrides = config.get('localization', {}).get('translations', config.get('translations', None))
+
+    return {
+        'login_config': login_cfg,
+        'login_hero_message': hero,
+        'MS_TRANS': get_strings(current_lang, overrides=project_overrides),
+    }
+
+
 def register_view(request):
     _ensure_public_registration()
+    context = _public_auth_context(request)
     if request.method == 'POST':
         if request.POST.get('website'):
             return redirect('register_sent')
@@ -37,7 +75,10 @@ def register_view(request):
         if form.is_valid():
             email = form.cleaned_data['email']
             if not public_registration_available():
-                form.add_error(None, "Registration email delivery is not configured.")
+                form.add_error(None, context['MS_TRANS'].get(
+                    'msg_registration_not_configured',
+                    "Registration email delivery is not configured.",
+                ))
             elif not registration_throttle_allows(request, email):
                 return redirect('register_sent')
             elif existing_registration_email(email):
@@ -45,38 +86,43 @@ def register_view(request):
             else:
                 registration, token = create_inactive_registration_user(form, request)
                 if not send_registration_verification_email(request, registration, token):
-                    _safe_error_message(request, "We could not send the verification email. Please try again later.")
+                    _safe_error_message(request, context['MS_TRANS'].get(
+                        'msg_verification_email_failed',
+                        "We could not send the verification email. Please try again later.",
+                    ))
                 return redirect('register_sent')
     else:
         form = PublicRegistrationForm()
-    return render(request, 'registration/register.html', {'form': form})
+    context['form'] = form
+    return render(request, 'registration/register.html', context)
 
 
 def register_sent_view(request):
     _ensure_public_registration()
-    return render(request, 'registration/register_sent.html')
+    return render(request, 'registration/register_sent.html', _public_auth_context(request))
 
 
 def register_verify_view(request, token):
     _ensure_public_registration()
+    context = _public_auth_context(request)
     token_hash = PublicRegistration.hash_token(token)
     registration = PublicRegistration.objects.filter(
         token_hash=token_hash,
         status=REGISTRATION_STATUS_PENDING_EMAIL,
     ).select_related('user').first()
     if not registration or not registration.token_matches(token):
-        return render(request, 'registration/register_verify.html', {'status': 'invalid'}, status=400)
+        return render(request, 'registration/register_verify.html', {**context, 'status': 'invalid'}, status=400)
     if registration.is_expired:
         registration.mark_expired()
-        return render(request, 'registration/register_verify.html', {'status': 'expired'}, status=400)
+        return render(request, 'registration/register_verify.html', {**context, 'status': 'expired'}, status=400)
 
     registration.mark_verified()
     if registration.user.is_active:
         login(request, registration.user, backend='django.contrib.auth.backends.ModelBackend')
         log_user_action(request, 'REGISTER_VERIFY', instance=registration, details={'status': registration.status})
-        return render(request, 'registration/register_verify.html', {'status': 'activated'})
+        return render(request, 'registration/register_verify.html', {**context, 'status': 'activated'})
 
-    return render(request, 'registration/register_verify.html', {'status': 'pending_approval'})
+    return render(request, 'registration/register_verify.html', {**context, 'status': 'pending_approval'})
 
 
 def _superuser_required(user):

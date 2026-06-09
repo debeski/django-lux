@@ -103,6 +103,56 @@ class PublicRegistrationTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertFalse(User.objects.filter(email='newuser@example.com').exists())
 
+    def test_register_page_uses_configured_login_shell(self):
+        self._enable_registration()
+        settings_obj = SystemSettings.load()
+        settings_obj.login_config = {
+            'style': 'centered',
+            'show_logo': True,
+            'logo_treatment': 'halo',
+            'logo_treatment_shape': 'soft',
+            'banner_color': '',
+            'hero_message': {'en': '## Welcome'},
+        }
+        settings_obj.save()
+
+        response = self.client.get(reverse('register'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ms-login--centered')
+        self.assertContains(response, 'ms-public-auth-page--register')
+        self.assertContains(response, 'data-login-logo-treatment="halo"')
+        self.assertContains(response, 'class="login-input')
+
+    def test_register_page_honours_anonymous_language_switch(self):
+        self._enable_registration()
+
+        response = self.client.get(f"{reverse('register')}?lang=ar")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.session.get('lang'), 'ar')
+        self.assertContains(response, 'إنشاء حساب')
+
+    def test_login_page_marks_public_registration_and_none_logo_treatment(self):
+        self._enable_registration()
+        settings_obj = SystemSettings.load()
+        settings_obj.login_config = {
+            'style': 'split',
+            'show_logo': True,
+            'logo_treatment': 'none',
+            'logo_treatment_shape': 'soft',
+            'banner_color': '',
+            'hero_message': {},
+        }
+        settings_obj.save()
+
+        response = self.client.get(reverse('login'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ms-login--split ms-login-has-register')
+        self.assertContains(response, 'data-login-logo-treatment="none"')
+        self.assertContains(response, reverse('register'))
+
     def test_signup_creates_inactive_user_and_hashed_pending_registration(self):
         self._enable_registration()
 

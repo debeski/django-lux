@@ -1,25 +1,29 @@
-{% extends 'microsys/base.html' %}
+{% extends 'registration/public_auth_base.html' %}
 {% block title %}{{ MS_TRANS.verification_failed|default:'Verification failed' }}{% endblock %}
-{% block titlebar %}{% endblock %}
+{% block public_auth_page_class %}ms-public-auth-page--state{% endblock %}
 
-{% block layout %}
-<main class="container py-5 ms-register-main">
+{% block public_auth_panel %}
+<div class="ms-public-auth-status">
     {% if status == 'activated' %}
-        <h1 class="h3 mb-3">{{ MS_TRANS.account_verified|default:'Account verified' }}</h1>
+        <div class="ms-public-auth-status__icon"><i class="bi bi-patch-check"></i></div>
+        <h1>{{ MS_TRANS.account_verified|default:'Account verified' }}</h1>
         <p>{{ MS_TRANS.account_active_signed_in|default:'Your account is active and you are signed in.' }}</p>
-        <a class="btn btn-primary" href="{{ APP_CONFIG.home_url|default:'/accounts/profile/' }}">{{ MS_TRANS.btn_continue|default:'Continue' }}</a>
+        <a class="w-100 btn btn-lg mt-3" id="submit" href="{{ APP_CONFIG.home_url|default:'/accounts/profile/' }}">{{ MS_TRANS.btn_continue|default:'Continue' }}</a>
     {% elif status == 'pending_approval' %}
-        <h1 class="h3 mb-3">{{ MS_TRANS.email_verified|default:'Email verified' }}</h1>
+        <div class="ms-public-auth-status__icon"><i class="bi bi-hourglass-split"></i></div>
+        <h1>{{ MS_TRANS.email_verified|default:'Email verified' }}</h1>
         <p>{{ MS_TRANS.account_pending_approval|default:'Your account is waiting for approval.' }}</p>
-        <a class="btn btn-primary" href="{% url 'login' %}">{{ MS_TRANS.back_to_login|default:'Back to login' }}</a>
+        <a class="w-100 btn btn-lg mt-3" id="submit" href="{% url 'login' %}">{{ MS_TRANS.back_to_login|default:'Back to login' }}</a>
     {% elif status == 'expired' %}
-        <h1 class="h3 mb-3">{{ MS_TRANS.verification_expired|default:'Verification expired' }}</h1>
+        <div class="ms-public-auth-status__icon ms-public-auth-status__icon--warn"><i class="bi bi-clock-history"></i></div>
+        <h1>{{ MS_TRANS.verification_expired|default:'Verification expired' }}</h1>
         <p>{{ MS_TRANS.verification_link_expired|default:'The verification link is no longer valid.' }}</p>
-        <a class="btn btn-primary" href="{% url 'register' %}">{{ MS_TRANS.register_again|default:'Register again' }}</a>
+        <a class="w-100 btn btn-lg mt-3" id="submit" href="{% url 'register' %}">{{ MS_TRANS.register_again|default:'Register again' }}</a>
     {% else %}
-        <h1 class="h3 mb-3">{{ MS_TRANS.verification_failed|default:'Verification failed' }}</h1>
+        <div class="ms-public-auth-status__icon ms-public-auth-status__icon--danger"><i class="bi bi-shield-x"></i></div>
+        <h1>{{ MS_TRANS.verification_failed|default:'Verification failed' }}</h1>
         <p>{{ MS_TRANS.verification_link_invalid|default:'The verification link is invalid or has already been used.' }}</p>
-        <a class="btn btn-primary" href="{% url 'register' %}">{{ MS_TRANS.btn_register_again|default:'Register' }}</a>
+        <a class="w-100 btn btn-lg mt-3" id="submit" href="{% url 'register' %}">{{ MS_TRANS.btn_register_again|default:'Register' }}</a>
     {% endif %}
-</main>
+</div>
 {% endblock %}

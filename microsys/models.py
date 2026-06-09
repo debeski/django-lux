@@ -668,7 +668,13 @@ class UserActivityLog(ScopedModel):
     # created_by (inherited) → replaces old 'user' field
     # created_at (inherited) → replaces old 'timestamp' field
     action = models.CharField(max_length=50, verbose_name="Action")
+    # Human-readable label (the model's translated verbose name at log time). Used for
+    # display. NOTE: this is locale-dependent, so never key reports/grouping off it.
     model_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="Model Name")
+    # Stable, locale-independent identity ("app_label.model_name", e.g. "documents.decree").
+    # This is what reports/eligibility should group and resolve on. Null for legacy rows
+    # and for non-model events (login, password, session, ...).
+    model_key = models.CharField(max_length=100, blank=True, null=True, db_index=True, verbose_name="Model Key")
     object_id = models.IntegerField(blank=True, null=True, verbose_name="Object ID")
     number = models.CharField(max_length=50, null=True, blank=True, verbose_name="Document Number")
     ip_address = models.GenericIPAddressField(blank=True, null=True, verbose_name="IP Address")
@@ -698,7 +704,7 @@ class UserActivityLog(ScopedModel):
         ]
 
     @classmethod
-    def safe_log(cls, user, action, model_name=None, object_id=None, number=None, details=None, ip_address=None, user_agent=None, scope=None):
+    def safe_log(cls, user, action, model_name=None, object_id=None, number=None, details=None, ip_address=None, user_agent=None, scope=None, model_key=None):
         """
         Log an action only if a duplicate entry hasn't been created in the last 2 seconds.
         """
@@ -732,6 +738,7 @@ class UserActivityLog(ScopedModel):
             created_by=user,
             action=action,
             model_name=model_name,
+            model_key=(str(model_key).strip().lower() or None) if model_key else None,
             object_id=object_id,
             number=number,
             details=details or {},
@@ -743,10 +750,10 @@ class UserActivityLog(ScopedModel):
     def get_modal_context(self):
         """Auto-resolve related object for dynamic modal detail view."""
         related_object = None
-        if self.model_name and self.object_id:
+        if (self.model_key or self.model_name) and self.object_id:
             from .utils import resolve_model_by_name
             try:
-                target_model = resolve_model_by_name(self.model_name)
+                target_model = resolve_model_by_name(self.model_key or self.model_name)
                 if target_model:
                     try:
                         related_object = target_model._default_manager.get(pk=self.object_id)

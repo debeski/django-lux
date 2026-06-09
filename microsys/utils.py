@@ -1321,15 +1321,16 @@ def user_has_any_permission_tokens(user, permissions, default_visible_to_all=Fal
     return any(user_matches_permission_token(user, p) for p in permissions)
 
 # Activity Logging — Universal logging utility for user actions
-def log_user_action(request, action, instance=None, model_name=None, details=None, number=None, object_id=None):
+def log_user_action(request, action, instance=None, model_name=None, details=None, number=None, object_id=None, model_key=None):
     """
     Centralized activity logging. All manual UserActivityLog creation should go through here.
-    
+
     Args:
         request:    Django request object
         action:     Action string (e.g. 'CREATE', 'LOGIN', 'EXPORT')
-        instance:   Optional model instance (auto-extracts pk, number, model_name)
-        model_name: Optional override for model name (used when no instance exists)
+        instance:   Optional model instance (auto-extracts pk, number, model_name, model_key)
+        model_name: Optional override for the display label (used when no instance exists)
+        model_key:  Optional override for the stable "app_label.model_name" key
         details:    Optional dict of extra details to attach to log
         number:     Optional override for the document number field
     """
@@ -1342,10 +1343,21 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         except Exception:
             user = None
 
+    # When an explicit model_name override is given (e.g. "password", "session"), it is a
+    # synthetic event label that does not correspond to `instance`'s model, so don't derive
+    # the stable key from the instance — keep it None unless the caller passed one.
+    if model_name:
+        resolved_name = model_name
+        resolved_key = model_key
+    else:
+        resolved_name = instance._meta.verbose_name if instance else None
+        resolved_key = model_key or (instance._meta.label_lower if instance else None)
+
     UserActivityLog.safe_log(
         user=user,
         action=action,
-        model_name=model_name or (instance._meta.verbose_name if instance else None),
+        model_name=resolved_name,
+        model_key=resolved_key,
         object_id=object_id if object_id is not None else (instance.pk if instance else None),
         number=number or (getattr(instance, 'number', '') if instance else None),
         details=details,

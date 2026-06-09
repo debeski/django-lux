@@ -1,0 +1,30 @@
+{% extends 'microsys/base.html' %}
+{% block title %}{{ MS_TRANS.session_ended_title|default:'Signed out' }}{% endblock %}
+{% block titlebar %}{% endblock %}
+
+{% block layout %}
+<main class="d-flex flex-column justify-content-center align-items-center min-vh-100 p-4 text-center ms-session-ended">
+    <div class="card border-0 shadow-sm p-4 p-md-5" style="max-width: 480px; width: 100%;">
+        <div class="mb-3">
+            <i class="bi bi-box-arrow-right text-primary" style="font-size: 3rem;"></i>
+        </div>
+        <h1 class="h4 mb-2">{{ MS_TRANS.session_ended_title|default:'Signed out' }}</h1>
+        <p class="text-muted mb-4">
+            {% if reason == 'signed_in_elsewhere' %}
+                {{ MS_TRANS.session_ended_elsewhere|default:'You were signed out because your account was used to sign in on another device.' }}
+            {% elif reason == 'signed_out_remotely' %}
+                {{ MS_TRANS.session_ended_remote|default:'This device was signed out remotely.' }}
+            {% else %}
+                {{ MS_TRANS.session_ended_generic|default:'Your session has ended.' }}
+            {% endif %}
+        </p>
+        <a class="btn btn-primary btn-lg rounded-pill" href="{{ home_target }}">
+            {% if target_is_login %}
+                {{ MS_TRANS.session_ended_login|default:'Go to login' }}
+            {% else %}
+                {{ MS_TRANS.session_ended_home|default:'Go to home' }}
+            {% endif %}
+        </a>
+    </div>
+</main>
+{% endblock %}

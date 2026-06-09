@@ -10,7 +10,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from datetime import timedelta
@@ -63,14 +63,14 @@ class CustomLoginView(LoginView):
         if hasattr(user, 'profile') and user.profile.is_2fa_enabled:
             from django.shortcuts import resolve_url
             from .twofa import get_trusted_device_for_login, prepare_login_2fa_challenge, _sync_session_device_metadata
-            from ..trust import enforce_single_active_trusted_session
+            from ..trust import enforce_single_active_session
             from microsys.utils import get_system_config
 
             trusted_device = get_trusted_device_for_login(self.request, user)
             if trusted_device:
                 response = super().form_valid(form)
                 _sync_session_device_metadata(self.request, trusted_device=trusted_device)
-                enforce_single_active_trusted_session(self.request, user, trusted_device)
+                enforce_single_active_session(self.request, user)
                 return response
 
             next_url = self.get_redirect_url() or ''
@@ -96,9 +96,12 @@ class CustomLoginView(LoginView):
                 default_redirect=default_redirect,
             )
             return redirect('verify_otp_login')
-            
-        # Standard Login
-        return super().form_valid(form)
+
+        # Standard Login (no 2FA): enforce single active session on success too.
+        from ..trust import enforce_single_active_session
+        response = super().form_valid(form)
+        enforce_single_active_session(self.request, user)
+        return response
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -153,6 +156,29 @@ class CustomLoginView(LoginView):
 
         # 3. Fallback to settings.LOGIN_REDIRECT_URL
         return getattr(settings, 'LOGIN_REDIRECT_URL', DEFAULT_HOME_URL)
+
+
+def session_ended_view(request):
+    """Anonymous interstitial shown to a browser whose session was force-ended (single
+    active-session eviction, or a remote 'sign out this device'). It is a deliberate
+    dead-end: a single button back to home — which, when the public home is disabled,
+    resolves to the login page."""
+    from ..utils import get_system_config
+
+    config = get_system_config()
+    if bool(config.get('public_root', False)):
+        home_target = str(config.get('home_url') or DEFAULT_HOME_URL).strip() or '/'
+        target_is_login = False
+    else:
+        home_target = reverse('login')
+        target_is_login = True
+
+    return render(request, 'microsys/session_ended.html', {
+        'MS_TRANS': get_strings(),
+        'home_target': home_target,
+        'target_is_login': target_is_login,
+        'reason': str(request.GET.get('reason') or 'ended').strip(),
+    })
 
 
 # User Management — List view with filtering, pagination, and scope-aware queryset

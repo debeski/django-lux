@@ -137,10 +137,15 @@ def is_report_eligible_model(model):
 
 def is_report_eligible_activity_model_name(model_name):
     raw = str(model_name or "").strip()
-    normalized = normalize_activity_log_model_key(raw)
-    if not normalized:
+    if not raw:
         return False
-    if normalized in _MICROSYS_REPORT_EXCLUDED_KEYS:
+    # Non-ASCII verbose names (e.g. translated/Arabic model labels stored by the
+    # activity logger) normalize to an empty key. Don't reject them outright — the
+    # key-based checks below simply won't match, and eligibility falls through to
+    # model resolution so the decision is made on the underlying model instead of
+    # on whether its label happens to be ASCII.
+    normalized = normalize_activity_log_model_key(raw)
+    if normalized and normalized in _MICROSYS_REPORT_EXCLUDED_KEYS:
         return False
     if normalized in _normalized_config_set("exclude_activity"):
         return False
@@ -220,15 +225,44 @@ def get_visible_report_activity(actor, *, window="all", now=None):
     return qs.order_by("-created_at")
 
 
+def activity_report_key(model_key, model_name):
+    """Locale-independent identity for an activity row.
+
+    Prefer the stable ``app_label.model_name`` key; fall back to the (possibly
+    translated) display label for legacy rows and non-model events. Grouping and
+    eligibility must run on this, never on the raw ``model_name`` label, which
+    changes with the active language.
+    """
+    key = str(model_key or "").strip()
+    if key:
+        return key
+    return str(model_name or "").strip()
+
+
+def log_report_key(log):
+    """``activity_report_key`` for a UserActivityLog instance."""
+    return activity_report_key(getattr(log, "model_key", None), getattr(log, "model_name", None))
+
+
 def filter_report_eligible_activity(queryset):
-    eligible_names = [
-        model_name
-        for model_name in queryset.values_list("model_name", flat=True).distinct()
-        if is_report_eligible_activity_model_name(model_name)
-    ]
-    if not eligible_names:
+    eligible_keys = set()
+    eligible_legacy_names = set()
+    for model_key, model_name in queryset.values_list("model_key", "model_name").distinct():
+        report_key = activity_report_key(model_key, model_name)
+        if not report_key or not is_report_eligible_activity_model_name(report_key):
+            continue
+        if model_key:
+            eligible_keys.add(model_key)
+        else:
+            eligible_legacy_names.add(model_name)
+    if not eligible_keys and not eligible_legacy_names:
         return queryset.none()
-    return queryset.filter(model_name__in=eligible_names)
+    predicate = Q()
+    if eligible_keys:
+        predicate |= Q(model_key__in=eligible_keys)
+    if eligible_legacy_names:
+        predicate |= Q(model_key__isnull=True, model_name__in=eligible_legacy_names)
+    return queryset.filter(predicate)
 
 
 def _format_actions(counter, strings):
@@ -266,19 +300,22 @@ def build_activity_windows(activity_qs, *, strings=None):
         "month": defaultdict(Counter),
         "all": defaultdict(Counter),
     }
-    for action, model_name, created_at in activity_qs.values_list("action", "model_name", "created_at"):
-        if not is_report_eligible_activity_model_name(model_name):
+    for action, row_model_key, row_model_name, created_at in activity_qs.values_list(
+        "action", "model_key", "model_name", "created_at"
+    ):
+        report_key = activity_report_key(row_model_key, row_model_name)
+        if not is_report_eligible_activity_model_name(report_key):
             continue
-        model_key = model_name or strings.get("user_report_unknown")
+        group_key = report_key or strings.get("user_report_unknown")
         for window in ("all",):
             window_action[window][action] += 1
-            window_model_action[window][model_key][action] += 1
+            window_model_action[window][group_key][action] += 1
         if created_at and month_start and created_at >= month_start:
             window_action["month"][action] += 1
-            window_model_action["month"][model_key][action] += 1
+            window_model_action["month"][group_key][action] += 1
             if week_start and created_at >= week_start:
                 window_action["week"][action] += 1
-                window_model_action["week"][model_key][action] += 1
+                window_model_action["week"][group_key][action] += 1
     return {
         window: {
             "activity_count": sum(window_action[window].values()),
@@ -341,7 +378,7 @@ def build_reports_overview(actor, *, window="week", filters=None):
     for log in current_qs:
         user_label = log.created_by.get_username() if log.created_by else strings.get("user_report_unknown")
         user_counts[user_label] += 1
-        model_counts[log.model_name or strings.get("user_report_unknown")] += 1
+        model_counts[log_report_key(log) or strings.get("user_report_unknown")] += 1
         action_counts[log.action or strings.get("user_report_unknown")] += 1
         if log.created_at:
             day_counts[timezone.localtime(log.created_at).date().isoformat()] += 1

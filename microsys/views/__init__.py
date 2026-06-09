@@ -11,6 +11,7 @@ from .users import (
     UserDetailModalView,
     delete_user,
     reset_password,
+    session_ended_view,
     user_report_modal_view,
     user_report_xlsx_view,
     User,
