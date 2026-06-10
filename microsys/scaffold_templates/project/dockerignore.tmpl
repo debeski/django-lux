@@ -22,6 +22,7 @@ logs/
 media/
 staticfiles/
 imports/
+backups/
 .backups/
 secrets/
 .secrets/
@@ -32,11 +33,11 @@ dist/
 build/
 .agents/
 .xpose/
+.claude/
+.codex
 
 # Ignore celery-related files
-celerybeat-schedule
-celerybeat-schedule-shm
-celerybeat-schedule-wal
+celerybeat-*
 
 # Ignore sensitive secrets
 .env
@@ -45,3 +46,4 @@ secrets.enc
 start.sh
 start.ps1
 db.sqlite3
+tracker.md

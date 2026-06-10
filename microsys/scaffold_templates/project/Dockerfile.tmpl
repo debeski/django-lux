@@ -12,8 +12,14 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
-    curl \
+    libffi-dev \
+    libssl-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    postgresql-client \
     netcat-openbsd \
+    tzdata \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies from req.txt

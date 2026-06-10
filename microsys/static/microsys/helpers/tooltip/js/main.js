@@ -81,31 +81,11 @@
     }
 
     function preferredPlacement(target, config) {
-        const requested = requestedPlacement(target, config);
-        if (requested) {
-            return requested;
-        }
-
-        const rect = target.getBoundingClientRect();
-        const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-
-        if (config.defaultPlacement === 'right' && viewportWidth - rect.right >= 180) {
-            return 'right';
-        }
-        if (rect.top < 96) {
-            return 'bottom';
-        }
-        if (viewportWidth - rect.right < 180 && rect.left > 180) {
-            return 'left';
-        }
-        if (rect.left < 180 && viewportWidth - rect.right > 180) {
-            return 'right';
-        }
-        if (viewportHeight - rect.bottom < 120 && rect.top > 120) {
-            return 'top';
-        }
-        return config.defaultPlacement || 'top';
+        // Honour an explicit placement, otherwise the configured default. Edge avoidance
+        // is handled by the overflow-based candidate selection in positionTooltip(), so we
+        // don't pre-flip to a side here based on coarse distance thresholds — that made
+        // tooltips jump to the side even with plenty of room above the target.
+        return requestedPlacement(target, config) || config.defaultPlacement || 'top';
     }
 
     function placementCandidates(preferred) {
@@ -146,17 +126,32 @@
         };
     }
 
-    function overflowFor(coords, tooltipRect) {
+    function overflowForPlacement(placement, coords, tooltipRect) {
         const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
         const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        const isVertical = placement === 'top' || placement === 'bottom';
 
-        return Math.max(
+        // Only the axis that anchors the tooltip to its target counts as real overflow —
+        // overflow on the cross axis is fixed later by clamping (the tooltip slides to stay
+        // on-screen while still pointing at the target). A placement is only disqualified on
+        // the cross axis when the tooltip cannot fit within the viewport on that axis at all.
+        if (isVertical) {
+            const primary = Math.max(
+                viewportGap - coords.top,
+                (coords.top + tooltipRect.height + viewportGap) - viewportHeight,
+                0
+            );
+            const crossFits = tooltipRect.width <= viewportWidth - (viewportGap * 2);
+            return primary + (crossFits ? 0 : 1000);
+        }
+
+        const primary = Math.max(
             viewportGap - coords.left,
-            viewportGap - coords.top,
             (coords.left + tooltipRect.width + viewportGap) - viewportWidth,
-            (coords.top + tooltipRect.height + viewportGap) - viewportHeight,
             0
         );
+        const crossFits = tooltipRect.height <= viewportHeight - (viewportGap * 2);
+        return primary + (crossFits ? 0 : 1000);
     }
 
     function clamp(value, min, max) {
@@ -184,7 +179,7 @@
 
         candidates.forEach((placement) => {
             const coords = coordinatesForPlacement(placement, targetRect, tooltipRect);
-            const overflow = overflowFor(coords, tooltipRect);
+            const overflow = overflowForPlacement(placement, coords, tooltipRect);
             if (overflow < best.overflow) {
                 best = { placement, coords, overflow };
             }
@@ -217,9 +212,9 @@
         tooltipConfig = config;
         tooltip.className = `ms-tooltip ${config.className}`;
         tooltip.textContent = text;
-        tooltip.classList.remove('show');
-        tooltip.style.left = '0px';
-        tooltip.style.top = '0px';
+        // Position before the tooltip is revealed and without moving it to (0, 0) first —
+        // otherwise a fast hover from one target to the next briefly paints the still-
+        // visible tooltip at the top-left corner before it snaps back into place.
         tooltipFrame = window.requestAnimationFrame(positionTooltip);
     }
 

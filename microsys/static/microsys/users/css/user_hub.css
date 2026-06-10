@@ -206,6 +206,12 @@
         --ms-dropdown-radius: 18px;
     }
 
+    /* Collapse the user trigger to avatar-only so the titlebar reclaims width for the
+       brand on small screens (the username still shows inside the dropdown). */
+    .ms-trigger-name {
+        display: none;
+    }
+
     .ms-user-dropdown-card {
         position: fixed;
         top: calc(var(--header-height) + 8px);

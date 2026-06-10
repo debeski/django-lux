@@ -304,6 +304,28 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 | `build_archive_file_field('field_name', css_class='...')` | Render the Microsys custom file widget explicitly instead of relying on template shadowing. |
 | `build_settings_toggle_field(form, 'field_name', css_class='...')` | Render the shared setup/System Settings toggle-card control for boolean fields. |
 
+### Alert Auto-Close Contract
+
+`microsys/main/js/base_runtime.js` auto-closes every Bootstrap-style `.alert` after a short delay unless the alert explicitly opts out with `data-autoclose="false"`.
+
+Use the opt-out for alerts that remain actionable after the first few seconds, such as validation blockers, missing-secret warnings, setup/import instructions, or status messages that explain why a field must be changed before the form can submit. Do not use it for normal Django flash messages that should behave like transient success/error notices.
+
+Server-rendered or template alerts:
+
+```html
+<div class="alert alert-info" data-autoclose="false">
+    This setup notice remains visible until the user resolves it.
+</div>
+```
+
+JavaScript-created alerts:
+
+```javascript
+const notice = document.createElement('div');
+notice.className = 'alert alert-warning';
+notice.setAttribute('data-autoclose', 'false');
+```
+
 ## Template Tags and Filters
 
 ### `microsys_tags`

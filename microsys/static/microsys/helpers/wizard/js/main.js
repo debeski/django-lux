@@ -22,6 +22,13 @@
         return null;
     }
 
+    function prepareWizardContainer(container) {
+        if (typeof window.__msPrepareWizardContainer !== 'function') {
+            return;
+        }
+        window.__msPrepareWizardContainer(container);
+    }
+
     function initWizard(container) {
         const steps = container.querySelectorAll('.wizard-step');
         if (steps.length < 2) return;
@@ -35,6 +42,7 @@
 
         // Prevent double-binding
         if (container.dataset.msWizardBound === 'true') return;
+        prepareWizardContainer(container);
         container.dataset.msWizardBound = 'true';
 
         let currentStep = 0;

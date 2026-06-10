@@ -7,6 +7,7 @@ import logging
 import urllib.error
 import urllib.request
 import uuid
+from pathlib import Path
 
 import django
 from django.apps import apps
@@ -20,6 +21,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.module_loading import import_string
+from django.utils.text import slugify
 
 from microsys import __version__
 from microsys.constants import DEFAULT_HOME_URL
@@ -31,6 +33,7 @@ from microsys.utils import (
     get_system_config,
     is_global_staff,
     load_system_settings_config_json,
+    normalize_system_names,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,6 +60,60 @@ SERVICE_BADGE_CLASSES = {
     'configured': 'bg-warning text-dark',
     'offline': 'bg-danger',
 }
+
+
+def _system_settings_english_name(system_settings=None):
+    """The admin-configured English system name, only when one was actually set."""
+    try:
+        if system_settings is None:
+            SystemSettings = apps.get_model('microsys', 'SystemSettings')
+            system_settings = SystemSettings.load()
+        names = normalize_system_names(getattr(system_settings, 'system_names', None))
+        return str(names.get('en') or '').strip()
+    except Exception:
+        return ''
+
+
+# Generic container / work-dir names (e.g. Docker `WORKDIR /app`) that don't identify a
+# project, so the BASE_DIR slug is skipped for these and the configured name takes over.
+_GENERIC_PROJECT_DIR_SLUGS = frozenset({
+    'app', 'apps', 'src', 'source', 'code', 'project', 'projects',
+    'web', 'www', 'site', 'sites', 'backend', 'server', 'srv', 'service',
+    'usr', 'opt', 'home', 'workspace', 'root', 'tmp',
+})
+
+
+def _resolve_project_export_slug(system_settings=None):
+    """Resolve a stable, human-readable slug for the settings export filename.
+
+    Priority: project directory name (BASE_DIR, when not a generic work-dir name) → the
+    configured English system name → the literal ``project``. The first one that produces
+    a non-empty slug wins.
+    """
+    candidates = []
+
+    base_dir = getattr(settings, 'BASE_DIR', None)
+    if base_dir:
+        try:
+            base_name = Path(base_dir).resolve().name
+        except (OSError, RuntimeError, TypeError, ValueError):
+            base_name = str(base_dir).strip()
+        base_slug = slugify(base_name or '').strip('-_')
+        if base_slug and base_slug not in _GENERIC_PROJECT_DIR_SLUGS:
+            candidates.append(base_slug)
+
+    candidates.append(_system_settings_english_name(system_settings))
+
+    for candidate in candidates:
+        slug = slugify(candidate or '').strip('-_')
+        if slug:
+            return slug
+    return 'project'
+
+
+def _system_settings_export_filename(system_settings=None):
+    today = timezone.localdate().isoformat()
+    return f"microsys-{_resolve_project_export_slug(system_settings)}-{today}.json"
 
 SERVICE_STATE_LABEL_KEYS = {
     'online': 'status_online',
@@ -459,8 +516,9 @@ def export_system_settings_view(request):
         raise PermissionDenied
 
     SystemSettings = apps.get_model('microsys', 'SystemSettings')
-    payload = export_system_settings_payload(SystemSettings.load())
+    instance = SystemSettings.load()
+    payload = export_system_settings_payload(instance)
     content = json.dumps(payload, ensure_ascii=False, indent=2)
     response = HttpResponse(content, content_type='application/json; charset=utf-8')
-    response['Content-Disposition'] = 'attachment; filename="microsys-system-settings.json"'
+    response['Content-Disposition'] = f'attachment; filename="{_system_settings_export_filename(instance)}"'
     return response

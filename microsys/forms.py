@@ -2967,7 +2967,7 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 Field('email_config'),
                 HTML(
-                    f"<div class='alert alert-info small'>"
+                    f"<div class='alert alert-info small' data-autoclose='false'>"
                     f"Email service: {get_email_service_status().get('reason', 'unknown')}."
                     f"</div>"
                 ),

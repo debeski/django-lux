@@ -201,7 +201,7 @@ Important behavior:
 
 ## Setup Import and Export
 
-Superusers can export the current System Settings payload from the Options System Settings card. The exported JSON uses the `django-microsys.system-settings` format and is meant to be imported from step 1 of the setup/System Settings wizard in another development, staging, or local environment.
+Superusers can export the current System Settings payload from the Options System Settings card. The exported JSON uses the `django-microsys.system-settings` format and is meant to be imported from step 1 of the setup/System Settings wizard in another development, staging, or local environment. Browser downloads are named `microsys-{project-slug}-{YYYY-MM-DD}.json`; the slug comes from the deployed project `BASE_DIR` folder name (generic container work-dir names such as `app`/`src`/`code` are skipped), falling back to the configured English system name (`system_names['en']`) when set, then to `project`.
 
 The file contains the stable DB-backed setup fields:
 

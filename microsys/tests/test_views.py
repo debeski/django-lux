@@ -321,14 +321,64 @@ class GeneralViewsTests(TestCase):
         settings_obj.default_language = 'fr'
         settings_obj.save()
 
-        response = self.client.get(reverse('system_settings_export'))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir) / 'Client Portal'
+            project_root.mkdir()
+            with override_settings(BASE_DIR=project_root):
+                response = self.client.get(reverse('system_settings_export'))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/json; charset=utf-8')
+        today = timezone.localdate().isoformat()
+        self.assertEqual(
+            response['Content-Disposition'],
+            f'attachment; filename="microsys-client-portal-{today}.json"',
+        )
+        self.assertNotIn('exported-system', response['Content-Disposition'])
         payload = json.loads(response.content)
         self.assertEqual(payload['format'], 'django-microsys.system-settings')
         self.assertEqual(payload['settings']['system_names']['en'], 'Exported System')
         self.assertIn('fr', payload['settings']['languages'])
+
+    def test_export_slug_falls_back_to_english_system_name_then_project(self):
+        from microsys.views.general import _resolve_project_export_slug
+
+        settings_obj = SystemSettings.load()
+        settings_obj.system_names = {'en': 'My Portal', 'ar': 'بوابتي'}
+        settings_obj.save()
+        # With no usable BASE_DIR, the configured English system name is used.
+        with override_settings(BASE_DIR=''):
+            self.assertEqual(_resolve_project_export_slug(settings_obj), 'my-portal')
+
+        # With no name set anywhere, the final 'project' fallback applies.
+        settings_obj.system_names = {}
+        settings_obj.save()
+        with override_settings(BASE_DIR=''):
+            self.assertEqual(_resolve_project_export_slug(settings_obj), 'project')
+
+        # MICROSYS_PROJECT_NAME is no longer consulted.
+        with override_settings(BASE_DIR='', MICROSYS_PROJECT_NAME='Should Be Ignored'):
+            self.assertEqual(_resolve_project_export_slug(settings_obj), 'project')
+
+    def test_export_slug_skips_generic_container_dir_names(self):
+        from microsys.views.general import _resolve_project_export_slug
+
+        settings_obj = SystemSettings.load()
+        settings_obj.system_names = {'en': 'Archive System'}
+        settings_obj.save()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # A generic Docker WORKDIR-style name (e.g. /app) is skipped so the
+            # configured system name is used instead.
+            generic_root = Path(tmpdir) / 'app'
+            generic_root.mkdir()
+            with override_settings(BASE_DIR=generic_root):
+                self.assertEqual(_resolve_project_export_slug(settings_obj), 'archive-system')
+
+            # A meaningful directory name still wins over the system name.
+            named_root = Path(tmpdir) / 'Archive Portal'
+            named_root.mkdir()
+            with override_settings(BASE_DIR=named_root):
+                self.assertEqual(_resolve_project_export_slug(settings_obj), 'archive-portal')
 
     def test_system_settings_modal_uses_setup_form_class_for_live_behavior(self):
         response = self.client.get(

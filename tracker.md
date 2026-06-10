@@ -2,11 +2,11 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- `microsys/VERSION` 2.3.4; root `CHANGELOG.md` current through v2.3.4 (newest-first).
+- `microsys/VERSION` 2.3.7; `CHANGELOG.md` through v2.3.7 (newest-first). `dist/` holds built wheels up to 2.3.6 — new changelog work goes under a fresh version, not a published one.
 - Reports use a locale-independent `UserActivityLog.model_key` (migration `0011`) so per-user/overview counts work in non-Latin locales; group/resolve on key, display via `model_name`.
 - Single active session: `enforce_single_active_session` evicts a user's other sessions on every login; force-ended devices hit the `/accounts/session-ended/` interstitial.
 - 8-step setup/System Settings wizard: identity, languages/translations, access/security, login page, sidebar, navbar, titlebar, appearance/fonts.
-- Setup-file import now restores `login_config` + `registration_activation_mode`; choice-selectors re-sync on import; a redacted SMTP secret blocks "Finish" until re-entered.
+- Setup v2.3.6: import fixes, project-scoped export filename, deterministic wizard prep, persistent SMTP notices, live validation markers.
 
 ### Current Project Adopted Standards:
 - Settings: `from microsys.utils import microsys_settings`; `microsys_settings(globals())`. Scaffold: `python -m microsys startproject/startapp --register`.
@@ -28,8 +28,8 @@
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Commit the uncommitted v2.3.4 working-tree changes (setup-import + MSRP-1).
-  - [ ] Browser-validate wizard import (login_config, activation mode, selector re-sync, SMTP-password notice) — not exercised by Python tests.
+  - [ ] Commit the uncommitted v2.3.4-v2.3.6 working-tree changes (setup import/scaffold/MSRP-1).
+  - [ ] Browser-validate first-launch setup import end-to-end (file chooser, finish CTA, selector visuals) against a real page.
   - [ ] Harden `microsys/fetcher.py` fallback redirects against missing/local/forged referers.
 - **Priority 2:**
   - [ ] Bump `?v=` cache-busters for changed `main.css`/`login.css`/`system_setup.js` and refresh the 3 stale tests.
@@ -37,18 +37,21 @@
 - **Completed Recently:**
   - [x] Reports-0-in-non-Latin-locale fixed via `model_key` + eligibility guard (v2.3.1, migration `0011`).
   - [x] Single active session + signed-out interstitial (v2.3.2).
-  - [x] Setup-file import: login_config + activation mode + selector double-select + SMTP-secret awareness (v2.3.4).
+  - [x] Setup import corrected + language-preview polish + SMTP warning re-sync + step validation markers (v2.3.6).
   - [x] MSRP-1 inline-style removal (login banner-colour data bridge; interstitial CSS classes) (v2.3.4).
+  - [x] Scaffold modernized: image-only compose `web`, `{{ config_package }}` Gunicorn, fuller Docker deps, dev port 90, `django-celery-beat`, composer helper image (v2.3.5); fixed unterminated `BASE_URL` quote in `compose.dev.yml.tmpl`.
+  - [x] Tooltip flicker/placement fix (v2.3.6); adaptive titlebar brand so a long title truncates/degrades instead of overlapping home/user-hub, full name via tooltip, avatar-only username ≤575.98px (v2.3.7).
 
 ### One-line info about last verified Tests:
-- 2026-06-10: `test_views` 131 OK, `test_middleware` 25 OK, `test_defaults_and_urls` import/login_config tests OK (3 pre-existing stale failures unrelated to code).
+- 2026-06-10: focused Django runner export filename test 1 OK; prior setup slice 6 OK + SMTP slice 2 OK, `test_views` 131 OK + `test_middleware` 25 OK; 3 stale failures still known.
 
 ### One-line info about last time edited Docs:
-- 2026-06-10: `CHANGELOG.md` updated to v2.3.4; active standard remains `docs/security-msrp-1.md`.
+- 2026-06-10: setup export filename docs updated in `admin-guide.md`/`customization-guide.md`; `data-autoclose="false"` contract in `docs/reference.md`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
 - Repo search via ripgrep; verify call sites + host import contracts before refactors.
+- Persistent actionable `.alert` UI must set `data-autoclose="false"`; see `docs/reference.md`.
 
 ### Global Rulesets:
 - Global agent rules now live in `~/.claude/CLAUDE.md` (tracker/CHANGELOG/docs/task discipline).

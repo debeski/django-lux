@@ -74,6 +74,13 @@
   color: color-mix(in srgb, var(--ms-setup-text) 74%, var(--primal));
 }
 
+.ms-setup-step-nav__item.has-validation-error {
+  border-color: rgba(245, 158, 11, 0.8);
+  background: color-mix(in srgb, #f59e0b 14%, var(--ms-setup-pane-bg));
+  color: color-mix(in srgb, #92400e 78%, var(--ms-setup-text));
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+}
+
 .ms-setup-step-nav__bullet {
   display: inline-flex;
   align-items: center;
@@ -99,6 +106,14 @@
   color: var(--primal);
 }
 
+.ms-setup-step-nav__item.has-validation-error .ms-setup-step-nav__bullet {
+  background: #f59e0b;
+  color: #111827;
+  box-shadow:
+    inset 0 0 0 1px rgba(146, 64, 14, 0.24),
+    0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+
 .ms-setup-step-nav__label {
   min-width: 0;
   overflow: hidden;
@@ -110,7 +125,16 @@
 }
 
 .ms-system-settings-shell .wizard-step {
+  border: 1px solid transparent;
+  border-radius: 0.9rem;
   padding: 1rem 0;
+}
+
+.ms-system-settings-shell.mode-setup .wizard-step.ms-setup-step-has-error {
+  border-color: rgba(245, 158, 11, 0.72);
+  box-shadow:
+    0 0 0 3px rgba(245, 158, 11, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .ms-settings-toggle-field {

@@ -800,9 +800,27 @@
                 });
             });
 
-            rehydrateSetupLanguageEditors(form);
+            const previousLanguagePreviewSuppression = form.dataset.suppressSetupLanguagePreview;
+            form.dataset.suppressSetupLanguagePreview = 'true';
+            try {
+                rehydrateSetupLanguageEditors(form);
+                restoreImportedEmailPasswordNotice(form);
+            } finally {
+                if (previousLanguagePreviewSuppression) {
+                    form.dataset.suppressSetupLanguagePreview = previousLanguagePreviewSuppression;
+                } else {
+                    delete form.dataset.suppressSetupLanguagePreview;
+                }
+            }
             sessionStorage.removeItem(getSetupStateKey(form));
         });
+    }
+
+    function restoreImportedEmailPasswordNotice(form) {
+        if (!form) return;
+        const importProcessed = String(getNamedFieldValue(form, 'settings_import_processed') || '').toLowerCase() === 'true';
+        if (!importProcessed) return;
+        setImportedEmailPasswordNotice(form, setupRequiresEmailPassword(form));
     }
 
     function rehydrateSetupLanguageEditors(form) {
@@ -819,6 +837,18 @@
     }
 
     window.__msGetWizardInitialStep = function (container) {
+        const form = (container && container.matches && container.matches('form.ms-system-setup-form'))
+            ? container
+            : container && container.querySelector
+                ? container.querySelector('form.ms-system-setup-form')
+                : null;
+        if (!form) return null;
+        const steps = Array.from(form.querySelectorAll('.wizard-step'));
+        for (let index = 0; index < steps.length; index += 1) {
+            if (stepHasValidationError(steps[index])) {
+                return index;
+            }
+        }
         return null;
     };
 
@@ -872,6 +902,8 @@
         }
 
         inputs[0].value = value;
+        inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+        inputs[0].dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     function setNamedFieldReadonly(form, name, isReadonly) {
@@ -2633,9 +2665,14 @@
             function syncActive() {
                 const activeLanguage = input.value || 'en';
                 options.forEach((option) => {
-                    option.classList.toggle('lang-active', option.getAttribute('data-setup-language-choice') === activeLanguage);
+                    const isActive = option.getAttribute('data-setup-language-choice') === activeLanguage;
+                    option.classList.toggle('is-active', isActive);
+                    option.classList.toggle('lang-active', isActive);
                 });
             }
+
+            input.addEventListener('change', syncActive);
+            input.addEventListener('input', syncActive);
 
             options.forEach((option) => {
                 option.addEventListener('click', () => {
@@ -2661,9 +2698,27 @@
         });
     }
 
+    function syncSetupLanguagePickers(form) {
+        const root = form || document;
+        root.querySelectorAll('[data-setup-language-picker]').forEach((picker) => {
+            const inputId = picker.getAttribute('data-language-input');
+            const input = inputId ? document.getElementById(inputId) : null;
+            if (!input) return;
+            const activeLanguage = input.value || 'en';
+            picker.querySelectorAll('[data-setup-language-choice]').forEach((option) => {
+                const isActive = option.getAttribute('data-setup-language-choice') === activeLanguage;
+                option.classList.toggle('is-active', isActive);
+                option.classList.toggle('lang-active', isActive);
+            });
+        });
+    }
+
     function previewSetupDefaultLanguage(form, language) {
         const normalizedLanguage = normalizeLanguageCode(language);
         if (!form || !normalizedLanguage) {
+            return;
+        }
+        if (form.dataset.suppressSetupLanguagePreview === 'true') {
             return;
         }
 
@@ -2966,6 +3021,7 @@
             }
         });
         syncLanguageCatalog(form);
+        syncSetupLanguagePickers(form);
     }
 
     function applyTranslationOverridesToMatrix(form, overrides) {
@@ -3079,6 +3135,210 @@
         return window.getComputedStyle(element).display !== 'none' && window.getComputedStyle(element).visibility !== 'hidden';
     }
 
+    function isElementHiddenInsideStep(element, step) {
+        let node = element;
+        while (node && node !== step) {
+            if (
+                node.hidden ||
+                node.getAttribute('aria-hidden') === 'true' ||
+                (node.classList && node.classList.contains('d-none'))
+            ) {
+                return true;
+            }
+            node = node.parentElement;
+        }
+        return false;
+    }
+
+    function getSetupStepControls(step) {
+        if (!step) return [];
+        return Array.from(step.querySelectorAll('input, select, textarea')).filter((field) => {
+            const type = String(field.type || '').toLowerCase();
+            return (
+                type !== 'hidden' &&
+                type !== 'button' &&
+                type !== 'submit' &&
+                type !== 'reset' &&
+                !field.disabled &&
+                !isElementHiddenInsideStep(field, step)
+            );
+        });
+    }
+
+    function setupRequiresEmailPassword(form) {
+        // Mirrors the server rule: an SMTP password is only required when an email feature
+        // is enabled, encrypted-DB secret storage is selected, and a username is set, with
+        // no password present. A config that doesn't meet all of these is completable as-is
+        // and must NOT block "Finish setup" just because an export redacted the secret.
+        if (!form) return false;
+        const emailFeaturesEnabled = Boolean(
+            getNamedFieldInputs(form, 'public_registration_enabled')[0]?.checked ||
+            getNamedFieldInputs(form, 'email_2fa')[0]?.checked
+        );
+        if (!emailFeaturesEnabled) return false;
+        if (getNamedFieldValue(form, 'email_config_secret_storage') !== 'encrypted_db') return false;
+        if (!String(getNamedFieldValue(form, 'email_config_username') || '').trim()) return false;
+        const passwordField = form.querySelector('[name="email_config_password"]');
+        const password = String(passwordField && passwordField.value ? passwordField.value : '').trim();
+        return !password;
+    }
+
+    function syncSetupCustomValidation(form) {
+        if (!form) return;
+        const passwordField = form.querySelector('[name="email_config_password"]');
+        if (!passwordField || typeof passwordField.setCustomValidity !== 'function') return;
+
+        if (passwordField.dataset.msSetupCustomInvalid === 'true') {
+            passwordField.classList.remove('is-invalid');
+            passwordField.dataset.msSetupCustomInvalid = '';
+        }
+        passwordField.setCustomValidity('');
+
+        // Single live source of truth — recomputed here so the flag can never go stale as
+        // email features / username / password are toggled after an import.
+        const needsPassword = setupRequiresEmailPassword(form);
+        form.dataset.importNeedsEmailPassword = needsPassword ? 'true' : '';
+
+        if (needsPassword) {
+            passwordField.dataset.msSetupCustomInvalid = 'true';
+            passwordField.classList.add('is-invalid');
+            passwordField.setCustomValidity(t(
+                'system_setup_import_needs_email_password',
+                'The SMTP password is never included in an exported setup file for security. Re-enter it below to finish setup.'
+            ));
+        }
+
+        // Keep the import warning and the "Finish setup" CTA in sync with the live state.
+        const notice = form.querySelector('[data-import-email-password-notice]');
+        if (notice) {
+            notice.classList.toggle('d-none', !needsPassword);
+        }
+        const importProcessed = String(getNamedFieldValue(form, 'settings_import_processed') || '').toLowerCase() === 'true';
+        if (importProcessed) {
+            setImportedSetupFinishVisible(form, !needsPassword);
+        }
+    }
+
+    function stepHasRenderedServerError(step) {
+        if (!step || step.dataset.msStepUserEdited === 'true') return false;
+        return Boolean(step.querySelector('.invalid-feedback, .errorlist, .alert-danger'));
+    }
+
+    function stepHasValidationError(step) {
+        if (!step) return false;
+        if (stepHasRenderedServerError(step)) return true;
+        return getSetupStepControls(step).some((field) => {
+            if (typeof field.checkValidity !== 'function') return false;
+            return !field.checkValidity();
+        });
+    }
+
+    function firstInvalidControlInStep(step) {
+        return getSetupStepControls(step).find((field) => {
+            if (typeof field.checkValidity !== 'function') return false;
+            return !field.checkValidity();
+        }) || null;
+    }
+
+    function updateSetupStepValidationState(form) {
+        if (!form) return -1;
+        syncSetupCustomValidation(form);
+        const steps = Array.from(form.querySelectorAll('.wizard-step'));
+        const navItems = Array.from(form.querySelectorAll('[data-ms-wizard-step-target]'));
+        let firstInvalidStep = -1;
+
+        steps.forEach((step, index) => {
+            const hasError = stepHasValidationError(step);
+            if (hasError && firstInvalidStep === -1) {
+                firstInvalidStep = index;
+            }
+            step.classList.toggle('ms-setup-step-has-error', hasError);
+            step.setAttribute('data-ms-step-validation', hasError ? 'error' : 'ok');
+
+            const navItem = navItems.find((item) => Number(item.dataset.msWizardStepTarget) === index);
+            if (!navItem) return;
+            navItem.classList.toggle('has-validation-error', hasError);
+            navItem.setAttribute('aria-invalid', hasError ? 'true' : 'false');
+            const bullet = navItem.querySelector('.ms-setup-step-nav__bullet');
+            if (!bullet) return;
+            if (!bullet.dataset.msStepNumber) {
+                bullet.dataset.msStepNumber = String(bullet.textContent || index + 1).trim();
+            }
+            bullet.textContent = hasError ? '!' : bullet.dataset.msStepNumber;
+        });
+
+        return firstInvalidStep;
+    }
+
+    function initSystemSetupStepValidation(root) {
+        root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
+            if (form.dataset.stepValidationBound === 'true') return;
+            form.dataset.stepValidationBound = 'true';
+
+            let pendingFrame = null;
+            const syncSoon = () => {
+                if (pendingFrame) return;
+                pendingFrame = window.requestAnimationFrame(() => {
+                    pendingFrame = null;
+                    updateSetupStepValidationState(form);
+                });
+            };
+
+            form.addEventListener('input', (event) => {
+                const step = event.target && event.target.closest ? event.target.closest('.wizard-step') : null;
+                if (step) step.dataset.msStepUserEdited = 'true';
+                syncSoon();
+            });
+            form.addEventListener('change', (event) => {
+                const step = event.target && event.target.closest ? event.target.closest('.wizard-step') : null;
+                if (step) step.dataset.msStepUserEdited = 'true';
+                syncSoon();
+            });
+            form.addEventListener('invalid', syncSoon, true);
+            form.addEventListener('ms:wizard-step-change', syncSoon);
+            form.querySelectorAll('.ms-btn-submit').forEach((button) => {
+                button.addEventListener('click', (event) => {
+                    persistSetupFormState(form);
+                    const firstInvalidStep = updateSetupStepValidationState(form);
+                    if (firstInvalidStep < 0) return;
+                    const firstInvalidControl = firstInvalidControlInStep(form.querySelectorAll('.wizard-step')[firstInvalidStep]);
+                    if (!firstInvalidControl) return;
+                    event.preventDefault();
+                    const navItem = form.querySelector(`[data-ms-wizard-step-target="${firstInvalidStep}"]`);
+                    if (navItem) navItem.click();
+                    window.setTimeout(() => {
+                        if (typeof firstInvalidControl.reportValidity === 'function') {
+                            firstInvalidControl.reportValidity();
+                        }
+                        if (typeof firstInvalidControl.focus === 'function') {
+                            firstInvalidControl.focus({ preventScroll: false });
+                        }
+                    }, 0);
+                });
+            });
+            form.addEventListener('submit', (event) => {
+                persistSetupFormState(form);
+                const firstInvalidStep = updateSetupStepValidationState(form);
+                if (firstInvalidStep < 0) return;
+                const firstInvalidControl = firstInvalidControlInStep(form.querySelectorAll('.wizard-step')[firstInvalidStep]);
+                if (!firstInvalidControl) return;
+                event.preventDefault();
+                const navItem = form.querySelector(`[data-ms-wizard-step-target="${firstInvalidStep}"]`);
+                if (navItem) navItem.click();
+                window.setTimeout(() => {
+                    if (typeof firstInvalidControl.reportValidity === 'function') {
+                        firstInvalidControl.reportValidity();
+                    }
+                    if (typeof firstInvalidControl.focus === 'function') {
+                        firstInvalidControl.focus({ preventScroll: false });
+                    }
+                }, 0);
+            });
+
+            updateSetupStepValidationState(form);
+        });
+    }
+
     function initSystemSetupEnterBehavior(root) {
         root.querySelectorAll('form.ms-system-setup-form').forEach((form) => {
             if (form.dataset.enterBehaviorBound === 'true') return;
@@ -3154,11 +3414,14 @@
         if (!needed) {
             if (notice) notice.classList.add('d-none');
             if (passwordField) passwordField.classList.remove('is-invalid');
+            syncSetupCustomValidation(form);
+            updateSetupStepValidationState(form);
             return;
         }
         if (!notice && passwordField) {
             notice = document.createElement('div');
             notice.setAttribute('data-import-email-password-notice', '');
+            notice.setAttribute('data-autoclose', 'false');
             notice.className = 'alert alert-warning ms-import-email-password-notice mt-2 mb-0';
             notice.textContent = t(
                 'system_setup_import_needs_email_password',
@@ -3181,9 +3444,11 @@
                     const current = form.querySelector('[data-import-email-password-notice]');
                     if (current) current.classList.add('d-none');
                     setImportedSetupFinishVisible(form, true);
+                    updateSetupStepValidationState(form);
                 });
             }
         }
+        updateSetupStepValidationState(form);
     }
 
     function applyImportedFontSettings(form, settings) {
@@ -3233,29 +3498,32 @@
     function applyImportedSetupSettings(form, payload) {
         const settings = extractImportedSettings(payload);
         if (!form || !settings) return false;
+        const previousLanguagePreviewSuppression = form.dataset.suppressSetupLanguagePreview;
+        form.dataset.suppressSetupLanguagePreview = 'true';
 
         const languages = settings.languages && typeof settings.languages === 'object' ? settings.languages : null;
         const systemNames = settings.system_names && typeof settings.system_names === 'object' ? settings.system_names : {};
-        if (languages) {
-            rebuildLanguageCatalog(form, languages, systemNames, settings.default_language || getNamedFieldValue(form, 'default_language') || 'en');
-        } else if (Object.keys(systemNames).length) {
-            Object.entries(systemNames).forEach(([rawCode, value]) => {
-                const code = normalizeLanguageCode(rawCode);
-                const row = ensureSystemNameRow(form, code, code, value);
-                const input = row && row.querySelector('[data-system-name-input]');
-                if (input) input.value = value || '';
-            });
-        }
+        try {
+            if (languages) {
+                rebuildLanguageCatalog(form, languages, systemNames, settings.default_language || getNamedFieldValue(form, 'default_language') || 'en');
+            } else if (Object.keys(systemNames).length) {
+                Object.entries(systemNames).forEach(([rawCode, value]) => {
+                    const code = normalizeLanguageCode(rawCode);
+                    const row = ensureSystemNameRow(form, code, code, value);
+                    const input = row && row.querySelector('[data-system-name-input]');
+                    if (input) input.value = value || '';
+                });
+            }
 
-        if (settings.system_names) setJsonField(form, 'system_names', settings.system_names);
-        if (settings.languages) setJsonField(form, 'languages', settings.languages);
-        const translationOverrides = settings.translations_override || settings.translations;
-        if (translationOverrides && typeof translationOverrides === 'object') {
-            setJsonField(form, 'translations_override', translationOverrides);
-            applyTranslationOverridesToMatrix(form, translationOverrides);
-        }
+            if (settings.system_names) setJsonField(form, 'system_names', settings.system_names);
+            if (settings.languages) setJsonField(form, 'languages', settings.languages);
+            const translationOverrides = settings.translations_override || settings.translations;
+            if (translationOverrides && typeof translationOverrides === 'object') {
+                setJsonField(form, 'translations_override', translationOverrides);
+                applyTranslationOverridesToMatrix(form, translationOverrides);
+            }
 
-        ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density', 'registration_activation_mode'].forEach((name) => {
+        ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setNamedFieldValue(form, name, settings[name]);
                 getNamedFieldInputs(form, name).forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
@@ -3267,6 +3535,11 @@
                 setCheckboxField(form, name, settings[name]);
             }
         });
+
+        if (Object.prototype.hasOwnProperty.call(settings, 'registration_activation_mode')) {
+            setNamedFieldValue(form, 'registration_activation_mode', settings.registration_activation_mode);
+            getNamedFieldInputs(form, 'registration_activation_mode').forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
+        }
 
         const emailConfig = settings.email_config && typeof settings.email_config === 'object' ? settings.email_config : null;
         if (emailConfig) {
@@ -3280,12 +3553,13 @@
             setCheckboxField(form, 'email_config_use_ssl', emailConfig.use_ssl === true);
             setNamedFieldValue(form, 'email_config_username', emailConfig.username || '');
             setNamedFieldValue(form, 'email_config_default_from_email', emailConfig.default_from_email || '');
-            // SMTP secrets are redacted from exports. If the source had a saved encrypted-DB
-            // password, the importing dev must re-enter it or the finish step fails validation.
-            const passwordRedacted = emailConfig.secret_storage === 'encrypted_db'
-                && emailConfig.password_configured === true
-                && !emailConfig.encrypted_password;
-            setImportedEmailPasswordNotice(form, passwordRedacted);
+            // Only require re-entering the redacted SMTP password when the server actually
+            // would (email feature on + encrypted-DB + username) — otherwise a valid config
+            // must still offer "Finish setup".
+            setImportedEmailPasswordNotice(
+                form,
+                setupRequiresEmailPassword(form) && !emailConfig.encrypted_password
+            );
         } else {
             setImportedEmailPasswordNotice(form, false);
         }
@@ -3362,9 +3636,22 @@
             });
         }
 
-        syncLanguageCatalog(form);
-        syncTranslationOverrides(form);
-        applyImmediateSystemSettingsPreview(form);
+            syncLanguageCatalog(form);
+            syncSetupLanguagePickers(form);
+            syncTranslationOverrides(form);
+            applyImmediateSystemSettingsPreview(form);
+            persistSetupFormState(form);
+        } finally {
+            if (previousLanguagePreviewSuppression) {
+                form.dataset.suppressSetupLanguagePreview = previousLanguagePreviewSuppression;
+            } else {
+                delete form.dataset.suppressSetupLanguagePreview;
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(settings, 'default_language')) {
+            previewSetupDefaultLanguage(form, settings.default_language);
+        }
         return true;
     }
 
@@ -3395,6 +3682,7 @@
                         const needsEmailPassword = form.dataset.importNeedsEmailPassword === 'true';
                         // Don't offer "finish" yet if the redacted SMTP password must be re-entered.
                         setImportedSetupFinishVisible(form, !needsEmailPassword);
+                        persistSetupFormState(form);
                         if (typeof showToast === 'function') {
                             showToast(needsEmailPassword
                                 ? t('system_setup_import_needs_email_password', 'The SMTP password is never included in an exported setup file for security. Re-enter it below to finish setup.')
@@ -3863,6 +4151,7 @@
                     passwordField.classList.toggle('d-none', !encryptedDbSecret);
                     passwordField.setAttribute('aria-hidden', encryptedDbSecret ? 'false' : 'true');
                 }
+                restoreImportedEmailPasswordNotice(form);
             }
 
             [publicRegistrationToggle, email2faToggle, secretStorageInput].forEach((field) => {
@@ -4095,6 +4384,7 @@
         initLanguageCatalogEditor(root);
         initTranslationMatrixEditor(root);
         initSystemSetupEnterBehavior(root);
+        initSystemSetupStepValidation(root);
         initSystemSetupImportFile(root);
         initSetupLanguagePicker(root);
         initSetupThemePicker(root);
@@ -4113,6 +4403,19 @@
         initTitlebarBehaviorOptions(root);
         initImmediateSystemSettingsPreview(root);
     }
+
+    window.__msPrepareWizardContainer = function (container) {
+        const root = container || document;
+        const form = root.matches && root.matches('form.ms-system-setup-form')
+            ? root
+            : root.querySelector
+                ? root.querySelector('form.ms-system-setup-form')
+                : null;
+        if (!form) {
+            return;
+        }
+        scan(document);
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => scan(document));

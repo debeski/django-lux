@@ -59,11 +59,9 @@ services:
 
   smtp-relay:
     image: ${WEB_IMAGE:-{{ project_image }}:latest}
-    restart: unless-stopped
+    restart: always
     entrypoint: []
-    command: ["python", "/app/tools/smtp_relay.py"]
-    volumes:
-      - ./:/app:ro
+    command: ["python", "-m", "tools.smtp_relay"]
     environment:
       <<: *de
       POSTGRES_USER: ${POSTGRES_USER:-admin}
@@ -89,11 +87,11 @@ services:
 
   nginx:
     image: nginx:latest
+    restart: always
     ports:
       - target: 80
         published: "${NGINX_PORT:-80}"
         protocol: tcp
-    restart: always
     volumes:
       - ./.nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - static:/app/staticfiles:ro
@@ -113,7 +111,6 @@ services:
       - {{ project_slug }}_internal
 
   web:
-    build: .
     image: ${WEB_IMAGE:-{{ project_image }}:latest}
     restart: always
     command: >

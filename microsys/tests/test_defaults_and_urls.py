@@ -832,6 +832,118 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.cleaned_data['registration_activation_mode'], 'verified_pending_approval')
         self.assertEqual(form.cleaned_data['default_language'], 'ar')
 
+    def test_setup_import_normalizer_accepts_legacy_login_alias(self):
+        imported = normalize_system_settings_import_payload({
+            'system_names': {'en': 'Legacy System'},
+            'default_language': 'ar',
+            'registration_activation_mode': 'verified_pending_approval',
+            'login': {
+                'style': 'minimal',
+                'show_logo': False,
+                'banner_color': '#223344',
+                'logo_treatment': 'halo',
+                'logo_treatment_shape': 'pill',
+                'hero_message': {'en': 'Legacy welcome'},
+            },
+        })
+
+        self.assertEqual(imported['default_language'], 'ar')
+        self.assertEqual(imported['registration_activation_mode'], 'verified_pending_approval')
+        self.assertEqual(imported['login_config']['style'], 'minimal')
+        self.assertFalse(imported['login_config']['show_logo'])
+        self.assertEqual(imported['login_config']['banner_color'], '#223344')
+        self.assertEqual(imported['login_config']['logo_treatment'], 'halo')
+        self.assertEqual(imported['login_config']['logo_treatment_shape'], 'pill')
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', DEBUG=True)
+    def test_setup_form_processed_import_keeps_client_applied_login_language_and_registration(self):
+        form = SystemSettingsForm(
+            data={
+                'settings_import_processed': 'true',
+                'system_names': json.dumps({'en': 'Imported System', 'ar': 'نظام'}),
+                'home_url': '/',
+                'default_language': 'ar',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': json.dumps({
+                    'en': {'name': 'English', 'dir': 'ltr', 'flag': 'EN'},
+                    'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': 'AR'},
+                }),
+                'translations_override': '{}',
+                'public_registration_enabled': 'on',
+                'registration_activation_mode': 'verified_pending_approval',
+                'registration_throttle_enabled': 'on',
+                'email_config_transport': 'direct',
+                'email_config_secret_storage': 'env',
+                'email_config_host': '',
+                'email_config_port': '587',
+                'email_config_use_tls': 'on',
+                'email_config_username': '',
+                'email_config_default_from_email': '',
+                'sidebar_config': '{"entries":[]}',
+                'login_style': 'fullpage',
+                'login_banner_color': '#123456',
+                'login_logo_treatment': 'plate',
+                'login_logo_treatment_shape': 'pill',
+                'login_hero_message_en': 'Welcome',
+                'login_hero_message_ar': 'مرحبا',
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['default_language'], 'ar')
+        self.assertTrue(form.cleaned_data['public_registration_enabled'])
+        self.assertEqual(form.cleaned_data['registration_activation_mode'], 'verified_pending_approval')
+        login_config = form.cleaned_data['login_config']
+        self.assertEqual(login_config['style'], 'fullpage')
+        self.assertEqual(login_config['banner_color'], '#123456')
+        self.assertEqual(login_config['logo_treatment'], 'plate')
+        self.assertEqual(login_config['logo_treatment_shape'], 'pill')
+        self.assertEqual(login_config['hero_message']['ar'], 'مرحبا')
+
+    def test_setup_form_processed_import_requires_selected_encrypted_db_smtp_password(self):
+        form = SystemSettingsForm(
+            data={
+                'settings_import_processed': 'true',
+                'system_names': '{"en": "Imported System"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{"en": {"name": "English", "dir": "ltr", "flag": "EN"}}',
+                'translations_override': '{}',
+                'public_registration_enabled': 'on',
+                'registration_activation_mode': 'verified_pending_approval',
+                'registration_throttle_enabled': 'on',
+                'email_config_transport': 'direct',
+                'email_config_secret_storage': 'encrypted_db',
+                'email_config_host': 'smtp.example.com',
+                'email_config_port': '587',
+                'email_config_use_tls': 'on',
+                'email_config_username': 'mailer@example.com',
+                'email_config_default_from_email': 'security@example.com',
+                'email_config': json.dumps({
+                    'transport': 'direct',
+                    'secret_storage': 'encrypted_db',
+                    'host': 'smtp.example.com',
+                    'port': 587,
+                    'use_tls': True,
+                    'username': 'mailer@example.com',
+                    'default_from_email': 'security@example.com',
+                }),
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('email_config', form.errors)
+        self.assertEqual(form.cleaned_data['default_language'], 'en')
+        self.assertEqual(form.cleaned_data['registration_activation_mode'], 'verified_pending_approval')
+
     def test_setup_form_keeps_sidebar_child_settings_when_sidebar_is_disabled(self):
         form = SystemSettingsForm(
             data={
@@ -1427,6 +1539,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         password_class_end = html.index('>', password_class_start)
 
         self.assertNotIn('d-none', html[password_class_start:password_class_end])
+        self.assertIn("alert alert-info small' data-autoclose='false'", html)
 
     def test_setup_form_renders_client_ip_config_controls(self):
         form = SystemSettingsForm(
@@ -1476,9 +1589,16 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('window.setLanguage(normalizedLanguage, { previewOnly: true })', contents)
         self.assertNotIn('window.setLanguage(normalizedLanguage, { previewOnly: true, reload: false })', contents)
         self.assertIn('rehydrateSetupLanguageEditors(form)', contents)
+        self.assertIn('restoreImportedEmailPasswordNotice(form);', contents)
+        self.assertGreaterEqual(contents.count('restoreImportedEmailPasswordNotice(form);'), 2)
+        self.assertIn('function restoreImportedEmailPasswordNotice(form) {', contents)
+        self.assertIn('sessionStorage.removeItem(getSetupStateKey(form));', contents)
+        self.assertIn("notice.setAttribute('data-autoclose', 'false');", contents)
+        self.assertIn("form.dataset.suppressSetupLanguagePreview = 'true';", contents)
         self.assertNotIn('form.dataset.msWizardInitialStep = String(state.currentStep);', contents)
         self.assertIn('window.__msGetWizardInitialStep = function (container) {', contents)
-        self.assertIn('return null;', contents)
+        self.assertIn('if (stepHasValidationError(steps[index])) {', contents)
+        self.assertIn('return index;', contents)
         self.assertIn("input.matches('[data-language-default]')", contents)
         self.assertIn('#id_sidebar_enable_toolbar, #id_sidebar_enabled', contents)
         self.assertIn('function syncSidebarBehaviorConfig(form) {', contents)
@@ -1495,6 +1615,22 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('function setImportedSetupFinishVisible(form, visible)', contents)
         self.assertIn("t('system_setup_import_loaded'", contents)
         self.assertIn("t('system_setup_import_needs_email_password'", contents)
+        self.assertIn("function syncSetupLanguagePickers(form) {", contents)
+        self.assertIn("option.classList.toggle('is-active', isActive);", contents)
+        self.assertIn("input.addEventListener('change', syncActive);", contents)
+        self.assertIn("Object.prototype.hasOwnProperty.call(settings, 'registration_activation_mode')", contents)
+        self.assertIn("function setupRequiresEmailPassword(form)", contents)
+        self.assertIn("setupRequiresEmailPassword(form) && !emailConfig.encrypted_password", contents)
+        self.assertIn("getNamedFieldValue(form, 'email_config_secret_storage') !== 'encrypted_db'", contents)
+        self.assertNotIn("emailConfig.password_configured === true", contents)
+        self.assertNotIn("const needsEncryptedDbPassword = emailConfig.secret_storage === 'encrypted_db'", contents)
+        self.assertIn("form.dataset.suppressSetupLanguagePreview = 'true';", contents)
+        self.assertIn("if (form.dataset.suppressSetupLanguagePreview === 'true')", contents)
+        self.assertIn('window.__msPrepareWizardContainer = function (container) {', contents)
+        self.assertIn('scan(document);', contents)
+        self.assertNotIn('ms-setup-language-switch-pending', contents)
+        self.assertNotIn('function setupDefaultLanguageWillSwitch(language) {', contents)
+        self.assertIn('previewSetupDefaultLanguage(form, settings.default_language);', contents)
         self.assertIn("'allow_user_font_override'", contents)
         self.assertIn('applyImportedFontSettings(form, settings);', contents)
         self.assertIn("hiddenInput.addEventListener('change', () => {", contents)
@@ -1515,6 +1651,16 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-client-ip-mode-input', contents)
         self.assertIn("setNamedFieldDisabled(form, 'client_ip_trusted_proxy_hops', !showHops)", contents)
         self.assertIn("setNamedFieldDisabled(form, 'client_ip_custom_header', !showCustomHeader)", contents)
+        self.assertIn('function initSystemSetupStepValidation(root) {', contents)
+        self.assertIn('function updateSetupStepValidationState(form) {', contents)
+        self.assertIn('return !field.checkValidity();', contents)
+        self.assertIn("step.classList.toggle('ms-setup-step-has-error', hasError);", contents)
+        self.assertIn("navItem.classList.toggle('has-validation-error', hasError);", contents)
+        self.assertIn("bullet.textContent = hasError ? '!' : bullet.dataset.msStepNumber;", contents)
+        self.assertIn("form.addEventListener('invalid', syncSoon, true);", contents)
+        self.assertIn('persistSetupFormState(form);', contents)
+        self.assertIn("form.querySelectorAll('.ms-btn-submit').forEach((button) => {", contents)
+        self.assertIn('initSystemSetupStepValidation(root);', contents)
 
     def test_wizard_helper_reveals_server_hidden_steps(self):
         script = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'helpers' / 'wizard' / 'js' / 'main.js'
@@ -1526,6 +1672,13 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("button.classList.toggle('d-none', !isVisible);", contents)
         self.assertIn("button.style.display = isVisible ? '' : 'none';", contents)
         self.assertIn("button.setAttribute('aria-hidden', isVisible ? 'false' : 'true');", contents)
+        self.assertIn('function prepareWizardContainer(container) {', contents)
+        self.assertIn("typeof window.__msPrepareWizardContainer !== 'function'", contents)
+        self.assertIn('prepareWizardContainer(container);', contents)
+        self.assertLess(
+            contents.index('prepareWizardContainer(container);'),
+            contents.index("container.dataset.msWizardBound = 'true';"),
+        )
         self.assertIn("container.querySelectorAll('[data-ms-wizard-step-target]')", contents)
         self.assertIn("item.classList.toggle('is-active', isActive);", contents)
         self.assertIn("item.classList.toggle('is-complete', isComplete);", contents)
@@ -1658,6 +1811,18 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('.ms-setup-step-nav__item.is-complete {', contents)
         self.assertIn('backdrop-filter: blur(14px);', contents)
 
+    def test_system_setup_css_defines_step_validation_warning_state(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'system_setup.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.ms-setup-step-nav__item.has-validation-error {', contents)
+        self.assertIn('.ms-setup-step-nav__item.has-validation-error .ms-setup-step-nav__bullet {', contents)
+        self.assertIn('.ms-system-settings-shell.mode-setup .wizard-step.ms-setup-step-has-error {', contents)
+        self.assertIn('border-color: rgba(245, 158, 11, 0.72);', contents)
+        self.assertIn('background: #f59e0b;', contents)
+        self.assertNotIn('ms-setup-language-switch-pending', contents)
+        self.assertNotIn('visibility: hidden;', contents)
+
     def test_shared_toggle_helper_uses_neutral_switch_wrapper(self):
         form = SystemSettingsForm(
             instance=SystemSettings(is_configured=False),
@@ -1728,18 +1893,21 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("microsys/main/css/main.css", contents)
-        self.assertIn("?v=20260525a", contents)
+        self.assertIn("?v=20260607d", contents)
         self.assertIn("microsys/main/css/system_setup.css", contents)
-        self.assertIn("?v=20260523f", contents)
-        self.assertIn("microsys/helpers/wizard/js/main.js", contents)
-        self.assertIn("?v=20260523b", contents)
+        self.assertIn("?v=20260610a", contents)
         self.assertIn("microsys/main/js/system_setup.js", contents)
-        self.assertIn("?v=20260525a", contents)
+        self.assertIn("microsys/helpers/wizard/js/main.js", contents)
+        self.assertLess(
+            contents.index("microsys/main/js/system_setup.js"),
+            contents.index("microsys/helpers/wizard/js/main.js"),
+        )
+        self.assertGreaterEqual(contents.count("?v=20260610a"), 3)
         self.assertIn("microsys/main/js/navbar.js", contents)
         self.assertIn("microsys/main/css/navbar.css", contents)
-        self.assertIn("{% static theme.css_path %}?v=20260525f", contents)
+        self.assertIn("{% static theme.css_path %}?v=20260528c", contents)
         self.assertIn("microsys/main/css/template_cleanup.css", contents)
-        self.assertIn("?v=20260525e", contents)
+        self.assertIn("?v=20260529a", contents)
 
     def test_theme_preview_surfaces_include_aether_and_light_mono(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'template_cleanup.css'

@@ -4,6 +4,47 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.3.7
+
+### Setup Wizard Import
+
+- **Finish CTA Restored For Valid Imports**: The encrypted-DB SMTP finish gate (v2.3.6) was too broad — it suppressed the instant "Finish setup" CTA for *any* imported config selecting `secret_storage: encrypted_db` without a secret, even when the password isn't actually required. `system_setup.js` now resolves the requirement through a single `setupRequiresEmailPassword(form)` helper that mirrors the server rule (an email feature enabled **and** `encrypted_db` **and** a username set **and** no password), and `syncSetupCustomValidation()` recomputes it live so the `form.dataset.importNeedsEmailPassword` flag, the warning, and the Finish CTA can never go stale as email features/username/password are toggled. A valid imported config now offers Finish immediately again; an `encrypted_db` config that genuinely needs the redacted secret still gates Finish until it is re-entered.
+
+### UI Fixes
+
+- **Adaptive Titlebar Brand (Title No Longer Overlaps Home / User-Hub)**: A long title used to spill over the home and user-hub buttons because the column heading sized the title to its full text width and nothing clipped it. The title is now capped to its column (`max-width: 100%`) so it truncates instead of overlapping, and the brand adapts as space tightens: the title is split into a system-name span and a ` - scope` suffix span, and a new `main/js/titlebar.js` drops the scope suffix first, then collapses an unreadably-narrow heading to logo-only, and exposes the full title on hover/focus via the shared `data-ms-tooltip` so nothing is lost. On screens ≤575.98px the user-hub trigger collapses to avatar-only (`.ms-trigger-name` hidden; the username still shows inside the dropdown) to reclaim titlebar width. Re-measures on resize, `load`, and `document.fonts.ready`.
+
+## v2.3.6
+
+### Setup Wizard Import Corrections
+
+- **Default Language Import Resync**: `system_setup.js` now updates setup language picker buttons with the rendered `is-active` class, listens to hidden `default_language` input changes, and calls `syncSetupLanguagePickers()` after imported language-catalog rebuilds so Arabic/English cannot both remain visually selected.
+- **Registration Activation Import Ordering**: `applyImportedSetupSettings()` now applies `public_registration_enabled` before `registration_activation_mode`, ensuring the activation selector is enabled before the imported `verified_pending_approval` value is written and posted.
+- **Login Config Import Compatibility**: `normalize_system_settings_import_payload()` now accepts legacy/direct `login` payloads as `login_config`, matching the client importer and preserving login layout style, logo treatment, banner colour, and hero-message settings through no-JS/server import paths.
+- **Encrypted-DB SMTP Finish Gate**: Imported email settings that select `secret_storage: encrypted_db` now suppress the instant "Finish setup" CTA whenever the exported file lacks an SMTP secret, regardless of `password_configured`; the warning stays visible until the password is re-entered.
+- **Setup Step Validation Markers**: Initial setup now scans enabled controls in every wizard step with native `checkValidity()` plus server-rendered error markup, marks failing steps and nav items with a yellow warning border and `!` bullet, and opens the first failing step on invalid submit instead of returning to Step 1.
+- **Language Preview Preserves Imported Setup State**: Config-file import now suppresses default-language preview reloads until all imported fields are applied, persists the completed form state before switching language/direction, and restores that snapshot once after the reload so it cannot replay across logout/login visits.
+- **Deterministic Setup Wizard Restore**: `base.html` now loads `system_setup.js` before the generic wizard helper, and the wizard calls `window.__msPrepareWizardContainer()` before binding so imported setup state, validation markers, and the first invalid step are resolved before the first wizard render instead of being visually hidden and corrected afterward.
+- **Persistent SMTP Setup Notices**: Imported encrypted-DB SMTP warnings and the server-rendered email-service info alert both opt out of global alert auto-close while import warnings are recreated after reloads, server validation rerenders, and email-field visibility syncs.
+- **Alert Auto-Close Documentation**: `docs/reference.md` now documents the global `.alert` auto-close behavior in `base_runtime.js` and the supported `data-autoclose="false"` opt-out for actionable validation/setup notices.
+- **Project-Scoped Setup Export Filename**: The System Settings export view now downloads as `microsys-{project-slug}-{YYYY-MM-DD}.json`. The slug resolves from the deployed `BASE_DIR` folder name — skipping generic container work-dir names (`app`, `src`, `code`, `web`, …) — then the configured English system name (`normalize_system_names(...)['en']`) when set, then the literal `project`. The fictional `settings.MICROSYS_PROJECT_NAME` lookup and the `SETTINGS_MODULE`/`ROOT_URLCONF` module-root guesses were dropped, and the already-loaded `SystemSettings` instance is threaded through to avoid a second DB read.
+
+### UI Fixes
+
+- **Shared Tooltip Flicker And Placement**: The Microsys tooltip helper (`helpers/tooltip/js/main.js`) no longer flashes at the top-left corner when the pointer moves quickly between targets — `showTooltip()` stopped resetting the still-visible tooltip to `(0,0)` before repositioning, so it is now only revealed once placed. `preferredPlacement()` also dropped the coarse 180/96/120px distance thresholds that forced a side placement when a target was merely within 180px of an edge; placement is decided by a placement-aware overflow check that treats cross-axis overflow as clampable, so tooltips stay on top (sliding to fit) unless the anchoring axis genuinely has no room.
+
+## v2.3.5
+
+### Project Scaffold
+
+- **Image-only web/celery in production compose**: `compose.yml.tmpl` drops `build: .` from the `web` service so production runs the published `${WEB_IMAGE:-{{ project_image }}:latest}` image instead of rebuilding on the host; `nginx` and `smtp-relay` are pinned to `restart: always`.
+- **Config-package-aware Gunicorn**: `gunicorn.py.tmpl` now templates the WSGI app and `DJANGO_SETTINGS_MODULE` as `{{ config_package }}.wsgi` / `{{ config_package }}.settings` instead of hardcoding `config`, so a project scaffolded with a non-default config package boots correctly.
+- **Fuller Docker build/runtime deps**: `Dockerfile.tmpl` adds `libffi-dev`, `libssl-dev`, `libjpeg-dev`, `zlib1g-dev`, `postgresql-client`, and `tzdata` (Pillow/crypto build prerequisites, `pg_dump`/`psql` for backups, and timezone data) alongside the existing `netcat-openbsd`/`curl`.
+- **SMTP relay runs as a module**: the `smtp-relay` service starts via `python -m tools.smtp_relay` and no longer bind-mounts the project source read-only (`restart: always`), so it relies on the built image.
+- **Dev compose**: the dev `nginx` port and `BASE_URL`/`NGINX_PORT` move to `90` (avoiding the common `:81` clash), and the `web` service now mounts `./logs` (rw) and `./imports` (ro).
+- **Requirements**: `requirements.txt.tmpl` adds `django-celery-beat` (scheduled tasks) and drops `openpyxl`, which is already pulled in transitively by `django-microsys`.
+- **Ignore files & helper scripts**: `.dockerignore`/`.gitignore` add `backups/`, `.claude/`, `.codex`, collapse `celerybeat-*`, and exclude `tracker.md` from the image; `start.sh`/`start.ps1` switch the helper image from `debeski/decrypter:compose` to `debeski/composer:latest`, and `start.sh` only adds `-it` to `docker run` when a TTY is attached (so it works in CI/non-interactive shells).
+
 ## v2.3.4
 
 ### Setup Wizard Import

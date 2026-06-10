@@ -16,7 +16,7 @@ errorlog = "-"
 loglevel = "info"
 
 # Application module
-wsgi_app = "config.wsgi:application"
+wsgi_app = "{{ config_package }}.wsgi:application"
 
 # Maximum number of requests a worker will process before restarting
 max_requests = 1000
@@ -29,6 +29,6 @@ preload_app = True
 
 # Set environment variables
 raw_env = [
-    "DJANGO_SETTINGS_MODULE=config.settings",
+    "DJANGO_SETTINGS_MODULE={{ config_package }}.settings",
     "DEBUG=False",
 ]

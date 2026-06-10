@@ -1985,6 +1985,7 @@ def normalize_system_settings_import_payload(payload):
         'sidebar': 'sidebar_config',
         'navbar': 'navbar_config',
         'titlebar': 'titlebar_config',
+        'login': 'login_config',
     }
     for source_name, target_name in import_aliases.items():
         if target_name not in normalized and source_name in raw_settings:

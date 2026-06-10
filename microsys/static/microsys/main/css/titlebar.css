@@ -82,6 +82,15 @@
     text-align: start;
 }
 
+/* Align the name + scope row inside a (possibly full-width) truncated title. */
+.titlebar[data-title-align="center"] .titlebar__title {
+    justify-content: center;
+}
+
+.titlebar[data-title-align="end"] .titlebar__title {
+    justify-content: flex-end;
+}
+
 .titlebar__title {
     color: #2c3e50;
     font-weight: 800;
@@ -91,10 +100,34 @@
     line-height: 1;
     display: flex;
     align-items: center;
-    white-space: nowrap;
+    /* max-width caps the title to its column so a long title truncates instead of
+       spilling over the home / user-hub buttons; min-width:0 lets the name shrink. */
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    flex-shrink: 1;
+}
+
+.titlebar__title-name {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex-shrink: 1;
+    white-space: nowrap;
+}
+
+.titlebar__title-scope {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* Adaptive brand (toggled by titlebar.js): drop the scope suffix before the system
+   name, and collapse an unreadably-narrow heading so the logo carries the brand. */
+.titlebar__title--name-only .titlebar__title-scope {
+    display: none;
+}
+
+.titlebar__heading--collapsed {
+    display: none;
 }
 
 .titlebar__header-slot {

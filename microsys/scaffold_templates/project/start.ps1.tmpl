@@ -1,9 +1,9 @@
 Set-StrictMode -Version Latest
 
-# Check for --update flag to pull latest decrypter image
+# Check for --update flag to pull latest composer image
 if ($args[0] -eq "--update") {
-    Write-Host "=== Current Decrypter Version ==="
-    $currentVersion = docker run --rm --entrypoint cat debeski/decrypter:compose /app/VERSION 2>$null
+    Write-Host "=== Current Composer Version ==="
+    $currentVersion = docker run --rm --entrypoint cat debeski/composer:latest /app/VERSION 2>$null
     if ($currentVersion) {
         Write-Host "  $currentVersion"
     } else {
@@ -11,12 +11,12 @@ if ($args[0] -eq "--update") {
     }
 
     Write-Host ""
-    Write-Host "Pulling latest decrypter image..."
-    docker pull debeski/decrypter:compose
+    Write-Host "Pulling latest composer image..."
+    docker pull debeski/composer:latest
 
     Write-Host ""
     Write-Host "=== Installed Version ==="
-    docker run --rm --entrypoint cat debeski/decrypter:compose /app/VERSION
+    docker run --rm --entrypoint cat debeski/composer:latest /app/VERSION
 
     exit 0
 }
@@ -41,4 +41,4 @@ docker run -it --rm `
   -v "${projectRoot}:${containerRoot}" `
   -w "${containerRoot}" `
   -v /var/run/docker.sock:/var/run/docker.sock `
-  debeski/decrypter:compose @args
+  debeski/composer:latest @args
