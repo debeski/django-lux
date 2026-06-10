@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- `microsys/VERSION` 2.3.7; `CHANGELOG.md` through v2.3.7 (newest-first), including split-hit-area System Settings theme matrix.
+- `microsys/VERSION` 2.3.8; `CHANGELOG.md` through v2.3.8 (newest-first), including migration-safe runtime translations.
 - Reports use a locale-independent `UserActivityLog.model_key` (migration `0011`) so per-user/overview counts work in non-Latin locales; group/resolve on key, display via `model_name`.
 - Single active session: `enforce_single_active_session` evicts a user's other sessions on every login; force-ended devices hit the `/accounts/session-ended/` interstitial.
 - 8-step setup/System Settings wizard: identity, languages/translations, access/security, login page, sidebar, navbar, titlebar, appearance/fonts.
@@ -35,6 +35,7 @@
   - [ ] Bump `?v=` cache-busters for changed `main.css`/`login.css`/`system_setup.js` and refresh the 3 stale tests.
   - [ ] Implement the validated `microsys/utils.py` split (`utils_split_plan.md`), preserving import contracts.
 - **Completed Recently:**
+  - [x] Fixed `lazy_translator()` migration churn by returning `MigrationSafeTranslation`, preserving runtime translation while serializing stable English/default values (v2.3.8).
   - [x] Reports-0-in-non-Latin-locale fixed via `model_key` + eligibility guard (v2.3.1, migration `0011`).
   - [x] Single active session + signed-out interstitial (v2.3.2).
   - [x] Setup import corrected + language-preview polish + SMTP warning re-sync + step validation markers (v2.3.6).
@@ -43,10 +44,10 @@
   - [x] Tooltip flicker/placement fix (v2.3.6); adaptive titlebar brand so a long title truncates/degrades instead of overlapping home/user-hub, full name via tooltip, avatar-only username ≤575.98px (v2.3.7).
 
 ### One-line info about last verified Tests:
-- 2026-06-10: focused setup theme matrix tests 3 OK; prior export filename 1 OK, setup slice 6 OK + SMTP slice 2 OK, `test_views` 131 OK + `test_middleware` 25 OK.
+- 2026-06-10: `microsys.tests.test_utils.UtilsTests.test_lazy_translator_renders_current_language_but_serializes_stably` OK via archive dev compose; archive `makemigrations --check --dry-run` and `check` OK.
 
 ### One-line info about last time edited Docs:
-- 2026-06-10: `admin-guide.md`/`FEATURES.md` updated for theme matrix preview-circle/default vs card/checkbox allow behavior.
+- 2026-06-10: `CHANGELOG.md` updated for v2.3.8 migration-safe translation serialization.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

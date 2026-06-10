@@ -468,6 +468,20 @@ class UtilsTests(TestCase):
         self.assertEqual(fr_cell['value'], 'Systeme personnalise')
         self.assertEqual(fr_cell['source'], 'override')
 
+    def test_lazy_translator_renders_current_language_but_serializes_stably(self):
+        from django.db.migrations.serializer import serializer_factory
+        from microsys.translations import lazy_translator
+
+        label = lazy_translator('label_name', 'Name')
+
+        with patch('microsys.translations.get_strings', return_value={'label_name': 'الاسم'}):
+            self.assertEqual(str(label), 'الاسم')
+
+        serialized, imports = serializer_factory(label).serialize()
+        self.assertEqual(serialized, "'Name'")
+        self.assertEqual(imports, set())
+        self.assertEqual(label, 'Name')
+
     def test_translation_matrix_groups_core_and_project_override_keys(self):
         from microsys.translations import build_translation_matrix_groups
 

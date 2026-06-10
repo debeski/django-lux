@@ -2468,15 +2468,60 @@ def get_strings(lang_code=None, overrides=None):
 
     return base
 
+class MigrationSafeTranslation(str):
+    """
+    Runtime-translated string that Django migrations can serialize stably.
+
+    Django's migration serializer resolves django.utils.functional.Promise
+    values with str(value), which makes generated migrations depend on the
+    active language. This object is intentionally not a Promise; it behaves
+    like its stable default string for migration serialization while str()
+    resolves through the active Microsys translation table at runtime.
+    """
+
+    def __new__(cls, key, default_val):
+        obj = super().__new__(cls, default_val)
+        obj.key = key
+        obj.default_val = default_val
+        return obj
+
+    def _resolve(self):
+        try:
+            return get_strings().get(self.key, self.default_val)
+        except Exception:
+            return self.default_val
+
+    def _migration_value(self):
+        try:
+            all_strings = _discover_and_merge_translations()
+            return all_strings.get('en', {}).get(self.key, self.default_val)
+        except Exception:
+            return self.default_val
+
+    def __str__(self):
+        return str(self._resolve())
+
+    def __repr__(self):
+        return repr(self._migration_value())
+
+    def __format__(self, format_spec):
+        return format(str(self), format_spec)
+
+    def __html__(self):
+        return str(self)
+
+    def __eq__(self, other):
+        if isinstance(other, MigrationSafeTranslation):
+            return (self.key, self.default_val) == (other.key, other.default_val)
+        return self._migration_value() == other
+
+    def __hash__(self):
+        return hash(self._migration_value())
+
+
 def lazy_translator(key, default_val):
     """
-    Returns a lazy proxy that evaluates to the translated string
+    Returns a migration-safe object that evaluates to the translated string
     at render time, using the current thread's language.
-    Perfect for patching global class attributes like Column.verbose_name.
     """
-    from django.utils.functional import lazy
-    def _translate():
-        s = get_strings()
-        return s.get(key, default_val)
-    # Using str type so Django templates format it correctly
-    return lazy(_translate, str)()
+    return MigrationSafeTranslation(key, default_val)

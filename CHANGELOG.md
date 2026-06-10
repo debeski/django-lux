@@ -4,6 +4,12 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.3.8
+
+### Migration Stability
+
+- **Migration-Safe Runtime Translations**: Replaced the `django.utils.functional.lazy` return value from `microsys.translations.lazy_translator()` with a `MigrationSafeTranslation` string subclass so model field `verbose_name`, validator messages, and choice labels still resolve through the active Microsys translation catalog at runtime while Django migrations serialize a stable English-catalog/default value. This stops `makemigrations` from generating duplicate label-only `AlterField` migrations when the active language flips between Arabic and English, without forcing existing apps with plain-string migration history to create a one-time cleanup migration.
+
 ## v2.3.7
 
 ### Setup Wizard Import
