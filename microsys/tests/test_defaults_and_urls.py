@@ -774,6 +774,64 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertFalse(form.cleaned_data['sidebar_config']['enabled'])
         self.assertTrue(form.cleaned_data['sidebar_enable_toolbar'])
 
+    def test_setup_form_import_restores_login_config_and_registration_mode(self):
+        payload = {
+            'format': 'django-microsys.system-settings',
+            'version': 1,
+            'settings': {
+                'system_names': {'en': 'Imported System', 'ar': 'نظام'},
+                'default_language': 'ar',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': {
+                    'en': {'name': 'English', 'dir': 'ltr', 'flag': 'EN'},
+                    'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': 'AR'},
+                },
+                'translations_override': {},
+                'home_url': '/',
+                'registration_activation_mode': 'verified_pending_approval',
+                'login_config': {
+                    'style': 'fullpage',
+                    'show_logo': False,
+                    'banner_color': '#123456',
+                    'logo_treatment': 'plate',
+                    'logo_treatment_shape': 'circle',
+                    'hero_message': {'en': 'Welcome', 'ar': 'مرحبا'},
+                },
+            },
+        }
+        import_file = SimpleUploadedFile(
+            'microsys-system-settings.json',
+            json.dumps(payload).encode('utf-8'),
+            content_type='application/json',
+        )
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "Posted"}',
+                'home_url': '/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'languages': '{}',
+                'translations_override': '{}',
+                'sidebar_config': '{"entries":[]}',
+            },
+            files={'settings_import_file': import_file},
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        login_config = form.cleaned_data['login_config']
+        self.assertEqual(login_config['style'], 'fullpage')
+        self.assertFalse(login_config['show_logo'])
+        self.assertEqual(login_config['banner_color'], '#123456')
+        self.assertEqual(login_config['logo_treatment'], 'plate')
+        self.assertEqual(login_config['hero_message'].get('en'), 'Welcome')
+        self.assertEqual(form.cleaned_data['registration_activation_mode'], 'verified_pending_approval')
+        self.assertEqual(form.cleaned_data['default_language'], 'ar')
+
     def test_setup_form_keeps_sidebar_child_settings_when_sidebar_is_disabled(self):
         form = SystemSettingsForm(
             data={
@@ -1435,7 +1493,8 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('toolbarToggle.checked = false;', contents)
         self.assertIn('data-public-registration-dependent', contents)
         self.assertIn('function setImportedSetupFinishVisible(form, visible)', contents)
-        self.assertIn("showToast(t('system_setup_import_loaded'", contents)
+        self.assertIn("t('system_setup_import_loaded'", contents)
+        self.assertIn("t('system_setup_import_needs_email_password'", contents)
         self.assertIn("'allow_user_font_override'", contents)
         self.assertIn('applyImportedFontSettings(form, settings);', contents)
         self.assertIn("hiddenInput.addEventListener('change', () => {", contents)

@@ -886,8 +886,9 @@ input.is-invalid:focus {
         drop-shadow(0 0.2rem 0.6rem rgba(15, 23, 42, 0.25));
 }
 
-/* Banner colour support (inline --login-banner-color set via template) */
-.right[style*="--login-banner-color"] {
+/* Banner colour support (--login-banner-color set on the panel by login.js from the
+   data-login-banner-color bridge — no inline style attribute; MSRP-1). */
+.right[data-login-banner-color] {
     background: var(--login-banner-color) !important;
 }
 

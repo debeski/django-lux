@@ -4,6 +4,19 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.3.4
+
+### Setup Wizard Import
+
+- **Login page settings now import**: The wizard's client-side importer (`applyImportedSetupSettings` in `system_setup.js`) never populated `login_config`. It now restores login layout `style`, `show_logo`, `banner_color`, `logo_treatment` + `logo_treatment_shape`, and per-language `hero_message` fields from an imported setup file, with a matching server-side fallback in `SystemSettingsForm._apply_imported_settings` for the no-JS path.
+- **Registration activation mode now imports**: `registration_activation_mode` was missing from the importer's field list, so it always reverted to `auto_login_after_verify`. It is now applied alongside the existing `public_registration_enabled` toggle.
+- **Choice-selector double-selection fixed**: `setNamedFieldValue` flipped a radio's `.checked` without dispatching `change`, so `MicrosysChoiceSelectorWidget` toggles (default language, titlebar title-align/size, titlebar + login logo treatment) kept the previously-selected card highlighted alongside the imported one. It now fires `change` so the selector re-syncs, and `rebuildLanguageCatalog` dispatches `change` so an auto-selected first language can't stay highlighted next to the imported default.
+- **SMTP secret re-entry is now surfaced**: Exports redact the SMTP password. When an imported `encrypted_db` config reports `password_configured` but carries no secret, the wizard flags the password field, shows a translated notice (`system_setup_import_needs_email_password`), and suppresses the instant "Finish setup" CTA until the password is re-entered — instead of silently failing email validation on finish and dropping the imported values.
+
+### MSRP-1 Compliance
+
+- **Removed runtime inline styles**: The login / public-auth banner colour moved from an inline `style="--login-banner-color: …"` attribute to a `data-login-banner-color` bridge applied via `setProperty` in `users/js/login.js`, with `login.css` selecting `.right[data-login-banner-color]`. The signed-out interstitial moved its inline styles to `.ms-session-ended__card` / `.ms-session-ended__icon` classes in `main.css` and now resolves all copy through the translation framework (no hardcoded literals). Templates carry no inline `style=` attributes, executable inline `<script>`, or event-handler attributes; the only remaining `<style>` is the nonce-protected dynamic-fonts block, and the only inline `<script>` blocks are `type="application/json"` data bridges.
+
 ## v2.3.3
 
 ### Public Registration UI

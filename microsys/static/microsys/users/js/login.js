@@ -71,6 +71,14 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
+    // Apply the admin-configured banner colour via a data-* bridge (no inline style; MSRP-1).
+    document.querySelectorAll('[data-login-banner-color]').forEach(function (panel) {
+        const bannerColor = panel.getAttribute('data-login-banner-color');
+        if (bannerColor) {
+            panel.style.setProperty('--login-banner-color', bannerColor);
+        }
+    });
+
     var loginTitleButton = document.querySelector(".login-title-btn");
     if (loginTitleButton) {
         loginTitleButton.style.display = "none";

@@ -83,7 +83,7 @@
         </form>
       </div>
 
-      <div class="right d-none d-md-flex" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}"{% if lbc %} style="--login-banner-color: {{ lbc }}; background: {{ lbc }};"{% endif %}>
+      <div class="right d-none d-md-flex" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}"{% if lbc %} data-login-banner-color="{{ lbc }}"{% endif %}>
           {% if ls == 'fullpage' %}
           <div class="ms-login-hero">
             <div class="ms-login-hero__body" data-ms-login-hero="{{ login_hero_message }}"></div>

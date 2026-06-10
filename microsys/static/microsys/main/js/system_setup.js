@@ -863,6 +863,11 @@
             inputs.forEach((input) => {
                 input.checked = String(input.value) === String(value);
             });
+            // Choice-selector widgets track their highlighted option from a 'change'
+            // event on the checked input; without this they keep the previously-selected
+            // option visually marked (two options appearing selected at once).
+            const checked = inputs.find((input) => input.checked) || inputs[0];
+            checked.dispatchEvent(new Event('change', { bubbles: true }));
             return;
         }
 
@@ -2947,6 +2952,10 @@
         const defaultInput = defaultCode ? form.querySelector(`[data-language-row][data-language-code="${defaultCode}"] [data-language-default]`) : null;
         if (defaultInput) {
             defaultInput.checked = true;
+            // These radios have no shared name, so the single-select behaviour comes from the
+            // row's change handler. Fire it so any previously auto-selected default is cleared
+            // (otherwise both the first-added language and the imported default appear selected).
+            defaultInput.dispatchEvent(new Event('change', { bubbles: true }));
         }
         Object.entries(systemNames || {}).forEach(([rawCode, value]) => {
             const code = normalizeLanguageCode(rawCode);
@@ -3137,6 +3146,46 @@
         finish.classList.toggle('d-none', !visible);
     }
 
+    function setImportedEmailPasswordNotice(form, needed) {
+        if (!form) return;
+        const passwordField = form.querySelector('[name="email_config_password"]');
+        form.dataset.importNeedsEmailPassword = needed ? 'true' : '';
+        let notice = form.querySelector('[data-import-email-password-notice]');
+        if (!needed) {
+            if (notice) notice.classList.add('d-none');
+            if (passwordField) passwordField.classList.remove('is-invalid');
+            return;
+        }
+        if (!notice && passwordField) {
+            notice = document.createElement('div');
+            notice.setAttribute('data-import-email-password-notice', '');
+            notice.className = 'alert alert-warning ms-import-email-password-notice mt-2 mb-0';
+            notice.textContent = t(
+                'system_setup_import_needs_email_password',
+                'The SMTP password is never included in an exported setup file for security. Re-enter it below to finish setup.'
+            );
+            const wrapper = passwordField.closest('.ms-email-config-password-field')
+                || passwordField.closest('div')
+                || passwordField.parentElement;
+            if (wrapper) wrapper.appendChild(notice);
+        }
+        if (notice) notice.classList.remove('d-none');
+        if (passwordField) {
+            passwordField.classList.add('is-invalid');
+            if (passwordField.dataset.importPwBound !== 'true') {
+                passwordField.dataset.importPwBound = 'true';
+                passwordField.addEventListener('input', () => {
+                    if (passwordField.value.trim().length === 0) return;
+                    form.dataset.importNeedsEmailPassword = '';
+                    passwordField.classList.remove('is-invalid');
+                    const current = form.querySelector('[data-import-email-password-notice]');
+                    if (current) current.classList.add('d-none');
+                    setImportedSetupFinishVisible(form, true);
+                });
+            }
+        }
+    }
+
     function applyImportedFontSettings(form, settings) {
         if (!form || !settings || typeof settings !== 'object') return;
 
@@ -3206,7 +3255,7 @@
             applyTranslationOverridesToMatrix(form, translationOverrides);
         }
 
-        ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density'].forEach((name) => {
+        ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density', 'registration_activation_mode'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setNamedFieldValue(form, name, settings[name]);
                 getNamedFieldInputs(form, name).forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
@@ -3231,6 +3280,14 @@
             setCheckboxField(form, 'email_config_use_ssl', emailConfig.use_ssl === true);
             setNamedFieldValue(form, 'email_config_username', emailConfig.username || '');
             setNamedFieldValue(form, 'email_config_default_from_email', emailConfig.default_from_email || '');
+            // SMTP secrets are redacted from exports. If the source had a saved encrypted-DB
+            // password, the importing dev must re-enter it or the finish step fails validation.
+            const passwordRedacted = emailConfig.secret_storage === 'encrypted_db'
+                && emailConfig.password_configured === true
+                && !emailConfig.encrypted_password;
+            setImportedEmailPasswordNotice(form, passwordRedacted);
+        } else {
+            setImportedEmailPasswordNotice(form, false);
         }
 
         if (Array.isArray(settings.allowed_themes)) {
@@ -3287,6 +3344,24 @@
             setNamedFieldValue(form, 'titlebar_logo_treatment_shape', titlebar.logo_treatment_shape || 'soft');
         }
 
+        const loginSource = settings.login_config || settings.login;
+        const login = loginSource && typeof loginSource === 'object' ? loginSource : null;
+        if (login) {
+            setJsonField(form, 'login_config', login);
+            setNamedFieldValue(form, 'login_style', login.style || 'split');
+            setCheckboxField(form, 'login_show_logo', login.show_logo !== false);
+            setNamedFieldValue(form, 'login_banner_color', login.banner_color || '');
+            setNamedFieldValue(form, 'login_logo_treatment', login.logo_treatment || 'none');
+            setNamedFieldValue(form, 'login_logo_treatment_shape', login.logo_treatment_shape || 'soft');
+            const hero = login.hero_message && typeof login.hero_message === 'object' ? login.hero_message : {};
+            Object.entries(hero).forEach(([rawCode, message]) => {
+                const code = normalizeLanguageCode(rawCode);
+                if (code) {
+                    setNamedFieldValue(form, `login_hero_message_${code}`, message || '');
+                }
+            });
+        }
+
         syncLanguageCatalog(form);
         syncTranslationOverrides(form);
         applyImmediateSystemSettingsPreview(form);
@@ -3317,9 +3392,13 @@
                         if (processedFlag) {
                             processedFlag.value = 'true';
                         }
-                        setImportedSetupFinishVisible(form, true);
+                        const needsEmailPassword = form.dataset.importNeedsEmailPassword === 'true';
+                        // Don't offer "finish" yet if the redacted SMTP password must be re-entered.
+                        setImportedSetupFinishVisible(form, !needsEmailPassword);
                         if (typeof showToast === 'function') {
-                            showToast(t('system_setup_import_loaded', 'System setup file imported.'));
+                            showToast(needsEmailPassword
+                                ? t('system_setup_import_needs_email_password', 'The SMTP password is never included in an exported setup file for security. Re-enter it below to finish setup.')
+                                : t('system_setup_import_loaded', 'System setup file imported.'));
                         }
                     } catch (error) {
                         setImportedSetupFinishVisible(form, false);

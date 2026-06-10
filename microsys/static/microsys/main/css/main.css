@@ -527,3 +527,13 @@ form label {
     padding: 0 !important;
     border: 0 !important;
 }
+
+/* Signed-out interstitial */
+.ms-session-ended__card {
+    max-width: 480px;
+    width: 100%;
+}
+
+.ms-session-ended__icon {
+    font-size: 3rem;
+}

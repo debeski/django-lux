@@ -2,74 +2,59 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Verified 2026-05-25: critical/high performance remediation added user/activity eager loading, permission-form query helpers, and versioned sidebar caching.
-- Package version markers include `microsys/VERSION` 2.2.7; changelog now has unreleased/next `v2.2.8` performance notes.
-- System setup/System Settings uses seven steps: identity, languages/translations, access/security, sidebar, navbar, titlebar, appearance/fonts.
-- Dynamic fonts, runtime theme allowlisting, optional Nav Bar, Titlebar logo treatments, shared tooltips, and User Existence Report are active feature areas.
-- DynamicModal loading keeps the existing AJAX contract; real previous content is a covered sizing fallback, empty loads use a self-contained skeleton.
-- Theme picker surfaces include Aether/Mono polish; Prism/Aether cover archive file widgets, titlebar logo treatments, and Aether Options System Settings tiles.
+- `microsys/VERSION` 2.3.4; root `CHANGELOG.md` current through v2.3.4 (newest-first).
+- Reports use a locale-independent `UserActivityLog.model_key` (migration `0011`) so per-user/overview counts work in non-Latin locales; group/resolve on key, display via `model_name`.
+- Single active session: `enforce_single_active_session` evicts a user's other sessions on every login; force-ended devices hit the `/accounts/session-ended/` interstitial.
+- 8-step setup/System Settings wizard: identity, languages/translations, access/security, login page, sidebar, navbar, titlebar, appearance/fonts.
+- Setup-file import now restores `login_config` + `registration_activation_mode`; choice-selectors re-sync on import; a redacted SMTP secret blocks "Finish" until re-entered.
 
 ### Current Project Adopted Standards:
-- Preferred settings integration: `from microsys.utils import microsys_settings`; `microsys_settings(globals())`.
-- Preferred scaffolding: `python -m microsys startproject ...`; `python -m microsys startapp ... --register`.
-- Preferred page entrypoints: `microsys/form_base.html`, `microsys/list_base.html`.
-- Preferred helpers include `require_current_password`, `build_archive_file_field`, `build_settings_toggle_field`, `set_profile_totp_state`.
+- Settings: `from microsys.utils import microsys_settings`; `microsys_settings(globals())`. Scaffold: `python -m microsys startproject/startapp --register`.
+- Page entrypoints: `microsys/form_base.html`, `microsys/list_base.html`. Helpers: `require_current_password`, `build_archive_file_field`, `build_settings_toggle_field`.
+- MSRP-1 (`docs/security-msrp-1.md`) is the active security contract for runtime-exposed surfaces.
 
 ### Adopted Standards' rules and policies:
-- Backend authorization must match protected UI visibility; hidden controls are not authorization.
-- Keep Microsys defaults framework-neutral unless behavior is an explicit framework contract.
-- Prefer additive helpers/templates/extension points over project-rewriting behavior.
-- New/revised user-facing copy must use Microsys translations; avoid inline CSS/JS unless unavoidable.
-- django-microsys must remain theme, language, and direction aware through built-in systems.
+- Backend authorization must match UI visibility; hidden controls are not authorization. State-changing security flows are POST-only.
+- No inline CSS/`style=`/executable inline JS in runtime HTML — use external assets + `data-*`/`json_script` bridges (nonce only for unavoidable dynamic CSS).
+- All user-facing copy via the Microsys translation framework; no hardcoded EN/AR literals in Python/templates/JS. Stay theme/language/direction aware.
 
 ### Cross-Cutting Audits if any:
-- Prior audits covered CSP cleanup, setup toggles, permissions UI filtering, modal JSON tolerance, staff-tier surfaces, packaged exclusions.
-- Browser/manual coverage remains incomplete for mounted setup flows, Options selectors, sidebar/titlebar runtime behavior, and POST-only 2FA flows.
+- 2026-06-10: template inline-style/script audit clean (only nonce'd dynamic-fonts `<style>` and `application/json` data blocks remain).
 
 ### Current Project's Unsolved Known Bugs:
-- Live confirmation pending for Step 2 matrix source fix, Options font highlight, Step 6 disabled-theme preview, theme-switch veil/flicker, Aether theme, and collapsed Icons Only sidebar.
-- First-launch setup has a mismatch between sidebar-toolbar removal warning and Options modal behavior.
-- Mounted-app System Settings Step 3 modal save returned HTTP 400 while local full modal POST returned 200.
-- `microsys/fetcher.py` fallback download/export redirects still trust raw `HTTP_REFERER`.
+- Prod 403 at `forms.eidc.gov.ly` is a deployment CSRF config issue (HTTPS host missing from `CSRF_TRUSTED_ORIGINS` / no `SECURE_PROXY_SSL_HEADER`), not microsys code — pending host env fix (`BASE_URL=https://…`, `DEBUG_STATUS=False`, proxy `X-Forwarded-Proto: https`).
+- `microsys/fetcher.py` fallback download/export still trusts raw `HTTP_REFERER`.
+- 3 stale `test_defaults_and_urls` tests (outdated `?v=` cache-busters in `base.html`/`dynamic_modal.html`; brittle `system_setup.css` string assertions) — code is compliant; tests need updating/cache-bumps.
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Implement validated `microsys/utils.py` split using `utils_split_plan.md`, preserving `microsys.utils` compatibility exports and `toggle_sidebar` wiring.
-  - [ ] Harden `microsys/fetcher.py` fallback redirects for missing/local/forged external referers.
-- **Priority 1 browser validation:**
-  - [ ] Setup/System Settings wizard, Options persistence/selectors, pre-setup guard, 2FA flows, trusted devices/sessions, User Report modal/XLSX, staff-tier surfaces.
+  - [ ] Commit the uncommitted v2.3.4 working-tree changes (setup-import + MSRP-1).
+  - [ ] Browser-validate wizard import (login_config, activation mode, selector re-sync, SMTP-password notice) — not exercised by Python tests.
+  - [ ] Harden `microsys/fetcher.py` fallback redirects against missing/local/forged referers.
 - **Priority 2:**
-  - [ ] Validate generated `startproject`, generated `startapp --register`, Docker/Celery/health baseline, and optional SSO provider/client dependencies.
+  - [ ] Bump `?v=` cache-busters for changed `main.css`/`login.css`/`system_setup.js` and refresh the 3 stale tests.
+  - [ ] Implement the validated `microsys/utils.py` split (`utils_split_plan.md`), preserving import contracts.
 - **Completed Recently:**
-  - [x] Fixed `MicrosysChoiceSelectorWidget` toggle: `:focus-visible` now scoped to `:not(:checked)` + uses `outline` → unchecking no longer looks like still-checked.
-  - [x] Fixed toggle theme consistency: inactive surface uses `--ms-choice-surface`/`--ms-choice-border` (theme-aware CSS vars); neon/retro `lang-option !important` overrides still take precedence.
-  - [x] Removed Bootstrap utility classes (`rounded border shadow-sm p-2 mb-1`) from toggle surface HTML to eliminate `!important` specificity fights with CSS rules.
-  - [x] Added mandatory MSRP-1 compliance language to root `SECURITY.md`.
-  - [x] Added root GitHub governance docs: `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md`.
-  - [x] Added critical/high performance fixes for UserListView, Activity Log relation access, permission-form filtering, and sidebar discovery/render caching.
-  - [x] Added Prism/Aether archive file widget and titlebar logo treatment overrides; extended Options System Settings tile theme coverage to Aether.
+  - [x] Reports-0-in-non-Latin-locale fixed via `model_key` + eligibility guard (v2.3.1, migration `0011`).
+  - [x] Single active session + signed-out interstitial (v2.3.2).
+  - [x] Setup-file import: login_config + activation mode + selector double-select + SMTP-secret awareness (v2.3.4).
+  - [x] MSRP-1 inline-style removal (login banner-colour data bridge; interstitial CSS classes) (v2.3.4).
 
 ### One-line info about last verified Tests:
-- 2026-05-26: `git diff --check` and trailing-whitespace scan passed for governance docs including MSRP-1 policy note; runtime tests not run.
+- 2026-06-10: `test_views` 131 OK, `test_middleware` 25 OK, `test_defaults_and_urls` import/login_config tests OK (3 pre-existing stale failures unrelated to code).
 
 ### One-line info about last time edited Docs:
-- 2026-05-26: updated `SECURITY.md` to require MSRP-1 compliance for security-sensitive work.
+- 2026-06-10: `CHANGELOG.md` updated to v2.3.4; active standard remains `docs/security-msrp-1.md`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
-- Use `rg`/`rg --files` first for repo search; use `apply_patch` for manual edits.
-- Before refactors, verify call sites and package import behavior; preserve host-project import contracts unless intentionally versioned.
+- Repo search via ripgrep; verify call sites + host import contracts before refactors.
 
 ### Global Rulesets:
-- Maintain `tracker.md` as live state under 100 total lines.
-- Maintain root `CHANGELOG.md` for implemented features, fixes, milestones, and critical config changes.
-- Update technical docs in the same turn as feature/env/schema/API/security/install changes.
+- Global agent rules now live in `~/.claude/CLAUDE.md` (tracker/CHANGELOG/docs/task discipline).
 
 ### Agent Handoff Rules:
-- Read `tracker.md` at the start of every turn; keep it compact and grounded in verified code/runtime behavior or explicit user corrections.
-- Do not revert user changes; ignore unrelated dirty worktree changes.
-- For code review requests, lead with findings ordered by severity and include file/line references.
+- Read `tracker.md` each turn; keep grounded in verified code/runtime or explicit user correction; never revert user changes.
 
 ### References and Links:
-- Active security standard: `docs/security-msrp-1.md`.
-- Current utils split planning doc: `utils_split_plan.md`.
+- Security standard: `docs/security-msrp-1.md`. Utils split plan: `utils_split_plan.md`.

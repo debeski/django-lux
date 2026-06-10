@@ -3683,6 +3683,19 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['titlebar_logo_treatment'] = titlebar.get('logo_treatment', 'none')
             cleaned['titlebar_logo_treatment_shape'] = titlebar.get('logo_treatment_shape', 'soft')
 
+        login = imported.get('login_config')
+        if isinstance(login, dict):
+            cleaned['login_config'] = login
+            cleaned['login_style'] = login.get('style', 'split')
+            cleaned['login_show_logo'] = bool(login.get('show_logo', True))
+            cleaned['login_banner_color'] = login.get('banner_color', '')
+            cleaned['login_logo_treatment'] = login.get('logo_treatment', 'none')
+            cleaned['login_logo_treatment_shape'] = login.get('logo_treatment_shape', 'soft')
+            hero = login.get('hero_message') if isinstance(login.get('hero_message'), dict) else {}
+            for lang_code, _label, field_name in getattr(self, '_login_hero_lang_fields', []):
+                if lang_code in hero:
+                    cleaned[field_name] = hero.get(lang_code, '')
+
     def clean(self):
         cleaned = super().clean()
         self._imported_settings = self._read_imported_settings()
