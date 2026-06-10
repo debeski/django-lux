@@ -145,6 +145,7 @@ The system maintains a registry of approved fonts located in `microsys/fonts.py`
 
 From the **Appearance and Typography** setup step (or the corresponding System Settings modal), admins can:
 
+- **Theme Matrix**: Each theme card shows a checkbox and a visual preview circle. Click the large preview circle to make a theme the default. Click the rest of the card, or the checkbox inside it, to allow or disable that theme for runtime user selection. The active card and preview-ring styling identify the default theme.
 - **Allowed Fonts**: Select which fonts from the registry are available for use in the system.
 - **Default Fonts per Language**: Assign a specific default font for each active language (e.g., a specific font for Arabic and another for English).
 - **Allow User Overrides**: Decide if individual users can choose their own preferred font from the allowed list in their Options panel.

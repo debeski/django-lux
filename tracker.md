@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- `microsys/VERSION` 2.3.7; `CHANGELOG.md` through v2.3.7 (newest-first). `dist/` holds built wheels up to 2.3.6 — new changelog work goes under a fresh version, not a published one.
+- `microsys/VERSION` 2.3.7; `CHANGELOG.md` through v2.3.7 (newest-first), including split-hit-area System Settings theme matrix.
 - Reports use a locale-independent `UserActivityLog.model_key` (migration `0011`) so per-user/overview counts work in non-Latin locales; group/resolve on key, display via `model_name`.
 - Single active session: `enforce_single_active_session` evicts a user's other sessions on every login; force-ended devices hit the `/accounts/session-ended/` interstitial.
 - 8-step setup/System Settings wizard: identity, languages/translations, access/security, login page, sidebar, navbar, titlebar, appearance/fonts.
@@ -43,10 +43,10 @@
   - [x] Tooltip flicker/placement fix (v2.3.6); adaptive titlebar brand so a long title truncates/degrades instead of overlapping home/user-hub, full name via tooltip, avatar-only username ≤575.98px (v2.3.7).
 
 ### One-line info about last verified Tests:
-- 2026-06-10: focused Django runner export filename test 1 OK; prior setup slice 6 OK + SMTP slice 2 OK, `test_views` 131 OK + `test_middleware` 25 OK; 3 stale failures still known.
+- 2026-06-10: focused setup theme matrix tests 3 OK; prior export filename 1 OK, setup slice 6 OK + SMTP slice 2 OK, `test_views` 131 OK + `test_middleware` 25 OK.
 
 ### One-line info about last time edited Docs:
-- 2026-06-10: setup export filename docs updated in `admin-guide.md`/`customization-guide.md`; `data-autoclose="false"` contract in `docs/reference.md`.
+- 2026-06-10: `admin-guide.md`/`FEATURES.md` updated for theme matrix preview-circle/default vs card/checkbox allow behavior.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

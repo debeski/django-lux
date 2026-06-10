@@ -58,7 +58,7 @@
 - **Live preview** for theme, language, sidebar, and titlebar changes
 - **Unsaved preview state** with session-based language switching
 - **Dynamic sidebar builder** with drag-and-drop cross-pane support
-- **Theme allowlist matrix** with visual selector cards
+- **Theme allowlist matrix** with visual selector cards: preview circle sets the default theme, the rest of the card and checkbox toggle whether that theme is allowed
 - **Translation matrix editor** plus explicit language-catalog management
 - **Microsys email delivery controls** for delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`)
 - **Centralized IP resolution setup** for configuring how the system identifies client IPs for logs and security throttles

@@ -13,6 +13,7 @@ This file owns the release history for `django-microsys`.
 ### UI Fixes
 
 - **Adaptive Titlebar Brand (Title No Longer Overlaps Home / User-Hub)**: A long title used to spill over the home and user-hub buttons because the column heading sized the title to its full text width and nothing clipped it. The title is now capped to its column (`max-width: 100%`) so it truncates instead of overlapping, and the brand adapts as space tightens: the title is split into a system-name span and a ` - scope` suffix span, and a new `main/js/titlebar.js` drops the scope suffix first, then collapses an unreadably-narrow heading to logo-only, and exposes the full title on hover/focus via the shared `data-ms-tooltip` so nothing is lost. On screens ≤575.98px the user-hub trigger collapses to avatar-only (`.ms-trigger-name` hidden; the username still shows inside the dropdown) to reclaim titlebar width. Re-measures on resize, `load`, and `document.fonts.ready`.
+- **System Settings Theme Matrix Clarity**: The theme allowlist matrix no longer renders a redundant unclickable check-circle indicator or visible theme-name text in each card. The selected default is communicated through the active card and preview-ring styling, the large preview circle sets the default theme, and the rest of the card plus the checkbox toggle whether that theme is allowed.
 
 ## v2.3.6
 

@@ -616,8 +616,18 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
 
         self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
         self.assertIn('data-setup-theme-preview-url="/static/microsys/themes/css/light.css?v=20260523c"', form.theme_picker_html)
+        self.assertIn('data-setup-theme-allow-toggle="light"', form.theme_picker_html)
+        self.assertIn('ms-theme-settings-option__preview', form.theme_picker_html)
+        self.assertIn('aria-pressed="true"', form.theme_picker_html)
+        self.assertIn('aria-label="Default Theme: Light"', form.theme_picker_html)
         self.assertIn('data-setup-theme-allowed="light"', form.theme_picker_html)
+        self.assertIn('data-setup-theme-allowed-control', form.theme_picker_html)
         self.assertIn('ms-theme-settings-option__checkbox', form.theme_picker_html)
+        self.assertNotIn('ms-choice-option__copy', form.theme_picker_html)
+        self.assertNotIn('ms-choice-option__label', form.theme_picker_html)
+        self.assertNotIn('ms-choice-option__meta', form.theme_picker_html)
+        self.assertNotIn('ms-theme-settings-option__default-indicator', form.theme_picker_html)
+        self.assertNotIn('bi-check2-circle', form.theme_picker_html)
 
     @override_settings(MICROSYS_CONFIG={'system_names': {'en': 'Demo System', 'ar': 'نظام تجريبي'}})
     def test_setup_identity_step_renders_language_keyed_system_names(self):
@@ -1790,7 +1800,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         contents = stylesheet.read_text(encoding='utf-8')
 
         self.assertIn('.ms-settings-toggle-field {', contents)
-        self.assertIn('container-type: inline-size;', contents)
+        self.assertIn('container-type: inline-size was removed', contents)
         self.assertIn('.ms-settings-toggle-field__content {', contents)
         self.assertIn('.ms-settings-toggle-field__control {', contents)
         self.assertIn('.ms-settings-toggle-field__control.form-switch {', contents)
@@ -1802,7 +1812,7 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('overflow-wrap: break-word;', contents)
         self.assertIn('word-break: normal;', contents)
         self.assertNotIn('overflow-wrap: anywhere;', contents)
-        self.assertIn('@container (max-width: 14rem)', contents)
+        self.assertIn('@media (max-width: 400px)', contents)
         self.assertIn('flex-direction: column;', contents)
         self.assertIn('justify-content: flex-end;', contents)
         self.assertIn('.ms-setup-step-nav {', contents)
@@ -1810,6 +1820,17 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('.ms-setup-step-nav__item.is-active {', contents)
         self.assertIn('.ms-setup-step-nav__item.is-complete {', contents)
         self.assertIn('backdrop-filter: blur(14px);', contents)
+        self.assertIn('.ms-theme-settings-option .ms-choice-option__surface {', contents)
+        self.assertIn('cursor: pointer;', contents)
+        self.assertIn('.ms-theme-settings-option__preview {', contents)
+        self.assertIn('appearance: none;', contents)
+        self.assertIn('background: transparent !important;', contents)
+        self.assertIn('box-shadow: none !important;', contents)
+        self.assertIn('justify-content: center;', contents)
+        self.assertIn('.ms-theme-settings-option.is-default .ms-choice-option__surface {', contents)
+        self.assertIn('.ms-theme-settings-option.is-default .theme-preview.active {', contents)
+        self.assertNotIn('.ms-theme-settings-option .ms-choice-option__copy', contents)
+        self.assertNotIn('ms-theme-settings-option__default-indicator', contents)
 
     def test_system_setup_css_defines_step_validation_warning_state(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'microsys' / 'main' / 'css' / 'system_setup.css'
@@ -2321,7 +2342,17 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("if (checkbox.checked && getAllowedThemes().length === 1)", contents)
         self.assertIn("checkbox.setAttribute('aria-disabled', isLocked ? 'true' : 'false');", contents)
         self.assertIn("preview: true,", contents)
-        self.assertIn("option.getAttribute('data-setup-theme-preview-url')", contents)
+        self.assertIn("candidate.getAttribute('data-setup-theme-choice') === theme", contents)
+        self.assertIn("option ? option.getAttribute('data-setup-theme-preview-url') || '' : ''", contents)
+        self.assertIn('const allowToggleContainers = Array.from(picker.querySelectorAll(\'[data-setup-theme-allow-toggle]\'));', contents)
+        self.assertIn('function isThemeAllowControlTarget(target) {', contents)
+        self.assertIn("target.closest('[data-setup-theme-allowed], [data-setup-theme-allowed-control]')", contents)
+        self.assertIn('function isThemeDefaultControlTarget(target) {', contents)
+        self.assertIn("target.closest('[data-setup-theme-choice]')", contents)
+        self.assertIn('function toggleAllowedThemeFromContainer(container) {', contents)
+        self.assertIn('event.stopPropagation();', contents)
+        self.assertIn("option.addEventListener('keydown', (event) => {", contents)
+        self.assertIn("!['Enter', ' '].includes(event.key)", contents)
 
     def test_theme_runtime_fades_explicit_switches_and_honors_reduced_motion(self):
         assets_root = Path(__file__).resolve().parents[1] / 'static' / 'microsys'
