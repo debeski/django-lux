@@ -30,6 +30,8 @@ autorun.ini
 /.xpose/
 /.sonar/
 /scratch/
+.claude/
+.pytest*/
 
 # Ignore celery-related files
 celerybeat-*
