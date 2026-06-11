@@ -220,6 +220,14 @@
   flex: 0 0 auto;
 }
 
+@media (min-width: 992px) {
+  .ms-logo-treatment-primary.ms-logo-treatment-primary--wide {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 /* Very narrow viewports: stack the switch beneath the label so neither
    gets squeezed. Plain media query (the previous @container rule relied on
    container-type, which was removed — see note above). */

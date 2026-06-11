@@ -163,6 +163,47 @@ class GeneralViewsTests(TestCase):
         self.assertFalse(response.context['show_system_diagnostics'])
         self.assertNotContains(response, 'bi-info-circle')
         self.assertNotContains(response, '?step=0')
+        self.assertNotContains(response, 'data-options-card="system-backup"')
+
+    def test_options_view_shows_system_backup_card_for_superuser_only(self):
+        SystemBackup = apps.get_model('microsys', 'SystemBackup')
+        SystemRestore = apps.get_model('microsys', 'SystemRestore')
+        SystemBackup.objects.create(
+            requested_by_username='admin',
+            status=SystemBackup.STATUS_COMPLETED,
+            completed_at=timezone.now(),
+            passphrase_required=True,
+        )
+        SystemRestore.objects.create(
+            requested_by_username='admin',
+            backup_file_path='microsys_backups/system-example.msb',
+            status=SystemRestore.STATUS_COMPLETED,
+            completed_at=timezone.now(),
+        )
+
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-options-card="system-backup"')
+        self.assertContains(response, reverse('system_backup_page'))
+        self.assertEqual(response.context['system_backup_summary']['completed_count'], 1)
+        self.assertEqual(response.context['system_backup_summary']['protected_count'], 1)
+        self.assertContains(response, 'Last backup')
+        self.assertContains(response, 'Passphrase protected')
+        self.assertContains(response, 'Last restore')
+
+        regular_user = User.objects.create_user(
+            username='backupviewer',
+            email='backupviewer@example.com',
+            password='viewerpass123'
+        )
+        self.client.logout()
+        self.client.login(username=regular_user.username, password='viewerpass123')
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'data-options-card="system-backup"')
+        self.assertNotContains(response, reverse('system_backup_page'))
 
     def test_options_view_hides_diagnostics_for_central_and_scoped_staff(self):
         central_staff = User.objects.create_user(
@@ -2639,7 +2680,8 @@ class ProfileSessionDeviceTests(TestCase):
 
         self.assertEqual(allowed.status_code, 200)
         self.assertEqual(allowed['Content-Type'], 'application/zip')
-        self.assertIn(b'PK', allowed.content[:4])
+        content = b''.join(allowed.streaming_content)
+        self.assertIn(b'PK', content[:4])
 
     def test_reports_count_non_ascii_model_labels(self):
         """Translated (non-ASCII) verbose names are stored as the activity log

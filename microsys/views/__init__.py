@@ -64,8 +64,23 @@ from .activitylog import (
     ActivityLogDetailView,
 )
 
+# System backup & restore
+from .backup import (
+    system_backup_create_view,
+    system_backup_delete_view,
+    system_backup_download_view,
+    system_backup_page,
+    system_backup_status_view,
+    system_backup_upload_view,
+    system_restore_start_view,
+    system_restore_status_view,
+)
+
 # Reports
 from .reports import (
+    reports_backup_download_view,
+    reports_backup_start_view,
+    reports_backup_status_view,
     reports_backup_zip_view,
     reports_overview_view,
     reports_overview_xlsx_view,

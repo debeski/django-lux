@@ -361,6 +361,32 @@ def _get_celery_service():
     )
 
 
+def _get_system_backup_summary():
+    try:
+        SystemBackup = apps.get_model('microsys', 'SystemBackup')
+        SystemRestore = apps.get_model('microsys', 'SystemRestore')
+    except LookupError:
+        return {
+            'backup_count': 0,
+            'completed_count': 0,
+            'protected_count': 0,
+            'latest_backup': None,
+            'latest_completed_backup': None,
+            'latest_restore': None,
+        }
+
+    backups = SystemBackup.objects.all()
+    completed = backups.filter(status=SystemBackup.STATUS_COMPLETED)
+    return {
+        'backup_count': backups.count(),
+        'completed_count': completed.count(),
+        'protected_count': completed.filter(passphrase_required=True).count(),
+        'latest_backup': backups.order_by('-created_at').first(),
+        'latest_completed_backup': completed.order_by('-completed_at', '-created_at').first(),
+        'latest_restore': SystemRestore.objects.order_by('-created_at').first(),
+    }
+
+
 # Dashboard View removed as per UX enhancements
 # @login_required
 # def dashboard(request):
@@ -441,6 +467,8 @@ def options_view(request):
         'current_time': server_time,
         'server_time_backend_display': server_time.strftime('%Y-%m-%d %H:%M:%S'),
     }
+    if request.user.is_superuser:
+        context['system_backup_summary'] = _get_system_backup_summary()
     context.update(diagnostic_context)
     return render(request, 'microsys/includes/options.html', context)
 

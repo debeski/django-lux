@@ -61,6 +61,18 @@ urlpatterns = [
     path('sys/reports/', views.reports_overview_view, name='reports_overview'),
     path('sys/reports/export.xlsx', views.reports_overview_xlsx_view, name='reports_overview_xlsx'),
     path('sys/reports/backup.zip', views.reports_backup_zip_view, name='reports_backup_zip'),
+    path('sys/reports/backup/start/', views.reports_backup_start_view, name='reports_backup_start'),
+    path('sys/reports/backup/<str:token>/status/', views.reports_backup_status_view, name='reports_backup_status'),
+    path('sys/reports/backup/<str:token>/download/', views.reports_backup_download_view, name='reports_backup_download'),
+    # System Backup & Restore URLs (superuser only)
+    path('sys/backup/', views.system_backup_page, name='system_backup_page'),
+    path('sys/backup/create/', views.system_backup_create_view, name='system_backup_create'),
+    path('sys/backup/upload/', views.system_backup_upload_view, name='system_backup_upload'),
+    path('sys/backup/restore/', views.system_restore_start_view, name='system_restore_start'),
+    path('sys/backup/restore/<str:token>/status/', views.system_restore_status_view, name='system_restore_status'),
+    path('sys/backup/<str:token>/status/', views.system_backup_status_view, name='system_backup_status'),
+    path('sys/backup/<str:token>/download/', views.system_backup_download_view, name='system_backup_download'),
+    path('sys/backup/<str:token>/delete/', views.system_backup_delete_view, name='system_backup_delete'),
     # Scope Management URLs
     path('sys/scopes/manage/', views.manage_scopes, name='manage_scopes'),
     path('sys/scopes/form/', views.get_scope_form, name='get_scope_form'),

@@ -4389,6 +4389,9 @@
                     node.setAttribute('aria-hidden', isPlate ? 'false' : 'true');
                     setNamedFieldDisabled(form, 'login_logo_treatment_shape', !isPlate);
                 });
+                form.querySelectorAll('.ms-login-logo-treatment-primary').forEach((node) => {
+                    node.classList.toggle('ms-logo-treatment-primary--wide', !isPlate);
+                });
             }
 
             // Delegate from the form so ALL radio inputs in the selector fire it
@@ -4420,18 +4423,22 @@
 
             function syncTitlebarDependencies() {
                 const logoTreatment = getNamedFieldValue(form, 'titlebar_logo_treatment') || 'none';
+                const showLogo = showLogoToggle.checked;
+                const showPlateShape = showLogo && logoTreatment === 'plate';
                 setNamedFieldReadonly(form, 'titlebar_title_align', !showTitleToggle.checked);
                 setNamedFieldReadonly(form, 'titlebar_title_size', !showTitleToggle.checked);
-                setNamedFieldReadonly(form, 'titlebar_logo_treatment', !showLogoToggle.checked);
-                setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showLogoToggle.checked || logoTreatment !== 'plate');
+                setNamedFieldReadonly(form, 'titlebar_logo_treatment', !showLogo);
+                setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showPlateShape);
                 form.querySelectorAll('.ms-titlebar-logo-dependent').forEach((node) => {
-                    node.classList.toggle('d-none', !showLogoToggle.checked);
-                    node.setAttribute('aria-hidden', showLogoToggle.checked ? 'false' : 'true');
+                    node.classList.toggle('d-none', !showLogo);
+                    node.setAttribute('aria-hidden', showLogo ? 'false' : 'true');
+                });
+                form.querySelectorAll('.ms-titlebar-logo-treatment-primary').forEach((node) => {
+                    node.classList.toggle('ms-logo-treatment-primary--wide', showLogo && !showPlateShape);
                 });
                 form.querySelectorAll('.ms-titlebar-logo-plate-dependent').forEach((node) => {
-                    const visible = showLogoToggle.checked && logoTreatment === 'plate';
-                    node.classList.toggle('d-none', !visible);
-                    node.setAttribute('aria-hidden', visible ? 'false' : 'true');
+                    node.classList.toggle('d-none', !showPlateShape);
+                    node.setAttribute('aria-hidden', showPlateShape ? 'false' : 'true');
                 });
                 setNamedFieldReadonly(form, 'titlebar_home_shape', !showHomeButtonToggle.checked);
                 applyImmediateSystemSettingsPreview(form);

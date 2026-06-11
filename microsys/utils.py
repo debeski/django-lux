@@ -557,6 +557,13 @@ def send_microsys_mail(subject, message, recipient_list, *, from_email=None, fai
     if backend != 'django.core.mail.backends.smtp.EmailBackend':
         return send_mail(subject, message, effective_from, recipient_list, fail_silently=fail_silently)
 
+    # Without a timeout a slow/unreachable SMTP host blocks the calling request
+    # (e.g. login-time OTP emails) until the OS socket timeout, which can take
+    # minutes. Cap it so mail failures surface quickly instead of hanging auth.
+    try:
+        smtp_timeout = int(email_config.get('timeout') or 0) or 10
+    except (TypeError, ValueError):
+        smtp_timeout = 10
     connection = get_connection(
         backend=backend,
         host=email_config.get('host') or None,
@@ -565,6 +572,7 @@ def send_microsys_mail(subject, message, recipient_list, *, from_email=None, fai
         password=email_config.get('password') or None,
         use_tls=bool(email_config.get('use_tls')),
         use_ssl=bool(email_config.get('use_ssl')),
+        timeout=smtp_timeout,
         fail_silently=fail_silently,
     )
     email = EmailMessage(

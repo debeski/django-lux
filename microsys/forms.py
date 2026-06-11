@@ -3113,7 +3113,13 @@ class SystemSettingsForm(forms.ModelForm):
                 # align-items-stretch ensures both grids share the same row height.
                 HTML(f"<h6 class='fw-bold mt-4 mb-2'>{s.get('form_sys_login_logo_treatment', 'Logo Treatment')}</h6>"),
                 Row(
-                    Div(Field('login_logo_treatment'), css_class='col-lg-7 d-flex flex-column'),
+                    Div(
+                        Field('login_logo_treatment'),
+                        css_class=(
+                            "col-lg-7 d-flex flex-column ms-logo-treatment-primary ms-login-logo-treatment-primary"
+                            f"{' ms-logo-treatment-primary--wide' if self.initial.get('login_logo_treatment', 'none') != 'plate' else ''}"
+                        ),
+                    ),
                     Div(
                         Field('login_logo_treatment_shape'),
                         css_class=(
@@ -3222,8 +3228,9 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(
                         Field('titlebar_logo_treatment'),
                         css_class=(
-                            "col-lg-8 ms-titlebar-logo-dependent"
+                            "col-lg-8 ms-logo-treatment-primary ms-titlebar-logo-dependent ms-titlebar-logo-treatment-primary"
                             f"{' d-none' if not self.initial.get('titlebar_show_logo', True) else ''}"
+                            f"{' ms-logo-treatment-primary--wide' if self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') != 'plate' else ''}"
                         ),
                         aria_hidden='false' if self.initial.get('titlebar_show_logo', True) else 'true',
                     ),

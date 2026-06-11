@@ -531,6 +531,169 @@ class UserPresenceSession(models.Model):
         return f"{self.user} presence session"
 
 
+def generate_report_backup_token():
+    return secrets.token_urlsafe(32)
+
+
+class ReportBackup(models.Model):
+    """A requested reports backup zip build (background via Celery when available).
+
+    State is kept in the DB so the requesting web process and the worker only
+    need a shared database + shared default storage to hand off the result.
+    """
+
+    STATUS_PENDING = 'pending'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_FAILED, 'Failed'),
+    ]
+
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        default=generate_report_backup_token,
+        editable=False,
+        verbose_name="Token",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='microsys_report_backups',
+        verbose_name="User",
+    )
+    window = models.CharField(max_length=10, default='all', verbose_name="Window")
+    status = models.CharField(
+        max_length=12,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+        verbose_name="Status",
+    )
+    file_path = models.CharField(max_length=512, blank=True, verbose_name="File Path")
+    file_size = models.BigIntegerField(default=0, verbose_name="File Size")
+    model_count = models.PositiveIntegerField(default=0, verbose_name="Model Count")
+    file_count = models.PositiveIntegerField(default=0, verbose_name="File Count")
+    missing_file_count = models.PositiveIntegerField(default=0, verbose_name="Missing File Count")
+    error = models.TextField(blank=True, verbose_name="Error")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    started_at = models.DateTimeField(blank=True, null=True, verbose_name="Started At")
+    completed_at = models.DateTimeField(blank=True, null=True, verbose_name="Completed At")
+
+    class Meta:
+        verbose_name = "Report Backup"
+        verbose_name_plural = "Report Backups"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user} backup ({self.window}, {self.status})"
+
+
+class SystemBackup(models.Model):
+    """A full encrypted system snapshot (.msb) — separate from the reports backup.
+
+    Stores the requesting username as plain text (no user FK): a restore wipes
+    and replaces the user table inside one transaction, so these bookkeeping
+    rows must not reference it.
+    """
+
+    STATUS_PENDING = 'pending'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_FAILED, 'Failed'),
+    ]
+
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        default=generate_report_backup_token,
+        editable=False,
+        verbose_name="Token",
+    )
+    requested_by_username = models.CharField(max_length=150, blank=True, verbose_name="Requested By")
+    status = models.CharField(
+        max_length=12,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+        verbose_name="Status",
+    )
+    file_path = models.CharField(max_length=512, blank=True, verbose_name="File Path")
+    file_size = models.BigIntegerField(default=0, verbose_name="File Size")
+    model_count = models.PositiveIntegerField(default=0, verbose_name="Model Count")
+    row_count = models.PositiveIntegerField(default=0, verbose_name="Row Count")
+    file_count = models.PositiveIntegerField(default=0, verbose_name="File Count")
+    missing_file_count = models.PositiveIntegerField(default=0, verbose_name="Missing File Count")
+    passphrase_required = models.BooleanField(default=False, verbose_name="Passphrase Required")
+    error = models.TextField(blank=True, verbose_name="Error")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    started_at = models.DateTimeField(blank=True, null=True, verbose_name="Started At")
+    completed_at = models.DateTimeField(blank=True, null=True, verbose_name="Completed At")
+
+    class Meta:
+        verbose_name = "System Backup"
+        verbose_name_plural = "System Backups"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"system backup {self.token[:8]} ({self.status})"
+
+
+class SystemRestore(models.Model):
+    """A full-replace restore run from an .msb file (same no-user-FK rule as SystemBackup)."""
+
+    STATUS_PENDING = 'pending'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_FAILED, 'Failed'),
+    ]
+
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        default=generate_report_backup_token,
+        editable=False,
+        verbose_name="Token",
+    )
+    requested_by_username = models.CharField(max_length=150, blank=True, verbose_name="Requested By")
+    backup_file_path = models.CharField(max_length=512, verbose_name="Backup File Path")
+    ignore_version_mismatch = models.BooleanField(default=False, verbose_name="Ignore Version Mismatch")
+    status = models.CharField(
+        max_length=12,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+        verbose_name="Status",
+    )
+    report = models.JSONField(default=dict, blank=True, verbose_name="Report")
+    error = models.TextField(blank=True, verbose_name="Error")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    started_at = models.DateTimeField(blank=True, null=True, verbose_name="Started At")
+    completed_at = models.DateTimeField(blank=True, null=True, verbose_name="Completed At")
+
+    class Meta:
+        verbose_name = "System Restore"
+        verbose_name_plural = "System Restores"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"system restore {self.token[:8]} ({self.status})"
+
+
 class PublicRegistration(models.Model):
     microsys_auto_create_user_profile = False
 
@@ -699,6 +862,13 @@ class UserActivityLog(ScopedModel):
         verbose_name = "Activity Log"
         verbose_name_plural = "Activity Logs"
         default_permissions = ()
+        indexes = [
+            models.Index(fields=['created_at'], name='ms_ual_created_idx'),
+            models.Index(fields=['scope', 'created_at'], name='ms_ual_scope_created_idx'),
+            models.Index(fields=['created_by', 'created_at'], name='ms_ual_actor_created_idx'),
+            models.Index(fields=['model_key', 'created_at'], name='ms_ual_model_created_idx'),
+            models.Index(fields=['action', 'created_at'], name='ms_ual_action_created_idx'),
+        ]
         permissions = [
             ("view_activitylog", "View activity log"),
         ]

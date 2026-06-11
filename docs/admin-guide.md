@@ -173,6 +173,7 @@ The Options screen currently provides:
 - reset-to-defaults for user preferences
 - a superuser-only System Settings button that opens focused Branding, Languages, Access & Security, Login Page, Sidebar, Nav Bar, UI & Layout, and Appearance modals
 - a superuser-only setup export action for reusing System Settings across development environments
+- a superuser-only Backup & Restore card that summarizes the latest full backup, completed/protected backup counts, and latest restore before opening `/sys/backup/`
 
 Options layout note:
 
@@ -276,6 +277,44 @@ The User Report is available from `/sys/users/` for authorized staff who can vie
 The report combines account status, staff tier, public-registration provenance, activity counts, recent logs, known devices, trusted-device state, IP observations, browser/OS observations, and estimated active time. Precise device and presence analytics start only after the durable history migration is installed; older projects still show whatever can be derived from existing activity logs and trusted-device rows.
 
 Microsys uses a signed first-party `microsys_device_id` cookie to group non-trusted browser/device history across IP changes. The raw token is never exposed in the UI and is stored server-side only as a hash. This cookie is for reporting continuity only; Django sessions remain authoritative for active authentication, and `TrustedDevice` remains authoritative for 2FA trust decisions.
+
+## System Reports and Backup ZIP
+
+The reports overview at `/sys/reports/` (permission `microsys.view_reports`) aggregates report-eligible activity by user, model, action, and day for a `week`, `month`, or `all` window, and exports the same overview as XLSX. The overview performs grouped database aggregates rather than loading every activity row into Python, and migration `0013_useractivitylog_report_indexes` adds indexes for the timestamp, scope, actor, model, and action filters used by the page.
+
+Celery is reserved for building large downloadable backup files; it is not used for the interactive overview request. Redis is useful as Django's shared cache: set `MICROSYS_CONFIG['reports']['overview_cache_seconds']` to a small positive TTL (for example `30`) to cache only the aggregate/dropdown portion of the overview per viewer, scope, language, window, and filter set. The default is `0`, which disables this cache and keeps every page load fully current.
+
+This feature is built for the **application supervisor**: monitoring what users input over time and keeping periodic, incremental, window-scoped data exports. It is intentionally scoped/windowed and is **not** a disaster-recovery tool — for full restorable snapshots use the Full System Backup & Restore feature below.
+
+Staff with `microsys.download_backup` can also generate a backup ZIP containing serialized JSON for every report-eligible model plus the files referenced by their `FileField`/`ImageField` columns, with a `manifest.json` describing the contents. The backup honors the selected report window: each model is filtered on its timestamp column (auto-detected `created_at`/`created`/`created_on`/`date_created`/`timestamp`, overridable per model via `MICROSYS_CONFIG['reports']['backup_window_fields'] = {'app.model': 'field_name'}`; models with no timestamp column are always included in full).
+
+Backup generation flow:
+
+- Clicking the backup button POSTs to `/sys/reports/backup/start/`. When Celery is importable, the broker is reachable, and a live worker answers a ping, the build is queued as a `microsys.tasks.build_report_backup` task and tracked in the `ReportBackup` model; the page polls `/sys/reports/backup/<token>/status/` and triggers the download from `/sys/reports/backup/<token>/download/` when the row reaches `completed`. This avoids reverse-proxy timeouts (e.g. nginx 504) on large datasets.
+- Without a usable Celery worker, the client is redirected to the synchronous `/sys/reports/backup.zip?window=<window>` endpoint, which streams the zip from a temp file (constant memory) but remains subject to proxy timeouts on very large `all` backups.
+- Status/result hand-off needs only a shared database plus shared default storage between web and worker. Generated zips are stored under `MEDIA_ROOT/microsys_backups/` (prefix configurable via `MICROSYS_CONFIG['reports']['backup_storage_prefix']`); the last 3 completed backups per user are retained, older ones are pruned automatically. Set `MICROSYS_CONFIG['reports']['backup_use_celery'] = False` to force the synchronous path.
+
+**Deployment requirement:** the backup prefix lives under media so containers can share it, but it must never be served directly. Block it at the reverse proxy, e.g. nginx:
+
+```nginx
+location /media/microsys_backups/ {
+    deny all;
+}
+```
+
+Downloads always go through the permission-checked Django view, which also enforces that only the requesting user can fetch their own backup. Microsys-owned transactional SMTP mail (OTP codes, registration, backup-related notifications) now applies a connection timeout (default 10s, override with `email_config['timeout']`) so an unreachable mail host fails fast instead of hanging the request.
+
+## Full System Backup & Restore (.msb)
+
+`/sys/backup/` (superuser only) creates complete, encrypted, restorable snapshots — distinct from the supervisor reports backup above. A full backup always covers **everything for all time**: every concrete managed model (users, regular-user password hashes, groups, scopes, profiles, system settings, activity history, host-app data) plus every referenced storage file, packaged as a single `.msb` file. Superuser account rows are included, but superuser password hashes are omitted from the backup payload.
+
+**File format and encryption.** An `.msb` file is a `MSB1`-tagged container: a cleartext JSON metadata header (format version, creation date, row/file counts, KDF salt, KDF mode — nothing sensitive) followed by the backup zip encrypted with Fernet (`cryptography`) in framed 32MB chunks, so any size encrypts and decrypts at constant memory. By default the key derives from Django `SECRET_KEY` plus the per-file salt. When the superuser enters an optional backup passphrase, the key derives from that passphrase instead; restoring that file requires the same passphrase and does not depend on a separate backup-specific environment variable.
+
+**Creating and managing backups.** The page builds backups in the background through Celery (`microsys.tasks.build_system_backup`) with polling, or inline when no worker is available. The optional passphrase is passed only to the active inline run or Celery task; it is not stored on the `SystemBackup` row. Completed backups can be downloaded, deleted, or restored. `.msb` files can also be uploaded (small files) or copied directly into the protected backup folder (`MEDIA_ROOT/microsys_backups/` by default — keep the reverse-proxy `deny all` rule from the reports-backup section); the page lists such external files and can restore from them, which is the path for disaster recovery onto a rebuilt server.
+
+**Restore semantics.** Restore is a **full replace**: it wipes and reloads every backed-up model in a single transaction (FK checks deferred, models loaded in dependency order, Microsys signals suspended), resets primary-key sequences, restores files to their original storage names, then clears all caches and sessions. The backup manifest records the exact applied-migration state; restore refuses to run against a different migration state unless "ignore version mismatch" is explicitly checked. Starting a restore requires the superuser's current password plus an explicit replace confirmation, and passphrase-protected files also require the backup passphrase. Regular users sign in with the restored credentials. For superusers, Microsys preserves the current target password hash when the restored superuser username matches an existing target superuser; restored superusers without a target username match receive an unusable password and must be reset out-of-band.
+
+Config knobs under `MICROSYS_CONFIG['backup']`: `use_celery` (default `True`) and `exclude_models` (extra `app_label.model` strings to omit from snapshots).
 
 ## User Preferences
 

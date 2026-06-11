@@ -15,9 +15,20 @@
                 <i class="bi bi-filetype-xlsx me-1"></i>{{ MS_TRANS.reports_export_xlsx }}
             </a>
             {% if can_download_backup %}
-                <a class="btn btn-primary rounded-pill" href="{% url 'reports_backup_zip' %}">
-                    <i class="bi bi-file-zip-fill me-1"></i>{{ MS_TRANS.reports_backup_zip }}
-                </a>
+                <div class="d-flex flex-column align-items-stretch gap-1">
+                    <button type="button"
+                            id="reports-backup-btn"
+                            class="btn btn-primary rounded-pill"
+                            data-start-url="{% url 'reports_backup_start' %}"
+                            data-csrf="{{ csrf_token }}"
+                            data-window="{{ overview.window }}"
+                            data-msg-preparing="{{ MS_TRANS.reports_backup_preparing }}"
+                            data-msg-ready="{{ MS_TRANS.reports_backup_ready }}"
+                            data-msg-failed="{{ MS_TRANS.reports_backup_failed }}">
+                        <i class="bi bi-file-zip-fill me-1"></i>{{ MS_TRANS.reports_backup_zip }}
+                    </button>
+                    <small id="reports-backup-status" class="text-muted text-center"></small>
+                </div>
             {% endif %}
         </div>
     </div>
@@ -211,4 +222,89 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    'use strict';
+    const btn = document.getElementById('reports-backup-btn');
+    if (!btn) return;
+    const note = document.getElementById('reports-backup-status');
+    const POLL_INTERVAL_MS = 3000;
+    const POLL_LIMIT = 1200; // give a large 'all' backup up to an hour
+    let busy = false;
+
+    function setNote(text, tone) {
+        if (!note) return;
+        note.textContent = text || '';
+        note.className = 'text-center ' + (tone === 'error' ? 'text-danger' : 'text-muted');
+    }
+
+    function finish(message, tone) {
+        busy = false;
+        btn.disabled = false;
+        setNote(message, tone);
+    }
+
+    function poll(statusUrl, attempt) {
+        if (attempt >= POLL_LIMIT) {
+            finish(btn.dataset.msgFailed, 'error');
+            return;
+        }
+        fetch(statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (data.status === 'completed' && data.download_url) {
+                    finish(btn.dataset.msgReady);
+                    window.location.assign(data.download_url);
+                } else if (data.status === 'failed') {
+                    finish(btn.dataset.msgFailed, 'error');
+                } else {
+                    setTimeout(function () { poll(statusUrl, attempt + 1); }, POLL_INTERVAL_MS);
+                }
+            })
+            .catch(function () {
+                // Transient poll error (network blip): keep trying.
+                setTimeout(function () { poll(statusUrl, attempt + 1); }, POLL_INTERVAL_MS);
+            });
+    }
+
+    btn.addEventListener('click', function () {
+        if (busy) return;
+        busy = true;
+        btn.disabled = true;
+        setNote(btn.dataset.msgPreparing);
+        const windowSelect = document.getElementById('reports-window');
+        const selectedWindow = (windowSelect && windowSelect.value) || btn.dataset.window || 'all';
+        const body = new URLSearchParams();
+        body.set('window', selectedWindow);
+        fetch(btn.dataset.startUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': btn.dataset.csrf || '',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: body.toString(),
+        })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('start failed');
+                return resp.json();
+            })
+            .then(function (data) {
+                if (data.async && data.status_url) {
+                    poll(data.status_url, 0);
+                } else if (data.download_url) {
+                    // No background worker available: fall back to the direct download.
+                    finish('');
+                    window.location.assign(data.download_url);
+                } else {
+                    finish(btn.dataset.msgFailed, 'error');
+                }
+            })
+            .catch(function () {
+                finish(btn.dataset.msgFailed, 'error');
+            });
+    });
+})();
+</script>
 {% endblock %}

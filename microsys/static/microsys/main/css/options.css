@@ -226,6 +226,72 @@
     box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.08);
 }
 
+.ms-system-backup-summary {
+    display: grid;
+    gap: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.ms-system-backup-feature,
+.ms-system-backup-metric {
+    min-width: 0;
+    border: 1px solid rgba(var(--primal-rgb), 0.12);
+    background: rgba(var(--primal-rgb), 0.045);
+}
+
+.ms-system-backup-feature {
+    padding: 0.95rem 1rem;
+    border-radius: 0.95rem;
+}
+
+.ms-system-backup-label,
+.ms-system-backup-metric span {
+    display: block;
+    margin-bottom: 0.22rem;
+    color: color-mix(in srgb, var(--text) 72%, var(--primal));
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.2;
+}
+
+.ms-system-backup-value {
+    display: block;
+    color: var(--title);
+    font-size: 1.1rem;
+    font-weight: 780;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.ms-system-backup-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.ms-system-backup-metric {
+    padding: 0.78rem 0.85rem;
+    border-radius: 0.85rem;
+}
+
+.ms-system-backup-metric strong {
+    display: block;
+    color: var(--title);
+    font-size: 0.98rem;
+    font-weight: 780;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.ms-system-backup-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 3rem;
+    font-weight: 720;
+}
+
 .ms-system-settings-heading {
     margin-bottom: 1rem;
 }
@@ -234,6 +300,10 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.72rem;
+}
+
+.ms-system-settings-grid > .ms-system-settings-tile:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
 }
 
 .ms-system-settings-actions .ms-system-settings-tile {
@@ -351,18 +421,28 @@
 :root.theme-dark .ms-options-switch-row,
 :root.theme-dark .ms-options-toggle-shell,
 :root.theme-dark .ms-options-reset-action-shell,
+:root.theme-dark .ms-system-backup-feature,
+:root.theme-dark .ms-system-backup-metric,
 :root.theme-retro .ms-options-switch-row,
 :root.theme-retro .ms-options-toggle-shell,
 :root.theme-retro .ms-options-reset-action-shell,
+:root.theme-retro .ms-system-backup-feature,
+:root.theme-retro .ms-system-backup-metric,
 :root.theme-gothic .ms-options-switch-row,
 :root.theme-gothic .ms-options-toggle-shell,
 :root.theme-gothic .ms-options-reset-action-shell,
+:root.theme-gothic .ms-system-backup-feature,
+:root.theme-gothic .ms-system-backup-metric,
 :root.theme-prism .ms-options-switch-row,
 :root.theme-prism .ms-options-toggle-shell,
 :root.theme-prism .ms-options-reset-action-shell,
+:root.theme-prism .ms-system-backup-feature,
+:root.theme-prism .ms-system-backup-metric,
 :root.theme-neon .ms-options-switch-row,
 :root.theme-neon .ms-options-toggle-shell,
-:root.theme-neon .ms-options-reset-action-shell {
+:root.theme-neon .ms-options-reset-action-shell,
+:root.theme-neon .ms-system-backup-feature,
+:root.theme-neon .ms-system-backup-metric {
     background:
         linear-gradient(145deg, rgba(var(--primal-rgb), 0.08), rgba(255, 255, 255, 0.016)) !important;
 }
@@ -520,6 +600,10 @@
 
     .ms-options-inline-switch {
         align-self: flex-end;
+    }
+
+    .ms-system-backup-metrics {
+        grid-template-columns: 1fr;
     }
 
     .ms-system-settings-grid {

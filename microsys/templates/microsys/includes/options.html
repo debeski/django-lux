@@ -421,6 +421,61 @@
         </div>
 
         {% if user.is_superuser %}
+        <!-- Backup & Restore -->
+        <div class="ms-options-card" data-options-card="system-backup">
+            <div class="glass-profile option-section h-100 ms-options-panel">
+                <button class="ms-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi bi-safe2-fill me-2"></i> {{ MS_TRANS.sysbackup_title }}</h4>
+                <p class="text-muted small mb-4">{{ MS_TRANS.sysbackup_options_desc }}</p>
+                {% with summary=system_backup_summary %}
+                <div class="ms-system-backup-summary">
+                    <div class="ms-system-backup-feature">
+                        <span class="ms-system-backup-label">{{ MS_TRANS.sysbackup_last_backup }}</span>
+                        <strong class="ms-system-backup-value">
+                            {% if summary.latest_completed_backup and summary.latest_completed_backup.completed_at %}
+                                {{ summary.latest_completed_backup.completed_at|date:'Y-m-d H:i' }}
+                            {% elif summary.latest_backup %}
+                                {{ summary.latest_backup.created_at|date:'Y-m-d H:i' }}
+                            {% else %}
+                                {{ MS_TRANS.sysbackup_never }}
+                            {% endif %}
+                        </strong>
+                    </div>
+                    <div class="ms-system-backup-metrics">
+                        <div class="ms-system-backup-metric">
+                            <span>{{ MS_TRANS.sysbackup_completed_count }}</span>
+                            <strong>{{ summary.completed_count|default:0 }}</strong>
+                        </div>
+                        <div class="ms-system-backup-metric">
+                            <span>{{ MS_TRANS.sysbackup_protected_count }}</span>
+                            <strong>{{ summary.protected_count|default:0 }}</strong>
+                        </div>
+                        <div class="ms-system-backup-metric">
+                            <span>{{ MS_TRANS.sysrestore_last_restore }}</span>
+                            <strong>
+                                {% if summary.latest_restore %}
+                                    {{ summary.latest_restore.created_at|date:'Y-m-d H:i' }}
+                                {% else %}
+                                    {{ MS_TRANS.sysbackup_never }}
+                                {% endif %}
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+                {% endwith %}
+                <a class="btn btn-primary ms-system-backup-action"
+                   href="{% url 'system_backup_page' %}">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>{{ MS_TRANS.sysbackup_open }}
+                </a>
+            </div>
+        </div>
+
         <!-- System Settings -->
         <div class="ms-options-card" data-options-card="system-settings">
             <div class="glass-profile option-section h-100 ms-options-panel">

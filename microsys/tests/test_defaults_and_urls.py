@@ -1653,7 +1653,11 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('const titlebarSource = settings.titlebar_config || settings.titlebar;', contents)
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment', titlebar.logo_treatment || 'none');", contents)
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment_shape', titlebar.logo_treatment_shape || 'soft');", contents)
-        self.assertIn("setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showLogoToggle.checked || logoTreatment !== 'plate');", contents)
+        self.assertIn("setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showPlateShape);", contents)
+        self.assertIn("form.querySelectorAll('.ms-login-logo-treatment-primary').forEach((node) => {", contents)
+        self.assertIn("node.classList.toggle('ms-logo-treatment-primary--wide', !isPlate);", contents)
+        self.assertIn("const showPlateShape = showLogo && logoTreatment === 'plate';", contents)
+        self.assertIn("node.classList.toggle('ms-logo-treatment-primary--wide', showLogo && !showPlateShape);", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_activation_mode', !enabled)", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled)", contents)
         self.assertIn("'prevent_multiple_active_sessions'", contents)
@@ -1811,6 +1815,10 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn('position: static;', contents)
         self.assertIn('overflow-wrap: break-word;', contents)
         self.assertIn('word-break: normal;', contents)
+        self.assertIn('.ms-logo-treatment-primary.ms-logo-treatment-primary--wide {', contents)
+        self.assertIn('flex: 0 0 100%;', contents)
+        self.assertIn('width: 100%;', contents)
+        self.assertIn('max-width: 100%;', contents)
         self.assertNotIn('overflow-wrap: anywhere;', contents)
         self.assertIn('@media (max-width: 400px)', contents)
         self.assertIn('flex-direction: column;', contents)
@@ -1855,6 +1863,21 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("ms-settings-toggle-field__control form-switch", html)
         self.assertIn("form-check-input ms-settings-toggle-field__input", html)
         self.assertNotIn("ms-settings-toggle-field__control form-check form-switch", html)
+
+    def test_logo_treatment_cards_start_full_width_without_plate_shape(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        self.assertIn('ms-logo-treatment-primary', html)
+        self.assertIn('ms-login-logo-treatment-primary', html)
+        self.assertIn('ms-titlebar-logo-treatment-primary', html)
+        self.assertIn('ms-logo-treatment-primary--wide', html)
+        self.assertIn('data-login-plate-shape', html)
+        self.assertIn('ms-titlebar-logo-plate-dependent d-none', html)
 
     def test_setup_email_tls_ssl_use_dedicated_email_toggle_markup(self):
         form = SystemSettingsForm(
@@ -1916,8 +1939,9 @@ class MicrosysDefaultRouteTests(SimpleTestCase):
         self.assertIn("microsys/main/css/main.css", contents)
         self.assertIn("?v=20260607d", contents)
         self.assertIn("microsys/main/css/system_setup.css", contents)
-        self.assertIn("?v=20260610a", contents)
+        self.assertIn("microsys/main/css/system_setup.css' %}?v=20260611b", contents)
         self.assertIn("microsys/main/js/system_setup.js", contents)
+        self.assertIn("microsys/main/js/system_setup.js' %}?v=20260611a", contents)
         self.assertIn("microsys/helpers/wizard/js/main.js", contents)
         self.assertLess(
             contents.index("microsys/main/js/system_setup.js"),

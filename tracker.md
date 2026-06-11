@@ -2,11 +2,11 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- `microsys/VERSION` 2.3.8; `CHANGELOG.md` through v2.3.8 (newest-first), including migration-safe runtime translations.
-- Reports use a locale-independent `UserActivityLog.model_key` (migration `0011`) so per-user/overview counts work in non-Latin locales; group/resolve on key, display via `model_name`.
+- `microsys/VERSION` 2.4.0; v2.4.0 adds: report backup rework (windowed, streamed, Celery), report overview SQL aggregation/index migration `0013`, and full System Backup & Restore (`microsys/backup.py`, encrypted `.msb`, `/sys/backup/`, superuser-only).
+- Restore = full replace: migration-state gate, dependency-ordered load, `suspend_microsys_signals()`, sequence reset, file restore, cache+session flush. `.msb` uses Django `SECRET_KEY` by default or optional passphrase; `/sys/options/` superuser Backup & Restore card shows latest backup/restore summary.
+- Reports use locale-independent `UserActivityLog.model_key` (migration `0011`); overview uses grouped DB aggregates + optional `reports.overview_cache_seconds` Django-cache TTL; chart.js is bundled.
 - Single active session: `enforce_single_active_session` evicts a user's other sessions on every login; force-ended devices hit the `/accounts/session-ended/` interstitial.
-- 8-step setup/System Settings wizard: identity, languages/translations, access/security, login page, sidebar, navbar, titlebar, appearance/fonts.
-- Setup v2.3.6: import fixes, project-scoped export filename, deterministic wizard prep, persistent SMTP notices, live validation markers.
+- 8-step setup/System Settings wizard remains current; Options System Settings odd final tile spans full row; v2.3.6 import/export fixes and persistent setup notices stand.
 
 ### Current Project Adopted Standards:
 - Settings: `from microsys.utils import microsys_settings`; `microsys_settings(globals())`. Scaffold: `python -m microsys startproject/startapp --register`.
@@ -24,7 +24,7 @@
 ### Current Project's Unsolved Known Bugs:
 - Prod 403 at `forms.eidc.gov.ly` is a deployment CSRF config issue (HTTPS host missing from `CSRF_TRUSTED_ORIGINS` / no `SECURE_PROXY_SSL_HEADER`), not microsys code — pending host env fix (`BASE_URL=https://…`, `DEBUG_STATUS=False`, proxy `X-Forwarded-Proto: https`).
 - `microsys/fetcher.py` fallback download/export still trusts raw `HTTP_REFERER`.
-- 3 stale `test_defaults_and_urls` tests (outdated `?v=` cache-busters in `base.html`/`dynamic_modal.html`; brittle `system_setup.css` string assertions) — code is compliant; tests need updating/cache-bumps.
+- `test_defaults_and_urls.py` still needs harness/assertion cleanup: some cache-buster/string checks are stale, and targeted `MicrosysDefaultRouteTests` hit missing `microsys_systemsettings` table because `SimpleTestCase.setUp()` touches DB.
 
 ### Incomplete Tasks:
 - **Priority 1:**
@@ -35,19 +35,16 @@
   - [ ] Bump `?v=` cache-busters for changed `main.css`/`login.css`/`system_setup.js` and refresh the 3 stale tests.
   - [ ] Implement the validated `microsys/utils.py` split (`utils_split_plan.md`), preserving import contracts.
 - **Completed Recently:**
-  - [x] Fixed `lazy_translator()` migration churn by returning `MigrationSafeTranslation`, preserving runtime translation while serializing stable English/default values (v2.3.8).
-  - [x] Reports-0-in-non-Latin-locale fixed via `model_key` + eligibility guard (v2.3.1, migration `0011`).
-  - [x] Single active session + signed-out interstitial (v2.3.2).
-  - [x] Setup import corrected + language-preview polish + SMTP warning re-sync + step validation markers (v2.3.6).
-  - [x] MSRP-1 inline-style removal (login banner-colour data bridge; interstitial CSS classes) (v2.3.4).
-  - [x] Scaffold modernized: image-only compose `web`, `{{ config_package }}` Gunicorn, fuller Docker deps, dev port 90, `django-celery-beat`, composer helper image (v2.3.5); fixed unterminated `BASE_URL` quote in `compose.dev.yml.tmpl`.
-  - [x] Tooltip flicker/placement fix (v2.3.6); adaptive titlebar brand so a long title truncates/degrades instead of overlapping home/user-hub, full name via tooltip, avatar-only username ≤575.98px (v2.3.7).
+  - [x] Full System Backup & Restore (v2.4.0): encrypted `.msb`, optional passphrase, superuser-password omission, full-replace restore, `/sys/backup/` UI/static JS, `/sys/options/` summary card, Celery tasks.
+  - [x] v2.4.0 reports backup rework: window filter + constant-memory zip streaming + Celery task with sync fallback; prune to last 3 per user.
+  - [x] SMTP socket timeout (default 10s, `email_config['timeout']`) in `send_microsys_mail`.
+  - [x] Fixed `lazy_translator()` migration churn via `MigrationSafeTranslation` (v2.3.8); `model_key` reports fix (`0011`); single active session (v2.3.2); setup import fixes (v2.3.6); MSRP-1 (v2.3.4); scaffold (v2.3.5); titlebar (v2.3.7).
 
 ### One-line info about last verified Tests:
-- 2026-06-10: `microsys.tests.test_utils.UtilsTests.test_lazy_translator_renders_current_language_but_serializes_stably` OK via archive dev compose; archive `makemigrations --check --dry-run` and `check` OK.
+- 2026-06-11: `.venv` pytest `test_views.py::GeneralViewsTests` (32), setup logo reflow CSS source check, and `git diff --check` pass after removing width animation that caused temporary second-row wrap; targeted `test_defaults_and_urls` blocked by known harness issue.
 
 ### One-line info about last time edited Docs:
-- 2026-06-10: `CHANGELOG.md` updated for v2.3.8 migration-safe translation serialization.
+- 2026-06-11: `CHANGELOG.md` v2.4.0 updated for setup logo-treatment card reflow/no-wrap behavior plus prior report overview performance, backup, `.msb`, and Options Backup & Restore entries.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

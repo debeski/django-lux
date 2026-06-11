@@ -1,5 +1,7 @@
 # Imports of the required python modules and libraries
 ######################################################
+from contextlib import contextmanager
+
 from django.dispatch import receiver
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.utils.timezone import now
@@ -23,6 +25,11 @@ EXCLUDED_MODELS = [
     'microsys.models.TrustedDevice',
     'microsys.models.UserKnownDevice',
     'microsys.models.UserPresenceSession',
+    # Backup/restore runs log a single explicit EXPORT/RESTORE action; their
+    # status churn is not user work.
+    'microsys.models.ReportBackup',
+    'microsys.models.SystemBackup',
+    'microsys.models.SystemRestore',
 ]
 
 @receiver(user_logged_in)
@@ -398,3 +405,30 @@ def create_user_connected_profiles(sender, instance, created, **kwargs):
         except Exception as e:
             # Silently fail if creation is impossible (e.g. strict DB constraints we couldn't bypass)
             pass
+
+
+@contextmanager
+def suspend_microsys_signals():
+    """Temporarily disconnect every Microsys model-signal receiver.
+
+    Used by the full-system restore: deserialized rows must land exactly as
+    stored — no activity logging, no original-state capture queries, and no
+    auto-created Profiles/linked profiles colliding with the Profile rows that
+    are part of the backup itself.
+    """
+    pairs = [
+        (pre_save, capture_original_state, None),
+        (post_save, log_save, None),
+        (post_delete, log_delete, None),
+        (post_save, create_user_profile, settings.AUTH_USER_MODEL),
+        (post_save, create_user_connected_profiles, settings.AUTH_USER_MODEL),
+    ]
+    disconnected = []
+    for signal, handler, sender in pairs:
+        if signal.disconnect(handler, sender=sender):
+            disconnected.append((signal, handler, sender))
+    try:
+        yield
+    finally:
+        for signal, handler, sender in disconnected:
+            signal.connect(handler, sender=sender)

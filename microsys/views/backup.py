@@ -1,0 +1,253 @@
+import logging
+
+from django.apps import apps
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.core.files.storage import default_storage
+from django.http import FileResponse, Http404, JsonResponse
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
+from ..backup import (
+    dispatch_system_backup,
+    dispatch_system_restore,
+    read_msb_metadata,
+    run_system_backup,
+    run_system_restore,
+)
+from ..guards import require_current_password
+from ..reports import get_backup_storage_prefix
+from ..translations import get_strings
+
+logger = logging.getLogger('microsys')
+
+MSB_UPLOAD_MAX_MB_DEFAULT = 512
+
+
+def _require_superuser(request):
+    user = getattr(request, 'user', None)
+    if not user or not getattr(user, 'is_superuser', False):
+        raise PermissionDenied
+
+
+def _system_backup_model():
+    return apps.get_model('microsys', 'SystemBackup')
+
+
+def _system_restore_model():
+    return apps.get_model('microsys', 'SystemRestore')
+
+
+def _posted_passphrase(request):
+    return str(request.POST.get('backup_passphrase') or '').strip()
+
+
+def _orphan_msb_files():
+    """.msb files present under the backup prefix but unknown to SystemBackup rows
+    (manually copied or uploaded files a restore can still consume)."""
+    prefix = get_backup_storage_prefix()
+    try:
+        _dirs, files = default_storage.listdir(prefix)
+    except Exception:
+        return []
+    known = set(
+        _system_backup_model().objects.exclude(file_path='').values_list('file_path', flat=True)
+    )
+    orphans = []
+    for name in sorted(files):
+        if not name.lower().endswith('.msb'):
+            continue
+        path = f'{prefix}/{name}'
+        if path in known:
+            continue
+        try:
+            size = default_storage.size(path)
+        except Exception:
+            size = 0
+        orphans.append({'name': name, 'path': path, 'size': size})
+    return orphans
+
+
+@login_required
+def system_backup_page(request):
+    _require_superuser(request)
+    SystemBackup = _system_backup_model()
+    SystemRestore = _system_restore_model()
+    return render(request, 'microsys/backup/manage.html', {
+        'MS_TRANS': get_strings(),
+        'backups': SystemBackup.objects.all()[:20],
+        'restores': SystemRestore.objects.all()[:10],
+        'orphan_files': _orphan_msb_files(),
+    })
+
+
+@login_required
+@require_POST
+def system_backup_create_view(request):
+    _require_superuser(request)
+    s = get_strings()
+    passphrase = _posted_passphrase(request)
+    confirm = str(request.POST.get('backup_passphrase_confirm') or '').strip()
+    if passphrase != confirm:
+        return JsonResponse({
+            'ok': False,
+            'error': s.get('sysbackup_passphrase_mismatch'),
+        }, status=400)
+    SystemBackup = _system_backup_model()
+    backup = SystemBackup.objects.create(
+        requested_by_username=request.user.get_username(),
+        passphrase_required=bool(passphrase),
+    )
+    if dispatch_system_backup(backup, passphrase=passphrase):
+        queued = True
+    else:
+        # No live worker: build inline (request blocks; small installs only).
+        queued = False
+        run_system_backup(backup.pk, passphrase=passphrase)
+        backup.refresh_from_db()
+    return JsonResponse({
+        'ok': True,
+        'async': queued,
+        'token': backup.token,
+        'status': backup.status,
+        'status_url': reverse('system_backup_status', args=[backup.token]),
+    })
+
+
+def _get_backup_or_404(request, token):
+    _require_superuser(request)
+    backup = _system_backup_model().objects.filter(token=token).first()
+    if backup is None:
+        raise Http404
+    return backup
+
+
+@login_required
+def system_backup_status_view(request, token):
+    backup = _get_backup_or_404(request, token)
+    SystemBackup = type(backup)
+    payload = {
+        'status': backup.status,
+        'file_size': backup.file_size,
+        'rows': backup.row_count,
+        'files': backup.file_count,
+        'error': backup.error[:200] if backup.status == SystemBackup.STATUS_FAILED else '',
+    }
+    if backup.status == SystemBackup.STATUS_COMPLETED:
+        payload['download_url'] = reverse('system_backup_download', args=[backup.token])
+    return JsonResponse(payload)
+
+
+@login_required
+def system_backup_download_view(request, token):
+    backup = _get_backup_or_404(request, token)
+    SystemBackup = type(backup)
+    if backup.status != SystemBackup.STATUS_COMPLETED or not backup.file_path:
+        raise Http404
+    if not default_storage.exists(backup.file_path):
+        raise Http404
+    stamp = timezone.localdate(backup.completed_at).isoformat()
+    return FileResponse(
+        default_storage.open(backup.file_path, 'rb'),
+        as_attachment=True,
+        filename=f'microsys-system-backup-{stamp}.msb',
+        content_type='application/octet-stream',
+    )
+
+
+@login_required
+@require_POST
+def system_backup_delete_view(request, token):
+    backup = _get_backup_or_404(request, token)
+    if backup.file_path:
+        try:
+            default_storage.delete(backup.file_path)
+        except Exception:
+            pass
+    backup.delete()
+    messages.success(request, get_strings().get('sysbackup_deleted'), fail_silently=True)
+    return redirect('system_backup_page')
+
+
+@login_required
+@require_POST
+def system_backup_upload_view(request):
+    _require_superuser(request)
+    s = get_strings()
+    uploaded = request.FILES.get('backup_file')
+    if uploaded is None:
+        messages.error(request, s.get('sysbackup_upload_invalid'), fail_silently=True)
+        return redirect('system_backup_page')
+    max_mb = MSB_UPLOAD_MAX_MB_DEFAULT
+    if uploaded.size > max_mb * 1024 * 1024:
+        messages.error(request, s.get('sysbackup_upload_too_large'), fail_silently=True)
+        return redirect('system_backup_page')
+    try:
+        read_msb_metadata(uploaded)
+        uploaded.seek(0)
+    except Exception:
+        messages.error(request, s.get('sysbackup_upload_invalid'), fail_silently=True)
+        return redirect('system_backup_page')
+    stamp = timezone.now().strftime('%Y%m%d-%H%M%S')
+    default_storage.save(f'{get_backup_storage_prefix()}/uploaded-{stamp}.msb', uploaded)
+    messages.success(request, s.get('sysbackup_upload_done'), fail_silently=True)
+    return redirect('system_backup_page')
+
+
+def _resolve_restore_source(request):
+    """Resolve the POSTed restore source to a storage path inside the backup prefix."""
+    token = str(request.POST.get('backup_token') or '').strip()
+    if token:
+        backup = _system_backup_model().objects.filter(token=token).first()
+        if backup and backup.file_path:
+            return backup.file_path
+        return None
+    filename = str(request.POST.get('backup_file_name') or '').strip()
+    # The filename must be a bare name inside the backup prefix — no path traversal.
+    if not filename or '/' in filename or '\\' in filename or not filename.lower().endswith('.msb'):
+        return None
+    path = f'{get_backup_storage_prefix()}/{filename}'
+    return path if default_storage.exists(path) else None
+
+
+@login_required
+@require_POST
+def system_restore_start_view(request):
+    _require_superuser(request)
+    s = get_strings()
+    if failure := require_current_password(request, redirect_name='system_backup_page'):
+        return failure
+    if str(request.POST.get('confirm_replace') or '') != 'yes':
+        messages.error(request, s.get('sysrestore_confirm_required'), fail_silently=True)
+        return redirect('system_backup_page')
+    source_path = _resolve_restore_source(request)
+    if not source_path:
+        messages.error(request, s.get('sysrestore_source_missing'), fail_silently=True)
+        return redirect('system_backup_page')
+    SystemRestore = _system_restore_model()
+    restore = SystemRestore.objects.create(
+        requested_by_username=request.user.get_username(),
+        backup_file_path=source_path,
+        ignore_version_mismatch=str(request.POST.get('ignore_version_mismatch') or '') == 'yes',
+    )
+    passphrase = _posted_passphrase(request)
+    if not dispatch_system_restore(restore, passphrase=passphrase):
+        run_system_restore(restore.pk, passphrase=passphrase)
+        restore.refresh_from_db()
+    return redirect(f"{reverse('system_backup_page')}?restore={restore.token}")
+
+
+@login_required
+def system_restore_status_view(request, token):
+    _require_superuser(request)
+    restore = _system_restore_model().objects.filter(token=token).first()
+    if restore is None:
+        raise Http404
+    return JsonResponse({
+        'status': restore.status,
+        'report': restore.report or {},
+        'error': restore.error[:300] if restore.error else '',
+    })
