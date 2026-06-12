@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-lux-sso"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Optional OIDC SSO provider plugin for django-lux."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -35,3 +35,9 @@ Homepage = "https://github.com/debeski/django-lux"
 
 [tool.setuptools.packages.find]
 include = ["dlux_sso", "dlux_sso.*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dlux_sso.__version__" }
+
+[tool.setuptools.package-data]
+dlux_sso = ["VERSION"]

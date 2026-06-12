@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-lux-sso-client"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Lightweight Django OIDC client SDK for Dlux SSO providers."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,3 +31,9 @@ Homepage = "https://github.com/debeski/django-lux"
 
 [tool.setuptools.packages.find]
 include = ["dlux_sso_client", "dlux_sso_client.*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dlux_sso_client.__version__" }
+
+[tool.setuptools.package-data]
+dlux_sso_client = ["VERSION"]

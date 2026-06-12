@@ -12,7 +12,9 @@ This file owns the release history for `django-lux`.
   `release-sso-client.yml` to call each companion's `build.py` helper instead
   of `python -m build` from inside a directory containing a local `build.py`,
   preventing recursive self-invocation that caused GitHub Actions exit 143
-  during `django-lux-sso` and `django-lux-sso-client` distribution builds.
+  during `django-lux-sso` and `django-lux-sso-client` distribution builds. Each
+  companion now owns a package-local `VERSION` file used by `__version__`,
+  dynamic pyproject metadata, and the workflow tag guard.
 - **DjangoLux Brand Logo**: Activated the SVG-first DjangoLux brand system with
   graphite shield/monogram source assets (`base_logo.svg`, `login_logo.svg`) by
   switching default `logo`, `login_logo`, and favicon URLs to the SVG assets,

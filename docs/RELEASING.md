@@ -99,13 +99,16 @@ each via its own tag prefix and workflow:
 | `django-lux-sso` | `tools/django-lux-sso/` | `sso-v*` | `release-sso.yml` |
 | `django-lux-sso-client` | `tools/django-lux-sso-client/` | `sso-client-v*` | `release-sso-client.yml` |
 
-Their version lives in each package's own `pyproject.toml` (currently `0.1.0`),
-and the workflow checks the tag matches it. To release one:
+Their versions live in package-local version files:
+`tools/django-lux-sso/dlux_sso/VERSION` and
+`tools/django-lux-sso-client/dlux_sso_client/VERSION`. Each package's
+`pyproject.toml` derives metadata from `__version__`, so bump the package's
+`VERSION` file and the workflow checks the tag matches it. To release one:
 
 ```sh
-# bump version in tools/django-lux-sso/pyproject.toml, then:
-git tag -a sso-v0.1.0 -m "django-lux-sso 0.1.0"
-git push origin sso-v0.1.0
+# bump tools/django-lux-sso/dlux_sso/VERSION, then:
+git tag -a sso-v0.1.1 -m "django-lux-sso 0.1.1"
+git push origin sso-v0.1.1
 ```
 
 The companion release jobs build through each package's `build.py` helper. Do
