@@ -2,12 +2,12 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- REBRAND DONE on branch `rebrand-django-lux` (commit 5288933, not merged): microsys→`dlux` everywhere (app_label/db `dlux_*`, `DLUX_CONFIG`, `dlux_settings`, `dlux` CLI), 545 `ms-`→`dl-` CSS, companions `django-lux-sso(-client)` + claims `dlux_sso_*`, backup `.dlb`/`DLB1`/`tools/dlb-viewer`, migrations squashed to a fresh `0001_initial`. Verified: import, scaffold, migrate, 13 tests, `.dlb` viewer round-trip. Mechanical via throwaway `scripts/rebrand.py`.
-- `dlux/VERSION` 2.4.1 (carried over; republish version decision still open — continue 2.4.1 vs reset 1.0.0). v2.4.1 work: standalone `tools/dlb-viewer/` (Go), tag-driven CI/CD, `optional_packages/`→`tools/` reorg.
+- REBRAND PUBLISHED per user correction: `django-microsys`→`django-lux` is complete and published to git/PyPI; package imports as `dlux`, app_label/db use `dlux_*`, config is `DLUX_CONFIG`, CLI is `dlux`, backups are `.dlb`/`DLB1`, migrations squashed to `0001_initial`.
+- `dlux/VERSION` is the release source of truth (`1.0.1` in current tree); GitHub Actions tag-driven release flow owns dist build + PyPI/GitHub publishing. Do not use the old local `dist/` changelog rule.
+- Default branding is SVG-first: `base_logo.svg` and `login_logo.svg` are the active graphite/crimson DjangoLux mark/wordmark; WebP files remain compatibility artifacts.
+- Migration helper from microsys is included: `dlux_migrate_from_microsys` dry-runs by default and can relabel a fully migrated `django-microsys` 2.4.1 DB to `django-lux`.
+- Standalone `tools/dlb-viewer/` (Go), tag-driven CI/CD, and `optional_packages/`→`tools/` reorg remain current.
 - Restore = full replace: migration-state gate, dependency-ordered load, `suspend_dlux_signals()`, sequence reset, file restore, cache+session flush. `.dlb` uses Django `SECRET_KEY` by default or optional passphrase; `/sys/options/` superuser Backup & Restore card shows latest backup/restore summary.
-- Reports use locale-independent `UserActivityLog.model_key` (migration `0011`); overview uses grouped DB aggregates + optional `reports.overview_cache_seconds` Django-cache TTL; chart.js is bundled.
-- Single active session: `enforce_single_active_session` evicts a user's other sessions on every login; force-ended devices hit the `/accounts/session-ended/` interstitial.
-- 8-step setup/System Settings wizard remains current; Options System Settings odd final tile spans full row; v2.3.6 import/export fixes and persistent setup notices stand.
 
 ### Current Project Adopted Standards:
 - Settings: `from dlux.utils import dlux_settings`; `dlux_settings(globals())`. Scaffold: `python -m dlux startproject/startapp --register`.
@@ -29,8 +29,7 @@
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Rebrand republish (phase E): decide version (2.4.1 vs reset 1.0.0), merge `rebrand-django-lux`, create new GitHub repo + PyPI `django-lux`/`-sso`/`-client`, re-register Trusted Publishing for the new repo, update ChatGPT-agent link. Optionally delete `scripts/rebrand.py`.
-  - [ ] One-time release setup: add PyPI trusted publisher (workflow `release.yml`, env `pypi`) + create GitHub `pypi` environment — see `docs/RELEASING.md`.
+  - [ ] Sweep stale rebrand leftovers: search docs/code/assets for obsolete `microsys`, `django-microsys`, `ms-`, old logos, and package metadata inconsistencies.
   - [ ] Consolidate tests for CI: make `test_m2m`/`test_scaffold`/`verify_detailed_logs` standalone (drop `xPy.settings` dep) + fix `test_defaults_and_urls`, then mark CI a required check.
   - [ ] Commit the uncommitted v2.3.4-v2.3.6 working-tree changes (setup import/scaffold/MSRP-1).
   - [ ] Browser-validate first-launch setup import end-to-end (file chooser, finish CTA, selector visuals) against a real page.
@@ -39,6 +38,8 @@
   - [ ] Bump `?v=` cache-busters for changed `main.css`/`login.css`/`system_setup.js` and refresh the 3 stale tests.
   - [ ] Implement the validated `dlux/utils.py` split (`utils_split_plan.md`), preserving import contracts.
 - **Completed Recently:**
+  - [x] Replaced stale default branding with SVG-first DjangoLux logo assets and switched README/default config/titlebar/favicon/login-mask fallbacks to the new mark.
+  - [x] Rebrand publish: `django-lux` package/repo/PyPI release completed per user correction; local release docs use GitHub Actions tag-driven publishing, not `dist/` checks.
   - [x] Standalone `.dlb` viewer: `tools/dlb-viewer/` — dependency-free Go single-binary, stdlib-only Fernet/PBKDF2 (`dlb.go`), local 127.0.0.1 web UI (token+Host guard), browse models/files/manifest; verified end-to-end vs a real Fernet fixture. Build needs Go 1.21+ (installed via brew).
   - [x] Full System Backup & Restore (v2.4.0): encrypted `.dlb`, optional passphrase, superuser-password omission, full-replace restore, `/sys/backup/` UI/static JS, `/sys/options/` summary card, Celery tasks.
   - [x] v2.4.0 reports backup rework: window filter + constant-memory zip streaming + Celery task with sync fallback; prune to last 3 per user.
@@ -46,10 +47,10 @@
   - [x] Fixed `lazy_translator()` migration churn via `MigrationSafeTranslation` (v2.3.8); `model_key` reports fix (`0011`); single active session (v2.3.2); setup import fixes (v2.3.6); MSRP-1 (v2.3.4); scaffold (v2.3.5); titlebar (v2.3.7).
 
 ### One-line info about last verified Tests:
-- 2026-06-12: `dlb-viewer` `go vet`+`go build` clean (8.6MB binary); driven end-to-end over its HTTP API against a real Fernet `.dlb` fixture — 401 on wrong password, model/row read, byte-exact stored-file fetch, 403 without token, temp cleanup on exit.
+- 2026-06-12: rendered `login_logo.svg` via `qlmanage`; measured mark and wordmark centers both at 319.5px after separating `Django`/`Lux`; previous `dlb-viewer` check clean.
 
 ### One-line info about last time edited Docs:
-- 2026-06-12: added `docs/RELEASING.md` (tag-driven PyPI+GitHub flow) and CI/CD `.github/workflows/{ci,release}.yml`; viewer moved to `tools/dlb-viewer/` with README/admin-guide/CHANGELOG mentions updated.
+- 2026-06-12: README hero and CHANGELOG v1.0.1 updated for SVG-first DjangoLux branding; `docs/RELEASING.md` remains canonical for tag-driven releases.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
@@ -60,7 +61,7 @@
 - Global agent rules now live in `~/.claude/CLAUDE.md` (tracker/CHANGELOG/docs/task discipline).
 
 ### Agent Handoff Rules:
-- Read `tracker.md` each turn; keep grounded in verified code/runtime or explicit user correction; never revert user changes.
+- Read `tracker.md` each turn; keep grounded in verified code/runtime or explicit user correction; never revert user changes; for changelog/version decisions use tag-driven release docs, not local `dist/` artifacts.
 
 ### References and Links:
-- Security standard: `docs/security-msrp-1.md`. Utils split plan: `utils_split_plan.md`.
+- Security standard: `docs/security-msrp-1.md`. Release standard: `docs/RELEASING.md`. Utils split plan: `utils_split_plan.md`.

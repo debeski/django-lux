@@ -302,8 +302,8 @@ input::-moz-focus-inner { border: 0; }
   
   .logo-img {
     /* Mask the image to color it with the theme color */
-    -webkit-mask-image: url("/static/img/login_logo.webp");
-    mask-image: url("/static/img/login_logo.webp");
+    -webkit-mask-image: url("/static/img/login_logo.svg");
+    mask-image: url("/static/img/login_logo.svg");
     -webkit-mask-size: contain;
     mask-size: contain;
     -webkit-mask-repeat: no-repeat;

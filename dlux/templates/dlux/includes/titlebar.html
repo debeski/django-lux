@@ -23,7 +23,7 @@
     </div>
     <div class="titlebar__center">
         <div class="titlebar__brand">
-            <img src="{{ APP_CONFIG.logo_url|default:'/static/img/base_logo.webp' }}" alt="Logo" class="titlebar__logo flex-shrink-0" data-titlebar-logo>
+            <img src="{{ APP_CONFIG.logo_url|default:'/static/img/base_logo.svg' }}" alt="Logo" class="titlebar__logo flex-shrink-0" data-titlebar-logo>
             <div class="titlebar__heading">
                 <p class="ms-1 mb-0 titlebar__title" data-titlebar-title>
                     <span class="titlebar__title-name" data-titlebar-title-text>{{ APP_CONFIG.identity.display_name|default:"DjangoLux" }}</span>{% if user.scope %}<span class="titlebar__title-scope"> - {{ user.scope.name }}</span>{% endif %}

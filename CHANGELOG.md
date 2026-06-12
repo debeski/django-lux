@@ -6,6 +6,15 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.0.1
+
+- **DjangoLux Brand Logo**: Activated the SVG-first DjangoLux brand system with
+  graphite shield/monogram source assets (`base_logo.svg`, `login_logo.svg`) by
+  switching default `logo`, `login_logo`, and favicon URLs to the SVG assets,
+  centering the separated `Django`/`Lux` login wordmark under the shield,
+  refreshing the README hero image, and updating login/titlebar fallbacks plus
+  the mobile login mask to avoid stale `django-microsys` WebP branding.
+
 ## v1.0.0
 
 - **Rebrand from django-microsys**: First release under the `django-lux` name

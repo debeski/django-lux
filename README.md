@@ -7,7 +7,7 @@
 [![Downloads](https://img.shields.io/pypi/dm/django-lux?color=orange)](https://pypi.org/project/django-lux/)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/debeski/django-lux/main/dlux/static/img/login_logo.webp" alt="DjangoLux Logo" width="450"/>
+  <img src="https://raw.githubusercontent.com/debeski/django-lux/main/dlux/static/img/login_logo.svg" alt="DjangoLux Logo" width="450"/>
 </p>
 
 <p align="center">

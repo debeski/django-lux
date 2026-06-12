@@ -44,16 +44,14 @@
 
   <g filter="url(#wordLift)">
     <text x="320" y="509" text-anchor="middle"
-          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="91" font-weight="900"
-          letter-spacing="-3" fill="#f5fbff" stroke="#eef7fb" stroke-width="12" stroke-linejoin="round">Django</text>
+          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="88" font-weight="900"
+          letter-spacing="-2.5" stroke-width="12" stroke-linejoin="round">
+      <tspan fill="#f5fbff" stroke="#eef7fb">Django</tspan><tspan dx="16" fill="#ffecf0" stroke="#ffecf0">Lux</tspan>
+    </text>
     <text x="320" y="509" text-anchor="middle"
-          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="91" font-weight="900"
-          letter-spacing="-3" fill="#172127">Django</text>
-    <text x="458" y="509" text-anchor="start"
-          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="91" font-weight="900"
-          letter-spacing="-3" fill="#ffecf0" stroke="#ffecf0" stroke-width="12" stroke-linejoin="round">Lux</text>
-    <text x="458" y="509" text-anchor="start"
-          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="91" font-weight="900"
-          letter-spacing="-3" fill="#a51020">Lux</text>
+          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="88" font-weight="900"
+          letter-spacing="-2.5">
+      <tspan fill="#172127">Django</tspan><tspan dx="16" fill="#a51020">Lux</tspan>
+    </text>
   </g>
 </svg>
