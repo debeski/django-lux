@@ -15,18 +15,21 @@ follows. The release workflow refuses to run if the pushed tag doesn't match it.
 
 ### 1. PyPI Trusted Publisher (no API token needed)
 
-This lets the GitHub workflow publish to PyPI over OIDC, with no stored secret.
+This lets the GitHub workflow publish to PyPI over OIDC, with no stored secret —
+and it works **before the project has ever been published**, via a *pending
+publisher*. The first successful run creates the project and binds the publisher.
 
-1. Go to <https://pypi.org/manage/project/django-lux/settings/publishing/>
-   (project already exists). Under **Add a new trusted publisher → GitHub**, enter:
+1. Sign in to PyPI → <https://pypi.org/manage/account/publishing/>.
+2. Under **Add a new pending publisher → GitHub**, enter:
+   - **PyPI Project Name:** `django-lux`
    - **Owner:** `debeski`
    - **Repository name:** `django-lux`
    - **Workflow name:** `release.yml`
    - **Environment name:** `pypi`
-2. Save. That's it — no token, nothing to rotate.
+3. Save. That's it — no token, nothing to rotate, no manual first upload.
 
-> If the project did *not* yet exist on PyPI, you'd instead add a *pending*
-> publisher under your account settings; the first successful run creates it.
+> Once `django-lux` exists on PyPI, the same publisher is managed at
+> <https://pypi.org/manage/project/django-lux/settings/publishing/>.
 
 ### 2. GitHub environment
 
