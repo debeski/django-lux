@@ -108,6 +108,11 @@ git tag -a sso-v0.1.0 -m "django-lux-sso 0.1.0"
 git push origin sso-v0.1.0
 ```
 
+The companion release jobs build through each package's `build.py` helper. Do
+not replace that with `python -m build` while the job working directory is the
+package directory: each companion also has a local `build.py`, which would shadow
+PyPA's `build` module and recursively invoke itself.
+
 **One-time setup per companion** (same pending-publisher flow as above): add a
 PyPI pending publisher for project `django-lux-sso` bound to workflow
 `release-sso.yml`, and another for `django-lux-sso-client` bound to

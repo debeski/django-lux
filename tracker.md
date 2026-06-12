@@ -38,6 +38,7 @@
   - [ ] Bump `?v=` cache-busters for changed `main.css`/`login.css`/`system_setup.js` and refresh the 3 stale tests.
   - [ ] Implement the validated `dlux/utils.py` split (`utils_split_plan.md`), preserving import contracts.
 - **Completed Recently:**
+  - [x] Fixed SSO companion release builds: `release-sso*.yml` now call companion `build.py` helpers; helpers invoke PyPA `build` from repo root to avoid local `build.py` shadowing/recursive `python -m build` exit 143.
   - [x] Replaced stale default branding with SVG-first DjangoLux logo assets and switched README/default config/titlebar/favicon/login-mask fallbacks to the new mark.
   - [x] Rebrand publish: `django-lux` package/repo/PyPI release completed per user correction; local release docs use GitHub Actions tag-driven publishing, not `dist/` checks.
   - [x] Standalone `.dlb` viewer: `tools/dlb-viewer/` — dependency-free Go single-binary, stdlib-only Fernet/PBKDF2 (`dlb.go`), local 127.0.0.1 web UI (token+Host guard), browse models/files/manifest; verified end-to-end vs a real Fernet fixture. Build needs Go 1.21+ (installed via brew).
@@ -47,10 +48,10 @@
   - [x] Fixed `lazy_translator()` migration churn via `MigrationSafeTranslation` (v2.3.8); `model_key` reports fix (`0011`); single active session (v2.3.2); setup import fixes (v2.3.6); MSRP-1 (v2.3.4); scaffold (v2.3.5); titlebar (v2.3.7).
 
 ### One-line info about last verified Tests:
-- 2026-06-12: rendered `login_logo.svg` via `qlmanage`; measured mark and wordmark centers both at 319.5px after separating `Django`/`Lux`; previous `dlb-viewer` check clean.
+- 2026-06-12: companion builds verified in temp venv: `python build.py` + `twine check dist/*` passed for `django-lux-sso` and `django-lux-sso-client`; logo render check also clean.
 
 ### One-line info about last time edited Docs:
-- 2026-06-12: README hero and CHANGELOG v1.0.1 updated for SVG-first DjangoLux branding; `docs/RELEASING.md` remains canonical for tag-driven releases.
+- 2026-06-12: `docs/RELEASING.md` and CHANGELOG v1.0.1 updated for SSO companion build.py release fix; release docs remain canonical.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
