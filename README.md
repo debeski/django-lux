@@ -1,6 +1,10 @@
 # DjangoLux - System Integration Service
 
-[![PyPI version](https://badge.fury.io/py/django-lux.svg)](https://pypi.org/project/django-lux/)
+[![PyPI version](https://img.shields.io/pypi/v/django-lux?color=blue)](https://pypi.org/project/django-lux/)
+[![Python versions](https://img.shields.io/pypi/pyversions/django-lux)](https://pypi.org/project/django-lux/)
+[![Django versions](https://img.shields.io/badge/Django-5.1%20%7C%206-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![License](https://img.shields.io/pypi/l/django-lux?color=green)](https://github.com/debeski/django-lux/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/django-lux?color=orange)](https://pypi.org/project/django-lux/)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/debeski/django-lux/main/dlux/static/img/login_logo.webp" alt="DjangoLux Logo" width="450"/>

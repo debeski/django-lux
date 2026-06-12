@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-labelledby="title desc">
+  <title id="title">DjangoLux logo mark</title>
+  <desc id="desc">A sharp graphite shield containing a D and crimson L monogram.</desc>
+  <defs>
+    <linearGradient id="graphite" x1="144" y1="92" x2="496" y2="548" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#334049"/>
+      <stop offset="0.54" stop-color="#172127"/>
+      <stop offset="1" stop-color="#0d1419"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="96" y1="78" x2="544" y2="552" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f4fbff"/>
+      <stop offset="0.45" stop-color="#88959d"/>
+      <stop offset="1" stop-color="#1e2a30"/>
+    </linearGradient>
+    <linearGradient id="crimson" x1="205" y1="166" x2="470" y2="487" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff4055"/>
+      <stop offset="1" stop-color="#8f0f1e"/>
+    </linearGradient>
+    <filter id="lift" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000000" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#lift)">
+    <path fill="url(#graphite)" stroke="url(#edge)" stroke-width="8" stroke-linejoin="round"
+          d="M320 54 528 142v180c0 127-78 219-208 264C190 541 112 449 112 322V142L320 54Z"/>
+    <path fill="#0a0f12" opacity="0.8" stroke="#5e6b72" stroke-width="6" stroke-linejoin="round"
+          d="M320 126 464 188v126c0 84-49 145-144 182-95-37-144-98-144-182V188l144-62Z"/>
+    <path fill="none" stroke="#f2fbff" stroke-opacity="0.9" stroke-width="18" stroke-linecap="square" stroke-linejoin="round"
+          d="M230 397V192h92c92 0 154 58 154 153s-62 154-154 154h-92"/>
+    <path fill="none" stroke="#162028" stroke-width="44" stroke-linecap="square" stroke-linejoin="round"
+          d="M230 397V192h92c92 0 154 58 154 153s-62 154-154 154h-92"/>
+    <path fill="none" stroke="#25323a" stroke-width="26" stroke-linecap="square" stroke-linejoin="round"
+          d="M230 397V192h92c92 0 154 58 154 153s-62 154-154 154h-92"/>
+    <path fill="none" stroke="url(#crimson)" stroke-width="62" stroke-linecap="butt" stroke-linejoin="miter"
+          d="M372 170v266h132"/>
+    <path fill="none" stroke="#ffecf0" stroke-opacity="0.95" stroke-width="10" stroke-linecap="square" stroke-linejoin="round"
+          d="M372 170v266h132"/>
+    <path fill="#ffffff" opacity="0.84" d="M154 137 320 67 486 137 320 102Z"/>
+    <path fill="#ffffff" opacity="0.16" d="M148 156 320 86 492 156v30L320 116 148 186Z"/>
+  </g>
+</svg>

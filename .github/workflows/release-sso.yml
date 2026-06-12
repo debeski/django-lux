@@ -1,0 +1,61 @@
+name: Release django-lux-sso
+
+# Companion package in tools/django-lux-sso. Released independently of the main
+# django-lux package via its own tag prefix:
+#   git tag -a sso-v0.1.0 -m "django-lux-sso 0.1.0" && git push origin sso-v0.1.0
+#
+# Requires a PyPI pending/trusted publisher for project `django-lux-sso` bound to
+# this workflow file (release-sso.yml) and the `pypi` environment. See docs/RELEASING.md.
+
+on:
+  push:
+    tags: ["sso-v*"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: tools/django-lux-sso
+
+jobs:
+  build-dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify tag matches pyproject version
+        run: |
+          file_ver="$(grep -E '^version[[:space:]]*=' pyproject.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')"
+          tag_ver="${GITHUB_REF_NAME#sso-v}"
+          echo "pyproject: '$file_ver'   tag: '$tag_ver'"
+          if [ "$file_ver" != "$tag_ver" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME != django-lux-sso pyproject version ($file_ver)."
+            exit 1
+          fi
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-sso
+          path: tools/django-lux-sso/dist/*
+
+  publish-pypi:
+    needs: build-dist
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/django-lux-sso/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-sso
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1

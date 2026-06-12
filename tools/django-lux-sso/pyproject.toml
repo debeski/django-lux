@@ -14,7 +14,7 @@ authors = [
 ]
 dependencies = [
     "Django>=5.1",
-    "django-lux>=2.0.0",
+    "django-lux>=1.0.0",
     "django-oauth-toolkit[oidc]>=3.0",
     "cryptography>=42.0",
 ]

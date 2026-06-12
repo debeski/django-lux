@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-labelledby="title desc">
+  <title id="title">DjangoLux logo</title>
+  <desc id="desc">DjangoLux wordmark with a sharp graphite shield and crimson Lux accent.</desc>
+  <defs>
+    <linearGradient id="graphite" x1="208" y1="48" x2="432" y2="348" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#334049"/>
+      <stop offset="0.54" stop-color="#172127"/>
+      <stop offset="1" stop-color="#0d1419"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="178" y1="44" x2="462" y2="358" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f4fbff"/>
+      <stop offset="0.5" stop-color="#87949c"/>
+      <stop offset="1" stop-color="#1f2b31"/>
+    </linearGradient>
+    <linearGradient id="crimson" x1="252" y1="98" x2="420" y2="310" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff4055"/>
+      <stop offset="1" stop-color="#8f0f1e"/>
+    </linearGradient>
+    <filter id="markLift" x="-18%" y="-18%" width="136%" height="136%">
+      <feDropShadow dx="0" dy="13" stdDeviation="11" flood-color="#000000" flood-opacity="0.32"/>
+    </filter>
+    <filter id="wordLift" x="-4%" y="-10%" width="108%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="4" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(0 2)" filter="url(#markLift)">
+    <path fill="url(#graphite)" stroke="url(#edge)" stroke-width="5" stroke-linejoin="round"
+          d="M320 42 460 101v121c0 86-53 148-140 178-87-30-140-92-140-178V101L320 42Z"/>
+    <path fill="#090e11" opacity="0.82" stroke="#607078" stroke-width="4" stroke-linejoin="round"
+          d="M320 91 417 133v85c0 57-33 98-97 123-64-25-97-66-97-123v-85l97-42Z"/>
+    <path fill="none" stroke="#f2fbff" stroke-opacity="0.9" stroke-width="11" stroke-linecap="square" stroke-linejoin="round"
+          d="M259 274V136h62c62 0 104 39 104 103s-42 104-104 104h-62"/>
+    <path fill="none" stroke="#162028" stroke-width="30" stroke-linecap="square" stroke-linejoin="round"
+          d="M259 274V136h62c62 0 104 39 104 103s-42 104-104 104h-62"/>
+    <path fill="none" stroke="#25323a" stroke-width="18" stroke-linecap="square" stroke-linejoin="round"
+          d="M259 274V136h62c62 0 104 39 104 103s-42 104-104 104h-62"/>
+    <path fill="none" stroke="url(#crimson)" stroke-width="40" stroke-linecap="butt" stroke-linejoin="miter"
+          d="M354 121v179h89"/>
+    <path fill="none" stroke="#ffecf0" stroke-opacity="0.92" stroke-width="7" stroke-linecap="square" stroke-linejoin="round"
+          d="M354 121v179h89"/>
+    <path fill="#ffffff" opacity="0.82" d="M208 98 320 51 432 98 320 75Z"/>
+  </g>
+
+  <g filter="url(#wordLift)">
+    <text x="320" y="509" text-anchor="middle"
+          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="91" font-weight="900"
+          letter-spacing="-3" fill="#f5fbff" stroke="#eef7fb" stroke-width="12" stroke-linejoin="round">Django</text>
+    <text x="320" y="509" text-anchor="middle"
+          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="91" font-weight="900"
+          letter-spacing="-3" fill="#172127">Django</text>
+    <text x="458" y="509" text-anchor="start"
+          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="91" font-weight="900"
+          letter-spacing="-3" fill="#ffecf0" stroke="#ffecf0" stroke-width="12" stroke-linejoin="round">Lux</text>
+    <text x="458" y="509" text-anchor="start"
+          font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="91" font-weight="900"
+          letter-spacing="-3" fill="#a51020">Lux</text>
+  </g>
+</svg>

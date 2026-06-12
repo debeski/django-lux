@@ -89,6 +89,34 @@ Watch it under the repo's **Actions** tab.
 
 ---
 
+## Companion packages (optional SSO)
+
+The two SSO companions in `tools/` publish **independently** of the main package,
+each via its own tag prefix and workflow:
+
+| Package | Source | Tag prefix | Workflow |
+| --- | --- | --- | --- |
+| `django-lux-sso` | `tools/django-lux-sso/` | `sso-v*` | `release-sso.yml` |
+| `django-lux-sso-client` | `tools/django-lux-sso-client/` | `sso-client-v*` | `release-sso-client.yml` |
+
+Their version lives in each package's own `pyproject.toml` (currently `0.1.0`),
+and the workflow checks the tag matches it. To release one:
+
+```sh
+# bump version in tools/django-lux-sso/pyproject.toml, then:
+git tag -a sso-v0.1.0 -m "django-lux-sso 0.1.0"
+git push origin sso-v0.1.0
+```
+
+**One-time setup per companion** (same pending-publisher flow as above): add a
+PyPI pending publisher for project `django-lux-sso` bound to workflow
+`release-sso.yml`, and another for `django-lux-sso-client` bound to
+`release-sso-client.yml` — both using the `pypi` environment. Until
+`django-lux-sso` is published, `pip install django-lux[sso]` will fail (base
+`pip install django-lux` is unaffected).
+
+---
+
 ## Known follow-up: test suite consolidation
 
 The CI workflow ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs
