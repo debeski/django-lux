@@ -2,7 +2,8 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- `dlux/VERSION` 2.4.1 (in progress, not yet tagged; v2.4.0 released on a prior device). v2.4.1 adds: standalone `tools/dlb-viewer/` (Go), tag-driven CI/CD (`.github/workflows/`, `docs/RELEASING.md`, PyPI Trusted Publishing), and `optional_packages/`→`tools/` reorg. v2.4.0: report backup rework, overview aggregation/migration `0013`, full System Backup & Restore (encrypted `.dlb`, `/sys/backup/`).
+- REBRAND DONE on branch `rebrand-django-lux` (commit 5288933, not merged): microsys→`dlux` everywhere (app_label/db `dlux_*`, `DLUX_CONFIG`, `dlux_settings`, `dlux` CLI), 545 `ms-`→`dl-` CSS, companions `django-lux-sso(-client)` + claims `dlux_sso_*`, backup `.dlb`/`DLB1`/`tools/dlb-viewer`, migrations squashed to a fresh `0001_initial`. Verified: import, scaffold, migrate, 13 tests, `.dlb` viewer round-trip. Mechanical via throwaway `scripts/rebrand.py`.
+- `dlux/VERSION` 2.4.1 (carried over; republish version decision still open — continue 2.4.1 vs reset 1.0.0). v2.4.1 work: standalone `tools/dlb-viewer/` (Go), tag-driven CI/CD, `optional_packages/`→`tools/` reorg.
 - Restore = full replace: migration-state gate, dependency-ordered load, `suspend_dlux_signals()`, sequence reset, file restore, cache+session flush. `.dlb` uses Django `SECRET_KEY` by default or optional passphrase; `/sys/options/` superuser Backup & Restore card shows latest backup/restore summary.
 - Reports use locale-independent `UserActivityLog.model_key` (migration `0011`); overview uses grouped DB aggregates + optional `reports.overview_cache_seconds` Django-cache TTL; chart.js is bundled.
 - Single active session: `enforce_single_active_session` evicts a user's other sessions on every login; force-ended devices hit the `/accounts/session-ended/` interstitial.
@@ -28,6 +29,7 @@
 
 ### Incomplete Tasks:
 - **Priority 1:**
+  - [ ] Rebrand republish (phase E): decide version (2.4.1 vs reset 1.0.0), merge `rebrand-django-lux`, create new GitHub repo + PyPI `django-lux`/`-sso`/`-client`, re-register Trusted Publishing for the new repo, update ChatGPT-agent link. Optionally delete `scripts/rebrand.py`.
   - [ ] One-time release setup: add PyPI trusted publisher (workflow `release.yml`, env `pypi`) + create GitHub `pypi` environment — see `docs/RELEASING.md`.
   - [ ] Consolidate tests for CI: make `test_m2m`/`test_scaffold`/`verify_detailed_logs` standalone (drop `xPy.settings` dep) + fix `test_defaults_and_urls`, then mark CI a required check.
   - [ ] Commit the uncommitted v2.3.4-v2.3.6 working-tree changes (setup import/scaffold/MSRP-1).
