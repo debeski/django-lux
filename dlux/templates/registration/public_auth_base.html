@@ -1,0 +1,66 @@
+{% extends 'dlux/base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'dlux/users/css/login.css' %}?v={% now 'U' %}">
+{% endblock %}
+
+{% block titlebar %}{% endblock %}
+
+{% block layout %}
+{% with lc=login_config|default:APP_CONFIG.login %}
+{% with ls=lc.style|default:"split" lt=lc.logo_treatment|default:"none" lts=lc.logo_treatment_shape|default:"soft" lbc=lc.banner_color|default:"" sl=lc.show_logo %}
+{% if messages %}<div class="alert-container position-absolute top-0 start-0 w-100 dl-page-alert-container">{% for message in messages %}<div class="alert alert-{{ message.tags }} text-center h4 dl-page-alert">{{ message }}</div>{% endfor %}</div>{% endif %}
+{% if form.non_field_errors %}<div class="dl-login-error-float shake-trigger">{% for error in form.non_field_errors %}<div class="alert alert-danger d-flex align-items-center gap-2 m-0 h4"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span></div>{% endfor %}</div>{% endif %}
+<div class="page dl-login--{{ ls }} dl-public-auth-page {% block public_auth_page_class %}{% endblock %}">
+    {% if language_picker_enabled %}
+    <div class="lang-toggle-container desktop-lang-toggle dl-login-lang-toggle d-none d-md-flex">
+        {% for code, meta in LANGUAGES.items %}
+        <a href="?lang={{ code }}" class="lang-option {% if CURRENT_LANG == code %}active{% endif %}">{{ meta.label|default:code|upper }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="container">
+      <div class="left">
+        {% if sl %}
+        <div class="d-flex flex-column align-items-center mb-4 dl-login-form-logo {% if ls != 'fullpage' %}d-md-none{% endif %}">
+            <div class="logo-frame" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}">
+                <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ MS_TRANS.login_logo_alt }}" class="logo-img">
+            </div>
+        </div>
+        {% endif %}
+        <div class="form m-0 mx-auto dl-public-auth-form">
+            {% block public_auth_panel %}{% endblock %}
+
+            {% if language_picker_enabled %}
+            <div class="d-flex justify-content-center mt-4 d-md-none">
+                <div class="lang-toggle-container">
+                    {% for code, meta in LANGUAGES.items %}
+                    <a href="?lang={{ code }}" class="lang-option {% if CURRENT_LANG == code %}active{% endif %}">{{ meta.label|default:code|upper }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+      </div>
+
+      <div class="right d-none d-md-flex" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}"{% if lbc %} data-login-banner-color="{{ lbc }}"{% endif %}>
+          {% if ls == 'fullpage' %}
+          <div class="dl-login-hero">
+            <div class="dl-login-hero__body" data-dl-login-hero="{{ login_hero_message }}"></div>
+          </div>
+          {% elif sl %}
+          <div class="logo-frame" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}">
+            <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ MS_TRANS.login_logo_alt }}" class="logo-img">
+          </div>
+          {% endif %}
+      </div>
+    </div>
+</div>
+{% endwith %}
+{% endwith %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'dlux/users/js/login.js' %}?v={% now 'U' %}" nonce="{{ request.csp_nonce }}"></script>
+{% endblock %}

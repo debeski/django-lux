@@ -1,0 +1,297 @@
+/* user_dropdown.css */
+:root {
+    --dl-dropdown-width: 400px;
+    --dl-dropdown-radius: 24px;
+    --dl-dropdown-edge-gap: 15px;
+    --dl-glass-bg: rgba(var(--bs-body-bg-rgb), 0.8);
+    --dl-glass-border: rgba(var(--primal-rgb), 0.1);
+}
+
+.dl-user-dropdown-card {
+    position: absolute;
+    top: calc(var(--header-height) + 10px);
+    inset-inline-end: var(--dl-dropdown-edge-gap);
+    width: min(var(--dl-dropdown-width), calc(100vw - (var(--dl-dropdown-edge-gap) * 2)));
+    max-height: calc(100dvh - var(--header-height) - 20px);
+    background: var(--dl-glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--dl-glass-border);
+    border-radius: var(--dl-dropdown-radius);
+    /* box-shadow: 0 20px 40px rgba(0,0,0,0.12); */
+    z-index: 2000;
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.dl-user-dropdown-card.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+/* RTL Specificity */
+[dir="rtl"] .dl-user-dropdown-card {
+    left: var(--dl-dropdown-edge-gap);
+    right: auto;
+}
+
+[dir="ltr"] .dl-user-dropdown-card {
+    right: var(--dl-dropdown-edge-gap);
+    left: auto;
+}
+
+.dl-dropdown-header {
+    padding: 30px;
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.dl-user-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.dl-display-name {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--title);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dl-user-role {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 12px;
+    background: rgba(var(--primal-rgb), 0.1);
+    color: var(--primal);
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dl-avatar-preview {
+    width: 90px;
+    height: 90px;
+    border-radius: 22px;
+    object-fit: cover;
+    margin-inline-start: 25px;
+    /* box-shadow: 0 10px 20px rgba(0,0,0,0.1); */
+    border: 4px solid #fff;
+    transition: transform 0.3s;
+}
+
+.dl-user-dropdown-card:hover .dl-avatar-preview {
+    transform: scale(1.05) rotate(2deg);
+}
+
+.dl-dropdown-toolbar {
+    background: rgba(var(--primal-rgb), 0.04);
+    padding: 15px 25px;
+    display: flex;
+    align-items: center;
+    border-top: 1px solid rgba(var(--primal-rgb), 0.05);
+}
+
+.dl-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dl-toolbar-right {
+    display: flex;
+    align-items: center;
+    margin-inline-start: auto;
+    gap: 6px;
+}
+
+.dl-tool-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primal);
+    background: #fff;
+    border: 1px solid rgba(var(--primal-rgb), 0.1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    font-size: 1.2rem;
+    /* box-shadow: 0 2px 4px rgba(0,0,0,0.02); */
+}
+
+.dl-tool-btn:hover {
+    background: var(--primal);
+    color: #fff;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(var(--primal-rgb), 0.2);
+}
+
+/* Trigger Styles */
+.dl-user-trigger {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    padding-inline-end: 12px;
+    border-radius: 50px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(var(--primal-rgb), 0.1);
+    transition: all 0.3s;
+}
+
+.dl-user-trigger:hover {
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    transform: translateY(-1px);
+}
+
+.dl-trigger-avatar {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    flex-shrink: 0 !important;
+    border: 2px solid #fff;
+    overflow: hidden !important;
+}
+
+.dl-trigger-name {
+    margin-inline-start: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--title);
+}
+
+/* Login Trigger */
+.dl-login-round {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--primal);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-decoration: none;
+    border: 3px solid #fff;
+    /* box-shadow: 0 4px 8px rgba(0,0,0,0.1); */
+    font-size: 1.2rem;
+}
+
+.dl-login-round:hover {
+    transform: scale(1.1) rotate(15deg);
+    color: #fff;
+    box-shadow: 0 8px 16px rgba(var(--primal-rgb), 0.3);
+}
+
+@media (max-width: 575.98px) {
+    :root {
+        --dl-dropdown-edge-gap: 10px;
+        --dl-dropdown-radius: 18px;
+    }
+
+    /* Collapse the user trigger to avatar-only so the titlebar reclaims width for the
+       brand on small screens (the username still shows inside the dropdown). */
+    .dl-trigger-name {
+        display: none;
+    }
+
+    .dl-user-dropdown-card {
+        position: fixed;
+        top: calc(var(--header-height) + 8px);
+        inset-inline: var(--dl-dropdown-edge-gap);
+        width: auto;
+        max-width: none;
+        max-height: calc(100dvh - var(--header-height) - 16px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        transform-origin: top center;
+    }
+
+    [dir="rtl"] .dl-user-dropdown-card,
+    [dir="ltr"] .dl-user-dropdown-card {
+        left: var(--dl-dropdown-edge-gap);
+        right: var(--dl-dropdown-edge-gap);
+    }
+
+    .dl-dropdown-header {
+        padding: 18px;
+        gap: 14px;
+    }
+
+    .dl-display-name {
+        font-size: 1.05rem;
+        line-height: 1.25;
+    }
+
+    .dl-user-role {
+        max-width: 100%;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.2;
+    }
+
+    .dl-avatar-preview {
+        width: 64px;
+        height: 64px;
+        margin-inline-start: 0;
+        border-radius: 18px;
+        border-width: 3px;
+        flex: 0 0 auto;
+    }
+
+    .dl-dropdown-toolbar {
+        padding: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 10px;
+    }
+
+    .dl-toolbar-left,
+    .dl-toolbar-right {
+        width: auto;
+        max-width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-inline-start: 0;
+    }
+
+    .dl-tool-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 13px;
+    }
+}
+
+@media (max-width: 360px) {
+    .dl-dropdown-header {
+        padding: 16px 14px;
+    }
+
+    .dl-avatar-preview {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+    }
+
+    .dl-tool-btn {
+        width: 40px;
+        height: 40px;
+    }
+}

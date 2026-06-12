@@ -1,0 +1,59 @@
+{% load static %}
+<div id="dl-user-dropdown-card" class="dl-user-dropdown-card no-print">
+    <div class="dl-dropdown-header">
+        <div class="dl-user-text">
+            <span class="dl-display-name">{{ user.get_full_name|default:user.username }}</span>
+            <span class="dl-user-role">
+                {{ current_user_management_tier.title }}
+            </span>
+        </div>
+        {% if user.profile.profile_pic %}
+            <img src="{{ user.profile.profile_pic.url }}" alt="{{ user.username }}" class="dl-avatar-preview">
+        {% else %}
+            <div class="dl-avatar-preview d-flex align-items-center justify-content-center bg-light text-secondary">
+                <i class="bi bi-person-fill dl-user-hub-placeholder-icon"></i>
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="dl-dropdown-toolbar">
+        <div class="dl-toolbar-left">
+            <a href="{% url 'user_profile' %}" class="dl-tool-btn" data-dl-tooltip="{{ MS_TRANS.profile }}">
+                <i class="bi bi-person-bounding-box"></i>
+            </a>
+            <button id="start-tour" type="button" class="dl-tool-btn" data-dl-tooltip="{{ MS_TRANS.help }}">
+                <i class="bi bi-question-circle-fill"></i>
+            </button>
+        </div>
+        <div class="dl-toolbar-right">
+            {% if can_view_user_directory %}
+            <a href="{% url 'manage_users' %}" class="dl-tool-btn" data-dl-tooltip="{{ MS_TRANS.manage_users }}">
+                <i class="bi bi-people-fill"></i>
+            </a>
+            {% endif %}
+            
+            {% if can_view_activity_log %}
+            <a href="{% url 'user_activity_log' %}" class="dl-tool-btn" data-dl-tooltip="{{ MS_TRANS.activity_log }}">
+                <i class="bi bi-clock-history"></i>
+            </a>
+            {% endif %}
+
+            {% if can_view_reports %}
+            <a href="{% url 'reports_overview' %}" class="dl-tool-btn" data-dl-tooltip="{{ MS_TRANS.reports_title }}">
+                <i class="bi bi-bar-chart-fill"></i>
+            </a>
+            {% endif %}
+            
+            <a href="{% url 'options_view' %}" class="dl-tool-btn" data-dl-tooltip="{{ MS_TRANS.options_title }}">
+                <i class="bi bi-gear-fill"></i>
+            </a>
+            
+            <form method="POST" action="{% url 'logout' %}" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="dl-tool-btn text-danger border-danger-subtle" data-dl-tooltip="{{ MS_TRANS.logout }}">
+                    <i class="bi bi-box-arrow-{% if CURRENT_DIR == 'ltr' %}right{% else %}left{% endif %}"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

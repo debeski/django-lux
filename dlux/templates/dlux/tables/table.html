@@ -1,0 +1,197 @@
+{% load django_tables2 dlux_tags %}
+
+<div
+    class="dl-table-shell"
+    data-dl-table-density="{{ table.dlux_density|default:'balanced' }}"
+    {% if table.dlux_density_locked %}data-dl-table-density-locked="true"{% endif %}
+>
+    <div class="dl-table-scroll">
+        <table {{ table.attrs.as_html }}>
+            <thead class="dl-table-head">
+                <tr>
+                    {% for column in table.columns %}
+                    <th {{ column.attrs.th.as_html }} scope="col">
+                        {% if column.orderable %}
+                        <a
+                            href="{% ms_querystring table.prefixed_order_by_field column.order_by_alias.next %}"
+                            class="dl-table-sort-link{% if column.is_ordered %} is-ordered{% endif %}{% if column.order_by_alias.is_descending %} is-desc{% else %} is-asc{% endif %}"
+                        >
+                            <span>{{ column.header }}</span>
+                            <i class="bi bi-arrow-down-up dl-table-sort-icon" aria-hidden="true"></i>
+                        </a>
+                        {% else %}
+                        <span class="dl-table-head-label">{{ column.header }}</span>
+                        {% endif %}
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody class="dl-table-body">
+                {% for row in table.paginated_rows %}
+                <tr {{ row.attrs.as_html }}>
+                    {% for column, cell in row.items %}
+                    <td {{ column.attrs.td.as_html }}>
+                        {{ cell }}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% empty %}
+                <tr class="dl-table-empty-row">
+                    <td colspan="{{ table.columns|length }}">
+                        <div class="dl-table-empty-state">
+                            <div class="dl-table-empty-state__icon">
+                                <i class="bi bi-inbox"></i>
+                            </div>
+                            <div class="dl-table-empty-state__copy">
+                                <strong>{{ MS_TRANS.table_empty_title|default:MS_TRANS.no_items|default:"No records found" }}</strong>
+                                <span>{{ MS_TRANS.table_empty_desc|default:"There is no matching data to display right now." }}</span>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if table.has_footer %}
+            <tfoot class="dl-table-foot">
+                <tr>
+                    {% for column in table.columns %}
+                    <td {{ column.attrs.tf.as_html }}>
+                        {{ column.footer }}
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+    {% if table.page %}
+    <div class="dl-table-footer">
+        <div class="dl-table-footer-meta">
+            <div class="dl-table-page-size" role="group" aria-label="{{ MS_TRANS.table_rows_per_page|default:'Rows per page' }}">
+                <span class="dl-table-page-size__label">{{ MS_TRANS.table_rows_per_page|default:"Rows" }}</span>
+                <div class="dl-table-page-size__options">
+                    {% for per_page_value in table.dlux_per_page_options %}
+                    <a
+                        class="dl-table-page-size__option{% if table.dlux_per_page|stringformat:'s' == per_page_value|stringformat:'s' %} is-active{% endif %}"
+                        href="{% ms_querystring_multi table.prefixed_page_field '' table.dlux_per_page_field per_page_value %}"
+                    >
+                        {{ per_page_value }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% if not table.dlux_density_locked %}
+            <div
+                class="dl-table-density-inline"
+                data-dl-table-density-inline
+                role="group"
+                aria-label="{{ MS_TRANS.table_density|default:'Table density' }}"
+            >
+                <span class="dl-table-density-inline__label">{{ MS_TRANS.table_density|default:"Table density" }}</span>
+                <div class="dl-table-density-inline__options">
+                    <button
+                        type="button"
+                        class="dl-table-density-inline__option{% if table.dlux_density == 'dense' %} is-active{% endif %}"
+                        data-dl-table-density-option="dense"
+                        aria-pressed="{% if table.dlux_density == 'dense' %}true{% else %}false{% endif %}"
+                        title="{{ MS_TRANS.table_density_dense|default:'Dense' }}"
+                    >
+                        <i class="bi bi-list" aria-hidden="true"></i>
+                        <span class="visually-hidden">{{ MS_TRANS.table_density_dense|default:"Dense" }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="dl-table-density-inline__option{% if table.dlux_density == 'balanced' %} is-active{% endif %}"
+                        data-dl-table-density-option="balanced"
+                        aria-pressed="{% if table.dlux_density == 'balanced' %}true{% else %}false{% endif %}"
+                        title="{{ MS_TRANS.table_density_balanced|default:'Balanced' }}"
+                    >
+                        <i class="bi bi-table" aria-hidden="true"></i>
+                        <span class="visually-hidden">{{ MS_TRANS.table_density_balanced|default:"Balanced" }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="dl-table-density-inline__option{% if table.dlux_density == 'roomy' %} is-active{% endif %}"
+                        data-dl-table-density-option="roomy"
+                        aria-pressed="{% if table.dlux_density == 'roomy' %}true{% else %}false{% endif %}"
+                        title="{{ MS_TRANS.table_density_roomy|default:'Roomy' }}"
+                    >
+                        <i class="bi bi-layout-text-window-reverse" aria-hidden="true"></i>
+                        <span class="visually-hidden">{{ MS_TRANS.table_density_roomy|default:"Roomy" }}</span>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            <div class="dl-table-summary">
+                <span>{{ MS_TRANS.table_total_records|default:"Total records" }}</span>
+                <strong>{{ table.paginator.count }}</strong>
+                <span>{{ MS_TRANS.table_page_label|default:"Page" }}</span>
+                <strong>{{ table.page.number }}</strong>
+                <span>{{ MS_TRANS.table_of_label|default:"of" }}</span>
+                <strong>{{ table.paginator.num_pages }}</strong>
+            </div>
+        </div>
+
+        {% if table.paginator.num_pages > 1 %}
+        <div class="dl-table-pagination">
+            <nav aria-label="{{ MS_TRANS.list_label|default:'Table Pagination' }}">
+                <ul class="pagination mb-0">
+                    {% if table.page.has_previous %}
+                    <li class="page-item dl-page-prev">
+                        <a class="page-link" href="{% ms_querystring table.prefixed_page_field table.page.previous_page_number %}">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                            <span>{{ MS_TRANS.btn_prev|default:"Previous" }}</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item dl-page-prev disabled">
+                        <span class="page-link">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                            <span>{{ MS_TRANS.btn_prev|default:"Previous" }}</span>
+                        </span>
+                    </li>
+                    {% endif %}
+
+                    {% for page_number in table.paginator.page_range %}
+                        {% if page_number == table.page.number %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_number }}</span>
+                        </li>
+                        {% elif page_number >= table.page.number|add:'-2' and page_number <= table.page.number|add:'2' %}
+                        <li class="page-item">
+                            <a class="page-link" href="{% ms_querystring table.prefixed_page_field page_number %}">{{ page_number }}</a>
+                        </li>
+                        {% elif page_number == 1 or page_number == table.paginator.num_pages %}
+                        <li class="page-item">
+                            <a class="page-link" href="{% ms_querystring table.prefixed_page_field page_number %}">{{ page_number }}</a>
+                        </li>
+                        {% elif page_number == table.page.number|add:'-3' or page_number == table.page.number|add:'3' %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if table.page.has_next %}
+                    <li class="page-item dl-page-next">
+                        <a class="page-link" href="{% ms_querystring table.prefixed_page_field table.page.next_page_number %}">
+                            <span>{{ MS_TRANS.btn_next|default:"Next" }}</span>
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item dl-page-next disabled">
+                        <span class="page-link">
+                            <span>{{ MS_TRANS.btn_next|default:"Next" }}</span>
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

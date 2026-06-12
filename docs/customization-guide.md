@@ -2,14 +2,14 @@
 
 This guide focuses on the extension points you are most likely to use in a real project.
 
-## Project Defaults with MICROSYS_CONFIG
+## Project Defaults with DLUX_CONFIG
 
-`MICROSYS_CONFIG` is the code-owned seed layer that feeds `get_system_config()`. Use it for defaults that should live in source control.
+`DLUX_CONFIG` is the code-owned seed layer that feeds `get_system_config()`. Use it for defaults that should live in source control.
 
 ```python
-MICROSYS_CONFIG = {
+DLUX_CONFIG = {
     "system_names": {
-        "en": "microSYS",
+        "en": "DjangoLux",
         "ar": "النظام",
     },
     "default_language": "en",
@@ -21,7 +21,7 @@ MICROSYS_CONFIG = {
         "en": {"name": "English", "dir": "ltr", "flag": "🇬🇧"},
     },
     "translations": {
-        "en": {"app_microsys": "System"},
+        "en": {"app_dlux": "System"},
     },
     "sidebar": {
         "home_url_name": None,
@@ -48,16 +48,16 @@ Keep in mind:
 
 ## Themes and Sidebar Runtime Controls
 
-microSYS now treats theme registration as a shared framework concern instead of a repeated hardcoded list.
+DjangoLux now treats theme registration as a shared framework concern instead of a repeated hardcoded list.
 
 What to know:
 
-- the official theme registry lives in `microsys/themes.py`
+- the official theme registry lives in `dlux/themes.py`
 - that registry supplies theme names, labels, ordering, preview swatches, CSS asset paths, and the runtime allowlist
 - base-template theme CSS inclusion follows the registry instead of a separate hand-maintained stylesheet list
-- the active runtime list is filtered against the actual files present in `microsys/static/microsys/themes/css`, so stray registry entries do not become selectable unless their CSS exists
+- the active runtime list is filtered against the actual files present in `dlux/static/dlux/themes/css`, so stray registry entries do not become selectable unless their CSS exists
 
-For sidebar behavior defaults, the code-owned `MICROSYS_CONFIG["sidebar"]` layer can also seed:
+For sidebar behavior defaults, the code-owned `DLUX_CONFIG["sidebar"]` layer can also seed:
 
 - `enable_reorder`
 - `show_toolbar`
@@ -85,17 +85,17 @@ The stored `navbar` block is normalized to this shape:
 
 Route nodes inherit discovered translated route labels unless the hierarchy editor gives them language-specific label overrides. Manual hierarchy nodes are useful for shared grouping labels such as a section or tab family; a manual node with no URL renders as text rather than a broken link.
 
-Static route discovery cannot know an object title or the active tab for a dynamic page. For those views, pass `microsys_navbar_crumbs` in the template context:
+Static route discovery cannot know an object title or the active tab for a dynamic page. For those views, pass `dlux_navbar_crumbs` in the template context:
 
 ```python
-context["microsys_navbar_crumbs"] = [
+context["dlux_navbar_crumbs"] = [
     {"label_key": "documents", "url": documents_url},
     {"label": record.title, "url": record_url},
     {"label": active_tab_label, "url": active_tab_url},
 ]
 ```
 
-Explicit runtime crumbs win over the System Settings hierarchy. If neither exists for the current route, Microsys falls back to `Root / Current View`. Microsys-owned system routes are grouped automatically under an unclickable `System` crumb instead of being placed from the hierarchy builder. History mode stores one browser-session path trail, resolves known route labels in the active interface language, ignores query-string-only route changes, and keeps six recent non-root entries.
+Explicit runtime crumbs win over the System Settings hierarchy. If neither exists for the current route, Dlux falls back to `Root / Current View`. Dlux-owned system routes are grouped automatically under an unclickable `System` crumb instead of being placed from the hierarchy builder. History mode stores one browser-session path trail, resolves known route labels in the active interface language, ignores query-string-only route changes, and keeps six recent non-root entries.
 
 ### Sidebar Permission Enforcement
 
@@ -147,26 +147,26 @@ When adding or refining a theme, treat these as one framework surface:
 For most projects, the preferred low-friction settings integration path is:
 
 ```python
-from microsys.utils import microsys_settings
+from dlux.utils import dlux_settings
 
-microsys_settings(globals())
+dlux_settings(globals())
 ```
 
 Use it near the end of your project `settings.py`.
 
 The helper currently:
 
-- prepends the required MicroSys apps and companion packages
+- prepends the required DjangoLux apps and companion packages
 - inserts `django.middleware.locale.LocaleMiddleware` in the supported Django order when missing
-- inserts `microsys.middleware.MicrosysMiddleware` after Django authentication middleware
-- adds `microsys.context_processors.microsys_context`
+- inserts `dlux.middleware.DluxMiddleware` after Django authentication middleware
+- adds `dlux.context_processors.dlux_context`
 - sets Crispy Bootstrap 5 defaults when absent
 - adds `MESSAGE_TAGS[messages.ERROR] = "danger"` when the host project has not already provided its own mapping
 - seeds `LANGUAGE_CODE`, `TIME_ZONE`, `USE_I18N`, `USE_TZ`, `FORMAT_MODULE_PATH`, and `DEFAULT_CHARSET` when the host project has not already set them
 
 The helper intentionally does not set cookie names or a generic `BASE_URL`. Those remain host-project concerns.
 
-If you need a nonstandard stack, you can still wire those settings manually, but the helper is the supported default path and the one `microsys_setup` / `microsys_check` now target.
+If you need a nonstandard stack, you can still wire those settings manually, but the helper is the supported default path and the one `dlux_setup` / `dlux_check` now target.
 
 ## Translation Workflow
 
@@ -192,16 +192,16 @@ Template usage:
 
 Important behavior:
 
-- microSYS auto-discovers `translations.py` across installed apps
+- DjangoLux auto-discovers `translations.py` across installed apps
 - discovered translation languages are suggestions only; a language becomes available to users only after it is added to the language catalog in setup/System Settings
-- setup/System Settings provides a source-tabbed translation matrix editor that groups keys by Microsys, installed app, project translations, or settings-only overrides
+- setup/System Settings provides a source-tabbed translation matrix editor that groups keys by Dlux, installed app, project translations, or settings-only overrides
 - the translation matrix saves only admin edits into `SystemSettings.translations_override`
 - forms, filters, tables, and some context-menu labels are translated automatically by startup patches
 - language resolution is layered, so user preference and runtime defaults matter
 
 ## Setup Import and Export
 
-Superusers can export the current System Settings payload from the Options System Settings card. The exported JSON uses the `django-microsys.system-settings` format and is meant to be imported from step 1 of the setup/System Settings wizard in another development, staging, or local environment. Browser downloads are named `microsys-{project-slug}-{YYYY-MM-DD}.json`; the slug comes from the deployed project `BASE_DIR` folder name (generic container work-dir names such as `app`/`src`/`code` are skipped), falling back to the configured English system name (`system_names['en']`) when set, then to `project`.
+Superusers can export the current System Settings payload from the Options System Settings card. The exported JSON uses the `django-lux.system-settings` format and is meant to be imported from step 1 of the setup/System Settings wizard in another development, staging, or local environment. Browser downloads are named `dlux-{project-slug}-{YYYY-MM-DD}.json`; the slug comes from the deployed project `BASE_DIR` folder name (generic container work-dir names such as `app`/`src`/`code` are skipped), falling back to the configured English system name (`system_names['en']`) when set, then to `project`.
 
 The file contains the stable DB-backed setup fields:
 
@@ -213,15 +213,15 @@ The file contains the stable DB-backed setup fields:
 
 Logo and favicon values are exported as stored file names only. The JSON file does not embed binary media content, so those media files must already exist in the target environment if you want the imported file names to resolve.
 
-For shipped starter projects, place an exported payload or direct settings dict at `BASE_DIR/config.json`. Microsys reads that file only while `SystemSettings.is_configured` is still false and only from the setup view. A valid file bootstraps the singleton, marks setup complete, and redirects to the effective home URL; after setup has completed, the file is ignored until the project is reset to a fresh unconfigured state.
+For shipped starter projects, place an exported payload or direct settings dict at `BASE_DIR/config.json`. Dlux reads that file only while `SystemSettings.is_configured` is still false and only from the setup view. A valid file bootstraps the singleton, marks setup complete, and redirects to the effective home URL; after setup has completed, the file is ignored until the project is reset to a fresh unconfigured state.
 
 ## Sections and Generated Components
 
-Mark auxiliary models as sections when you want microSYS to manage them as system data.
+Mark auxiliary models as sections when you want DjangoLux to manage them as system data.
 
 ```python
 from django.db import models
-from microsys.models import ScopedModel
+from dlux.models import ScopedModel
 
 
 class Department(ScopedModel):
@@ -255,7 +255,7 @@ Use `DynamicModalManagerView` when the CRUD flow should live inside a modal rath
 
 ```python
 from django.urls import path
-from microsys.views import DynamicModalDeleteView, DynamicModalManagerView
+from dlux.views import DynamicModalDeleteView, DynamicModalManagerView
 
 urlpatterns = [
     path("zones/modal/", DynamicModalManagerView.as_view(model=Zone), name="zone_modal"),
@@ -300,7 +300,7 @@ If `get_modal_context` returns a dictionary with `fields`, those fields will be 
 
 ## Context Menu Integration
 
-microSYS context menus are a reusable interaction layer, not just a cosmetic right-click menu. They can navigate directly, submit forms, or dispatch events that the rest of the UI responds to.
+DjangoLux context menus are a reusable interaction layer, not just a cosmetic right-click menu. They can navigate directly, submit forms, or dispatch events that the rest of the UI responds to.
 
 Basic HTML usage:
 
@@ -394,7 +394,7 @@ For system-managed tables, context-menu integration is part of the normal ecosys
 
 ## Universal Fetcher and Excel Export
 
-microSYS includes shared download and export helpers so projects do not have to rebuild file-serving and spreadsheet-export logic in every app.
+DjangoLux includes shared download and export helpers so projects do not have to rebuild file-serving and spreadsheet-export logic in every app.
 
 ### `fetch_file()`
 
@@ -405,7 +405,7 @@ Use `fetch_file()` when a view should download:
 - multiple files from many records as a ZIP
 
 ```python
-from microsys.fetcher import fetch_file
+from dlux.fetcher import fetch_file
 
 
 def download_invoice(request, pk):
@@ -435,7 +435,7 @@ Behavior to know:
 Use `fetch_excel()` when a queryset should become an `.xlsx` export with sensible defaults.
 
 ```python
-from microsys.fetcher import fetch_excel
+from dlux.fetcher import fetch_excel
 
 
 def export_invoices(request):
@@ -458,7 +458,7 @@ Behavior to know:
 
 ## Activity Logging and Audit Trail
 
-microSYS activity logging is broader than a single `log_user_action()` helper.
+DjangoLux activity logging is broader than a single `log_user_action()` helper.
 
 Automatic logging currently covers:
 
@@ -474,14 +474,14 @@ Important implementation details:
 - `UserActivityLog` inherits from `ScopedModel`, so logs carry audit fields and can participate in scope-aware filtering
 - `UserActivityLog.safe_log()` debounces duplicates within a short time window
 - middleware stores the current request and user in thread-local state so saves and signals can still know the actor
-- durable user-presence reporting is split from the action log: `UserKnownDevice` groups a browser/device through a signed `microsys_device_id` cookie stored only as a hash, and `UserPresenceSession` records session-level first/last seen, request count, estimated seconds, IPs, browsers, and operating systems
-- all IP observations for activity/security/reporting should use `microsys.utils.get_client_ip(request)` so System Settings proxy/header rules stay authoritative
+- durable user-presence reporting is split from the action log: `UserKnownDevice` groups a browser/device through a signed `dlux_device_id` cookie stored only as a hash, and `UserPresenceSession` records session-level first/last seen, request count, estimated seconds, IPs, browsers, and operating systems
+- all IP observations for activity/security/reporting should use `dlux.utils.get_client_ip(request)` so System Settings proxy/header rules stay authoritative
 - User Reports are intentionally permission-gated through user-directory access, target-management access, and activity-log access; do not expose equivalent project reports without matching backend checks
 
 Manual logging stays simple:
 
 ```python
-from microsys.utils import log_user_action
+from dlux.utils import log_user_action
 
 
 def maintenance_view(request, asset):
@@ -517,7 +517,7 @@ The property `is_2fa_enabled` returns `True` if any of the above are active. Do 
 For destructive security mutations in your own views, reuse the current-password backend guard:
 
 ```python
-from microsys.guards import require_current_password
+from dlux.guards import require_current_password
 
 
 @login_required
@@ -531,7 +531,7 @@ def revoke_api_token(request, pk):
 For direct TOTP state persistence, avoid routing through the full `Profile.save()` path:
 
 ```python
-from microsys.utils import set_profile_totp_state
+from dlux.utils import set_profile_totp_state
 
 
 set_profile_totp_state(request.user.profile, raw_secret='BASE32SECRET', enabled=True)
@@ -540,19 +540,19 @@ set_profile_totp_state(request.user.profile, raw_secret='', enabled=False)
 
 ## Tutorial Engine Customization
 
-microSYS uses [Driver.js](https://driverjs.com/) for its path-aware guided tours. Projects can register custom tutorial steps for their own views by providing a global JavaScript hook.
+DjangoLux uses [Driver.js](https://driverjs.com/) for its path-aware guided tours. Projects can register custom tutorial steps for their own views by providing a global JavaScript hook.
 
 Recommended pattern:
 
-1.  **Keep the built-in shell**: do not override `microsys/includes/tutorial.html` unless you are intentionally changing the framework-level tutorial runtime.
+1.  **Keep the built-in shell**: do not override `dlux/includes/tutorial.html` unless you are intentionally changing the framework-level tutorial runtime.
 2.  **Register the Hook**: load one small project script that defines `window.get_custom_tutorial_steps(path)`.
-3.  **Prefer global injection hooks**: in most projects, the cleanest place to register the script is `templates/microsys/includes/custom_scripts.html`, so the base template loads it automatically.
+3.  **Prefer global injection hooks**: in most projects, the cleanest place to register the script is `templates/dlux/includes/custom_scripts.html`, so the base template loads it automatically.
 4.  **Return extra steps only**: your hook should return an array of Driver.js step objects for the current path, or `[]` when nothing extra is needed.
 
 Minimal project wiring:
 
 ```django
-{# templates/microsys/includes/custom_scripts.html #}
+{# templates/dlux/includes/custom_scripts.html #}
 {% load static %}
 <script src="{% static 'my_app/tutorial.js' %}" nonce="{{ request.csp_nonce }}"></script>
 ```
@@ -592,7 +592,7 @@ The system automatically:
 
 That means project code normally only needs to supply selectors and popover content.
 
-If your project needs translated strings inside the custom hook, `microsys/base.html` already exposes the resolved translation map on `window.__MS_TRANS`. A tiny helper is usually enough:
+If your project needs translated strings inside the custom hook, `dlux/base.html` already exposes the resolved translation map on `window.__MS_TRANS`. A tiny helper is usually enough:
 
 ```javascript
 function tr(key, fallback) {
@@ -618,11 +618,11 @@ window.get_custom_tutorial_steps = function(path) {
 };
 ```
 
-Use this hook for project-specific additions. Use Microsys source edits only when the default tutorial engine itself needs to change for every project.
+Use this hook for project-specific additions. Use Dlux source edits only when the default tutorial engine itself needs to change for every project.
 
 ## Autofill and Sticky Forms
 
-microSYS autofill can work without custom JavaScript if the form exposes the expected attributes.
+DjangoLux autofill can work without custom JavaScript if the form exposes the expected attributes.
 
 Foreign-key autofill:
 
@@ -639,7 +639,7 @@ Sticky-form support:
 The helper that makes standard forms feel native is:
 
 ```python
-from microsys.utils import set_field_attrs
+from dlux.utils import set_field_attrs
 
 set_field_attrs(form, request)
 ```
@@ -647,7 +647,7 @@ set_field_attrs(form, request)
 For list filters that need more than the basic one-row helper, use `advanced_filter_helper()` instead of hand-rolling a separate Crispy layout.
 
 ```python
-from microsys.utils import advanced_filter_helper
+from dlux.utils import advanced_filter_helper
 
 
 advanced_filter_helper(
@@ -695,16 +695,16 @@ Behavior to know:
 
 ## Base Template and Global Injections
 
-The normal extension point for project pages is the microsys base template:
+The normal extension point for project pages is the dlux base template:
 
 ```django
-{% extends "microsys/base.html" %}
+{% extends "dlux/base.html" %}
 ```
 
 Two low-friction global injection hooks are available without overriding the entire base template:
 
-- `templates/microsys/includes/custom_head.html`
-- `templates/microsys/includes/custom_scripts.html`
+- `templates/dlux/includes/custom_head.html`
+- `templates/dlux/includes/custom_scripts.html`
 
 Use them for global CSS, meta tags, analytics, shared JavaScript, or framework-approved hooks such as project tutorial extensions.
 
@@ -715,15 +715,15 @@ The same helper layer also fits well with fetch/export and context-menu-driven w
 If a page is primarily a form, prefer the dedicated form base instead of loading form-only assets through the global base hooks:
 
 ```django
-{% extends "microsys/form_base.html" %}
+{% extends "dlux/form_base.html" %}
 ```
 
-`microsys/form_base.html` extends `microsys/base.html` and automatically loads the shared Microsys form bundle:
+`dlux/form_base.html` extends `dlux/base.html` and automatically loads the shared Dlux form bundle:
 
-- `microsys/forms/css/form_fields.css`
-- `microsys/forms/css/file_field.css`
-- `microsys/forms/css/form_actions.css`
-- `microsys/forms/js/file_field.js`
+- `dlux/forms/css/form_fields.css`
+- `dlux/forms/css/file_field.css`
+- `dlux/forms/css/form_actions.css`
+- `dlux/forms/js/file_field.js`
 - the shared scan-link helper scripts used by the file widget
 
 This keeps normal non-form pages free of form-only imports while giving full-page forms one consistent supported entrypoint.
@@ -733,83 +733,83 @@ This keeps normal non-form pages free of form-only imports while giving full-pag
 If a page is primarily a list/filter surface, prefer the dedicated list base:
 
 ```django
-{% extends "microsys/list_base.html" %}
+{% extends "dlux/list_base.html" %}
 ```
 
-`microsys/list_base.html` extends `microsys/base.html` and automatically loads the shared filter surface CSS:
+`dlux/list_base.html` extends `dlux/base.html` and automatically loads the shared filter surface CSS:
 
-- `microsys/forms/css/form_fields.css`
-- `microsys/forms/css/form_actions.css`
+- `dlux/forms/css/form_fields.css`
+- `dlux/forms/css/form_actions.css`
 
 That is the supported page-level entrypoint for Crispy filter helpers such as `setup_filter_helper()` and `advanced_filter_helper()`.
 
-For `django_tables2` usage on those pages, Microsys now auto-adopts the stock table rendering path and wraps the table in its own responsive shell. In practice that means:
+For `django_tables2` usage on those pages, Dlux now auto-adopts the stock table rendering path and wraps the table in its own responsive shell. In practice that means:
 
 - prefer `{% render_table table %}` directly instead of wrapping it in another `.table-responsive`
 - stock templates such as `django_tables2/bootstrap5.html` are treated as framework-managed defaults
-- explicit custom non-stock templates stay untouched unless you intentionally point them at the Microsys template
+- explicit custom non-stock templates stay untouched unless you intentionally point them at the Dlux template
 - built-in pagination, per-page controls, and translated empty states come from the framework-owned table template
 
 Per-table escape hatches:
 
-- set `microsys_table = False` in `Table.Meta` to opt out of the Microsys renderer
-- set `microsys_density = "dense"`, `"balanced"`, or `"roomy"` in `Table.Meta` to force a specific density for one table
+- set `dlux_table = False` in `Table.Meta` to opt out of the Dlux renderer
+- set `dlux_density = "dense"`, `"balanced"`, or `"roomy"` in `Table.Meta` to force a specific density for one table
 
 Preferred custom-table path:
 
 ```python
-from microsys.tables import MicrosysTable
+from dlux.tables import DluxTable
 
 
-class InvoiceTable(MicrosysTable):
-    class Meta(MicrosysTable.Meta):
+class InvoiceTable(DluxTable):
+    class Meta(DluxTable.Meta):
         model = Invoice
         fields = ("number", "customer", "status", "created_at")
-        microsys_per_page = 50
+        dlux_per_page = 50
 ```
 
-`MicrosysTable` gives handwritten tables the same renderer, sorting affordances, page-size controls, and default `micro:record:view|edit|delete` row actions used by the generated Microsys tables. To customize the default actions, override `get_microsys_row_actions(self, record, base_actions)`. To disable them entirely, set `microsys_actions = False` in `Meta`.
+`DluxTable` gives handwritten tables the same renderer, sorting affordances, page-size controls, and default `micro:record:view|edit|delete` row actions used by the generated Dlux tables. To customize the default actions, override `get_dlux_row_actions(self, record, base_actions)`. To disable them entirely, set `dlux_actions = False` in `Meta`.
 
 If a page mixes list/filter and full form behavior, either:
 
-- extend `microsys/form_base.html` and include `microsys/forms/filter_assets_head.html` in `extra_head`, or
-- extend `microsys/list_base.html` and manually include the full form asset bundle when the page also hosts the Microsys file widget
+- extend `dlux/form_base.html` and include `dlux/forms/filter_assets_head.html` in `extra_head`, or
+- extend `dlux/list_base.html` and manually include the full form asset bundle when the page also hosts the Dlux file widget
 
 ### Embedded or Manual Filter Hosts
 
-If a page renders a filter helper but cannot extend `microsys/list_base.html`, include:
+If a page renders a filter helper but cannot extend `dlux/list_base.html`, include:
 
-- `microsys/forms/filter_assets_head.html`
+- `dlux/forms/filter_assets_head.html`
 
 ### Embedded or Modal Forms
 
-If a page hosts an embedded form or modal form but does not itself extend `microsys/form_base.html`, include the shared form assets on the host page:
+If a page hosts an embedded form or modal form but does not itself extend `dlux/form_base.html`, include the shared form assets on the host page:
 
-- `microsys/forms/assets_head.html`
-- `microsys/forms/assets_scripts.html`
+- `dlux/forms/assets_head.html`
+- `dlux/forms/assets_scripts.html`
 
 Example:
 
 ```django
 {% block extra_head %}
-    {% include "microsys/forms/assets_head.html" %}
+    {% include "dlux/forms/assets_head.html" %}
 {% endblock %}
 
 {% block scripts %}
     {{ block.super }}
-    {% include "microsys/forms/assets_scripts.html" %}
+    {% include "dlux/forms/assets_scripts.html" %}
 {% endblock %}
 ```
 
 ### File Field Template Override
 
-Microsys now ships a framework-owned Crispy file-field bridge at:
+Dlux now ships a framework-owned Crispy file-field bridge at:
 
 - `templates/bootstrap5/layout/field_file.html`
 
 and the underlying reusable form templates at:
 
-- `microsys/forms/file_input.html`
-- `microsys/forms/file_field.html`
+- `dlux/forms/file_input.html`
+- `dlux/forms/file_field.html`
 
-If your project uses Crispy Bootstrap 5 and you want the Microsys file-field override to win automatically, make sure the Microsys template path is resolved before the package-default Crispy template in your Django template lookup order. The simplest reliable route is to keep Microsys earlier than `crispy_bootstrap5` in `INSTALLED_APPS` when you want Microsys to own that override globally.
+If your project uses Crispy Bootstrap 5 and you want the Dlux file-field override to win automatically, make sure the Dlux template path is resolved before the package-default Crispy template in your Django template lookup order. The simplest reliable route is to keep Dlux earlier than `crispy_bootstrap5` in `INSTALLED_APPS` when you want Dlux to own that override globally.

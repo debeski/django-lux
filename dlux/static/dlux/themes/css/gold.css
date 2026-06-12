@@ -1,0 +1,65 @@
+/* --- Gold Theme (Luxury) --- */
+:root.theme-gold {
+    --title: #78350f;
+    --body: #fffbeb8b;
+    --htitle: #92400e;
+    --hbody: #fef3c7db;
+    --table-row: #fef9e7;
+    --table-row-hover: #fdf1c0;
+    --primal: #d97706;
+    --primal_dark: #b45309;
+    --primal-rgb: 217, 119, 6;
+    --btn-primary-shadow: rgba(217, 119, 6, 0.4);
+    --nav-item-color: var(--table-row);
+
+    /* Login Theme Variables */
+    --bg-gradient: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    --right-bg: var(--title);
+    --primary-color: var(--primal);
+
+    /* Bootstrap Overrides */
+    --bs-primary: var(--primal);
+    --bs-primary-rgb: var(--primal-rgb);
+    --bs-btn-bg: var(--primal);
+    --bs-btn-border-color: var(--primal);
+    --bs-btn-hover-bg: var(--primal_dark);
+    --bs-btn-hover-border-color: var(--primal_dark);
+    --bs-link-color: var(--primal);
+    --bs-link-hover-color: var(--primal_dark);
+    --dl-table-header-surface: linear-gradient(180deg, rgba(217, 119, 6, 0.08), rgba(255, 255, 255, 0.975));
+    --dl-table-border-strong: rgba(217, 119, 6, 0.22);
+    --dl-table-row-odd: rgba(255, 253, 246, 0.98);
+    --dl-table-row-even: rgba(254, 249, 228, 0.98);
+    --dl-table-row-hover: rgba(250, 239, 190, 0.98);
+}
+:root.theme-gold .titlebar {
+    background: linear-gradient(90deg, #ffffff 10%, #fef9e7 90%) !important;
+}
+:root.theme-gold #sidebar {
+    background: linear-gradient(180deg, #ffffff 10%, #fef9e7 100%) !important;
+    border-left: 1px solid #fdf1c0 !important;
+}
+
+:root.theme-gold .page .right {
+    background: var(--primal_dark) !important; /* Darker logo container */
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    color: #e2e8f0 !important;
+}
+
+/* Gold Overrides */
+:root.theme-gold .dropdown-item:hover {
+    background-color: rgba(217, 119, 6, 0.08) !important;
+    color: #b45309 !important;
+}
+:root.theme-gold .titlebar .btn-light:hover {
+    background-color: rgba(217, 119, 6, 0.08) !important;
+    color: #b45309 !important;
+}
+
+/* Tutorial Controls Bar */
+:root.theme-gold #tutorial-controls {
+    --tut-next-bg: #d97706;
+    --tut-next-bg-hover: #b45309;
+    --tut-next-shadow: rgba(217, 119, 6, 0.3);
+    --tut-progress-color: #78350f;
+}

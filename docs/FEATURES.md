@@ -1,7 +1,7 @@
-# Django-Microsys Complete Feature Reference
+# DjangoLux Complete Feature Reference
 
 **Version:** 2.1.9
-**Package:** `django-microsys` — A multilingual Django framework layer for internal systems
+**Package:** `django-lux` — A multilingual Django framework layer for internal systems
 
 ---
 
@@ -30,7 +30,7 @@
 ### SystemSettings (Singleton Model)
 - **Database-backed singleton** for runtime system configuration
 - **Caching layer** (24h TTL) for performance
-- **Seeding from `MICROSYS_CONFIG`** — seed defaults in code, refine in UI
+- **Seeding from `DLUX_CONFIG`** — seed defaults in code, refine in UI
 - **Fields include:**
   - System names (JSON dict keyed by language code, e.g. `{"en": "System", "ar": "النظام"}`)
   - Logo & favicon upload with image optimization
@@ -60,7 +60,7 @@
 - **Dynamic sidebar builder** with drag-and-drop cross-pane support
 - **Theme allowlist matrix** with visual selector cards: preview circle sets the default theme, the rest of the card and checkbox toggle whether that theme is allowed
 - **Translation matrix editor** plus explicit language-catalog management
-- **Microsys email delivery controls** for delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`)
+- **Dlux email delivery controls** for delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`)
 - **Centralized IP resolution setup** for configuring how the system identifies client IPs for logs and security throttles
 
 ### Options View (`/sys/options/`)
@@ -75,13 +75,13 @@
 - Standalone Autofill and Reset Defaults cards using shared external CSS/JS assets
 
 ### Utilities & Helpers
-- `microsys_settings(globals())` — one-line settings integration
+- `dlux_settings(globals())` — one-line settings integration
 - `get_system_config()` — cached config retrieval with fallback handling
 - `is_scope_enabled()` — scope system status check
 - `get_secret()` — env-driven secret retrieval for Docker/decrypter flows
 - `require_current_password(request)` — reusable backend guard for destructive profile/security actions
 - `set_profile_totp_state(profile, raw_secret=..., enabled=...)` — direct TOTP persistence helper
-- `build_archive_file_field('field_name', css_class='...')` — explicit Microsys custom file widget bridge
+- `build_archive_file_field('field_name', css_class='...')` — explicit Dlux custom file widget bridge
 - `build_settings_toggle_field(form, 'field_name', css_class='...')` — shared setup/System Settings toggle-card renderer
 - Settings auto-injection: apps, middleware, context processors, Crispy defaults, message tags, i18n/tz defaults
 
@@ -92,9 +92,9 @@
 ### CLI Commands
 | Command | Description |
 |---------|-------------|
-| `python -m microsys startproject <name>` | Create new MicroSys-ready Django project |
-| `python -m microsys startapp <name>` | Create MicroSys-native app skeleton |
-| `python -m microsys startapp <name> --register` | Create app + auto-register in settings/URLs |
+| `python -m dlux startproject <name>` | Create new DjangoLux-ready Django project |
+| `python -m dlux startapp <name>` | Create DjangoLux-native app skeleton |
+| `python -m dlux startapp <name> --register` | Create app + auto-register in settings/URLs |
 
 ### Generated Project Structure
 - **Config package** (`config/` instead of project name reuse)
@@ -108,10 +108,10 @@
 
 ### Generated App Structure
 - `models.py` — with `ScopedModel` base import
-- [forms.py](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/forms.py:0:0-0:0), [tables.py](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/tables.py:0:0-0:0), `filters.py` — with Microsys imports
+- [forms.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/forms.py:0:0-0:0), [tables.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/tables.py:0:0-0:0), `filters.py` — with Dlux imports
 - `views.py` — with list/create/update/delete views
-- [urls.py](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/urls.py:0:0-0:0) — with namespace routing
-- [translations.py](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/translations.py:0:0-0:0) — MS_TRANSLATIONS dictionary
+- [urls.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/urls.py:0:0-0:0) — with namespace routing
+- [translations.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/translations.py:0:0-0:0) — MS_TRANSLATIONS dictionary
 - Templates: list and form HTML templates
 - Tests: app-specific test scaffold
 
@@ -158,14 +158,14 @@
 
 ## 4. Security & Authentication (MSRP-1)
 
-MSRP-1, the Microsys Secure Runtime Policy, is the active authorization standard.
+MSRP-1, the Dlux Secure Runtime Policy, is the active authorization standard.
 Every runtime-exposed surface must have backend authorization that matches its
 UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msrp-1.md).
 
 ### Multi-Factor Authentication (2FA)
 | Method | Features |
 |--------|----------|
-| **Email 2FA** | OTP sent via Microsys email delivery, configurable in System Setup/System Settings; supports auto-send on login and 120s resend cooldown |
+| **Email 2FA** | OTP sent via Dlux email delivery, configurable in System Setup/System Settings; supports auto-send on login and 120s resend cooldown |
 | **TOTP (App)** | QR code generation, pyotp-based verification |
 | **Backup Codes** | 8x8-digit codes, hashed storage, generation/regeneration |
 | **Trusted Devices** | 30-day browser trust for 2FA-verified or Profile-confirmed sessions, with trusted-session precedence |
@@ -193,9 +193,9 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 
 ### Security Hardening (MSRP)
 - **Dynamic Modal CRUD** — backend permission enforcement
-- **Section Management** — explicit `microsys.view_sections` / `microsys.manage_sections` required
+- **Section Management** — explicit `dlux.view_sections` / `dlux.manage_sections` required
 - **User/Profile Modals** — self-or-staff/scope rules
-- **Activity Log Access** — `microsys.view_activitylog` permission (not just `is_staff`)
+- **Activity Log Access** — `dlux.view_activitylog` permission (not just `is_staff`)
 - **Reset Password Flow** — requires `auth.change_user` + scope/staff/superuser checks
 - **Options View** — authenticated users keep personal preferences; diagnostics remain privileged-only
 - **Options Diagnostics** — superuser and Global Staff only
@@ -207,8 +207,8 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - **Runtime Asset Policy** — no inline `<style>`, executable inline `<script>`, or inline `style=` attributes unless a documented unavoidable runtime need exists
 
 ### Optional OIDC SSO Packages
-- **Provider plugin** — `django-microsys-sso`, installed only in a Microsys deployment that acts as the identity provider
-- **Client SDK** — `django-microsys-sso-client`, installable in connected Django projects without depending on `django-microsys`
+- **Provider plugin** — `django-lux-sso`, installed only in a Dlux deployment that acts as the identity provider
+- **Client SDK** — `django-lux-sso-client`, installable in connected Django projects without depending on `django-lux`
 - **Cross-platform clients** — PHP, .NET, JavaScript, Java, Go, mobile, and desktop clients can connect through standard OIDC discovery and Authorization Code flow
 - **Per-client roles** — portable `admin`, `staff`, and `user` roles; no project-generated Django permission mirroring
 - **Secure defaults** — exact redirect URI checks, HTTPS outside local development, RS256 OIDC signing, and fail-closed client policy checks
@@ -243,7 +243,7 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - Scope-based permission filtering
 - Permission assignment principle: users can only assign permissions they themselves have
 - **Four-tier staff authorization**: Superuser, Global Staff, Central Staff, Scoped Staff
-- **Staff Tier Visuals**: Shared badge classes (`ms-staff-tier-badge`) ensure high-contrast tier visibility across all management modals and tables
+- **Staff Tier Visuals**: Shared badge classes (`dl-staff-tier-badge`) ensure high-contrast tier visibility across all management modals and tables
 
 ---
 
@@ -308,12 +308,12 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - `surface` — default, glass, gradient, solid
 
 ### Shared Form Surface
-- `microsys/form_base.html` — full-page forms
-- `microsys/list_base.html` — list/filter pages
+- `dlux/form_base.html` — full-page forms
+- `dlux/list_base.html` — list/filter pages
 - Glass morphism styling
 - Bootstrap 5 + Crispy Forms integration
 - Theme-aware form controls
-- Datepicker: `vanillajs-datepicker` with `.ms-datepicker` class
+- Datepicker: `vanillajs-datepicker` with `.dl-datepicker` class
 
 ### Tutorial/Driver System
 - Driver.js integration for onboarding tours
@@ -324,20 +324,20 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 
 ## 7. Tables & Data Display
 
-### MicrosysTable Base Class
+### DluxTable Base Class
 ```python
 class Meta:
-    template_name = "microsys/tables/table.html"
-    microsys_actions = True  # Enable context menu
-    microsys_per_page = 20
-    microsys_per_page_options = (10, 20, 50, 100)
-    microsys_density = None  # 'dense' | 'balanced' | 'roomy'
-    microsys_table = True    # Use Microsys renderer
+    template_name = "dlux/tables/table.html"
+    dlux_actions = True  # Enable context menu
+    dlux_per_page = 20
+    dlux_per_page_options = (10, 20, 50, 100)
+    dlux_density = None  # 'dense' | 'balanced' | 'roomy'
+    dlux_table = True    # Use Dlux renderer
 ```
 
 **Features:**
 - Framework-owned `django_tables2` renderer
-- Auto-adoption of stock tables into Microsys template
+- Auto-adoption of stock tables into Dlux template
 - Built-in pagination with per-page controls
 - Density picker in footer (unless locked)
 - Responsive scroll container
@@ -349,7 +349,7 @@ class Meta:
 - Permission-filtered actions
 - Double-click to view
 - Event-based dispatch (`micro:record:view|edit|delete`)
-- Custom action injection via [get_microsys_row_actions()](cci:1://file:///home/debeski/depy/projects/microsys-pkg/microsys/tables.py:85:4-86:27)
+- Custom action injection via [get_dlux_row_actions()](cci:1://file:///home/debeski/depy/projects/dlux-pkg/dlux/tables.py:85:4-86:27)
 
 ### Table Features
 - **Density precedence:** Meta override → request `per_page` → user preference → system default → 20
@@ -367,8 +367,8 @@ class Meta:
 - `set_field_attrs()` — placeholder/inline label support
 
 ### Custom Widgets
-- `MicrosysChoiceSelectorWidget` — card/chip selector for single choice
-- `MicrosysMultipleChoiceSelectorWidget` — searchable multi-select with chips
+- `DluxChoiceSelectorWidget` — card/chip selector for single choice
+- `DluxMultipleChoiceSelectorWidget` — searchable multi-select with chips
 - `ArchiveFileInput` — file upload with preview (used for logo/favicon)
 - Shared crispy file/toggle helpers keep System Settings and setup widgets aligned without relying on app-order template shadowing
 
@@ -436,8 +436,8 @@ UserActivityLog.safe_log(
 - External modal loader asset shipped with CSP nonce support in the shared base layout
 - **Responsive sizing**: centered `modal-xl` at ≥1200px, full-screen below 1200px (split-screen / laptop friendly)
 - **Sticky header + footer, scrolling body** (`modal-dialog-scrollable`): the title/close row and the action bar stay pinned while only the content scrolls, with a themed thin scrollbar
-- **Action-bar relocation**: the standard action bar (`.microsys-form-actions` / `.ms-setup-wizard-actions` / `.ms-modal-form-actions`) is auto-moved into the pinned footer with form association preserved via the `form=` attribute; multi-step wizard bars (with prev/next) are left in place for the wizard controller, and table/detail/dev-custom views simply keep a hidden footer
-- **Dev opt-in footer pinning**: add `data-ms-modal-footer` to any container in a custom modal template / options view to have it pinned into the sticky footer (takes priority over the built-in bars). Submit buttons inside it are auto-associated to the modal form via `form=`; for custom buttons that need their own JS, bind via document-level delegation since the element is moved out of the modal body
+- **Action-bar relocation**: the standard action bar (`.dlux-form-actions` / `.dl-setup-wizard-actions` / `.dl-modal-form-actions`) is auto-moved into the pinned footer with form association preserved via the `form=` attribute; multi-step wizard bars (with prev/next) are left in place for the wizard controller, and table/detail/dev-custom views simply keep a hidden footer
+- **Dev opt-in footer pinning**: add `data-dl-modal-footer` to any container in a custom modal template / options view to have it pinned into the sticky footer (takes priority over the built-in bars). Submit buttons inside it are auto-associated to the modal form via `form=`; for custom buttons that need their own JS, bind via document-level delegation since the element is moved out of the modal body
 
 ### AJAX Endpoints
 | Endpoint | Purpose |
@@ -482,7 +482,7 @@ UserActivityLog.safe_log(
 - **Lazy translator:** Runtime translation resolution
 - **Universal patching:** gettext/gettext_lazy/pgettext patches check MS_TRANS first
 - **Model meta patching:** `verbose_name` and `verbose_name_plural` wrapped with lazy translators
-- **Translation-First Policy**: All new UI components (2FA, Trusted Devices, IP Config) are built without hardcoded strings, utilizing the Microsys translation framework for all user-facing copy
+- **Translation-First Policy**: All new UI components (2FA, Trusted Devices, IP Config) are built without hardcoded strings, utilizing the Dlux translation framework for all user-facing copy
 
 ### Key Translation Keys
 - `label_<field>` — form field labels
@@ -505,16 +505,16 @@ UserActivityLog.safe_log(
 ### JavaScript Helpers
 | File | Purpose |
 |------|---------|
-| [prevent_double_submit.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/prevent_double_submit.js:0:0-0:0) | Disable submit button on form submit (5s timeout) |
-| [dynamic_modal/js/main.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/dynamic_modal/js/main.js:0:0-0:0) | AJAX modal CRUD with fetch |
-| [context_menu/js/main.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/context_menu/js/main.js:0:0-0:0) | Row-level context menu events |
-| [context_menu/js/section_manager.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/context_menu/js/section_manager.js:0:0-0:0) | Section tree interactions |
-| [wizard/js/main.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/wizard/js/main.js:0:0-0:0) | Multi-step form controller |
-| [autofill/js/main.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/autofill/js/main.js:0:0-0:0) | Sticky form autofill |
-| [scan_link/js/main.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/scan_link/js/main.js:0:0-0:0) | QR/barcode scanning |
-| [scan_link/js/scan_button.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/helpers/scan_link/js/scan_button.js:0:0-0:0) | Scan button widget |
-| [main/js/options.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/js/options.js:0:0-0:0) | Options card reordering, reset/defaults, and shared page behavior |
-| [users/js/profile_2fa.js](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/users/js/profile_2fa.js:0:0-0:0) | POST-backed profile 2FA flows and current-password-confirmed destructive actions |
+| [prevent_double_submit.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/prevent_double_submit.js:0:0-0:0) | Disable submit button on form submit (5s timeout) |
+| [dynamic_modal/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/dynamic_modal/js/main.js:0:0-0:0) | AJAX modal CRUD with fetch |
+| [context_menu/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/context_menu/js/main.js:0:0-0:0) | Row-level context menu events |
+| [context_menu/js/section_manager.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/context_menu/js/section_manager.js:0:0-0:0) | Section tree interactions |
+| [wizard/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/wizard/js/main.js:0:0-0:0) | Multi-step form controller |
+| [autofill/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/autofill/js/main.js:0:0-0:0) | Sticky form autofill |
+| [scan_link/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/scan_link/js/main.js:0:0-0:0) | QR/barcode scanning |
+| [scan_link/js/scan_button.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/scan_link/js/scan_button.js:0:0-0:0) | Scan button widget |
+| [main/js/options.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/js/options.js:0:0-0:0) | Options card reordering, reset/defaults, and shared page behavior |
+| [users/js/profile_2fa.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/users/js/profile_2fa.js:0:0-0:0) | POST-backed profile 2FA flows and current-password-confirmed destructive actions |
 
 ### CSS Structure
 | Directory | Contents |
@@ -529,20 +529,20 @@ UserActivityLog.safe_log(
 | `tutorial/css/` | Tutorial overlay styles |
 
 ### Key CSS Files
-- [main.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/main.css:0:0-0:0) — Core layout and variables
-- [tables.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/tables.css:0:0-0:0) — Table platform with density tokens
-- [buttons.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/buttons.css:0:0-0:0) — Button variants
-- [titlebar.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/titlebar.css:0:0-0:0) — Titlebar layout
-- [options.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/options.css:0:0-0:0) — Shared Options card system and drag layout
-- [system_setup.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/system_setup.css:0:0-0:0) — Setup wizard styling
-- [selectors.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/selectors.css:0:0-0:0) — Choice selector widgets
-- [template_cleanup.css](cci:7://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/main/css/template_cleanup.css:0:0-0:0) — Shared CSS replacements for previously inline template styling
+- [main.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/main.css:0:0-0:0) — Core layout and variables
+- [tables.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/tables.css:0:0-0:0) — Table platform with density tokens
+- [buttons.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/buttons.css:0:0-0:0) — Button variants
+- [titlebar.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/titlebar.css:0:0-0:0) — Titlebar layout
+- [options.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/options.css:0:0-0:0) — Shared Options card system and drag layout
+- [system_setup.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/system_setup.css:0:0-0:0) — Setup wizard styling
+- [selectors.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/selectors.css:0:0-0:0) — Choice selector widgets
+- [template_cleanup.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/template_cleanup.css:0:0-0:0) — Shared CSS replacements for previously inline template styling
 
 ---
 
 ## 13. Template Tags & Filters
 
-### microsys_tags
+### dlux_tags
 | Tag/Filter | Purpose |
 |------------|---------|
 | `{% include_if_exists %}` | Include template if it exists |
@@ -556,7 +556,7 @@ UserActivityLog.safe_log(
 | `{% sidebar_nav %}` | Render sidebar navigation |
 | `{% sidebar_class %}` | Generate sidebar CSS classes |
 
-### microsys_translation
+### dlux_translation
 - Translation string resolution
 - Lazy translation proxy
 
@@ -564,7 +564,7 @@ UserActivityLog.safe_log(
 
 ## 14. Middleware & Request Handling
 
-### MicrosysMiddleware
+### DluxMiddleware
 - Thread-local user/request storage
 - Setup guard (redirects unconfigured anonymous requests)
 - Root URL redirect handling
@@ -574,18 +574,18 @@ UserActivityLog.safe_log(
 **Applied on startup:**
 1. **ModelForm patch** — auto-inject scope field, visibility control, translation
 2. **FilterSet patch** — auto-inject scope filter, translation
-3. **Table patch** — Microsys renderer adoption, scope column, translation, actions
+3. **Table patch** — Dlux renderer adoption, scope column, translation, actions
 4. **RequestConfig patch** — page size resolution with preferences
 5. **Global translation patches** — gettext/pgettext/model meta
 
-### Context Processor ([microsys_context](cci:1://file:///home/debeski/depy/projects/microsys-pkg/microsys/context_processors.py:135:0-309:18))
+### Context Processor ([dlux_context](cci:1://file:///home/debeski/depy/projects/dlux-pkg/dlux/context_processors.py:135:0-309:18))
 Provides to all templates:
 - `APP_CONFIG` — system branding
 - `CURRENT_LANG`, `CURRENT_DIR` — language state
 - `MS_TRANS` — translation dictionary
-- `MICROSYS_THEMES` — available themes
+- `DLUX_THEMES` — available themes
 - `user_preferences` — user prefs JSON
-- [sidebar](cci:9://file:///home/debeski/depy/projects/microsys-pkg/microsys/static/microsys/sidebar:0:0-0:0) — navigation tree
+- [sidebar](cci:9://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/sidebar:0:0-0:0) — navigation tree
 - `sidebar_*` — toolbar visibility flags
 - `scope_settings`, `can_view_*` — permission booleans
 
@@ -619,28 +619,28 @@ Provides to all templates:
 
 | Command | Purpose |
 |---------|---------|
-| `microsys_setup` | Create migrations, apply migrations, run checks |
-| `microsys_check` | Validate settings, apps, middleware, URLs, Crispy |
-| `microsys_settings` | Inspect, unconfigure, reset, delete, export, and import the System Settings singleton |
+| `dlux_setup` | Create migrations, apply migrations, run checks |
+| `dlux_check` | Validate settings, apps, middleware, URLs, Crispy |
+| `dlux_settings` | Inspect, unconfigure, reset, delete, export, and import the System Settings singleton |
 
 ---
 
 ## Integration Hooks
 
 ### Template Extension Points
-- `microsys/includes/custom_head.html` — Custom CSS/head content
-- `microsys/includes/custom_scripts.html` — Custom JS
-- `microsys/base.html` — Root template with blocks
+- `dlux/includes/custom_head.html` — Custom CSS/head content
+- `dlux/includes/custom_scripts.html` — Custom JS
+- `dlux/base.html` — Root template with blocks
 
 ### Settings Extension
 ```python
-from microsys.utils import microsys_settings
-microsys_settings(globals())
+from dlux.utils import dlux_settings
+dlux_settings(globals())
 ```
 
 Auto-handles:
 - `INSTALLED_APPS` prepending
-- `MIDDLEWARE` insertion (LocaleMiddleware, MicrosysMiddleware)
+- `MIDDLEWARE` insertion (LocaleMiddleware, DluxMiddleware)
 - `TEMPLATES` context processor injection
 - `CRISPY_*` defaults
 - `MESSAGE_TAGS` Bootstrap mapping

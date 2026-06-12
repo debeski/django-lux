@@ -2,13 +2,13 @@
 
 ## Supported Versions
 
-Security fixes are prioritized for the latest released `django-microsys` package and the current `main` branch. Older releases may receive fixes when a backport is practical, but users should generally upgrade to the latest stable version after a security advisory is published.
+Security fixes are prioritized for the latest released `django-lux` package and the current `main` branch. Older releases may receive fixes when a backport is practical, but users should generally upgrade to the latest stable version after a security advisory is published.
 
-Optional packages such as `django-microsys-sso` and `django-microsys-sso-client` are maintained separately. Report vulnerabilities for them through their own repositories when available, or include the affected package name in your report.
+Optional packages such as `django-lux-sso` and `django-lux-sso-client` are maintained separately. Report vulnerabilities for them through their own repositories when available, or include the affected package name in your report.
 
 ## Required Security Standard
 
-All Microsys security-sensitive work must follow the active [MSRP-1 Security Standard](docs/security-msrp-1.md). MSRP-1 is the required baseline for authorization boundaries, security-flow design, backend enforcement, CSP/runtime asset expectations, and related review decisions.
+All Dlux security-sensitive work must follow the active [MSRP-1 Security Standard](docs/security-msrp-1.md). MSRP-1 is the required baseline for authorization boundaries, security-flow design, backend enforcement, CSP/runtime asset expectations, and related review decisions.
 
 Contributions, fixes, refactors, configuration changes, and documentation updates must not weaken or bypass MSRP-1. If a proposed change conflicts with MSRP-1, update the design so it complies before merging or releasing it.
 
@@ -19,7 +19,7 @@ Do not open a public GitHub issue for a suspected vulnerability.
 Preferred reporting path:
 
 1. Use GitHub's private vulnerability reporting flow for this repository.
-2. If private reporting is unavailable, email `debeski1@gmail.com` with the subject `Security report: django-microsys`.
+2. If private reporting is unavailable, email `debeski1@gmail.com` with the subject `Security report: django-lux`.
 
 Include as much detail as you can safely share:
 
@@ -33,7 +33,7 @@ Include as much detail as you can safely share:
 
 The maintainer will try to acknowledge valid reports within 7 days. Confirmed vulnerabilities are handled privately until a fix, mitigation, or advisory is ready. Public disclosure timing should be coordinated with the maintainer so users have a reasonable chance to upgrade.
 
-Reports may be declined when they require unrealistic privileges, depend only on insecure host-project configuration outside Microsys control, or do not cross a security boundary.
+Reports may be declined when they require unrealistic privileges, depend only on insecure host-project configuration outside Dlux control, or do not cross a security boundary.
 
 ## Scope
 

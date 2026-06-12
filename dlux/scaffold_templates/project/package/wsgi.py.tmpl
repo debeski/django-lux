@@ -1,0 +1,13 @@
+"""
+Generated with django-lux {{ dlux_version }}.
+Project name: {{ project_name }}.
+Generated on: {{ generated_date }}.
+"""
+import os
+
+from django.core.wsgi import get_wsgi_application
+
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "{{ config_package }}.settings")
+
+application = get_wsgi_application()

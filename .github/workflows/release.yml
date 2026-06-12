@@ -4,9 +4,9 @@ name: Release
 #   git tag -a v2.4.1 -m "v2.4.1" && git push --tags
 #
 # Pipeline:
-#   build-dist     -> verify tag == microsys/VERSION, build sdist + wheel
+#   build-dist     -> verify tag == dlux/VERSION, build sdist + wheel
 #   publish-pypi   -> publish to PyPI via Trusted Publishing (OIDC, no token)
-#   build-viewer   -> cross-compile the msb-viewer binaries (make all)
+#   build-viewer   -> cross-compile the dlb-viewer binaries (make all)
 #   github-release -> create the GitHub Release: CHANGELOG section + all artifacts
 #
 # One-time setup is documented in docs/RELEASING.md (PyPI trusted publisher +
@@ -29,13 +29,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Verify tag matches microsys/VERSION
+      - name: Verify tag matches dlux/VERSION
         run: |
-          file_ver="$(tr -d '[:space:]' < microsys/VERSION)"
+          file_ver="$(tr -d '[:space:]' < dlux/VERSION)"
           tag_ver="${GITHUB_REF_NAME#v}"
           echo "VERSION file: '$file_ver'   tag: '$tag_ver'"
           if [ "$file_ver" != "$tag_ver" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME != microsys/VERSION ($file_ver). Bump VERSION before tagging."
+            echo "::error::Tag $GITHUB_REF_NAME != dlux/VERSION ($file_ver). Bump VERSION before tagging."
             exit 1
           fi
 
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/django-microsys/
+      url: https://pypi.org/project/django-lux/
     permissions:
       id-token: write   # OIDC token for PyPI Trusted Publishing
     steps:
@@ -75,13 +75,13 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.21"
-      - name: Cross-compile msb-viewer
-        working-directory: tools/msb-viewer
+      - name: Cross-compile dlb-viewer
+        working-directory: tools/dlb-viewer
         run: make all
       - uses: actions/upload-artifact@v4
         with:
-          name: msb-viewer-binaries
-          path: tools/msb-viewer/build/*
+          name: dlb-viewer-binaries
+          path: tools/dlb-viewer/build/*
 
   github-release:
     needs: [build-dist, build-viewer]
@@ -93,7 +93,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: msb-viewer-binaries
+          name: dlb-viewer-binaries
           path: release-files
 
       - uses: actions/download-artifact@v4

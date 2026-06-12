@@ -1,0 +1,43 @@
+{% load django_tables2 %}
+{% load crispy_forms_tags %}
+
+<div class="row g-4">
+    <!-- Form Section -->
+    {% if form %}
+    <div class="col-12">
+        {% if table %}
+        <div class="card glass-card shadow-sm border-0">
+            <div class="card-body">
+        {% else %}
+            <!-- If no table, we omit the inner card wrapper to avoid 'card inside a card' in modal -->
+            <div class="px-2 pt-1">
+        {% endif %}
+
+                {% include 'dlux/helpers/dynamic_modal_form.html' %}
+
+        {% if table %}
+            </div>
+        </div>
+        {% else %}
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- List Section -->
+    {% if table %}
+    <div class="col-12">
+        <div class="card glass-card shadow-sm border-0">
+            <div class="card-header bg-transparent border-0 pt-3">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-table me-2"></i>
+                    {{ MS_TRANS.list_label|default:"Records List" }}
+                </h6>
+            </div>
+            <div class="card-body">
+                {% include 'dlux/helpers/dynamic_modal_list.html' %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

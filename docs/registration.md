@@ -1,17 +1,17 @@
 # Public Registration Playground
 
-Public registration is a core Microsys playground feature. It is disabled by
+Public registration is a core Dlux playground feature. It is disabled by
 default and separate from optional SSO.
 
 ## What It Does
 
-When enabled, anonymous users can request a local Microsys account at:
+When enabled, anonymous users can request a local Dlux account at:
 
 ```text
 /accounts/register/
 ```
 
-The form asks for email, password, and optional first/last name. Microsys
+The form asks for email, password, and optional first/last name. Dlux
 generates the username internally. The account is created inactive, a
 verification token is stored hashed only, and the user must verify email before
 the account can become usable.
@@ -31,18 +31,18 @@ Pending approvals are managed at:
 
 Approve and reject actions are POST-only and superuser-only.
 
-Users created through this path are marked as public-registration-originated in Microsys runtime surfaces so operators can distinguish them from manually created local accounts.
+Users created through this path are marked as public-registration-originated in Dlux runtime surfaces so operators can distinguish them from manually created local accounts.
 
 ## Required Email Setup
 
-Public registration requires Microsys email delivery. Setup/System Settings
+Public registration requires Dlux email delivery. Setup/System Settings
 step 3 includes an **Email delivery** subsection with two independent choices:
 
 | Choice | Behavior |
 | --- | --- |
 | Delivery path: `direct` | The web process connects to the SMTP provider itself. Use this when the web service has egress to the SMTP host. |
 | Delivery path: `relay` | The web process sends to the generated internal `smtp-relay:1025` service. Use this when the web service is isolated and only the relay has internet egress. |
-| Secret storage: `encrypted_db` | Microsys stores the SMTP password encrypted in `SystemSettings.email_config`. This works with both direct delivery and relay delivery. Exports include only a redacted “password configured” marker, so imported setups must re-enter the secret. |
+| Secret storage: `encrypted_db` | Dlux stores the SMTP password encrypted in `SystemSettings.email_config`. This works with both direct delivery and relay delivery. Exports include only a redacted “password configured” marker, so imported setups must re-enter the secret. |
 | Secret storage: `env` | Environment/secrets-owned mode. The UI may store/export non-sensitive hints such as host, port, username, and from address, but the SMTP password stays in environment variables or secrets. |
 
 Generated projects can still read standard Django email settings when secret
@@ -89,8 +89,8 @@ reach the SMTP server directly, choose delivery path `Direct SMTP from web
 service`; encrypted DB secrets still work in that mode.
 
 The setup/System Settings security step refuses to enable public registration
-or email 2FA when the selected Microsys email delivery path and secret storage
-are not ready. Microsys-owned transactional mail uses this package-owned
+or email 2FA when the selected Dlux email delivery path and secret storage
+are not ready. Dlux-owned transactional mail uses this package-owned
 configuration through helpers; it does not force the host project’s unrelated
 Django email behavior to change.
 
@@ -105,13 +105,13 @@ Django email behavior to change.
 - The form includes a honeypot field; filled honeypots silently get the generic
   sent response.
 - Publicly registered users are not automatically assigned a generated scope by
-  Microsys scope auto-creation.
+  Dlux scope auto-creation.
 - Login accepts username or email only when public registration is enabled.
-- Email verification, readiness checks, and public registration all use the same Microsys email delivery contract as email 2FA.
+- Email verification, readiness checks, and public registration all use the same Dlux email delivery contract as email 2FA.
 
 ## Relation To SSO
 
-Public registration creates local users in the deployed Microsys project. It
+Public registration creates local users in the deployed Dlux project. It
 does not create SSO client-originated registration APIs and does not change the
 optional SSO provider/client packages.
 

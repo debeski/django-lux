@@ -5,15 +5,15 @@ include README.md
 include LICENSE
 
 # Include all files inside the users package
-recursive-include microsys *
+recursive-include dlux *
 
 # If you have templates inside the users app
-recursive-include microsys/templates *
+recursive-include dlux/templates *
 
 # If you have static files
-recursive-include microsys/static *
+recursive-include dlux/static *
 
 # Keep test code and cache artifacts out of source distributions
-prune microsys/tests
+prune dlux/tests
 global-exclude __pycache__
 global-exclude *.py[cod]

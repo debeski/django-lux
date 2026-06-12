@@ -1,0 +1,17 @@
+<div{% if picker_mode == 'setup' %} data-setup-theme-picker data-theme-input="{{ input_id }}"{% endif %}>
+    {% if label %}
+    <label class="form-label d-block">{{ label }}</label>
+    {% endif %}
+    <div class="d-flex flex-wrap gap-3">
+        {% for theme in DLUX_THEMES %}
+        <div class="text-center">
+            <div
+                class="rounded-circle border shadow-sm mb-1 theme-preview dl-theme-preview dl-theme-preview--{{ theme.slug }}{% if selected_theme == theme.slug %} active{% endif %}"
+                data-theme="{{ theme.slug }}"
+                title="{{ theme.label }}"
+            ></div>
+            <small class="text-muted">{{ theme.label }}</small>
+        </div>
+        {% endfor %}
+    </div>
+</div>

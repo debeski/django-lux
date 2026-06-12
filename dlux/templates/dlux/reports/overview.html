@@ -1,0 +1,310 @@
+{% extends 'dlux/base.html' %}
+{% load dlux_translation %}
+
+{% block title %}{{ MS_TRANS.reports_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+        <div>
+            <h2 class="page-title mb-1"><i class="bi bi-bar-chart-fill me-2"></i>{{ MS_TRANS.reports_title }}</h2>
+            <p class="text-muted mb-0">{{ MS_TRANS.reports_subtitle }}</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary rounded-pill" href="{% url 'reports_overview_xlsx' %}?window={{ overview.window }}{% if overview.filters.q %}&q={{ overview.filters.q|urlencode }}{% endif %}{% if overview.filters.model %}&model={{ overview.filters.model|urlencode }}{% endif %}{% if overview.filters.action %}&action={{ overview.filters.action|urlencode }}{% endif %}">
+                <i class="bi bi-filetype-xlsx me-1"></i>{{ MS_TRANS.reports_export_xlsx }}
+            </a>
+            {% if can_download_backup %}
+                <div class="d-flex flex-column align-items-stretch gap-1">
+                    <button type="button"
+                            id="reports-backup-btn"
+                            class="btn btn-primary rounded-pill"
+                            data-start-url="{% url 'reports_backup_start' %}"
+                            data-csrf="{{ csrf_token }}"
+                            data-window="{{ overview.window }}"
+                            data-msg-preparing="{{ MS_TRANS.reports_backup_preparing }}"
+                            data-msg-ready="{{ MS_TRANS.reports_backup_ready }}"
+                            data-msg-failed="{{ MS_TRANS.reports_backup_failed }}">
+                        <i class="bi bi-file-zip-fill me-1"></i>{{ MS_TRANS.reports_backup_zip }}
+                    </button>
+                    <small id="reports-backup-status" class="text-muted text-center"></small>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="get" class="row g-2 align-items-end mb-4">
+        <div class="col-md-3">
+            <label class="form-label" for="reports-window">{{ MS_TRANS.reports_window }}</label>
+            <select id="reports-window" name="window" class="form-select">
+                <option value="week"{% if overview.window == 'week' %} selected{% endif %}>{{ MS_TRANS.user_report_window_week }}</option>
+                <option value="month"{% if overview.window == 'month' %} selected{% endif %}>{{ MS_TRANS.user_report_window_month }}</option>
+                <option value="all"{% if overview.window == 'all' %} selected{% endif %}>{{ MS_TRANS.user_report_window_all }}</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="reports-search">{{ MS_TRANS.search }}</label>
+            <input id="reports-search" type="search" name="q" value="{{ overview.filters.q }}" class="form-control">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="reports-model">{{ MS_TRANS.user_report_model }}</label>
+            <select id="reports-model" name="model" class="form-select">
+                <option value="">{{ MS_TRANS.filter_all }}</option>
+                {% for model in overview.available_models %}
+                    {% if model %}
+                    <option value="{{ model }}"{% if overview.filters.model == model %} selected{% endif %}>{{ model|translate_log:'model' }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="reports-action">{{ MS_TRANS.user_report_action }}</label>
+            <select id="reports-action" name="action" class="form-select">
+                <option value="">{{ MS_TRANS.filter_all }}</option>
+                {% for action in overview.available_actions %}
+                    {% if action %}
+                    <option value="{{ action }}"{% if overview.filters.action == action %} selected{% endif %}>{{ action|translate_log:'action' }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100 rounded-pill">
+                <i class="bi bi-funnel-fill me-1"></i>{{ MS_TRANS.btn_apply|default:MS_TRANS.search }}
+            </button>
+        </div>
+    </form>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="p-3 border rounded bg-light h-100">
+                <div class="text-muted small">{{ MS_TRANS.reports_current_total }}</div>
+                <div class="fs-3 fw-bold">{{ overview.current_total }}</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="p-3 border rounded bg-light h-100">
+                <div class="text-muted small">{{ MS_TRANS.reports_previous_week_total }}</div>
+                <div class="fs-3 fw-bold">{{ overview.previous_week_total }}</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="p-3 border rounded bg-light h-100">
+                <div class="text-muted small">{{ MS_TRANS.reports_delta }}</div>
+                <div class="fs-3 fw-bold">{{ overview.delta }}</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="p-3 border rounded bg-light h-100">
+                <div class="text-muted small">{{ MS_TRANS.reports_all_total }}</div>
+                <div class="fs-3 fw-bold">{{ overview.all_total }}</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="p-3 border rounded bg-light h-100">
+                <div class="text-muted small">{{ MS_TRANS.reports_average_per_day }}</div>
+                <div class="fs-3 fw-bold">{{ overview.average_per_active_day }}</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="p-3 border rounded bg-light h-100">
+                <div class="text-muted small">{{ MS_TRANS.reports_average_per_user }}</div>
+                <div class="fs-3 fw-bold">{{ overview.average_per_user }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <section class="p-3 border rounded bg-light h-100">
+                <h5 class="mb-3">{{ MS_TRANS.reports_by_user }}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead><tr><th>{{ MS_TRANS.user_report_username }}</th><th>{{ MS_TRANS.user_report_count }}</th></tr></thead>
+                        <tbody>
+                            {% for item in overview.users %}
+                                <tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>
+                            {% empty %}
+                                <tr><td colspan="2" class="text-muted text-center py-4">{{ MS_TRANS.reports_empty }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-6">
+            <section class="p-3 border rounded bg-light h-100">
+                <h5 class="mb-3">{{ MS_TRANS.reports_by_model }}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead><tr><th>{{ MS_TRANS.user_report_model }}</th><th>{{ MS_TRANS.user_report_count }}</th></tr></thead>
+                        <tbody>
+                            {% for item in overview.models %}
+                                <tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>
+                            {% empty %}
+                                <tr><td colspan="2" class="text-muted text-center py-4">{{ MS_TRANS.reports_empty }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-6">
+            <section class="p-3 border rounded bg-light h-100">
+                <h5 class="mb-3">{{ MS_TRANS.reports_by_action }}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead><tr><th>{{ MS_TRANS.user_report_action }}</th><th>{{ MS_TRANS.user_report_count }}</th></tr></thead>
+                        <tbody>
+                            {% for item in overview.actions %}
+                                <tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>
+                            {% empty %}
+                                <tr><td colspan="2" class="text-muted text-center py-4">{{ MS_TRANS.reports_empty }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-6">
+            <section class="p-3 border rounded bg-light h-100">
+                <h5 class="mb-3">{{ MS_TRANS.reports_by_day }}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead><tr><th>{{ MS_TRANS.user_report_timestamp }}</th><th>{{ MS_TRANS.user_report_count }}</th></tr></thead>
+                        <tbody>
+                            {% for item in overview.days %}
+                                <tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>
+                            {% empty %}
+                                <tr><td colspan="2" class="text-muted text-center py-4">{{ MS_TRANS.reports_empty }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-12">
+            <section class="p-3 border rounded bg-light">
+                <h5 class="mb-3">{{ MS_TRANS.reports_user_drilldown }}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{{ MS_TRANS.user_report_username }}</th>
+                                <th>{{ MS_TRANS.tbl_full_name }}</th>
+                                <th>{{ MS_TRANS.tbl_staff_tier }}</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for visible_user in overview.visible_users %}
+                                <tr>
+                                    <td>{{ visible_user.username }}</td>
+                                    <td>{{ visible_user.get_full_name|default:visible_user.username }}</td>
+                                    <td>{% if visible_user.is_staff %}{{ MS_TRANS.badge_staff }}{% else %}{{ MS_TRANS.regular_user|default:"User" }}{% endif %}</td>
+                                    <td class="text-end">
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm rounded-pill"
+                                                data-dynamic-modal="{% url 'user_report_modal' visible_user.pk %}?window={{ overview.window }}"
+                                                data-modal-title="{{ MS_TRANS.user_report_title }}">
+                                            <i class="bi bi-file-earmark-person me-1"></i>{{ MS_TRANS.user_report_title }}
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="4" class="text-muted text-center py-4">{{ MS_TRANS.reports_empty }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    const btn = document.getElementById('reports-backup-btn');
+    if (!btn) return;
+    const note = document.getElementById('reports-backup-status');
+    const POLL_INTERVAL_MS = 3000;
+    const POLL_LIMIT = 1200; // give a large 'all' backup up to an hour
+    let busy = false;
+
+    function setNote(text, tone) {
+        if (!note) return;
+        note.textContent = text || '';
+        note.className = 'text-center ' + (tone === 'error' ? 'text-danger' : 'text-muted');
+    }
+
+    function finish(message, tone) {
+        busy = false;
+        btn.disabled = false;
+        setNote(message, tone);
+    }
+
+    function poll(statusUrl, attempt) {
+        if (attempt >= POLL_LIMIT) {
+            finish(btn.dataset.msgFailed, 'error');
+            return;
+        }
+        fetch(statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (data.status === 'completed' && data.download_url) {
+                    finish(btn.dataset.msgReady);
+                    window.location.assign(data.download_url);
+                } else if (data.status === 'failed') {
+                    finish(btn.dataset.msgFailed, 'error');
+                } else {
+                    setTimeout(function () { poll(statusUrl, attempt + 1); }, POLL_INTERVAL_MS);
+                }
+            })
+            .catch(function () {
+                // Transient poll error (network blip): keep trying.
+                setTimeout(function () { poll(statusUrl, attempt + 1); }, POLL_INTERVAL_MS);
+            });
+    }
+
+    btn.addEventListener('click', function () {
+        if (busy) return;
+        busy = true;
+        btn.disabled = true;
+        setNote(btn.dataset.msgPreparing);
+        const windowSelect = document.getElementById('reports-window');
+        const selectedWindow = (windowSelect && windowSelect.value) || btn.dataset.window || 'all';
+        const body = new URLSearchParams();
+        body.set('window', selectedWindow);
+        fetch(btn.dataset.startUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': btn.dataset.csrf || '',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: body.toString(),
+        })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('start failed');
+                return resp.json();
+            })
+            .then(function (data) {
+                if (data.async && data.status_url) {
+                    poll(data.status_url, 0);
+                } else if (data.download_url) {
+                    // No background worker available: fall back to the direct download.
+                    finish('');
+                    window.location.assign(data.download_url);
+                } else {
+                    finish(btn.dataset.msgFailed, 'error');
+                }
+            })
+            .catch(function () {
+                finish(btn.dataset.msgFailed, 'error');
+            });
+    });
+})();
+</script>
+{% endblock %}

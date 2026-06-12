@@ -1,0 +1,36 @@
+{% load dlux_tags %}
+<div class="dl-language-fonts-editor mt-4" id="msLanguageFontsEditor">
+    <h6 class="fw-bold mb-3">{{ MS_TRANS.default_fonts_per_lang }}</h6>
+    <p class="text-muted small mb-4">{{ MS_TRANS.default_fonts_per_lang_desc }}</p>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-borderless align-middle">
+            <thead>
+                <tr>
+                    <th width="40%">{{ MS_TRANS.language }}</th>
+                    <th>{{ MS_TRANS.default_font }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lang_code, lang_data in current_languages.items %}
+                <tr data-lang-code="{{ lang_code }}">
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <span>{{ lang_data.flag }}</span>
+                            <span>{{ lang_data.name }}</span>
+                            <code class="small text-muted">({{ lang_code }})</code>
+                        </div>
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm glass-input dl-lang-font-select" data-lang="{{ lang_code }}">
+                            {% for font in DLUX_FONTS %}
+                            <option value="{{ font.slug }}" {% if default_fonts|get_item:lang_code == font.slug %}selected{% endif %}>{{ font.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

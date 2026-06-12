@@ -1,0 +1,20 @@
+{% load static %}
+<div class="dl-font-picker" id="msFontPreviews">
+    <div class="dl-density-options" role="group" aria-label="{{ MS_TRANS.typography }}">
+    {% for font in option_fonts %}
+        <button
+            type="button"
+            class="dl-density-option dl-font-option{% if selected_font == font.slug %} is-active{% endif %}"
+            data-font="{{ font.slug }}"
+        >
+            <span class="dl-density-option__icon dl-font-option__icon" aria-hidden="true">
+                <span class="font-preview-sample">Aa</span>
+            </span>
+            <span class="dl-density-option__copy">
+                <strong>{{ font.label }}</strong>
+                <small>{{ font.slug }}</small>
+            </span>
+        </button>
+    {% endfor %}
+    </div>
+</div>

@@ -1,0 +1,55 @@
+<div class="dl-navbar-builder" data-navbar-builder>
+    <textarea class="d-none dl-navbar-catalog-data">{{ navbar_catalog_json }}</textarea>
+    <textarea class="d-none dl-navbar-config-data">{{ navbar_config_json }}</textarea>
+    <textarea class="d-none dl-navbar-languages-data">{{ languages_json }}</textarea>
+    <div class="dl-navbar-builder__header">
+        <div>
+            <h6 class="fw-bold mb-1">{{ MS_TRANS.navbar_hierarchy_title }}</h6>
+            <p class="text-muted small mb-0">{{ MS_TRANS.navbar_hierarchy_desc }}</p>
+        </div>
+        <button type="button" class="btn btn-outline-primary btn-sm" data-navbar-add-manual>
+            <i class="bi bi-folder-plus me-1"></i>{{ MS_TRANS.navbar_add_manual_node }}
+        </button>
+    </div>
+    <div class="dl-navbar-builder__grid">
+        <section class="dl-navbar-builder__pane">
+            <h6 class="fw-semibold mb-2">{{ MS_TRANS.navbar_selected_tree }}</h6>
+            <p class="text-muted small">{{ MS_TRANS.navbar_selected_tree_desc }}</p>
+            <div class="dl-navbar-tree" data-navbar-tree></div>
+        </section>
+        <section class="dl-navbar-builder__pane">
+            <h6 class="fw-semibold mb-2">{{ MS_TRANS.navbar_available_routes }}</h6>
+            <label class="visually-hidden" for="dl-navbar-route-search-{{ mode }}">{{ MS_TRANS.label_keyword }}</label>
+            <input id="dl-navbar-route-search-{{ mode }}" type="search" class="form-control glass-input form-control-sm mb-3"
+                   placeholder="{{ MS_TRANS.navbar_route_search }}" data-navbar-route-search>
+            <div class="dl-navbar-route-list" data-navbar-route-list></div>
+        </section>
+        <section class="dl-navbar-builder__pane">
+            <h6 class="fw-semibold mb-2">{{ MS_TRANS.navbar_node_inspector }}</h6>
+            <div class="text-muted small" data-navbar-inspector-empty>{{ MS_TRANS.navbar_node_inspector_empty }}</div>
+            <div class="d-none" data-navbar-inspector>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-navbar-move-up>
+                        <i class="bi bi-arrow-up"></i> {{ MS_TRANS.move_up }}
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-navbar-move-down>
+                        <i class="bi bi-arrow-down"></i> {{ MS_TRANS.move_down }}
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-navbar-move-root>
+                        <i class="bi bi-distribute-horizontal"></i> {{ MS_TRANS.sidebar_move_root }}
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" data-navbar-remove-node>
+                        <i class="bi bi-trash3"></i> {{ MS_TRANS.sidebar_remove_entry }}
+                    </button>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="dl-navbar-node-url-{{ mode }}">{{ MS_TRANS.navbar_node_url }}</label>
+                    <input id="dl-navbar-node-url-{{ mode }}" type="text" class="form-control glass-input" data-navbar-node-url
+                           placeholder="/dashboard/">
+                    <div class="form-text">{{ MS_TRANS.navbar_node_url_help }}</div>
+                </div>
+                <div data-navbar-label-inputs></div>
+            </div>
+        </section>
+    </div>
+</div>

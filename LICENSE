@@ -1,7 +1,7 @@
 # MIT License
 
-Software: django-microsys
-Repository: https://github.com/debeski/django-microsys
+Software: django-lux
+Repository: https://github.com/debeski/django-lux
 Author: DeBeski (micro)
 Website: https://github.com/debeski
 Copyright (c) 2026
@@ -34,7 +34,7 @@ This Software utilizes the following open-source packages. By using this Softwar
 you agree to the terms of their respective licenses:
 
 ## Python Runtime Dependencies
-The following Python dependencies are declared by the main `django-microsys`
+The following Python dependencies are declared by the main `django-lux`
 package and should retain their upstream license notices.
 
 - Python (3.9+) - Python Software Foundation License (PSFL)
@@ -65,7 +65,7 @@ package and should retain their upstream license notices.
   https://foss.heptapod.net/openpyxl/openpyxl/-/blob/branch/default/LICENCE.rst
 
 ## Bundled Frontend Assets
-The following third-party frontend assets are bundled under `microsys/static/`
+The following third-party frontend assets are bundled under `dlux/static/`
 and should also retain their upstream license notices.
 
 - Bootstrap - MIT License
@@ -99,7 +99,7 @@ notices and attribution where applicable.
 
 ## Optional Package Note
 This repository also includes optional packages under `optional_packages/`
-with their own dependency trees, such as `django-microsys-sso` and
-`django-microsys-sso-client`. If you distribute those optional packages, keep
+with their own dependency trees, such as `django-lux-sso` and
+`django-lux-sso-client`. If you distribute those optional packages, keep
 their dependency notices aligned with their own `pyproject.toml` metadata as
 well.

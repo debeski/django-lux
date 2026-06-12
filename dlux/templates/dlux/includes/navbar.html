@@ -1,0 +1,22 @@
+{% if navbar_enabled %}
+<nav class="dl-navbar"
+     data-dl-navbar
+     data-navbar-mode="{{ navbar_mode }}"
+     data-navbar-path="{{ navbar_current_path }}"
+     data-navbar-label="{{ navbar_current_label }}"
+     aria-label="{{ MS_TRANS.navbar_aria_label }}">
+    {{ navbar_hierarchy_crumbs|json_script:"dl-navbar-hierarchy-data" }}
+    {{ navbar_route_labels|json_script:"dl-navbar-route-labels-data" }}
+    <ol class="dl-navbar__trail" data-navbar-trail>
+        {% for crumb in navbar_crumbs %}
+        <li class="dl-navbar__crumb{% if forloop.last %} is-current{% endif %}" data-navbar-crumb>
+            {% if crumb.clickable %}
+            <a href="{{ crumb.url }}">{{ crumb.label }}</a>
+            {% else %}
+            <span{% if forloop.last %} aria-current="page"{% endif %}>{{ crumb.label }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+</nav>
+{% endif %}

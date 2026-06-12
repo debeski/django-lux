@@ -7,16 +7,16 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name = "django_microsys"
+name = "django_lux"
 dynamic = ["version"]
-description = "Django microSYS (System Integration Service) - Multilingual Django Starter Pack, Packed with Features."
+description = "DjangoLux (System Integration Service) - Multilingual Django Starter Pack, Packed with Features."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
     { name = "DeBeski", email = "debeski1@gmail.com" }
 ]
-keywords = ["django", "microsys", "permissions", "authentication"]
+keywords = ["django", "dlux", "permissions", "authentication"]
 
 # Dependencies
 dependencies = [
@@ -50,18 +50,18 @@ classifiers = [
 
 # Tell setuptools which packages to include
 [tool.setuptools.packages.find]
-include = ["microsys", "microsys.*"]
-exclude = ["microsys.tests", "microsys.tests.*"]
+include = ["dlux", "dlux.*"]
+exclude = ["dlux.tests", "dlux.tests.*"]
 
 # Include static/templates files (equivalent to include_package_data=True)
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.dynamic]
-version = { attr = "microsys.__version__" }
+version = { attr = "dlux.__version__" }
 
 [tool.setuptools.package-data]
-microsys = [
+dlux = [
     "VERSION",
     "scaffold_templates/*.tmpl",
     "scaffold_templates/*/*.tmpl",
@@ -70,12 +70,12 @@ microsys = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/debeski/django-microsys"
+Homepage = "https://github.com/debeski/django-lux"
 
 [project.scripts]
-ms = "microsys.cli:main"
+dlux = "dlux.cli:main"
 
 [project.optional-dependencies]
 sso = [
-    "django-microsys-sso>=0.1.0",
+    "django-lux-sso>=0.1.0",
 ]

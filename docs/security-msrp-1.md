@@ -1,7 +1,7 @@
 # MSRP-1 Security Standard
 
-MSRP-1, the Microsys Secure Runtime Policy, is the active security contract for
-runtime-exposed Microsys surfaces. It exists so visual affordances, direct URL
+MSRP-1, the Dlux Secure Runtime Policy, is the active security contract for
+runtime-exposed Dlux surfaces. It exists so visual affordances, direct URL
 access, AJAX endpoints, and state-changing flows all agree on the same backend
 authorization decision.
 
@@ -19,14 +19,14 @@ authorization decision.
 - Runtime HTML must not rely on inline CSS, inline `style=` attributes, or
   executable inline JavaScript unless there is a documented unavoidable need.
   Prefer dedicated static assets plus `json_script` or `data-*` bridges so CSP
-  can stay strict and consistent across Microsys surfaces.
+  can stay strict and consistent across Dlux surfaces.
 - Diagnostics and system-wide configuration surfaces are privileged-only, while
   authenticated users may retain their own personal preference controls.
 - Sensitive stored security material must be hashed or externally protected
-  where practical; Microsys backup codes are hashed at rest.
-- All user-facing UI strings must be resolved through the Microsys translation framework. Hardcoded English or Arabic literals are prohibited in Python, templates, and JavaScript to ensure consistent localization and prevent information leakage via untranslated internal labels.
+  where practical; Dlux backup codes are hashed at rest.
+- All user-facing UI strings must be resolved through the Dlux translation framework. Hardcoded English or Arabic literals are prohibited in Python, templates, and JavaScript to ensure consistent localization and prevent information leakage via untranslated internal labels.
 
-## Applied Microsys Measures
+## Applied Dlux Measures
 
 - Dynamic modal manager/delete views enforce backend authorization for model,
   user, and profile surfaces.
@@ -64,12 +64,12 @@ authorization decision.
   authenticated users keep personal preference controls and receive no
   diagnostic context values.
 - All new security surfaces (2FA, Trusted Devices, IP resolution) strictly
-  follow the translation-first policy, utilizing the Microsys translation
+  follow the translation-first policy, utilizing the Dlux translation
   framework for all user-facing copy and challenge messages.
 
 ## Public Registration Boundary
 
-Public registration creates local Microsys users only. It does not add
+Public registration creates local Dlux users only. It does not add
 client-originated SSO registration APIs and does not alter optional SSO provider
 or client packages.
 
@@ -91,7 +91,7 @@ The first v1 policy is intentionally narrow:
 ## Optional SSO Extensions
 
 SSO is optional and must remain additive. The provider plugin and client SDK do
-not change core `microsys` runtime imports, URLs, middleware, or login behavior
+not change core `dlux` runtime imports, URLs, middleware, or login behavior
 unless the host project explicitly installs and mounts them.
 
 Cross-platform OIDC compatibility is a first-priority SSO requirement. The

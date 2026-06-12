@@ -1,0 +1,15 @@
+from django import forms
+
+from dlux.utils import set_field_attrs
+
+from .models import ExampleRecord
+
+
+class ExampleRecordForm(forms.ModelForm):
+    class Meta:
+        model = ExampleRecord
+        fields = ["name", "description", "is_active"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        set_field_attrs(self)

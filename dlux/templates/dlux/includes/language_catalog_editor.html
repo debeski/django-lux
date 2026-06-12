@@ -1,0 +1,58 @@
+<div class="dl-language-catalog" data-language-catalog-editor>
+  <div class="d-flex flex-wrap align-items-end gap-2 mb-3">
+    <div class="flex-grow-1">
+      <label class="form-label fw-semibold" for="dl-language-code-input">{{ MS_TRANS.language_catalog_add_code|default:"Language code" }}</label>
+      <input id="dl-language-code-input" type="text" class="form-control glass-input" data-language-code-input placeholder="fr">
+    </div>
+    <div class="flex-grow-1">
+      <label class="form-label fw-semibold" for="dl-language-name-input">{{ MS_TRANS.language_catalog_add_name|default:"Display name" }}</label>
+      <input id="dl-language-name-input" type="text" class="form-control glass-input" data-language-name-input placeholder="Francais">
+    </div>
+    <div>
+      <label class="form-label fw-semibold" for="dl-language-dir-input">{{ MS_TRANS.language_catalog_add_dir|default:"Direction" }}</label>
+      <select id="dl-language-dir-input" class="form-select glass-input" data-language-dir-input>
+        <option value="ltr">LTR</option>
+        <option value="rtl">RTL</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label fw-semibold" for="dl-language-flag-input">{{ MS_TRANS.language_catalog_add_flag|default:"Flag" }}</label>
+      <input id="dl-language-flag-input" type="text" class="form-control glass-input dl-language-flag-input" data-language-flag-input placeholder="FR">
+    </div>
+    <button type="button" class="btn btn-primary" data-language-add>
+      <i class="bi bi-plus-lg me-1"></i>{{ MS_TRANS.btn_add|default:"Add" }}
+    </button>
+  </div>
+
+  {% if suggested_languages %}
+  <div class="mb-3">
+    <div class="small text-muted mb-2">{{ MS_TRANS.language_catalog_suggestions|default:"Translation files also contain these languages. Add one to publish it to users." }}</div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for code in suggested_languages %}
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-language-suggestion="{{ code }}">{{ code }}</button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="dl-language-list" data-language-list>
+    {% for lang in language_rows %}
+    <div class="dl-language-row" data-language-row data-language-code="{{ lang.code }}">
+      <div class="dl-language-row__code">{{ lang.code }}</div>
+      <input id="dl-language-name-row-{{ forloop.counter0 }}" type="text" class="form-control glass-input" data-language-name value="{{ lang.name|default:lang.code }}" aria-label="{{ MS_TRANS.language_catalog_add_name|default:'Display name' }} ({{ lang.code }})">
+      <select id="dl-language-dir-row-{{ forloop.counter0 }}" class="form-select glass-input" data-language-dir aria-label="{{ MS_TRANS.language_catalog_add_dir|default:'Direction' }} ({{ lang.code }})">
+        <option value="ltr"{% if lang.dir != 'rtl' %} selected{% endif %}>LTR</option>
+        <option value="rtl"{% if lang.dir == 'rtl' %} selected{% endif %}>RTL</option>
+      </select>
+      <input id="dl-language-flag-row-{{ forloop.counter0 }}" type="text" class="form-control glass-input dl-language-flag-input" data-language-flag value="{{ lang.flag|default:'' }}" aria-label="{{ MS_TRANS.language_catalog_add_flag|default:'Flag' }} ({{ lang.code }})">
+      <label class="dl-language-default">
+        <input id="dl-language-default-row-{{ forloop.counter0 }}" type="radio" data-language-default value="{{ lang.code }}"{% if lang.code == default_language %} checked{% endif %}>
+        <span>{{ MS_TRANS.form_sys_default_lang|default:"Default" }}</span>
+      </label>
+      <button type="button" class="btn btn-sm btn-outline-danger" data-language-remove{% if lang.code == 'en' or lang.code == 'ar' %} disabled{% endif %}>
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+</div>

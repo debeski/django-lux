@@ -1,0 +1,28 @@
+{% extends "dlux/list_base.html" %}
+{% load crispy_forms_tags %}
+{% load render_table from django_tables2 %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h1 class="mb-1">{{ app_title }}</h1>
+            <p class="text-muted mb-0">DjangoLux starter list page for {{ app_name }}.</p>
+        </div>
+        <button
+            type="button"
+            class="btn btn-primary rounded-pill"
+            data-dynamic-modal="{% url 'modal_manager' '{{ app_name }}' 'ExampleRecord' 'new' %}"
+            data-modal-title="Add Record"
+        >
+            Add Record
+        </button>
+    </div>
+
+    {% if filter %}
+        {{ filter.form|crispy }}
+    {% endif %}
+
+    {% render_table table %}
+</div>
+{% endblock %}

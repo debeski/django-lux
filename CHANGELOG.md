@@ -1,43 +1,43 @@
 # Changelog
 
-This file owns the release history for `django-microsys`.
+This file owns the release history for `django-lux`.
 
-> Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
+> Only stable versions of django-lux are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-lux/#history).
 
 ## v2.4.1
 
-- **Standalone `.msb` Backup Viewer**: Added `tools/msb-viewer/`, a dependency-free Go companion app that reads the `MSB1` container directly — parses the cleartext metadata header, derives the Fernet key with a from-scratch PBKDF2-SHA256 (stdlib-only AES-128-CBC + HMAC-SHA256 Fernet implementation in `msb.go`), and streams the framed chunks back into the inner backup zip. It serves a small read-only UI on `127.0.0.1` (random per-run token + local-`Host` guard, browser auto-opened), prompts for the passphrase or project `SECRET_KEY` based on the header's `key_source`, and lets you browse overview/migration-state/manifest, paginate each model's serialized rows, and open or download stored file-field contents. Ships as a single static cross-platform binary (`go build`, no third-party modules, no CGo); verified end-to-end against a real Fernet-encrypted fixture (wrong-password rejection, model/row read, byte-exact file extraction, temp-file cleanup on exit). Documented in `tools/msb-viewer/README.md` and the admin guide.
-- **Tag-Driven Release Pipeline (CI/CD)**: Added `.github/workflows/ci.yml` (runs the self-contained Django test modules on every push/PR to `main`) and `.github/workflows/release.yml` (on a `v*` tag: verifies the tag equals `microsys/VERSION`, builds and `twine check`s the sdist + wheel, publishes to PyPI via OIDC **Trusted Publishing** with no stored token, cross-compiles the five `msb-viewer` platform binaries via `make all`, then cuts a GitHub Release whose notes are the matching `CHANGELOG.md` section with the wheel/sdist and viewer binaries attached). The release procedure and one-time PyPI/GitHub setup are documented in `docs/RELEASING.md`; the package version remains single-sourced in `microsys/VERSION` (read by `microsys.__version__`, consumed by `pyproject.toml`'s dynamic version).
-- **Companion Tools Relocated**: Moved the optional companion packages out of `optional_packages/` into `tools/` (`tools/django-microsys-sso`, `tools/django-microsys-sso-client`, and the new `tools/msb-viewer`). These are repo-only build sources and remain excluded from the published wheel (`pyproject.toml` ships only `microsys`/`microsys.*`).
+- **Standalone `.dlb` Backup Viewer**: Added `tools/dlb-viewer/`, a dependency-free Go companion app that reads the `DLB1` container directly — parses the cleartext metadata header, derives the Fernet key with a from-scratch PBKDF2-SHA256 (stdlib-only AES-128-CBC + HMAC-SHA256 Fernet implementation in `dlb.go`), and streams the framed chunks back into the inner backup zip. It serves a small read-only UI on `127.0.0.1` (random per-run token + local-`Host` guard, browser auto-opened), prompts for the passphrase or project `SECRET_KEY` based on the header's `key_source`, and lets you browse overview/migration-state/manifest, paginate each model's serialized rows, and open or download stored file-field contents. Ships as a single static cross-platform binary (`go build`, no third-party modules, no CGo); verified end-to-end against a real Fernet-encrypted fixture (wrong-password rejection, model/row read, byte-exact file extraction, temp-file cleanup on exit). Documented in `tools/dlb-viewer/README.md` and the admin guide.
+- **Tag-Driven Release Pipeline (CI/CD)**: Added `.github/workflows/ci.yml` (runs the self-contained Django test modules on every push/PR to `main`) and `.github/workflows/release.yml` (on a `v*` tag: verifies the tag equals `dlux/VERSION`, builds and `twine check`s the sdist + wheel, publishes to PyPI via OIDC **Trusted Publishing** with no stored token, cross-compiles the five `dlb-viewer` platform binaries via `make all`, then cuts a GitHub Release whose notes are the matching `CHANGELOG.md` section with the wheel/sdist and viewer binaries attached). The release procedure and one-time PyPI/GitHub setup are documented in `docs/RELEASING.md`; the package version remains single-sourced in `dlux/VERSION` (read by `dlux.__version__`, consumed by `pyproject.toml`'s dynamic version).
+- **Companion Tools Relocated**: Moved the optional companion packages out of `optional_packages/` into `tools/` (`tools/django-lux-sso`, `tools/django-lux-sso-client`, and the new `tools/dlb-viewer`). These are repo-only build sources and remain excluded from the published wheel (`pyproject.toml` ships only `dlux`/`dlux.*`).
 
 ## v2.4.0
 
-### Full System Backup & Restore (.msb)
+### Full System Backup & Restore (.dlb)
 
-- **Encrypted Full-System Snapshots**: New superuser-only feature at `/sys/backup/` (separate from the supervisor-oriented reports backup) that snapshots *everything for all time* — every concrete managed model including users, regular-user password hashes, groups, scopes, profiles, settings, activity history, plus all `FileField`/`ImageField` storage files — into a single `.msb` ("microsys backup") file. The container is `MSB1` magic + cleartext JSON metadata (format, date, counts, KDF salt/mode) + the backup zip Fernet-encrypted in framed 32MB chunks (`cryptography`, PBKDF2 key derived from Django `SECRET_KEY` by default or from the optional superuser-entered passphrase), so arbitrarily large backups encrypt/decrypt at constant memory. Engine lives in `microsys/backup.py` and reuses the reports backup's `stream_model_into_zip` streamer; sessions/contenttypes/permissions are excluded and referenced via Django natural keys instead.
-- **Full-Replace Restore**: Restores run from an existing backup, an uploaded `.msb`, or any `.msb` dropped into the backup folder. The manifest records the exact applied-migration state; restore refuses on mismatch unless "ignore version mismatch" is explicitly checked. The apply wipes and reloads all models in one transaction with FK checks deferred, loads in FK/M2M dependency-sorted order (natural-key refs like `Profile.user` need targets loaded first — INSTALLED_APPS order gives no such guarantee), suspends all Microsys activity/auto-profile signals via the new `suspend_microsys_signals()`, resets PK sequences, restores files to their original storage names, then clears caches and all sessions. Superuser password hashes are omitted from `.msb` user JSON; restore preserves the current target superuser password when the username matches and gives unmatched restored superusers an unusable password. Guarded by superuser + current-password confirmation + explicit replace acknowledgement; runs on Celery (`microsys.tasks.build_system_backup` / `restore_system_backup`) with inline fallback.
+- **Encrypted Full-System Snapshots**: New superuser-only feature at `/sys/backup/` (separate from the supervisor-oriented reports backup) that snapshots *everything for all time* — every concrete managed model including users, regular-user password hashes, groups, scopes, profiles, settings, activity history, plus all `FileField`/`ImageField` storage files — into a single `.dlb` ("dlux backup") file. The container is `DLB1` magic + cleartext JSON metadata (format, date, counts, KDF salt/mode) + the backup zip Fernet-encrypted in framed 32MB chunks (`cryptography`, PBKDF2 key derived from Django `SECRET_KEY` by default or from the optional superuser-entered passphrase), so arbitrarily large backups encrypt/decrypt at constant memory. Engine lives in `dlux/backup.py` and reuses the reports backup's `stream_model_into_zip` streamer; sessions/contenttypes/permissions are excluded and referenced via Django natural keys instead.
+- **Full-Replace Restore**: Restores run from an existing backup, an uploaded `.dlb`, or any `.dlb` dropped into the backup folder. The manifest records the exact applied-migration state; restore refuses on mismatch unless "ignore version mismatch" is explicitly checked. The apply wipes and reloads all models in one transaction with FK checks deferred, loads in FK/M2M dependency-sorted order (natural-key refs like `Profile.user` need targets loaded first — INSTALLED_APPS order gives no such guarantee), suspends all Dlux activity/auto-profile signals via the new `suspend_dlux_signals()`, resets PK sequences, restores files to their original storage names, then clears caches and all sessions. Superuser password hashes are omitted from `.dlb` user JSON; restore preserves the current target superuser password when the username matches and gives unmatched restored superusers an unusable password. Guarded by superuser + current-password confirmation + explicit replace acknowledgement; runs on Celery (`dlux.tasks.build_system_backup` / `restore_system_backup`) with inline fallback.
 - **Restore-Safe Bookkeeping**: `SystemBackup`/`SystemRestore` models (in migration `0012`) store the requesting username as plain text instead of a user FK — a restore replaces the user table mid-transaction, so run records must not reference it; `SystemBackup.passphrase_required` records only whether a passphrase is needed, never the passphrase itself, and `ReportBackup` history (which does FK users) is cleared as part of the wipe.
 - **Superuser Backup Entrypoint**: Added a superuser-only Backup & Restore card on `/sys/options/` that summarizes latest backup, completed/protected backup counts, and latest restore before linking to `/sys/backup/`; marked the destructive backup warning alert with `data-autoclose="false"` so it remains visible instead of disappearing with transient flash messages.
 - **Options Grid Polish**: Updated the System Settings tile grid so any odd final action, such as the setup export tile, automatically spans the full row instead of leaving an empty half-column.
-- **Setup Logo Treatment Card Reflow**: Login Page and Titlebar setup steps now mark their logo-treatment selector columns with `ms-logo-treatment-primary`; `system_setup.js` toggles `ms-logo-treatment-primary--wide` so the selector spans the full row when the plate-shape companion card is hidden, then immediately returns to its Bootstrap column width when the Plate treatment reveals the companion card, avoiding a transient second-row wrap during width animation.
+- **Setup Logo Treatment Card Reflow**: Login Page and Titlebar setup steps now mark their logo-treatment selector columns with `dl-logo-treatment-primary`; `system_setup.js` toggles `dl-logo-treatment-primary--wide` so the selector spans the full row when the plate-shape companion card is hidden, then immediately returns to its Bootstrap column width when the Plate treatment reveals the companion card, avoiding a transient second-row wrap during width animation.
 
 ### Reports Backup Rework
 
-- **Report Overview SQL Aggregation**: Reworked `/sys/reports/` overview counts to use grouped ORM aggregates (`Count`, `TruncDate`) for user/model/action/day summaries instead of iterating every matching `UserActivityLog` row in Python, and cleared inherited `ORDER BY -created_at` before the report-eligibility `DISTINCT` pass so it deduplicates by model identity rather than by log row. Added `0013_useractivitylog_report_indexes` with `created_at`, `(scope, created_at)`, `(created_by, created_at)`, `(model_key, created_at)`, and `(action, created_at)` indexes. Added optional `MICROSYS_CONFIG['reports']['overview_cache_seconds']` read-through caching for aggregate/dropdown payloads when deployments back Django cache with Redis; default `0` keeps the overview uncached and fully current.
-- **Background Backup Generation Via Celery**: Added the `ReportBackup` model (migration `0012_reportbackup`) and the `microsys.tasks.build_report_backup` shared task. The reports page backup button now POSTs to `/sys/reports/backup/start/`; when Celery is importable, the broker is reachable (`ensure_connection(max_retries=0, timeout=2)`), and a worker answers `control.ping(timeout=1)`, the zip is built in the worker, stored under `MEDIA_ROOT/microsys_backups/` (configurable via `MICROSYS_CONFIG['reports']['backup_storage_prefix']`), and the page polls `/sys/reports/backup/<token>/status/` until the download is served from `/sys/reports/backup/<token>/download/`. Status hand-off uses the shared DB row, so web and worker only need a common database and default storage. Without a live worker the client falls back to the synchronous `/sys/reports/backup.zip` endpoint. Backups are owner-scoped, permission-gated by `microsys.download_backup`, and pruned to the 3 most recent completed runs per user. Deployments must deny direct HTTP access to the backup prefix (nginx `location /media/microsys_backups/ { deny all; }`).
-- **Window-Filtered Backups**: `write_backup_zip()` now honors the selected `week`/`month`/`all` report window instead of always exporting everything. Each report-eligible model is filtered on an auto-detected timestamp column (`created_at`, `created`, `created_on`, `date_created`, `timestamp`), overridable per model through `MICROSYS_CONFIG['reports']['backup_window_fields']`; models without a timestamp column are included in full. The manifest records the window and the zip filename is now `microsys-backup-{window}-{date}.zip`.
+- **Report Overview SQL Aggregation**: Reworked `/sys/reports/` overview counts to use grouped ORM aggregates (`Count`, `TruncDate`) for user/model/action/day summaries instead of iterating every matching `UserActivityLog` row in Python, and cleared inherited `ORDER BY -created_at` before the report-eligibility `DISTINCT` pass so it deduplicates by model identity rather than by log row. Added `0013_useractivitylog_report_indexes` with `created_at`, `(scope, created_at)`, `(created_by, created_at)`, `(model_key, created_at)`, and `(action, created_at)` indexes. Added optional `DLUX_CONFIG['reports']['overview_cache_seconds']` read-through caching for aggregate/dropdown payloads when deployments back Django cache with Redis; default `0` keeps the overview uncached and fully current.
+- **Background Backup Generation Via Celery**: Added the `ReportBackup` model (migration `0012_reportbackup`) and the `dlux.tasks.build_report_backup` shared task. The reports page backup button now POSTs to `/sys/reports/backup/start/`; when Celery is importable, the broker is reachable (`ensure_connection(max_retries=0, timeout=2)`), and a worker answers `control.ping(timeout=1)`, the zip is built in the worker, stored under `MEDIA_ROOT/dlux_backups/` (configurable via `DLUX_CONFIG['reports']['backup_storage_prefix']`), and the page polls `/sys/reports/backup/<token>/status/` until the download is served from `/sys/reports/backup/<token>/download/`. Status hand-off uses the shared DB row, so web and worker only need a common database and default storage. Without a live worker the client falls back to the synchronous `/sys/reports/backup.zip` endpoint. Backups are owner-scoped, permission-gated by `dlux.download_backup`, and pruned to the 3 most recent completed runs per user. Deployments must deny direct HTTP access to the backup prefix (nginx `location /media/dlux_backups/ { deny all; }`).
+- **Window-Filtered Backups**: `write_backup_zip()` now honors the selected `week`/`month`/`all` report window instead of always exporting everything. Each report-eligible model is filtered on an auto-detected timestamp column (`created_at`, `created`, `created_on`, `date_created`, `timestamp`), overridable per model through `DLUX_CONFIG['reports']['backup_window_fields']`; models without a timestamp column are included in full. The manifest records the window and the zip filename is now `dlux-backup-{window}-{date}.zip`.
 - **Constant-Memory Zip Streaming**: Replaced the previous build-everything-in-`BytesIO` approach (which loaded every record list and every PDF fully into RAM) with member-by-member streaming: model JSON is serialized straight into the zip entry via `TextIOWrapper` over `ZipFile.open(mode='w')` with `queryset.iterator()`, storage files are chunk-copied with `shutil.copyfileobj`, and the synchronous endpoint streams a `FileResponse` from a temp file instead of materializing the archive in memory.
-- **ReportBackup Log Hygiene**: `ReportBackup` status churn is excluded from activity-log signals; each completed backup records one explicit `EXPORT` action ("Microsys Reports Backup") with window/model/file counts.
+- **ReportBackup Log Hygiene**: `ReportBackup` status churn is excluded from activity-log signals; each completed backup records one explicit `EXPORT` action ("Dlux Reports Backup") with window/model/file counts.
 
 ### Mail Reliability
 
-- **SMTP Connection Timeout**: `send_microsys_mail()` now passes a socket timeout (default 10s, configurable via `email_config['timeout']`) to the SMTP connection. Previously an unreachable/slow mail host blocked the calling request until the OS socket timeout — most visibly hanging the login flow when email-2FA OTP sends go through a dead or slow relay.
+- **SMTP Connection Timeout**: `send_dlux_mail()` now passes a socket timeout (default 10s, configurable via `email_config['timeout']`) to the SMTP connection. Previously an unreachable/slow mail host blocked the calling request until the OS socket timeout — most visibly hanging the login flow when email-2FA OTP sends go through a dead or slow relay.
 
 ## v2.3.8
 
 ### Migration Stability
 
-- **Migration-Safe Runtime Translations**: Replaced the `django.utils.functional.lazy` return value from `microsys.translations.lazy_translator()` with a `MigrationSafeTranslation` string subclass so model field `verbose_name`, validator messages, and choice labels still resolve through the active Microsys translation catalog at runtime while Django migrations serialize a stable English-catalog/default value. This stops `makemigrations` from generating duplicate label-only `AlterField` migrations when the active language flips between Arabic and English, without forcing existing apps with plain-string migration history to create a one-time cleanup migration.
+- **Migration-Safe Runtime Translations**: Replaced the `django.utils.functional.lazy` return value from `dlux.translations.lazy_translator()` with a `MigrationSafeTranslation` string subclass so model field `verbose_name`, validator messages, and choice labels still resolve through the active Dlux translation catalog at runtime while Django migrations serialize a stable English-catalog/default value. This stops `makemigrations` from generating duplicate label-only `AlterField` migrations when the active language flips between Arabic and English, without forcing existing apps with plain-string migration history to create a one-time cleanup migration.
 
 ## v2.3.7
 
@@ -47,7 +47,7 @@ This file owns the release history for `django-microsys`.
 
 ### UI Fixes
 
-- **Adaptive Titlebar Brand (Title No Longer Overlaps Home / User-Hub)**: A long title used to spill over the home and user-hub buttons because the column heading sized the title to its full text width and nothing clipped it. The title is now capped to its column (`max-width: 100%`) so it truncates instead of overlapping, and the brand adapts as space tightens: the title is split into a system-name span and a ` - scope` suffix span, and a new `main/js/titlebar.js` drops the scope suffix first, then collapses an unreadably-narrow heading to logo-only, and exposes the full title on hover/focus via the shared `data-ms-tooltip` so nothing is lost. On screens ≤575.98px the user-hub trigger collapses to avatar-only (`.ms-trigger-name` hidden; the username still shows inside the dropdown) to reclaim titlebar width. Re-measures on resize, `load`, and `document.fonts.ready`.
+- **Adaptive Titlebar Brand (Title No Longer Overlaps Home / User-Hub)**: A long title used to spill over the home and user-hub buttons because the column heading sized the title to its full text width and nothing clipped it. The title is now capped to its column (`max-width: 100%`) so it truncates instead of overlapping, and the brand adapts as space tightens: the title is split into a system-name span and a ` - scope` suffix span, and a new `main/js/titlebar.js` drops the scope suffix first, then collapses an unreadably-narrow heading to logo-only, and exposes the full title on hover/focus via the shared `data-dl-tooltip` so nothing is lost. On screens ≤575.98px the user-hub trigger collapses to avatar-only (`.dl-trigger-name` hidden; the username still shows inside the dropdown) to reclaim titlebar width. Re-measures on resize, `load`, and `document.fonts.ready`.
 - **System Settings Theme Matrix Clarity**: The theme allowlist matrix no longer renders a redundant unclickable check-circle indicator or visible theme-name text in each card. The selected default is communicated through the active card and preview-ring styling, the large preview circle sets the default theme, and the rest of the card plus the checkbox toggle whether that theme is allowed.
 
 ## v2.3.6
@@ -63,11 +63,11 @@ This file owns the release history for `django-microsys`.
 - **Deterministic Setup Wizard Restore**: `base.html` now loads `system_setup.js` before the generic wizard helper, and the wizard calls `window.__msPrepareWizardContainer()` before binding so imported setup state, validation markers, and the first invalid step are resolved before the first wizard render instead of being visually hidden and corrected afterward.
 - **Persistent SMTP Setup Notices**: Imported encrypted-DB SMTP warnings and the server-rendered email-service info alert both opt out of global alert auto-close while import warnings are recreated after reloads, server validation rerenders, and email-field visibility syncs.
 - **Alert Auto-Close Documentation**: `docs/reference.md` now documents the global `.alert` auto-close behavior in `base_runtime.js` and the supported `data-autoclose="false"` opt-out for actionable validation/setup notices.
-- **Project-Scoped Setup Export Filename**: The System Settings export view now downloads as `microsys-{project-slug}-{YYYY-MM-DD}.json`. The slug resolves from the deployed `BASE_DIR` folder name — skipping generic container work-dir names (`app`, `src`, `code`, `web`, …) — then the configured English system name (`normalize_system_names(...)['en']`) when set, then the literal `project`. The fictional `settings.MICROSYS_PROJECT_NAME` lookup and the `SETTINGS_MODULE`/`ROOT_URLCONF` module-root guesses were dropped, and the already-loaded `SystemSettings` instance is threaded through to avoid a second DB read.
+- **Project-Scoped Setup Export Filename**: The System Settings export view now downloads as `dlux-{project-slug}-{YYYY-MM-DD}.json`. The slug resolves from the deployed `BASE_DIR` folder name — skipping generic container work-dir names (`app`, `src`, `code`, `web`, …) — then the configured English system name (`normalize_system_names(...)['en']`) when set, then the literal `project`. The fictional `settings.DLUX_PROJECT_NAME` lookup and the `SETTINGS_MODULE`/`ROOT_URLCONF` module-root guesses were dropped, and the already-loaded `SystemSettings` instance is threaded through to avoid a second DB read.
 
 ### UI Fixes
 
-- **Shared Tooltip Flicker And Placement**: The Microsys tooltip helper (`helpers/tooltip/js/main.js`) no longer flashes at the top-left corner when the pointer moves quickly between targets — `showTooltip()` stopped resetting the still-visible tooltip to `(0,0)` before repositioning, so it is now only revealed once placed. `preferredPlacement()` also dropped the coarse 180/96/120px distance thresholds that forced a side placement when a target was merely within 180px of an edge; placement is decided by a placement-aware overflow check that treats cross-axis overflow as clampable, so tooltips stay on top (sliding to fit) unless the anchoring axis genuinely has no room.
+- **Shared Tooltip Flicker And Placement**: The Dlux tooltip helper (`helpers/tooltip/js/main.js`) no longer flashes at the top-left corner when the pointer moves quickly between targets — `showTooltip()` stopped resetting the still-visible tooltip to `(0,0)` before repositioning, so it is now only revealed once placed. `preferredPlacement()` also dropped the coarse 180/96/120px distance thresholds that forced a side placement when a target was merely within 180px of an edge; placement is decided by a placement-aware overflow check that treats cross-axis overflow as clampable, so tooltips stay on top (sliding to fit) unless the anchoring axis genuinely has no room.
 
 ## v2.3.5
 
@@ -78,7 +78,7 @@ This file owns the release history for `django-microsys`.
 - **Fuller Docker build/runtime deps**: `Dockerfile.tmpl` adds `libffi-dev`, `libssl-dev`, `libjpeg-dev`, `zlib1g-dev`, `postgresql-client`, and `tzdata` (Pillow/crypto build prerequisites, `pg_dump`/`psql` for backups, and timezone data) alongside the existing `netcat-openbsd`/`curl`.
 - **SMTP relay runs as a module**: the `smtp-relay` service starts via `python -m tools.smtp_relay` and no longer bind-mounts the project source read-only (`restart: always`), so it relies on the built image.
 - **Dev compose**: the dev `nginx` port and `BASE_URL`/`NGINX_PORT` move to `90` (avoiding the common `:81` clash), and the `web` service now mounts `./logs` (rw) and `./imports` (ro).
-- **Requirements**: `requirements.txt.tmpl` adds `django-celery-beat` (scheduled tasks) and drops `openpyxl`, which is already pulled in transitively by `django-microsys`.
+- **Requirements**: `requirements.txt.tmpl` adds `django-celery-beat` (scheduled tasks) and drops `openpyxl`, which is already pulled in transitively by `django-lux`.
 - **Ignore files & helper scripts**: `.dockerignore`/`.gitignore` add `backups/`, `.claude/`, `.codex`, collapse `celerybeat-*`, and exclude `tracker.md` from the image; `start.sh`/`start.ps1` switch the helper image from `debeski/decrypter:compose` to `debeski/composer:latest`, and `start.sh` only adds `-it` to `docker run` when a TTY is attached (so it works in CI/non-interactive shells).
 
 ## v2.3.4
@@ -87,23 +87,23 @@ This file owns the release history for `django-microsys`.
 
 - **Login page settings now import**: The wizard's client-side importer (`applyImportedSetupSettings` in `system_setup.js`) never populated `login_config`. It now restores login layout `style`, `show_logo`, `banner_color`, `logo_treatment` + `logo_treatment_shape`, and per-language `hero_message` fields from an imported setup file, with a matching server-side fallback in `SystemSettingsForm._apply_imported_settings` for the no-JS path.
 - **Registration activation mode now imports**: `registration_activation_mode` was missing from the importer's field list, so it always reverted to `auto_login_after_verify`. It is now applied alongside the existing `public_registration_enabled` toggle.
-- **Choice-selector double-selection fixed**: `setNamedFieldValue` flipped a radio's `.checked` without dispatching `change`, so `MicrosysChoiceSelectorWidget` toggles (default language, titlebar title-align/size, titlebar + login logo treatment) kept the previously-selected card highlighted alongside the imported one. It now fires `change` so the selector re-syncs, and `rebuildLanguageCatalog` dispatches `change` so an auto-selected first language can't stay highlighted next to the imported default.
+- **Choice-selector double-selection fixed**: `setNamedFieldValue` flipped a radio's `.checked` without dispatching `change`, so `DluxChoiceSelectorWidget` toggles (default language, titlebar title-align/size, titlebar + login logo treatment) kept the previously-selected card highlighted alongside the imported one. It now fires `change` so the selector re-syncs, and `rebuildLanguageCatalog` dispatches `change` so an auto-selected first language can't stay highlighted next to the imported default.
 - **SMTP secret re-entry is now surfaced**: Exports redact the SMTP password. When an imported `encrypted_db` config reports `password_configured` but carries no secret, the wizard flags the password field, shows a translated notice (`system_setup_import_needs_email_password`), and suppresses the instant "Finish setup" CTA until the password is re-entered — instead of silently failing email validation on finish and dropping the imported values.
 
 ### MSRP-1 Compliance
 
-- **Removed runtime inline styles**: The login / public-auth banner colour moved from an inline `style="--login-banner-color: …"` attribute to a `data-login-banner-color` bridge applied via `setProperty` in `users/js/login.js`, with `login.css` selecting `.right[data-login-banner-color]`. The signed-out interstitial moved its inline styles to `.ms-session-ended__card` / `.ms-session-ended__icon` classes in `main.css` and now resolves all copy through the translation framework (no hardcoded literals). Templates carry no inline `style=` attributes, executable inline `<script>`, or event-handler attributes; the only remaining `<style>` is the nonce-protected dynamic-fonts block, and the only inline `<script>` blocks are `type="application/json"` data bridges.
+- **Removed runtime inline styles**: The login / public-auth banner colour moved from an inline `style="--login-banner-color: …"` attribute to a `data-login-banner-color` bridge applied via `setProperty` in `users/js/login.js`, with `login.css` selecting `.right[data-login-banner-color]`. The signed-out interstitial moved its inline styles to `.dl-session-ended__card` / `.dl-session-ended__icon` classes in `main.css` and now resolves all copy through the translation framework (no hardcoded literals). Templates carry no inline `style=` attributes, executable inline `<script>`, or event-handler attributes; the only remaining `<style>` is the nonce-protected dynamic-fonts block, and the only inline `<script>` blocks are `type="application/json"` data bridges.
 
 ## v2.3.3
 
 ### Public Registration UI
 
-- **Registration screen now follows the configured login style**: Public registration, email-sent, and verification-result pages now reuse the Microsys login shell instead of rendering as plain centered forms. They inherit the active login layout (`split`, `centered`, `minimal`, or `fullpage`), logo visibility/treatment, banner color, language switcher, hero text, themes, and Microsys translations.
-- **Form polish and sizing**: Registration fields now use the Microsys login input styling, tighter vertical spacing, translated user-field labels, RTL-aware back navigation, and layout-specific sizing so the longer signup form stays inside the card across the default split, centered, minimal, and full-page login styles.
+- **Registration screen now follows the configured login style**: Public registration, email-sent, and verification-result pages now reuse the Dlux login shell instead of rendering as plain centered forms. They inherit the active login layout (`split`, `centered`, `minimal`, or `fullpage`), logo visibility/treatment, banner color, language switcher, hero text, themes, and Dlux translations.
+- **Form polish and sizing**: Registration fields now use the Dlux login input styling, tighter vertical spacing, translated user-field labels, RTL-aware back navigation, and layout-specific sizing so the longer signup form stays inside the card across the default split, centered, minimal, and full-page login styles.
 
 ### Login Page Fixes
 
-- **Default split layout with signup link**: When public registration is enabled, the default split login card now gets a dedicated `ms-login-has-register` state so the create-account link stays inside the card instead of clipping below the bounds.
+- **Default split layout with signup link**: When public registration is enabled, the default split login card now gets a dedicated `dl-login-has-register` state so the create-account link stays inside the card instead of clipping below the bounds.
 - **Login logo treatment `none` respected**: The login logo no longer receives the adaptive frosted plate/background when System Settings selects the `none` treatment. Plate, halo, and contrast treatments remain available when explicitly selected.
 
 ## v2.3.2
@@ -117,7 +117,7 @@ This file owns the release history for `django-microsys`.
 ### Signed-out Interstitial
 
 - **"You were signed out" page**: A device whose session was force-ended — by single-session eviction or a remote "sign out this device" — is now sent to a dedicated interstitial (`/accounts/session-ended/`) on its next request instead of being silently bounced to the login form. It is a deliberate dead-end with a single **Home** button, which resolves to the login page when the public home is disabled. Messages distinguish "signed in elsewhere" from "signed out remotely" (AR/EN).
-- **Detection**: Force-ended sessions are recorded as a short-lived, hashed-key cache flag (TTL follows `SESSION_COOKIE_AGE`); `MicrosysMiddleware` consumes the flag one-shot for anonymous GETs carrying the stale session cookie and redirects to the interstitial. Best-effort and dependency-light — with no shared cache it simply degrades to the previous redirect-to-login behaviour. Also fixed a prefix check that treated a root (`/`) `MEDIA_URL`/`STATIC_URL` as matching every path.
+- **Detection**: Force-ended sessions are recorded as a short-lived, hashed-key cache flag (TTL follows `SESSION_COOKIE_AGE`); `DluxMiddleware` consumes the flag one-shot for anonymous GETs carrying the stale session cookie and redirects to the interstitial. Best-effort and dependency-light — with no shared cache it simply degrades to the previous redirect-to-login behaviour. Also fixed a prefix check that treated a root (`/`) `MEDIA_URL`/`STATIC_URL` as matching every path.
 
 ## v2.3.1
 
@@ -151,7 +151,7 @@ This file owns the release history for `django-microsys`.
 ### Login Page (new System Settings step)
 
 - **Step 4 "Login Page"**: A dedicated wizard step (between Access & Security and Sidebar; all later steps renumbered, total now eight) configuring the public login screen. Settings persist to the new `SystemSettings.login_config` JSON field (migration `0010_systemsettings_login_config`).
-- **Four layout styles**: **Split** (default two-panel card + banner), **Centered** (single centred card, logo above the form), **Minimal** (floating card on a gradient, banner hidden), and **Full-page split** (true 50/50 — hero message on the start half, form on the end half). The active style is applied as a `ms-login--{style}` class; all layouts live in `login.css`.
+- **Four layout styles**: **Split** (default two-panel card + banner), **Centered** (single centred card, logo above the form), **Minimal** (floating card on a gradient, banner hidden), and **Full-page split** (true 50/50 — hero message on the start half, form on the end half). The active style is applied as a `dl-login--{style}` class; all layouts live in `login.css`.
 - **Per-language Markdown hero message**: Full-page split shows an admin-authored hero message beside the form, with one textarea per configured language and a placeholder. Rendered client-side by a dependency-free Markdown converter supporting headings, bold/italic (`*`/`_`), `~~strikethrough~~`, inline `code`, links, and lists.
 - **Show Logo toggle**: A single switch hides/shows the logo across every login style. In full-page split the logo sits centered above the form.
 - **Adaptive frosted-plate logo**: The login logo frame is now a premium near-white frosted plate that gives any logo (dark or multi-colour) a clean, high-contrast surface that pops on dark themes and reads subtly on light ones — fixing the previous low-tier look in dark modes. Logo treatments (`none` / `plate` / `halo` / `contrast`, with plate shape) are now chosen via the same visual selector cards as the titlebar, with `halo` glowing the plate.
@@ -168,12 +168,12 @@ This file owns the release history for `django-microsys`.
 
 - **Responsive sizing**: Centered `modal-xl` at ≥1200px, full-screen below 1200px — far more usable on laptops and split-screen setups.
 - **Sticky header + footer, scrolling body** (`modal-dialog-scrollable`): The title/close row and the action bar stay pinned while only the content scrolls, with a themed thin scrollbar and compact spacing/dividers.
-- **Action-bar relocation**: The standard action bar (`.microsys-form-actions` / `.ms-setup-wizard-actions` / `.ms-modal-form-actions`) is automatically moved into the pinned footer, with form association preserved via the `form=` attribute so submit interception, cancel/back listeners, and validation re-renders all keep working. Multi-step wizard bars (with prev/next) are intentionally left in place for the wizard controller, and table/detail/dev-custom views keep a hidden footer — a safe, non-breaking degrade across the component's many reuse scenarios.
-- **Dev opt-in footer pinning**: Custom modal templates and options views can mark any button container with `data-ms-modal-footer` to have it pinned into the sticky footer (takes priority over the built-in bars; submit buttons auto-associated via `form=`).
+- **Action-bar relocation**: The standard action bar (`.dlux-form-actions` / `.dl-setup-wizard-actions` / `.dl-modal-form-actions`) is automatically moved into the pinned footer, with form association preserved via the `form=` attribute so submit interception, cancel/back listeners, and validation re-renders all keep working. Multi-step wizard bars (with prev/next) are intentionally left in place for the wizard controller, and table/detail/dev-custom views keep a hidden footer — a safe, non-breaking degrade across the component's many reuse scenarios.
+- **Dev opt-in footer pinning**: Custom modal templates and options views can mark any button container with `data-dl-modal-footer` to have it pinned into the sticky footer (takes priority over the built-in bars; submit buttons auto-associated via `form=`).
 
 ### UI Fixes
 
-- **Choice selector columns**: The toggle-style choice selector (`MicrosysChoiceSelectorWidget`) now sizes its grid to the actual option count instead of a hard cap of 3, with responsive caps at smaller widths — so 4-option groups (e.g. login styles) render evenly.
+- **Choice selector columns**: The toggle-style choice selector (`DluxChoiceSelectorWidget`) now sizes its grid to the actual option count instead of a hard cap of 3, with responsive caps at smaller widths — so 4-option groups (e.g. login styles) render evenly.
 - **Settings step clamp**: Extended the single-step modal whitelist to include step 7, fixing the System Settings "Themes & Typography" tile that previously opened step 1.
 - **Toggle label wrapping**: Removed `container-type: inline-size` from the settings toggle field, which in narrow flex columns collapsed the field and broke the label one character per line.
 - **Duplicate hero label**: Removed a redundant manual `<label>` on the per-language hero fields so only the accessible crispy label renders.
@@ -181,15 +181,15 @@ This file owns the release history for `django-microsys`.
 ### Internal
 
 - **New field & migration**: `SystemSettings.login_config` (JSON) plus `normalize_login_config()` / `default_login_config()` helpers, wired through `get_system_config()` and the settings export/import payload.
-- **Dependencies**: No new packages required. New features use Django's built-in ORM (`Exists`, `OuterRef`), CSS custom properties, and existing Microsys helpers.
+- **Dependencies**: No new packages required. New features use Django's built-in ORM (`Exists`, `OuterRef`), CSS custom properties, and existing Dlux helpers.
 
 ## v2.2.12
 
-- **Supervisor Reports Overview**: Added `/sys/reports/` — a staff-only activity overview showing current-week total, previous-week total, delta, all-time total, average entries per active day, average entries per user, and breakdowns by user, model, action, and day. Accessible from a new Reports icon in the Microsys user-hub staff toolbar (shown only when the requesting user holds `microsys.view_reports`). Drill-down buttons open the existing per-user report modal for any visible user directly from the overview.
+- **Supervisor Reports Overview**: Added `/sys/reports/` — a staff-only activity overview showing current-week total, previous-week total, delta, all-time total, average entries per active day, average entries per user, and breakdowns by user, model, action, and day. Accessible from a new Reports icon in the Dlux user-hub staff toolbar (shown only when the requesting user holds `dlux.view_reports`). Drill-down buttons open the existing per-user report modal for any visible user directly from the overview.
 - **Reports XLSX Export**: `/sys/reports/export.xlsx?window=week|month|all` exports the full overview — summary stats, user/model/action/day breakdowns, and up to 1 000 recent log rows — as a multi-sheet workbook. The selected window is forwarded through filter parameters so the export always matches what the staff user sees on screen.
-- **Backup ZIP**: `/sys/reports/backup.zip` produces a scope-filtered archive containing a `manifest.json`, per-model serialized JSON for every report-eligible model, and all referenced `FileField`/`ImageField` files. Model discovery is fully dynamic — no host-project model names are hardcoded. Missing files are recorded in the manifest rather than aborting the export. Requires the separate `microsys.download_backup` permission and logs an `EXPORT` activity entry.
-- **Report Permissions**: Added `microsys.view_reports` (supervisor reporting surfaces) and `microsys.download_backup` (backup ZIP) to `Profile.Meta.permissions` with a dedicated migration (`0009_report_permissions`). Superusers pass both checks implicitly; staff users need each permission explicitly. Scope filtering follows existing Microsys tier behavior: scoped staff see their scope, central staff see scopeless, global staff and superusers see all.
-- **Dynamic Report-Eligible Model Resolver**: `microsys/reports.py` ships a reusable resolver that includes `is_section=True` models and host-project managed models while excluding Django/Microsys operational internals (auth, sessions, presence sessions, known/trusted devices, OTP, system settings, and related infrastructure). Host projects can override include/exclude rules via `MICROSYS_CONFIG["reports"]` without touching package code.
+- **Backup ZIP**: `/sys/reports/backup.zip` produces a scope-filtered archive containing a `manifest.json`, per-model serialized JSON for every report-eligible model, and all referenced `FileField`/`ImageField` files. Model discovery is fully dynamic — no host-project model names are hardcoded. Missing files are recorded in the manifest rather than aborting the export. Requires the separate `dlux.download_backup` permission and logs an `EXPORT` activity entry.
+- **Report Permissions**: Added `dlux.view_reports` (supervisor reporting surfaces) and `dlux.download_backup` (backup ZIP) to `Profile.Meta.permissions` with a dedicated migration (`0009_report_permissions`). Superusers pass both checks implicitly; staff users need each permission explicitly. Scope filtering follows existing Dlux tier behavior: scoped staff see their scope, central staff see scopeless, global staff and superusers see all.
+- **Dynamic Report-Eligible Model Resolver**: `dlux/reports.py` ships a reusable resolver that includes `is_section=True` models and host-project managed models while excluding Django/Dlux operational internals (auth, sessions, presence sessions, known/trusted devices, OTP, system settings, and related infrastructure). Host projects can override include/exclude rules via `DLUX_CONFIG["reports"]` without touching package code.
 - **Per-User Report Window Filtering**: `build_user_report()` now accepts `actor` and `window` parameters. Activity breakdowns and counts filter to report-eligible entries only, routing operational noise (login events, device tracking, presence sessions, settings changes) out of "entries" counts. XLSX export at `/sys/users/<pk>/report.xlsx?window=week|month|all` now exports only the selected window's rows; the filename includes the window name.
 - **Profile Activity Classification**: Operational-model activity (presence, auth, device, settings) is routed to a `system_interactions` context key on the Profile page instead of `recent_activity`, keeping the profile timeline focused on meaningful user-generated work.
 - **Test Coverage And Fixes**: Added tests for the reports overview permission gate, operational model filtering in per-user reports, window-aware XLSX export, and the backup ZIP permission split. Fixed three pre-existing test regressions — modal signal-logging tests now mock `remember_request_presence` to isolate Scope-level signals from middleware presence-tracking saves, and the activity-log pagination assertion derives its expected count from the live paginator total rather than a pre-request snapshot.
@@ -212,9 +212,9 @@ This file owns the release history for `django-microsys`.
 
 ## v2.2.8
 
-- **Fix (MicrosysChoiceSelectorWidget — Toggle)**: Removed Bootstrap utility classes (`rounded border shadow-sm p-2 mb-1`) from the toggle surface HTML to eliminate `!important` specificity conflicts; replaced `var(--bs-light)` inactive background with a microsys glass gradient (primal radial + white linear + inset highlight); active/checked state uses a pronounced primary-tinted gradient with primary-colored surface text, caption label, and a dual-shadow ring; `:focus-visible` scoped to `:not(:checked)` and switched to `outline` for both toggle and card/chip variants, eliminating the persistent blue-fill illusion after mouse-click unchecking in Chrome/Edge. `dark.css` given `lang-option` rules (was falling back to white `var(--bs-light)` surface); `mono.css` active state replaced with a `#dde4ee → #c8d4e0` gradient giving unambiguous three-state distinction on a grayscale palette.
-- **Fix (ms-settings-toggle-field)**: Overrode Bootstrap form-switch `:focus`/`:focus-visible` in `system_setup.css` — zeroed `box-shadow`, neutralized `border-color`, and replaced the blue-thumb SVG (`fill='#86b7fe'`) with the neutral dark-thumb SVG for unchecked+focused state; `checked:focus` restores the white thumb. Added `ms-settings-toggle-field` background/border overrides to `dark.css`, `gothic.css`, and `retro.css` to prevent `bg-light` from rendering a white card on dark pages.
-- **Fix (Retro Theme — Forms)**: Added `archive-form-action`/`microsys-form-action` button overrides and full `archive-file-card` widget overrides to `retro.css` using the amber/dark-panel palette — dark gradient surfaces, amber borders and tool icons, warm-green primary save icon, crimson neutral cancel.
+- **Fix (DluxChoiceSelectorWidget — Toggle)**: Removed Bootstrap utility classes (`rounded border shadow-sm p-2 mb-1`) from the toggle surface HTML to eliminate `!important` specificity conflicts; replaced `var(--bs-light)` inactive background with a dlux glass gradient (primal radial + white linear + inset highlight); active/checked state uses a pronounced primary-tinted gradient with primary-colored surface text, caption label, and a dual-shadow ring; `:focus-visible` scoped to `:not(:checked)` and switched to `outline` for both toggle and card/chip variants, eliminating the persistent blue-fill illusion after mouse-click unchecking in Chrome/Edge. `dark.css` given `lang-option` rules (was falling back to white `var(--bs-light)` surface); `mono.css` active state replaced with a `#dde4ee → #c8d4e0` gradient giving unambiguous three-state distinction on a grayscale palette.
+- **Fix (dl-settings-toggle-field)**: Overrode Bootstrap form-switch `:focus`/`:focus-visible` in `system_setup.css` — zeroed `box-shadow`, neutralized `border-color`, and replaced the blue-thumb SVG (`fill='#86b7fe'`) with the neutral dark-thumb SVG for unchecked+focused state; `checked:focus` restores the white thumb. Added `dl-settings-toggle-field` background/border overrides to `dark.css`, `gothic.css`, and `retro.css` to prevent `bg-light` from rendering a white card on dark pages.
+- **Fix (Retro Theme — Forms)**: Added `archive-form-action`/`dlux-form-action` button overrides and full `archive-file-card` widget overrides to `retro.css` using the amber/dark-panel palette — dark gradient surfaces, amber borders and tool icons, warm-green primary save icon, crimson neutral cancel.
 - **Repository Governance Docs**: Added root `SECURITY.md`, `CONTRIBUTING.md`, and `CODE_OF_CONDUCT.md` covering private vulnerability reporting, mandatory MSRP-1 compliance, contribution guidance, and maintainer contact paths.
 
 ## v2.2.7
@@ -224,36 +224,36 @@ This file owns the release history for `django-microsys`.
 - **User Permission Form Query Reduction**: Replaced duplicated user/group permission queryset unions in user creation and permission-edit forms with a private per-user assignable-permission id helper reused across form instances.
 - **Performance Regression Coverage**: Added focused tests for user-list relation access, activity-log relation access, sidebar render-base cache reuse without stale active state, and user-permission cache separation.
 - **Dynamic Modal Loading Fallback**: Refined `dynamic_modal/js/main.js` loading behavior to keep real previous modal content as the sizing fallback when available, ignore empty template comments, cover fallback content with a theme-aware loading overlay, and use a self-contained default skeleton only for first/empty modal loads while preserving the existing AJAX modal contract.
-- **Prism And Aether Theme Surface Coverage**: Added Prism/Aether overrides for Microsys-owned `.archive-file-*` upload widgets and titlebar logo treatment surfaces, and extended `options.css` System Settings action tile overrides to Aether.
-- **Aether Theme Picker Surface**: Added the missing shared `.ms-theme-preview--aether` swatch in `template_cleanup.css` and bumped the base template asset version so Aether appears with a proper surface in System Settings and sidebar theme pickers.
-- **Mono Theme Picker Surface**: Updated the shared `.ms-theme-preview--mono` swatch to a clean diagonal split between white and light monochrome gray, making Mono visually distinct from the darker Prism picker surface without making it read as a dark theme.
+- **Prism And Aether Theme Surface Coverage**: Added Prism/Aether overrides for Dlux-owned `.archive-file-*` upload widgets and titlebar logo treatment surfaces, and extended `options.css` System Settings action tile overrides to Aether.
+- **Aether Theme Picker Surface**: Added the missing shared `.dl-theme-preview--aether` swatch in `template_cleanup.css` and bumped the base template asset version so Aether appears with a proper surface in System Settings and sidebar theme pickers.
+- **Mono Theme Picker Surface**: Updated the shared `.dl-theme-preview--mono` swatch to a clean diagonal split between white and light monochrome gray, making Mono visually distinct from the darker Prism picker surface without making it read as a dark theme.
 
 ## v2.2.6
 
 - **User Existence Report**: Added a permission-gated User Report dynamic modal with print/PDF-friendly layout and XLSX export. The report summarizes identity/status, staff tier, activity counts, recent logs, device/network history, browser/OS observations, trusted-device context, request counts, and estimated active time.
-- **Durable Device And Presence History**: Added DB-backed `UserKnownDevice` and `UserPresenceSession` history. Microsys now records forward-looking known-device and presence-session data using a signed neutral `microsys_device_id` cookie stored only as a hash, while continuing to use Django sessions for authentication and `TrustedDevice` for 2FA trust/security decisions. IP observations use the existing System Settings-aware `get_client_ip(request)` helper.
+- **Durable Device And Presence History**: Added DB-backed `UserKnownDevice` and `UserPresenceSession` history. Dlux now records forward-looking known-device and presence-session data using a signed neutral `dlux_device_id` cookie stored only as a hash, while continuing to use Django sessions for authentication and `TrustedDevice` for 2FA trust/security decisions. IP observations use the existing System Settings-aware `get_client_ip(request)` helper.
 - **Report Access And Export Hardening**: Added `user_can_view_user_report(...)` so User Reports require user-directory access, target-management access, and activity-log access. XLSX export normalizes timezone-aware values for Excel compatibility and avoids exposing raw session keys, device tokens, trusted-cookie tokens, or secrets.
 - **Titlebar Logo Treatments**: Added Step 6 logo treatment controls for titlebar branding, supporting unchanged, adaptive plate, halo, and contrast-assist modes with plate shape choices for better logo visibility across themes.
 - **License Update**: Updated the project license to be under `MIT license`.
 
 ## v2.2.5
 
-- **Trusted Session Precedence**: Added a Step 3 `Prevent multiple active sessions` security toggle, including DB migration, `MICROSYS_CONFIG`, setup import/export, and `microsys_settings` coverage. Trusted sessions can now be created from Profile through a current-password-confirmed `Trust This Device` action as well as from 2FA, a newly trusted session can force out all other sessions when the toggle is enabled, and untrusted sessions can no longer revoke trusted sessions from Profile.
-- **Trusted Device Helper Layer**: Centralized trusted-device cookies, token hashing, session metadata sync, trust lookup, trust issuance, linked trust revocation, and single-active-session enforcement in a shared `microsys.trust` module while keeping the existing 2FA helper entrypoints compatible.
+- **Trusted Session Precedence**: Added a Step 3 `Prevent multiple active sessions` security toggle, including DB migration, `DLUX_CONFIG`, setup import/export, and `dlux_settings` coverage. Trusted sessions can now be created from Profile through a current-password-confirmed `Trust This Device` action as well as from 2FA, a newly trusted session can force out all other sessions when the toggle is enabled, and untrusted sessions can no longer revoke trusted sessions from Profile.
+- **Trusted Device Helper Layer**: Centralized trusted-device cookies, token hashing, session metadata sync, trust lookup, trust issuance, linked trust revocation, and single-active-session enforcement in a shared `dlux.trust` module while keeping the existing 2FA helper entrypoints compatible.
 
 ## v2.2.4
 
-- **Optional Nav Bar**: Added a System Settings-owned authenticated Nav Bar with hierarchy and browser-session history styles, a visual hierarchy editor with translated manual nodes, an allowed Options style override, and a runtime `microsys_navbar_crumbs` hook for dynamic record or tab crumbs. Follow-up polish keeps one browser-session history trail with language-aware labels, hides Microsys system routes from the hierarchy builder, wraps system views under an unclickable `System` crumb, keeps URL-backed hierarchy crumbs clickable, avoids generic `index` leaf collisions with app index nodes, removes the Nav Bar background smudge, separates Nav Bar setup into its own Step 5 after Sidebar, and can seed an enabled empty first-launch Nav Bar tree from configured sidebar accordions.
+- **Optional Nav Bar**: Added a System Settings-owned authenticated Nav Bar with hierarchy and browser-session history styles, a visual hierarchy editor with translated manual nodes, an allowed Options style override, and a runtime `dlux_navbar_crumbs` hook for dynamic record or tab crumbs. Follow-up polish keeps one browser-session history trail with language-aware labels, hides Dlux system routes from the hierarchy builder, wraps system views under an unclickable `System` crumb, keeps URL-backed hierarchy crumbs clickable, avoids generic `index` leaf collisions with app index nodes, removes the Nav Bar background smudge, separates Nav Bar setup into its own Step 5 after Sidebar, and can seed an enabled empty first-launch Nav Bar tree from configured sidebar accordions.
 - **Theme Preview And Switching Polish**: Added a short fade veil for explicit theme changes, paused sidebar repaint during the swap, and allowed Step 7 / Appearance preview to temporarily load a disabled theme stylesheet without widening the runtime theme allowlist.
 - **Collapsed Sidebar Parent Alignment Fix**: Fixed Icons Only collapsed sidebars so folder/parent accordion rows stay centered, hidden labels do not linger during collapse, and redundant `flex-grow` behavior no longer pushes parent icons out of place.
 - **Sidebar Step 4 Preservation Fixes**: Stopped System Settings from destructively resetting stored sidebar child options when the parent sidebar toggle is off, kept the toolbar child toggle disabled with the sidebar without auto-unchecking it, and synced visible Step 4 sidebar behavior controls back into hidden `sidebar_config` state before save.
 - **Sidebar And Theme Polish**: Fixed sidebar active-state matching so exact child URLs win over parent prefix matches, softened Mono sidebar active highlights with inverted active icons, and aligned advanced-filter primary action icons with Mono, Gothic, and Retro button surfaces.
-- **Options System Settings Card Refresh**: Reworked the Options System Settings card into a compact tile grid with icons, translated titles, and Microsys tooltip descriptions for each settings area.
+- **Options System Settings Card Refresh**: Reworked the Options System Settings card into a compact tile grid with icons, translated titles, and Dlux tooltip descriptions for each settings area.
 - **Initial Setup Step Navigation**: Added a theme-aware, bullet-based step bar to the first-launch System Setup page so developers can jump between setup steps directly while keeping the existing wizard Next/Prev flow synchronized.
 - **Portable Setup Import/Export**: Expanded System Settings JSON import/export to include dynamic font settings and added one-time first-launch `BASE_DIR/config.json` bootstrapping, with a translated finish-from-import action in the setup UI.
-- **System Settings Management Command**: Added `microsys_settings` for dev/operator workflows around the singleton: status, configure/unconfigure, guarded delete/reset, and portable JSON export/import.
-- **Options And Profile Interaction Fixes**: Added pointer cursors for shared Microsys toggles, corrected Options card reorder handles to keep grab/grabbing cursors on the full handle surface, and kept Profile confirm-password modals open through server validation so wrong-password errors render inline instead of falling back to page messages.
-- **Profile Activity Classification Fix**: Routed virtual session-revoke activity rows into System Interactions instead of Recent Activity, keeping Profile timelines aligned with Microsys-owned security events.
+- **System Settings Management Command**: Added `dlux_settings` for dev/operator workflows around the singleton: status, configure/unconfigure, guarded delete/reset, and portable JSON export/import.
+- **Options And Profile Interaction Fixes**: Added pointer cursors for shared Dlux toggles, corrected Options card reorder handles to keep grab/grabbing cursors on the full handle surface, and kept Profile confirm-password modals open through server validation so wrong-password errors render inline instead of falling back to page messages.
+- **Profile Activity Classification Fix**: Routed virtual session-revoke activity rows into System Interactions instead of Recent Activity, keeping Profile timelines aligned with Dlux-owned security events.
 - **Release Metadata And Scaffold Follow-Up**: Added Django 6 classifiers to the main package and optional SSO package, updated generated nginx services to restart automatically in scaffolded `compose.yml`, and clarified Central Staff wording in the admin guide.
 
 ## v2.2.3
@@ -276,18 +276,18 @@ This file owns the release history for `django-microsys`.
 
 ## v2.2.0
 
-- **Dynamic Font Management System**: Implemented a centralized font registry in `microsys/fonts.py`, supporting local font hosting with automatic CSS variable injection (`--ms-main-font`) and FOUC prevention.
+- **Dynamic Font Management System**: Implemented a centralized font registry in `dlux/fonts.py`, supporting local font hosting with automatic CSS variable injection (`--dl-main-font`) and FOUC prevention.
 - **Typography Configuration**: Added system-wide controls for allowed fonts and language-specific default fonts, manageable through the new Appearance setup step.
 - **User Font Overrides**: Introduced a Typography card in the Options panel, allowing users to choose their preferred font from the system-approved allowlist.
 - **Appearance Wizard Restructuring**: Split the legacy Appearance step into Step 5 (UI & Layout: Tables and Titlebar) and Step 6 (Appearance: Themes and Typography) for better organizational clarity.
-- **Centralized Asset Management**: Consolidated all system fonts under `static/microsys/fonts/` with lowercase normalization for reliable cross-platform serving.
+- **Centralized Asset Management**: Consolidated all system fonts under `static/dlux/fonts/` with lowercase normalization for reliable cross-platform serving.
 
 ## v2.1.9
 
 - **Profile 2FA UX Fixes**: Added missing `enable` translation keys to resolve blank setup buttons and switched the verify script from `disabled` to `readOnly` to prevent OTP code stripping during form auto-submission.
 - **Staff Tier Badge Alignment**: Updated the user-detail modal to use shared staff-tier badge classes instead of raw Bootstrap colors, ensuring Global Staff badges remain legible in light themes.
 - **Activity Log Normalization**: Hardened the activity-log model-name translation helper to handle varied name formats (spaced/underscored/dotted) consistently before lookup.
-- **Translation-First Policy Enforcement**: Rewired recent 2FA, trusted-device, and client-IP UI copy through the Microsys translation framework, removing hardcoded English/Arabic literals from Python, templates, and JS.
+- **Translation-First Policy Enforcement**: Rewired recent 2FA, trusted-device, and client-IP UI copy through the Dlux translation framework, removing hardcoded English/Arabic literals from Python, templates, and JS.
 - **Regression Fixes**: Restored missing 2FA resend cooldown feedback and fixed the pre-setup middleware gate to properly block host-project root routes before configuration is complete.
 
 ## v2.1.8
@@ -303,26 +303,26 @@ This file owns the release history for `django-microsys`.
 
 - **Setup Language Preview Stability**: Prevented first-launch default-language preview from reloading the setup wizard, preserving already entered Step 1 names and selected logo/favicon files while still applying immediate language direction feedback.
 - **Default Language Persistence Fix**: Rehydrated the setup language catalog and system-name editor from the saved hidden form state after preview restores so the selected default language is not overwritten back to English before save/login cycles.
-- **Table Page Size Active State Fix**: Fixed Microsys-managed tables so inherited base `microsys_per_page` defaults no longer mask `?per_page=` request values, allowing Manage Users and Activity Log page-size chips to correctly show the selected option.
+- **Table Page Size Active State Fix**: Fixed Dlux-managed tables so inherited base `dlux_per_page` defaults no longer mask `?per_page=` request values, allowing Manage Users and Activity Log page-size chips to correctly show the selected option.
 
 ## v2.1.6
 
 - **Access & Security Routing Controls**: Moved the global `home_url` controls into Step 3 / Access & Security, added an optional split between authenticated Home and anonymous public-root destinations, and kept prior redirect behavior unchanged when the split is disabled.
 - **Public Root Runtime Alignment**: Root/login/logout redirect behavior and the anonymous public-home titlebar-hide rule now follow the optional anonymous public-root target instead of assuming all users share the same destination.
 - **Setup And Options Reliability**: Fixed setup/System Settings state restore so one modal step no longer overrides another after reloads, hardened public-root dependent-field visibility inside dynamic modal flows, and bumped setup asset versions for reliable browser refreshes.
-- **Translation And CSP Polish**: Added Microsys translation coverage for the new Access & Security section heading and Step 3 public-root controls, removed the remaining hardcoded Access & Security modal label fallback, and made the dynamic-modal loader script nonce-aware for stricter CSP deployments.
+- **Translation And CSP Polish**: Added Dlux translation coverage for the new Access & Security section heading and Step 3 public-root controls, removed the remaining hardcoded Access & Security modal label fallback, and made the dynamic-modal loader script nonce-aware for stricter CSP deployments.
 - **Options UI Polishing**: Restored the `bi-grip-vertical` icon for Options card drag handles and transitioned them from absolute positioning to in-flow layout to prevent overlapping with card icons and titles.
 - **Setup and Options Accessibility**: Reduced audit noise by adding missing stable IDs, names, and ARIA labels to Options switches and JS-driven setup editor controls.
 - **Documentation Refresh**: Updated the README, Features reference, admin guide, and MSRP-1 security standard to reflect the Step 3 routing split, the new focused System Settings modal entrypoint, and CSP-safe modal asset loading.
 
 ## v2.1.5
 
-- **Missing Root Redirect Fix**: Fixed an issue in `MicrosysMiddleware` where `_missing_root_redirect` improperly returned `None` instead of the original `HttpResponse` when allowing a public root request to proceed, which previously caused an `AttributeError: 'NoneType' object has no attribute 'status_code'` in subsequent middleware.
-- **Middleware Rename**: Renamed the core framework middleware from `ActivityLogMiddleware` to `MicrosysMiddleware` to better reflect its comprehensive responsibilities (thread-locals, setup guards, device tracking). A backward-compatibility alias `ActivityLogMiddleware = MicrosysMiddleware` ensures existing host projects will not break.
-- **Simplified Root URL Hijacking**: Replaced the complex `_is_root_mounted_microsys` URL introspection and auth-branching logic with a clean 404-based approach. If `/` returns a 404 (no dev view), microsys redirects to the configured `home_url`. If the dev has their own view at `/`, microsys stays out of the way. The `public_root` setting gates anonymous access: when off, anonymous users at `/` are sent to login instead of `home_url`.
+- **Missing Root Redirect Fix**: Fixed an issue in `DluxMiddleware` where `_missing_root_redirect` improperly returned `None` instead of the original `HttpResponse` when allowing a public root request to proceed, which previously caused an `AttributeError: 'NoneType' object has no attribute 'status_code'` in subsequent middleware.
+- **Middleware Rename**: Renamed the core framework middleware from `ActivityLogMiddleware` to `DluxMiddleware` to better reflect its comprehensive responsibilities (thread-locals, setup guards, device tracking). A backward-compatibility alias `ActivityLogMiddleware = DluxMiddleware` ensures existing host projects will not break.
+- **Simplified Root URL Hijacking**: Replaced the complex `_is_root_mounted_dlux` URL introspection and auth-branching logic with a clean 404-based approach. If `/` returns a 404 (no dev view), dlux redirects to the configured `home_url`. If the dev has their own view at `/`, dlux stays out of the way. The `public_root` setting gates anonymous access: when off, anonymous users at `/` are sent to login instead of `home_url`.
 - **Dynamic Auth Redirects**: `LOGIN_REDIRECT_URL` is now dynamically synced to the configured `home_url`. `LOGOUT_REDIRECT_URL` respects `public_root` — when enabled, logout redirects to `home_url`; when disabled, logout redirects to the login page.
 - **Asset and Template Cleanup**: Performed a major cleanup of abandoned static assets and templates. Removed obsolete Plotly and Flatpickr libraries, deleted the abandoned dashboard implementation, and purged unreferenced CSS/JS files and redundant template helpers to reduce package weight and improve maintainability.
-- **Titlebar Login Button Theming**: Fixed the unauthenticated login trigger (`.ms-login-round`) to correctly inherit global titlebar shape rules and apply appropriate theme-specific styling for Dark, Gothic, Retro, and Neon modes.
+- **Titlebar Login Button Theming**: Fixed the unauthenticated login trigger (`.dl-login-round`) to correctly inherit global titlebar shape rules and apply appropriate theme-specific styling for Dark, Gothic, Retro, and Neon modes.
 - **Wizard Navigation Fix**: Hardened the shared wizard helper to properly manage Bootstrap `d-none` visibility during step transitions, ensuring later setup steps render correctly after navigation.
 
 ## v2.1.4
@@ -340,15 +340,15 @@ This file owns the release history for `django-microsys`.
 
 ## v2.1.1
 
-- **Packaging Hygiene Tightening**: Excluded `microsys.tests` from package discovery and pruned repository test modules plus Python cache artifacts (`__pycache__`, `.pyc`, `.pyo`) from published `wheel` and `sdist` distributions so the release payload stays focused on runtime code and shipped assets.
+- **Packaging Hygiene Tightening**: Excluded `dlux.tests` from package discovery and pruned repository test modules plus Python cache artifacts (`__pycache__`, `.pyc`, `.pyo`) from published `wheel` and `sdist` distributions so the release payload stays focused on runtime code and shipped assets.
 - **MSRP-1 Policy Clarification**: Promoted the no-inline asset rule into the core MSRP-1 standard, explicitly documenting that runtime HTML should avoid inline CSS, inline `style=` attributes, and executable inline JavaScript unless there is a documented unavoidable need.
 - **Documentation And Release Organization**: Aligned the live docs/release metadata around the `2.1.1` patch line by keeping the security-policy source explicit, preserving the layered docs structure, and recording the packaging/security policy changes in the release history.
 
 ## v2.1.0
 
-- **Public Registration And Email Delivery Release**: Finalized the core public registration playground together with the UI-first Microsys email delivery system. Delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`) are now first-class runtime settings, and generated Docker projects use the internal `smtp-relay` sidecar pattern for UI-managed upstream SMTP delivery.
+- **Public Registration And Email Delivery Release**: Finalized the core public registration playground together with the UI-first Dlux email delivery system. Delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`) are now first-class runtime settings, and generated Docker projects use the internal `smtp-relay` sidecar pattern for UI-managed upstream SMTP delivery.
 - **Security And 2FA Hardening**: Unified login 2FA challenges across authenticator codes, requested email OTPs, and backup codes; encrypted TOTP secrets at rest; hashed backup codes at rest; enforced POST-only 2FA mutators; added current-password confirmation for destructive profile security actions; and hardened TOTP setup to return sanitized JSON instead of raw 500 pages when provisioning or secret persistence fails.
-- **System Settings And Setup UX Refresh**: Expanded setup/System Settings with shared toggle-card rendering across steps, explicit gating for registration-dependent controls, custom Microsys file widgets for import/logo/favicon, responsive toggle-card layout fixes, and improved setup/options parity for the email, sidebar, titlebar, theme, and language surfaces.
+- **System Settings And Setup UX Refresh**: Expanded setup/System Settings with shared toggle-card rendering across steps, explicit gating for registration-dependent controls, custom Dlux file widgets for import/logo/favicon, responsive toggle-card layout fixes, and improved setup/options parity for the email, sidebar, titlebar, theme, and language surfaces.
 - **Options And Profile UX Refresh**: Reworked Options onto shared external CSS/JS assets, merged the new visual card language across the page, restored Autofill and Reset Defaults as standalone cards, added draggable persisted card ordering with a double-width System Info card, exposed signed-in device management in profile, and improved user-hub mobile toolbar behavior on small screens.
 - **Template Asset Policy Cleanup**: Removed inline template CSS and executable inline JS across the shipped HTML surfaces, moved behavior into shared static assets, switched theme preview swatches to shared CSS classes, and added regression coverage so the framework stays CSP-friendly by default.
 - **Packaging And Dependency Baseline**: The `2.1.0` package declares the runtime dependencies the shipped features require, including `pyotp`, `qrcode`, `psutil`, and `cryptography`. `cryptography` is required for encrypted TOTP secrets and UI-managed encrypted SMTP secrets.
@@ -364,15 +364,15 @@ This file owns the release history for `django-microsys`.
 
 ## v2.1.0b0
 
-- **Public Registration Playground**: Added core public registration feature (disabled by default) with email-first signup, verification tokens, activation modes (`auto_login_after_verify` and `verified_pending_approval`), and superuser approval/rejection workflows. Includes provenance badges on user profiles and integration with Microsys mail delivery configuration.
-- **Optional SSO v1 Scaffolding**: Implemented separate provider and client packages under `optional_packages/` as `django-microsys-sso` and `django-microsys-sso-client`. OIDC-only with cross-platform flat claims (`microsys_sso_role`, `microsys_sso_client_id`) for generic PHP/.NET/JS/Java/Go/mobile/desktop clients.
-- **Microsys Email Delivery Configuration**: Added `SystemSettings.email_config` with `env` and `encrypted_db` modes for SMTP configuration. Supports secure secret storage via `cryptography`, export/import redaction, and gates public registration and email 2FA on mail readiness.
+- **Public Registration Playground**: Added core public registration feature (disabled by default) with email-first signup, verification tokens, activation modes (`auto_login_after_verify` and `verified_pending_approval`), and superuser approval/rejection workflows. Includes provenance badges on user profiles and integration with Dlux mail delivery configuration.
+- **Optional SSO v1 Scaffolding**: Implemented separate provider and client packages under `optional_packages/` as `django-lux-sso` and `django-lux-sso-client`. OIDC-only with cross-platform flat claims (`dlux_sso_role`, `dlux_sso_client_id`) for generic PHP/.NET/JS/Java/Go/mobile/desktop clients.
+- **Dlux Email Delivery Configuration**: Added `SystemSettings.email_config` with `env` and `encrypted_db` modes for SMTP configuration. Supports secure secret storage via `cryptography`, export/import redaction, and gates public registration and email 2FA on mail readiness.
 - **Unified Login 2FA Challenge**: Consolidated TOTP, email OTP, and backup code entry into a single input field. Email OTP requires explicit user request to send; authenticator codes and backup codes work directly.
 - **Runtime Sidebar Controls**: Added `sidebar_config.enabled` to completely disable sidebar rendering and related UI controls. Added `sidebar_config.collapse_mode` with `locked_expanded` option that hides the desktop collapse toggle without reserving space.
 - **Signed-In Devices Management**: Added user profile view of active Django sessions (device, IP, last seen, expiry) with POST-only session revocation for non-current devices.
 - **Docker SMTP Relay**: Generated Docker projects now route email through an internal `smtp-relay` sidecar that joins both public and internal networks, keeping `web` and `celery` containers isolated while enabling upstream SMTP egress.
 - **Global Staff vs Central Staff Tiers**: Implemented `manage_scopes` permission to distinguish Global Staff (can manage scopes and all users) from Central Staff (scopeless-only user management). Added tier-based enforcement in user creation, editing, and queryset filtering.
-- **Table Platform Hardening**: Microsys-managed tables now respect `Meta.microsys_table`, `Meta.microsys_density`, `Meta.microsys_per_page`, `Meta.microsys_per_page_options`, and `Meta.microsys_actions`. Stock host tables auto-capture into the Microsys renderer with rounded corner clipping fixes.
+- **Table Platform Hardening**: Dlux-managed tables now respect `Meta.dlux_table`, `Meta.dlux_density`, `Meta.dlux_per_page`, `Meta.dlux_per_page_options`, and `Meta.dlux_actions`. Stock host tables auto-capture into the Dlux renderer with rounded corner clipping fixes.
 - **Options Security & UX**: Restricted diagnostics to superusers and Global Staff only. Fixed theme persistence without sidebar JS dependency. Modernized System Settings card styling with dark-theme action buttons and split-step modal save behavior.
 - **Security Hardening**: MSRP-1 enforcement for modal CRUD, sections, user management, activity log, and 2FA mutators. Backend backup codes now hashed at rest. POST-only enforcement for 2FA state changes.
 - **Theme & UI Polish**: Dark/retro/gothic/neon titlebar sidebar toggle transparency fixes. Non-primary button contrast improvements across all themes. Table card corner clipping fixes. Options and System Setup action button dark-theme styling.
@@ -392,8 +392,8 @@ This file owns the release history for `django-microsys`.
 
 - **REST-First ScanLink Helper**: Refactored the shared ScanLink browser helper around the loopback REST contract so form pages probe helper health, start a scan job, poll status, and fetch the finished PDF without depending on Socket.IO.
 - **Per-Button Scan State**: Reworked the scan button controller to track the active job per clicked file widget instead of broadcasting status changes across every `.scan-btn` on the page.
-- **Translation-Backed Scan Messaging**: Extended the shared file input template with localized scan labels and error strings so helper availability, busy state, cancellation, timeout, and scanner failures surface through the normal Microsys translation layer.
-- **Direct File-Field Injection Flow**: Kept ScanLink scanning aligned with the shared Microsys archive file widget by attaching the scanned PDF directly to the target `<input type="file">` and dispatching the standard change event.
+- **Translation-Backed Scan Messaging**: Extended the shared file input template with localized scan labels and error strings so helper availability, busy state, cancellation, timeout, and scanner failures surface through the normal Dlux translation layer.
+- **Direct File-Field Injection Flow**: Kept ScanLink scanning aligned with the shared Dlux archive file widget by attaching the scanned PDF directly to the target `<input type="file">` and dispatching the standard change event.
 - **Options Sidebar Authorization Fix**: Replaced the old Options-only internal token with `__ms_authenticated__`, aligning sidebar visibility with direct `/sys/options/` access for any authenticated user.
 
 ## v2.0.0
@@ -417,7 +417,7 @@ This file owns the release history for `django-microsys`.
 - **CRITICAL: Modal Form Parameter Fix**: Fixed `DynamicModalManagerView._get_form_kwargs()` which was passing `request` via `**kwargs` detection to forms. This caused `TypeError` in forms like `CustomUserCreationForm` that don't accept `request`. The fallback then stripped ALL kwargs including `user`, completely breaking permission filtering. Fixed by only passing `request` when explicitly named as a parameter (not via `**kwargs`).
 - **Section Manager Context Menu Fix**: Fixed the fallback navigation bug where clicking "view" on section manager entries redirected to `/${app}/${id}/` instead of opening the smart modal. Added `isSectionManagerActive()` detection to `main.js` fallback handlers so they bail out when `section_manager.js` is active.
 - **`manage_sections` Permission Integration**: Enhanced `filter_context_actions()` utility to properly respect `manage_sections` permission across all section-related context menu actions, ensuring consistent permission enforcement between server-side and client-side action filtering.
-- **Staff User Directory Authorization Fix**: Updated `user_can_view_user_directory()` to accept either `auth.view_user` OR `microsys.manage_staff` permission. Staff users granted via `manage_staff` permission can now access `/sys/users/` and see the manage users icon without requiring explicit `auth.view_user`.
+- **Staff User Directory Authorization Fix**: Updated `user_can_view_user_directory()` to accept either `auth.view_user` OR `dlux.manage_staff` permission. Staff users granted via `manage_staff` permission can now access `/sys/users/` and see the manage users icon without requiring explicit `auth.view_user`.
 - **Auto-Grant `view_user` Permission**: `CustomUserCreationForm` and `CustomUserPermissionsForm` now automatically grant `auth.view_user` permission when saving a user with `is_staff=True`, ensuring backward compatibility and reducing manual permission management.
 - **Translation Fallback Hardening**: Updated form help text fallbacks to use English strings instead of Arabic, ensuring consistent UX when translations are missing.
 
@@ -433,50 +433,50 @@ This file owns the release history for `django-microsys`.
 
 - **System Navigation Authorization Cleanup**: The sidebar discovery layer, user hub, and dashboard now follow the same helper-backed MSRP authorization rules for Users, Sections, and Activity Log instead of older `is_staff`/typo’d-permission checks.
 - **Legacy User Reset Route Alignment**: `/sys/reset_password/<pk>/` now requires `auth.change_user` and the same `can_manage_target_user()` staff/scope/superuser target checks as the hardened user-management modal flows, and its invalid-form fallback no longer redirects to the removed `edit_user` route.
-- **Explicit Activity-Log Authorization**: The activity-log list/detail views now require the explicit `microsys.view_activitylog` permission (with a temporary legacy alias check) instead of granting access to every staff user by default.
+- **Explicit Activity-Log Authorization**: The activity-log list/detail views now require the explicit `dlux.view_activitylog` permission (with a temporary legacy alias check) instead of granting access to every staff user by default.
 - **Scope View Authorization Cleanup**: The older scope-management AJAX endpoints now fail with `403` for non-superusers instead of redirecting, and the superuser-only manager stays reachable even when scopes are currently disabled.
 - **2FA State-Handling Rehab**: Converted 2FA mutators and resend flows to POST-only, switched backup codes to hashed-at-rest storage with legacy in-place migration, validated post-OTP redirects against allowed hosts, and removed secret-leaking debug prints from the 2FA flow.
 - **Autofill/API Exposure Reduction**: Stopped autofill/detail APIs from expanding reverse OneToOne relations such as `user.profile`, and routed those reads through the model default manager so scoped query behavior is preserved automatically.
 
 ## v1.87.0b0 *all versions past this are not backwards compatible*
 
-- **Table Meta Contract Repair**: Fixed the `django_tables2` patch layer so host tables again honor `Meta`-level `microsys_table`, `microsys_density`, `microsys_per_page`, and `microsys_actions` settings instead of accidentally reading only the runtime `_meta` wrapper.
-- **Broad Suite Cleanup**: Removed the remaining stale failures in `test_utils_discovery`, `test_models`, and `test_tables`; the full `microsys.tests` suite now completes green at `247` passing tests.
+- **Table Meta Contract Repair**: Fixed the `django_tables2` patch layer so host tables again honor `Meta`-level `dlux_table`, `dlux_density`, `dlux_per_page`, and `dlux_actions` settings instead of accidentally reading only the runtime `_meta` wrapper.
+- **Broad Suite Cleanup**: Removed the remaining stale failures in `test_utils_discovery`, `test_models`, and `test_tables`; the full `dlux.tests` suite now completes green at `247` passing tests.
 - **MSRP Security Hardening Phase 1**: Locked down dynamic modal CRUD and section-management routes with backend authorization, enforced self/staff/scope rules on profile and user modals, removed login-only access to operational diagnostics, and sanitized previously raw JSON error payloads.
-- **Section Route Model Allowlisting**: Tightened the section AJAX endpoints so `get_section_details`, `delete_section`, and subsection CRUD only operate on models discovered through the Microsys sections registry instead of accepting arbitrary `model=` tokens from the request.
+- **Section Route Model Allowlisting**: Tightened the section AJAX endpoints so `get_section_details`, `delete_section`, and subsection CRUD only operate on models discovered through the Dlux sections registry instead of accepting arbitrary `model=` tokens from the request.
 - **Privileged Detail Parity**: Aligned user-detail and activity-log detail views with the newer security contracts so user detail access follows the same staff/scope/superuser rules as user-management modals, while non-superusers cannot open superuser-created activity-log entries from the detail modal.
-- **User Directory Authorization Parity**: Embedded recent-activity snippets on user detail only render when the caller also has `microsys.view_activitylog`.
+- **User Directory Authorization Parity**: Embedded recent-activity snippets on user detail only render when the caller also has `dlux.view_activitylog`.
 
 ## v1.20.6
 
 - **MSRP Stale-Code Compatibility Cleanup**: Normalized media URL fallback handling for uploaded branding assets, restored `get_system_config()` language-name fallback behavior when only a generic system name is provided, and added backward-compatible `form_class` / `table_class` / `filter_class` aliases to `LazyModelClasses`.
 - **Middleware and Root-Route Contract Cleanup**: Brought the setup/root middleware contract in line with the newer security-first behavior, including explicit setup redirect behavior for unconfigured anonymous root requests and test-backed thread-local handling through the actual middleware execution path.
-- **Legacy Test Harness Stabilization**: Guarded the optional external `storage` import in `microsys.tests.test_m2m`, updated stale middleware/IP-header expectations, and verified the refreshed utility/context/middleware/default-route slice against the current MSRP behavior.
+- **Legacy Test Harness Stabilization**: Guarded the optional external `storage` import in `dlux.tests.test_m2m`, updated stale middleware/IP-header expectations, and verified the refreshed utility/context/middleware/default-route slice against the current MSRP behavior.
 
 ## v1.20.5
 
 - **Table Surface and Theme Conformance**: Expanded the vNext table platform across the shipped themes by adding Retro table tokens, light/color theme-owned header and row tokens, dark-theme empty-state and density-card tokens, softer header gradients, and wrapper/shell curve fixes including the mono-specific table-card opt-out.
-- **Density and Footer Polish**: Added the compact in-footer density switcher beside per-page controls, suppressed it automatically on tables with forced `Meta.microsys_density`, and completed the runtime wiring for system default density plus per-user density/page-size persistence.
+- **Density and Footer Polish**: Added the compact in-footer density switcher beside per-page controls, suppressed it automatically on tables with forced `Meta.dlux_density`, and completed the runtime wiring for system default density plus per-user density/page-size persistence.
 - **Filter Helper Contract Clarification**: `set_field_attrs()` now preserves real labels by default, while `setup_filter_helper()` and `advanced_filter_helper()` intentionally default to inline placeholder labels for filter bars via explicit `inline_labels=True` behavior.
 - **Activity Log Filter Stability**: Aligned the activity-log page with the working `FilterView + SingleTableView` composition so the filter helper is applied consistently on initial render and follow-up GET interactions.
 - **Theme-Specific Filter and Profile Fixes**: Fixed filter search button/icon contrast for `gothic`, `retro`, and `mono`, restored the intended filter-field surface in `gothic` and `retro`, and normalized the profile action-pill sizing in `gothic` and `retro`.
-- **Activity Log and Detail UX Hardening**: Refreshed the activity-log detail modal into structured cards, masked OTP/TOTP secret-like values in saved diffs and rendered detail payloads, and made auto-generated detail labels follow the live MicroSys translation contract instead of raw English `verbose_name` values.
-- **Options and System Settings Refinements**: Split the Options entry for System Settings into focused branding/languages/sidebar launches, restored missing `email_2fa` and `public_root` translation coverage, and modernized System Settings branding uploads onto the shared Microsys file-input path with automatic multipart modal submission.
+- **Activity Log and Detail UX Hardening**: Refreshed the activity-log detail modal into structured cards, masked OTP/TOTP secret-like values in saved diffs and rendered detail payloads, and made auto-generated detail labels follow the live DjangoLux translation contract instead of raw English `verbose_name` values.
+- **Options and System Settings Refinements**: Split the Options entry for System Settings into focused branding/languages/sidebar launches, restored missing `email_2fa` and `public_root` translation coverage, and modernized System Settings branding uploads onto the shared Dlux file-input path with automatic multipart modal submission.
 - **Sidebar Builder Runtime Polish**: Fixed selected-entry localization drift in Arabic and added cross-pane drag/drop so discovered entries can be moved into or back out of the selected tree without leaving the builder flow.
 
 ## v1.20.4
 
-- **Microsys Table Platform vNext**: Added the public `MicrosysTable` base class and aligned generic auto-built tables with the same renderer, density handling, default attrs, sorting, pagination, and row-action contract.
-- **Framework-Owned Pagination**: Shipped built-in table pagination controls, per-page options (`10`, `20`, `50`, `100`), global per-user page-size persistence through `Profile.preferences["table_page_size"]`, and centralized `RequestConfig` patching so Microsys-managed tables no longer need manual `per_page` wiring.
-- **Zero-Boilerplate CRUD Actions**: Added default `micro:record:view|edit|delete` row actions for Microsys-managed tables, including captured stock-template host tables, with permission filtering, divider cleanup, and a `get_microsys_row_actions()` extension hook for custom tables.
-- **Dark Theme Table Conformance**: Added explicit `--ms-table-*` token overrides in the `dark`, `gothic`, and `neon` themes so the new table shell, sticky surfaces, empty state, pagination, and page-size controls render correctly on dark palettes.
-- **Scaffold and View Alignment**: Updated built-in Microsys views and scaffolded app templates to use the framework page-size default and `MicrosysTable` path instead of shipping old hardcoded pagination assumptions.
+- **Dlux Table Platform vNext**: Added the public `DluxTable` base class and aligned generic auto-built tables with the same renderer, density handling, default attrs, sorting, pagination, and row-action contract.
+- **Framework-Owned Pagination**: Shipped built-in table pagination controls, per-page options (`10`, `20`, `50`, `100`), global per-user page-size persistence through `Profile.preferences["table_page_size"]`, and centralized `RequestConfig` patching so Dlux-managed tables no longer need manual `per_page` wiring.
+- **Zero-Boilerplate CRUD Actions**: Added default `micro:record:view|edit|delete` row actions for Dlux-managed tables, including captured stock-template host tables, with permission filtering, divider cleanup, and a `get_dlux_row_actions()` extension hook for custom tables.
+- **Dark Theme Table Conformance**: Added explicit `--dl-table-*` token overrides in the `dark`, `gothic`, and `neon` themes so the new table shell, sticky surfaces, empty state, pagination, and page-size controls render correctly on dark palettes.
+- **Scaffold and View Alignment**: Updated built-in Dlux views and scaffolded app templates to use the framework page-size default and `DluxTable` path instead of shipping old hardcoded pagination assumptions.
 
 ## v1.20.3b0
 
-- **Framework-Owned Table Surface**: Replaced the old CSS-only table polish with a Microsys-owned `django_tables2` template, responsive shell, pagination styling, sort affordances, empty-state rendering, and modern density-aware table tokens.
-- **Zero-Boilerplate Table Adoption**: Added runtime remapping so built-in tables, generic generated tables, and host-project tables using stock `django_tables2` templates adopt the Microsys renderer automatically, while explicit custom templates remain untouched by default.
-- **Layered Table Density Controls**: Added `SystemSettings.default_table_density`, per-user `Profile.preferences["table_density"]`, and per-table `Meta.microsys_density` / `Meta.microsys_table` controls with precedence from table override to user preference to system default to the `balanced` fallback.
+- **Framework-Owned Table Surface**: Replaced the old CSS-only table polish with a Dlux-owned `django_tables2` template, responsive shell, pagination styling, sort affordances, empty-state rendering, and modern density-aware table tokens.
+- **Zero-Boilerplate Table Adoption**: Added runtime remapping so built-in tables, generic generated tables, and host-project tables using stock `django_tables2` templates adopt the Dlux renderer automatically, while explicit custom templates remain untouched by default.
+- **Layered Table Density Controls**: Added `SystemSettings.default_table_density`, per-user `Profile.preferences["table_density"]`, and per-table `Meta.dlux_density` / `Meta.dlux_table` controls with precedence from table override to user preference to system default to the `balanced` fallback.
 
 ## v1.20.2
 
@@ -491,10 +491,10 @@ This file owns the release history for `django-microsys`.
 
 ## v1.20.0
 
-- **Scaffolding CLI**: Added package-level `microsys startproject` for greenfield MicroSys-ready Django projects and `microsys startapp` for MicroSys-native app scaffolds, including an optional `--register` flag to patch project settings and URLs safely.
-- **Scaffold Templates**: Added built-in project and app templates that generate starter docs, tests, translations, filters, tables, views, and templates following current MicroSys conventions.
+- **Scaffolding CLI**: Added package-level `dlux startproject` for greenfield DjangoLux-ready Django projects and `dlux startapp` for DjangoLux-native app scaffolds, including an optional `--register` flag to patch project settings and URLs safely.
+- **Scaffold Templates**: Added built-in project and app templates that generate starter docs, tests, translations, filters, tables, views, and templates following current DjangoLux conventions.
 - **Scaffold Security/Runtime Baseline**: Expanded generated project settings to include `django-health-check`, Celery wiring, generated bootstrap secrets under `.secrets/.env`, `django-cors-headers`, and `django-csp` with starter middleware and baseline policy settings.
-- **Settings Helper Hardening**: Fixed the duplicate trailing `microsys_settings()` override in `microsys.utils`, added `LocaleMiddleware` ordering, added Bootstrap-friendly `MESSAGE_TAGS[messages.ERROR] = "danger"` defaulting, and kept the helper as the canonical low-friction integration path.
+- **Settings Helper Hardening**: Fixed the duplicate trailing `dlux_settings()` override in `dlux.utils`, added `LocaleMiddleware` ordering, added Bootstrap-friendly `MESSAGE_TAGS[messages.ERROR] = "danger"` defaulting, and kept the helper as the canonical low-friction integration path.
 
 ## v1.19.4b4
 
@@ -502,7 +502,7 @@ This file owns the release history for `django-microsys`.
 
 ## v1.19.4b3
 
-- **Restored Missing User Views Package**: Recovered the `microsys/views/users.py` module and related files that were accidentally excluded from the package due to a gitignore pattern matching folders named `users`. This restores user management, profile editing, and the user creation wizard functionality.
+- **Restored Missing User Views Package**: Recovered the `dlux/views/users.py` module and related files that were accidentally excluded from the package due to a gitignore pattern matching folders named `users`. This restores user management, profile editing, and the user creation wizard functionality.
 
 ## v1.19.4b2 `corrupted`
 
@@ -510,12 +510,12 @@ This file owns the release history for `django-microsys`.
 
 ## v1.19.4b1
 
-- **Per-User Scope Auto-Creation**: Added `auto_create_user_scope` toggle to `ScopeSettings` that automatically creates a dedicated `Scope` for each newly registered user. This enables automatic user isolation using the microsys scope system, scoped manager, and permissions infrastructure without manual scope assignment.
+- **Per-User Scope Auto-Creation**: Added `auto_create_user_scope` toggle to `ScopeSettings` that automatically creates a dedicated `Scope` for each newly registered user. This enables automatic user isolation using the dlux scope system, scoped manager, and permissions infrastructure without manual scope assignment.
 
 ## v1.19.4b0
 
-- **Email 2FA Configuration Fix**: Replaced the broken `os.getenv('EMAIL_HOST')` check in `get_2fa_config()` with an explicit `email_2fa` flag read from the merged system config (`MICROSYS_CONFIG` + DB). The old check silently failed when email was configured via Django settings or SOPS injection rather than as a bare OS environment variable.
-- **Email 2FA Setup Toggle**: Added an `email_2fa` BooleanField to `SystemSettings` and a corresponding toggle in the System Settings form (Step 1), so administrators can enable email-based two-factor authentication from the UI. The flag is also seedable from `MICROSYS_CONFIG['email_2fa']`.
+- **Email 2FA Configuration Fix**: Replaced the broken `os.getenv('EMAIL_HOST')` check in `get_2fa_config()` with an explicit `email_2fa` flag read from the merged system config (`DLUX_CONFIG` + DB). The old check silently failed when email was configured via Django settings or SOPS injection rather than as a bare OS environment variable.
+- **Email 2FA Setup Toggle**: Added an `email_2fa` BooleanField to `SystemSettings` and a corresponding toggle in the System Settings form (Step 1), so administrators can enable email-based two-factor authentication from the UI. The flag is also seedable from `DLUX_CONFIG['email_2fa']`.
 
 ## v1.19.3
 
@@ -523,7 +523,7 @@ This file owns the release history for `django-microsys`.
 - **Icon Picker Search**: Added a real-time search field inside the icon picker with case-insensitive, space-to-hyphen filtering for fast icon discovery.
 - **Theme-Aware Tutorial Controls Bar**: Refactored the tutorial controls bar (`#tutorial-controls`) to use CSS custom properties and added per-theme overrides across all ten themes, so the bottom bar now matches each theme's palette instead of always rendering white.
 - **Dark Theme Tutorial Popover**: Added Driver.js popover styling for the Dark theme so tutorial popovers blend with the dark surface.
-- **Titlebar Home Button Fix**: Added `.ms-titlebar-home` overrides for Gothic and Retro themes so the home button no longer renders with a bright translucent-white background on dark titlebar surfaces.
+- **Titlebar Home Button Fix**: Added `.dl-titlebar-home` overrides for Gothic and Retro themes so the home button no longer renders with a bright translucent-white background on dark titlebar surfaces.
 
 ## v1.19.2
 
@@ -533,23 +533,23 @@ This file owns the release history for `django-microsys`.
 
 ## v1.19.1
 
-- **Packaging and Dependency Cleanup**: Added the missing runtime package dependencies (`pyotp`, `psutil`, and `qrcode`) to `pyproject.toml` so installs match the features microSYS already exposes in the UI and runtime.
-- **Unified Theme Registry**: Centralized theme registration through a shared `microsys/themes.py` registry so theme names, picker ordering, preview swatches, runtime validation, and template CSS inclusion stay aligned across forms, context processors, templates, and JS.
+- **Packaging and Dependency Cleanup**: Added the missing runtime package dependencies (`pyotp`, `psutil`, and `qrcode`) to `pyproject.toml` so installs match the features DjangoLux already exposes in the UI and runtime.
+- **Unified Theme Registry**: Centralized theme registration through a shared `dlux/themes.py` registry so theme names, picker ordering, preview swatches, runtime validation, and template CSS inclusion stay aligned across forms, context processors, templates, and JS.
 - **Expanded Theme Set and Stability Fixes**: Registered the new `mono`, `gothic`, and `retro` themes, fixed the first-paint `neon` allowlist so navigation no longer flashes back to light mode, and aligned newer theme-specific surfaces such as the user hub, profile cards, activity-log details, tutorial popovers, system-settings badges, options-page theme/language pickers, and sidebar toolbar.
 - **Theme Surface Conformance**: Extended the newer themes so dashboard/index cards, toolbar controls, sidebar separators, icon treatments, and dark-theme option controls follow each theme’s palette instead of leaking generic light or white fallback styling.
 - **Runtime Theme UX Polish**: Theme changes made from Options now update the sidebar toolbar indicator immediately, and the options-page preview rings now follow the active theme instead of falling back to the generic white active outline on dark themes.
 
 ## v1.19.0
 
-- **Settings Helper**: Added `microsys_settings(globals())` in `microsys.utils` as the supported low-friction settings integration path for host projects. The helper prepends the required apps, inserts `MicrosysMiddleware`, adds the Microsys context processor, sets Crispy Bootstrap 5 defaults, and seeds the standard MicroSys language/timezone/format defaults when the host project has not already defined them.
-- **Command Upgrade**: `microsys_setup` now appends the recommended helper block to the active project `settings.py` instead of only running migrations, and `microsys_check` now validates the helper pattern explicitly alongside the resulting configuration state.
-- **List Base Template**: Added `microsys/list_base.html` plus `microsys/forms/filter_assets_head.html` as the supported entrypoint for list/filter pages, so filter-helper surfaces can use the same modern field/button styling without loading the full form bundle globally.
-- **Form Base Template**: Added `microsys/form_base.html` as the supported full-page entrypoint for Microsys forms, so projects can opt into the shared form surface without loading form-only assets through `microsys/base.html`.
-- **Reusable Form Asset Includes**: Added `microsys/forms/assets_head.html` and `microsys/forms/assets_scripts.html` for pages that host embedded or modal forms but do not extend `microsys/form_base.html`.
-- **Shared Modern Form Bundle**: Added a framework-owned Microsys form asset package under `microsys/static/microsys/forms/` covering standard field surfaces, modern file-field styling, action-dock styling, and file-widget JS.
-- **Modern Filter Surface**: `setup_filter_helper()` and `advanced_filter_helper()` now emit Microsys filter classes so shared field/button styling and dark-mode treatment apply automatically when the page uses `microsys/list_base.html` or `microsys/forms/filter_assets_head.html`.
-- **Framework Form Templates**: Added Microsys form templates for the reusable file widget and a default Crispy file-field bridge under `templates/bootstrap5/layout/field_file.html`, so projects can point file widgets and field partials at a framework-owned path instead of copying a local bundle.
-- **Documentation**: Updated the customization guide to document the new `microsys/form_base.html` and the embedded-form asset-include pattern.
+- **Settings Helper**: Added `dlux_settings(globals())` in `dlux.utils` as the supported low-friction settings integration path for host projects. The helper prepends the required apps, inserts `DluxMiddleware`, adds the Dlux context processor, sets Crispy Bootstrap 5 defaults, and seeds the standard DjangoLux language/timezone/format defaults when the host project has not already defined them.
+- **Command Upgrade**: `dlux_setup` now appends the recommended helper block to the active project `settings.py` instead of only running migrations, and `dlux_check` now validates the helper pattern explicitly alongside the resulting configuration state.
+- **List Base Template**: Added `dlux/list_base.html` plus `dlux/forms/filter_assets_head.html` as the supported entrypoint for list/filter pages, so filter-helper surfaces can use the same modern field/button styling without loading the full form bundle globally.
+- **Form Base Template**: Added `dlux/form_base.html` as the supported full-page entrypoint for Dlux forms, so projects can opt into the shared form surface without loading form-only assets through `dlux/base.html`.
+- **Reusable Form Asset Includes**: Added `dlux/forms/assets_head.html` and `dlux/forms/assets_scripts.html` for pages that host embedded or modal forms but do not extend `dlux/form_base.html`.
+- **Shared Modern Form Bundle**: Added a framework-owned Dlux form asset package under `dlux/static/dlux/forms/` covering standard field surfaces, modern file-field styling, action-dock styling, and file-widget JS.
+- **Modern Filter Surface**: `setup_filter_helper()` and `advanced_filter_helper()` now emit Dlux filter classes so shared field/button styling and dark-mode treatment apply automatically when the page uses `dlux/list_base.html` or `dlux/forms/filter_assets_head.html`.
+- **Framework Form Templates**: Added Dlux form templates for the reusable file widget and a default Crispy file-field bridge under `templates/bootstrap5/layout/field_file.html`, so projects can point file widgets and field partials at a framework-owned path instead of copying a local bundle.
+- **Documentation**: Updated the customization guide to document the new `dlux/form_base.html` and the embedded-form asset-include pattern.
 
 ## v1.18.18
 
@@ -559,13 +559,13 @@ This file owns the release history for `django-microsys`.
 - **Sidebar Discovery and Translation Refinement**: Sidebar discovery now excludes noisy AJAX/add/edit route patterns more reliably, prefers route-level translation keys such as `view_*`, and no longer lets stale stored sidebar labels override discovered translated route/group metadata at render time.
 - **Sidebar Width and Gutter Polish**: Refined the shared sidebar CSS so expanded sidebars keep enough width for the toolbar while preserving a small inline-end label gutter without leaving the toolbar shade short.
 - **Chart and Dark-Theme UI Fixes**: Plotly chart CSS now decouples internal SVG layout from page RTL to stop legend/toggle overlap, dark mode now gives modern tabs and decree tabs a clearly visible active surface instead of only brighter text, and the official datepicker now has dark-theme styling.
-- **Documentation**: Expanded the customization and reference guides to document the supported tutorial-extension hook, `advanced_filter_helper()`, and the preferred project-extension path through Microsys base-template injection points.
+- **Documentation**: Expanded the customization and reference guides to document the supported tutorial-extension hook, `advanced_filter_helper()`, and the preferred project-extension path through Dlux base-template injection points.
 
 ## v1.18.17
 
 - **First-Launch Guard for Public Roots**: Unconfigured installs now redirect ordinary anonymous traffic into the setup/login path even when the host project already exposes a public `/` view, preventing first-time setup from being bypassed.
-- **Signed-Out Layout Fix**: `microsys/base.html` no longer wraps anonymous pages in the authenticated sidebar shell, eliminating the squeezed-content layout issue on public pages that extend the shared base template.
-- **Documentation**: Updated integration docs to clarify how root-mounted Microsys behaves before and after initial system configuration.
+- **Signed-Out Layout Fix**: `dlux/base.html` no longer wraps anonymous pages in the authenticated sidebar shell, eliminating the squeezed-content layout issue on public pages that extend the shared base template.
+- **Documentation**: Updated integration docs to clarify how root-mounted Dlux behaves before and after initial system configuration.
 
 ## v1.18.16
 
@@ -582,8 +582,8 @@ This file owns the release history for `django-microsys`.
 
 ## v1.18.14
 
-- **Guaranteed System Navigation Controls**: Added a conditional sidebar toolbar shortcut for Dynamic Sections Manager and introduced a builder toggle to reveal Microsys system items (`manage_users`, `activity_log`, `options`, `manage_sections`) without forcing them into normal app discovery.
-- **Configurable System Sidebar Items**: Extended sidebar discovery, sanitization, and setup persistence so the approved Microsys system routes stay hidden by default but can now be intentionally included in saved sidebar structures.
+- **Guaranteed System Navigation Controls**: Added a conditional sidebar toolbar shortcut for Dynamic Sections Manager and introduced a builder toggle to reveal Dlux system items (`manage_users`, `activity_log`, `options`, `manage_sections`) without forcing them into normal app discovery.
+- **Configurable System Sidebar Items**: Extended sidebar discovery, sanitization, and setup persistence so the approved Dlux system routes stay hidden by default but can now be intentionally included in saved sidebar structures.
 - **Localization Sweep for Sections & Filters**: Replaced multiple hardcoded Arabic/English strings with translation-backed labels across subsection management, user/activity filters, date range placeholders, and auto-generated section form buttons.
 - **Titlebar and Sidebar Polish**: Refined the titlebar sidebar toggle to blend into the bar instead of looking permanently pressed, and matched sidebar toolbar-collapse behavior so the Sections Manager shortcut hides with the collapsed sidebar state.
 
@@ -608,7 +608,7 @@ This file owns the release history for `django-microsys`.
 
 ## v1.18.9
 
-- **Unified Runtime Sidebar Tree**: Replaced the live sidebar's split auto-items/accordion-groups render path with the same single tree model used by the first-launch setup builder, so saved Microsys sidebar structure now renders directly at runtime.
+- **Unified Runtime Sidebar Tree**: Replaced the live sidebar's split auto-items/accordion-groups render path with the same single tree model used by the first-launch setup builder, so saved Dlux sidebar structure now renders directly at runtime.
 - **Tree-Based Personal Reordering**: Reworked live sidebar reordering to save a user-specific tree override instead of juggling separate root/group/localStorage order buckets, while still merging in newly added base sidebar items from system setup.
 
 ## v1.18.8
@@ -633,11 +633,11 @@ This file owns the release history for `django-microsys`.
 ## v1.18.4
 
 - **Pre-Setup Branding Cleanup**: Removed the legacy Arabic system-name default so fresh and unconfigured installs no longer surface `ادارة النظام` before setup is completed.
-- **Blank Arabic Setup Field**: The Arabic system-name field now starts empty during first launch, while runtime branding continues to fall back to `microSYS` until the developer saves real names.
+- **Blank Arabic Setup Field**: The Arabic system-name field now starts empty during first launch, while runtime branding continues to fall back to `DjangoLux` until the developer saves real names.
 
 ## v1.18.3
 
-- **System Default Theme**: Added `SystemSettings.default_theme` and `MICROSYS_CONFIG['default_theme']` fallback support so new users inherit a configurable default look until they save their own theme preference.
+- **System Default Theme**: Added `SystemSettings.default_theme` and `DLUX_CONFIG['default_theme']` fallback support so new users inherit a configurable default look until they save their own theme preference.
 - **Setup Theme Picker**: Added the same circular theme chooser from Options to first-launch setup beside default language, with live preview while editing the system default.
 
 ## v1.18.2
@@ -647,14 +647,14 @@ This file owns the release history for `django-microsys`.
 
 ## v1.18.1
 
-- **Theme-Aware Setup Builder**: Refactored the first-launch sidebar builder to derive its surfaces, text, active states, and tree accents from shared Microsys theme tokens instead of hardcoded colors.
+- **Theme-Aware Setup Builder**: Refactored the first-launch sidebar builder to derive its surfaces, text, active states, and tree accents from shared Dlux theme tokens instead of hardcoded colors.
 - **Shared Control Styling**: Wired setup search, home destination, and inspector inputs onto existing `glass-input` styling for consistent appearance across themes.
 
 ## v1.18.0
 
 - **First-Launch Setup Wizard**: Added `/sys/setup/` onboarding for branding, languages, translations, and global sidebar configuration, while keeping System Settings editable later from Options.
 - **Resolver-Driven Sidebar Builder**: Replaced suffix-based discovery with reversible URL discovery and a two-pane builder with group selection, add-all/remove-all controls, and persistent home destination handling.
-- **Navigation Cleanup**: Excluded Microsys, Django admin, and health-check routes from discovered application navigation.
+- **Navigation Cleanup**: Excluded Dlux, Django admin, and health-check routes from discovered application navigation.
 
 ## v1.17.7
 
@@ -735,8 +735,8 @@ This file owns the release history for `django-microsys`.
 
 ## v1.15.1
 
-- **Translation Language Resolution Fix**: Rewrote `get_strings()` to use the same robust language fallback as `microsys_context`: user profile prefs -> session -> `MICROSYS_CONFIG['default_language']` -> `get_language()` -> `'ar'`. Previously the function skipped profile prefs and `default_language`, causing Django's default `en-us` to override the intended Arabic default.
-- **Table Patch Kwargs Fix**: Fixed `TypeError` in `_patched_init` where microsys-specific kwargs (`translations`, `request`, `model_name`) were forwarded to django-tables2's `Table.__init__()`.
+- **Translation Language Resolution Fix**: Rewrote `get_strings()` to use the same robust language fallback as `dlux_context`: user profile prefs -> session -> `DLUX_CONFIG['default_language']` -> `get_language()` -> `'ar'`. Previously the function skipped profile prefs and `default_language`, causing Django's default `en-us` to override the intended Arabic default.
+- **Table Patch Kwargs Fix**: Fixed `TypeError` in `_patched_init` where dlux-specific kwargs (`translations`, `request`, `model_name`) were forwarded to django-tables2's `Table.__init__()`.
 
 ## v1.15.0
 
@@ -760,7 +760,7 @@ This file owns the release history for `django-microsys`.
 
 ## v1.12.7
 
-- **Reusable Global List Template**: Added `microsys/helpers/global_list.html` to standardize form/filter/table list views project-wide.
+- **Reusable Global List Template**: Added `dlux/helpers/global_list.html` to standardize form/filter/table list views project-wide.
 - **Event Rename**: Renamed `micro:section:*` -> `micro:record:*` for semantic accuracy across AutoTable, `section_manager.js`, and all consumer templates.
 
 ## v1.12.6
@@ -777,7 +777,7 @@ This file owns the release history for `django-microsys`.
 
 ## v1.12.3
 
-- **Migrator Component Integration**: Integrated `migrator.py` into the `microsys/management/commands` package to centralize and reuse initial deployment logic across projects. Added `-mm` (make-migrations) flag to `migrator.py` to safely force makemigrations.
+- **Migrator Component Integration**: Integrated `migrator.py` into the `dlux/management/commands` package to centralize and reuse initial deployment logic across projects. Added `-mm` (make-migrations) flag to `migrator.py` to safely force makemigrations.
 
 ## v1.12.2
 
@@ -1013,7 +1013,7 @@ This file owns the release history for `django-microsys`.
 ## v1.2.0
 
 - **Dynamic Section Management**: New powerful zero-boilerplate section-management mode.
-- Name changed to `django-microsys`.
+- Name changed to `django-lux`.
 - Scope fields now hide automatically when scopes are disabled.
 - System sidebar group ships by default and remains configurable.
 - `is_staff` moved into the permissions UI.
@@ -1022,7 +1022,7 @@ This file owns the release history for `django-microsys`.
 
 - **Application Complete Restructure** with modular files, templates, static assets, and related cleanup.
 - URL restructure: auth at `/accounts/`, system at `/sys/`.
-- Added `microsys_setup` and `microsys_check` management commands.
+- Added `dlux_setup` and `dlux_check` management commands.
 - Runtime configuration validation.
 
 ## v1.0.0

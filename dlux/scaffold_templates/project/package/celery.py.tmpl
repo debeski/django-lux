@@ -1,0 +1,16 @@
+"""
+Generated with django-lux {{ dlux_version }}.
+Project name: {{ project_name }}.
+Generated on: {{ generated_date }}.
+"""
+import os
+
+from celery import Celery
+
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "{{ config_package }}.settings")
+
+app = Celery("{{ project_slug }}")
+app.config_from_object("django.conf:settings", namespace="CELERY")
+app.conf.broker_connection_retry_on_startup = True
+app.autodiscover_tasks()

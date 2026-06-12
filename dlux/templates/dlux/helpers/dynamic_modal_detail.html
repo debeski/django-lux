@@ -1,0 +1,42 @@
+{% load dlux_tags %}
+{% load dlux_translation %}
+
+<div class="row g-3 px-2">
+    {% for field in auto_detail_fields %}
+        <div class="col-md-6 col-lg-4">
+            <div class="mb-3">
+                <div class="info-label text-muted small fw-bold text-uppercase tracking-wider mb-1">{{ field.label }}</div>
+                <div class="info-value text-dark">
+                    {% if field.is_html %}
+                        {{ field.value|safe }}
+                    {% else %}
+                        {{ field.value }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="col-12 text-center text-muted py-4">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            {{ MS_TRANS.no_details|default:"No details recorded." }}
+        </div>
+    {% endfor %}
+</div>
+
+{% if related_object %}
+    <hr class="my-4">
+    <h6 class="fw-bold mb-3 text-secondary"><i class="bi bi-link-45deg me-1"></i> {{ MS_TRANS.label_related_object|default:"Related Object" }}</h6>
+    <div class="glass-card mb-4 p-3 bg-light rounded border">
+        <div class="info-label-sm mb-1 text-primary fw-bold">{{ related_object_model }}</div>
+        <div class="info-value">{{ related_object }}</div>
+        <div class="text-muted small mt-1">{{ MS_TRANS.label_id|default:"ID" }}: {{ related_object.pk }}</div>
+    </div>
+{% endif %}
+
+{% if request.GET.action == 'view' %}
+<div class="mt-4 text-end border-top pt-3">
+    <button type="button" class="btn btn-outline-secondary px-4 rounded-pill dynamic-back-btn">
+        <i class="bi bi-arrow-right me-1"></i> {{ MS_TRANS.btn_back|default:"رجوع" }}
+    </button>
+</div>
+{% endif %}

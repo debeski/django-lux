@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve `django-microsys`. This package is a Django system layer, so contributions should preserve host-project compatibility, security boundaries, multilingual behavior, and theme/runtime configurability.
+Thanks for helping improve `django-lux`. This package is a Django system layer, so contributions should preserve host-project compatibility, security boundaries, multilingual behavior, and theme/runtime configurability.
 
 ## Before You Start
 
@@ -25,9 +25,9 @@ python -m pip install -e ".[sso]"
 
 ## Development Guidelines
 
-- Prefer existing Microsys helpers, templates, settings patterns, and translation systems over one-off implementations.
+- Prefer existing Dlux helpers, templates, settings patterns, and translation systems over one-off implementations.
 - Keep backend authorization aligned with UI visibility; hidden controls are not authorization.
-- Keep user-facing copy translation-ready and avoid hardcoded runtime text where Microsys translations are expected.
+- Keep user-facing copy translation-ready and avoid hardcoded runtime text where Dlux translations are expected.
 - Keep templates, CSS, and JavaScript theme-aware, language-aware, and direction-aware.
 - Avoid inline CSS and JavaScript unless there is a documented reason.
 - Update related documentation whenever a contribution changes configuration, APIs, security behavior, setup steps, schemas, or user-facing workflows.
@@ -45,8 +45,8 @@ python -m pytest
 For generated-project changes, also verify the scaffold commands:
 
 ```bash
-python -m microsys startproject myproject
-python -m microsys startapp billing --register
+python -m dlux startproject myproject
+python -m dlux startapp billing --register
 ```
 
 Some repository workflows may run inside a host Django project or container. Include the exact commands you ran in the pull request description.

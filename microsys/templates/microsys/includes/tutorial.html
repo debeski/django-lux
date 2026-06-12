@@ -1,7 +1,0 @@
-{% load static %}
-<!-- Driver.js for Tutorial -->
-<link rel="stylesheet" href="{% static 'microsys/tutorial/css/main.css' %}"/>
-<script src="{% static 'microsys/tutorial/js/driver.js' %}" nonce="{{ request.csp_nonce }}"></script>
-{{ MS_TRANS|json_script:"tutorial-strings-data" }}
-
-<script src="{% static 'microsys/tutorial/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>

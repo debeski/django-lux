@@ -1,0 +1,75 @@
+{% load static %}
+<!-- Generic Subsection Selection Checkboxes with Context Menu -->
+<!-- Expects 'field', 'locked_ids', 'parent_model', 'child_model', 'add_url', 'edit_url_template', 'delete_url_template' -->
+
+<!-- Include CSS -->
+
+<div class="d-flex align-items-center gap-2 mt-2 mb-1">
+  <h6 class="mb-0">{{ MS_TRANS.subsections }}</h6>
+  <span class="text-muted subsection-help" data-bs-toggle="tooltip"
+        title="{{ MS_TRANS.subsection_help_tooltip }}"
+        role="img" aria-label="{{ MS_TRANS.help }}">
+      <i class="bi bi-question-circle"></i>
+  </span>
+</div>
+
+<div class="d-flex flex-wrap gap-2 my-3" role="group" aria-label="{{ MS_TRANS.subsections }}">
+  {% for checkbox in field %}
+    {% with checkbox_id=checkbox.id_for_label %}
+    {# Check if the current choice is in the locked list #}
+    {% if checkbox.data.value|stringformat:"s" in locked_ids %}
+        <div class="position-relative d-inline-block">
+            <input type="checkbox" name="{{ checkbox.data.name }}" value="{{ checkbox.data.value }}" class="btn-check" id="{{ checkbox_id }}" checked disabled>
+            <label class="btn btn-outline-secondary opacity-75 subsection-checkbox-label dl-subsection-checkbox-label dl-subsection-checkbox-label--locked" 
+                   for="{{ checkbox_id }}" 
+                   title="{{ MS_TRANS.subsection_locked_tooltip }}" 
+                   data-sub-id="{{ checkbox.data.value }}"
+                   data-sub-name="{{ checkbox.choice_label }}"
+                   data-micro-context="true"
+                   data-micro-actions='[{"label": "{{ MS_TRANS.edit_label|default:"Edit" }}", "icon": "bi bi-pencil", "type": "event", "event": "micro:subsection:edit"}, {"type": "divider"}, {"label": "{{ MS_TRANS.delete_label|default:"Delete" }}", "icon": "bi bi-trash", "textClass": "text-danger", "type": "event", "event": "micro:subsection:delete", "disabled": true}]'
+                   data-locked="true">
+              {{ checkbox.choice_label }} <i class="bi bi-lock-fill small ms-1"></i>
+            </label>
+            {# Hidden input to ensure value is submitted if disabled #}
+            <input type="hidden" name="{{ checkbox.data.name }}" value="{{ checkbox.data.value }}">
+        </div>
+    {% else %}
+        <input type="checkbox" 
+               name="{{ checkbox.data.name }}" 
+               value="{{ checkbox.data.value }}" 
+               class="btn-check" 
+               id="{{ checkbox_id }}" 
+               {% if checkbox.data.selected %}checked{% endif %}>
+        <label class="btn btn-outline-secondary subsection-checkbox-label dl-subsection-checkbox-label" 
+               for="{{ checkbox_id }}" 
+               data-sub-id="{{ checkbox.data.value }}"
+               data-sub-name="{{ checkbox.choice_label }}"
+               data-micro-context="true"
+               data-micro-actions='[{"label": "{{ MS_TRANS.edit_label|default:"Edit" }}", "icon": "bi bi-pencil", "type": "event", "event": "micro:subsection:edit"}, {"type": "divider"}, {"label": "{{ MS_TRANS.delete_label|default:"Delete" }}", "icon": "bi bi-trash", "textClass": "text-danger", "type": "event", "event": "micro:subsection:delete"}]'
+               data-locked="false">
+          {{ checkbox.choice_label }}
+        </label>
+    {% endif %}
+    {% endwith %}
+  {% empty %}
+    <span class="text-muted subsection-empty">{{ MS_TRANS.subsection_empty }}</span>
+  {% endfor %}
+
+  {# Add New Subsection Button - Triggers Inline Input #}
+  <button type="button" class="btn btn-outline-primary add-subsection-btn" 
+          data-parent-model="{{ parent_model }}" 
+          data-child-model="{{ child_model }}"
+          data-parent-id="{{ parent_id }}"
+          data-parent-field="{{ parent_field }}"
+          data-field-name="{{ field.html_name }}"
+          data-add-url="{{ add_url }}"
+          data-edit-url-template="{{ edit_url_template }}"
+          data-delete-url-template="{{ delete_url_template }}"
+          data-csrf="{{ csrf_token }}">
+      <i class="bi bi-plus-lg"></i>
+  </button>
+</div>
+
+
+<!-- Delete Form (hidden, used by JS) -->
+

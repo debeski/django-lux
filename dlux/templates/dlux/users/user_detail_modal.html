@@ -1,0 +1,140 @@
+{% load dlux_tags %}
+{% load dlux_translation %}
+
+<div class="modal-header border-0 pb-0">
+    <h5 class="modal-title fw-bold text-primary">
+        <i class="bi bi-person-badge me-2"></i> {{ MS_TRANS.user_details_header|default:"User Details" }}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<div class="modal-body p-4">
+    <!-- User Info Grid (Premium Style) -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <div class="info-label">{{ MS_TRANS.form_username|default:"Username" }}</div>
+                <div class="info-value">{{ target_user.username }}</div>
+            </div>
+            <div class="mb-3">
+                <div class="info-label">{{ MS_TRANS.tbl_full_name|default:"Full Name" }}</div>
+                <div class="info-value">{{ target_user.get_full_name|default:target_user.username }}</div>
+            </div>
+            <div class="mb-3">
+                <div class="info-label">{{ MS_TRANS.form_email|default:"Email" }}</div>
+                <div class="info-value small text-truncate" title="{{ target_user.email }}">{{ target_user.email|default:"-" }}</div>
+            </div>
+        </div>
+        <div class="col-md-6 border-start ps-md-4">
+            <div class="mb-3">
+                <div class="info-label">{{ MS_TRANS.form_phone|default:"Phone" }}</div>
+                <div class="info-value">{{ target_user.profile.phone|default:"-" }}</div>
+            </div>
+            {% if is_scopes_enabled %}
+            <div class="mb-3">
+                <div class="info-label">{{ MS_TRANS.tbl_scope|default:"Scope" }}</div>
+                <div class="info-value">
+                    <span class="badge bg-light text-primary border px-2 py-1">
+                        <i class="bi bi-diagram-2 me-1"></i> {{ target_user.profile.scope.name|default:MS_TRANS.tbl_scope_default }}
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+            <div class="mb-3">
+                <div class="info-label">{{ MS_TRANS.role_type|default:"Role" }}</div>
+                <div class="info-value">
+                    <span class="badge dl-staff-tier-badge dl-staff-tier-badge--{{ target_user_management_tier.tier_key }}"><i class="bi {{ target_user_management_tier.icon }} me-1"></i> {{ target_user_management_tier.title }}</span>
+                    {% if target_user_management_tier.can_delegate_staff %}
+                        <span class="badge dl-staff-tier-badge dl-staff-tier-badge--delegate ms-1">{{ target_user_management_tier.delegation_badge_label }}</span>
+                    {% endif %}
+                    <div class="small text-muted mt-1">{{ target_user_management_tier.description }}</div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="info-label">{{ MS_TRANS.account_source|default:"Account Source" }}</div>
+                <div class="info-value">
+                    {% if target_user.public_registration %}
+                        <span class="badge bg-light text-primary border">
+                            <i class="bi bi-person-plus me-1"></i>{{ MS_TRANS.account_source_public|default:"Public signup" }}
+                        </span>
+                    {% else %}
+                        <span class="badge bg-light text-secondary border">
+                            <i class="bi bi-person-check me-1"></i>{{ MS_TRANS.account_source_internal|default:"Internal" }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Bar -->
+    <div class="row g-2 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="p-2 border rounded bg-light text-center h-100">
+                <div class="small text-muted mb-1">{{ MS_TRANS.tbl_is_active|default:"Active" }}</div>
+                <div class="fw-bold {% if target_user.is_active %}text-success{% else %}text-danger{% endif %} small">
+                    <i class="bi {% if target_user.is_active %}bi-check-circle{% else %}bi-x-circle{% endif %} me-1"></i>
+                    {% if target_user.is_active %}{{ MS_TRANS.account_active|default:"Active" }}{% else %}{{ MS_TRANS.account_inactive|default:"Inactive" }}{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="p-2 border rounded bg-light text-center h-100">
+                <div class="small text-muted mb-1">{{ MS_TRANS.date_joined|default:"Joined" }}</div>
+                <div class="fw-bold small">{{ target_user.date_joined|date:"Y-m-d" }}</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="p-2 border rounded bg-light text-center h-100">
+                <div class="small text-muted mb-1">{{ MS_TRANS.tbl_last_login|default:"Last Login" }}</div>
+                <div class="fw-bold small">{{ target_user.last_login|date:"Y-m-d H:i"|default:"-" }}</div>
+            </div>
+        </div>
+    </div>
+
+    {% if can_view_activity_logs %}
+        <!-- Activity Timeline -->
+        <h6 class="fw-bold mb-3 text-secondary border-bottom pb-2">
+            <i class="bi bi-clock-history me-1"></i> {{ MS_TRANS.activity_log|default:"Recent Activity" }}
+        </h6>
+        
+        <div class="activity-timeline mt-3 dl-user-detail-timeline">
+            {% for log in recent_logs %}
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content p-3 mb-3 glass-card border-0 shadow-sm dl-user-detail-timeline-content">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="badge bg-secondary-subtle text-secondary border-0 small">
+                                {{ log.action|translate_log:'action' }}
+                            </span>
+                            <small class="text-muted smaller">
+                                <i class="bi bi-clock me-1"></i>{{ log.timestamp|timesince }} {{ MS_TRANS.ago }}
+                            </small>
+                        </div>
+                        <div class="small fw-bold text-primary">
+                            {{ log.model_name|translate_log:'model' }} 
+                            {% if log.object_id %}<span class="text-muted opacity-50 ms-1">#{{ log.object_id }}</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="text-center py-4 border rounded bg-light border-dashed">
+                    <i class="bi bi-info-circle text-muted mb-2 d-block dl-user-detail-empty-icon"></i>
+                    <p class="text-muted mb-0 small italic">{{ MS_TRANS.no_activity_recorded }}</p>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+<div class="modal-footer border-0 pt-0">
+    {% if can_view_user_report %}
+        <button type="button"
+                class="btn btn-primary rounded-pill px-4"
+                data-dynamic-modal="{% url 'user_report_modal' target_user.pk %}"
+                data-modal-title="{{ MS_TRANS.user_report_title }}">
+            <i class="bi bi-file-earmark-person me-1"></i>{{ MS_TRANS.user_report_title }}
+        </button>
+    {% endif %}
+    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">{{ MS_TRANS.btn_close|default:"Close" }}</button>
+</div>

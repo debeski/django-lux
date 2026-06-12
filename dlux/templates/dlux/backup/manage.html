@@ -1,0 +1,215 @@
+{% extends 'dlux/base.html' %}
+{% load static %}
+
+{% block title %}{{ MS_TRANS.sysbackup_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+        <div>
+            <h2 class="page-title mb-1"><i class="bi bi-safe2-fill me-2"></i>{{ MS_TRANS.sysbackup_title }}</h2>
+            <p class="text-muted mb-0">{{ MS_TRANS.sysbackup_subtitle }}</p>
+        </div>
+        <div class="d-flex flex-column align-items-stretch gap-1">
+            <form id="sysbackup-create-form"
+                  class="d-flex flex-column flex-lg-row align-items-lg-end gap-2"
+                  data-create-url="{% url 'system_backup_create' %}"
+                  data-msg-preparing="{{ MS_TRANS.sysbackup_preparing }}"
+                  data-msg-ready="{{ MS_TRANS.sysbackup_ready }}"
+                  data-msg-failed="{{ MS_TRANS.sysbackup_failed }}">
+                {% csrf_token %}
+                <div>
+                    <label class="form-label small mb-1" for="sysbackup-passphrase">{{ MS_TRANS.sysbackup_passphrase_label }}</label>
+                    <input type="password" id="sysbackup-passphrase" name="backup_passphrase" class="form-control form-control-sm" autocomplete="new-password">
+                </div>
+                <div>
+                    <label class="form-label small mb-1" for="sysbackup-passphrase-confirm">{{ MS_TRANS.sysbackup_passphrase_confirm }}</label>
+                    <input type="password" id="sysbackup-passphrase-confirm" name="backup_passphrase_confirm" class="form-control form-control-sm" autocomplete="new-password">
+                </div>
+                <button type="submit"
+                        id="sysbackup-create-btn"
+                        class="btn btn-primary rounded-pill text-nowrap">
+                    <i class="bi bi-file-zip-fill me-1"></i>{{ MS_TRANS.sysbackup_create }}
+                </button>
+            </form>
+            <small id="sysbackup-create-status" class="text-muted text-center"></small>
+        </div>
+    </div>
+
+    <div class="alert alert-warning d-flex align-items-start gap-2" data-autoclose="false">
+        <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+        <div>{{ MS_TRANS.sysbackup_notice }}</div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12">
+            <section class="p-3 border rounded bg-light">
+                <h5 class="mb-3">{{ MS_TRANS.sysbackup_existing }}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{{ MS_TRANS.user_report_timestamp }}</th>
+                                <th>{{ MS_TRANS.sysbackup_requested_by }}</th>
+                                <th>{{ MS_TRANS.sysbackup_status }}</th>
+                                <th>{{ MS_TRANS.sysbackup_rows }}</th>
+                                <th>{{ MS_TRANS.sysbackup_files }}</th>
+                                <th>{{ MS_TRANS.sysbackup_size }}</th>
+                                <th class="text-end"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for backup in backups %}
+                                <tr>
+                                    <td>{{ backup.created_at|date:'Y-m-d H:i' }}</td>
+                                    <td>{{ backup.requested_by_username|default:'-' }}</td>
+                                    <td>
+                                        {% if backup.status == 'completed' %}<span class="badge bg-success">{{ backup.get_status_display }}</span>
+                                        {% elif backup.status == 'failed' %}<span class="badge bg-danger" title="{{ backup.error }}">{{ backup.get_status_display }}</span>
+                                        {% else %}<span class="badge bg-secondary">{{ backup.get_status_display }}</span>{% endif %}
+                                        {% if backup.passphrase_required %}
+                                            <span class="badge bg-dark">{{ MS_TRANS.sysbackup_passphrase_badge }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ backup.row_count }}</td>
+                                    <td>{{ backup.file_count }}</td>
+                                    <td>{{ backup.file_size|filesizeformat }}</td>
+                                    <td class="text-end">
+                                        {% if backup.status == 'completed' %}
+                                            <a class="btn btn-outline-primary btn-sm rounded-pill"
+                                               href="{% url 'system_backup_download' backup.token %}">
+                                                <i class="bi bi-download me-1"></i>{{ MS_TRANS.sysbackup_download }}
+                                            </a>
+                                            <button type="button"
+                                                    class="btn btn-outline-danger btn-sm rounded-pill sysrestore-open"
+                                                    data-backup-token="{{ backup.token }}"
+                                                    data-backup-label="{{ backup.created_at|date:'Y-m-d H:i' }}">
+                                                <i class="bi bi-arrow-counterclockwise me-1"></i>{{ MS_TRANS.sysrestore_action }}
+                                            </button>
+                                        {% endif %}
+                                        <form method="post" action="{% url 'system_backup_delete' backup.token %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill">
+                                                <i class="bi bi-trash me-1"></i>{{ MS_TRANS.sysbackup_delete }}
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="7" class="text-muted text-center py-4">{{ MS_TRANS.sysbackup_empty }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="p-3 border rounded bg-light h-100">
+                <h5 class="mb-3">{{ MS_TRANS.sysbackup_orphans }}</h5>
+                <p class="text-muted small">{{ MS_TRANS.sysbackup_orphans_hint }}</p>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <tbody>
+                            {% for orphan in orphan_files %}
+                                <tr>
+                                    <td>{{ orphan.name }}</td>
+                                    <td>{{ orphan.size|filesizeformat }}</td>
+                                    <td class="text-end">
+                                        <button type="button"
+                                                class="btn btn-outline-danger btn-sm rounded-pill sysrestore-open"
+                                                data-backup-file="{{ orphan.name }}"
+                                                data-backup-label="{{ orphan.name }}">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i>{{ MS_TRANS.sysrestore_action }}
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td class="text-muted text-center py-3">{{ MS_TRANS.sysbackup_no_orphans }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <hr>
+                <form method="post" action="{% url 'system_backup_upload' %}" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
+                    {% csrf_token %}
+                    <input type="file" name="backup_file" accept=".dlb" class="form-control form-control-sm" required>
+                    <button type="submit" class="btn btn-outline-primary btn-sm rounded-pill text-nowrap">
+                        <i class="bi bi-upload me-1"></i>{{ MS_TRANS.sysbackup_upload }}
+                    </button>
+                </form>
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="p-3 border rounded bg-light h-100">
+                <h5 class="mb-3">{{ MS_TRANS.sysrestore_history }}</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <tbody>
+                            {% for restore in restores %}
+                                <tr>
+                                    <td>{{ restore.created_at|date:'Y-m-d H:i' }}</td>
+                                    <td>{{ restore.requested_by_username|default:'-' }}</td>
+                                    <td>
+                                        {% if restore.status == 'completed' %}<span class="badge bg-success">{{ restore.get_status_display }}</span>
+                                        {% elif restore.status == 'failed' %}<span class="badge bg-danger" title="{{ restore.error }}">{{ restore.get_status_display }}</span>
+                                        {% else %}<span class="badge bg-secondary">{{ restore.get_status_display }}</span>{% endif %}
+                                    </td>
+                                    <td class="small text-muted">{{ restore.error|truncatechars:80 }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr><td class="text-muted text-center py-3">{{ MS_TRANS.sysrestore_none }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <section id="sysrestore-panel" class="p-3 border border-danger rounded mt-4 d-none">
+        <h5 class="text-danger mb-2"><i class="bi bi-exclamation-octagon-fill me-2"></i>{{ MS_TRANS.sysrestore_title }}</h5>
+        <p class="mb-1">{{ MS_TRANS.sysrestore_warning }}</p>
+        <p class="text-muted small mb-3">{{ MS_TRANS.sysrestore_signout_note }}</p>
+        <form method="post" action="{% url 'system_restore_start' %}" class="row g-2 align-items-end">
+            {% csrf_token %}
+            <input type="hidden" name="backup_token" id="sysrestore-token" value="">
+            <input type="hidden" name="backup_file_name" id="sysrestore-file" value="">
+            <div class="col-12">
+                <strong>{{ MS_TRANS.sysrestore_source }}:</strong> <span id="sysrestore-label"></span>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="sysrestore-password">{{ MS_TRANS.current_password_prompt }}</label>
+                <input type="password" id="sysrestore-password" name="current_password" class="form-control" autocomplete="current-password" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="sysrestore-passphrase">{{ MS_TRANS.sysrestore_passphrase_label }}</label>
+                <input type="password" id="sysrestore-passphrase" name="backup_passphrase" class="form-control" autocomplete="off">
+                <div class="form-text">{{ MS_TRANS.sysrestore_passphrase_help }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="confirm_replace" value="yes" id="sysrestore-confirm" required>
+                    <label class="form-check-label" for="sysrestore-confirm">{{ MS_TRANS.sysrestore_confirm_label }}</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="ignore_version_mismatch" value="yes" id="sysrestore-ignore">
+                    <label class="form-check-label" for="sysrestore-ignore">{{ MS_TRANS.sysrestore_ignore_mismatch }}</label>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-danger rounded-pill w-100">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>{{ MS_TRANS.sysrestore_action }}
+                </button>
+                <button type="button" id="sysrestore-cancel" class="btn btn-outline-secondary rounded-pill">{{ MS_TRANS.btn_cancel|default:'Cancel' }}</button>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script src="{% static 'dlux/backup/js/manage.js' %}?v=20260611a" nonce="{{ request.csp_nonce }}"></script>
+{% endblock %}

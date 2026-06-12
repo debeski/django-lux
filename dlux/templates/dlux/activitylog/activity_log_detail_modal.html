@@ -1,0 +1,66 @@
+{% load dlux_tags %}
+{% load dlux_translation %}
+
+<div class="modal-header border-0 pb-0">
+    <h5 class="modal-title fw-bold text-primary">
+        <i class="bi bi-info-circle me-2"></i>
+        {% if object.model_name %}
+             {{ object.model_name|translate_log:'model' }}
+        {% else %}
+             {{ MS_TRANS.activity_details|default:"Activity Details" }}
+        {% endif %}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    <!-- Info Grid (Mirrors Profile) -->
+    <div class="row g-3 mb-4 px-2">
+        <div class="col-md-6">
+            <div class="mb-2">
+                <div class="info-label">{{ MS_TRANS.label_user|default:"User" }}</div>
+                <div class="info-value">{{ object.user.username|default:"-" }} {% if object.user.get_full_name %}({{ object.user.get_full_name }}){% endif %}</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-2">
+                <div class="info-label">{{ MS_TRANS.label_timestamp|default:"Timestamp" }}</div>
+                <div class="info-value small">{{ object.timestamp|date:"Y-m-d H:i:s" }}</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-2">
+                <div class="info-label">{{ MS_TRANS.label_action|default:"Action" }}</div>
+                <div class="info-value"><span class="badge bg-secondary">{{ object.action|translate_log:'action' }}</span></div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-2">
+                <div class="info-label">IP</div>
+                <div class="info-value">{{ object.ip_address|default:"-" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <h6 class="fw-bold mb-3 text-secondary border-bottom pb-2"><i class="bi bi-pencil-square me-1"></i> {{ MS_TRANS.label_changes|default:"Changes / Details" }}</h6>
+    <div class="dl-log-detail-panel mb-3">
+        {% render_log_details_panel object.details as details_html %}
+        {% if details_html %}
+            {{ details_html|safe }}
+        {% else %}
+            <p class="dl-log-detail-empty mb-0">{{ MS_TRANS.no_details|default:"No specific details recorded." }}</p>
+        {% endif %}
+    </div>
+
+    {% if related_object %}
+        <hr>
+        <h6 class="fw-bold mb-3 text-secondary"><i class="bi bi-link-45deg me-1"></i> {{ MS_TRANS.label_related_object|default:"Related Object" }}</h6>
+        <div class="glass-card mb-4 p-3">
+            <div class="info-label-sm mb-1 text-primary">{{ related_object_model }}</div>
+            <div class="info-value">{{ related_object }}</div>
+            <div class="text-white-50 small mt-1">{{ MS_TRANS.label_id|default:"ID" }}: {{ related_object.pk }}</div>
+        </div>
+    {% endif %}
+</div>
+<div class="modal-footer border-0 pt-0">
+    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">{{ MS_TRANS.btn_close|default:"Close" }}</button>
+</div>

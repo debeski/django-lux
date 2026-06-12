@@ -49,6 +49,6 @@ jobs:
           )
           for t in "${tests[@]}"; do
             echo "::group::$t"
-            python "microsys/tests/$t.py"
+            python "dlux/tests/$t.py"
             echo "::endgroup::"
           done

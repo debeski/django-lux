@@ -1,0 +1,11 @@
+{% extends "dlux/base.html" %}
+
+{% block extra_head %}
+    {% include "dlux/forms/assets_head.html" %}
+    {{ block.super }}
+{% endblock %}
+
+{% block scripts %}
+    {% include "dlux/forms/assets_scripts.html" %}
+    {{ block.super }}
+{% endblock %}

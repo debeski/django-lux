@@ -1,0 +1,147 @@
+/* Modern Glass-morphic Theme for Driver.js Tutorial */
+
+/* Main Popover Container */
+.driver-popover {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15) !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    color: #333 !important;
+    max-width: 400px !important;
+    font-family: var(--dl-main-font, var(--dl-font-fallback, sans-serif)), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    z-index: 1000000 !important;
+}
+
+/* Title */
+.driver-popover-title {
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    color: var(--primal, #0d6efd) !important; /* Use app primary color or fallback to bootstrap blue */
+    margin-bottom: 12px !important;
+    font-family: var(--dl-main-font, var(--dl-font-fallback, sans-serif)) !important;
+    line-height: 1.4 !important;
+}
+
+/* Description */
+.driver-popover-description {
+    font-size: 1rem !important;
+    font-weight: 400 !important;
+    color: #555 !important;
+    line-height: 1.6 !important;
+    margin-bottom: 24px !important;
+}
+
+/* Footer (Buttons Container) */
+.driver-popover-footer {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-top: 0 !important;
+}
+
+/* Progress Text (e.g. "1 of 5") */
+.driver-popover-progress-text {
+    font-size: 0.85rem !important;
+    color: #999 !important;
+    font-weight: 500 !important;
+}
+
+/* Navigation Buttons Container */
+.driver-popover-navigation-btns {
+    display: flex !important;
+    gap: 8px !important;
+}
+
+/* Buttons Common */
+.driver-popover-next-btn,
+.driver-popover-prev-btn {
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    font-family: var(--dl-main-font, var(--dl-font-fallback, sans-serif)) !important;
+    text-shadow: none !important;
+    outline: none !important;
+}
+
+/* Next / Done Button */
+.driver-popover-next-btn {
+    background-color: var(--primal, #0d6efd) !important;
+    color: white !important;
+    border: 1px solid var(--primal, #0d6efd) !important;
+}
+
+.driver-popover-next-btn:hover {
+    background-color: var(--primal-hover, #0b5ed7) !important;
+    border-color: var(--primal-hover, #0b5ed7) !important;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Previous Button */
+.driver-popover-prev-btn {
+    background-color: transparent !important;
+    color: #6c757d !important;
+    border: 1px solid #dee2e6 !important;
+}
+
+.driver-popover-prev-btn:hover {
+    background-color: #f8f9fa !important;
+    color: #000 !important;
+    border-color: #c1c9d0 !important;
+}
+
+/* Disabled Previous Button */
+.driver-popover-prev-btn.driver-popover-btn-disabled {
+    opacity: 0.5 !important;
+    pointer-events: none !important;
+}
+
+/* Close Button (X) */
+.driver-popover-close-btn {
+    color: #bbb !important;
+    font-size: 1.5rem !important;
+    font-weight: 400 !important;
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important; /* LTR default, consider RTL if needed but absolute positioning usually handles it relative to container */
+    left: auto !important;
+    cursor: pointer !important;
+    transition: color 0.2s !important;
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    width: 24px !important;
+    height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+    z-index: 10 !important;
+}
+
+.driver-popover-close-btn:hover {
+    color: #dc3545 !important;
+}
+
+/* RTL Support - Flip positions relative to direction if needed, 
+   but since the snippet showed ltr-like positioning styles, we'll assume basic override allows standard flow. 
+   If global direction is RTL, these might need explicit flipping. 
+*/
+[dir="rtl"] .driver-popover-close-btn {
+    right: auto !important;
+    left: 12px !important;
+}
+
+/* Arrow Customization */
+.driver-popover-arrow {
+   /* TBD: styling the arrow to match the glass background is tricky because it relies on borders. 
+      For now, keeping it default white usually works well enough with a white-ish modal.
+   */
+}

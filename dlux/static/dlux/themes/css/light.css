@@ -1,0 +1,70 @@
+/* --- Light Theme (Neutral / Silver) --- */
+:root.theme-light {
+    --title: #334155; /* Slate 700 */
+    --body: #f8fafc;   /* Slate 50 */
+    --htitle: #64748b; /* Slate 500 */
+    --hbody: #f1f5f9;  /* Slate 100 */
+    --table-row: #f7f8fa;
+    --table-row-hover: #f1f5f9;
+    --primal: #475569; /* Slate 600 - Neutral Accent */
+    --primal_dark: #334155; /* Slate 700 */
+    --primal-rgb: 71, 85, 105;
+    --btn-primary-shadow: rgba(71, 85, 105, 0.4);
+    --nav-item-color: #eef1f5;
+
+    /* Login Theme Variables */
+    --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    --right-bg: var(--title);
+    --primary-color: var(--primal);
+
+    /* Bootstrap Overrides */
+    --bs-primary: var(--primal);
+    --bs-primary-rgb: var(--primal-rgb);
+    --bs-btn-bg: var(--primal);
+    --bs-btn-border-color: var(--primal);
+    --bs-btn-hover-bg: var(--primal_dark);
+    --bs-btn-hover-border-color: var(--primal_dark);
+    --bs-link-color: var(--primal);
+    --bs-link-hover-color: var(--primal_dark);
+    --dl-table-header-surface: linear-gradient(180deg, rgba(71, 85, 105, 0.05), rgba(255, 255, 255, 0.985));
+    --dl-table-border-strong: rgba(71, 85, 105, 0.18);
+    --dl-table-row-odd: rgba(251, 252, 254, 0.98);
+    --dl-table-row-even: rgba(247, 249, 252, 0.98);
+    --dl-table-row-hover: rgba(236, 240, 245, 0.98);
+}
+:root.theme-light .titlebar {
+    background: linear-gradient(90deg, #ffffff 10%, #f8fafc 90%) !important;
+}
+:root.theme-light #sidebar {
+    background: linear-gradient(180deg, #ffffff 10%, #f8fafc 100%) !important;
+    border-left: 1px solid #e2e8f0 !important;
+}
+
+:root.theme-light .page .right {
+    background: var(--htitle) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+    color: #f8fafc !important;
+}
+
+/* Neutral Overrides */
+:root.theme-light .dropdown-item:hover {
+    background-color: rgba(71, 85, 105, 0.08) !important;
+    color: #334155 !important;
+}
+:root.theme-light .titlebar .btn-light:hover {
+    background-color: rgba(71, 85, 105, 0.08) !important;
+    color: #334155 !important;
+}
+:root.theme-light .glass-card {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    box-shadow: 0 12px 40px -10px rgba(71, 85, 105, 0.2) !important;
+}
+
+/* Tutorial Controls Bar */
+:root.theme-light #tutorial-controls {
+    --tut-next-bg: #475569;
+    --tut-next-bg-hover: #334155;
+    --tut-next-shadow: rgba(71, 85, 105, 0.3);
+    --tut-progress-color: #334155;
+}

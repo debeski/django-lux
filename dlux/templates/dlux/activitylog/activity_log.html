@@ -1,0 +1,48 @@
+{% extends 'dlux/list_base.html' %}
+{% load django_tables2 %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ MS_TRANS.log_title }}{% endblock %}
+
+{% block content %}
+
+    <div class="row">
+        <div class="col-12">
+            <h2 class="page-title"><i class="bi bi-clock-history me-2"></i> {{ MS_TRANS.log_title }}</h2>
+        </div>
+    </div>
+
+    <div class="py-2 no-print">
+        {% crispy filter.form %}
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 dl-table-card">
+        <div class="card-body p-0">
+            {% render_table table %}
+        </div>
+    </div>
+
+    <!-- Log Detail Modal -->
+    <div class="modal fade" id="activityLogDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content glass-card border-0 shadow-lg">
+                <!-- Content loaded via AJAX -->
+                <div class="modal-body text-center p-5"
+                     id="activityLogDetailModalBody"
+                     data-loading-text="{{ MS_TRANS.loading|default:'Loading...' }}"
+                     data-error-text="{{ MS_TRANS.error_loading_details|default:'Error loading details.' }}"
+                     data-close-text="{{ MS_TRANS.btn_close|default:'Close' }}">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">{{ MS_TRANS.loading|default:"Loading..." }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'dlux/activitylog/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>
+{% endblock %}

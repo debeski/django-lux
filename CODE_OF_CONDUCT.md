@@ -2,7 +2,7 @@
 
 ## Our Standards
 
-This project is intended to be a practical, respectful space for building and maintaining `django-microsys`.
+This project is intended to be a practical, respectful space for building and maintaining `django-lux`.
 
 Expected behavior includes:
 

@@ -1,0 +1,5 @@
+{% extends "dlux/sidebar/main.html" %}
+
+{% block items %}
+    {% include "dlux/sidebar/tree.html" with entries=sidebar_entries tree_state=sidebar_tree_state %}
+{% endblock %}

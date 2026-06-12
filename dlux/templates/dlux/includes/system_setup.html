@@ -1,0 +1,85 @@
+{% extends 'dlux/form_base.html' %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}{{ MS_TRANS.system_setup_title|default:"System Setup" }}{% endblock %}
+
+{% block extra_head %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260611b">
+{% endblock %}
+
+{% block layout %}
+<div class="container-fluid py-4 py-xl-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xxl-10">
+            <div class="card border-0 shadow-sm dl-setup-page">
+                <div class="card-body p-3 p-lg-4 p-xl-5">
+                    <div class="text-center mb-4">
+                        <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="Logo" class="dl-setup-page-logo mb-3">
+                        <h2 class="fw-bold mb-2">{{ MS_TRANS.system_setup_title|default:"System Setup" }}</h2>
+                        <p class="text-muted mb-0">{{ MS_TRANS.system_setup_page_desc|default:"Complete the initial branding, languages, and sidebar structure for Dlux." }}</p>
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data" class="dl-system-setup-form dlux-form">
+                        {% csrf_token %}
+                        <nav class="dl-setup-step-nav"
+                             aria-label="{{ MS_TRANS.system_setup_step_nav_aria }}"
+                             data-dl-wizard-step-nav>
+                            <button class="dl-setup-step-nav__item"
+                                    type="button"
+                                    data-dl-wizard-step-target="0">
+                                <span class="dl-setup-step-nav__bullet">1</span>
+                                <span class="dl-setup-step-nav__label">{{ MS_TRANS.system_settings_branding }}</span>
+                            </button>
+                            <button class="dl-setup-step-nav__item"
+                                    type="button"
+                                    data-dl-wizard-step-target="1">
+                                <span class="dl-setup-step-nav__bullet">2</span>
+                                <span class="dl-setup-step-nav__label">{{ MS_TRANS.system_settings_languages }}</span>
+                            </button>
+                            <button class="dl-setup-step-nav__item"
+                                    type="button"
+                                    data-dl-wizard-step-target="2">
+                                <span class="dl-setup-step-nav__bullet">3</span>
+                                <span class="dl-setup-step-nav__label">{{ MS_TRANS.system_settings_security }}</span>
+                            </button>
+                            <button class="dl-setup-step-nav__item"
+                                    type="button"
+                                    data-dl-wizard-step-target="3">
+                                <span class="dl-setup-step-nav__bullet">4</span>
+                                <span class="dl-setup-step-nav__label">{{ MS_TRANS.system_settings_login_page }}</span>
+                            </button>
+                            <button class="dl-setup-step-nav__item"
+                                    type="button"
+                                    data-dl-wizard-step-target="4">
+                                <span class="dl-setup-step-nav__bullet">5</span>
+                                <span class="dl-setup-step-nav__label">{{ MS_TRANS.system_settings_sidebar }}</span>
+                            </button>
+                            <button class="dl-setup-step-nav__item"
+                                    type="button"
+                                    data-dl-wizard-step-target="5">
+                                <span class="dl-setup-step-nav__bullet">6</span>
+                                <span class="dl-setup-step-nav__label">{{ MS_TRANS.system_settings_navbar }}</span>
+                            </button>
+                            <button class="dl-setup-step-nav__item"
+                                    type="button"
+                                    data-dl-wizard-step-target="6">
+                                <span class="dl-setup-step-nav__bullet">7</span>
+                                <span class="dl-setup-step-nav__label">{{ MS_TRANS.system_settings_ui_layout }}</span>
+                            </button>
+                            <button class="dl-setup-step-nav__item"
+                                    type="button"
+                                    data-dl-wizard-step-target="7">
+                                <span class="dl-setup-step-nav__bullet">8</span>
+                                <span class="dl-setup-step-nav__label">{{ MS_TRANS.system_settings_appearance }}</span>
+                            </button>
+                        </nav>
+                        {% crispy form %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,28 +1,28 @@
 # Optional SSO Packages
 
-Microsys SSO is implemented as optional packages in this repository. Core
-`django-microsys` does not import or mount SSO code at runtime.
+Dlux SSO is implemented as optional packages in this repository. Core
+`django-lux` does not import or mount SSO code at runtime.
 
-Public registration is a separate core playground feature for local Microsys
+Public registration is a separate core playground feature for local Dlux
 accounts. It does not create client-originated SSO registration APIs and does
 not change the provider/client package contract documented here.
 
 The provider is an OpenID Connect provider. Connected projects do not need to
-use Django, Python, or Microsys. Any PHP, .NET, JavaScript, Java, Go, desktop,
+use Django, Python, or Dlux. Any PHP, .NET, JavaScript, Java, Go, desktop,
 or mobile client that supports OIDC Authorization Code flow can connect to a
-deployed Microsys SSO server.
+deployed Dlux SSO server.
 
 ## Provider Plugin
 
-Install `django-microsys-sso` only in the Microsys deployment that should act as
+Install `django-lux-sso` only in the Dlux deployment that should act as
 the OIDC identity provider.
 
 ```python
-from microsys.utils import microsys_settings
-from microsys_sso.settings import microsys_sso_settings
+from dlux.utils import dlux_settings
+from dlux_sso.settings import dlux_sso_settings
 
-microsys_settings(globals())
-microsys_sso_settings(globals())
+dlux_settings(globals())
+dlux_sso_settings(globals())
 ```
 
 Mount provider URLs explicitly:
@@ -31,8 +31,8 @@ Mount provider URLs explicitly:
 from django.urls import include, path
 
 urlpatterns = [
-    path("", include("microsys.urls")),
-    path("", include("microsys_sso.urls")),
+    path("", include("dlux.urls")),
+    path("", include("dlux_sso.urls")),
 ]
 ```
 
@@ -43,7 +43,7 @@ The provider app adds:
 - `SSOAdminInvitation` for first-admin bootstrap flows.
 - `SSOAuditEvent` and `SSOSessionState` for audit and revocation state.
 - OIDC validator hooks that emit standard identity claims plus portable
-  `microsys_sso_role` / `microsys_sso_client_id` claims.
+  `dlux_sso_role` / `dlux_sso_client_id` claims.
 
 For v1, connected clients must use OIDC Authorization Code flow. Redirect URIs
 must match exactly, HTTPS is required outside explicitly allowed localhost
@@ -53,7 +53,7 @@ and the user has an active per-client role.
 ## Generic OIDC Clients
 
 For non-Django projects, register the project as an SSO client in the deployed
-Microsys SSO server, then configure the project's normal OIDC library with the
+Dlux SSO server, then configure the project's normal OIDC library with the
 issuer/discovery URL, client credentials, and exact redirect URI.
 
 Use OIDC discovery when the client library supports it:
@@ -75,12 +75,12 @@ Generic client behavior:
 
 - Treat `sub` as the stable user identifier for this issuer; do not key users
   only by email.
-- Read `microsys_sso_role` as the provider-issued role for that registered
+- Read `dlux_sso_role` as the provider-issued role for that registered
   client. Valid values are `admin`, `staff`, and `user`.
-- Optionally read `microsys_sso.client_id` / `microsys_sso.role` if the client
+- Optionally read `dlux_sso.client_id` / `dlux_sso.role` if the client
   supports nested JSON claims.
 - Map roles to local permissions, groups, or policies inside the connected
-  project. Do not expect Microsys-generated Django permissions.
+  project. Do not expect Dlux-generated Django permissions.
 - Never treat `admin` as automatic root/superuser authority. It means "admin for
   this registered client" and must be mapped locally.
 - Reject login if the ID token cannot be validated against JWKS, the issuer does
@@ -98,13 +98,13 @@ Typical platform configuration:
 
 ## Django Client SDK
 
-Install `django-microsys-sso-client` in connected Django projects. It does not
-depend on `django-microsys`.
+Install `django-lux-sso-client` in connected Django projects. It does not
+depend on `django-lux`.
 
 ```python
-from microsys_sso_client.settings import configure_microsys_sso
+from dlux_sso_client.settings import configure_dlux_sso
 
-configure_microsys_sso(
+configure_dlux_sso(
     globals(),
     issuer_url="https://sso.example.com",
     client_id="client-id",
@@ -125,7 +125,7 @@ Mount the client callback/login routes:
 from django.urls import include, path
 
 urlpatterns = [
-    path("accounts/sso/", include("microsys_sso_client.urls")),
+    path("accounts/sso/", include("dlux_sso_client.urls")),
 ]
 ```
 

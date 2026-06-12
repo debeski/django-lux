@@ -1,6 +1,6 @@
-# microSYS Documentation
+# DjangoLux Documentation
 
-microSYS now uses a layered documentation structure:
+DjangoLux now uses a layered documentation structure:
 
 - `README.md` is the package landing page.
 - `docs/` is the operating and integration manual.
@@ -15,17 +15,17 @@ Use the sections below based on what you are trying to do.
 - [Changelog](../CHANGELOG.md) for release-by-release history and migration context.
 - [Security Policy](../SECURITY.md), [Contributing Guide](../CONTRIBUTING.md), and [Code of Conduct](../CODE_OF_CONDUCT.md) for repository governance.
 
-## I am Configuring microSYS
+## I am Configuring DjangoLux
 
 - [Admin Guide](admin-guide.md) for the first-launch setup wizard, Options view, sidebar builder, themes, languages, and runtime preferences.
 - [MSRP-1 Security Standard](security-msrp-1.md) for the active backend authorization and security-flow policy.
 - [Public Registration Playground](registration.md) for the disabled-by-default email-verified local signup path.
 - [Optional SSO Packages](sso.md) for the separate OIDC provider plugin and client SDK.
 
-## I am Integrating microSYS into a Django Project
+## I am Integrating DjangoLux into a Django Project
 
 - [Developer Guide](developer-guide.md) for the system mental model, configuration layers, scoped models, discovery, and when to use each subsystem.
-- [Customization Guide](customization-guide.md) for `MICROSYS_CONFIG`, translations, sections, dynamic modals, context-menu integrations, fetch/export utilities, activity logging, autofill, and template overrides.
+- [Customization Guide](customization-guide.md) for `DLUX_CONFIG`, translations, sections, dynamic modals, context-menu integrations, fetch/export utilities, activity logging, autofill, and template overrides.
 
 ## I Need Reference Material
 
@@ -46,7 +46,7 @@ Use the sections below based on what you are trying to do.
 - A generic CRUD layer made of sections, dynamic modals, list/filter helpers, and reusable context-menu actions and events.
 - Reusable helper APIs such as `require_current_password(...)`, `set_profile_totp_state(...)`, `build_archive_file_field(...)`, and `build_settings_toggle_field(...)` for extending security and System Settings surfaces without duplicating framework behavior.
 - A built-in audit trail that records CRUD, login/logout, user-profile merges, diffs, masked sensitive changes, and download/export actions.
-- Optional OIDC SSO packages that keep provider/client behavior separate from core Microsys runtime imports.
+- Optional OIDC SSO packages that keep provider/client behavior separate from core Dlux runtime imports.
 - Data-movement helpers such as the universal fetcher, Excel export, sticky autofill, recursive foreign-key autofill, and downloadable file handling.
 - Framework-level automation for translations, scope injection, actor tracking, soft-delete, UI preference persistence, and CSP-friendly external asset usage across shipped templates and modal helpers.
 - Tutorial and design infrastructure including view-aware walkthroughs, theme-aware surfaces, and extension hooks for head/scripts injection.
