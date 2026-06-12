@@ -1,0 +1,54 @@
+name: CI
+
+# Green-checkmark gate: runs the self-contained test modules on every push/PR to
+# main. This does NOT block releases (release.yml is independent) — once the
+# suite is consolidated you can make this a required check via branch protection.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package + dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run self-contained test modules
+        run: |
+          set -e
+          # These modules call settings.configure() themselves and need no host
+          # project. Excluded on purpose:
+          #   test_m2m / test_scaffold / verify_detailed_logs -> need an external
+          #     project's DJANGO_SETTINGS_MODULE (xPy.settings)
+          #   test_defaults_and_urls -> known harness issue (see tracker)
+          tests=(
+            test_models test_views test_api test_context_processors
+            test_middleware test_permissions_ui test_registration
+            test_sidebar_discovery test_signals test_tables test_utils
+            test_report_backup test_system_backup
+          )
+          for t in "${tests[@]}"; do
+            echo "::group::$t"
+            python "microsys/tests/$t.py"
+            echo "::endgroup::"
+          done

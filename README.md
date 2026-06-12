@@ -119,6 +119,8 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
   signal-based activity logging with configurable IP resolution (direct/proxy/header), diff capture, masked sensitive fields, deduplicated entries, download/export logging, and scoped visibility.
 - Optional SSO:
   `django-microsys-sso` and `django-microsys-sso-client` live as separate optional packages for OIDC provider/client deployments without changing core Microsys runtime behavior.
+- Standalone backup viewer:
+  `tools/msb-viewer/` is a dependency-free, cross-platform binary for inspecting encrypted `.msb` system backups offline — browse models, rows, and stored files without a running instance. Prebuilt binaries ship with each release.
 - Framework-level automation:
   translation patches, scoped-model auto-injection, actor tracking, soft-delete, and config layering across defaults, project settings, and runtime UI.
 
@@ -135,5 +137,7 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 - [Reference](docs/reference.md)
 - [MSRP-1 Security Standard](docs/security-msrp-1.md)
 - [Optional SSO Packages](docs/sso.md)
+- [Standalone .msb Backup Viewer](tools/msb-viewer/README.md)
+- [Releasing](docs/RELEASING.md) — tag-driven PyPI + GitHub release flow
 - [Features](docs/FEATURES.md) — complete feature inventory
 - [Changelog](CHANGELOG.md)

@@ -316,6 +316,8 @@ Downloads always go through the permission-checked Django view, which also enfor
 
 Config knobs under `MICROSYS_CONFIG['backup']`: `use_celery` (default `True`) and `exclude_models` (extra `app_label.model` strings to omit from snapshots).
 
+**Inspecting a backup offline.** A standalone, read-only viewer for `.msb` files ships in the repo at [`tools/msb-viewer/`](../tools/msb-viewer/README.md). It is a single, dependency-free cross-platform binary (Go) that decrypts a backup locally and opens a small browser UI to browse the manifest, every model's serialized rows, the recorded migration state, and any stored files — without a running Microsys instance. On entry it prompts for the backup passphrase, or the originating project's Django `SECRET_KEY` when the file was not passphrase-protected (the cleartext header records which is needed). Prebuilt binaries are attached to each GitHub release; it can also be built with `make` from that directory. Use it to confirm a `.msb`'s contents before restoring, or to recover specific records/files from a snapshot.
+
 ## User Preferences
 
 User preferences are stored in `Profile.preferences` and updated through the Preferences API. Common keys include:

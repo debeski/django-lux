@@ -4,6 +4,12 @@ This file owns the release history for `django-microsys`.
 
 > Only stable versions of django-microsys are available for install through pip, a list of them can be found on PyPI [here](https://pypi.org/project/django-microsys/#history).
 
+## v2.4.1
+
+- **Standalone `.msb` Backup Viewer**: Added `tools/msb-viewer/`, a dependency-free Go companion app that reads the `MSB1` container directly — parses the cleartext metadata header, derives the Fernet key with a from-scratch PBKDF2-SHA256 (stdlib-only AES-128-CBC + HMAC-SHA256 Fernet implementation in `msb.go`), and streams the framed chunks back into the inner backup zip. It serves a small read-only UI on `127.0.0.1` (random per-run token + local-`Host` guard, browser auto-opened), prompts for the passphrase or project `SECRET_KEY` based on the header's `key_source`, and lets you browse overview/migration-state/manifest, paginate each model's serialized rows, and open or download stored file-field contents. Ships as a single static cross-platform binary (`go build`, no third-party modules, no CGo); verified end-to-end against a real Fernet-encrypted fixture (wrong-password rejection, model/row read, byte-exact file extraction, temp-file cleanup on exit). Documented in `tools/msb-viewer/README.md` and the admin guide.
+- **Tag-Driven Release Pipeline (CI/CD)**: Added `.github/workflows/ci.yml` (runs the self-contained Django test modules on every push/PR to `main`) and `.github/workflows/release.yml` (on a `v*` tag: verifies the tag equals `microsys/VERSION`, builds and `twine check`s the sdist + wheel, publishes to PyPI via OIDC **Trusted Publishing** with no stored token, cross-compiles the five `msb-viewer` platform binaries via `make all`, then cuts a GitHub Release whose notes are the matching `CHANGELOG.md` section with the wheel/sdist and viewer binaries attached). The release procedure and one-time PyPI/GitHub setup are documented in `docs/RELEASING.md`; the package version remains single-sourced in `microsys/VERSION` (read by `microsys.__version__`, consumed by `pyproject.toml`'s dynamic version).
+- **Companion Tools Relocated**: Moved the optional companion packages out of `optional_packages/` into `tools/` (`tools/django-microsys-sso`, `tools/django-microsys-sso-client`, and the new `tools/msb-viewer`). These are repo-only build sources and remain excluded from the published wheel (`pyproject.toml` ships only `microsys`/`microsys.*`).
+
 ## v2.4.0
 
 ### Full System Backup & Restore (.msb)

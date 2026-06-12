@@ -1,0 +1,123 @@
+name: Release
+
+# Triggered by pushing a version tag, e.g.:
+#   git tag -a v2.4.1 -m "v2.4.1" && git push --tags
+#
+# Pipeline:
+#   build-dist     -> verify tag == microsys/VERSION, build sdist + wheel
+#   publish-pypi   -> publish to PyPI via Trusted Publishing (OIDC, no token)
+#   build-viewer   -> cross-compile the msb-viewer binaries (make all)
+#   github-release -> create the GitHub Release: CHANGELOG section + all artifacts
+#
+# One-time setup is documented in docs/RELEASING.md (PyPI trusted publisher +
+# the "pypi" GitHub environment).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build-dist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag matches microsys/VERSION
+        run: |
+          file_ver="$(tr -d '[:space:]' < microsys/VERSION)"
+          tag_ver="${GITHUB_REF_NAME#v}"
+          echo "VERSION file: '$file_ver'   tag: '$tag_ver'"
+          if [ "$file_ver" != "$tag_ver" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME != microsys/VERSION ($file_ver). Bump VERSION before tagging."
+            exit 1
+          fi
+
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Check artifacts
+        run: python -m pip install --upgrade twine && twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+
+  publish-pypi:
+    needs: build-dist
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/django-microsys/
+    permissions:
+      id-token: write   # OIDC token for PyPI Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  build-viewer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      - name: Cross-compile msb-viewer
+        working-directory: tools/msb-viewer
+        run: make all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: msb-viewer-binaries
+          path: tools/msb-viewer/build/*
+
+  github-release:
+    needs: [build-dist, build-viewer]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: msb-viewer-binaries
+          path: release-files
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: release-files
+
+      - name: Extract this version's CHANGELOG section
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          awk -v ver="$ver" '
+            $0 ~ ("^## v" ver "([^0-9.]|$)") { grab=1; next }
+            grab && /^## v/ { exit }
+            grab { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "Release ${GITHUB_REF_NAME}." > RELEASE_NOTES.md
+          fi
+          echo "---- release notes ----"; cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          files: release-files/*
+          fail_on_unmatched_files: false
