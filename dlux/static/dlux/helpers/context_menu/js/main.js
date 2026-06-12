@@ -1,5 +1,5 @@
 /**
- * Micro Context Menu
+ * Dlux Context Menu
  * A generic, data-driven context menu for the DjangoLux ecosystem.
  */
 
@@ -7,7 +7,7 @@
     'use strict';
 
     // Namespace
-    window.MicroContextMenu = window.MicroContextMenu || {};
+    window.DluxContextMenu = window.DluxContextMenu || {};
 
     // Internal State
     const LONG_PRESS_DURATION = 500; // ms
@@ -20,14 +20,14 @@
     document.addEventListener('DOMContentLoaded', init);
 
     function init() {
-        if (window.__microContextMenuInitialized) return;
-        window.__microContextMenuInitialized = true;
+        if (window.__dluxContextMenuInitialized) return;
+        window.__dluxContextMenuInitialized = true;
 
         // Create Menu DOM if not exists
-        if (!document.getElementById('microContextMenu')) {
+        if (!document.getElementById('dluxContextMenu')) {
             createMenuDOM();
         }
-        menuElement = document.getElementById('microContextMenu');
+        menuElement = document.getElementById('dluxContextMenu');
 
         // Global Event Delegation for Context Menu
         document.addEventListener('contextmenu', handleGlobalContextMenu);
@@ -54,7 +54,7 @@
 
     function createMenuDOM() {
         const div = document.createElement('div');
-        div.id = 'microContextMenu';
+        div.id = 'dluxContextMenu';
         div.className = 'context-menu'; // Uses existing CSS class
         div.style.display = 'none';
         document.body.appendChild(div);
@@ -65,7 +65,7 @@
     // ============================================================
 
     function handleGlobalContextMenu(e) {
-        const target = e.target.closest('[data-micro-context]');
+        const target = e.target.closest('[data-dlux-context]');
         if (!target) return;
 
         e.preventDefault();
@@ -76,7 +76,7 @@
     }
 
     function handleGlobalDoubleClick(e) {
-        const target = e.target.closest('[data-micro-context]');
+        const target = e.target.closest('[data-dlux-context]');
         if (!target) return;
 
         const actions = getActionsForTarget(target);
@@ -106,7 +106,7 @@
     }
 
     function handleGlobalTouchStart(e) {
-        const target = e.target.closest('[data-micro-context]');
+        const target = e.target.closest('[data-dlux-context]');
         if (!target) return;
 
         currentTarget = target;
@@ -169,22 +169,22 @@
 
     function getActionsForTarget(target) {
         // Option 1: Inline JSON
-        if (target.dataset.microActions) {
+        if (target.dataset.dluxActions) {
             try {
-                return JSON.parse(target.dataset.microActions);
+                return JSON.parse(target.dataset.dluxActions);
             } catch (e) {
-                console.warn('MicroContextMenu: Invalid JSON in data-micro-actions', e);
+                console.warn('DluxContextMenu: Invalid JSON in data-dlux-actions', e);
                 return [];
             }
         }
         // Option 2: ID Reference to Script Tag (for large menus)
-        if (target.dataset.microActionsId) {
-            const el = document.getElementById(target.dataset.microActionsId);
+        if (target.dataset.dluxActionsId) {
+            const el = document.getElementById(target.dataset.dluxActionsId);
             if (el) {
                 try {
                     return JSON.parse(el.textContent);
                 } catch (e) {
-                    console.warn('MicroContextMenu: Invalid JSON in script block', e);
+                    console.warn('DluxContextMenu: Invalid JSON in script block', e);
                 }
             }
         }
@@ -329,22 +329,22 @@
         // Check if there is specific logic in translations for "Edit" etc
         // For now hardcoding or using what was there.
         // We can check if a translation object exists globally.
-        const ms_trans = window.MS_TRANS || {}; 
-        
+        const dluxStrings = window.DLUX_STRINGS || {};
+
         const actions = [
             {
-                label: ms_trans.edit_label || 'تعديل',
+                label: dluxStrings.edit_label || 'تعديل',
                 icon: 'bi bi-pencil',
                 type: 'event',
-                event: 'micro:subsection:edit'
+                event: 'dlux:subsection:edit'
             },
             { type: 'divider' },
             {
-                label: ms_trans.delete_label || 'حذف',
+                label: dluxStrings.delete_label || 'حذف',
                 icon: 'bi bi-trash',
                 textClass: 'text-danger',
                 type: 'event',
-                event: 'micro:subsection:delete',
+                event: 'dlux:subsection:delete',
                 disabled: isLocked
             }
         ];
@@ -354,12 +354,12 @@
     // Initialize the specific logic for Subsections (Inline Editing)
     function initSubsectionLogic() {
         // Listen for the events we dispatch
-        document.body.addEventListener('micro:subsection:edit', function(e) {
+        document.body.addEventListener('dlux:subsection:edit', function(e) {
             const target = e.detail.originalTarget;
             handleSubsectionEdit(target);
         });
 
-        document.body.addEventListener('micro:subsection:delete', function(e) {
+        document.body.addEventListener('dlux:subsection:delete', function(e) {
             const target = e.detail.originalTarget;
             handleSubsectionDelete(target);
         });
@@ -634,7 +634,7 @@
                     <label class="btn btn-outline-secondary subsection-checkbox-label"
                            for="${checkboxId}" style="font-size: 1.1rem;"
                            data-sub-id="${data.id}" data-sub-name="${name}"
-                           data-micro-context="true"
+                           data-dlux-context="true"
                            data-locked="false">
                       ${name}
                     </label>
@@ -689,7 +689,7 @@
     // any host listener. A host that handles the record itself (e.g. opens a modal)
     // should call `event.preventDefault()` on a normal listener to opt out of the
     // scaffold navigation — no capture phase or stopImmediatePropagation required.
-    window.addEventListener('micro:record:view', function(e) {
+    window.addEventListener('dlux:record:view', function(e) {
         if (e.defaultPrevented || isSectionManagerActive()) return;
 
         const data = e.detail.data;
@@ -701,7 +701,7 @@
         }
     });
 
-    window.addEventListener('micro:record:edit', function(e) {
+    window.addEventListener('dlux:record:edit', function(e) {
         if (e.defaultPrevented || isSectionManagerActive()) return;
 
         const data = e.detail.data;
@@ -713,7 +713,7 @@
         }
     });
 
-    window.addEventListener('micro:record:delete', function(e) {
+    window.addEventListener('dlux:record:delete', function(e) {
         if (e.defaultPrevented || isSectionManagerActive()) return;
 
         const data = e.detail.data;

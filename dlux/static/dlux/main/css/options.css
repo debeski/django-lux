@@ -1,22 +1,22 @@
-.dl-options-grid {
-    --dl-options-grid-gap: 1.35rem;
+.dlux-options-grid {
+    --dlux-options-grid-gap: 1.35rem;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: var(--dl-options-grid-gap);
+    gap: var(--dlux-options-grid-gap);
     align-items: stretch;
     grid-auto-flow: row dense;
 }
 
-.dl-options-card {
+.dlux-options-card {
     position: relative;
     min-width: 0;
 }
 
-.dl-options-card--wide {
+.dlux-options-card--wide {
     grid-column: span 2;
 }
 
-.dl-options-panel {
+.dlux-options-panel {
     position: relative;
     min-height: 100%;
     overflow: hidden;
@@ -35,7 +35,7 @@
         box-shadow 0.2s ease;
 }
 
-.dl-options-panel::before {
+.dlux-options-panel::before {
     content: "";
     position: absolute;
     inset: 0 0 auto;
@@ -43,17 +43,17 @@
     background: linear-gradient(90deg, rgba(var(--primal-rgb), 0.88), rgba(var(--primal-rgb), 0.22));
 }
 
-.dl-options-panel--danger::before {
+.dlux-options-panel--danger::before {
     background: linear-gradient(90deg, rgba(220, 53, 69, 0.9), rgba(220, 53, 69, 0.24));
 }
 
-.dl-options-panel h4 {
+.dlux-options-panel h4 {
     padding-inline-end: 0;
     font-weight: 750;
     letter-spacing: -0.01em;
 }
 
-.dl-options-panel h4 > i:first-child {
+.dlux-options-panel h4 > i:first-child {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -66,23 +66,23 @@
     box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.12);
 }
 
-.dl-options-panel--danger h4 > i:first-child {
+.dlux-options-panel--danger h4 > i:first-child {
     background: rgba(220, 53, 69, 0.11);
     color: var(--bs-danger, #dc3545);
     box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.14);
 }
 
-.dl-options-panel > .text-muted.small {
+.dlux-options-panel > .text-muted.small {
     max-width: 56ch;
 }
 
-.dl-options-card-handle,
-.dl-options-card-handle:not(:disabled),
-.dl-options-card-handle .bi {
+.dlux-options-card-handle,
+.dlux-options-card-handle:not(:disabled),
+.dlux-options-card-handle .bi {
     cursor: grab;
 }
 
-.dl-options-card-handle {
+.dlux-options-card-handle {
     position: relative;
     float: inline-end;
     z-index: 2;
@@ -105,30 +105,30 @@
         transform 0.18s ease;
 }
 
-.dl-options-card-handle:hover,
-.dl-options-card-handle:focus-visible {
+.dlux-options-card-handle:hover,
+.dlux-options-card-handle:focus-visible {
     background: rgba(var(--primal-rgb), 0.1);
     border-color: rgba(var(--primal-rgb), 0.34);
     color: var(--primal);
     transform: translateY(-1px);
 }
 
-.dl-options-card-handle:active,
-.dl-options-card-handle:not(:disabled):active,
-.dl-options-card-handle:active .bi {
+.dlux-options-card-handle:active,
+.dlux-options-card-handle:not(:disabled):active,
+.dlux-options-card-handle:active .bi {
     cursor: grabbing;
 }
 
-.dl-options-card.is-dragging {
+.dlux-options-card.is-dragging {
     opacity: 0.55;
 }
 
-.dl-options-card.is-dragging .dl-options-panel {
+.dlux-options-card.is-dragging .dlux-options-panel {
     transform: scale(0.985);
 }
 
-.dl-options-card.is-drag-over-before .dl-options-panel,
-.dl-options-card.is-drag-over-after .dl-options-panel {
+.dlux-options-card.is-drag-over-before .dlux-options-panel,
+.dlux-options-card.is-drag-over-after .dlux-options-panel {
     border-color: rgba(var(--primal-rgb), 0.34);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.45),
@@ -136,8 +136,8 @@
         0 18px 34px -28px rgba(15, 23, 42, 0.3);
 }
 
-.dl-options-card.is-drag-over-before::after,
-.dl-options-card.is-drag-over-after::after {
+.dlux-options-card.is-drag-over-before::after,
+.dlux-options-card.is-drag-over-after::after {
     content: "";
     position: absolute;
     inset-block: 1rem;
@@ -148,21 +148,21 @@
     pointer-events: none;
 }
 
-.dl-options-card.is-drag-over-before::after {
-    inset-inline-start: calc((var(--dl-options-grid-gap) / -2) - 1.5px);
+.dlux-options-card.is-drag-over-before::after {
+    inset-inline-start: calc((var(--dlux-options-grid-gap) / -2) - 1.5px);
 }
 
-.dl-options-card.is-drag-over-after::after {
-    inset-inline-end: calc((var(--dl-options-grid-gap) / -2) - 1.5px);
+.dlux-options-card.is-drag-over-after::after {
+    inset-inline-end: calc((var(--dlux-options-grid-gap) / -2) - 1.5px);
 }
 
-.dl-options-switch-list {
+.dlux-options-switch-list {
     gap: 0.85rem !important;
 }
 
-.dl-options-switch-row,
-.dl-options-toggle-shell,
-.dl-options-reset-action-shell {
+.dlux-options-switch-row,
+.dlux-options-toggle-shell,
+.dlux-options-reset-action-shell {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -174,39 +174,39 @@
     background: rgba(var(--primal-rgb), 0.045);
 }
 
-.dl-options-switch-row span:first-child,
-.dl-options-toggle-label {
+.dlux-options-switch-row span:first-child,
+.dlux-options-toggle-label {
     font-weight: 650;
     color: var(--title);
 }
 
-.dl-options-inline-switch,
-.dl-options-reset-actions {
+.dlux-options-inline-switch,
+.dlux-options-reset-actions {
     margin: 0;
     flex-shrink: 0;
 }
 
-.dl-options-reset-action-shell {
+.dlux-options-reset-action-shell {
     border-color: rgba(220, 53, 69, 0.2);
     background: rgba(220, 53, 69, 0.045);
 }
 
-.dl-options-reset-actions[hidden] {
+.dlux-options-reset-actions[hidden] {
     display: none !important;
 }
 
-.dl-options-reset-action {
+.dlux-options-reset-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.12rem;
 }
 
-.dl-options-system-info-table {
+.dlux-options-system-info-table {
     max-width: 100%;
 }
 
-.dl-options-system-info-table .table {
+.dlux-options-system-info-table .table {
     --bs-table-bg: transparent;
     --bs-table-accent-bg: transparent;
     --bs-table-striped-bg: transparent;
@@ -214,38 +214,38 @@
     margin-bottom: 0;
 }
 
-.dl-options-system-info-table th,
-.dl-options-system-info-table td {
+.dlux-options-system-info-table th,
+.dlux-options-system-info-table td {
     overflow-wrap: anywhere;
     word-break: normal;
     background: transparent !important;
 }
 
-.dl-options-system-info-table .progress {
+.dlux-options-system-info-table .progress {
     background: rgba(var(--primal-rgb), 0.1);
     box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.08);
 }
 
-.dl-system-backup-summary {
+.dlux-system-backup-summary {
     display: grid;
     gap: 0.85rem;
     margin-bottom: 1rem;
 }
 
-.dl-system-backup-feature,
-.dl-system-backup-metric {
+.dlux-system-backup-feature,
+.dlux-system-backup-metric {
     min-width: 0;
     border: 1px solid rgba(var(--primal-rgb), 0.12);
     background: rgba(var(--primal-rgb), 0.045);
 }
 
-.dl-system-backup-feature {
+.dlux-system-backup-feature {
     padding: 0.95rem 1rem;
     border-radius: 0.95rem;
 }
 
-.dl-system-backup-label,
-.dl-system-backup-metric span {
+.dlux-system-backup-label,
+.dlux-system-backup-metric span {
     display: block;
     margin-bottom: 0.22rem;
     color: color-mix(in srgb, var(--text) 72%, var(--primal));
@@ -254,7 +254,7 @@
     line-height: 1.2;
 }
 
-.dl-system-backup-value {
+.dlux-system-backup-value {
     display: block;
     color: var(--title);
     font-size: 1.1rem;
@@ -263,18 +263,18 @@
     overflow-wrap: anywhere;
 }
 
-.dl-system-backup-metrics {
+.dlux-system-backup-metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.65rem;
 }
 
-.dl-system-backup-metric {
+.dlux-system-backup-metric {
     padding: 0.78rem 0.85rem;
     border-radius: 0.85rem;
 }
 
-.dl-system-backup-metric strong {
+.dlux-system-backup-metric strong {
     display: block;
     color: var(--title);
     font-size: 0.98rem;
@@ -283,7 +283,7 @@
     overflow-wrap: anywhere;
 }
 
-.dl-system-backup-action {
+.dlux-system-backup-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -292,21 +292,21 @@
     font-weight: 720;
 }
 
-.dl-system-settings-heading {
+.dlux-system-settings-heading {
     margin-bottom: 1rem;
 }
 
-.dl-system-settings-grid {
+.dlux-system-settings-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.72rem;
 }
 
-.dl-system-settings-grid > .dl-system-settings-tile:last-child:nth-child(odd) {
+.dlux-system-settings-grid > .dlux-system-settings-tile:last-child:nth-child(odd) {
     grid-column: 1 / -1;
 }
 
-.dl-system-settings-actions .dl-system-settings-tile {
+.dlux-system-settings-actions .dlux-system-settings-tile {
     appearance: none;
     -webkit-appearance: none;
     display: flex;
@@ -332,8 +332,8 @@
         box-shadow 0.18s ease;
 }
 
-.dl-system-settings-actions .dl-system-settings-tile:hover,
-.dl-system-settings-actions .dl-system-settings-tile:focus-visible {
+.dlux-system-settings-actions .dlux-system-settings-tile:hover,
+.dlux-system-settings-actions .dlux-system-settings-tile:focus-visible {
     transform: translateY(-2px);
     border-color: rgba(var(--primal-rgb), 0.34);
     background:
@@ -344,7 +344,7 @@
         0 12px 24px -22px rgba(var(--primal-rgb), 0.5);
 }
 
-.dl-system-settings-tile-icon {
+.dlux-system-settings-tile-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -357,12 +357,12 @@
     box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.12);
 }
 
-.dl-system-settings-tile-icon i {
+.dlux-system-settings-tile-icon i {
     font-size: 1.05rem;
     line-height: 1;
 }
 
-.dl-system-settings-tile-title {
+.dlux-system-settings-tile-title {
     min-width: 0;
     font-size: 0.92rem;
     font-weight: 760;
@@ -370,98 +370,98 @@
     overflow-wrap: anywhere;
 }
 
-.dl-system-settings-action--secondary .dl-system-settings-tile-icon {
+.dlux-system-settings-action--secondary .dlux-system-settings-tile-icon {
     background: rgba(var(--primal-rgb), 0.055);
     color: color-mix(in srgb, var(--title) 70%, var(--primal));
 }
 
-:root.theme-dark .dl-options-panel,
-:root.theme-retro .dl-options-panel,
-:root.theme-gothic .dl-options-panel,
-:root.theme-prism .dl-options-panel,
-:root.theme-neon .dl-options-panel {
+:root.theme-dark .dlux-options-panel,
+:root.theme-retro .dlux-options-panel,
+:root.theme-gothic .dlux-options-panel,
+:root.theme-prism .dlux-options-panel,
+:root.theme-neon .dlux-options-panel {
     background:
         linear-gradient(160deg, rgba(var(--primal-rgb), 0.08), rgba(255, 255, 255, 0.02)) !important;
     border-color: rgba(var(--primal-rgb), 0.18) !important;
 }
 
-:root.theme-dark .dl-options-panel--danger,
-:root.theme-retro .dl-options-panel--danger,
-:root.theme-gothic .dl-options-panel--danger,
-:root.theme-prism .dl-options-panel--danger,
-:root.theme-neon .dl-options-panel--danger {
+:root.theme-dark .dlux-options-panel--danger,
+:root.theme-retro .dlux-options-panel--danger,
+:root.theme-gothic .dlux-options-panel--danger,
+:root.theme-prism .dlux-options-panel--danger,
+:root.theme-neon .dlux-options-panel--danger {
     background:
         linear-gradient(160deg, rgba(248, 113, 113, 0.075), rgba(255, 255, 255, 0.016)) !important;
     border-color: rgba(248, 113, 113, 0.22) !important;
 }
 
-:root.theme-dark .dl-options-card-handle,
-:root.theme-retro .dl-options-card-handle,
-:root.theme-gothic .dl-options-card-handle,
-:root.theme-prism .dl-options-card-handle,
-:root.theme-neon .dl-options-card-handle {
+:root.theme-dark .dlux-options-card-handle,
+:root.theme-retro .dlux-options-card-handle,
+:root.theme-gothic .dlux-options-card-handle,
+:root.theme-prism .dlux-options-card-handle,
+:root.theme-neon .dlux-options-card-handle {
     background: rgba(var(--primal-rgb), 0.08);
     border-color: rgba(var(--primal-rgb), 0.2);
 }
 
-:root.theme-dark .dl-options-card-handle:hover,
-:root.theme-retro .dl-options-card-handle:hover,
-:root.theme-gothic .dl-options-card-handle:hover,
-:root.theme-prism .dl-options-card-handle:hover,
-:root.theme-neon .dl-options-card-handle:hover,
-:root.theme-dark .dl-options-card-handle:focus-visible,
-:root.theme-retro .dl-options-card-handle:focus-visible,
-:root.theme-gothic .dl-options-card-handle:focus-visible,
-:root.theme-prism .dl-options-card-handle:focus-visible,
-:root.theme-neon .dl-options-card-handle:focus-visible {
+:root.theme-dark .dlux-options-card-handle:hover,
+:root.theme-retro .dlux-options-card-handle:hover,
+:root.theme-gothic .dlux-options-card-handle:hover,
+:root.theme-prism .dlux-options-card-handle:hover,
+:root.theme-neon .dlux-options-card-handle:hover,
+:root.theme-dark .dlux-options-card-handle:focus-visible,
+:root.theme-retro .dlux-options-card-handle:focus-visible,
+:root.theme-gothic .dlux-options-card-handle:focus-visible,
+:root.theme-prism .dlux-options-card-handle:focus-visible,
+:root.theme-neon .dlux-options-card-handle:focus-visible {
     background: rgba(var(--primal-rgb), 0.15);
     border-color: rgba(var(--primal-rgb), 0.34);
 }
 
-:root.theme-dark .dl-options-switch-row,
-:root.theme-dark .dl-options-toggle-shell,
-:root.theme-dark .dl-options-reset-action-shell,
-:root.theme-dark .dl-system-backup-feature,
-:root.theme-dark .dl-system-backup-metric,
-:root.theme-retro .dl-options-switch-row,
-:root.theme-retro .dl-options-toggle-shell,
-:root.theme-retro .dl-options-reset-action-shell,
-:root.theme-retro .dl-system-backup-feature,
-:root.theme-retro .dl-system-backup-metric,
-:root.theme-gothic .dl-options-switch-row,
-:root.theme-gothic .dl-options-toggle-shell,
-:root.theme-gothic .dl-options-reset-action-shell,
-:root.theme-gothic .dl-system-backup-feature,
-:root.theme-gothic .dl-system-backup-metric,
-:root.theme-prism .dl-options-switch-row,
-:root.theme-prism .dl-options-toggle-shell,
-:root.theme-prism .dl-options-reset-action-shell,
-:root.theme-prism .dl-system-backup-feature,
-:root.theme-prism .dl-system-backup-metric,
-:root.theme-neon .dl-options-switch-row,
-:root.theme-neon .dl-options-toggle-shell,
-:root.theme-neon .dl-options-reset-action-shell,
-:root.theme-neon .dl-system-backup-feature,
-:root.theme-neon .dl-system-backup-metric {
+:root.theme-dark .dlux-options-switch-row,
+:root.theme-dark .dlux-options-toggle-shell,
+:root.theme-dark .dlux-options-reset-action-shell,
+:root.theme-dark .dlux-system-backup-feature,
+:root.theme-dark .dlux-system-backup-metric,
+:root.theme-retro .dlux-options-switch-row,
+:root.theme-retro .dlux-options-toggle-shell,
+:root.theme-retro .dlux-options-reset-action-shell,
+:root.theme-retro .dlux-system-backup-feature,
+:root.theme-retro .dlux-system-backup-metric,
+:root.theme-gothic .dlux-options-switch-row,
+:root.theme-gothic .dlux-options-toggle-shell,
+:root.theme-gothic .dlux-options-reset-action-shell,
+:root.theme-gothic .dlux-system-backup-feature,
+:root.theme-gothic .dlux-system-backup-metric,
+:root.theme-prism .dlux-options-switch-row,
+:root.theme-prism .dlux-options-toggle-shell,
+:root.theme-prism .dlux-options-reset-action-shell,
+:root.theme-prism .dlux-system-backup-feature,
+:root.theme-prism .dlux-system-backup-metric,
+:root.theme-neon .dlux-options-switch-row,
+:root.theme-neon .dlux-options-toggle-shell,
+:root.theme-neon .dlux-options-reset-action-shell,
+:root.theme-neon .dlux-system-backup-feature,
+:root.theme-neon .dlux-system-backup-metric {
     background:
         linear-gradient(145deg, rgba(var(--primal-rgb), 0.08), rgba(255, 255, 255, 0.016)) !important;
 }
 
-:root.theme-dark .dl-options-reset-action-shell,
-:root.theme-retro .dl-options-reset-action-shell,
-:root.theme-gothic .dl-options-reset-action-shell,
-:root.theme-prism .dl-options-reset-action-shell,
-:root.theme-aether .dl-options-reset-action-shell,
-:root.theme-neon .dl-options-reset-action-shell {
+:root.theme-dark .dlux-options-reset-action-shell,
+:root.theme-retro .dlux-options-reset-action-shell,
+:root.theme-gothic .dlux-options-reset-action-shell,
+:root.theme-prism .dlux-options-reset-action-shell,
+:root.theme-aether .dlux-options-reset-action-shell,
+:root.theme-neon .dlux-options-reset-action-shell {
     border-color: rgba(248, 113, 113, 0.24) !important;
 }
 
-:root.theme-dark .dl-system-settings-actions .dl-system-settings-tile,
-:root.theme-retro .dl-system-settings-actions .dl-system-settings-tile,
-:root.theme-gothic .dl-system-settings-actions .dl-system-settings-tile,
-:root.theme-prism .dl-system-settings-actions .dl-system-settings-tile,
-:root.theme-aether .dl-system-settings-actions .dl-system-settings-tile,
-:root.theme-neon .dl-system-settings-actions .dl-system-settings-tile {
+:root.theme-dark .dlux-system-settings-actions .dlux-system-settings-tile,
+:root.theme-retro .dlux-system-settings-actions .dlux-system-settings-tile,
+:root.theme-gothic .dlux-system-settings-actions .dlux-system-settings-tile,
+:root.theme-prism .dlux-system-settings-actions .dlux-system-settings-tile,
+:root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile,
+:root.theme-neon .dlux-system-settings-actions .dlux-system-settings-tile {
     background:
         linear-gradient(135deg, rgba(var(--primal-rgb), 0.075), rgba(255, 255, 255, 0.018)) !important;
     border-color: rgba(var(--primal-rgb), 0.26) !important;
@@ -471,37 +471,37 @@
         0 8px 18px -18px rgba(0, 0, 0, 0.72) !important;
 }
 
-:root.theme-dark .dl-system-settings-tile-icon,
-:root.theme-retro .dl-system-settings-tile-icon,
-:root.theme-gothic .dl-system-settings-tile-icon,
-:root.theme-prism .dl-system-settings-tile-icon,
-:root.theme-aether .dl-system-settings-tile-icon,
-:root.theme-neon .dl-system-settings-tile-icon {
+:root.theme-dark .dlux-system-settings-tile-icon,
+:root.theme-retro .dlux-system-settings-tile-icon,
+:root.theme-gothic .dlux-system-settings-tile-icon,
+:root.theme-prism .dlux-system-settings-tile-icon,
+:root.theme-aether .dlux-system-settings-tile-icon,
+:root.theme-neon .dlux-system-settings-tile-icon {
     background: rgba(var(--primal-rgb), 0.12);
     box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.2);
 }
 
-:root.theme-dark .dl-system-settings-actions .dl-system-settings-tile i,
-:root.theme-retro .dl-system-settings-actions .dl-system-settings-tile i,
-:root.theme-gothic .dl-system-settings-actions .dl-system-settings-tile i,
-:root.theme-prism .dl-system-settings-actions .dl-system-settings-tile i,
-:root.theme-aether .dl-system-settings-actions .dl-system-settings-tile i,
-:root.theme-neon .dl-system-settings-actions .dl-system-settings-tile i {
+:root.theme-dark .dlux-system-settings-actions .dlux-system-settings-tile i,
+:root.theme-retro .dlux-system-settings-actions .dlux-system-settings-tile i,
+:root.theme-gothic .dlux-system-settings-actions .dlux-system-settings-tile i,
+:root.theme-prism .dlux-system-settings-actions .dlux-system-settings-tile i,
+:root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile i,
+:root.theme-neon .dlux-system-settings-actions .dlux-system-settings-tile i {
     color: currentColor !important;
 }
 
-:root.theme-dark .dl-system-settings-actions .dl-system-settings-tile:hover,
-:root.theme-retro .dl-system-settings-actions .dl-system-settings-tile:hover,
-:root.theme-gothic .dl-system-settings-actions .dl-system-settings-tile:hover,
-:root.theme-prism .dl-system-settings-actions .dl-system-settings-tile:hover,
-:root.theme-aether .dl-system-settings-actions .dl-system-settings-tile:hover,
-:root.theme-neon .dl-system-settings-actions .dl-system-settings-tile:hover,
-:root.theme-dark .dl-system-settings-actions .dl-system-settings-tile:focus-visible,
-:root.theme-retro .dl-system-settings-actions .dl-system-settings-tile:focus-visible,
-:root.theme-gothic .dl-system-settings-actions .dl-system-settings-tile:focus-visible,
-:root.theme-prism .dl-system-settings-actions .dl-system-settings-tile:focus-visible,
-:root.theme-aether .dl-system-settings-actions .dl-system-settings-tile:focus-visible,
-:root.theme-neon .dl-system-settings-actions .dl-system-settings-tile:focus-visible {
+:root.theme-dark .dlux-system-settings-actions .dlux-system-settings-tile:hover,
+:root.theme-retro .dlux-system-settings-actions .dlux-system-settings-tile:hover,
+:root.theme-gothic .dlux-system-settings-actions .dlux-system-settings-tile:hover,
+:root.theme-prism .dlux-system-settings-actions .dlux-system-settings-tile:hover,
+:root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:hover,
+:root.theme-neon .dlux-system-settings-actions .dlux-system-settings-tile:hover,
+:root.theme-dark .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible,
+:root.theme-retro .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible,
+:root.theme-gothic .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible,
+:root.theme-prism .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible,
+:root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible,
+:root.theme-neon .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible {
     background:
         linear-gradient(135deg, rgba(var(--primal-rgb), 0.14), rgba(255, 255, 255, 0.032)) !important;
     border-color: rgba(var(--primal-rgb), 0.42) !important;
@@ -511,23 +511,23 @@
         0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
 }
 
-:root.theme-dark .dl-system-settings-actions .dl-system-settings-action--secondary,
-:root.theme-retro .dl-system-settings-actions .dl-system-settings-action--secondary,
-:root.theme-gothic .dl-system-settings-actions .dl-system-settings-action--secondary,
-:root.theme-prism .dl-system-settings-actions .dl-system-settings-action--secondary,
-:root.theme-aether .dl-system-settings-actions .dl-system-settings-action--secondary,
-:root.theme-neon .dl-system-settings-actions .dl-system-settings-action--secondary {
+:root.theme-dark .dlux-system-settings-actions .dlux-system-settings-action--secondary,
+:root.theme-retro .dlux-system-settings-actions .dlux-system-settings-action--secondary,
+:root.theme-gothic .dlux-system-settings-actions .dlux-system-settings-action--secondary,
+:root.theme-prism .dlux-system-settings-actions .dlux-system-settings-action--secondary,
+:root.theme-aether .dlux-system-settings-actions .dlux-system-settings-action--secondary,
+:root.theme-neon .dlux-system-settings-actions .dlux-system-settings-action--secondary {
     color: color-mix(in srgb, var(--title) 86%, var(--primal)) !important;
     border-color: rgba(var(--primal-rgb), 0.18) !important;
     background:
         linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(var(--primal-rgb), 0.018)) !important;
 }
 
-:root.theme-dark .dl-options-reset-action,
-:root.theme-retro .dl-options-reset-action,
-:root.theme-gothic .dl-options-reset-action,
-:root.theme-prism .dl-options-reset-action,
-:root.theme-neon .dl-options-reset-action {
+:root.theme-dark .dlux-options-reset-action,
+:root.theme-retro .dlux-options-reset-action,
+:root.theme-gothic .dlux-options-reset-action,
+:root.theme-prism .dlux-options-reset-action,
+:root.theme-neon .dlux-options-reset-action {
     background:
         linear-gradient(135deg, rgba(248, 113, 113, 0.08), rgba(255, 255, 255, 0.018)) !important;
     border-color: rgba(248, 113, 113, 0.34) !important;
@@ -537,16 +537,16 @@
         0 8px 18px -18px rgba(0, 0, 0, 0.72) !important;
 }
 
-:root.theme-dark .dl-options-reset-action:hover,
-:root.theme-retro .dl-options-reset-action:hover,
-:root.theme-gothic .dl-options-reset-action:hover,
-:root.theme-prism .dl-options-reset-action:hover,
-:root.theme-neon .dl-options-reset-action:hover,
-:root.theme-dark .dl-options-reset-action:focus-visible,
-:root.theme-retro .dl-options-reset-action:focus-visible,
-:root.theme-gothic .dl-options-reset-action:focus-visible,
-:root.theme-prism .dl-options-reset-action:focus-visible,
-:root.theme-neon .dl-options-reset-action:focus-visible {
+:root.theme-dark .dlux-options-reset-action:hover,
+:root.theme-retro .dlux-options-reset-action:hover,
+:root.theme-gothic .dlux-options-reset-action:hover,
+:root.theme-prism .dlux-options-reset-action:hover,
+:root.theme-neon .dlux-options-reset-action:hover,
+:root.theme-dark .dlux-options-reset-action:focus-visible,
+:root.theme-retro .dlux-options-reset-action:focus-visible,
+:root.theme-gothic .dlux-options-reset-action:focus-visible,
+:root.theme-prism .dlux-options-reset-action:focus-visible,
+:root.theme-neon .dlux-options-reset-action:focus-visible {
     background:
         linear-gradient(135deg, rgba(248, 113, 113, 0.16), rgba(255, 255, 255, 0.032)) !important;
     border-color: rgba(248, 113, 113, 0.52) !important;
@@ -556,61 +556,61 @@
         0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
 }
 
-:root.theme-dark .dl-options-reset-action i,
-:root.theme-retro .dl-options-reset-action i,
-:root.theme-gothic .dl-options-reset-action i,
-:root.theme-prism .dl-options-reset-action i,
-:root.theme-neon .dl-options-reset-action i {
+:root.theme-dark .dlux-options-reset-action i,
+:root.theme-retro .dlux-options-reset-action i,
+:root.theme-gothic .dlux-options-reset-action i,
+:root.theme-prism .dlux-options-reset-action i,
+:root.theme-neon .dlux-options-reset-action i {
     color: currentColor !important;
 }
 
 @media (max-width: 900px) {
-    .dl-options-card--wide {
+    .dlux-options-card--wide {
         grid-column: span 1;
     }
 }
 
 @media (max-width: 576px) {
-    .dl-options-grid {
-        --dl-options-grid-gap: 1rem;
+    .dlux-options-grid {
+        --dlux-options-grid-gap: 1rem;
         grid-template-columns: 1fr;
     }
 
-    .dl-options-panel {
+    .dlux-options-panel {
         padding: 1rem;
     }
 
-    .dl-options-panel h4 {
+    .dlux-options-panel h4 {
         padding-inline-end: 0;
     }
 
-    .dl-options-card-handle {
+    .dlux-options-card-handle {
         width: 2rem;
         height: 2rem;
         margin-block: -0.05rem 0.55rem;
         margin-inline-start: 0.7rem;
     }
 
-    .dl-options-switch-row,
-    .dl-options-toggle-shell,
-    .dl-options-reset-action-shell {
+    .dlux-options-switch-row,
+    .dlux-options-toggle-shell,
+    .dlux-options-reset-action-shell {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .dl-options-inline-switch {
+    .dlux-options-inline-switch {
         align-self: flex-end;
     }
 
-    .dl-system-backup-metrics {
+    .dlux-system-backup-metrics {
         grid-template-columns: 1fr;
     }
 
-    .dl-system-settings-grid {
+    .dlux-system-settings-grid {
         grid-template-columns: 1fr;
     }
 
-    .dl-system-settings-actions .dl-system-settings-tile {
+    .dlux-system-settings-actions .dlux-system-settings-tile {
         min-height: 3.65rem;
     }
 }

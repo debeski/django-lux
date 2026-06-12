@@ -1,17 +1,17 @@
 {% extends 'dlux/base.html' %}
 {% load static %}
-{% block title %}{{ MS_TRANS.2fa_verify_title }}{% endblock %}
+{% block title %}{{ DLUX_STRINGS.2fa_verify_title }}{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'dlux/users/css/login.css' %}?v=20260515e">
+<link rel="stylesheet" href="{% static 'dlux/users/css/login.css' %}?v=20260612c">
 {% endblock %}
 {% block titlebar %}{% endblock %}
 
 {% block layout %}
 <div class="page">
     {% if messages %}
-        <div class="alert-container position-absolute top-0 start-0 w-100 dl-page-alert-container">
+        <div class="alert-container position-absolute top-0 start-0 w-100 dlux-page-alert-container">
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} text-center h4 dl-page-alert">
+                <div class="alert alert-{{ message.tags }} text-center h4 dlux-page-alert">
                     {{ message }}
                 </div>
             {% endfor %}
@@ -22,7 +22,7 @@
       <div class="left">
         <div class="d-flex flex-column align-items-center mb-4 d-md-none">
             <div class="logo-frame">
-                <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ MS_TRANS.login_logo_alt }}" class="logo-img">
+                <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ DLUX_STRINGS.login_logo_alt }}" class="logo-img">
             </div>
         </div>
         <form method="post" action="" class="w-100">
@@ -34,15 +34,15 @@
                         <div class="login-2fa-icon"><i class="bi bi-shield-lock"></i></div>
                         <p class="text-muted small mt-2 mb-3" id="otp-instruction-text">
                             {% if challenge_state.current_method == 'backup_code' %}
-                                {{ MS_TRANS.2fa_backup_instruction }}
+                                {{ DLUX_STRINGS.2fa_backup_instruction }}
                             {% elif challenge_state.current_method == 'email' %}
                                 {% if challenge_state.email_sent or challenge_state.email_auto_sent %}
-                                    {{ MS_TRANS.2fa_email_sent_instruction }}
+                                    {{ DLUX_STRINGS.2fa_email_sent_instruction }}
                                 {% else %}
-                                    {{ MS_TRANS.2fa_email_request_instruction }}
+                                    {{ DLUX_STRINGS.2fa_email_request_instruction }}
                                 {% endif %}
                             {% else %}
-                                {{ MS_TRANS.2fa_totp_or_email_instruction }}
+                                {{ DLUX_STRINGS.2fa_totp_or_email_instruction }}
                             {% endif %}
                         </p>
                         <div class="d-flex justify-content-center gap-2 flex-wrap login-2fa-actions">
@@ -53,14 +53,14 @@
                                     data-url="{% url 'resend_otp_login' %}"
                                     data-csrf="{{ csrf_token }}"
                                     data-method="email"
-                                    data-send-label="{{ MS_TRANS.2fa_send_email_code }}"
-                                    data-resend-label="{{ MS_TRANS.2fa_resend_btn }}"
-                                    data-sent-text="{{ MS_TRANS.2fa_email_sent_instruction }}"
-                                    data-request-text="{{ MS_TRANS.2fa_email_request_instruction }}"
+                                    data-send-label="{{ DLUX_STRINGS.2fa_send_email_code }}"
+                                    data-resend-label="{{ DLUX_STRINGS.2fa_resend_btn }}"
+                                    data-sent-text="{{ DLUX_STRINGS.2fa_email_sent_instruction }}"
+                                    data-request-text="{{ DLUX_STRINGS.2fa_email_request_instruction }}"
                                     data-cooldown-seconds="{{ challenge_state.email_resend_cooldown_seconds|default:0 }}"
-                                    data-cooldown-template="{{ MS_TRANS.2fa_email_resend_wait }}"
-                                    data-error-text="{{ MS_TRANS.err_unable_send_code }}">
-                                <span class="btn-label"><i class="bi bi-envelope me-1"></i>{% if challenge_state.email_sent or challenge_state.email_auto_sent %}{{ MS_TRANS.2fa_resend_btn }}{% elif user_methods.totp %}{{ MS_TRANS.2fa_send_email_instead }}{% else %}{{ MS_TRANS.2fa_send_email_code }}{% endif %}</span>
+                                    data-cooldown-template="{{ DLUX_STRINGS.2fa_email_resend_wait }}"
+                                    data-error-text="{{ DLUX_STRINGS.err_unable_send_code }}">
+                                <span class="btn-label"><i class="bi bi-envelope me-1"></i>{% if challenge_state.email_sent or challenge_state.email_auto_sent %}{{ DLUX_STRINGS.2fa_resend_btn }}{% elif user_methods.totp %}{{ DLUX_STRINGS.2fa_send_email_instead }}{% else %}{{ DLUX_STRINGS.2fa_send_email_code }}{% endif %}</span>
                                 <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                             </button>
                             {% endif %}
@@ -69,8 +69,8 @@
                                     class="btn btn-outline-dark btn-sm rounded-pill"
                                     id="useTotpBtn"
                                     data-method="totp"
-                                    data-instruction-text="{{ MS_TRANS.2fa_totp_or_email_instruction }}">
-                                <i class="bi bi-app-indicator me-1"></i>{{ MS_TRANS.2fa_use_authenticator }}
+                                    data-instruction-text="{{ DLUX_STRINGS.2fa_totp_or_email_instruction }}">
+                                <i class="bi bi-app-indicator me-1"></i>{{ DLUX_STRINGS.2fa_use_authenticator }}
                             </button>
                             {% endif %}
                             {% if user_methods.backup %}
@@ -78,38 +78,38 @@
                                     class="btn btn-outline-secondary btn-sm rounded-pill"
                                     id="useBackupCodeBtn"
                                     data-method="backup_code"
-                                    data-instruction-text="{{ MS_TRANS.2fa_backup_instruction }}">
-                                <i class="bi bi-safe me-1"></i>{{ MS_TRANS.2fa_use_backup_code }}
+                                    data-instruction-text="{{ DLUX_STRINGS.2fa_backup_instruction }}">
+                                <i class="bi bi-safe me-1"></i>{{ DLUX_STRINGS.2fa_use_backup_code }}
                             </button>
                             {% endif %}
                             <button type="button"
                                     class="btn btn-outline-secondary btn-sm rounded-pill d-none"
                                     id="usePrimaryMethodBtn"
                                     data-method="{{ challenge_state.default_method|default:'email' }}"
-                                    data-label-email="{{ MS_TRANS.2fa_return_to_email }}"
-                                    data-label-totp="{{ MS_TRANS.2fa_return_to_authenticator }}"
-                                    data-label-default="{{ MS_TRANS.2fa_return_to_default }}">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i><span class="btn-label">{{ MS_TRANS.2fa_return_to_default }}</span>
+                                    data-label-email="{{ DLUX_STRINGS.2fa_return_to_email }}"
+                                    data-label-totp="{{ DLUX_STRINGS.2fa_return_to_authenticator }}"
+                                    data-label-default="{{ DLUX_STRINGS.2fa_return_to_default }}">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i><span class="btn-label">{{ DLUX_STRINGS.2fa_return_to_default }}</span>
                             </button>
                         </div>
                         <p class="small text-muted mt-3 mb-0" id="emailOtpStatusText"></p>
                     </div>
                 {% else %}
-                    <p class="text-muted mb-4">{{ MS_TRANS.2fa_verify_desc }}</p>
+                    <p class="text-muted mb-4">{{ DLUX_STRINGS.2fa_verify_desc }}</p>
                 {% endif %}
 
                 {% if error_message %}
-                    <div class="alert alert-danger dl-twofa-inline-alert" role="alert" id="otp-inline-error">
+                    <div class="alert alert-danger dlux-twofa-inline-alert" role="alert" id="otp-inline-error">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ error_message }}
                     </div>
                 {% else %}
-                    <div class="alert alert-danger dl-twofa-inline-alert d-none" role="alert" id="otp-inline-error"></div>
+                    <div class="alert alert-danger dlux-twofa-inline-alert d-none" role="alert" id="otp-inline-error"></div>
                 {% endif %}
 
                 <div class="mb-4">
-                    <label for="otp_code" class="visually-hidden">{{ MS_TRANS.2fa_code }}</label>
+                    <label for="otp_code" class="visually-hidden">{{ DLUX_STRINGS.2fa_code }}</label>
                     <input type="text"
-                           class="login-input text-center fw-bold dl-otp-code-input"
+                           class="login-input text-center fw-bold dlux-otp-code-input"
                            id="otp_code" 
                            name="otp_code" 
                            placeholder="{% if challenge_state.current_method == 'backup_code' %}XXXXXXXX{% else %}XXXXXX{% endif %}"
@@ -121,22 +121,22 @@
                 </div>
                 {% if intent == 'login' %}
                     <input type="hidden" name="method" id="otp_method" value="{{ challenge_state.current_method|default:'email' }}">
-                    <div class="form-check text-start mt-n2 mb-3 dl-twofa-trust-field">
+                    <div class="form-check text-start mt-n2 mb-3 dlux-twofa-trust-field">
                         <input class="form-check-input" type="checkbox" value="1" id="trust_device" name="trust_device">
                         <label class="form-check-label small" for="trust_device">
-                            {{ MS_TRANS.2fa_trust_device_label }}
+                            {{ DLUX_STRINGS.2fa_trust_device_label }}
                         </label>
                     </div>
                 {% endif %}
         
-                <button type="submit" class="w-100 btn btn-lg mt-4" id="submit">{{ MS_TRANS.2fa_verify_btn }}</button>
+                <button type="submit" class="w-100 btn btn-lg mt-4" id="submit">{{ DLUX_STRINGS.2fa_verify_btn }}</button>
                 
                 <div class="d-flex justify-content-between mt-4">
                     {% if intent == 'login' %}
-                        <a href="{% url 'login' %}" class="text-muted text-decoration-none small">{{ MS_TRANS.back_to_login }}</a>
+                        <a href="{% url 'login' %}" class="text-muted text-decoration-none small">{{ DLUX_STRINGS.back_to_login }}</a>
                     {% else %}
-                        <button type="submit" form="resendOtpEnableForm" class="btn btn-link text-muted text-decoration-none small p-0 border-0">{{ MS_TRANS.2fa_resend_btn }}</button>
-                        <a href="{% url 'user_profile' %}" class="text-muted text-decoration-none small">{{ MS_TRANS.btn_cancel }}</a>
+                        <button type="submit" form="resendOtpEnableForm" class="btn btn-link text-muted text-decoration-none small p-0 border-0">{{ DLUX_STRINGS.2fa_resend_btn }}</button>
+                        <a href="{% url 'user_profile' %}" class="text-muted text-decoration-none small">{{ DLUX_STRINGS.btn_cancel }}</a>
                     {% endif %}
                 </div>
             </div>
@@ -145,7 +145,7 @@
       
       <div class="right d-none d-md-flex">
           <div class="logo-frame">
-            <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ MS_TRANS.login_logo_alt }}" class="logo-img">
+            <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ DLUX_STRINGS.login_logo_alt }}" class="logo-img">
           </div>
       </div>
     </div>
@@ -155,7 +155,7 @@
 <form id="resendOtpLoginForm" method="post" action="{% url 'resend_otp_login' %}" class="d-none">
     {% csrf_token %}
 </form>
-{{ challenge_state|json_script:"dl-twofa-login-state" }}
+{{ challenge_state|json_script:"dlux-twofa-login-state" }}
 {% else %}
 <form id="resendOtpEnableForm" method="post" action="{% url 'resend_otp' intent %}" class="d-none">
     {% csrf_token %}
@@ -165,5 +165,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'dlux/users/js/twofa_verify.js' %}?v=20260515e" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% static 'dlux/users/js/twofa_verify.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

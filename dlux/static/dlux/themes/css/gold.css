@@ -26,11 +26,11 @@
     --bs-btn-hover-border-color: var(--primal_dark);
     --bs-link-color: var(--primal);
     --bs-link-hover-color: var(--primal_dark);
-    --dl-table-header-surface: linear-gradient(180deg, rgba(217, 119, 6, 0.08), rgba(255, 255, 255, 0.975));
-    --dl-table-border-strong: rgba(217, 119, 6, 0.22);
-    --dl-table-row-odd: rgba(255, 253, 246, 0.98);
-    --dl-table-row-even: rgba(254, 249, 228, 0.98);
-    --dl-table-row-hover: rgba(250, 239, 190, 0.98);
+    --dlux-table-header-surface: linear-gradient(180deg, rgba(217, 119, 6, 0.08), rgba(255, 255, 255, 0.975));
+    --dlux-table-border-strong: rgba(217, 119, 6, 0.22);
+    --dlux-table-row-odd: rgba(255, 253, 246, 0.98);
+    --dlux-table-row-even: rgba(254, 249, 228, 0.98);
+    --dlux-table-row-hover: rgba(250, 239, 190, 0.98);
 }
 :root.theme-gold .titlebar {
     background: linear-gradient(90deg, #ffffff 10%, #fef9e7 90%) !important;

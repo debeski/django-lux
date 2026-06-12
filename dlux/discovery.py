@@ -84,31 +84,31 @@ SYSTEM_ROUTE_META = {
     'manage_sections': {
         'label_key': 'manage_sections',
         'icon': 'bi-diagram-3',
-        'permissions': ['__ms_sections_view__'],
+        'permissions': ['__dlux_sections_view__'],
         'group_key': 'dlux',
     },
     'manage_users': {
         'label_key': 'manage_users',
         'icon': 'bi-people',
-        'permissions': ['__ms_user_directory__'],
+        'permissions': ['__dlux_user_directory__'],
         'group_key': 'dlux',
     },
     'user_activity_log': {
         'label_key': 'activity_log',
         'icon': 'bi-clock-history',
-        'permissions': ['__ms_activity_log__'],
+        'permissions': ['__dlux_activity_log__'],
         'group_key': 'dlux',
     },
     'user_profile': {
         'label_key': 'profile',
         'icon': 'bi-person-badge',
-        'permissions': ['__ms_authenticated__'],
+        'permissions': ['__dlux_authenticated__'],
         'group_key': 'dlux',
     },
     'options_view': {
         'label_key': 'options_title',
         'icon': 'bi-gear',
-        'permissions': ['__ms_authenticated__'],
+        'permissions': ['__dlux_authenticated__'],
         'group_key': 'dlux',
     },
 }

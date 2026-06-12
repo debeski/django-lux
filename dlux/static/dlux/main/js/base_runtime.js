@@ -41,15 +41,15 @@
         }
 
         const root = scope || document;
-        root.querySelectorAll('.dl-datepicker, .flatpickr').forEach(function (input) {
+        root.querySelectorAll('.dlux-datepicker, .flatpickr').forEach(function (input) {
             if (!(input instanceof HTMLInputElement) || input.type === 'hidden') {
                 return;
             }
-            if (input.dataset.msDatepickerReady === 'true') {
+            if (input.dataset.dluxDatepickerReady === 'true') {
                 return;
             }
             input.setAttribute('autocomplete', 'off');
-            input.dataset.msDatepickerReady = 'true';
+            input.dataset.dluxDatepickerReady = 'true';
             new Datepicker(input, dluxDatepickerOptions());
         });
     };

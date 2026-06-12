@@ -77,7 +77,7 @@ def system_backup_page(request):
     SystemBackup = _system_backup_model()
     SystemRestore = _system_restore_model()
     return render(request, 'dlux/backup/manage.html', {
-        'MS_TRANS': get_strings(),
+        'DLUX_STRINGS': get_strings(),
         'backups': SystemBackup.objects.all()[:20],
         'restores': SystemRestore.objects.all()[:10],
         'orphan_files': _orphan_dlb_files(),

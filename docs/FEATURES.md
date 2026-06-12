@@ -111,7 +111,7 @@
 - [forms.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/forms.py:0:0-0:0), [tables.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/tables.py:0:0-0:0), `filters.py` — with Dlux imports
 - `views.py` — with list/create/update/delete views
 - [urls.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/urls.py:0:0-0:0) — with namespace routing
-- [translations.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/translations.py:0:0-0:0) — MS_TRANSLATIONS dictionary
+- [translations.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/translations.py:0:0-0:0) — DLUX_STRINGS dictionary
 - Templates: list and form HTML templates
 - Tests: app-specific test scaffold
 
@@ -156,11 +156,11 @@
 
 ---
 
-## 4. Security & Authentication (MSRP-1)
+## 4. Security & Authentication (DSRP-1)
 
-MSRP-1, the Dlux Secure Runtime Policy, is the active authorization standard.
+DSRP-1, the Dlux Secure Runtime Policy, is the active authorization standard.
 Every runtime-exposed surface must have backend authorization that matches its
-UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msrp-1.md).
+UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsrp-1.md).
 
 ### Multi-Factor Authentication (2FA)
 | Method | Features |
@@ -191,7 +191,7 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - Activation modes: `auto_login_after_verify` and `verified_pending_approval`
 - Superuser-only pending registration approval view at `/sys/registrations/`
 
-### Security Hardening (MSRP)
+### Security Hardening (DSRP)
 - **Dynamic Modal CRUD** — backend permission enforcement
 - **Section Management** — explicit `dlux.view_sections` / `dlux.manage_sections` required
 - **User/Profile Modals** — self-or-staff/scope rules
@@ -243,7 +243,7 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - Scope-based permission filtering
 - Permission assignment principle: users can only assign permissions they themselves have
 - **Four-tier staff authorization**: Superuser, Global Staff, Central Staff, Scoped Staff
-- **Staff Tier Visuals**: Shared badge classes (`dl-staff-tier-badge`) ensure high-contrast tier visibility across all management modals and tables
+- **Staff Tier Visuals**: Shared badge classes (`dlux-staff-tier-badge`) ensure high-contrast tier visibility across all management modals and tables
 
 ---
 
@@ -276,7 +276,7 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - **Permission-based visibility** — each sidebar item requires the user to have the associated view permission
 - **Permission inference** — for class-based views, inferred from model (`app.view_model`); for function-based views, inferred from URL namespace and name pattern (`app:view_list` → `app.view_view`)
 - **Explicit permission decorators** — `sidebar_permissions` and `permission_required` on views take precedence
-- **Internal permission tokens** — `__ms_user_directory__`, `__ms_activity_log__`, `__ms_sections_view__`, and `__ms_authenticated__` for system routes.
+- **Internal permission tokens** — `__dlux_user_directory__`, `__dlux_activity_log__`, `__dlux_sections_view__`, and `__dlux_authenticated__` for system routes.
 - **Drag-and-drop builder** with cross-pane support
 - **Runtime rendering** from stored JSON tree
 - **User-level reordering** (optional)
@@ -313,7 +313,7 @@ UI visibility and shortcut behavior. See [MSRP-1 Security Standard](security-msr
 - Glass morphism styling
 - Bootstrap 5 + Crispy Forms integration
 - Theme-aware form controls
-- Datepicker: `vanillajs-datepicker` with `.dl-datepicker` class
+- Datepicker: `vanillajs-datepicker` with `.dlux-datepicker` class
 
 ### Tutorial/Driver System
 - Driver.js integration for onboarding tours
@@ -348,7 +348,7 @@ class Meta:
 - View, Edit, Delete actions per row
 - Permission-filtered actions
 - Double-click to view
-- Event-based dispatch (`micro:record:view|edit|delete`)
+- Event-based dispatch (`dlux:record:view|edit|delete`)
 - Custom action injection via [get_dlux_row_actions()](cci:1://file:///home/debeski/depy/projects/dlux-pkg/dlux/tables.py:85:4-86:27)
 
 ### Table Features
@@ -436,8 +436,8 @@ UserActivityLog.safe_log(
 - External modal loader asset shipped with CSP nonce support in the shared base layout
 - **Responsive sizing**: centered `modal-xl` at ≥1200px, full-screen below 1200px (split-screen / laptop friendly)
 - **Sticky header + footer, scrolling body** (`modal-dialog-scrollable`): the title/close row and the action bar stay pinned while only the content scrolls, with a themed thin scrollbar
-- **Action-bar relocation**: the standard action bar (`.dlux-form-actions` / `.dl-setup-wizard-actions` / `.dl-modal-form-actions`) is auto-moved into the pinned footer with form association preserved via the `form=` attribute; multi-step wizard bars (with prev/next) are left in place for the wizard controller, and table/detail/dev-custom views simply keep a hidden footer
-- **Dev opt-in footer pinning**: add `data-dl-modal-footer` to any container in a custom modal template / options view to have it pinned into the sticky footer (takes priority over the built-in bars). Submit buttons inside it are auto-associated to the modal form via `form=`; for custom buttons that need their own JS, bind via document-level delegation since the element is moved out of the modal body
+- **Action-bar relocation**: the standard action bar (`.dlux-form-actions` / `.dlux-setup-wizard-actions` / `.dlux-modal-form-actions`) is auto-moved into the pinned footer with form association preserved via the `form=` attribute; multi-step wizard bars (with prev/next) are left in place for the wizard controller, and table/detail/dev-custom views simply keep a hidden footer
+- **Dev opt-in footer pinning**: add `data-dlux-modal-footer` to any container in a custom modal template / options view to have it pinned into the sticky footer (takes priority over the built-in bars). Submit buttons inside it are auto-associated to the modal form via `form=`; for custom buttons that need their own JS, bind via document-level delegation since the element is moved out of the modal body
 
 ### AJAX Endpoints
 | Endpoint | Purpose |
@@ -480,7 +480,7 @@ UserActivityLog.safe_log(
 - **Bidirectional:** Arabic (RTL) + English (LTR) default
 - **Database overrides:** `translations_override` JSON field
 - **Lazy translator:** Runtime translation resolution
-- **Universal patching:** gettext/gettext_lazy/pgettext patches check MS_TRANS first
+- **Universal patching:** gettext/gettext_lazy/pgettext patches check DLUX_STRINGS first
 - **Model meta patching:** `verbose_name` and `verbose_name_plural` wrapped with lazy translators
 - **Translation-First Policy**: All new UI components (2FA, Trusted Devices, IP Config) are built without hardcoded strings, utilizing the Dlux translation framework for all user-facing copy
 
@@ -582,7 +582,7 @@ UserActivityLog.safe_log(
 Provides to all templates:
 - `APP_CONFIG` — system branding
 - `CURRENT_LANG`, `CURRENT_DIR` — language state
-- `MS_TRANS` — translation dictionary
+- `DLUX_STRINGS` — translation dictionary
 - `DLUX_THEMES` — available themes
 - `user_preferences` — user prefs JSON
 - [sidebar](cci:9://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/sidebar:0:0-0:0) — navigation tree
@@ -600,7 +600,7 @@ Provides to all templates:
 - **Permission inference** from model metadata, URL namespace/name patterns, and explicit decorators
 - **Auto-grouping** by app label
 - **Custom groups** via `EXTRA_ITEMS` config
-- **Internal tokens** — system routes use `__ms_*` tokens resolved by `user_matches_permission_token()`
+- **Internal tokens** — system routes use `__dlux_*` tokens resolved by `user_matches_permission_token()`
 
 ### Section Discovery
 - Model registry for dynamic sections

@@ -596,17 +596,17 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertTrue(form.single_step_mode)
         self.assertEqual(form.single_step_index, 2)
         self.assertFalse(form.initial['titlebar_show_title'])
-        self.assertIn('data-dl-selector-variant="toggle"', str(form['default_table_density']))
+        self.assertIn('data-dlux-selector-variant="toggle"', str(form['default_table_density']))
         self.assertIn('lang-option', str(form['default_table_density']))
-        self.assertIn('data-dl-selector-variant="toggle"', str(form['sidebar_density']))
-        self.assertIn('dl-choice-option', str(form['sidebar_collapse_mode']))
+        self.assertIn('data-dlux-selector-variant="toggle"', str(form['sidebar_density']))
+        self.assertIn('dlux-choice-option', str(form['sidebar_collapse_mode']))
         self.assertIn('lang-option', str(form['sidebar_collapse_mode']))
-        self.assertIn('dl-choice-option', str(form['titlebar_title_align']))
-        self.assertIn('data-dl-selector-variant="toggle"', str(form['titlebar_title_align']))
-        self.assertIn('dl-choice-option', str(form['titlebar_surface']))
+        self.assertIn('dlux-choice-option', str(form['titlebar_title_align']))
+        self.assertIn('data-dlux-selector-variant="toggle"', str(form['titlebar_title_align']))
+        self.assertIn('dlux-choice-option', str(form['titlebar_surface']))
         self.assertIn('<select', str(form['home_url_discovered']))
         self.assertIn('<select', str(form['public_root_url_discovered']))
-        self.assertNotIn('data-dl-selector-search', str(form['home_url_discovered']))
+        self.assertNotIn('data-dlux-selector-search', str(form['home_url_discovered']))
 
     def test_setup_theme_picker_keeps_allow_checkboxes_separate_from_default_selector(self):
         form = SystemSettingsForm(
@@ -617,16 +617,16 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
         self.assertIn('data-setup-theme-preview-url="/static/dlux/themes/css/light.css?v=20260523c"', form.theme_picker_html)
         self.assertIn('data-setup-theme-allow-toggle="light"', form.theme_picker_html)
-        self.assertIn('dl-theme-settings-option__preview', form.theme_picker_html)
+        self.assertIn('dlux-theme-settings-option__preview', form.theme_picker_html)
         self.assertIn('aria-pressed="true"', form.theme_picker_html)
         self.assertIn('aria-label="Default Theme: Light"', form.theme_picker_html)
         self.assertIn('data-setup-theme-allowed="light"', form.theme_picker_html)
         self.assertIn('data-setup-theme-allowed-control', form.theme_picker_html)
-        self.assertIn('dl-theme-settings-option__checkbox', form.theme_picker_html)
-        self.assertNotIn('dl-choice-option__copy', form.theme_picker_html)
-        self.assertNotIn('dl-choice-option__label', form.theme_picker_html)
-        self.assertNotIn('dl-choice-option__meta', form.theme_picker_html)
-        self.assertNotIn('dl-theme-settings-option__default-indicator', form.theme_picker_html)
+        self.assertIn('dlux-theme-settings-option__checkbox', form.theme_picker_html)
+        self.assertNotIn('dlux-choice-option__copy', form.theme_picker_html)
+        self.assertNotIn('dlux-choice-option__label', form.theme_picker_html)
+        self.assertNotIn('dlux-choice-option__meta', form.theme_picker_html)
+        self.assertNotIn('dlux-theme-settings-option__default-indicator', form.theme_picker_html)
         self.assertNotIn('bi-check2-circle', form.theme_picker_html)
 
     @override_settings(DLUX_CONFIG={'system_names': {'en': 'Demo System', 'ar': 'نظام تجريبي'}})
@@ -1078,7 +1078,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dl-choice-selector--toggle', html)
+        self.assertIn('dlux-choice-selector--toggle', html)
         self.assertIn('id="id_default_table_density"', html)
         self.assertIn('id="id_titlebar_title_align"', html)
         self.assertIn('id="id_titlebar_logo_treatment"', html)
@@ -1094,23 +1094,23 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn("data-dl-settings-toggle-field='allow_user_language_override'", html)
-        self.assertIn("data-dl-settings-toggle-field='public_root'", html)
-        self.assertIn("data-dl-settings-toggle-field='sidebar_enabled'", html)
-        self.assertIn("data-dl-settings-toggle-field='sidebar_enable_toolbar'", html)
-        self.assertIn("data-dl-settings-toggle-field='allow_user_theme_override'", html)
-        self.assertIn("data-dl-settings-toggle-field='titlebar_show_title'", html)
-        self.assertIn("data-dl-settings-toggle-field='public_root_split_enabled'", html)
-        self.assertIn("data-dl-settings-toggle-field='titlebar_hide_on_public_unauthenticated_index'", html)
-        self.assertIn("data-dl-email-toggle-field='email_config_use_tls'", html)
-        self.assertIn("data-dl-email-toggle-field='email_config_use_ssl'", html)
-        self.assertNotIn("data-dl-settings-toggle-field='email_config_use_tls'", html)
-        self.assertNotIn("data-dl-settings-toggle-field='email_config_use_ssl'", html)
-        self.assertIn('data-dl-settings-toggle-field=\'allow_user_language_override\'', html)
+        self.assertIn("data-dlux-settings-toggle-field='allow_user_language_override'", html)
+        self.assertIn("data-dlux-settings-toggle-field='public_root'", html)
+        self.assertIn("data-dlux-settings-toggle-field='sidebar_enabled'", html)
+        self.assertIn("data-dlux-settings-toggle-field='sidebar_enable_toolbar'", html)
+        self.assertIn("data-dlux-settings-toggle-field='allow_user_theme_override'", html)
+        self.assertIn("data-dlux-settings-toggle-field='titlebar_show_title'", html)
+        self.assertIn("data-dlux-settings-toggle-field='public_root_split_enabled'", html)
+        self.assertIn("data-dlux-settings-toggle-field='titlebar_hide_on_public_unauthenticated_index'", html)
+        self.assertIn("data-dlux-email-toggle-field='email_config_use_tls'", html)
+        self.assertIn("data-dlux-email-toggle-field='email_config_use_ssl'", html)
+        self.assertNotIn("data-dlux-settings-toggle-field='email_config_use_tls'", html)
+        self.assertNotIn("data-dlux-settings-toggle-field='email_config_use_ssl'", html)
+        self.assertIn('data-dlux-settings-toggle-field=\'allow_user_language_override\'', html)
         self.assertIn('class="row mb-3"', html)
         self.assertIn('class="row g-3 mb-3"', html)
-        self.assertIn('data-dl-settings-toggle-field=\'titlebar_show_home_button\'', html)
-        self.assertIn('data-dl-settings-toggle-field=\'titlebar_hide_on_public_unauthenticated_index\'', html)
+        self.assertIn('data-dlux-settings-toggle-field=\'titlebar_show_home_button\'', html)
+        self.assertIn('data-dlux-settings-toggle-field=\'titlebar_hide_on_public_unauthenticated_index\'', html)
         self.assertIn('data-public-root-dependent="true"', html)
         self.assertIn('data-public-root-split-dependent="true"', html)
 
@@ -1126,8 +1126,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dl-public-root-dependent', html)
-        self.assertIn('dl-public-root-split-dependent', html)
+        self.assertIn('dlux-public-root-dependent', html)
+        self.assertIn('dlux-public-root-split-dependent', html)
         self.assertIn('d-none', html)
         self.assertIn('data-public-root-dependent="true"', html)
         self.assertIn('data-public-root-split-dependent="true"', html)
@@ -1144,11 +1144,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
-        dependent_class_start = html.index('dl-public-root-split-dependent')
+        dependent_class_start = html.index('dlux-public-root-split-dependent')
         dependent_class_end = html.index('>', dependent_class_start)
 
-        self.assertIn('data-dl-settings-toggle-field=\'public_root_split_enabled\'', html)
-        self.assertIn('dl-public-root-split-dependent', html)
+        self.assertIn('data-dlux-settings-toggle-field=\'public_root_split_enabled\'', html)
+        self.assertIn('dlux-public-root-split-dependent', html)
         self.assertNotIn('d-none', html[dependent_class_start:dependent_class_end])
 
     def test_setup_form_uses_translated_step_three_public_root_labels(self):
@@ -1291,11 +1291,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dl-public-registration-dependent d-none', html)
+        self.assertIn('dlux-public-registration-dependent d-none', html)
         self.assertIn('data-public-registration-dependent="true"', html)
         self.assertIn('aria-hidden="true"', html)
-        self.assertIn('data-dl-settings-toggle-field=\'public_registration_enabled\'', html)
-        self.assertIn('class="col-lg-12" > <div class=\'dl-settings-toggle-field', html)
+        self.assertIn('data-dlux-settings-toggle-field=\'public_registration_enabled\'', html)
+        self.assertIn('class="col-lg-12" > <div class=\'dlux-settings-toggle-field', html)
 
     def test_setup_form_shows_public_registration_dependents_when_enabled(self):
         form = SystemSettingsForm(
@@ -1304,12 +1304,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
-        dependent_class_start = html.index('dl-public-registration-dependent')
+        dependent_class_start = html.index('dlux-public-registration-dependent')
         dependent_class_end = html.index('>', dependent_class_start)
 
         self.assertNotIn('d-none', html[dependent_class_start:dependent_class_end])
         self.assertIn('aria-hidden="false"', html[dependent_class_start:dependent_class_end])
-        self.assertIn('class="col-lg-6 dl-public-registration-dependent"', html)
+        self.assertIn('class="col-lg-6 dlux-public-registration-dependent"', html)
 
     @override_settings(DLUX_CONFIG={})
     def test_setup_wizard_actions_align_to_direction_end_in_ltr(self):
@@ -1320,7 +1320,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dl-setup-wizard-actions', html)
+        self.assertIn('dlux-setup-wizard-actions', html)
         self.assertIn("dir='ltr'", html)
         self.assertIn('justify-content-end', html)
         self.assertNotIn('justify-content-between align-items-center gap-2 mt-4', html)
@@ -1334,7 +1334,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dl-setup-wizard-actions', html)
+        self.assertIn('dlux-setup-wizard-actions', html)
         self.assertIn("dir='rtl'", html)
         self.assertIn('justify-content-end', html)
         self.assertNotIn('justify-content-between align-items-center gap-2 mt-4', html)
@@ -1497,7 +1497,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dl-email-config-password-field d-none', html)
+        self.assertIn('dlux-email-config-password-field d-none', html)
 
     @override_settings(
         DEFAULT_FROM_EMAIL='deployer@example.com',
@@ -1545,7 +1545,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
-        password_class_start = html.index('dl-email-config-password-field')
+        password_class_start = html.index('dlux-email-config-password-field')
         password_class_end = html.index('>', password_class_start)
 
         self.assertNotIn('d-none', html[password_class_start:password_class_end])
@@ -1593,7 +1593,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
         contents = script.read_text(encoding='utf-8')
 
-        self.assertIn('dl-email-config-password-field', contents)
+        self.assertIn('dlux-email-config-password-field', contents)
         self.assertIn("secretStorageInput.value === 'encrypted_db'", contents)
         self.assertIn('previewSetupDefaultLanguage', contents)
         self.assertIn('window.setLanguage(normalizedLanguage, { previewOnly: true })', contents)
@@ -1605,8 +1605,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('sessionStorage.removeItem(getSetupStateKey(form));', contents)
         self.assertIn("notice.setAttribute('data-autoclose', 'false');", contents)
         self.assertIn("form.dataset.suppressSetupLanguagePreview = 'true';", contents)
-        self.assertNotIn('form.dataset.msWizardInitialStep = String(state.currentStep);', contents)
-        self.assertIn('window.__msGetWizardInitialStep = function (container) {', contents)
+        self.assertNotIn('form.dataset.dluxWizardInitialStep = String(state.currentStep);', contents)
+        self.assertIn('window.__dluxGetWizardInitialStep = function (container) {', contents)
         self.assertIn('if (stepHasValidationError(steps[index])) {', contents)
         self.assertIn('return index;', contents)
         self.assertIn("input.matches('[data-language-default]')", contents)
@@ -1636,9 +1636,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn("const needsEncryptedDbPassword = emailConfig.secret_storage === 'encrypted_db'", contents)
         self.assertIn("form.dataset.suppressSetupLanguagePreview = 'true';", contents)
         self.assertIn("if (form.dataset.suppressSetupLanguagePreview === 'true')", contents)
-        self.assertIn('window.__msPrepareWizardContainer = function (container) {', contents)
+        self.assertIn('window.__dluxPrepareWizardContainer = function (container) {', contents)
         self.assertIn('scan(document);', contents)
-        self.assertNotIn('dl-setup-language-switch-pending', contents)
+        self.assertNotIn('dlux-setup-language-switch-pending', contents)
         self.assertNotIn('function setupDefaultLanguageWillSwitch(language) {', contents)
         self.assertIn('previewSetupDefaultLanguage(form, settings.default_language);', contents)
         self.assertIn("'allow_user_font_override'", contents)
@@ -1654,10 +1654,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment', titlebar.logo_treatment || 'none');", contents)
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment_shape', titlebar.logo_treatment_shape || 'soft');", contents)
         self.assertIn("setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showPlateShape);", contents)
-        self.assertIn("form.querySelectorAll('.dl-login-logo-treatment-primary').forEach((node) => {", contents)
-        self.assertIn("node.classList.toggle('dl-logo-treatment-primary--wide', !isPlate);", contents)
+        self.assertIn("form.querySelectorAll('.dlux-login-logo-treatment-primary').forEach((node) => {", contents)
+        self.assertIn("node.classList.toggle('dlux-logo-treatment-primary--wide', !isPlate);", contents)
         self.assertIn("const showPlateShape = showLogo && logoTreatment === 'plate';", contents)
-        self.assertIn("node.classList.toggle('dl-logo-treatment-primary--wide', showLogo && !showPlateShape);", contents)
+        self.assertIn("node.classList.toggle('dlux-logo-treatment-primary--wide', showLogo && !showPlateShape);", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_activation_mode', !enabled)", contents)
         self.assertIn("setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled)", contents)
         self.assertIn("'prevent_multiple_active_sessions'", contents)
@@ -1668,12 +1668,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('function initSystemSetupStepValidation(root) {', contents)
         self.assertIn('function updateSetupStepValidationState(form) {', contents)
         self.assertIn('return !field.checkValidity();', contents)
-        self.assertIn("step.classList.toggle('dl-setup-step-has-error', hasError);", contents)
+        self.assertIn("step.classList.toggle('dlux-setup-step-has-error', hasError);", contents)
         self.assertIn("navItem.classList.toggle('has-validation-error', hasError);", contents)
-        self.assertIn("bullet.textContent = hasError ? '!' : bullet.dataset.msStepNumber;", contents)
+        self.assertIn("bullet.textContent = hasError ? '!' : bullet.dataset.dluxStepNumber;", contents)
         self.assertIn("form.addEventListener('invalid', syncSoon, true);", contents)
         self.assertIn('persistSetupFormState(form);', contents)
-        self.assertIn("form.querySelectorAll('.dl-btn-submit').forEach((button) => {", contents)
+        self.assertIn("form.querySelectorAll('.dlux-btn-submit').forEach((button) => {", contents)
         self.assertIn('initSystemSetupStepValidation(root);', contents)
 
     def test_wizard_helper_reveals_server_hidden_steps(self):
@@ -1687,26 +1687,26 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("button.style.display = isVisible ? '' : 'none';", contents)
         self.assertIn("button.setAttribute('aria-hidden', isVisible ? 'false' : 'true');", contents)
         self.assertIn('function prepareWizardContainer(container) {', contents)
-        self.assertIn("typeof window.__msPrepareWizardContainer !== 'function'", contents)
+        self.assertIn("typeof window.__dluxPrepareWizardContainer !== 'function'", contents)
         self.assertIn('prepareWizardContainer(container);', contents)
         self.assertLess(
             contents.index('prepareWizardContainer(container);'),
-            contents.index("container.dataset.msWizardBound = 'true';"),
+            contents.index("container.dataset.dluxWizardBound = 'true';"),
         )
-        self.assertIn("container.querySelectorAll('[data-dl-wizard-step-target]')", contents)
+        self.assertIn("container.querySelectorAll('[data-dlux-wizard-step-target]')", contents)
         self.assertIn("item.classList.toggle('is-active', isActive);", contents)
         self.assertIn("item.classList.toggle('is-complete', isComplete);", contents)
         self.assertIn("item.setAttribute('aria-current', isActive ? 'step' : 'false');", contents)
-        self.assertIn("container.dispatchEvent(new CustomEvent('ms:wizard-step-change'", contents)
+        self.assertIn("container.dispatchEvent(new CustomEvent('dlux:wizard-step-change'", contents)
 
     def test_user_hub_css_clamps_mobile_dropdown_to_viewport(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'users' / 'css' / 'user_hub.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
-        self.assertIn('width: min(var(--dl-dropdown-width), calc(100vw - (var(--dl-dropdown-edge-gap) * 2)))', contents)
+        self.assertIn('width: min(var(--dlux-dropdown-width), calc(100vw - (var(--dlux-dropdown-edge-gap) * 2)))', contents)
         self.assertIn('@media (max-width: 575.98px)', contents)
         self.assertIn('position: fixed', contents)
-        self.assertIn('inset-inline: var(--dl-dropdown-edge-gap)', contents)
+        self.assertIn('inset-inline: var(--dlux-dropdown-edge-gap)', contents)
         self.assertIn('overflow-y: auto', contents)
         self.assertIn('flex-wrap: wrap;', contents)
         self.assertIn('justify-content: center;', contents)
@@ -1723,28 +1723,28 @@ class DluxDefaultRouteTests(SimpleTestCase):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'users' / 'css' / 'permissions.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
-        self.assertIn('.dl-staff-tier-preview .badge.bg-primary {', contents)
+        self.assertIn('.dlux-staff-tier-preview .badge.bg-primary {', contents)
         self.assertIn('linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%)', contents)
-        self.assertIn(':root.theme-dark .dl-staff-tier-preview,', contents)
-        self.assertIn(':root.theme-gothic .dl-staff-tier-preview,', contents)
-        self.assertIn(':root.theme-neon .dl-staff-tier-preview,', contents)
-        self.assertIn(':root.theme-retro .dl-staff-tier-preview,', contents)
-        self.assertIn(':root.theme-prism .dl-staff-tier-preview {', contents)
+        self.assertIn(':root.theme-dark .dlux-staff-tier-preview,', contents)
+        self.assertIn(':root.theme-gothic .dlux-staff-tier-preview,', contents)
+        self.assertIn(':root.theme-neon .dlux-staff-tier-preview,', contents)
+        self.assertIn(':root.theme-retro .dlux-staff-tier-preview,', contents)
+        self.assertIn(':root.theme-prism .dlux-staff-tier-preview {', contents)
 
     def test_tables_css_hardens_staff_tier_badges_for_manage_users(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'tables.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
-        self.assertIn('.dl-staff-tier-badge--global_staff {', contents)
+        self.assertIn('.dlux-staff-tier-badge--global_staff {', contents)
         self.assertIn('linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%)', contents)
-        self.assertIn('.dl-staff-tier-badge--delegate {', contents)
+        self.assertIn('.dlux-staff-tier-badge--delegate {', contents)
 
     def test_user_detail_modal_uses_shared_staff_tier_badge_classes(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'users' / 'user_detail_modal.html'
         contents = template_path.read_text(encoding='utf-8')
 
-        self.assertIn('dl-staff-tier-badge--{{ target_user_management_tier.tier_key }}', contents)
-        self.assertIn('dl-staff-tier-badge--delegate', contents)
+        self.assertIn('dlux-staff-tier-badge--{{ target_user_management_tier.tier_key }}', contents)
+        self.assertIn('dlux-staff-tier-badge--delegate', contents)
         self.assertNotIn('badge {{ target_user_management_tier.badge_classes }}', contents)
 
     def test_main_css_forces_readable_primary_badge_text(self):
@@ -1760,11 +1760,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
         titlebar_css = (static_root / 'main' / 'css' / 'titlebar.css').read_text(encoding='utf-8')
 
-        self.assertIn('.titlebar .dl-login-round {', titlebar_css)
-        self.assertIn('.titlebar[data-titlebar-home-shape="square"] .dl-login-round {', titlebar_css)
-        self.assertIn('.titlebar[data-titlebar-home-shape="squircle"] .dl-login-round {', titlebar_css)
-        self.assertIn('.titlebar .dl-login-round:hover,', titlebar_css)
-        self.assertIn('.titlebar .dl-login-round:focus-visible {', titlebar_css)
+        self.assertIn('.titlebar .dlux-login-round {', titlebar_css)
+        self.assertIn('.titlebar[data-titlebar-home-shape="square"] .dlux-login-round {', titlebar_css)
+        self.assertIn('.titlebar[data-titlebar-home-shape="squircle"] .dlux-login-round {', titlebar_css)
+        self.assertIn('.titlebar .dlux-login-round:hover,', titlebar_css)
+        self.assertIn('.titlebar .dlux-login-round:focus-visible {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {', titlebar_css)
@@ -1776,26 +1776,26 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         for theme_name in ('dark', 'gothic', 'retro', 'neon', 'prism', 'aether'):
             theme_css = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
-            self.assertIn('.titlebar .dl-login-round {', theme_css)
-            self.assertIn('.titlebar .dl-login-round:hover,', theme_css)
-            self.assertIn('.titlebar .dl-login-round:focus-visible {', theme_css)
+            self.assertIn('.titlebar .dlux-login-round {', theme_css)
+            self.assertIn('.titlebar .dlux-login-round:hover,', theme_css)
+            self.assertIn('.titlebar .dlux-login-round:focus-visible {', theme_css)
             self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {', theme_css)
 
     def test_neon_theme_excludes_options_panels_from_generic_option_section_overlays(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'themes' / 'css' / 'neon.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
-        self.assertIn('.option-section:not(.dl-options-panel):not([class*="text-bg-"]):not([class*="bg-"]),', contents)
-        self.assertIn('.option-section:not(.dl-options-panel)::before,', contents)
-        self.assertIn('.option-section:not(.dl-options-panel):hover::before,', contents)
-        self.assertIn('.option-section:not(.dl-options-panel),', contents)
-        self.assertIn('.option-section:not(.dl-options-panel) > *,', contents)
+        self.assertIn('.option-section:not(.dlux-options-panel):not([class*="text-bg-"]):not([class*="bg-"]),', contents)
+        self.assertIn('.option-section:not(.dlux-options-panel)::before,', contents)
+        self.assertIn('.option-section:not(.dlux-options-panel):hover::before,', contents)
+        self.assertIn('.option-section:not(.dlux-options-panel),', contents)
+        self.assertIn('.option-section:not(.dlux-options-panel) > *,', contents)
 
     def test_selector_css_adds_vertical_padding_for_toggle_card_grids(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'selectors.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
-        self.assertIn('.dl-choice-selector--toggle .dl-choice-selector__options {', contents)
+        self.assertIn('.dlux-choice-selector--toggle .dlux-choice-selector__options {', contents)
         self.assertIn('padding-block: 0.8rem;', contents)
         self.assertIn('align-self: stretch;', contents)
 
@@ -1803,19 +1803,19 @@ class DluxDefaultRouteTests(SimpleTestCase):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
-        self.assertIn('.dl-settings-toggle-field {', contents)
+        self.assertIn('.dlux-settings-toggle-field {', contents)
         self.assertIn('container-type: inline-size was removed', contents)
-        self.assertIn('.dl-settings-toggle-field__content {', contents)
-        self.assertIn('.dl-settings-toggle-field__control {', contents)
-        self.assertIn('.dl-settings-toggle-field__control.form-switch {', contents)
-        self.assertIn('.dl-settings-toggle-field__input.form-check-input {', contents)
+        self.assertIn('.dlux-settings-toggle-field__content {', contents)
+        self.assertIn('.dlux-settings-toggle-field__control {', contents)
+        self.assertIn('.dlux-settings-toggle-field__control.form-switch {', contents)
+        self.assertIn('.dlux-settings-toggle-field__input.form-check-input {', contents)
         self.assertIn('padding-inline-start: 0;', contents)
         self.assertIn('margin: 0;', contents)
         self.assertIn('float: none;', contents)
         self.assertIn('position: static;', contents)
         self.assertIn('overflow-wrap: break-word;', contents)
         self.assertIn('word-break: normal;', contents)
-        self.assertIn('.dl-logo-treatment-primary.dl-logo-treatment-primary--wide {', contents)
+        self.assertIn('.dlux-logo-treatment-primary.dlux-logo-treatment-primary--wide {', contents)
         self.assertIn('flex: 0 0 100%;', contents)
         self.assertIn('width: 100%;', contents)
         self.assertIn('max-width: 100%;', contents)
@@ -1823,33 +1823,33 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('@media (max-width: 400px)', contents)
         self.assertIn('flex-direction: column;', contents)
         self.assertIn('justify-content: flex-end;', contents)
-        self.assertIn('.dl-setup-step-nav {', contents)
+        self.assertIn('.dlux-setup-step-nav {', contents)
         self.assertIn('grid-template-columns: repeat(7, minmax(6.2rem, 1fr));', contents)
-        self.assertIn('.dl-setup-step-nav__item.is-active {', contents)
-        self.assertIn('.dl-setup-step-nav__item.is-complete {', contents)
+        self.assertIn('.dlux-setup-step-nav__item.is-active {', contents)
+        self.assertIn('.dlux-setup-step-nav__item.is-complete {', contents)
         self.assertIn('backdrop-filter: blur(14px);', contents)
-        self.assertIn('.dl-theme-settings-option .dl-choice-option__surface {', contents)
+        self.assertIn('.dlux-theme-settings-option .dlux-choice-option__surface {', contents)
         self.assertIn('cursor: pointer;', contents)
-        self.assertIn('.dl-theme-settings-option__preview {', contents)
+        self.assertIn('.dlux-theme-settings-option__preview {', contents)
         self.assertIn('appearance: none;', contents)
         self.assertIn('background: transparent !important;', contents)
         self.assertIn('box-shadow: none !important;', contents)
         self.assertIn('justify-content: center;', contents)
-        self.assertIn('.dl-theme-settings-option.is-default .dl-choice-option__surface {', contents)
-        self.assertIn('.dl-theme-settings-option.is-default .theme-preview.active {', contents)
-        self.assertNotIn('.dl-theme-settings-option .dl-choice-option__copy', contents)
-        self.assertNotIn('dl-theme-settings-option__default-indicator', contents)
+        self.assertIn('.dlux-theme-settings-option.is-default .dlux-choice-option__surface {', contents)
+        self.assertIn('.dlux-theme-settings-option.is-default .theme-preview.active {', contents)
+        self.assertNotIn('.dlux-theme-settings-option .dlux-choice-option__copy', contents)
+        self.assertNotIn('dlux-theme-settings-option__default-indicator', contents)
 
     def test_system_setup_css_defines_step_validation_warning_state(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
-        self.assertIn('.dl-setup-step-nav__item.has-validation-error {', contents)
-        self.assertIn('.dl-setup-step-nav__item.has-validation-error .dl-setup-step-nav__bullet {', contents)
-        self.assertIn('.dl-system-settings-shell.mode-setup .wizard-step.dl-setup-step-has-error {', contents)
+        self.assertIn('.dlux-setup-step-nav__item.has-validation-error {', contents)
+        self.assertIn('.dlux-setup-step-nav__item.has-validation-error .dlux-setup-step-nav__bullet {', contents)
+        self.assertIn('.dlux-system-settings-shell.mode-setup .wizard-step.dlux-setup-step-has-error {', contents)
         self.assertIn('border-color: rgba(245, 158, 11, 0.72);', contents)
         self.assertIn('background: #f59e0b;', contents)
-        self.assertNotIn('dl-setup-language-switch-pending', contents)
+        self.assertNotIn('dlux-setup-language-switch-pending', contents)
         self.assertNotIn('visibility: hidden;', contents)
 
     def test_shared_toggle_helper_uses_neutral_switch_wrapper(self):
@@ -1860,9 +1860,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn("dl-settings-toggle-field__control form-switch", html)
-        self.assertIn("form-check-input dl-settings-toggle-field__input", html)
-        self.assertNotIn("dl-settings-toggle-field__control form-check form-switch", html)
+        self.assertIn("dlux-settings-toggle-field__control form-switch", html)
+        self.assertIn("form-check-input dlux-settings-toggle-field__input", html)
+        self.assertNotIn("dlux-settings-toggle-field__control form-check form-switch", html)
 
     def test_logo_treatment_cards_start_full_width_without_plate_shape(self):
         form = SystemSettingsForm(
@@ -1872,12 +1872,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dl-logo-treatment-primary', html)
-        self.assertIn('dl-login-logo-treatment-primary', html)
-        self.assertIn('dl-titlebar-logo-treatment-primary', html)
-        self.assertIn('dl-logo-treatment-primary--wide', html)
+        self.assertIn('dlux-logo-treatment-primary', html)
+        self.assertIn('dlux-login-logo-treatment-primary', html)
+        self.assertIn('dlux-titlebar-logo-treatment-primary', html)
+        self.assertIn('dlux-logo-treatment-primary--wide', html)
         self.assertIn('data-login-plate-shape', html)
-        self.assertIn('dl-titlebar-logo-plate-dependent d-none', html)
+        self.assertIn('dlux-titlebar-logo-plate-dependent d-none', html)
 
     def test_setup_email_tls_ssl_use_dedicated_email_toggle_markup(self):
         form = SystemSettingsForm(
@@ -1887,18 +1887,18 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn("data-dl-email-toggle-field='email_config_use_tls'", html)
-        self.assertIn("data-dl-email-toggle-field='email_config_use_ssl'", html)
-        self.assertIn('dl-email-toggle-field__input', html)
+        self.assertIn("data-dlux-email-toggle-field='email_config_use_tls'", html)
+        self.assertIn("data-dlux-email-toggle-field='email_config_use_ssl'", html)
+        self.assertIn('dlux-email-toggle-field__input', html)
 
     def test_system_setup_css_defines_dedicated_email_toggle_layout(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
-        self.assertIn('.dl-email-toggle-field {', contents)
-        self.assertIn('.dl-email-toggle-field__row {', contents)
-        self.assertIn('.dl-email-toggle-field__label {', contents)
-        self.assertIn('.dl-email-toggle-field__input.form-check-input {', contents)
+        self.assertIn('.dlux-email-toggle-field {', contents)
+        self.assertIn('.dlux-email-toggle-field__row {', contents)
+        self.assertIn('.dlux-email-toggle-field__label {', contents)
+        self.assertIn('.dlux-email-toggle-field__input.form-check-input {', contents)
 
     def test_shared_switch_css_uses_pointer_for_enabled_toggle_inputs(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'main.css'
@@ -1915,7 +1915,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("?v=20260525a", contents)
         self.assertIn("dlux/main/js/options.js", contents)
         self.assertIn('{{ server_time_backend_display }}', contents)
-        self.assertIn('id="msOptionsGrid"', contents)
+        self.assertIn('id="dluxOptionsGrid"', contents)
         self.assertIn('data-options-card="system-info"', contents)
         self.assertIn('data-options-card="autofill"', contents)
         self.assertIn('data-options-card="reset-defaults"', contents)
@@ -1929,7 +1929,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('id="resetActions"', contents)
         self.assertNotIn('<style nonce=', contents)
         self.assertNotIn('<script nonce=', contents)
-        self.assertIn('MS_TRANS.system_settings_security', contents)
+        self.assertIn('DLUX_STRINGS.system_settings_security', contents)
         self.assertNotIn("default:'Access & Security'", contents)
 
     def test_base_template_versions_shared_main_stylesheet(self):
@@ -1958,15 +1958,15 @@ class DluxDefaultRouteTests(SimpleTestCase):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'template_cleanup.css'
         contents = css_path.read_text(encoding='utf-8')
 
-        self.assertIn('.dl-theme-preview--mono', contents)
+        self.assertIn('.dlux-theme-preview--mono', contents)
         self.assertIn('#ffffff 0%', contents)
         self.assertIn('#f4f6f8 48%', contents)
         self.assertIn('#cbd5df 49%', contents)
         self.assertIn('#94a3b8 100%', contents)
         self.assertNotIn('#475569 39%', contents)
         self.assertNotIn('#0f172a 100%', contents)
-        self.assertIn('.dl-theme-preview--prism', contents)
-        self.assertIn('.dl-theme-preview--aether', contents)
+        self.assertIn('.dlux-theme-preview--prism', contents)
+        self.assertIn('.dlux-theme-preview--aether', contents)
         self.assertIn('#a8ffe4', contents)
 
     def test_prism_and_aether_theme_owned_file_field_and_logo_overrides(self):
@@ -1988,12 +1988,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'options.css'
         contents = css_path.read_text(encoding='utf-8')
 
-        self.assertIn(':root.theme-aether .dl-system-settings-actions .dl-system-settings-tile,', contents)
-        self.assertIn(':root.theme-aether .dl-system-settings-tile-icon,', contents)
-        self.assertIn(':root.theme-aether .dl-system-settings-actions .dl-system-settings-tile i,', contents)
-        self.assertIn(':root.theme-aether .dl-system-settings-actions .dl-system-settings-tile:hover,', contents)
-        self.assertIn(':root.theme-aether .dl-system-settings-actions .dl-system-settings-tile:focus-visible,', contents)
-        self.assertIn(':root.theme-aether .dl-system-settings-actions .dl-system-settings-action--secondary,', contents)
+        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile,', contents)
+        self.assertIn(':root.theme-aether .dlux-system-settings-tile-icon,', contents)
+        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile i,', contents)
+        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:hover,', contents)
+        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile:focus-visible,', contents)
+        self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-action--secondary,', contents)
 
     def test_verify_template_uses_versioned_auto_verify_script_and_trust_device_checkbox(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / '2fa' / 'verify.html'
@@ -2009,9 +2009,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("?v=20260515e", contents)
         self.assertIn('id="usePrimaryMethodBtn"', contents)
         self.assertIn('name="trust_device"', contents)
-        self.assertIn('dl-twofa-login-state', contents)
-        self.assertIn('MS_TRANS.2fa_trust_device_label', contents)
-        self.assertIn('MS_TRANS.login_logo_alt', contents)
+        self.assertIn('dlux-twofa-login-state', contents)
+        self.assertIn('DLUX_STRINGS.2fa_trust_device_label', contents)
+        self.assertIn('DLUX_STRINGS.login_logo_alt', contents)
         self.assertNotIn('2fa_backup_instruction|default', contents)
         self.assertNotIn('2fa_email_request_instruction|default', contents)
         self.assertNotIn('2fa_send_email_code|default', contents)
@@ -2023,8 +2023,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("new URLSearchParams({ method: 'email' })", script)
         self.assertNotIn('Return to default method', script)
         self.assertNotIn('Unable to send code', script)
-        self.assertIn('.dl-twofa-inline-alert', stylesheet)
-        self.assertIn('.dl-twofa-trust-field', stylesheet)
+        self.assertIn('.dlux-twofa-inline-alert', stylesheet)
+        self.assertIn('.dlux-twofa-trust-field', stylesheet)
 
     def test_recent_2fa_and_client_ip_surfaces_do_not_use_hardcoded_translation_fallbacks(self):
         project_root = Path(__file__).resolve().parents[1]
@@ -2035,8 +2035,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn("s.get('form_sys_client_ip_mode', 'Client IP source')", forms_contents)
         self.assertNotIn("s.get('client_ip_settings_title', 'Client IP Resolution')", forms_contents)
         self.assertNotIn("s.get('client_ip_settings_desc', 'Dlux uses this setting", forms_contents)
-        self.assertNotIn('MS_TRANS.trusted_device_badge|default', profile_contents)
-        self.assertNotIn('MS_TRANS.trusted_until|default', profile_contents)
+        self.assertNotIn('DLUX_STRINGS.trusted_device_badge|default', profile_contents)
+        self.assertNotIn('DLUX_STRINGS.trusted_until|default', profile_contents)
         self.assertIn("'form_sys_client_ip_mode':", translation_contents)
         self.assertIn("'client_ip_settings_title':", translation_contents)
         self.assertIn("'2fa_trust_device_label':", translation_contents)
@@ -2076,15 +2076,15 @@ class DluxDefaultRouteTests(SimpleTestCase):
             / 'system_setup.js'
         ).read_text(encoding='utf-8')
 
-        self.assertIn('id="dl-language-code-input"', language_editor)
-        self.assertIn('id="dl-language-name-input"', language_editor)
-        self.assertIn('id="dl-language-dir-input"', language_editor)
-        self.assertIn('id="dl-language-flag-input"', language_editor)
-        self.assertIn('id="dl-system-name-', system_names_editor)
-        self.assertIn('id="dl-translation-search"', translation_editor)
-        self.assertIn('id="dl-translation-status"', translation_editor)
-        self.assertIn('id="dl-sidebar-catalog-data-', sidebar_builder)
-        self.assertIn('id="dl-sidebar-builder-search-', sidebar_builder)
+        self.assertIn('id="dlux-language-code-input"', language_editor)
+        self.assertIn('id="dlux-language-name-input"', language_editor)
+        self.assertIn('id="dlux-language-dir-input"', language_editor)
+        self.assertIn('id="dlux-language-flag-input"', language_editor)
+        self.assertIn('id="dlux-system-name-', system_names_editor)
+        self.assertIn('id="dlux-translation-search"', translation_editor)
+        self.assertIn('id="dlux-translation-status"', translation_editor)
+        self.assertIn('id="dlux-sidebar-catalog-data-', sidebar_builder)
+        self.assertIn('id="dlux-sidebar-builder-search-', sidebar_builder)
         self.assertIn('id="sidebarSystemItemsToggle-', sidebar_builder)
         self.assertNotIn('name="ms_', language_editor)
         self.assertNotIn('name="ms_', system_names_editor)
@@ -2112,31 +2112,31 @@ class DluxDefaultRouteTests(SimpleTestCase):
         css_contents = css_path.read_text(encoding='utf-8')
         js_contents = js_path.read_text(encoding='utf-8')
 
-        self.assertIn('.dl-options-panel {', css_contents)
-        self.assertIn('.dl-options-card {', css_contents)
-        self.assertIn('.dl-options-card-handle {', css_contents)
-        self.assertIn('.dl-options-card-handle:not(:disabled),', css_contents)
-        self.assertIn('.dl-options-card-handle .bi {', css_contents)
+        self.assertIn('.dlux-options-panel {', css_contents)
+        self.assertIn('.dlux-options-card {', css_contents)
+        self.assertIn('.dlux-options-card-handle {', css_contents)
+        self.assertIn('.dlux-options-card-handle:not(:disabled),', css_contents)
+        self.assertIn('.dlux-options-card-handle .bi {', css_contents)
         self.assertIn('cursor: grab;', css_contents)
-        self.assertIn('.dl-options-card-handle:not(:disabled):active,', css_contents)
-        self.assertIn('.dl-options-card-handle:active .bi {', css_contents)
+        self.assertIn('.dlux-options-card-handle:not(:disabled):active,', css_contents)
+        self.assertIn('.dlux-options-card-handle:active .bi {', css_contents)
         self.assertIn('cursor: grabbing;', css_contents)
         self.assertIn('float: inline-end;', css_contents)
         self.assertNotIn('top: 1rem;', css_contents)
-        self.assertIn('.dl-options-card--wide {', css_contents)
-        self.assertIn('--dl-options-grid-gap: 1.35rem;', css_contents)
+        self.assertIn('.dlux-options-card--wide {', css_contents)
+        self.assertIn('--dlux-options-grid-gap: 1.35rem;', css_contents)
         self.assertIn('position: relative;', css_contents)
         self.assertIn('0 16px 30px -28px rgba(15, 23, 42, 0.28);', css_contents)
         self.assertIn('inset-block: 1rem;', css_contents)
         self.assertIn('width: 3px;', css_contents)
-        self.assertIn('.dl-options-card.is-drag-over-before::after,', css_contents)
-        self.assertIn('.dl-options-card.is-drag-over-after::after {', css_contents)
-        self.assertIn('inset-inline-start: calc((var(--dl-options-grid-gap) / -2) - 1.5px);', css_contents)
-        self.assertIn('inset-inline-end: calc((var(--dl-options-grid-gap) / -2) - 1.5px);', css_contents)
+        self.assertIn('.dlux-options-card.is-drag-over-before::after,', css_contents)
+        self.assertIn('.dlux-options-card.is-drag-over-after::after {', css_contents)
+        self.assertIn('inset-inline-start: calc((var(--dlux-options-grid-gap) / -2) - 1.5px);', css_contents)
+        self.assertIn('inset-inline-end: calc((var(--dlux-options-grid-gap) / -2) - 1.5px);', css_contents)
         self.assertIn('pointer-events: none;', css_contents)
-        self.assertIn('.dl-options-system-info-table .table {', css_contents)
+        self.assertIn('.dlux-options-system-info-table .table {', css_contents)
         self.assertIn('--bs-table-bg: transparent;', css_contents)
-        self.assertIn('.dl-options-system-info-table .progress {', css_contents)
+        self.assertIn('.dlux-options-system-info-table .progress {', css_contents)
         self.assertIn('OPTIONS_ORDER_STORAGE_KEY', js_contents)
         self.assertIn('data-options-card-handle', js_contents)
         self.assertIn('persistCardOrder(grid, storageKey)', js_contents)
@@ -2153,8 +2153,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("dlux/users/js/profile_2fa.js' %}?v=20260524a", template)
         self.assertIn("passwordInput.addEventListener('keydown', submitOnEnter);", script)
         self.assertIn('profile-session-trust-form', template)
-        self.assertIn('MS_TRANS.msg_confirm_trust_current_device', template)
-        self.assertIn('MS_TRANS.session_revoke_trusted_denied', template)
+        self.assertIn('DLUX_STRINGS.msg_confirm_trust_current_device', template)
+        self.assertIn('DLUX_STRINGS.session_revoke_trusted_denied', template)
         self.assertIn('function confirmSessionTrust(form)', script)
         self.assertIn("passwordInput.addEventListener('input', clearPasswordError);", script)
         self.assertIn("if (event.key !== 'Enter') return;", script)
@@ -2355,7 +2355,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
                 call(lang_code='en', include_system_items=True),
             ],
         )
-        self.assertIn('dl-sidebar-catalog-fallback-data', form.sidebar_builder_html)
+        self.assertIn('dlux-sidebar-catalog-fallback-data', form.sidebar_builder_html)
         self.assertIn('Demo', form.sidebar_builder_html)
 
     def test_system_setup_js_keeps_last_allowed_theme_postable(self):
@@ -2387,12 +2387,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('function fadeThemeSwitch(resolvedTheme)', theme_script)
         self.assertIn("root.classList.contains('accessibility-no-animations')", theme_script)
         self.assertIn("window.matchMedia('(prefers-reduced-motion: reduce)')", theme_script)
-        self.assertIn("root.classList.add('dl-theme-switching-covered')", theme_script)
-        self.assertIn(':root.dl-theme-switching body::after {', main_css)
-        self.assertIn(':root.dl-theme-switching.dl-theme-switching-covered body::after {', main_css)
+        self.assertIn("root.classList.add('dlux-theme-switching-covered')", theme_script)
+        self.assertIn(':root.dlux-theme-switching body::after {', main_css)
+        self.assertIn(':root.dlux-theme-switching.dlux-theme-switching-covered body::after {', main_css)
         self.assertIn('@media (prefers-reduced-motion: reduce) {', main_css)
-        self.assertIn(':root.dl-theme-switching .sidebar .list-group-item,', sidebar_css)
-        self.assertIn(':root.dl-theme-switching .sidebar .accordion-button i {', sidebar_css)
+        self.assertIn(':root.dlux-theme-switching .sidebar .list-group-item,', sidebar_css)
+        self.assertIn(':root.dlux-theme-switching .sidebar .accordion-button i {', sidebar_css)
         self.assertIn('transition: none !important;', sidebar_css)
 
     def test_sidebar_collapsed_icons_only_hides_group_label_flex_space(self):

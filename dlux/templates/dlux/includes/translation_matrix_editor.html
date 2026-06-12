@@ -1,7 +1,7 @@
-<div class="dl-translation-matrix" data-translation-matrix>
-  <div class="nav nav-pills flex-wrap gap-2 mb-3 dl-translation-tabs" role="tablist" data-translation-group-tabs>
+<div class="dlux-translation-matrix" data-translation-matrix>
+  <div class="nav nav-pills flex-wrap gap-2 mb-3 dlux-translation-tabs" role="tablist" data-translation-group-tabs>
     <button type="button" class="nav-link active" data-translation-group-tab="all">
-      {{ MS_TRANS.translation_matrix_group_all|default:"All parts" }}
+      {{ DLUX_STRINGS.translation_matrix_group_all|default:"All parts" }}
     </button>
     {% for group in translation_groups %}
     <button type="button" class="nav-link" data-translation-group-tab="{{ group.id }}">
@@ -12,24 +12,24 @@
 
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <div class="flex-grow-1">
-      <label class="form-label fw-semibold" for="dl-translation-search">{{ MS_TRANS.translation_matrix_search|default:"Search translations" }}</label>
-      <input id="dl-translation-search" type="search" class="form-control glass-input" data-translation-search placeholder="{{ MS_TRANS.translation_matrix_search_placeholder|default:'Key or value' }}">
+      <label class="form-label fw-semibold" for="dlux-translation-search">{{ DLUX_STRINGS.translation_matrix_search|default:"Search translations" }}</label>
+      <input id="dlux-translation-search" type="search" class="form-control glass-input" data-translation-search placeholder="{{ DLUX_STRINGS.translation_matrix_search_placeholder|default:'Key or value' }}">
     </div>
     <div>
-      <label class="form-label fw-semibold" for="dl-translation-status">{{ MS_TRANS.translation_matrix_filter|default:"Filter" }}</label>
-      <select id="dl-translation-status" class="form-select glass-input" data-translation-status>
-        <option value="all">{{ MS_TRANS.translation_matrix_all|default:"All" }}</option>
-        <option value="missing">{{ MS_TRANS.translation_matrix_missing|default:"Missing" }}</option>
-        <option value="override">{{ MS_TRANS.translation_matrix_overrides|default:"Overrides" }}</option>
+      <label class="form-label fw-semibold" for="dlux-translation-status">{{ DLUX_STRINGS.translation_matrix_filter|default:"Filter" }}</label>
+      <select id="dlux-translation-status" class="form-select glass-input" data-translation-status>
+        <option value="all">{{ DLUX_STRINGS.translation_matrix_all|default:"All" }}</option>
+        <option value="missing">{{ DLUX_STRINGS.translation_matrix_missing|default:"Missing" }}</option>
+        <option value="override">{{ DLUX_STRINGS.translation_matrix_overrides|default:"Overrides" }}</option>
       </select>
     </div>
   </div>
 
-  <div class="dl-translation-table-wrap">
-    <table class="table table-sm align-middle dl-translation-table">
+  <div class="dlux-translation-table-wrap">
+    <table class="table table-sm align-middle dlux-translation-table">
       <thead>
         <tr>
-          <th class="dl-translation-key-col">{{ MS_TRANS.translation_matrix_key|default:"Key" }}</th>
+          <th class="dlux-translation-key-col">{{ DLUX_STRINGS.translation_matrix_key|default:"Key" }}</th>
           {% for code, lang in languages.items %}
           <th data-translation-lang-header="{{ code }}">{{ lang.name|default:code }} <span class="text-muted">({{ code }})</span></th>
           {% endfor %}
@@ -39,11 +39,11 @@
         {% for group in translation_groups %}
         {% for row in group.rows %}
         <tr data-translation-row data-translation-key="{{ row.key }}" data-translation-group="{{ group.id }}">
-          <th scope="row" class="dl-translation-key">{{ row.key }}</th>
+          <th scope="row" class="dlux-translation-key">{{ row.key }}</th>
           {% for cell in row.cells %}
           <td data-translation-cell data-source="{{ cell.source }}">
             <textarea
-              id="dl-translation-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}"
+              id="dlux-translation-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}"
               class="form-control form-control-sm glass-input"
               rows="2"
               data-translation-input
@@ -54,7 +54,7 @@
               placeholder="{{ cell.base_value }}"
               aria-label="{{ row.key }} ({{ cell.language }})"
             >{{ cell.value }}</textarea>
-            <span class="badge dl-translation-source">{{ cell.source }}</span>
+            <span class="badge dlux-translation-source">{{ cell.source }}</span>
           </td>
           {% endfor %}
         </tr>

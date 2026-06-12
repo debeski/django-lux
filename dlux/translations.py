@@ -4,7 +4,7 @@
 # Developers can override any key via System Settings in the UI,
 # or add new language dicts entirely. This dict is unlimited — add as many keys as needed.
 #
-# Usage in templates:  {{ MS_TRANS.key_name }}
+# Usage in templates:  {{ DLUX_STRINGS.key_name }}
 # Usage in Python:     from dlux.translations import get_strings
 #                      strings = get_strings('en')
 
@@ -2257,7 +2257,8 @@ logger = logging.getLogger(__name__)
 def _discover_and_merge_translations():
     """
     Auto-discover translations from all installed apps.
-    Looks for 'translations.py' in each app and 'MS_TRANSLATIONS' dict.
+    Looks for 'translations.py' in each app and a 'DLUX_STRINGS' dict
+    (legacy 'MS_TRANSLATIONS' from pre-rebrand apps is still honored).
     Returns a merged dictionary of all translations.
     """
     # Keep source ownership intact for the translation matrix while merging app keys.
@@ -2275,9 +2276,10 @@ def _discover_and_merge_translations():
             # Try to import translations module
             module = import_module(f"{app_config.name}.translations")
             
-            # Look for MS_TRANSLATIONS
-            app_strings = getattr(module, 'MS_TRANSLATIONS', None)
-            
+            # Primary DLUX_STRINGS, with an inert fallback to the legacy
+            # MS_TRANSLATIONS name so apps not yet migrated keep loading.
+            app_strings = getattr(module, 'DLUX_STRINGS', None) or getattr(module, 'MS_TRANSLATIONS', None)
+
             if app_strings and isinstance(app_strings, dict):
                 # Deep merge logic
                 for lang, keys in app_strings.items():
@@ -2316,7 +2318,7 @@ def _discover_translation_source_layers():
 
         try:
             module = import_module(f"{app_config.name}.translations")
-            app_strings = getattr(module, 'MS_TRANSLATIONS', None)
+            app_strings = getattr(module, 'DLUX_STRINGS', None) or getattr(module, 'MS_TRANSLATIONS', None)
         except ImportError:
             continue
         except Exception as e:
@@ -2509,7 +2511,7 @@ def get_current_language_code(request=None):
         preview_lang = None
         if hasattr(request, 'session'):
             preview_lang = request.session.get('lang')
-            if request.session.get('ms_force_language_preview') and preview_lang:
+            if request.session.get('dlux_force_language_preview') and preview_lang:
                 lang_code = preview_lang
 
         # 2.A User Profile Preference

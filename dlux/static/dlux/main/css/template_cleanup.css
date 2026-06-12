@@ -1,208 +1,208 @@
-.dl-page-alert-container {
+.dlux-page-alert-container {
     z-index: 2000;
 }
 
-.dl-page-alert {
+.dlux-page-alert {
     opacity: 0.95;
 }
 
-.dl-global-alert {
+.dlux-global-alert {
     opacity: 0.95;
     z-index: 1090;
 }
 
-.dl-register-main {
+.dlux-register-main {
     max-width: 640px;
 }
 
-.dl-otp-code-input {
+.dlux-otp-code-input {
     letter-spacing: 0.5em;
     font-size: 1.5rem;
 }
 
-.dl-subsection-checkbox-label {
+.dlux-subsection-checkbox-label {
     font-size: 1.1rem;
 }
 
-.dl-subsection-checkbox-label--locked {
+.dlux-subsection-checkbox-label--locked {
     cursor: not-allowed;
 }
 
-.dl-dashboard-logo {
+.dlux-dashboard-logo {
     max-height: 100px;
     opacity: 0.9;
 }
 
-.dl-dashboard-chart {
+.dlux-dashboard-chart {
     width: 100%;
     height: 300px;
 }
 
-.dl-user-hub-placeholder-icon {
+.dlux-user-hub-placeholder-icon {
     font-size: 3rem;
 }
 
-.dl-language-flag {
+.dlux-language-flag {
     font-size: 1.25rem;
     line-height: 1;
 }
 
-.dl-context-menu-hidden {
+.dlux-context-menu-hidden {
     display: none;
 }
 
-.dl-options-storage-row {
+.dlux-options-storage-row {
     white-space: nowrap;
 }
 
-.dl-options-storage-progress {
+.dlux-options-storage-progress {
     width: 90px;
     height: 6px;
 }
 
-.dl-theme-preview {
+.dlux-theme-preview {
     width: 45px;
     height: 45px;
     cursor: pointer;
 }
 
-.dl-theme-preview--light {
+.dlux-theme-preview--light {
     background: #f6f7f9;
 }
 
-.dl-theme-preview--blue {
+.dlux-theme-preview--blue {
     background: #2363c3;
 }
 
-.dl-theme-preview--gold {
+.dlux-theme-preview--gold {
     background: #d97706;
 }
 
-.dl-theme-preview--green {
+.dlux-theme-preview--green {
     background: #166534;
 }
 
-.dl-theme-preview--red {
+.dlux-theme-preview--red {
     background: #7f1d1d;
 }
 
-.dl-theme-preview--mono {
+.dlux-theme-preview--mono {
     background: linear-gradient(135deg, #ffffff 0%, #f4f6f8 48%, #cbd5df 49%, #94a3b8 100%);
 }
 
-.dl-theme-preview--dark {
+.dlux-theme-preview--dark {
     background: #0f172a;
 }
 
-.dl-theme-preview--gothic {
+.dlux-theme-preview--gothic {
     background: linear-gradient(135deg, #00b4d8 0%, #9d4edd 55%, #0a0510 100%);
 }
 
-.dl-theme-preview--retro {
+.dlux-theme-preview--retro {
     background: linear-gradient(135deg, #d4a574 0%, #b87333 55%, #0d0b0a 100%);
 }
 
-.dl-theme-preview--neon {
+.dlux-theme-preview--neon {
     background: linear-gradient(135deg, #00ffff 0%, #ff00ff 50%, #0a0a0f 100%);
 }
 
-.dl-theme-preview--prism {
+.dlux-theme-preview--prism {
     background: linear-gradient(145deg, #eef2f7 0%, #9aa8bc 24%, #3a4150 52%, #181b22 100%);
 }
 
-.dl-theme-preview--aether {
+.dlux-theme-preview--aether {
     background: linear-gradient(135deg, #0d1116 0%, #19212b 34%, #a8ffe4 56%, #83c9ff 72%, #c8a4ff 100%);
 }
 
-.dl-user-detail-timeline {
+.dlux-user-detail-timeline {
     max-height: 250px;
     overflow-y: auto;
     overflow-x: hidden;
 }
 
-.dl-user-detail-timeline-content {
+.dlux-user-detail-timeline-content {
     background: rgba(var(--bs-primary-rgb), 0.03);
 }
 
-.dl-user-detail-empty-icon {
+.dlux-user-detail-empty-icon {
     font-size: 1.5rem;
 }
 
-.dl-user-report {
-    --dl-user-report-border: rgba(var(--primal-rgb, 13, 110, 253), 0.16);
-    --dl-user-report-surface: color-mix(in srgb, var(--hbody, #f8fafc) 88%, transparent);
-    --dl-user-report-surface-strong: color-mix(in srgb, var(--table-row, var(--hbody, #ffffff)) 88%, transparent);
-    --dl-user-report-muted-surface: color-mix(in srgb, var(--body, #f8fafc) 78%, var(--hbody, #ffffff));
-    --dl-user-report-text: var(--title, #334155);
-    --dl-user-report-muted: var(--htitle, #64748b);
-    color: var(--dl-user-report-text);
+.dlux-user-report {
+    --dlux-user-report-border: rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+    --dlux-user-report-surface: color-mix(in srgb, var(--hbody, #f8fafc) 88%, transparent);
+    --dlux-user-report-surface-strong: color-mix(in srgb, var(--table-row, var(--hbody, #ffffff)) 88%, transparent);
+    --dlux-user-report-muted-surface: color-mix(in srgb, var(--body, #f8fafc) 78%, var(--hbody, #ffffff));
+    --dlux-user-report-text: var(--title, #334155);
+    --dlux-user-report-muted: var(--htitle, #64748b);
+    color: var(--dlux-user-report-text);
 }
 
-.dl-user-report-tile,
-.dl-user-report-card {
-    border: 1px solid var(--dl-user-report-border);
+.dlux-user-report-tile,
+.dlux-user-report-card {
+    border: 1px solid var(--dlux-user-report-border);
     border-radius: 1.1rem;
     background:
         linear-gradient(135deg, rgba(var(--primal-rgb, 13, 110, 253), 0.055), transparent 44%),
-        var(--dl-user-report-surface);
-    color: var(--dl-user-report-text);
+        var(--dlux-user-report-surface);
+    color: var(--dlux-user-report-text);
     box-shadow: 0 0.75rem 1.8rem rgba(0, 0, 0, 0.08);
 }
 
-.dl-user-report-tile {
+.dlux-user-report-tile {
     padding: 1rem;
     min-height: 6rem;
 }
 
-.dl-user-report-tile span,
-.dl-user-report-list dt {
+.dlux-user-report-tile span,
+.dlux-user-report-list dt {
     display: block;
-    color: var(--dl-user-report-muted);
+    color: var(--dlux-user-report-muted);
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
 }
 
-.dl-user-report-tile strong {
+.dlux-user-report-tile strong {
     display: block;
-    color: var(--dl-user-report-text);
+    color: var(--dlux-user-report-text);
     font-size: 1.55rem;
     margin-top: 0.35rem;
 }
 
-.dl-user-report-card {
+.dlux-user-report-card {
     height: 100%;
     padding: 1.1rem;
 }
 
-.dl-user-report-card h5 {
-    color: color-mix(in srgb, var(--primal, #0d6efd) 84%, var(--dl-user-report-text));
+.dlux-user-report-card h5 {
+    color: color-mix(in srgb, var(--primal, #0d6efd) 84%, var(--dlux-user-report-text));
     font-weight: 800;
     margin-bottom: 1rem;
 }
 
-.dl-user-report-list {
+.dlux-user-report-list {
     display: grid;
     gap: 0.65rem 1rem;
     grid-template-columns: minmax(8rem, 0.45fr) 1fr;
     margin: 0;
 }
 
-.dl-user-report-list dd {
-    color: var(--dl-user-report-text);
+.dlux-user-report-list dd {
+    color: var(--dlux-user-report-text);
     margin: 0;
     overflow-wrap: anywhere;
 }
 
-.dl-user-report-stack,
-.dl-user-report-timeline {
+.dlux-user-report-stack,
+.dlux-user-report-timeline {
     display: grid;
     gap: 0.65rem;
 }
 
-.dl-user-report-meter,
-.dl-user-report-log {
+.dlux-user-report-meter,
+.dlux-user-report-log {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -210,36 +210,36 @@
     padding: 0.65rem 0.8rem;
     border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.13);
     border-radius: 0.85rem;
-    background: var(--dl-user-report-muted-surface);
-    color: var(--dl-user-report-text);
+    background: var(--dlux-user-report-muted-surface);
+    color: var(--dlux-user-report-text);
 }
 
-.dl-user-report-log {
+.dlux-user-report-log {
     justify-content: flex-start;
     flex-wrap: wrap;
 }
 
-.dl-user-report-log small {
-    color: var(--dl-user-report-muted);
+.dlux-user-report-log small {
+    color: var(--dlux-user-report-muted);
     margin-inline-start: auto;
 }
 
-.dl-user-report-badge {
-    background: color-mix(in srgb, var(--primal, #0d6efd) 14%, var(--dl-user-report-surface-strong)) !important;
+.dlux-user-report-badge {
+    background: color-mix(in srgb, var(--primal, #0d6efd) 14%, var(--dlux-user-report-surface-strong)) !important;
     border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.22);
-    color: color-mix(in srgb, var(--primal, #0d6efd) 78%, var(--dl-user-report-text)) !important;
+    color: color-mix(in srgb, var(--primal, #0d6efd) 78%, var(--dlux-user-report-text)) !important;
 }
 
 /* Merged per-model activity breakdown (model header + its action-type chips) */
-.dl-user-report-model {
+.dlux-user-report-model {
     padding: 0.9rem 1rem;
     border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.13);
     border-radius: 0.95rem;
-    background: var(--dl-user-report-muted-surface);
-    color: var(--dl-user-report-text);
+    background: var(--dlux-user-report-muted-surface);
+    color: var(--dlux-user-report-text);
 }
 
-.dl-user-report-model-head {
+.dlux-user-report-model-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -247,18 +247,18 @@
     margin-bottom: 0.7rem;
 }
 
-.dl-user-report-model-head strong {
-    color: var(--dl-user-report-text);
+.dlux-user-report-model-head strong {
+    color: var(--dlux-user-report-text);
     font-weight: 700;
 }
 
-.dl-user-report-chips {
+.dlux-user-report-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
 }
 
-.dl-user-report-chip {
+.dlux-user-report-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
@@ -266,51 +266,51 @@
     border-radius: 999px;
     font-size: 0.85rem;
     border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.18);
-    background: color-mix(in srgb, var(--primal, #0d6efd) 8%, var(--dl-user-report-surface));
-    color: var(--dl-user-report-text);
+    background: color-mix(in srgb, var(--primal, #0d6efd) 8%, var(--dlux-user-report-surface));
+    color: var(--dlux-user-report-text);
 }
 
-.dl-user-report-chip-count {
+.dlux-user-report-chip-count {
     font-weight: 800;
-    color: color-mix(in srgb, var(--primal, #0d6efd) 78%, var(--dl-user-report-text));
+    color: color-mix(in srgb, var(--primal, #0d6efd) 78%, var(--dlux-user-report-text));
 }
 
-.dl-user-report-pagination {
+.dlux-user-report-pagination {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 0.65rem;
     margin-top: 0.9rem;
-    color: var(--dl-user-report-muted);
+    color: var(--dlux-user-report-muted);
 }
 
-.dl-user-report-pagination .btn:disabled {
+.dlux-user-report-pagination .btn:disabled {
     opacity: 0.55;
 }
 
-.dl-user-report .table {
-    --bs-table-bg: var(--dl-user-report-surface);
-    --bs-table-color: var(--dl-user-report-text);
-    --bs-table-border-color: var(--dl-user-report-border);
-    --bs-table-striped-bg: var(--dl-user-report-muted-surface);
-    --bs-table-hover-bg: color-mix(in srgb, var(--dl-user-report-muted-surface) 84%, var(--primal, #0d6efd));
-    color: var(--dl-user-report-text);
+.dlux-user-report .table {
+    --bs-table-bg: var(--dlux-user-report-surface);
+    --bs-table-color: var(--dlux-user-report-text);
+    --bs-table-border-color: var(--dlux-user-report-border);
+    --bs-table-striped-bg: var(--dlux-user-report-muted-surface);
+    --bs-table-hover-bg: color-mix(in srgb, var(--dlux-user-report-muted-surface) 84%, var(--primal, #0d6efd));
+    color: var(--dlux-user-report-text);
 }
 
-.dl-user-report .text-muted,
-.dl-user-report .text-secondary,
-.dl-user-report .small {
-    color: var(--dl-user-report-muted) !important;
+.dlux-user-report .text-muted,
+.dlux-user-report .text-secondary,
+.dlux-user-report .small {
+    color: var(--dlux-user-report-muted) !important;
 }
 
-.dl-user-report .alert-info {
+.dlux-user-report .alert-info {
     background:
         linear-gradient(135deg, rgba(var(--primal-rgb, 13, 110, 253), 0.12), transparent 56%),
-        var(--dl-user-report-muted-surface);
-    color: var(--dl-user-report-text);
-    border: 1px solid var(--dl-user-report-border) !important;
+        var(--dlux-user-report-muted-surface);
+    color: var(--dlux-user-report-text);
+    border: 1px solid var(--dlux-user-report-border) !important;
 }
 
-.dl-user-report .bg-light {
-    background-color: var(--dl-user-report-muted-surface) !important;
+.dlux-user-report .bg-light {
+    background-color: var(--dlux-user-report-muted-surface) !important;
 }

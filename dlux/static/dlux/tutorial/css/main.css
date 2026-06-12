@@ -11,7 +11,7 @@
     padding: 24px !important;
     color: #333 !important;
     max-width: 400px !important;
-    font-family: var(--dl-main-font, var(--dl-font-fallback, sans-serif)), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    font-family: var(--dlux-main-font, var(--dlux-font-fallback, sans-serif)), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
     z-index: 1000000 !important;
 }
 
@@ -21,7 +21,7 @@
     font-weight: 700 !important;
     color: var(--primal, #0d6efd) !important; /* Use app primary color or fallback to bootstrap blue */
     margin-bottom: 12px !important;
-    font-family: var(--dl-main-font, var(--dl-font-fallback, sans-serif)) !important;
+    font-family: var(--dlux-main-font, var(--dlux-font-fallback, sans-serif)) !important;
     line-height: 1.4 !important;
 }
 
@@ -65,7 +65,7 @@
     font-weight: 600 !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
-    font-family: var(--dl-main-font, var(--dl-font-fallback, sans-serif)) !important;
+    font-family: var(--dlux-main-font, var(--dlux-font-fallback, sans-serif)) !important;
     text-shadow: none !important;
     outline: none !important;
 }

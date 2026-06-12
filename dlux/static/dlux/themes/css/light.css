@@ -26,11 +26,11 @@
     --bs-btn-hover-border-color: var(--primal_dark);
     --bs-link-color: var(--primal);
     --bs-link-hover-color: var(--primal_dark);
-    --dl-table-header-surface: linear-gradient(180deg, rgba(71, 85, 105, 0.05), rgba(255, 255, 255, 0.985));
-    --dl-table-border-strong: rgba(71, 85, 105, 0.18);
-    --dl-table-row-odd: rgba(251, 252, 254, 0.98);
-    --dl-table-row-even: rgba(247, 249, 252, 0.98);
-    --dl-table-row-hover: rgba(236, 240, 245, 0.98);
+    --dlux-table-header-surface: linear-gradient(180deg, rgba(71, 85, 105, 0.05), rgba(255, 255, 255, 0.985));
+    --dlux-table-border-strong: rgba(71, 85, 105, 0.18);
+    --dlux-table-row-odd: rgba(251, 252, 254, 0.98);
+    --dlux-table-row-even: rgba(247, 249, 252, 0.98);
+    --dlux-table-row-hover: rgba(236, 240, 245, 0.98);
 }
 :root.theme-light .titlebar {
     background: linear-gradient(90deg, #ffffff 10%, #f8fafc 90%) !important;

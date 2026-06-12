@@ -48,30 +48,30 @@
     --primary-color: var(--mono-600);
     
     /* Setup Builder Theme Tokens - Monochrome Edition */
-    --dl-setup-shell-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.96));
-    --dl-setup-shell-border: rgba(203, 213, 225, 0.6);
-    --dl-setup-card-bg: rgba(255, 255, 255, 0.9);
-    --dl-setup-card-border: rgba(203, 213, 225, 0.5);
-    --dl-setup-pane-bg: rgba(241, 245, 249, 0.7);
-    --dl-setup-pane-border: rgba(203, 213, 225, 0.4);
-    --dl-setup-item-bg: rgba(255, 255, 255, 0.95);
-    --dl-setup-item-border: rgba(203, 213, 225, 0.6);
-    --dl-setup-item-hover-bg: rgba(71, 85, 105, 0.04);
-    --dl-setup-item-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-    --dl-setup-item-active-bg: rgba(71, 85, 105, 0.06);
-    --dl-setup-item-active-ring: rgba(71, 85, 105, 0.15);
-    --dl-setup-tree-bg: linear-gradient(180deg, rgba(241, 245, 249, 0.95), rgba(248, 250, 252, 0.95));
-    --dl-setup-tree-accent: rgba(71, 85, 105, 0.18);
-    --dl-setup-connector: rgba(148, 163, 184, 0.4);
-    --dl-setup-badge-bg: rgba(71, 85, 105, 0.1);
-    --dl-setup-badge-color: var(--mono-700);
-    --dl-setup-text: var(--title);
-    --dl-setup-muted: var(--mono-500);
-    --dl-table-header-surface: linear-gradient(180deg, rgba(71, 85, 105, 0.055), rgba(255, 255, 255, 0.985));
-    --dl-table-border-strong: rgba(71, 85, 105, 0.2);
-    --dl-table-row-odd: rgba(251, 252, 254, 0.98);
-    --dl-table-row-even: rgba(241, 245, 249, 0.98);
-    --dl-table-row-hover: rgba(225, 232, 240, 0.98);
+    --dlux-setup-shell-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.96));
+    --dlux-setup-shell-border: rgba(203, 213, 225, 0.6);
+    --dlux-setup-card-bg: rgba(255, 255, 255, 0.9);
+    --dlux-setup-card-border: rgba(203, 213, 225, 0.5);
+    --dlux-setup-pane-bg: rgba(241, 245, 249, 0.7);
+    --dlux-setup-pane-border: rgba(203, 213, 225, 0.4);
+    --dlux-setup-item-bg: rgba(255, 255, 255, 0.95);
+    --dlux-setup-item-border: rgba(203, 213, 225, 0.6);
+    --dlux-setup-item-hover-bg: rgba(71, 85, 105, 0.04);
+    --dlux-setup-item-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    --dlux-setup-item-active-bg: rgba(71, 85, 105, 0.06);
+    --dlux-setup-item-active-ring: rgba(71, 85, 105, 0.15);
+    --dlux-setup-tree-bg: linear-gradient(180deg, rgba(241, 245, 249, 0.95), rgba(248, 250, 252, 0.95));
+    --dlux-setup-tree-accent: rgba(71, 85, 105, 0.18);
+    --dlux-setup-connector: rgba(148, 163, 184, 0.4);
+    --dlux-setup-badge-bg: rgba(71, 85, 105, 0.1);
+    --dlux-setup-badge-color: var(--mono-700);
+    --dlux-setup-text: var(--title);
+    --dlux-setup-muted: var(--mono-500);
+    --dlux-table-header-surface: linear-gradient(180deg, rgba(71, 85, 105, 0.055), rgba(255, 255, 255, 0.985));
+    --dlux-table-border-strong: rgba(71, 85, 105, 0.2);
+    --dlux-table-row-odd: rgba(251, 252, 254, 0.98);
+    --dlux-table-row-even: rgba(241, 245, 249, 0.98);
+    --dlux-table-row-hover: rgba(225, 232, 240, 0.98);
 }
 
 /* Subtle texture overlay for sophistication */
@@ -117,16 +117,16 @@
     border-color: var(--mono-300) !important;
 }
 
-:root.theme-mono .card.dl-table-card:not([class*="text-bg-"]):not([class*="bg-"]),
-:root.theme-mono .card.dl-table-card > .card-body:not([class*="text-bg-"]):not([class*="bg-"]) {
+:root.theme-mono .card.dlux-table-card:not([class*="text-bg-"]):not([class*="bg-"]),
+:root.theme-mono .card.dlux-table-card > .card-body:not([class*="text-bg-"]):not([class*="bg-"]) {
     background: transparent !important;
     background-color: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
 }
 
-:root.theme-mono .card.dl-table-card:hover,
-:root.theme-mono .card.dl-table-card:hover > .card-body {
+:root.theme-mono .card.dlux-table-card:hover,
+:root.theme-mono .card.dlux-table-card:hover > .card-body {
     background: transparent !important;
     background-color: transparent !important;
     border-color: transparent !important;
@@ -235,7 +235,7 @@
 }
 
 :root.theme-mono .table thead th {
-    background: var(--dl-table-header-surface) !important;
+    background: var(--dlux-table-header-surface) !important;
     color: var(--mono-800) !important;
     border-color: var(--mono-200) !important;
     border-bottom: 2px solid var(--mono-400) !important;
@@ -809,14 +809,14 @@
 }
 
 /* 21. User Hub, Activity, Tutorial, and System Settings */
-:root.theme-mono .dl-user-trigger {
+:root.theme-mono .dlux-user-trigger {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.96)) !important;
     border-color: var(--mono-300) !important;
     box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06) !important;
 }
 
-:root.theme-mono .dl-user-trigger:hover,
-:root.theme-mono .dl-user-dropdown-card,
+:root.theme-mono .dlux-user-trigger:hover,
+:root.theme-mono .dlux-user-dropdown-card,
 :root.theme-mono .stats-card,
 :root.theme-mono .timeline-content,
 :root.theme-mono .driver-popover {
@@ -825,18 +825,18 @@
     color: var(--title) !important;
 }
 
-:root.theme-mono .dl-user-dropdown-card,
+:root.theme-mono .dlux-user-dropdown-card,
 :root.theme-mono .driver-popover {
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12) !important;
 }
 
-:root.theme-mono .dl-dropdown-header,
+:root.theme-mono .dlux-dropdown-header,
 :root.theme-mono #activityLogDetailModal .modal-footer,
 :root.theme-mono #activityLogDetailModal .modal-header {
     border-color: var(--mono-200) !important;
 }
 
-:root.theme-mono .dl-dropdown-toolbar,
+:root.theme-mono .dlux-dropdown-toolbar,
 :root.theme-mono .completeness-container,
 :root.theme-mono .glass-profile .bg-light.border,
 :root.theme-mono .glass-card .bg-light.border,
@@ -848,32 +848,32 @@
     color: var(--title) !important;
 }
 
-:root.theme-mono .dl-user-role,
+:root.theme-mono .dlux-user-role,
 :root.theme-mono #activityLogDetailModal .badge.bg-secondary {
     background: rgba(71, 85, 105, 0.1) !important;
     color: var(--mono-700) !important;
     border: 1px solid rgba(71, 85, 105, 0.18) !important;
 }
 
-:root.theme-mono .dl-tool-btn,
-:root.theme-mono .dl-avatar-preview.bg-light {
+:root.theme-mono .dlux-tool-btn,
+:root.theme-mono .dlux-avatar-preview.bg-light {
     background: #ffffff !important;
     border-color: var(--mono-300) !important;
     color: var(--mono-700) !important;
 }
 
-:root.theme-mono .dl-tool-btn:hover,
+:root.theme-mono .dlux-tool-btn:hover,
 :root.theme-mono .driver-popover-prev-btn:hover {
     background: var(--mono-100) !important;
     border-color: var(--mono-400) !important;
     color: var(--mono-800) !important;
 }
 
-:root.theme-mono .dl-avatar-preview,
-:root.theme-mono .dl-trigger-avatar,
+:root.theme-mono .dlux-avatar-preview,
+:root.theme-mono .dlux-trigger-avatar,
 :root.theme-mono .profile-img-container,
 :root.theme-mono .preview-img,
-:root.theme-mono .dl-image-preview-circle {
+:root.theme-mono .dlux-image-preview-circle {
     border-color: var(--mono-300) !important;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
 }
@@ -922,10 +922,10 @@
     background: transparent !important;
 }
 
-:root.theme-mono .dl-tooltip {
-    --dl-tooltip-bg: rgba(15, 23, 42, 0.94);
-    --dl-tooltip-color: #ffffff;
-    --dl-tooltip-border: var(--mono-700);
+:root.theme-mono .dlux-tooltip {
+    --dlux-tooltip-bg: rgba(15, 23, 42, 0.94);
+    --dlux-tooltip-color: #ffffff;
+    --dlux-tooltip-border: var(--mono-700);
     background: rgba(15, 23, 42, 0.94) !important;
     color: #ffffff !important;
     border-color: var(--mono-700) !important;
@@ -957,7 +957,7 @@
 
 :root.theme-mono .text-bg-primary,
 :root.theme-mono .badge.text-bg-primary,
-:root.theme-mono .dl-system-settings-shell .text-bg-primary {
+:root.theme-mono .dlux-system-settings-shell .text-bg-primary {
     background: linear-gradient(135deg, var(--mono-700) 0%, var(--mono-600) 100%) !important;
     color: #ffffff !important;
     border: 1px solid rgba(71, 85, 105, 0.24) !important;

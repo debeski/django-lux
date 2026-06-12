@@ -1,28 +1,28 @@
 {% extends 'dlux/base.html' %}
-{% block title %}{{ MS_TRANS.session_ended_title }}{% endblock %}
+{% block title %}{{ DLUX_STRINGS.session_ended_title }}{% endblock %}
 {% block titlebar %}{% endblock %}
 
 {% block layout %}
-<main class="d-flex flex-column justify-content-center align-items-center min-vh-100 p-4 text-center dl-session-ended">
-    <div class="card border-0 shadow-sm p-4 p-md-5 dl-session-ended__card">
+<main class="d-flex flex-column justify-content-center align-items-center min-vh-100 p-4 text-center dlux-session-ended">
+    <div class="card border-0 shadow-sm p-4 p-md-5 dlux-session-ended__card">
         <div class="mb-3">
-            <i class="bi bi-box-arrow-right text-primary dl-session-ended__icon"></i>
+            <i class="bi bi-box-arrow-right text-primary dlux-session-ended__icon"></i>
         </div>
-        <h1 class="h4 mb-2">{{ MS_TRANS.session_ended_title }}</h1>
+        <h1 class="h4 mb-2">{{ DLUX_STRINGS.session_ended_title }}</h1>
         <p class="text-muted mb-4">
             {% if reason == 'signed_in_elsewhere' %}
-                {{ MS_TRANS.session_ended_elsewhere }}
+                {{ DLUX_STRINGS.session_ended_elsewhere }}
             {% elif reason == 'signed_out_remotely' %}
-                {{ MS_TRANS.session_ended_remote }}
+                {{ DLUX_STRINGS.session_ended_remote }}
             {% else %}
-                {{ MS_TRANS.session_ended_generic }}
+                {{ DLUX_STRINGS.session_ended_generic }}
             {% endif %}
         </p>
         <a class="btn btn-primary btn-lg rounded-pill" href="{{ home_target }}">
             {% if target_is_login %}
-                {{ MS_TRANS.session_ended_login }}
+                {{ DLUX_STRINGS.session_ended_login }}
             {% else %}
-                {{ MS_TRANS.session_ended_home }}
+                {{ DLUX_STRINGS.session_ended_home }}
             {% endif %}
         </a>
     </div>

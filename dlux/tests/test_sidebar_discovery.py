@@ -165,7 +165,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
             },
         }):
             navigation = build_sidebar_navigation(
-                user=_StubUser(is_authenticated=True, permissions={"__ms_authenticated__"}),
+                user=_StubUser(is_authenticated=True, permissions={"__dlux_authenticated__"}),
             )
 
         self.assertEqual(navigation["entries"], [])
@@ -190,7 +190,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
             {"manage_sections", "user_activity_log", "options_view"}.issubset(system_ids)
         )
         self.assertNotIn("user_profile", system_ids)
-        self.assertEqual(options_entry["permissions"], ["__ms_authenticated__"])
+        self.assertEqual(options_entry["permissions"], ["__dlux_authenticated__"])
 
     @patch("dlux.discovery.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
@@ -219,7 +219,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-gear",
-                "permissions": ["__ms_authenticated__"],
+                "permissions": ["__dlux_authenticated__"],
                 "permissions_explicit": True,
                 "group_key": "dlux",
                 "group_label": "System",
@@ -263,7 +263,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/users/",
                 "label": "Users",
                 "icon": "bi-people",
-                "permissions": ["__ms_user_directory__"],
+                "permissions": ["__dlux_user_directory__"],
                 "permissions_explicit": True,
                 "group_key": "dlux",
                 "group_label": "System",
@@ -306,7 +306,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/users/",
                 "label": "Users",
                 "icon": "bi-people",
-                "permissions": ["__ms_user_directory__"],
+                "permissions": ["__dlux_user_directory__"],
                 "permissions_explicit": True,
                 "group_key": "dlux",
                 "group_label": "System",
@@ -344,7 +344,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-link",
-                "permissions": ["__ms_authenticated__"],
+                "permissions": ["__dlux_authenticated__"],
                 "permissions_explicit": True,
                 "group_key": "core",
                 "group_label": "Core",
@@ -357,7 +357,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/users/",
                 "label": "Users",
                 "icon": "bi-link",
-                "permissions": ["__ms_authenticated__"],
+                "permissions": ["__dlux_authenticated__"],
                 "permissions_explicit": True,
                 "group_key": "core",
                 "group_label": "Core",
@@ -394,7 +394,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/users/",
                 "label": "Users",
                 "icon": "bi-people",
-                "permissions": ["__ms_user_directory__"],
+                "permissions": ["__dlux_user_directory__"],
                 "permissions_explicit": True,
                 "group_key": "dlux",
                 "group_label": "System",
@@ -451,7 +451,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-gear",
-                "permissions": ["__ms_authenticated__"],
+                "permissions": ["__dlux_authenticated__"],
                 "permissions_explicit": True,
                 "group_key": "dlux",
                 "group_label": "System",
@@ -481,7 +481,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                         "kind": "item",
                         "id": "archive-index",
                         "url": "/archive/",
-                        "permissions": ["__ms_authenticated__"],
+                        "permissions": ["__dlux_authenticated__"],
                     },
                     {
                         "kind": "group",
@@ -492,7 +492,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                                 "kind": "item",
                                 "id": "archive-decree-list",
                                 "url": "/archive/decrees/",
-                                "permissions": ["__ms_authenticated__"],
+                                "permissions": ["__dlux_authenticated__"],
                             },
                         ],
                     },
@@ -538,7 +538,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
                 "url": "/sys/options/",
                 "label": "Options",
                 "icon": "bi-gear",
-                "permissions": ["__ms_authenticated__"],
+                "permissions": ["__dlux_authenticated__"],
                 "permissions_explicit": True,
                 "group_key": "dlux",
                 "group_label": "System",

@@ -1,28 +1,28 @@
 {% load dlux_translation %}
-<div class="dl-user-report-window">
-    <div class="dl-user-report-tile mb-4">
-        <span>{{ MS_TRANS.user_report_total_actions }}</span>
+<div class="dlux-user-report-window">
+    <div class="dlux-user-report-tile mb-4">
+        <span>{{ DLUX_STRINGS.user_report_total_actions }}</span>
         <strong>{{ window.activity_count }}</strong>
     </div>
 
-    <div class="dl-user-report-stack">
+    <div class="dlux-user-report-stack">
         {% for model in window.models %}
-            <div class="dl-user-report-model">
-                <div class="dl-user-report-model-head">
+            <div class="dlux-user-report-model">
+                <div class="dlux-user-report-model-head">
                     <strong><i class="bi bi-diagram-3 me-2"></i>{{ model.label }}</strong>
-                    <span class="badge dl-user-report-badge">{{ model.count }}</span>
+                    <span class="badge dlux-user-report-badge">{{ model.count }}</span>
                 </div>
-                <div class="dl-user-report-chips">
+                <div class="dlux-user-report-chips">
                     {% for action in model.actions %}
-                        <span class="dl-user-report-chip">
-                            <span class="dl-user-report-chip-label">{{ action.label }}</span>
-                            <span class="dl-user-report-chip-count">{{ action.count }}</span>
+                        <span class="dlux-user-report-chip">
+                            <span class="dlux-user-report-chip-label">{{ action.label }}</span>
+                            <span class="dlux-user-report-chip-count">{{ action.count }}</span>
                         </span>
                     {% endfor %}
                 </div>
             </div>
         {% empty %}
-            <p class="text-muted mb-0">{{ MS_TRANS.user_report_empty_activity }}</p>
+            <p class="text-muted mb-0">{{ DLUX_STRINGS.user_report_empty_activity }}</p>
         {% endfor %}
     </div>
 </div>

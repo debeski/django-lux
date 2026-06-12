@@ -6,8 +6,8 @@
  */
 
 (function() {
-    if (window.__msWizardInitialized) return;
-    window.__msWizardInitialized = true;
+    if (window.__dluxWizardInitialized) return;
+    window.__dluxWizardInitialized = true;
 
     function resolveWizardForm(container) {
         if (!container) {
@@ -23,33 +23,33 @@
     }
 
     function prepareWizardContainer(container) {
-        if (typeof window.__msPrepareWizardContainer !== 'function') {
+        if (typeof window.__dluxPrepareWizardContainer !== 'function') {
             return;
         }
-        window.__msPrepareWizardContainer(container);
+        window.__dluxPrepareWizardContainer(container);
     }
 
     function initWizard(container) {
         const steps = container.querySelectorAll('.wizard-step');
         if (steps.length < 2) return;
 
-        const btnNext = container.querySelector('.dl-btn-next');
-        const btnPrev = container.querySelector('.dl-btn-prev');
-        const btnSubmit = container.querySelector('.dl-btn-submit');
-        const stepNavItems = Array.from(container.querySelectorAll('[data-dl-wizard-step-target]'));
+        const btnNext = container.querySelector('.dlux-btn-next');
+        const btnPrev = container.querySelector('.dlux-btn-prev');
+        const btnSubmit = container.querySelector('.dlux-btn-submit');
+        const stepNavItems = Array.from(container.querySelectorAll('[data-dlux-wizard-step-target]'));
 
         if (!btnNext || !btnPrev || !btnSubmit) return;
 
         // Prevent double-binding
-        if (container.dataset.msWizardBound === 'true') return;
+        if (container.dataset.dluxWizardBound === 'true') return;
         prepareWizardContainer(container);
-        container.dataset.msWizardBound = 'true';
+        container.dataset.dluxWizardBound = 'true';
 
         let currentStep = 0;
         let resolvedStep = null;
         const wizardForm = resolveWizardForm(container);
-        if (typeof window.__msGetWizardInitialStep === 'function') {
-            const setupStep = window.__msGetWizardInitialStep(container);
+        if (typeof window.__dluxGetWizardInitialStep === 'function') {
+            const setupStep = window.__dluxGetWizardInitialStep(container);
             if (setupStep !== null && setupStep !== undefined && setupStep !== '') {
                 const candidate = Number(setupStep);
                 if (Number.isInteger(candidate) && candidate >= 0 && candidate < steps.length) {
@@ -58,7 +58,7 @@
             }
         }
         if (resolvedStep === null) {
-            const initialStepSource = container.dataset.msWizardInitialStep || (wizardForm && wizardForm.dataset.msWizardInitialStep);
+            const initialStepSource = container.dataset.dluxWizardInitialStep || (wizardForm && wizardForm.dataset.dluxWizardInitialStep);
             const candidate = Number(initialStepSource);
             if (Number.isInteger(candidate) && candidate >= 0 && candidate < steps.length) {
                 resolvedStep = candidate;
@@ -79,7 +79,7 @@
 
         function syncStepNav(index) {
             stepNavItems.forEach(function(item) {
-                const target = Number(item.dataset.msWizardStepTarget);
+                const target = Number(item.dataset.dluxWizardStepTarget);
                 const isActive = target === index;
                 const isComplete = Number.isInteger(target) && target < index;
                 item.classList.toggle('is-active', isActive);
@@ -103,7 +103,7 @@
 
             currentStep = index;
             syncStepNav(index);
-            container.dispatchEvent(new CustomEvent('ms:wizard-step-change', {
+            container.dispatchEvent(new CustomEvent('dlux:wizard-step-change', {
                 bubbles: true,
                 detail: {
                     currentStep: index,
@@ -114,7 +114,7 @@
 
         stepNavItems.forEach(function(item) {
             item.addEventListener('click', function() {
-                const target = Number(item.dataset.msWizardStepTarget);
+                const target = Number(item.dataset.dluxWizardStepTarget);
                 if (Number.isInteger(target) && target >= 0 && target < steps.length) {
                     showStep(target);
                 }
@@ -153,7 +153,7 @@
         // Look for forms or containers that have wizard steps
         var containers = document.querySelectorAll('form, .modal-body');
         containers.forEach(function(container) {
-            if (container.querySelector('.wizard-step') && container.dataset.msWizardBound !== 'true') {
+            if (container.querySelector('.wizard-step') && container.dataset.dluxWizardBound !== 'true') {
                 initWizard(container);
             }
         });

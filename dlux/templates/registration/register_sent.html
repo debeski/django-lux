@@ -1,14 +1,14 @@
 {% extends 'registration/public_auth_base.html' %}
-{% block title %}{{ MS_TRANS.check_email|default:'Check your email' }}{% endblock %}
-{% block public_auth_page_class %}dl-public-auth-page--state{% endblock %}
+{% block title %}{{ DLUX_STRINGS.check_email|default:'Check your email' }}{% endblock %}
+{% block public_auth_page_class %}dlux-public-auth-page--state{% endblock %}
 
 {% block public_auth_panel %}
-<div class="dl-public-auth-status">
-    <div class="dl-public-auth-status__icon"><i class="bi bi-envelope-check"></i></div>
-    <h1>{{ MS_TRANS.check_email|default:'Check your email' }}</h1>
-    <p>{{ MS_TRANS.registration_sent_desc|default:'If the address can be registered, a verification link has been sent.' }}</p>
+<div class="dlux-public-auth-status">
+    <div class="dlux-public-auth-status__icon"><i class="bi bi-envelope-check"></i></div>
+    <h1>{{ DLUX_STRINGS.check_email|default:'Check your email' }}</h1>
+    <p>{{ DLUX_STRINGS.registration_sent_desc|default:'If the address can be registered, a verification link has been sent.' }}</p>
     <a class="w-100 btn btn-lg mt-3" id="submit" href="{% url 'login' %}">
-        <i class="bi bi-box-arrow-in-right me-2"></i>{{ MS_TRANS.back_to_login|default:'Back to login' }}
+        <i class="bi bi-box-arrow-in-right me-2"></i>{{ DLUX_STRINGS.back_to_login|default:'Back to login' }}
     </a>
 </div>
 {% endblock %}

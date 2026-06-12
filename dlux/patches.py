@@ -296,7 +296,7 @@ def _build_default_dlux_actions(table, record):
             'label': 'view_label',
             'icon': 'bi bi-eye',
             'type': 'event',
-            'event': 'micro:record:view',
+            'event': 'dlux:record:view',
             'data': payload,
             'dblclick': True,
         },
@@ -305,7 +305,7 @@ def _build_default_dlux_actions(table, record):
             'label': 'edit_label',
             'icon': 'bi bi-pencil',
             'type': 'event',
-            'event': 'micro:record:edit',
+            'event': 'dlux:record:edit',
             'data': payload,
             'permissions': [f"{model._meta.app_label}.change_{model._meta.model_name}"],
         },
@@ -313,7 +313,7 @@ def _build_default_dlux_actions(table, record):
             'label': 'delete_label',
             'icon': 'bi bi-trash',
             'type': 'event',
-            'event': 'micro:record:delete',
+            'event': 'dlux:record:delete',
             'data': payload,
             'textClass': 'text-danger',
             'permissions': [f"{model._meta.app_label}.delete_{model._meta.model_name}"],
@@ -540,7 +540,7 @@ def _patch_table_init():
     def _patched_init(self, *args, **kwargs):
         # ── Pop dlux-specific kwargs before forwarding to django-tables2 ──
         # Views/tables may pass these custom kwargs which Table.__init__ doesn't accept.
-        _ms_translations = kwargs.pop('translations', None)
+        _dlux_translations = kwargs.pop('translations', None)
         request = kwargs.pop('request', None)
         model_name = kwargs.pop('model_name', None)
 
@@ -602,7 +602,7 @@ def _patch_table_init():
                     'table',
                     'table-hover',
                     'align-middle',
-                    'dl-data-table',
+                    'dlux-data-table',
                 )
             except Exception:
                 pass
@@ -611,8 +611,8 @@ def _patch_table_init():
             try:
                 if getattr(self, 'row_attrs', None) is None:
                     self.row_attrs = {}
-                self.row_attrs.setdefault('data-micro-context', 'true')
-                if 'data-micro-actions' not in self.row_attrs:
+                self.row_attrs.setdefault('data-dlux-context', 'true')
+                if 'data-dlux-actions' not in self.row_attrs:
                     def _default_actions(record, table=self):
                         try:
                             if hasattr(table, 'get_dlux_base_actions'):
@@ -632,7 +632,7 @@ def _patch_table_init():
                         except Exception:
                             return "[]"
 
-                    self.row_attrs['data-micro-actions'] = _default_actions
+                    self.row_attrs['data-dlux-actions'] = _default_actions
             except Exception:
                 pass
 
@@ -659,8 +659,8 @@ def _patch_table_init():
                     break
 
         # django-tables2: Translate context menu actions inside row_attrs
-        if hasattr(self, 'row_attrs') and 'data-micro-actions' in self.row_attrs:
-            orig_actions = self.row_attrs['data-micro-actions']
+        if hasattr(self, 'row_attrs') and 'data-dlux-actions' in self.row_attrs:
+            orig_actions = self.row_attrs['data-dlux-actions']
             if callable(orig_actions):
                 def _translated_actions(record):
                     import json
@@ -676,7 +676,7 @@ def _patch_table_init():
                         return json.dumps(actions)
                     except Exception:
                         return orig_actions(record)
-                self.row_attrs['data-micro-actions'] = _translated_actions
+                self.row_attrs['data-dlux-actions'] = _translated_actions
 
         if request is not None and self.dlux_table_enabled and not getattr(self, '_dlux_request_configured', False):
             try:
@@ -739,7 +739,7 @@ def _patch_requestconfig_configure():
 # ──────────────────────────────────────────────────────────
 
 def _patch_django_gettext():
-    """Patch Django's gettext, gettext_lazy, and pgettext to check MS_TRANS first."""
+    """Patch Django's gettext, gettext_lazy, and pgettext to check DLUX_STRINGS first."""
     import django.utils.translation as translation
     from django.utils.functional import lazy
     
@@ -749,14 +749,14 @@ def _patch_django_gettext():
     def _patched_gettext(message):
         try:
             from dlux.translations import get_strings
-            ms_trans = get_strings()
+            dlux_strings = get_strings()
             
-            if message in ms_trans:
-                return ms_trans[message]
+            if message in dlux_strings:
+                return dlux_strings[message]
                 
             slug_key = str(message).lower().replace(' ', '_')
-            if slug_key in ms_trans:
-                return ms_trans[slug_key]
+            if slug_key in dlux_strings:
+                return dlux_strings[slug_key]
         except Exception:
             pass
         return _original_gettext(message)
@@ -764,18 +764,18 @@ def _patch_django_gettext():
     def _patched_pgettext(context, message):
         try:
             from dlux.translations import get_strings
-            ms_trans = get_strings()
+            dlux_strings = get_strings()
             
             context_key = f"{context}_{message}".lower().replace(' ', '_')
-            if context_key in ms_trans:
-                return ms_trans[context_key]
+            if context_key in dlux_strings:
+                return dlux_strings[context_key]
                 
-            if message in ms_trans:
-                return ms_trans[message]
+            if message in dlux_strings:
+                return dlux_strings[message]
                 
             slug_key = str(message).lower().replace(' ', '_')
-            if slug_key in ms_trans:
-                return ms_trans[slug_key]
+            if slug_key in dlux_strings:
+                return dlux_strings[slug_key]
         except Exception:
             pass
         return _original_pgettext(context, message)

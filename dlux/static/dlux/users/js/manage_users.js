@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     const userDetailModalBody = document.getElementById('userDetailModalBody');
 
-    document.addEventListener('micro:view-user-details', function(e) {
+    document.addEventListener('dlux:view-user-details', function(e) {
         const detail = e.detail;
         const data = detail.data || detail.actionData?.data || detail.action?.data;
         const url = data?.url;
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    document.addEventListener('micro:reset-password', function(e) {
+    document.addEventListener('dlux:reset-password', function(e) {
         const eventData = e.detail.data;
         if (!eventData || !eventData.url) {
             return;
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.addEventListener('micro:soft-delete', function(e) {
+    document.addEventListener('dlux:soft-delete', function(e) {
         const eventData = e.detail.data;
         if (!eventData || !eventData.url) {
             return;

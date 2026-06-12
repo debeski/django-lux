@@ -3,7 +3,7 @@
 {% load static %}
 {% load crispy_forms_tags %}
 
-{% block title %}{{ MS_TRANS.manage_users }}{% endblock %}
+{% block title %}{{ DLUX_STRINGS.manage_users }}{% endblock %}
 
 {% block extra_head %}
     {% include "dlux/forms/assets_head.html" %}
@@ -14,7 +14,7 @@
 
     <div class="row">
         <div class="col-12">
-            <h2 class="page-title"><i class="bi bi-people me-2"></i> {{ MS_TRANS.manage_users }}</h2>
+            <h2 class="page-title"><i class="bi bi-people me-2"></i> {{ DLUX_STRINGS.manage_users }}</h2>
         </div>
     </div>
 
@@ -23,21 +23,21 @@
         {% crispy filter.form %}
     </div>
 
-    <div class="card border-0 shadow-sm dl-table-card">
+    <div class="card border-0 shadow-sm dlux-table-card">
         <div class="card-body p-0">
             {% render_table table %}
         </div>
     </div>
 
     <div class="d-flex align-items-center mt-3">
-        <button type="button" class="btn btn-primary rounded-pill no-print" title="{{ MS_TRANS.add_user }}"
-                data-dynamic-modal="{% url 'modal_user' %}" data-modal-title="{{ MS_TRANS.add_user }}">
-            <i class="bi bi-person-plus-fill me-2 h4"></i> {{ MS_TRANS.add_user }}
+        <button type="button" class="btn btn-primary rounded-pill no-print" title="{{ DLUX_STRINGS.add_user }}"
+                data-dynamic-modal="{% url 'modal_user' %}" data-modal-title="{{ DLUX_STRINGS.add_user }}">
+            <i class="bi bi-person-plus-fill me-2 h4"></i> {{ DLUX_STRINGS.add_user }}
         </button>
     
         {% if scope_enabled and request.user.is_superuser %}
-        <button type="button" class="btn btn-info rounded-pill no-print ms-2" title="{{ MS_TRANS.manage_scopes_btn }}" id="btn-manage-scopes" data-url="{% url 'manage_scopes' %}">
-            <i class="bi bi-list me-1 h4"></i> {{ MS_TRANS.manage_scopes_btn }}
+        <button type="button" class="btn btn-info rounded-pill no-print ms-2" title="{{ DLUX_STRINGS.manage_scopes_btn }}" id="btn-manage-scopes" data-url="{% url 'manage_scopes' %}">
+            <i class="bi bi-list me-1 h4"></i> {{ DLUX_STRINGS.manage_scopes_btn }}
         </button>
         {% endif %}
 
@@ -48,15 +48,15 @@
                 <input class="form-check-input" type="checkbox" id="toggleAutoScopes" 
                 data-url="{% url 'toggle_auto_scopes' %}" data-csrf="{{ csrf_token }}"
                 {% if auto_scope_enabled %}checked{% endif %}>
-                <label class="form-check-label" for="toggleAutoScopes">{{ MS_TRANS.enable_auto_scopes }}</label>
+                <label class="form-check-label" for="toggleAutoScopes">{{ DLUX_STRINGS.enable_auto_scopes }}</label>
             </div>
             {% endif %}
             <div class="form-check form-switch form-check-reverse d-inline-block align-middle">
                 <input class="form-check-input" type="checkbox" id="toggleScopes" 
                 data-url="{% url 'toggle_scopes' %}" data-csrf="{{ csrf_token }}"
                 {% if scope_enabled %}checked{% endif %}
-                {% if scope_enabled and not can_toggle_scope %}disabled title="{{ MS_TRANS.cannot_disable_scopes }}"{% endif %}>
-                <label class="form-check-label" for="toggleScopes">{{ MS_TRANS.enable_scopes }}</label>
+                {% if scope_enabled and not can_toggle_scope %}disabled title="{{ DLUX_STRINGS.cannot_disable_scopes }}"{% endif %}>
+                <label class="form-check-label" for="toggleScopes">{{ DLUX_STRINGS.enable_scopes }}</label>
             </div>
         </div>
         {% endif %}
@@ -70,15 +70,15 @@
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="deleteModalLabel">{{ MS_TRANS.confirm_delete }}</h5>
+                        <h5 class="modal-title" id="deleteModalLabel">{{ DLUX_STRINGS.confirm_delete }}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p>{{ MS_TRANS.delete_user_msg }} <strong><span id="userName"></span></strong>؟</p>
+                        <p>{{ DLUX_STRINGS.delete_user_msg }} <strong><span id="userName"></span></strong>؟</p>
                     </div>
                     <div class="modal-footer">
-                        <button type="submit" class="btn btn-danger rounded-pill">{{ MS_TRANS.yes_delete }}</button>
-                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">{{ MS_TRANS.cancel }}</button>
+                        <button type="submit" class="btn btn-danger rounded-pill">{{ DLUX_STRINGS.yes_delete }}</button>
+                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">{{ DLUX_STRINGS.cancel }}</button>
                     </div>
                 </div>
             </div>
@@ -90,7 +90,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="resetPasswordModalLabel">{{ MS_TRANS.reset_password }}</h5>
+                    <h5 class="modal-title" id="resetPasswordModalLabel">{{ DLUX_STRINGS.reset_password }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body dlux-form">
@@ -117,7 +117,7 @@
                     <!-- Content loaded via AJAX -->
                     <div class="text-center py-5">
                         <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">{{ MS_TRANS.loading }}</span>
+                            <span class="visually-hidden">{{ DLUX_STRINGS.loading }}</span>
                         </div>
                     </div>
                 </div>
@@ -131,22 +131,22 @@
             <div class="modal-content border-danger">
                 <div class="modal-header bg-soft-danger border-bottom-0">
                     <h5 class="modal-title text-danger">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ MS_TRANS.scope_warning_title }}
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ DLUX_STRINGS.scope_warning_title }}
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="fw-bold">{{ MS_TRANS.scope_warning_msg }}</p>
+                    <p class="fw-bold">{{ DLUX_STRINGS.scope_warning_msg }}</p>
                     <p class="text-muted mb-0">
-                        {{ MS_TRANS.scope_warning_detail }}
+                        {{ DLUX_STRINGS.scope_warning_detail }}
                     </p>
                     <p class="text-danger fw-bold mb-0">
-                        {{ MS_TRANS.scope_warning_note }}
+                        {{ DLUX_STRINGS.scope_warning_note }}
                     </p>
                 </div>
                 <div class="modal-footer border-top-0">
-                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">{{ MS_TRANS.cancel }}</button>
-                    <button type="button" class="btn btn-danger rounded-pill" id="confirmScopeActivation">{{ MS_TRANS.yes_activate }}</button>
+                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">{{ DLUX_STRINGS.cancel }}</button>
+                    <button type="button" class="btn btn-danger rounded-pill" id="confirmScopeActivation">{{ DLUX_STRINGS.yes_activate }}</button>
                 </div>
             </div>
         </div>
@@ -158,11 +158,11 @@
             <div class="modal-content glass-card border-0 shadow-lg">
                 <div class="modal-body text-center p-5"
                      id="userDetailModalBody"
-                     data-loading-text="{{ MS_TRANS.loading|default:'Loading...' }}"
-                     data-error-text="{{ MS_TRANS.error_loading_details|default:'Error loading details.' }}">
+                     data-loading-text="{{ DLUX_STRINGS.loading|default:'Loading...' }}"
+                     data-error-text="{{ DLUX_STRINGS.error_loading_details|default:'Error loading details.' }}">
                     <!-- Content loaded via AJAX -->
                     <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">{{ MS_TRANS.loading }}</span>
+                        <span class="visually-hidden">{{ DLUX_STRINGS.loading }}</span>
                     </div>
                 </div>
             </div>
@@ -172,5 +172,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{% static 'dlux/users/js/manage_users.js' %}?v=20260603a" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% static 'dlux/users/js/manage_users.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

@@ -5,37 +5,37 @@
     {% if help_text %}
     <p class="text-muted small mb-3">{{ help_text }}</p>
     {% endif %}
-    <div class="dl-choice-selector dl-choice-selector--swatch dl-font-settings-matrix">
-        <div class="dl-choice-selector__options">
+    <div class="dlux-choice-selector dlux-choice-selector--swatch dlux-font-settings-matrix">
+        <div class="dlux-choice-selector__options">
             {% for font in DLUX_FONTS %}
             <div
-                class="dl-choice-option dl-choice-option--swatch dl-font-settings-option"
-                data-dl-selector-option
-                data-dl-selector-text="{{ font.label }} {{ font.slug }}"
+                class="dlux-choice-option dlux-choice-option--swatch dlux-font-settings-option"
+                data-dlux-selector-option
+                data-dlux-selector-text="{{ font.label }} {{ font.slug }}"
                 data-font-option="{{ font.slug }}"
             >
-                <div class="dl-choice-option__surface">
-                    <div class="dl-font-settings-option__header">
-                        <label class="dl-font-settings-option__allow" for="id_allowed_font_{{ forloop.counter0 }}">
+                <div class="dlux-choice-option__surface">
+                    <div class="dlux-font-settings-option__header">
+                        <label class="dlux-font-settings-option__allow" for="id_allowed_font_{{ forloop.counter0 }}">
                             <input
                                 type="checkbox"
-                                class="form-check-input dl-font-settings-option__checkbox"
+                                class="form-check-input dlux-font-settings-option__checkbox"
                                 id="id_allowed_font_{{ forloop.counter0 }}"
                                 name="{{ allowed_input_name }}"
                                 value="{{ font.slug }}"
-                                aria-label="{{ font.label }}: {{ MS_TRANS.form_sys_allowed_fonts|default:'Allowed Fonts' }}"
+                                aria-label="{{ font.label }}: {{ DLUX_STRINGS.form_sys_allowed_fonts|default:'Allowed Fonts' }}"
                                 data-setup-font-allowed="{{ font.slug }}"
                                 {% if font.slug in allowed_fonts %}checked{% endif %}
                             >
                         </label>
                     </div>
-                    <div class="dl-font-settings-option__content p-2 text-center">
+                    <div class="dlux-font-settings-option__content p-2 text-center">
                         <div class="font-preview-sample h2 mb-1">
                             Aa
                         </div>
-                        <span class="dl-choice-option__copy">
-                            <span class="dl-choice-option__label">{{ font.label }}</span>
-                            <span class="dl-choice-option__meta">{{ font.slug }}</span>
+                        <span class="dlux-choice-option__copy">
+                            <span class="dlux-choice-option__label">{{ font.label }}</span>
+                            <span class="dlux-choice-option__meta">{{ font.slug }}</span>
                         </span>
                     </div>
                 </div>

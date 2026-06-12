@@ -82,11 +82,11 @@
         const tier = config.catalog.tiers[state.tierKey];
         if (!tier) return;
 
-        const titleEl = previewEl.querySelector('.dl-staff-tier-preview__title');
-        const descriptionEl = previewEl.querySelector('.dl-staff-tier-preview__description');
-        const badgesEl = previewEl.querySelector('.dl-staff-tier-preview__badges');
-        const capabilitiesEl = previewEl.querySelector('.dl-staff-tier-preview__capabilities');
-        const warningsEl = previewEl.querySelector('.dl-staff-tier-preview__warnings');
+        const titleEl = previewEl.querySelector('.dlux-staff-tier-preview__title');
+        const descriptionEl = previewEl.querySelector('.dlux-staff-tier-preview__description');
+        const badgesEl = previewEl.querySelector('.dlux-staff-tier-preview__badges');
+        const capabilitiesEl = previewEl.querySelector('.dlux-staff-tier-preview__capabilities');
+        const warningsEl = previewEl.querySelector('.dlux-staff-tier-preview__warnings');
 
         if (titleEl) {
             titleEl.textContent = tier.title;
@@ -113,13 +113,13 @@
         }
         if (warningsEl) {
             warningsEl.innerHTML = (state.warnings || [])
-                .map(message => `<div class="dl-staff-tier-preview__warning"><i class="bi bi-exclamation-triangle-fill"></i>${message}</div>`)
+                .map(message => `<div class="dlux-staff-tier-preview__warning"><i class="bi bi-exclamation-triangle-fill"></i>${message}</div>`)
                 .join('');
         }
     }
 
     function syncTierPreviews(root) {
-        (root || document).querySelectorAll('.dl-staff-tier-preview').forEach(renderTierPreview);
+        (root || document).querySelectorAll('.dlux-staff-tier-preview').forEach(renderTierPreview);
     }
 
     // Attach to document for event delegation

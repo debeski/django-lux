@@ -208,7 +208,7 @@
 } */
 
 @media (max-width: 1099.98px) {
-    .dl-sidebar-precollapse .sidebar {
+    .dlux-sidebar-precollapse .sidebar {
         width: 0 !important;
         min-width: 0 !important;
         border: none !important;
@@ -281,11 +281,11 @@
     box-shadow: none !important;
 }
 
-:root.dl-theme-switching .sidebar .list-group-item,
-:root.dl-theme-switching .sidebar .accordion-button,
-:root.dl-theme-switching .sidebar .group-url-btn,
-:root.dl-theme-switching .sidebar .list-group-item i,
-:root.dl-theme-switching .sidebar .accordion-button i {
+:root.dlux-theme-switching .sidebar .list-group-item,
+:root.dlux-theme-switching .sidebar .accordion-button,
+:root.dlux-theme-switching .sidebar .group-url-btn,
+:root.dlux-theme-switching .sidebar .list-group-item i,
+:root.dlux-theme-switching .sidebar .accordion-button i {
     transition: none !important;
 }
 

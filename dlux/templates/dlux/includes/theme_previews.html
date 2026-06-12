@@ -6,7 +6,7 @@
         {% for theme in DLUX_THEMES %}
         <div class="text-center">
             <div
-                class="rounded-circle border shadow-sm mb-1 theme-preview dl-theme-preview dl-theme-preview--{{ theme.slug }}{% if selected_theme == theme.slug %} active{% endif %}"
+                class="rounded-circle border shadow-sm mb-1 theme-preview dlux-theme-preview dlux-theme-preview--{{ theme.slug }}{% if selected_theme == theme.slug %} active{% endif %}"
                 data-theme="{{ theme.slug }}"
                 title="{{ theme.label }}"
             ></div>

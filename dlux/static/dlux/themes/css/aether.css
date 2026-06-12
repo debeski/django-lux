@@ -55,86 +55,86 @@
     --primary-color: var(--aether-mint);
 
     /* Setup Builder Theme Tokens */
-    --dl-setup-shell-bg:
+    --dlux-setup-shell-bg:
         linear-gradient(180deg, rgba(25, 33, 43, 0.98), rgba(13, 17, 22, 0.98)),
         var(--aether-cut);
-    --dl-setup-shell-border: rgba(168, 255, 228, 0.16);
-    --dl-setup-card-bg: rgba(35, 44, 55, 0.94);
-    --dl-setup-card-border: rgba(131, 201, 255, 0.18);
-    --dl-setup-pane-bg: rgba(168, 255, 228, 0.035);
-    --dl-setup-pane-border: rgba(255, 255, 255, 0.075);
-    --dl-setup-item-bg: rgba(35, 44, 55, 0.9);
-    --dl-setup-item-border: rgba(255, 255, 255, 0.095);
-    --dl-setup-item-hover-bg: rgba(168, 255, 228, 0.065);
-    --dl-setup-item-shadow: 0 18px 38px -26px rgba(0, 0, 0, 0.68);
-    --dl-setup-item-active-bg: rgba(168, 255, 228, 0.095);
-    --dl-setup-item-active-ring: rgba(168, 255, 228, 0.24);
-    --dl-setup-tree-bg: linear-gradient(180deg, rgba(13, 17, 22, 0.98), rgba(25, 33, 43, 0.96));
-    --dl-setup-tree-accent: rgba(200, 164, 255, 0.24);
-    --dl-setup-connector: rgba(168, 255, 228, 0.16);
-    --dl-setup-badge-bg: rgba(168, 255, 228, 0.09);
-    --dl-setup-badge-color: var(--aether-pearl);
-    --dl-setup-text: var(--title);
-    --dl-setup-muted: var(--aether-muted);
+    --dlux-setup-shell-border: rgba(168, 255, 228, 0.16);
+    --dlux-setup-card-bg: rgba(35, 44, 55, 0.94);
+    --dlux-setup-card-border: rgba(131, 201, 255, 0.18);
+    --dlux-setup-pane-bg: rgba(168, 255, 228, 0.035);
+    --dlux-setup-pane-border: rgba(255, 255, 255, 0.075);
+    --dlux-setup-item-bg: rgba(35, 44, 55, 0.9);
+    --dlux-setup-item-border: rgba(255, 255, 255, 0.095);
+    --dlux-setup-item-hover-bg: rgba(168, 255, 228, 0.065);
+    --dlux-setup-item-shadow: 0 18px 38px -26px rgba(0, 0, 0, 0.68);
+    --dlux-setup-item-active-bg: rgba(168, 255, 228, 0.095);
+    --dlux-setup-item-active-ring: rgba(168, 255, 228, 0.24);
+    --dlux-setup-tree-bg: linear-gradient(180deg, rgba(13, 17, 22, 0.98), rgba(25, 33, 43, 0.96));
+    --dlux-setup-tree-accent: rgba(200, 164, 255, 0.24);
+    --dlux-setup-connector: rgba(168, 255, 228, 0.16);
+    --dlux-setup-badge-bg: rgba(168, 255, 228, 0.09);
+    --dlux-setup-badge-color: var(--aether-pearl);
+    --dlux-setup-text: var(--title);
+    --dlux-setup-muted: var(--aether-muted);
     /* Dlux Table Tokens */
-    --dl-table-surface:
+    --dlux-table-surface:
         linear-gradient(180deg, rgba(35, 44, 55, 0.97), rgba(13, 17, 22, 0.99));
-    --dl-table-border: rgba(168, 255, 228, 0.12);
-    --dl-table-border-strong: rgba(131, 201, 255, 0.2);
-    --dl-table-shadow: 0 20px 42px -28px rgba(0, 0, 0, 0.68);
-    --dl-table-header-surface: linear-gradient(135deg, rgba(45, 53, 65, 0.98), rgba(28, 36, 46, 0.98));
-    --dl-table-header-text: #f4f6fa;
-    --dl-table-row-odd: rgba(13, 17, 22, 0.98);
-    --dl-table-row-even: rgba(25, 33, 43, 0.98);
-    --dl-table-row-hover: rgba(44, 55, 68, 0.98);
-    --dl-table-cell-border: rgba(255, 255, 255, 0.065);
-    --dl-table-sort-muted: rgba(196, 202, 214, 0.76);
-    --dl-table-empty-muted: rgba(139, 148, 168, 0.88);
-    --dl-table-empty-surface: linear-gradient(180deg, rgba(34, 38, 47, 0.98), rgba(24, 27, 34, 0.99));
-    --dl-table-empty-icon-bg: rgba(168, 255, 228, 0.06);
-    --dl-table-empty-icon-color: #e8ecf2;
-    --dl-table-empty-icon-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    --dl-table-footer-surface: linear-gradient(180deg, rgba(28, 31, 38, 0.98), rgba(18, 20, 26, 0.99));
-    --dl-table-footer-text: rgba(196, 202, 214, 0.82);
-    --dl-density-card-border: rgba(255, 255, 255, 0.1);
-    --dl-density-card-surface: linear-gradient(180deg, rgba(42, 47, 56, 0.98), rgba(24, 27, 34, 0.99));
-    --dl-density-card-shadow:
+    --dlux-table-border: rgba(168, 255, 228, 0.12);
+    --dlux-table-border-strong: rgba(131, 201, 255, 0.2);
+    --dlux-table-shadow: 0 20px 42px -28px rgba(0, 0, 0, 0.68);
+    --dlux-table-header-surface: linear-gradient(135deg, rgba(45, 53, 65, 0.98), rgba(28, 36, 46, 0.98));
+    --dlux-table-header-text: #f4f6fa;
+    --dlux-table-row-odd: rgba(13, 17, 22, 0.98);
+    --dlux-table-row-even: rgba(25, 33, 43, 0.98);
+    --dlux-table-row-hover: rgba(44, 55, 68, 0.98);
+    --dlux-table-cell-border: rgba(255, 255, 255, 0.065);
+    --dlux-table-sort-muted: rgba(196, 202, 214, 0.76);
+    --dlux-table-empty-muted: rgba(139, 148, 168, 0.88);
+    --dlux-table-empty-surface: linear-gradient(180deg, rgba(34, 38, 47, 0.98), rgba(24, 27, 34, 0.99));
+    --dlux-table-empty-icon-bg: rgba(168, 255, 228, 0.06);
+    --dlux-table-empty-icon-color: #e8ecf2;
+    --dlux-table-empty-icon-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --dlux-table-footer-surface: linear-gradient(180deg, rgba(28, 31, 38, 0.98), rgba(18, 20, 26, 0.99));
+    --dlux-table-footer-text: rgba(196, 202, 214, 0.82);
+    --dlux-density-card-border: rgba(255, 255, 255, 0.1);
+    --dlux-density-card-surface: linear-gradient(180deg, rgba(42, 47, 56, 0.98), rgba(24, 27, 34, 0.99));
+    --dlux-density-card-shadow:
         inset 0 1px 0 var(--aether-line-soft),
         0 14px 28px -20px rgba(0, 0, 0, 0.5);
-    --dl-density-card-hover-border: rgba(255, 255, 255, 0.16);
-    --dl-density-card-hover-shadow:
+    --dlux-density-card-hover-border: rgba(255, 255, 255, 0.16);
+    --dlux-density-card-hover-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.09),
         0 16px 30px -18px rgba(0, 0, 0, 0.55);
-    --dl-density-card-active-border: rgba(168, 255, 228, 0.34);
-    --dl-density-card-active-shadow:
+    --dlux-density-card-active-border: rgba(168, 255, 228, 0.34);
+    --dlux-density-card-active-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.1),
         0 0 0 0.16rem rgba(168, 255, 228, 0.13);
-    --dl-density-card-icon-bg: rgba(255, 255, 255, 0.05);
-    --dl-density-card-icon-color: #e8ecf2;
-    --dl-density-card-title: #f4f6fa;
-    --dl-density-card-copy: rgba(139, 148, 168, 0.92);
-    --dl-table-chip-bg: rgba(255, 255, 255, 0.04);
-    --dl-table-chip-border: rgba(255, 255, 255, 0.1);
-    --dl-table-chip-text: #eef1f6;
-    --dl-table-chip-hover-bg: rgba(255, 255, 255, 0.08);
-    --dl-table-chip-active-bg: rgba(168, 255, 228, 0.14);
-    --dl-table-chip-active-border: rgba(168, 255, 228, 0.3);
-    --dl-table-page-bg: rgba(255, 255, 255, 0.04);
-    --dl-table-page-border: rgba(255, 255, 255, 0.1);
-    --dl-table-page-text: #eef1f6;
-    --dl-table-page-hover-bg: rgba(255, 255, 255, 0.08);
-    --dl-table-page-hover-border: rgba(255, 255, 255, 0.18);
-    --dl-table-page-active-bg: var(--aether-mint);
-    --dl-table-page-active-border: var(--aether-mint);
-    --dl-table-page-active-text: var(--aether-void);
-    --dl-table-page-disabled-bg: rgba(255, 255, 255, 0.02);
-    --dl-table-page-disabled-border: rgba(255, 255, 255, 0.06);
-    --dl-table-page-disabled-text: rgba(196, 202, 214, 0.42);
-    --dl-table-sticky-shadow: 8px 0 20px -16px rgba(0, 0, 0, 0.65);
-    --dl-table-row-deleted-bg: rgba(255, 255, 255, 0.02);
-    --dl-table-row-deleted-text: #6f7a8f;
-    --dl-table-row-danger-bg: rgba(72, 42, 48, 0.88);
-    --dl-table-row-danger-hover-bg: rgba(92, 52, 58, 0.92);
+    --dlux-density-card-icon-bg: rgba(255, 255, 255, 0.05);
+    --dlux-density-card-icon-color: #e8ecf2;
+    --dlux-density-card-title: #f4f6fa;
+    --dlux-density-card-copy: rgba(139, 148, 168, 0.92);
+    --dlux-table-chip-bg: rgba(255, 255, 255, 0.04);
+    --dlux-table-chip-border: rgba(255, 255, 255, 0.1);
+    --dlux-table-chip-text: #eef1f6;
+    --dlux-table-chip-hover-bg: rgba(255, 255, 255, 0.08);
+    --dlux-table-chip-active-bg: rgba(168, 255, 228, 0.14);
+    --dlux-table-chip-active-border: rgba(168, 255, 228, 0.3);
+    --dlux-table-page-bg: rgba(255, 255, 255, 0.04);
+    --dlux-table-page-border: rgba(255, 255, 255, 0.1);
+    --dlux-table-page-text: #eef1f6;
+    --dlux-table-page-hover-bg: rgba(255, 255, 255, 0.08);
+    --dlux-table-page-hover-border: rgba(255, 255, 255, 0.18);
+    --dlux-table-page-active-bg: var(--aether-mint);
+    --dlux-table-page-active-border: var(--aether-mint);
+    --dlux-table-page-active-text: var(--aether-void);
+    --dlux-table-page-disabled-bg: rgba(255, 255, 255, 0.02);
+    --dlux-table-page-disabled-border: rgba(255, 255, 255, 0.06);
+    --dlux-table-page-disabled-text: rgba(196, 202, 214, 0.42);
+    --dlux-table-sticky-shadow: 8px 0 20px -16px rgba(0, 0, 0, 0.65);
+    --dlux-table-row-deleted-bg: rgba(255, 255, 255, 0.02);
+    --dlux-table-row-deleted-text: #6f7a8f;
+    --dlux-table-row-danger-bg: rgba(72, 42, 48, 0.88);
+    --dlux-table-row-danger-hover-bg: rgba(92, 52, 58, 0.92);
 }
 
 /* Kinetic facet field */
@@ -583,7 +583,7 @@
 }
 
 :root.theme-aether .table thead th {
-    background: var(--dl-table-header-surface) !important;
+    background: var(--dlux-table-header-surface) !important;
     color: var(--aether-pearl) !important;
     text-shadow: none !important;
     border-color: var(--aether-line) !important;
@@ -928,7 +928,7 @@
 
 :root.theme-aether .text-bg-primary,
 :root.theme-aether .badge.text-bg-primary,
-:root.theme-aether .dl-system-settings-shell .text-bg-primary {
+:root.theme-aether .dlux-system-settings-shell .text-bg-primary {
     background: var(--aether-spectrum) !important;
     color: var(--aether-void) !important;
     border: 1px solid rgba(168, 255, 228, 0.2) !important;
@@ -1026,18 +1026,18 @@
 }
 
 /* User hub, activity, tutorial */
-:root.theme-aether .dl-user-trigger {
+:root.theme-aether .dlux-user-trigger {
     background: rgba(255, 255, 255, 0.04) !important;
     border: 1px solid var(--aether-line) !important;
     box-shadow: inset 0 1px 0 var(--aether-line-soft) !important;
 }
 
-:root.theme-aether .dl-user-trigger:hover {
+:root.theme-aether .dlux-user-trigger:hover {
     background: rgba(255, 255, 255, 0.07) !important;
     border-color: rgba(255, 255, 255, 0.16) !important;
 }
 
-:root.theme-aether .dl-user-dropdown-card,
+:root.theme-aether .dlux-user-dropdown-card,
 :root.theme-aether .stats-card,
 :root.theme-aether .timeline-content,
 :root.theme-aether .driver-popover {
@@ -1051,13 +1051,13 @@
         0 18px 40px -12px rgba(0, 0, 0, 0.5) !important;
 }
 
-:root.theme-aether .dl-dropdown-header,
+:root.theme-aether .dlux-dropdown-header,
 :root.theme-aether #activityLogDetailModal .modal-footer,
 :root.theme-aether #activityLogDetailModal .modal-header {
     border-color: var(--aether-line) !important;
 }
 
-:root.theme-aether .dl-dropdown-toolbar,
+:root.theme-aether .dlux-dropdown-toolbar,
 :root.theme-aether .completeness-container,
 :root.theme-aether .glass-profile .bg-light.border,
 :root.theme-aether .glass-card .bg-light.border,
@@ -1069,21 +1069,21 @@
     color: var(--title) !important;
 }
 
-:root.theme-aether .dl-user-role,
+:root.theme-aether .dlux-user-role,
 :root.theme-aether #activityLogDetailModal .badge.bg-secondary {
     background: rgba(255, 255, 255, 0.06) !important;
     color: var(--aether-pearl) !important;
     border: 1px solid var(--aether-line) !important;
 }
 
-:root.theme-aether .dl-tool-btn,
-:root.theme-aether .dl-avatar-preview.bg-light {
+:root.theme-aether .dlux-tool-btn,
+:root.theme-aether .dlux-avatar-preview.bg-light {
     background: linear-gradient(180deg, rgba(42, 47, 56, 0.96), rgba(34, 38, 47, 0.96)) !important;
     border: 1px solid var(--aether-line) !important;
     color: var(--aether-silver) !important;
 }
 
-:root.theme-aether .dl-tool-btn:hover,
+:root.theme-aether .dlux-tool-btn:hover,
 :root.theme-aether .driver-popover-prev-btn:hover {
     background: rgba(255, 255, 255, 0.08) !important;
     border-color: rgba(255, 255, 255, 0.16) !important;
@@ -1264,20 +1264,20 @@
         inset 0 -2px 0 rgba(168, 255, 228, 0.32) !important;
 }
 
-:root.theme-aether .titlebar .dl-titlebar-home,
-:root.theme-aether .titlebar .dl-login-round {
+:root.theme-aether .titlebar .dlux-titlebar-home,
+:root.theme-aether .titlebar .dlux-login-round {
     color: var(--aether-accent) !important;
     background: rgba(255, 255, 255, 0.04) !important;
     border: 1px solid var(--aether-line) !important;
     box-shadow: inset 0 1px 0 var(--aether-line-soft) !important;
 }
 
-:root.theme-aether .titlebar .dl-titlebar-home:hover,
-:root.theme-aether .titlebar .dl-login-round:hover,
-:root.theme-aether .titlebar .dl-titlebar-home:focus,
-:root.theme-aether .titlebar .dl-login-round:focus,
-:root.theme-aether .titlebar .dl-titlebar-home:focus-visible,
-:root.theme-aether .titlebar .dl-login-round:focus-visible {
+:root.theme-aether .titlebar .dlux-titlebar-home:hover,
+:root.theme-aether .titlebar .dlux-login-round:hover,
+:root.theme-aether .titlebar .dlux-titlebar-home:focus,
+:root.theme-aether .titlebar .dlux-login-round:focus,
+:root.theme-aether .titlebar .dlux-titlebar-home:focus-visible,
+:root.theme-aether .titlebar .dlux-login-round:focus-visible {
     color: var(--aether-pearl) !important;
     background: rgba(255, 255, 255, 0.08) !important;
     border-color: rgba(255, 255, 255, 0.16) !important;

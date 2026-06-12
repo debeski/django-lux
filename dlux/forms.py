@@ -413,7 +413,7 @@ def _wrap_modal_action_buttons(*buttons):
     return FormActions(
         HTML(
             f"""
-            <div class="d-flex flex-wrap justify-content-end gap-2 dl-modal-form-actions" dir="{direction}">
+            <div class="d-flex flex-wrap justify-content-end gap-2 dlux-modal-form-actions" dir="{direction}">
                 {button_html}
             </div>
             """
@@ -429,17 +429,17 @@ def _build_wizard_actions(strings, submit_label, submit_icon):
     return _wrap_modal_action_buttons(
         _build_cancel_button_html(strings),
         f"""
-        <button type="button" class="btn btn-secondary rounded-pill dl-btn-prev d-none">
+        <button type="button" class="btn btn-secondary rounded-pill dlux-btn-prev d-none">
             <i class="bi {prev_icon} text-light me-1 h4"></i> {strings.get('btn_prev', 'Previous')}
         </button>
         """,
         f"""
-        <button type="button" class="btn btn-primary rounded-pill dl-btn-next">
+        <button type="button" class="btn btn-primary rounded-pill dlux-btn-next">
             {strings.get('btn_next', 'Next')} <i class="bi {next_icon} text-light ms-1 h4"></i>
         </button>
         """,
         f"""
-        <button type="submit" class="btn btn-success rounded-pill dl-btn-submit d-none">
+        <button type="submit" class="btn btn-success rounded-pill dlux-btn-submit d-none">
             <i class="bi {submit_icon} text-light me-1 h4"></i> {submit_label}
         </button>
         """,
@@ -524,21 +524,21 @@ def build_settings_toggle_field(form, field_name, css_class=None, attrs=None):
     label = conditional_escape(field.label or field_name.replace('_', ' ').title())
     help_text = str(field.help_text or '').strip()
     help_html = (
-        f"<div class='dl-settings-toggle-field__help small text-muted mt-1'>{conditional_escape(help_text)}</div>"
+        f"<div class='dlux-settings-toggle-field__help small text-muted mt-1'>{conditional_escape(help_text)}</div>"
         if help_text else
         ""
     )
     checked_attr = ' checked' if _boolean_field_checked(form, field_name) else ''
     disabled_attr = ' disabled' if bool(getattr(field, 'disabled', False)) else ''
     wrapper_html = mark_safe(
-        f"<div class='dl-settings-toggle-field d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-2 h-100' "
-        f"data-dl-settings-toggle-field='{conditional_escape(field_name)}'>"
-        f"<div class='dl-settings-toggle-field__content flex-grow-1'>"
-        f"<div class='dl-settings-toggle-field__label fw-semibold'>{label}</div>"
+        f"<div class='dlux-settings-toggle-field d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-2 h-100' "
+        f"data-dlux-settings-toggle-field='{conditional_escape(field_name)}'>"
+        f"<div class='dlux-settings-toggle-field__content flex-grow-1'>"
+        f"<div class='dlux-settings-toggle-field__label fw-semibold'>{label}</div>"
         f"{help_html}"
         f"</div>"
-        f"<div class='dl-settings-toggle-field__control form-switch'>"
-        f"<input class='form-check-input dl-settings-toggle-field__input' type='checkbox' id='{conditional_escape(bound_field.auto_id)}' "
+        f"<div class='dlux-settings-toggle-field__control form-switch'>"
+        f"<input class='form-check-input dlux-settings-toggle-field__input' type='checkbox' id='{conditional_escape(bound_field.auto_id)}' "
         f"name='{conditional_escape(bound_field.html_name)}' aria-label='{label}'{checked_attr}{disabled_attr}>"
         f"</div>"
         f"</div>"
@@ -554,18 +554,18 @@ def build_email_toggle_field(form, field_name, css_class=None, attrs=None):
     label = conditional_escape(field.label or field_name.replace('_', ' ').title())
     help_text = str(field.help_text or '').strip()
     help_html = (
-        f"<div class='dl-email-toggle-field__help small text-muted mt-1'>{conditional_escape(help_text)}</div>"
+        f"<div class='dlux-email-toggle-field__help small text-muted mt-1'>{conditional_escape(help_text)}</div>"
         if help_text else
         ""
     )
     checked_attr = ' checked' if _boolean_field_checked(form, field_name) else ''
     disabled_attr = ' disabled' if bool(getattr(field, 'disabled', False)) else ''
     wrapper_html = mark_safe(
-        f"<div class='dl-email-toggle-field border rounded bg-light px-3 py-2 h-100' "
-        f"data-dl-email-toggle-field='{conditional_escape(field_name)}'>"
-        f"<div class='dl-email-toggle-field__row d-flex align-items-center justify-content-between gap-3'>"
-        f"<div class='dl-email-toggle-field__label fw-semibold'>{label}</div>"
-        f"<input class='form-check-input dl-email-toggle-field__input' type='checkbox' id='{conditional_escape(bound_field.auto_id)}' "
+        f"<div class='dlux-email-toggle-field border rounded bg-light px-3 py-2 h-100' "
+        f"data-dlux-email-toggle-field='{conditional_escape(field_name)}'>"
+        f"<div class='dlux-email-toggle-field__row d-flex align-items-center justify-content-between gap-3'>"
+        f"<div class='dlux-email-toggle-field__label fw-semibold'>{label}</div>"
+        f"<input class='form-check-input dlux-email-toggle-field__input' type='checkbox' id='{conditional_escape(bound_field.auto_id)}' "
         f"name='{conditional_escape(bound_field.html_name)}' aria-label='{label}'{checked_attr}{disabled_attr}>"
         f"</div>"
         f"{help_html}"
@@ -756,7 +756,7 @@ class GroupedPermissionWidget(ChoiceWidget):
             
         context['widget']['grouped_perms'] = grouped_perms
         context['widget']['staff_tier_preview'] = getattr(self, 'staff_tier_preview', None)
-        context['MS_TRANS'] = s  # Pass translations to template
+        context['DLUX_STRINGS'] = s  # Pass translations to template
         return context
 
     def render(self, name, value, attrs=None, renderer=None):
@@ -1773,7 +1773,7 @@ class SystemSettingsForm(forms.ModelForm):
         self.mode = mode if mode is not None else kwargs.pop('mode', 'modal')
         super().__init__(*args, **kwargs)
         self.refresh_parent = True
-        self.extra_form_class = 'dl-system-setup-form'
+        self.extra_form_class = 'dlux-system-setup-form'
         self.single_step_mode = False
         self.single_step_index = None
         s = get_strings()
@@ -2768,7 +2768,7 @@ class SystemSettingsForm(forms.ModelForm):
                 ],
                 'default_language': self.initial.get('default_language', 'en'),
                 'suggested_languages': suggested_languages,
-                'MS_TRANS': s,
+                'DLUX_STRINGS': s,
             },
         )
         self.system_names_html = render_to_string(
@@ -2782,7 +2782,7 @@ class SystemSettingsForm(forms.ModelForm):
                     }
                     for code, payload in current_languages.items()
                 ],
-                'MS_TRANS': s,
+                'DLUX_STRINGS': s,
             },
         )
         translation_groups = build_translation_matrix_groups(current_languages, initial_translation_overrides)
@@ -2796,7 +2796,7 @@ class SystemSettingsForm(forms.ModelForm):
             {
                 'languages': current_languages,
                 'translation_groups': translation_groups,
-                'MS_TRANS': s,
+                'DLUX_STRINGS': s,
             },
         )
 
@@ -2808,7 +2808,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'input_id': 'id_default_theme',
                 'allowed_input_name': 'allowed_themes',
                 'allowed_themes': set(self.initial.get('allowed_themes') if isinstance(self.initial.get('allowed_themes'), (list, tuple, set)) else []),
-                'MS_TRANS': s,
+                'DLUX_STRINGS': s,
                 'DLUX_THEMES': get_theme_options(s),
                 'label': self.fields['default_theme'].label,
                 'help_text': self.fields['allowed_themes'].help_text,
@@ -2823,7 +2823,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'input_id': 'id_allowed_fonts',
                 'allowed_input_name': 'allowed_fonts',
                 'allowed_fonts': set(self.initial.get('allowed_fonts') if isinstance(self.initial.get('allowed_fonts'), (list, tuple, set)) else []),
-                'MS_TRANS': s,
+                'DLUX_STRINGS': s,
                 'DLUX_FONTS': get_builtin_fonts(),
                 'label': self.fields['allowed_fonts'].label,
                 'help_text': self.fields['allowed_fonts'].help_text,
@@ -2843,7 +2843,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'current_languages': current_languages,
                 'default_fonts': default_fonts_data,
                 'DLUX_FONTS': get_builtin_fonts(),
-                'MS_TRANS': s,
+                'DLUX_STRINGS': s,
             },
         )
 
@@ -2855,7 +2855,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'sidebar_catalog_fallback_json': _json_dump(self.sidebar_catalog_fallback, ensure_ascii=False),
                 'sidebar_config_json': _json_dump(self.initial.get('sidebar_config', {}), ensure_ascii=False),
                 'mode': self.mode,
-                'MS_TRANS': s,
+                'DLUX_STRINGS': s,
             },
         )
         self.navbar_builder_html = render_to_string(
@@ -2865,7 +2865,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'navbar_config_json': _json_dump(initial_navbar_config, ensure_ascii=False),
                 'languages_json': _json_dump(current_languages, ensure_ascii=False),
                 'mode': self.mode,
-                'MS_TRANS': s,
+                'DLUX_STRINGS': s,
             },
         )
 
@@ -2873,7 +2873,7 @@ class SystemSettingsForm(forms.ModelForm):
         intro_html = ''
         if self.mode != 'setup':
             intro_html = (
-                f"<div class='dl-system-settings-intro mb-4'>"
+                f"<div class='dlux-system-settings-intro mb-4'>"
                 f"<p class='text-muted mb-0'>{modal_desc}</p>"
                 f"</div>"
             )
@@ -2889,7 +2889,7 @@ class SystemSettingsForm(forms.ModelForm):
                 classes.append('d-none')
             return ' '.join(classes)
 
-        email_password_field_class = 'col-lg-4 dl-email-config-password-field'
+        email_password_field_class = 'col-lg-4 dlux-email-config-password-field'
         if self.initial.get('email_config_secret_storage') != 'encrypted_db':
             email_password_field_class += ' d-none'
 
@@ -2901,7 +2901,7 @@ class SystemSettingsForm(forms.ModelForm):
             step_1_fields.append(build_archive_file_field('settings_import_file'))
             step_1_fields.append(Field('settings_import_processed'))
             step_1_fields.append(HTML(
-                "<div class='dl-import-finish-cta d-none' data-settings-import-finish>"
+                "<div class='dlux-import-finish-cta d-none' data-settings-import-finish>"
                 f"<div><strong>{s.get('system_setup_import_finish', 'Finish setup from imported config')}</strong>"
                 f"<small>{s.get('system_setup_import_finish_desc', 'Save the imported setup now, or keep editing first.')}</small></div>"
                 f"<button type='submit' class='btn btn-primary'>{s.get('system_setup_import_finish_button', 'Finish setup')}</button>"
@@ -2920,7 +2920,7 @@ class SystemSettingsForm(forms.ModelForm):
         self.helper.layout = Layout(
             HTML(
                 (
-                    f"<div class='dl-system-settings-shell mode-{self.mode}'>"
+                    f"<div class='dlux-system-settings-shell mode-{self.mode}'>"
                     f"{intro_html}"
                 )
             ),
@@ -2944,7 +2944,7 @@ class SystemSettingsForm(forms.ModelForm):
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'Step 3: Security')}</span></div>"),
                 HTML(
-                    f"<div class='dl-email-config-section' data-email-config-section>"
+                    f"<div class='dlux-email-config-section' data-email-config-section>"
                     f"<h6 class='fw-bold my-3'>{s.get('email_delivery_settings_title', 'Email Delivery')}</h6>"
                     f"<p class='small text-muted mb-3'>"
                     f"{s.get('email_delivery_settings_desc', 'Visible when public signup or email 2FA is enabled. If the web service is isolated, choose Internal SMTP relay and enter the upstream SMTP server below; the generated relay reads this UI config and handles internet egress. If the web service can reach SMTP directly, choose Direct SMTP from web service. Use Encrypted database secret for UI-managed passwords, or Environment / secrets when deployers intentionally keep mail secrets outside the UI.')}"
@@ -2990,7 +2990,7 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(
                         Field('client_ip_trusted_proxy_hops'),
                         css_class=(
-                            "col-lg-4 dl-client-ip-hops-field"
+                            "col-lg-4 dlux-client-ip-hops-field"
                             f"{' d-none' if self.initial.get('client_ip_mode') != CLIENT_IP_MODE_X_FORWARDED_FOR else ''}"
                         ),
                         data_client_ip_hops='true',
@@ -2999,7 +2999,7 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(
                         Field('client_ip_custom_header'),
                         css_class=(
-                            "col-lg-4 dl-client-ip-custom-header-field"
+                            "col-lg-4 dlux-client-ip-custom-header-field"
                             f"{' d-none' if self.initial.get('client_ip_mode') != CLIENT_IP_MODE_CUSTOM else ''}"
                         ),
                         data_client_ip_custom_header='true',
@@ -3016,7 +3016,7 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(
                         self,
                         'public_root_split_enabled',
-                        css_class=f"col-lg-12 dl-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
                         attrs={
                             'data_public_root_dependent': 'true',
                             'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
@@ -3028,7 +3028,7 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(
                         Field('public_root_url_discovered'),
                         css_class=(
-                            "col-lg-6 dl-public-root-split-dependent"
+                            "col-lg-6 dlux-public-root-split-dependent"
                             f"{' d-none' if not (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ''}"
                         ),
                         data_public_root_split_dependent='true',
@@ -3037,7 +3037,7 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(
                         Field('public_root_url', dir='ltr'),
                         css_class=(
-                            "col-lg-6 dl-public-root-split-dependent"
+                            "col-lg-6 dlux-public-root-split-dependent"
                             f"{' d-none' if not (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ''}"
                         ),
                         data_public_root_split_dependent='true',
@@ -3051,14 +3051,14 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(
                         Field('registration_activation_mode'),
-                        css_class=f"col-lg-6 dl-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        css_class=f"col-lg-6 dlux-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
                         data_public_registration_dependent='true',
                         aria_hidden='false' if self.initial.get('public_registration_enabled', False) else 'true',
                     ),
                     build_settings_toggle_field(
                         self,
                         'registration_throttle_enabled',
-                        css_class=f"col-lg-6 dl-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        css_class=f"col-lg-6 dlux-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
                         attrs={
                             'data_public_registration_dependent': 'true',
                             'aria_hidden': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
@@ -3101,7 +3101,7 @@ class SystemSettingsForm(forms.ModelForm):
                         css_class='g-3',
                     ),
                     css_class=(
-                        "dl-login-hero-field"
+                        "dlux-login-hero-field"
                         f"{' d-none' if self.initial.get('login_style', 'split') != 'fullpage' else ''}"
                     ),
                     data_login_hero_field='true',
@@ -3116,14 +3116,14 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(
                         Field('login_logo_treatment'),
                         css_class=(
-                            "col-lg-7 d-flex flex-column dl-logo-treatment-primary dl-login-logo-treatment-primary"
-                            f"{' dl-logo-treatment-primary--wide' if self.initial.get('login_logo_treatment', 'none') != 'plate' else ''}"
+                            "col-lg-7 d-flex flex-column dlux-logo-treatment-primary dlux-login-logo-treatment-primary"
+                            f"{' dlux-logo-treatment-primary--wide' if self.initial.get('login_logo_treatment', 'none') != 'plate' else ''}"
                         ),
                     ),
                     Div(
                         Field('login_logo_treatment_shape'),
                         css_class=(
-                            "col-lg-5 d-flex flex-column dl-login-plate-shape-field"
+                            "col-lg-5 d-flex flex-column dlux-login-plate-shape-field"
                             f"{' d-none' if self.initial.get('login_logo_treatment', 'none') != 'plate' else ''}"
                         ),
                         data_login_plate_shape='true',
@@ -3151,7 +3151,7 @@ class SystemSettingsForm(forms.ModelForm):
                     f"{s.get('sidebar_disabled_navigation_note', 'Disabling the sidebar can leave the app without built-in navigation. You will need to rely on dashboards and modals, or add your own back buttons and navigation entries in forms, lists, and dashboards. As of v2.2.0, Dynamic Sections Manager is only available through the sidebar, so add a dashboard button or custom entry if you need access. This warning will be updated if a built-in workaround is added later.')}"
                     f"</div>"
                 ),
-                HTML("<div class='dl-sidebar-dependent-settings' data-sidebar-dependent>"),
+                HTML("<div class='dlux-sidebar-dependent-settings' data-sidebar-dependent>"),
                 HTML(
                     f"<div class='d-none' data-sidebar-tooling-state "
                     f"data-sections-manager-available=\"{'true' if self.sidebar_sections_manager_available else 'false'}\"></div>"
@@ -3190,7 +3190,7 @@ class SystemSettingsForm(forms.ModelForm):
                     css_class='g-3 mb-3',
                 ),
                 HTML(
-                    f"<div class='dl-navbar-dependent-settings{' d-none' if not self.initial.get('navbar_enabled', False) else ''}' "
+                    f"<div class='dlux-navbar-dependent-settings{' d-none' if not self.initial.get('navbar_enabled', False) else ''}' "
                     f"data-navbar-dependent>"
                 ),
                 Row(
@@ -3228,16 +3228,16 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(
                         Field('titlebar_logo_treatment'),
                         css_class=(
-                            "col-lg-8 dl-logo-treatment-primary dl-titlebar-logo-dependent dl-titlebar-logo-treatment-primary"
+                            "col-lg-8 dlux-logo-treatment-primary dlux-titlebar-logo-dependent dlux-titlebar-logo-treatment-primary"
                             f"{' d-none' if not self.initial.get('titlebar_show_logo', True) else ''}"
-                            f"{' dl-logo-treatment-primary--wide' if self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') != 'plate' else ''}"
+                            f"{' dlux-logo-treatment-primary--wide' if self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') != 'plate' else ''}"
                         ),
                         aria_hidden='false' if self.initial.get('titlebar_show_logo', True) else 'true',
                     ),
                     Div(
                         Field('titlebar_logo_treatment_shape'),
                         css_class=(
-                            "col-lg-4 dl-titlebar-logo-plate-dependent"
+                            "col-lg-4 dlux-titlebar-logo-plate-dependent"
                             f"{' d-none' if not (self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') == 'plate') else ''}"
                         ),
                         aria_hidden='false' if (
@@ -3276,19 +3276,19 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             FormActions(
                 HTML(
-                    f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dl-setup-wizard-actions' dir='{_get_ui_direction()}'>"
-                    f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold dl-btn-submit'>"
+                    f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dlux-setup-wizard-actions' dir='{_get_ui_direction()}'>"
+                    f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold dlux-btn-submit'>"
                     f"{s.get('btn_save', 'Save')}</button>"
                     f"</div>"
                 )
             ) if self.single_step_mode else FormActions(
                 HTML(
-                    f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dl-setup-wizard-actions' dir='{_get_ui_direction()}'>"
-                    f"<button type='button' class='btn btn-outline-secondary rounded-pill px-4 dl-btn-prev'>"
+                    f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dlux-setup-wizard-actions' dir='{_get_ui_direction()}'>"
+                    f"<button type='button' class='btn btn-outline-secondary rounded-pill px-4 dlux-btn-prev'>"
                     f"{s.get('btn_prev', 'Previous')}</button>"
-                    f"<button type='button' class='btn btn-outline-primary rounded-pill px-4 dl-btn-next'>"
+                    f"<button type='button' class='btn btn-outline-primary rounded-pill px-4 dlux-btn-next'>"
                     f"{s.get('btn_next', 'Next')}</button>"
-                    f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold dl-btn-submit'>"
+                    f"<button type='submit' name='submit' class='btn btn-primary px-5 rounded-pill fw-bold dlux-btn-submit'>"
                     f"{s.get('btn_save', 'Save')}</button>"
                     f"</div>"
                 )

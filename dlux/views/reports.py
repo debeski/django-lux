@@ -37,7 +37,7 @@ def reports_overview_view(request):
         },
     )
     return render(request, "dlux/reports/overview.html", {
-        "MS_TRANS": get_strings(),
+        "DLUX_STRINGS": get_strings(),
         "overview": overview,
         "window": window,
         "can_download_backup": user_can_download_backup(request.user),

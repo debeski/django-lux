@@ -120,13 +120,13 @@ def _node_to_crumb(node, lang_code, catalog_lookup):
     }
 
 
-def _runtime_to_crumb(raw_crumb, lang_code, ms_trans):
+def _runtime_to_crumb(raw_crumb, lang_code, dlux_strings):
     if not isinstance(raw_crumb, dict):
         return None
     label = str(raw_crumb.get('label') or '').strip()
     label_key = str(raw_crumb.get('label_key') or '').strip()
     if not label and label_key:
-        label = str(ms_trans.get(label_key) or '').strip()
+        label = str(dlux_strings.get(label_key) or '').strip()
     if not label:
         return None
     url_name = str(raw_crumb.get('url_name') or '').strip()
@@ -145,9 +145,9 @@ def _runtime_to_crumb(raw_crumb, lang_code, ms_trans):
     }
 
 
-def _root_crumb(ms_trans):
+def _root_crumb(dlux_strings):
     return {
-        'label': ms_trans.get('navbar_root', ''),
+        'label': dlux_strings.get('navbar_root', ''),
         'url': '',
         'clickable': False,
         'url_name': '',
@@ -155,9 +155,9 @@ def _root_crumb(ms_trans):
     }
 
 
-def _system_crumb(ms_trans):
+def _system_crumb(dlux_strings):
     return {
-        'label': ms_trans.get('navbar_system', ''),
+        'label': dlux_strings.get('navbar_system', ''),
         'url': '',
         'clickable': False,
         'url_name': '',
@@ -182,23 +182,23 @@ def build_navbar_route_label_map(lang_code):
     return route_labels
 
 
-def _with_system_group(root, crumbs, ms_trans):
+def _with_system_group(root, crumbs, dlux_strings):
     if not crumbs:
         return [root]
     if any(crumb.get('kind') == 'system' for crumb in crumbs):
         return [root, *crumbs]
     if any(_is_system_route(crumb.get('url_name'), crumb) for crumb in crumbs):
-        return [root, _system_crumb(ms_trans), *crumbs]
+        return [root, _system_crumb(dlux_strings), *crumbs]
     return [root, *crumbs]
 
 
-def build_navbar_hierarchy_crumbs(request, navbar_config, lang_code, ms_trans, runtime_crumbs=None):
+def build_navbar_hierarchy_crumbs(request, navbar_config, lang_code, dlux_strings, runtime_crumbs=None):
     config = normalize_navbar_config(navbar_config)
-    root = _root_crumb(ms_trans)
+    root = _root_crumb(dlux_strings)
     explicit_crumbs = [
         crumb
         for crumb in (
-            _runtime_to_crumb(raw_crumb, lang_code, ms_trans)
+            _runtime_to_crumb(raw_crumb, lang_code, dlux_strings)
             for raw_crumb in runtime_crumbs or []
         )
         if crumb
@@ -217,7 +217,7 @@ def build_navbar_hierarchy_crumbs(request, navbar_config, lang_code, ms_trans, r
     route_chain = _find_route_chain(config.get('hierarchy', {}).get('nodes'), set(route_names))
     if route_chain:
         chain_crumbs = [_node_to_crumb(node, lang_code, catalog_lookup) for node in route_chain]
-        return _with_system_group(root, chain_crumbs, ms_trans)
+        return _with_system_group(root, chain_crumbs, dlux_strings)
 
     catalog_entry = next((catalog_lookup[name] for name in route_names if name in catalog_lookup), None)
     fallback_name = route_names[0] if route_names else ''
@@ -232,7 +232,7 @@ def build_navbar_hierarchy_crumbs(request, navbar_config, lang_code, ms_trans, r
             fallback_url = ''
     return [
         *(
-            [root, _system_crumb(ms_trans)]
+            [root, _system_crumb(dlux_strings)]
             if _is_system_route(fallback_name, catalog_entry)
             else [root]
         ),

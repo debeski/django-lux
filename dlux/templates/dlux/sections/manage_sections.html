@@ -12,7 +12,7 @@
 
     <div class="row">
         <div class="col-12">
-            <h2 class="page-title"><i class="bi bi-diagram-3 me-2"></i> {{ MS_TRANS.manage_label }} {% if active_model %} {{ ar_names }} {% endif %}</h2>
+            <h2 class="page-title"><i class="bi bi-diagram-3 me-2"></i> {{ DLUX_STRINGS.manage_label }} {% if active_model %} {{ ar_names }} {% endif %}</h2>
         </div>
     </div>
 
@@ -44,9 +44,9 @@
         <!-- <div class="card-header text-center">
             <h4 class="me-5">
                 {% if form.instance.id %}
-                    {{ MS_TRANS.edit_label }} {{ form.instance.name }}
+                    {{ DLUX_STRINGS.edit_label }} {{ form.instance.name }}
                 {% else %}
-                    {{ MS_TRANS.add_label }} {{ ar_name }}
+                    {{ DLUX_STRINGS.add_label }} {{ ar_name }}
                 {% endif %}
             </h4>
         </div> -->
@@ -62,20 +62,20 @@
                 {% if not hide_form_buttons %}
                     {% if show_cancel and cancel_url %}
                     <div class="dlux-form-actions mt-3">
-                        <button type="submit" class="dlux-form-action dlux-form-action-primary" aria-label="{{ MS_TRANS.save }}" title="{{ MS_TRANS.save }}">
+                        <button type="submit" class="dlux-form-action dlux-form-action-primary" aria-label="{{ DLUX_STRINGS.save }}" title="{{ DLUX_STRINGS.save }}">
                             <span class="dlux-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
-                            <span class="visually-hidden">{{ MS_TRANS.save }}</span>
+                            <span class="visually-hidden">{{ DLUX_STRINGS.save }}</span>
                         </button>
-                        <a href="{{ cancel_url }}" class="dlux-form-action dlux-form-action-neutral" aria-label="{{ MS_TRANS.cancel }}" title="{{ MS_TRANS.cancel }}">
+                        <a href="{{ cancel_url }}" class="dlux-form-action dlux-form-action-neutral" aria-label="{{ DLUX_STRINGS.cancel }}" title="{{ DLUX_STRINGS.cancel }}">
                             <span class="dlux-form-action-icon"><i class="bi bi-x-lg" aria-hidden="true"></i></span>
-                            <span class="visually-hidden">{{ MS_TRANS.cancel }}</span>
+                            <span class="visually-hidden">{{ DLUX_STRINGS.cancel }}</span>
                         </a>
                     </div>
                     {% else %}
                     <div class="dlux-form-actions mt-3">
-                        <button type="submit" class="dlux-form-action dlux-form-action-primary" aria-label="{{ MS_TRANS.save }}" title="{{ MS_TRANS.save }}">
+                        <button type="submit" class="dlux-form-action dlux-form-action-primary" aria-label="{{ DLUX_STRINGS.save }}" title="{{ DLUX_STRINGS.save }}">
                             <span class="dlux-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
-                            <span class="visually-hidden">{{ MS_TRANS.save }}</span>
+                            <span class="visually-hidden">{{ DLUX_STRINGS.save }}</span>
                         </button>
                     </div>
                     {% endif %}
@@ -87,7 +87,7 @@
 
     <div class="row">
         <div class="col-12">
-            <h2 class="page-title"><i class="bi bi-text-paragraph me-2"></i> {{ MS_TRANS.list_label }} {% if active_model %} {{ ar_names }} {% endif %}</h2>
+            <h2 class="page-title"><i class="bi bi-text-paragraph me-2"></i> {{ DLUX_STRINGS.list_label }} {% if active_model %} {{ ar_names }} {% endif %}</h2>
         </div>
     </div>
 
@@ -95,7 +95,7 @@
     {% if table %}
     <div class="card border-0 shadow-sm pt-2">
         <!-- <div class="card-header text-center">
-            <h4 class="me-5">{{ MS_TRANS.list_label }} {{ ar_names }}</h4>
+            <h4 class="me-5">{{ DLUX_STRINGS.list_label }} {{ ar_names }}</h4>
         </div> -->
         <div class="card-body mt-2">
             {% if filter %}
@@ -107,7 +107,7 @@
         </div>
     </div>
     {% elif not error %}
-        <h3 class="mt-4">{{ MS_TRANS.error_generic }}</h3>
+        <h3 class="mt-4">{{ DLUX_STRINGS.error_generic }}</h3>
     {% endif %}
 
     {# Dynamic Subsection Modals #}
@@ -116,7 +116,7 @@
       <div class="modal-dialog">
         <div class="modal-content glass-card border-0">
           <div class="modal-header border-0">
-            <h5 class="modal-title" id="addSubsectionModalLabel_{{ subsection.name }}"><i class="bi bi-plus-circle me-2"></i>{{ MS_TRANS.add_label }} {{ subsection.verbose_name }}</h5>
+            <h5 class="modal-title" id="addSubsectionModalLabel_{{ subsection.name }}"><i class="bi bi-plus-circle me-2"></i>{{ DLUX_STRINGS.add_label }} {{ subsection.verbose_name }}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body dlux-form">
@@ -138,13 +138,13 @@
         <div class="modal-dialog">
             <div class="modal-content glass-card border-0">
                 <div class="modal-header border-0">
-                    <h5 class="modal-title"><i class="bi bi-list-task me-2"></i>{{ MS_TRANS.subsections }}</h5>
+                    <h5 class="modal-title"><i class="bi bi-list-task me-2"></i>{{ DLUX_STRINGS.subsections }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" id="viewSubsectionsModalBody">
                     <div class="text-center py-3">
                         <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">{{ MS_TRANS.loading }}</span>
+                            <span class="visually-hidden">{{ DLUX_STRINGS.loading }}</span>
                         </div>
                     </div>
                 </div>
@@ -174,7 +174,7 @@
 
 {% block scripts %}
     {# Section Manager (Smart Delete / View) #}
-    <script src="{% static 'dlux/helpers/context_menu/js/section_manager.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/helpers/context_menu/js/section_manager.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/sections/js/manage_sections.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}" defer></script>
 
 {% endblock %}

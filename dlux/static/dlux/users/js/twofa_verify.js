@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.querySelector('.left form');
-    const stateEl = document.getElementById('dl-twofa-login-state');
+    const stateEl = document.getElementById('dlux-twofa-login-state');
     const loginState = stateEl ? JSON.parse(stateEl.textContent || '{}') : null;
     const emailBtn = document.getElementById('sendEmailOtpBtn');
     const backupBtn = document.getElementById('useBackupCodeBtn');

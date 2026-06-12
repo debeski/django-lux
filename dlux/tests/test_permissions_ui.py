@@ -150,7 +150,7 @@ class PermissionsUiTests(TestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dl-staff-tier-preview', html)
+        self.assertIn('dlux-staff-tier-preview', html)
         self.assertIn('Staff Tier Preview', html)
         self.assertIn('data-codename="manage_scopes"', html)
         self.assertIn('data-codename="manage_staff"', html)
@@ -171,6 +171,6 @@ class PermissionsUiTests(TestCase):
         form = CustomUserPermissionsForm(instance=target, user=self.user)
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dl-staff-tier-preview', html)
+        self.assertIn('dlux-staff-tier-preview', html)
         self.assertIn('Global Staff', html)
         self.assertIn('Can Assign Staff Roles', html)

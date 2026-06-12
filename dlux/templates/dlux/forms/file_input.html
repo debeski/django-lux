@@ -2,10 +2,10 @@
     class="archive-file-field"
     data-archive-file-widget
     data-field-label="{{ widget.field_label }}"
-    data-empty-title="{{ MS_TRANS.archive_file_empty_title|default:'No file selected' }}"
-    data-empty-meta="{{ MS_TRANS.archive_file_empty_meta|default:'Drop a file here or use the actions.' }}"
-    data-current-meta="{{ MS_TRANS.archive_file_current_meta|default:'Current file on this record.' }}"
-    data-selected-meta="{{ MS_TRANS.archive_file_selected_meta|default:'Ready to save with this form.' }}"
+    data-empty-title="{{ DLUX_STRINGS.archive_file_empty_title|default:'No file selected' }}"
+    data-empty-meta="{{ DLUX_STRINGS.archive_file_empty_meta|default:'Drop a file here or use the actions.' }}"
+    data-current-meta="{{ DLUX_STRINGS.archive_file_current_meta|default:'Current file on this record.' }}"
+    data-selected-meta="{{ DLUX_STRINGS.archive_file_selected_meta|default:'Ready to save with this form.' }}"
     data-initial-name="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.display_name }}{% endif %}"
     data-initial-url="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.file_url }}{% endif %}"
     data-initial-icon="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.icon_class }}{% else %}bi bi-file-earmark-arrow-up-fill{% endif %}"
@@ -22,8 +22,8 @@
                     href="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.file_url }}{% else %}#{% endif %}"
                     target="_blank"
                     rel="noopener"
-                    title="{{ MS_TRANS.archive_file_open_action|default:'Open file' }}"
-                    aria-label="{{ MS_TRANS.archive_file_open_action|default:'Open file' }}"
+                    title="{{ DLUX_STRINGS.archive_file_open_action|default:'Open file' }}"
+                    aria-label="{{ DLUX_STRINGS.archive_file_open_action|default:'Open file' }}"
                     {% if not widget.is_initial or widget.attrs.checked %}hidden{% endif %}
                 >
                     <i class="bi bi-box-arrow-up-right"></i>
@@ -33,8 +33,8 @@
                     type="button"
                     class="archive-file-tool archive-file-tool-upload"
                     data-archive-file-upload
-                    title="{{ MS_TRANS.archive_file_upload_action|default:'Upload file' }}"
-                    aria-label="{{ MS_TRANS.archive_file_upload_action|default:'Upload file' }}"
+                    title="{{ DLUX_STRINGS.archive_file_upload_action|default:'Upload file' }}"
+                    aria-label="{{ DLUX_STRINGS.archive_file_upload_action|default:'Upload file' }}"
                 >
                     <i class="bi bi-upload"></i>
                 </button>
@@ -45,23 +45,23 @@
                         class="archive-file-tool archive-file-tool-scan scan-btn"
                         data-archive-file-scan
                         data-target="{{ widget.attrs.id }}"
-                        data-scan-label="{{ MS_TRANS.scan_label|default:'Scan' }}"
-                        data-scan-preparing="{{ MS_TRANS.scan_preparing_label|default:'Preparing scan' }}"
-                        data-scan-selecting="{{ MS_TRANS.scan_selecting_label|default:'Select a scanner' }}"
-                        data-scan-processing="{{ MS_TRANS.scan_processing_label|default:'Scanning' }}"
-                        data-scan-page-template="{{ MS_TRANS.scan_page_progress_template|default:'Page {count} scanned' }}"
-                        data-scan-generating="{{ MS_TRANS.scan_generating_label|default:'Generating PDF' }}"
-                        data-scan-completed="{{ MS_TRANS.scan_completed_label|default:'Scanned' }}"
-                        data-scan-helper-unavailable="{{ MS_TRANS.scan_helper_unavailable_message|default:'ScanLink is not available on this computer. Start the helper tray app and try again.' }}"
-                        data-scan-busy="{{ MS_TRANS.scan_busy_message|default:'Another scan is already running. Wait for it to finish, then try again.' }}"
-                        data-scan-cancelled="{{ MS_TRANS.scan_cancelled_message|default:'The scan was cancelled.' }}"
-                        data-scan-timeout="{{ MS_TRANS.scan_timeout_message|default:'The scan took too long to finish.' }}"
-                        data-scan-stalled="{{ MS_TRANS.scan_stalled_message|default:'The scan helper appears to be stuck. Check the ScanLink tray app, scanner dialog, or scanner driver and try again.' }}"
-                        data-scan-no-scanners="{{ MS_TRANS.scan_no_scanners_message|default:'No TWAIN scanner is available on this computer.' }}"
-                        data-scan-open-source="{{ MS_TRANS.scan_open_source_failed_message|default:'The selected scanner could not be opened.' }}"
-                        data-scan-failed="{{ MS_TRANS.scan_failed_message|default:'The scan could not be completed.' }}"
-                        title="{{ MS_TRANS.scan_label|default:'Scan' }}"
-                        aria-label="{{ MS_TRANS.scan_label|default:'Scan' }}"
+                        data-scan-label="{{ DLUX_STRINGS.scan_label|default:'Scan' }}"
+                        data-scan-preparing="{{ DLUX_STRINGS.scan_preparing_label|default:'Preparing scan' }}"
+                        data-scan-selecting="{{ DLUX_STRINGS.scan_selecting_label|default:'Select a scanner' }}"
+                        data-scan-processing="{{ DLUX_STRINGS.scan_processing_label|default:'Scanning' }}"
+                        data-scan-page-template="{{ DLUX_STRINGS.scan_page_progress_template|default:'Page {count} scanned' }}"
+                        data-scan-generating="{{ DLUX_STRINGS.scan_generating_label|default:'Generating PDF' }}"
+                        data-scan-completed="{{ DLUX_STRINGS.scan_completed_label|default:'Scanned' }}"
+                        data-scan-helper-unavailable="{{ DLUX_STRINGS.scan_helper_unavailable_message|default:'ScanLink is not available on this computer. Start the helper tray app and try again.' }}"
+                        data-scan-busy="{{ DLUX_STRINGS.scan_busy_message|default:'Another scan is already running. Wait for it to finish, then try again.' }}"
+                        data-scan-cancelled="{{ DLUX_STRINGS.scan_cancelled_message|default:'The scan was cancelled.' }}"
+                        data-scan-timeout="{{ DLUX_STRINGS.scan_timeout_message|default:'The scan took too long to finish.' }}"
+                        data-scan-stalled="{{ DLUX_STRINGS.scan_stalled_message|default:'The scan helper appears to be stuck. Check the ScanLink tray app, scanner dialog, or scanner driver and try again.' }}"
+                        data-scan-no-scanners="{{ DLUX_STRINGS.scan_no_scanners_message|default:'No TWAIN scanner is available on this computer.' }}"
+                        data-scan-open-source="{{ DLUX_STRINGS.scan_open_source_failed_message|default:'The selected scanner could not be opened.' }}"
+                        data-scan-failed="{{ DLUX_STRINGS.scan_failed_message|default:'The scan could not be completed.' }}"
+                        title="{{ DLUX_STRINGS.scan_label|default:'Scan' }}"
+                        aria-label="{{ DLUX_STRINGS.scan_label|default:'Scan' }}"
                     >
                         <i class="bi bi-printer"></i>
                     </button>
@@ -72,8 +72,8 @@
                         type="button"
                         class="archive-file-tool archive-file-tool-clear"
                         data-archive-file-clear
-                        title="{{ MS_TRANS.archive_file_clear_action|default:'Clear file' }}"
-                        aria-label="{{ MS_TRANS.archive_file_clear_action|default:'Clear file' }}"
+                        title="{{ DLUX_STRINGS.archive_file_clear_action|default:'Clear file' }}"
+                        aria-label="{{ DLUX_STRINGS.archive_file_clear_action|default:'Clear file' }}"
                         {% if not widget.is_initial or widget.attrs.checked %}hidden{% endif %}
                     >
                         <i class="bi bi-x-lg"></i>
@@ -90,14 +90,14 @@
                 {% if widget.is_initial and not widget.attrs.checked %}
                     {{ widget.display_name }}
                 {% else %}
-                    {{ MS_TRANS.archive_file_empty_title|default:"No file selected" }}
+                    {{ DLUX_STRINGS.archive_file_empty_title|default:"No file selected" }}
                 {% endif %}
             </div>
             <div class="archive-file-meta" data-archive-file-meta>
                 {% if widget.is_initial and not widget.attrs.checked %}
-                    {{ MS_TRANS.archive_file_current_meta|default:"Current file on this record." }}
+                    {{ DLUX_STRINGS.archive_file_current_meta|default:"Current file on this record." }}
                 {% else %}
-                    {{ MS_TRANS.archive_file_empty_meta|default:"Drop a file here or use the actions." }}
+                    {{ DLUX_STRINGS.archive_file_empty_meta|default:"Drop a file here or use the actions." }}
                 {% endif %}
             </div>
         </div>

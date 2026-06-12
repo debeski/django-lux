@@ -1,23 +1,23 @@
 /* user_dropdown.css */
 :root {
-    --dl-dropdown-width: 400px;
-    --dl-dropdown-radius: 24px;
-    --dl-dropdown-edge-gap: 15px;
-    --dl-glass-bg: rgba(var(--bs-body-bg-rgb), 0.8);
-    --dl-glass-border: rgba(var(--primal-rgb), 0.1);
+    --dlux-dropdown-width: 400px;
+    --dlux-dropdown-radius: 24px;
+    --dlux-dropdown-edge-gap: 15px;
+    --dlux-glass-bg: rgba(var(--bs-body-bg-rgb), 0.8);
+    --dlux-glass-border: rgba(var(--primal-rgb), 0.1);
 }
 
-.dl-user-dropdown-card {
+.dlux-user-dropdown-card {
     position: absolute;
     top: calc(var(--header-height) + 10px);
-    inset-inline-end: var(--dl-dropdown-edge-gap);
-    width: min(var(--dl-dropdown-width), calc(100vw - (var(--dl-dropdown-edge-gap) * 2)));
+    inset-inline-end: var(--dlux-dropdown-edge-gap);
+    width: min(var(--dlux-dropdown-width), calc(100vw - (var(--dlux-dropdown-edge-gap) * 2)));
     max-height: calc(100dvh - var(--header-height) - 20px);
-    background: var(--dl-glass-bg);
+    background: var(--dlux-glass-bg);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid var(--dl-glass-border);
-    border-radius: var(--dl-dropdown-radius);
+    border: 1px solid var(--dlux-glass-border);
+    border-radius: var(--dlux-dropdown-radius);
     /* box-shadow: 0 20px 40px rgba(0,0,0,0.12); */
     z-index: 2000;
     opacity: 0;
@@ -29,36 +29,36 @@
     overflow: hidden;
 }
 
-.dl-user-dropdown-card.show {
+.dlux-user-dropdown-card.show {
     opacity: 1;
     transform: translateY(0) scale(1);
     pointer-events: auto;
 }
 
 /* RTL Specificity */
-[dir="rtl"] .dl-user-dropdown-card {
-    left: var(--dl-dropdown-edge-gap);
+[dir="rtl"] .dlux-user-dropdown-card {
+    left: var(--dlux-dropdown-edge-gap);
     right: auto;
 }
 
-[dir="ltr"] .dl-user-dropdown-card {
-    right: var(--dl-dropdown-edge-gap);
+[dir="ltr"] .dlux-user-dropdown-card {
+    right: var(--dlux-dropdown-edge-gap);
     left: auto;
 }
 
-.dl-dropdown-header {
+.dlux-dropdown-header {
     padding: 30px;
     display: flex;
     align-items: center;
     position: relative;
 }
 
-.dl-user-text {
+.dlux-user-text {
     flex: 1;
     min-width: 0;
 }
 
-.dl-display-name {
+.dlux-display-name {
     display: block;
     font-size: 1.4rem;
     font-weight: 800;
@@ -69,7 +69,7 @@
     text-overflow: ellipsis;
 }
 
-.dl-user-role {
+.dlux-user-role {
     display: inline-flex;
     align-items: center;
     padding: 2px 12px;
@@ -82,7 +82,7 @@
     letter-spacing: 0.5px;
 }
 
-.dl-avatar-preview {
+.dlux-avatar-preview {
     width: 90px;
     height: 90px;
     border-radius: 22px;
@@ -93,11 +93,11 @@
     transition: transform 0.3s;
 }
 
-.dl-user-dropdown-card:hover .dl-avatar-preview {
+.dlux-user-dropdown-card:hover .dlux-avatar-preview {
     transform: scale(1.05) rotate(2deg);
 }
 
-.dl-dropdown-toolbar {
+.dlux-dropdown-toolbar {
     background: rgba(var(--primal-rgb), 0.04);
     padding: 15px 25px;
     display: flex;
@@ -105,20 +105,20 @@
     border-top: 1px solid rgba(var(--primal-rgb), 0.05);
 }
 
-.dl-toolbar-left {
+.dlux-toolbar-left {
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
-.dl-toolbar-right {
+.dlux-toolbar-right {
     display: flex;
     align-items: center;
     margin-inline-start: auto;
     gap: 6px;
 }
 
-.dl-tool-btn {
+.dlux-tool-btn {
     width: 44px;
     height: 44px;
     border-radius: 14px;
@@ -134,7 +134,7 @@
     /* box-shadow: 0 2px 4px rgba(0,0,0,0.02); */
 }
 
-.dl-tool-btn:hover {
+.dlux-tool-btn:hover {
     background: var(--primal);
     color: #fff;
     transform: translateY(-3px);
@@ -142,7 +142,7 @@
 }
 
 /* Trigger Styles */
-.dl-user-trigger {
+.dlux-user-trigger {
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -154,13 +154,13 @@
     transition: all 0.3s;
 }
 
-.dl-user-trigger:hover {
+.dlux-user-trigger:hover {
     background: #fff;
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     transform: translateY(-1px);
 }
 
-.dl-trigger-avatar {
+.dlux-trigger-avatar {
     width: 30px !important;
     height: 30px !important;
     border-radius: 50% !important;
@@ -170,7 +170,7 @@
     overflow: hidden !important;
 }
 
-.dl-trigger-name {
+.dlux-trigger-name {
     margin-inline-start: 10px;
     font-weight: 700;
     font-size: 0.9rem;
@@ -178,7 +178,7 @@
 }
 
 /* Login Trigger */
-.dl-login-round {
+.dlux-login-round {
     width: 42px;
     height: 42px;
     border-radius: 50%;
@@ -194,7 +194,7 @@
     font-size: 1.2rem;
 }
 
-.dl-login-round:hover {
+.dlux-login-round:hover {
     transform: scale(1.1) rotate(15deg);
     color: #fff;
     box-shadow: 0 8px 16px rgba(var(--primal-rgb), 0.3);
@@ -202,20 +202,20 @@
 
 @media (max-width: 575.98px) {
     :root {
-        --dl-dropdown-edge-gap: 10px;
-        --dl-dropdown-radius: 18px;
+        --dlux-dropdown-edge-gap: 10px;
+        --dlux-dropdown-radius: 18px;
     }
 
     /* Collapse the user trigger to avatar-only so the titlebar reclaims width for the
        brand on small screens (the username still shows inside the dropdown). */
-    .dl-trigger-name {
+    .dlux-trigger-name {
         display: none;
     }
 
-    .dl-user-dropdown-card {
+    .dlux-user-dropdown-card {
         position: fixed;
         top: calc(var(--header-height) + 8px);
-        inset-inline: var(--dl-dropdown-edge-gap);
+        inset-inline: var(--dlux-dropdown-edge-gap);
         width: auto;
         max-width: none;
         max-height: calc(100dvh - var(--header-height) - 16px);
@@ -224,30 +224,30 @@
         transform-origin: top center;
     }
 
-    [dir="rtl"] .dl-user-dropdown-card,
-    [dir="ltr"] .dl-user-dropdown-card {
-        left: var(--dl-dropdown-edge-gap);
-        right: var(--dl-dropdown-edge-gap);
+    [dir="rtl"] .dlux-user-dropdown-card,
+    [dir="ltr"] .dlux-user-dropdown-card {
+        left: var(--dlux-dropdown-edge-gap);
+        right: var(--dlux-dropdown-edge-gap);
     }
 
-    .dl-dropdown-header {
+    .dlux-dropdown-header {
         padding: 18px;
         gap: 14px;
     }
 
-    .dl-display-name {
+    .dlux-display-name {
         font-size: 1.05rem;
         line-height: 1.25;
     }
 
-    .dl-user-role {
+    .dlux-user-role {
         max-width: 100%;
         white-space: normal;
         text-align: center;
         line-height: 1.2;
     }
 
-    .dl-avatar-preview {
+    .dlux-avatar-preview {
         width: 64px;
         height: 64px;
         margin-inline-start: 0;
@@ -256,15 +256,15 @@
         flex: 0 0 auto;
     }
 
-    .dl-dropdown-toolbar {
+    .dlux-dropdown-toolbar {
         padding: 12px;
         flex-wrap: wrap;
         justify-content: center;
         gap: 8px 10px;
     }
 
-    .dl-toolbar-left,
-    .dl-toolbar-right {
+    .dlux-toolbar-left,
+    .dlux-toolbar-right {
         width: auto;
         max-width: 100%;
         justify-content: center;
@@ -272,7 +272,7 @@
         margin-inline-start: 0;
     }
 
-    .dl-tool-btn {
+    .dlux-tool-btn {
         width: 42px;
         height: 42px;
         border-radius: 13px;
@@ -280,17 +280,17 @@
 }
 
 @media (max-width: 360px) {
-    .dl-dropdown-header {
+    .dlux-dropdown-header {
         padding: 16px 14px;
     }
 
-    .dl-avatar-preview {
+    .dlux-avatar-preview {
         width: 56px;
         height: 56px;
         border-radius: 16px;
     }
 
-    .dl-tool-btn {
+    .dlux-tool-btn {
         width: 40px;
         height: 40px;
     }

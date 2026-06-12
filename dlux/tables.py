@@ -21,9 +21,9 @@ class DluxTable(tables.Table):
 
     class Meta:
         template_name = "dlux/tables/table.html"
-        attrs = {'class': 'table table-hover align-middle dl-data-table'}
+        attrs = {'class': 'table table-hover align-middle dlux-data-table'}
         row_attrs = {
-            'data-micro-context': 'true',
+            'data-dlux-context': 'true',
         }
         dlux_actions = True
         dlux_per_page = DEFAULT_TABLE_PAGE_SIZE
@@ -62,7 +62,7 @@ class DluxTable(tables.Table):
                 'label': 'view_label',
                 'icon': 'bi bi-eye',
                 'type': 'event',
-                'event': 'micro:record:view',
+                'event': 'dlux:record:view',
                 'data': payload,
                 'dblclick': True,
             },
@@ -71,7 +71,7 @@ class DluxTable(tables.Table):
                 'label': 'edit_label',
                 'icon': 'bi bi-pencil',
                 'type': 'event',
-                'event': 'micro:record:edit',
+                'event': 'dlux:record:edit',
                 'data': payload,
                 'permissions': [f"{model._meta.app_label}.change_{model._meta.model_name}"],
             },
@@ -79,7 +79,7 @@ class DluxTable(tables.Table):
                 'label': 'delete_label',
                 'icon': 'bi bi-trash',
                 'type': 'event',
-                'event': 'micro:record:delete',
+                'event': 'dlux:record:delete',
                 'data': payload,
                 'textClass': 'text-danger',
                 'permissions': [f"{model._meta.app_label}.delete_{model._meta.model_name}"],
@@ -122,8 +122,8 @@ class UserTable(DluxTable):
         model = User
         fields = ("online_status", "username", "phone", "email", "full_name", "scope", "staff_tier", "twofa_status", "is_active", "last_login")
         row_attrs = {
-            "data-micro-context": "true",
-            "data-micro-actions": lambda record: json.dumps(_build_user_row_actions(record))
+            "data-dlux-context": "true",
+            "data-dlux-actions": lambda record: json.dumps(_build_user_row_actions(record))
         }
 
     def render_online_status(self, record):
@@ -131,10 +131,10 @@ class UserTable(DluxTable):
         is_online = getattr(record, 'is_online', False)
         if is_online:
             return format_html(
-                '<span class="dl-online-dot dl-online-dot--on" title="{}"></span>',
+                '<span class="dlux-online-dot dlux-online-dot--on" title="{}"></span>',
                 s.get('user_is_online', 'Online now'),
             )
-        return format_html('<span class="dl-online-dot dl-online-dot--off" title="{}"></span>', s.get('user_is_offline', 'Offline'))
+        return format_html('<span class="dlux-online-dot dlux-online-dot--off" title="{}"></span>', s.get('user_is_offline', 'Offline'))
 
     def render_username(self, value, record):
         s = get_strings()
@@ -155,7 +155,7 @@ class UserTable(DluxTable):
         tier = get_user_management_tier_state_for_user(record, strings=strings)
         badges = [
             format_html(
-                '<span class="badge dl-staff-tier-badge dl-staff-tier-badge--{}"><i class="bi {} me-1"></i>{}</span>',
+                '<span class="badge dlux-staff-tier-badge dlux-staff-tier-badge--{}"><i class="bi {} me-1"></i>{}</span>',
                 tier['tier_key'],
                 tier['icon'],
                 tier['title'],
@@ -164,7 +164,7 @@ class UserTable(DluxTable):
         if tier.get('can_delegate_staff'):
             badges.append(
                 format_html(
-                    '<span class="badge dl-staff-tier-badge dl-staff-tier-badge--delegate ms-1">{}</span>',
+                    '<span class="badge dlux-staff-tier-badge dlux-staff-tier-badge--delegate ms-1">{}</span>',
                     tier['delegation_badge_label'],
                 )
             )
@@ -178,12 +178,12 @@ class UserTable(DluxTable):
         methods = []
         if getattr(profile, 'is_totp_2fa_enabled', False):
             methods.append(format_html(
-                '<span class="badge ms-2fa-badge ms-2fa-badge--totp" title="TOTP"><i class="bi bi-phone me-1"></i>{}</span>',
+                '<span class="badge dlux-2fa-badge dlux-2fa-badge--totp" title="TOTP"><i class="bi bi-phone me-1"></i>{}</span>',
                 s.get('twofa_totp_method', 'App'),
             ))
         if getattr(profile, 'is_email_2fa_enabled', False):
             methods.append(format_html(
-                '<span class="badge ms-2fa-badge ms-2fa-badge--email" title="Email 2FA"><i class="bi bi-envelope me-1"></i>{}</span>',
+                '<span class="badge dlux-2fa-badge dlux-2fa-badge--email" title="Email 2FA"><i class="bi bi-envelope me-1"></i>{}</span>',
                 s.get('twofa_email_method', 'Email'),
             ))
         if not methods:
@@ -215,13 +215,13 @@ class UserActivityLogTable(DluxTable):
         fields = ("timestamp", "created_by", "full_name", "model_name", "action", "object_id", "number", "scope")
         exclude = ("id", "ip_address", "user_agent", "created_at", "updated_at", "updated_by", "deleted_at", "deleted_by")
         row_attrs = {
-            "data-micro-context": "true",
-            "data-micro-actions": lambda record: json.dumps([
+            "data-dlux-context": "true",
+            "data-dlux-actions": lambda record: json.dumps([
                 {
                     "label": get_strings().get("view_details", "View Details"),
                     "icon": "bi bi-eye",
                     "type": "event",
-                    "event": "micro:view-log-details",
+                    "event": "dlux:view-log-details",
                     "data": {"url": reverse('user_activity_log_detail', args=[record.pk])},
                     "dblclick": True,
                 }
@@ -272,7 +272,7 @@ def _build_user_row_actions(record):
             "label": s.get("view_label", "View"),
             "icon": "bi bi-eye",
             "type": "event",
-            "event": "micro:view-user-details",
+            "event": "dlux:view-user-details",
             "data": {"url": reverse('user_detail_modal', args=[record.pk])},
             "dblclick": True,
             "permissions": ["auth.view_user"],
@@ -282,7 +282,7 @@ def _build_user_row_actions(record):
             "label": s.get("edit_user_label", "Edit User"),
             "icon": "bi bi-pencil",
             "type": "event",
-            "event": "micro:dynamic_modal:open",
+            "event": "dlux:dynamic_modal:open",
             "data": {
                 "url": reverse('modal_user_edit', args=[record.pk]),
                 "title": f"{s.get('edit_user_label', 'Edit User')} {display_name}".strip(),
@@ -293,7 +293,7 @@ def _build_user_row_actions(record):
             "label": s.get("user_report_title"),
             "icon": "bi bi-file-earmark-text",
             "type": "event",
-            "event": "micro:dynamic_modal:open",
+            "event": "dlux:dynamic_modal:open",
             "data": {
                 "url": reverse('user_report_modal', args=[record.pk]),
                 "title": f"{s.get('user_report_title')} {display_name}".strip(),
@@ -304,7 +304,7 @@ def _build_user_row_actions(record):
             "label": s.get("edit_permissions_label", "Edit Permissions"),
             "icon": "bi bi-shield-lock",
             "type": "event",
-            "event": "micro:dynamic_modal:open",
+            "event": "dlux:dynamic_modal:open",
             "data": {
                 "url": reverse('modal_user_permissions', args=[record.pk]),
                 "title": f"{s.get('edit_permissions_label', 'Edit Permissions')} {display_name}".strip(),
@@ -315,7 +315,7 @@ def _build_user_row_actions(record):
             "label": s.get("reset_password", "Reset Password"),
             "icon": "bi bi-key",
             "type": "event",
-            "event": "micro:reset-password",
+            "event": "dlux:reset-password",
             "data": {
                 "id": record.pk,
                 "username": record.username,

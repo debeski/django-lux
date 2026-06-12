@@ -4,17 +4,17 @@
     const tooltipConfigs = [
         {
             name: 'dlux',
-            selector: '[data-dl-tooltip]',
-            textAttribute: 'data-dl-tooltip',
-            placementAttribute: 'data-dl-tooltip-placement',
+            selector: '[data-dlux-tooltip]',
+            textAttribute: 'data-dlux-tooltip',
+            placementAttribute: 'data-dlux-tooltip-placement',
             className: 'dlux-tooltip',
             defaultPlacement: 'top',
         },
         {
             name: 'sidebar',
-            selector: '[data-dl-sidebar-tooltip]',
-            textAttribute: 'data-dl-sidebar-tooltip',
-            placementAttribute: 'data-dl-sidebar-tooltip-placement',
+            selector: '[data-dlux-sidebar-tooltip]',
+            textAttribute: 'data-dlux-sidebar-tooltip',
+            placementAttribute: 'data-dlux-sidebar-tooltip-placement',
             className: 'sidebar-tooltip',
             defaultPlacement: 'right',
         },
@@ -36,7 +36,7 @@
         window.__dluxTooltipInitialized = true;
 
         tooltip = document.createElement('div');
-        tooltip.className = 'dl-tooltip dlux-tooltip';
+        tooltip.className = 'dlux-tooltip dlux-tooltip';
         tooltip.setAttribute('role', 'tooltip');
         document.body.appendChild(tooltip);
 
@@ -196,8 +196,8 @@
         tooltip.dataset.tooltipKind = tooltipConfig.name;
         tooltip.style.left = `${Math.round(left)}px`;
         tooltip.style.top = `${Math.round(top)}px`;
-        tooltip.style.setProperty('--dl-tooltip-arrow-x', `${Math.round(arrowX)}px`);
-        tooltip.style.setProperty('--dl-tooltip-arrow-y', `${Math.round(arrowY)}px`);
+        tooltip.style.setProperty('--dlux-tooltip-arrow-x', `${Math.round(arrowX)}px`);
+        tooltip.style.setProperty('--dlux-tooltip-arrow-y', `${Math.round(arrowY)}px`);
         tooltip.classList.add('show');
     }
 
@@ -210,7 +210,7 @@
         window.cancelAnimationFrame(tooltipFrame);
         tooltipTarget = target;
         tooltipConfig = config;
-        tooltip.className = `dl-tooltip ${config.className}`;
+        tooltip.className = `dlux-tooltip ${config.className}`;
         tooltip.textContent = text;
         // Position before the tooltip is revealed and without moving it to (0, 0) first —
         // otherwise a fast hover from one target to the next briefly paints the still-

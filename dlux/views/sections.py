@@ -1004,7 +1004,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             'filter': f,
             'instance': instance,
             'object': instance,  # Django convention alias
-            'MS_TRANS': get_strings(),
+            'DLUX_STRINGS': get_strings(),
             'hide_form_buttons': getattr(form, "_auto_helper", False) or has_submit_button(form),
             'wizard_initial_step': self._get_wizard_initial_step(model),
         }
@@ -1074,7 +1074,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             'model': model,
             'form': form,
             'instance': instance,
-            'MS_TRANS': get_strings(),
+            'DLUX_STRINGS': get_strings(),
             'hide_form_buttons': getattr(form, "_auto_helper", False) or has_submit_button(form),
             'wizard_initial_step': self._get_wizard_initial_step(model),
         }

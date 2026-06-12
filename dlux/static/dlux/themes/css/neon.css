@@ -49,87 +49,87 @@
     --primary-color: var(--neon-cyan);
     
     /* Setup Builder Theme Tokens - Cyberpunk Edition */
-    --dl-setup-shell-bg: linear-gradient(180deg, rgba(15, 15, 26, 0.98), rgba(10, 10, 15, 0.98));
-    --dl-setup-shell-border: rgba(0, 255, 255, 0.2);
-    --dl-setup-card-bg: rgba(18, 18, 31, 0.95);
-    --dl-setup-card-border: rgba(255, 0, 255, 0.15);
-    --dl-setup-pane-bg: rgba(0, 255, 255, 0.03);
-    --dl-setup-pane-border: rgba(0, 255, 255, 0.12);
-    --dl-setup-item-bg: rgba(18, 18, 31, 0.9);
-    --dl-setup-item-border: rgba(0, 255, 255, 0.15);
-    --dl-setup-item-hover-bg: rgba(0, 255, 255, 0.08);
-    --dl-setup-item-shadow: 0 0 20px rgba(0, 255, 255, 0.15);
-    --dl-setup-item-active-bg: rgba(0, 255, 255, 0.12);
-    --dl-setup-item-active-ring: rgba(0, 255, 255, 0.4);
-    --dl-setup-tree-bg: linear-gradient(180deg, rgba(10, 10, 15, 0.95), rgba(15, 15, 26, 0.95));
-    --dl-setup-tree-accent: rgba(255, 0, 255, 0.3);
-    --dl-setup-connector: rgba(0, 255, 255, 0.25);
-    --dl-setup-badge-bg: rgba(255, 0, 255, 0.15);
-    --dl-setup-badge-color: #e0e0ff;
-    --dl-setup-text: var(--title);
-    --dl-setup-muted: #a0a0c0;
+    --dlux-setup-shell-bg: linear-gradient(180deg, rgba(15, 15, 26, 0.98), rgba(10, 10, 15, 0.98));
+    --dlux-setup-shell-border: rgba(0, 255, 255, 0.2);
+    --dlux-setup-card-bg: rgba(18, 18, 31, 0.95);
+    --dlux-setup-card-border: rgba(255, 0, 255, 0.15);
+    --dlux-setup-pane-bg: rgba(0, 255, 255, 0.03);
+    --dlux-setup-pane-border: rgba(0, 255, 255, 0.12);
+    --dlux-setup-item-bg: rgba(18, 18, 31, 0.9);
+    --dlux-setup-item-border: rgba(0, 255, 255, 0.15);
+    --dlux-setup-item-hover-bg: rgba(0, 255, 255, 0.08);
+    --dlux-setup-item-shadow: 0 0 20px rgba(0, 255, 255, 0.15);
+    --dlux-setup-item-active-bg: rgba(0, 255, 255, 0.12);
+    --dlux-setup-item-active-ring: rgba(0, 255, 255, 0.4);
+    --dlux-setup-tree-bg: linear-gradient(180deg, rgba(10, 10, 15, 0.95), rgba(15, 15, 26, 0.95));
+    --dlux-setup-tree-accent: rgba(255, 0, 255, 0.3);
+    --dlux-setup-connector: rgba(0, 255, 255, 0.25);
+    --dlux-setup-badge-bg: rgba(255, 0, 255, 0.15);
+    --dlux-setup-badge-color: #e0e0ff;
+    --dlux-setup-text: var(--title);
+    --dlux-setup-muted: #a0a0c0;
     /* Dlux Table Tokens */
-    --dl-table-surface:
+    --dlux-table-surface:
         radial-gradient(circle at top, rgba(0, 255, 255, 0.12), transparent 64%),
         linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(5, 5, 8, 0.99));
-    --dl-table-border: rgba(0, 255, 255, 0.18);
-    --dl-table-border-strong: rgba(255, 0, 255, 0.28);
-    --dl-table-shadow: 0 22px 46px -30px rgba(0, 0, 0, 0.76);
-    --dl-table-header-surface: linear-gradient(180deg, rgba(25, 18, 40, 0.98), rgba(20, 18, 34, 0.98));
-    --dl-table-header-text: #f7fbff;
-    --dl-table-row-odd: rgba(10, 10, 15, 0.98);
-    --dl-table-row-even: rgba(18, 18, 31, 0.98);
-    --dl-table-row-hover: rgba(30, 30, 51, 0.98);
-    --dl-table-cell-border: rgba(0, 255, 255, 0.12);
-    --dl-table-sort-muted: rgba(224, 224, 255, 0.76);
-    --dl-table-empty-muted: rgba(159, 176, 203, 0.88);
-    --dl-table-empty-surface: linear-gradient(180deg, rgba(15, 15, 26, 0.98), rgba(5, 5, 8, 0.99));
-    --dl-table-empty-icon-bg: rgba(0, 255, 255, 0.08);
-    --dl-table-empty-icon-color: #efffff;
-    --dl-table-empty-icon-shadow: inset 0 0 0 1px rgba(0, 255, 255, 0.16);
-    --dl-table-footer-surface: linear-gradient(180deg, rgba(10, 10, 15, 0.96), rgba(5, 5, 8, 0.98));
-    --dl-table-footer-text: rgba(224, 224, 255, 0.82);
-    --dl-density-card-border: rgba(0, 255, 255, 0.16);
-    --dl-density-card-surface:
+    --dlux-table-border: rgba(0, 255, 255, 0.18);
+    --dlux-table-border-strong: rgba(255, 0, 255, 0.28);
+    --dlux-table-shadow: 0 22px 46px -30px rgba(0, 0, 0, 0.76);
+    --dlux-table-header-surface: linear-gradient(180deg, rgba(25, 18, 40, 0.98), rgba(20, 18, 34, 0.98));
+    --dlux-table-header-text: #f7fbff;
+    --dlux-table-row-odd: rgba(10, 10, 15, 0.98);
+    --dlux-table-row-even: rgba(18, 18, 31, 0.98);
+    --dlux-table-row-hover: rgba(30, 30, 51, 0.98);
+    --dlux-table-cell-border: rgba(0, 255, 255, 0.12);
+    --dlux-table-sort-muted: rgba(224, 224, 255, 0.76);
+    --dlux-table-empty-muted: rgba(159, 176, 203, 0.88);
+    --dlux-table-empty-surface: linear-gradient(180deg, rgba(15, 15, 26, 0.98), rgba(5, 5, 8, 0.99));
+    --dlux-table-empty-icon-bg: rgba(0, 255, 255, 0.08);
+    --dlux-table-empty-icon-color: #efffff;
+    --dlux-table-empty-icon-shadow: inset 0 0 0 1px rgba(0, 255, 255, 0.16);
+    --dlux-table-footer-surface: linear-gradient(180deg, rgba(10, 10, 15, 0.96), rgba(5, 5, 8, 0.98));
+    --dlux-table-footer-text: rgba(224, 224, 255, 0.82);
+    --dlux-density-card-border: rgba(0, 255, 255, 0.16);
+    --dlux-density-card-surface:
         radial-gradient(circle at top, rgba(0, 255, 255, 0.09), transparent 68%),
         linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(5, 5, 8, 0.99));
-    --dl-density-card-shadow:
+    --dlux-density-card-shadow:
         inset 0 1px 0 rgba(224, 224, 255, 0.04),
         0 18px 34px -28px rgba(0, 0, 0, 0.76);
-    --dl-density-card-hover-border: rgba(0, 255, 255, 0.26);
-    --dl-density-card-hover-shadow:
+    --dlux-density-card-hover-border: rgba(0, 255, 255, 0.26);
+    --dlux-density-card-hover-shadow:
         inset 0 1px 0 rgba(224, 224, 255, 0.05),
         0 20px 36px -28px rgba(0, 0, 0, 0.8);
-    --dl-density-card-active-border: rgba(0, 255, 255, 0.32);
-    --dl-density-card-active-shadow:
+    --dlux-density-card-active-border: rgba(0, 255, 255, 0.32);
+    --dlux-density-card-active-shadow:
         inset 0 1px 0 rgba(224, 224, 255, 0.05),
         0 0 0 0.18rem rgba(0, 255, 255, 0.14);
-    --dl-density-card-icon-bg: rgba(0, 255, 255, 0.08);
-    --dl-density-card-icon-color: #efffff;
-    --dl-density-card-title: #f7fbff;
-    --dl-density-card-copy: rgba(159, 176, 203, 0.92);
-    --dl-table-chip-bg: rgba(0, 255, 255, 0.06);
-    --dl-table-chip-border: rgba(0, 255, 255, 0.18);
-    --dl-table-chip-text: #f3f9ff;
-    --dl-table-chip-hover-bg: rgba(0, 255, 255, 0.14);
-    --dl-table-chip-active-bg: rgba(255, 0, 255, 0.18);
-    --dl-table-chip-active-border: rgba(255, 0, 255, 0.34);
-    --dl-table-page-bg: rgba(0, 255, 255, 0.05);
-    --dl-table-page-border: rgba(0, 255, 255, 0.18);
-    --dl-table-page-text: #f5fbff;
-    --dl-table-page-hover-bg: rgba(0, 255, 255, 0.12);
-    --dl-table-page-hover-border: rgba(255, 0, 255, 0.28);
-    --dl-table-page-active-bg: rgba(0, 255, 255, 0.92);
-    --dl-table-page-active-border: rgba(0, 255, 255, 0.92);
-    --dl-table-page-active-text: #050508;
-    --dl-table-page-disabled-bg: rgba(255, 255, 255, 0.02);
-    --dl-table-page-disabled-border: rgba(0, 255, 255, 0.08);
-    --dl-table-page-disabled-text: rgba(224, 224, 255, 0.46);
-    --dl-table-sticky-shadow: 10px 0 26px -20px rgba(0, 255, 255, 0.22);
-    --dl-table-row-deleted-bg: rgba(255, 255, 255, 0.03);
-    --dl-table-row-deleted-text: #8f9eb8;
-    --dl-table-row-danger-bg: rgba(92, 20, 52, 0.84);
-    --dl-table-row-danger-hover-bg: rgba(118, 28, 66, 0.92);
+    --dlux-density-card-icon-bg: rgba(0, 255, 255, 0.08);
+    --dlux-density-card-icon-color: #efffff;
+    --dlux-density-card-title: #f7fbff;
+    --dlux-density-card-copy: rgba(159, 176, 203, 0.92);
+    --dlux-table-chip-bg: rgba(0, 255, 255, 0.06);
+    --dlux-table-chip-border: rgba(0, 255, 255, 0.18);
+    --dlux-table-chip-text: #f3f9ff;
+    --dlux-table-chip-hover-bg: rgba(0, 255, 255, 0.14);
+    --dlux-table-chip-active-bg: rgba(255, 0, 255, 0.18);
+    --dlux-table-chip-active-border: rgba(255, 0, 255, 0.34);
+    --dlux-table-page-bg: rgba(0, 255, 255, 0.05);
+    --dlux-table-page-border: rgba(0, 255, 255, 0.18);
+    --dlux-table-page-text: #f5fbff;
+    --dlux-table-page-hover-bg: rgba(0, 255, 255, 0.12);
+    --dlux-table-page-hover-border: rgba(255, 0, 255, 0.28);
+    --dlux-table-page-active-bg: rgba(0, 255, 255, 0.92);
+    --dlux-table-page-active-border: rgba(0, 255, 255, 0.92);
+    --dlux-table-page-active-text: #050508;
+    --dlux-table-page-disabled-bg: rgba(255, 255, 255, 0.02);
+    --dlux-table-page-disabled-border: rgba(0, 255, 255, 0.08);
+    --dlux-table-page-disabled-text: rgba(224, 224, 255, 0.46);
+    --dlux-table-sticky-shadow: 10px 0 26px -20px rgba(0, 255, 255, 0.22);
+    --dlux-table-row-deleted-bg: rgba(255, 255, 255, 0.03);
+    --dlux-table-row-deleted-text: #8f9eb8;
+    --dlux-table-row-danger-bg: rgba(92, 20, 52, 0.84);
+    --dlux-table-row-danger-hover-bg: rgba(118, 28, 66, 0.92);
 }
 
 /* Animated Background Effect */
@@ -166,7 +166,7 @@
 :root.theme-neon .card:not([class*="text-bg-"]):not([class*="bg-"]),
 :root.theme-neon .card-body:not([class*="text-bg-"]):not([class*="bg-"]),
 :root.theme-neon .dashboard-card:not([class*="text-bg-"]):not([class*="bg-"]), 
-:root.theme-neon .option-section:not(.dl-options-panel):not([class*="text-bg-"]):not([class*="bg-"]),
+:root.theme-neon .option-section:not(.dlux-options-panel):not([class*="text-bg-"]):not([class*="bg-"]),
 :root.theme-neon .list-group-item:not([class*="text-bg-"]):not([class*="bg-"]):not(.active),
 :root.theme-neon .modal-content,
 :root.theme-neon .chart-container-sys {
@@ -633,7 +633,7 @@
 }
 
 :root.theme-neon .table thead th {
-    background: var(--dl-table-header-surface) !important;
+    background: var(--dlux-table-header-surface) !important;
     color: var(--neon-cyan) !important;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important;
     border-color: rgba(0, 255, 255, 0.2) !important;
@@ -905,20 +905,20 @@
     background-color: transparent !important;
 }
 
-:root.theme-neon .titlebar .dl-titlebar-home,
-:root.theme-neon .titlebar .dl-login-round {
+:root.theme-neon .titlebar .dlux-titlebar-home,
+:root.theme-neon .titlebar .dlux-login-round {
     color: var(--neon-cyan) !important;
     background: rgba(0, 255, 255, 0.08) !important;
     border-color: rgba(0, 255, 255, 0.25) !important;
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.1) !important;
 }
 
-:root.theme-neon .titlebar .dl-titlebar-home:hover,
-:root.theme-neon .titlebar .dl-login-round:hover,
-:root.theme-neon .titlebar .dl-titlebar-home:focus,
-:root.theme-neon .titlebar .dl-login-round:focus,
-:root.theme-neon .titlebar .dl-titlebar-home:focus-visible,
-:root.theme-neon .titlebar .dl-login-round:focus-visible {
+:root.theme-neon .titlebar .dlux-titlebar-home:hover,
+:root.theme-neon .titlebar .dlux-login-round:hover,
+:root.theme-neon .titlebar .dlux-titlebar-home:focus,
+:root.theme-neon .titlebar .dlux-login-round:focus,
+:root.theme-neon .titlebar .dlux-titlebar-home:focus-visible,
+:root.theme-neon .titlebar .dlux-login-round:focus-visible {
     color: var(--neon-pink) !important;
     background: rgba(255, 0, 255, 0.15) !important;
     border-color: rgba(255, 0, 255, 0.4) !important;
@@ -1434,7 +1434,7 @@
 
 :root.theme-neon .text-bg-primary,
 :root.theme-neon .badge.text-bg-primary,
-:root.theme-neon .dl-system-settings-shell .text-bg-primary {
+:root.theme-neon .dlux-system-settings-shell .text-bg-primary {
     background: linear-gradient(135deg, var(--neon-cyan) 0%, #00d7d7 100%) !important;
     color: var(--cyber-black) !important;
     border: 1px solid rgba(0, 255, 255, 0.35) !important;
@@ -1865,7 +1865,7 @@
 
 /* 36. Special Effects - Glowing Corners on Cards */
 :root.theme-neon .card::before,
-:root.theme-neon .option-section:not(.dl-options-panel)::before,
+:root.theme-neon .option-section:not(.dlux-options-panel)::before,
 :root.theme-neon .chart-container-sys::before {
     content: '';
     position: absolute;
@@ -1882,20 +1882,20 @@
 }
 
 :root.theme-neon .card:hover::before,
-:root.theme-neon .option-section:not(.dl-options-panel):hover::before,
+:root.theme-neon .option-section:not(.dlux-options-panel):hover::before,
 :root.theme-neon .chart-container-sys:hover::before {
     opacity: 1;
 }
 
 :root.theme-neon .card,
-:root.theme-neon .option-section:not(.dl-options-panel),
+:root.theme-neon .option-section:not(.dlux-options-panel),
 :root.theme-neon .chart-container-sys {
     position: relative;
     isolation: isolate;
 }
 
 :root.theme-neon .card > *,
-:root.theme-neon .option-section:not(.dl-options-panel) > *,
+:root.theme-neon .option-section:not(.dlux-options-panel) > *,
 :root.theme-neon .chart-container-sys > * {
     position: relative;
     z-index: 1;
@@ -2036,7 +2036,7 @@
 }
 
 /* 49. User Hub, Profile, Activity Log, and Tutorial - Neon Conformance */
-:root.theme-neon .dl-user-trigger {
+:root.theme-neon .dlux-user-trigger {
     background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(255, 0, 255, 0.08)) !important;
     border-color: rgba(0, 255, 255, 0.22) !important;
     box-shadow:
@@ -2044,7 +2044,7 @@
         0 0 18px rgba(0, 255, 255, 0.08) !important;
 }
 
-:root.theme-neon .dl-user-trigger:hover {
+:root.theme-neon .dlux-user-trigger:hover {
     background: linear-gradient(135deg, rgba(0, 255, 255, 0.16), rgba(255, 0, 255, 0.12)) !important;
     border-color: rgba(0, 255, 255, 0.34) !important;
     box-shadow:
@@ -2052,7 +2052,7 @@
         0 0 24px rgba(0, 255, 255, 0.16) !important;
 }
 
-:root.theme-neon .dl-user-dropdown-card {
+:root.theme-neon .dlux-user-dropdown-card {
     background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.98)) !important;
     border-color: rgba(0, 255, 255, 0.24) !important;
     box-shadow:
@@ -2060,23 +2060,23 @@
         0 0 35px rgba(0, 255, 255, 0.12) !important;
 }
 
-:root.theme-neon .dl-dropdown-header {
+:root.theme-neon .dlux-dropdown-header {
     border-bottom: 1px solid rgba(0, 255, 255, 0.1) !important;
 }
 
-:root.theme-neon .dl-dropdown-toolbar {
+:root.theme-neon .dlux-dropdown-toolbar {
     background: linear-gradient(90deg, rgba(0, 255, 255, 0.05), rgba(255, 0, 255, 0.04)) !important;
     border-top-color: rgba(0, 255, 255, 0.12) !important;
 }
 
-:root.theme-neon .dl-user-role {
+:root.theme-neon .dlux-user-role {
     background: rgba(0, 255, 255, 0.12) !important;
     color: var(--neon-cyan) !important;
     border: 1px solid rgba(0, 255, 255, 0.18) !important;
     box-shadow: 0 0 12px rgba(0, 255, 255, 0.1) !important;
 }
 
-:root.theme-neon .dl-tool-btn {
+:root.theme-neon .dlux-tool-btn {
     background: linear-gradient(180deg, rgba(18, 18, 31, 0.96), rgba(10, 10, 15, 0.96)) !important;
     border-color: rgba(0, 255, 255, 0.18) !important;
     color: var(--neon-cyan) !important;
@@ -2085,7 +2085,7 @@
         0 0 16px rgba(0, 255, 255, 0.06) !important;
 }
 
-:root.theme-neon .dl-tool-btn:hover {
+:root.theme-neon .dlux-tool-btn:hover {
     background: linear-gradient(180deg, rgba(0, 255, 255, 0.18), rgba(255, 0, 255, 0.14)) !important;
     border-color: rgba(0, 255, 255, 0.36) !important;
     color: var(--cyber-black) !important;
@@ -2094,32 +2094,32 @@
         0 0 30px rgba(255, 0, 255, 0.12) !important;
 }
 
-:root.theme-neon .dl-tool-btn.text-danger {
+:root.theme-neon .dlux-tool-btn.text-danger {
     color: #ff7ac8 !important;
     border-color: rgba(255, 0, 255, 0.2) !important;
 }
 
-:root.theme-neon .dl-tool-btn.text-danger:hover {
+:root.theme-neon .dlux-tool-btn.text-danger:hover {
     background: linear-gradient(180deg, rgba(255, 0, 255, 0.22), rgba(255, 102, 0, 0.16)) !important;
     border-color: rgba(255, 0, 255, 0.34) !important;
     color: var(--cyber-black) !important;
 }
 
-:root.theme-neon .dl-avatar-preview,
-:root.theme-neon .dl-trigger-avatar {
+:root.theme-neon .dlux-avatar-preview,
+:root.theme-neon .dlux-trigger-avatar {
     border-color: rgba(0, 255, 255, 0.3) !important;
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.12) !important;
 }
 
-:root.theme-neon .dl-avatar-preview.bg-light {
+:root.theme-neon .dlux-avatar-preview.bg-light {
     background: linear-gradient(180deg, rgba(18, 18, 31, 0.98), rgba(10, 10, 15, 0.96)) !important;
     color: var(--neon-cyan) !important;
 }
 
-:root.theme-neon .dl-tooltip {
-    --dl-tooltip-bg: rgba(10, 10, 15, 0.95);
-    --dl-tooltip-color: var(--neon-cyan);
-    --dl-tooltip-border: rgba(0, 255, 255, 0.22);
+:root.theme-neon .dlux-tooltip {
+    --dlux-tooltip-bg: rgba(10, 10, 15, 0.95);
+    --dlux-tooltip-color: var(--neon-cyan);
+    --dlux-tooltip-border: rgba(0, 255, 255, 0.22);
     background: rgba(10, 10, 15, 0.95) !important;
     color: var(--neon-cyan) !important;
     border-color: rgba(0, 255, 255, 0.22) !important;
@@ -2130,7 +2130,7 @@
 
 :root.theme-neon .profile-img-container,
 :root.theme-neon .preview-img,
-:root.theme-neon .dl-image-preview-circle {
+:root.theme-neon .dlux-image-preview-circle {
     border-color: rgba(0, 255, 255, 0.28) !important;
     box-shadow:
         0 12px 28px rgba(0, 0, 0, 0.38),

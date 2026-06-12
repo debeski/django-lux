@@ -7,18 +7,18 @@
     <title>{{ APP_CONFIG.identity.display_name|default:"DjangoLux" }} &nbsp;|&nbsp; {% block title %}{% endblock %}</title>
     
     {{ user_preferences|json_script:"user-prefs-data" }}
-    {{ MS_TRANS|json_script:"dl-trans-data" }}
+    {{ DLUX_STRINGS|json_script:"dlux-strings-data" }}
     {{ DLUX_THEME_NAMES|json_script:"dlux-theme-names" }}
     {{ config|json_script:"dlux-config-data" }}
     {{ font_families|json_script:"dlux-font-families" }}
-    <style id="dl-dynamic-fonts" nonce="{{ request.csp_nonce }}">
+    <style id="dlux-dynamic-fonts" nonce="{{ request.csp_nonce }}">
         {{ font_face_css|safe }}
         :root {
-            --dl-font-fallback: '{{ default_font_family }}', sans-serif;
-            --dl-main-font: '{{ active_font_family }}', sans-serif;
+            --dlux-font-fallback: '{{ default_font_family }}', sans-serif;
+            --dlux-main-font: '{{ active_font_family }}', sans-serif;
         }
     </style>
-    <script src="{% static 'dlux/main/js/base_head.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% static 'dlux/main/js/base_head.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}"></script>
     <!-- Include CSS (direction-aware bootstrap) -->
     {% if CURRENT_DIR == 'ltr' %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.min.css' %}" id="bootstrap-css">
@@ -26,24 +26,24 @@
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.rtl.min.css' %}" id="bootstrap-css">
     {% endif %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap-icons.css' %}">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/main.css' %}?v=20260607d">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/navbar.css' %}?v=20260523b">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/buttons.css' %}?v=20260525b">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/titlebar.css' %}?v=20260610a">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/tables.css' %}?v=20260607a">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/main.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/navbar.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/buttons.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/titlebar.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/tables.css' %}?v=20260612c">
     <link rel="stylesheet" href="{% static 'dlux/main/css/dropdowns.css' %}">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/selectors.css' %}?v=20260607a">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/template_cleanup.css' %}?v=20260529a">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/selectors.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/template_cleanup.css' %}?v=20260612c">
 
     <link rel="stylesheet" href="{% static 'dlux/main/css/pagination.css' %}">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260611b">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260612c">
     {% for theme in DLUX_THEMES %}
-    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260528c">
+    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260612c">
     {% endfor %}
     <link rel="stylesheet" href="{% static 'dlux/accessibility/css/main.css' %}">
     <link rel="stylesheet" href="{% static 'dlux/language/css/main.css' %}?v=20260516a">
-    <link rel="stylesheet" href="{% static 'dlux/helpers/tooltip/css/main.css' %}?v=20260525b">
-    <link rel="stylesheet" href="{% static 'dlux/users/css/user_hub.css' %}?v=20260610a">
+    <link rel="stylesheet" href="{% static 'dlux/helpers/tooltip/css/main.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/users/css/user_hub.css' %}?v=20260612c">
     <link rel="icon" href="{{ APP_CONFIG.favicon_url|default:'/static/img/base_logo.svg' }}">
     <!-- <link rel="icon" type="image/png" sizes="192x192" href="{% static 'icons/icon-192x192.png' %}">
     <link rel="icon" type="image/png" sizes="512x512" href="{% static 'icons/icon-512x512.png' %}"> -->
@@ -53,21 +53,21 @@
     {% include_if_exists 'dlux/includes/custom_head.html' %}
     {% block extra_head %}{% endblock %}
 
-    <script src="{% static 'dlux/themes/js/main.js' %}?v=20260522b" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/themes/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/accessibility/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/language/js/main.js' %}?v=20260514a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/language/js/translations.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/language/js/translations.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/autofill/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/prevent_double_submit.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/helpers/tooltip/js/main.js' %}?v=20260610a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/titlebar.js' %}?v=20260610a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/users/js/user_hub.js' %}?v=20260525b" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/users/js/user_report.js' %}?v=20260607a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/tables.js' %}?v=20260423a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/selectors.js' %}?v=20260422a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/system_setup.js' %}?v=20260611a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/helpers/wizard/js/main.js' %}?v=20260610a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/navbar.js' %}?v=20260523b" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/helpers/tooltip/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/titlebar.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/users/js/user_hub.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/users/js/user_report.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/tables.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/selectors.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/system_setup.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/helpers/wizard/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/navbar.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
 
 </head>
 <body>
@@ -99,7 +99,7 @@
         {% if messages %}
             <div class="alert-container position-absolute top-0 start-0 w-100">
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} text-center h4 dl-global-alert">
+                    <div class="alert alert-{{ message.tags }} text-center h4 dlux-global-alert">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -123,12 +123,12 @@
     {% block scripts %}{% endblock %}
     <link rel="stylesheet" href="{% static 'vanillajs-datepicker/datepicker-bs5.min.css' %}">
     <script src="{% static 'vanillajs-datepicker/datepicker.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
-    <script src="{% static 'dlux/main/js/base_runtime.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/base_runtime.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
 
     {% if request.resolver_match.url_name != 'login' %}
     {% include 'dlux/includes/tutorial.html' %}
     {% endif %}
-    {% include 'dlux/helpers/micro_context_menu.html' %}
+    {% include 'dlux/helpers/dlux_context_menu.html' %}
     {% include 'dlux/helpers/dynamic_modal.html' %}
 </body>
 </html>

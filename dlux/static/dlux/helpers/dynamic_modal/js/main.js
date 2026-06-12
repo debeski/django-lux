@@ -4,8 +4,8 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    if (window.__microDynamicModalsInitialized) return;
-    window.__microDynamicModalsInitialized = true;
+    if (window.__dluxDynamicModalsInitialized) return;
+    window.__dluxDynamicModalsInitialized = true;
 
     const MODAL_STATE_KEY = 'dlux.dynamicModalState';
     const modalEl = document.getElementById('universalDynamicModal');
@@ -27,17 +27,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Built-in action bars auto-detected for relocation:
     //  - .dlux-form-actions  → auto-form template + crispy auto-helper
-    //  - .dl-setup-wizard-actions → System Settings wizard FormActions
-    //  - .dl-modal-form-actions   → _build_submit_actions / _build_wizard_actions
+    //  - .dlux-setup-wizard-actions → System Settings wizard FormActions
+    //  - .dlux-modal-form-actions   → _build_submit_actions / _build_wizard_actions
     const BUILTIN_ACTION_SELECTOR =
-        '.dlux-form-actions, .dl-setup-wizard-actions, .dl-modal-form-actions';
+        '.dlux-form-actions, .dlux-setup-wizard-actions, .dlux-modal-form-actions';
 
-    // Dev opt-in: put `data-dl-modal-footer` on ANY container in a custom modal
+    // Dev opt-in: put `data-dlux-modal-footer` on ANY container in a custom modal
     // template / options view to have it pinned into the sticky footer. It takes
     // priority over the built-in bars. For custom buttons that need their own JS,
     // bind via document-level delegation (the element is moved out of the modal body)
     // or rely on the `form=` association added below for submit buttons.
-    const DEV_FOOTER_SELECTOR = '[data-dl-modal-footer]';
+    const DEV_FOOTER_SELECTOR = '[data-dlux-modal-footer]';
 
     // Relocate an action bar into the sticky modal footer so it stays on screen while
     // the body scrolls. Buttons keep working: submit buttons are re-associated to the
@@ -46,10 +46,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // in attachListeners() (moving a node preserves its listeners).
     //
     // Resolution order:
-    //  1. an explicit [data-dl-modal-footer] container (dev opt-in), else
+    //  1. an explicit [data-dlux-modal-footer] container (dev opt-in), else
     //  2. the first built-in action bar.
     // Skips:
-    //  - multi-step wizard bars (contain .dl-btn-next / .dl-btn-prev): the wizard JS
+    //  - multi-step wizard bars (contain .dlux-btn-next / .dlux-btn-prev): the wizard JS
     //    scans the body for these and toggles them per step — relocating would break it.
     //  - nothing matched (tables / detail / dev-custom with no marker): footer stays hidden.
     function syncModalFooter() {
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!actions) return;
 
         // Leave multi-step wizard navigation bars in place for the wizard controller.
-        if (actions.querySelector('.dl-btn-next, .dl-btn-prev')) return;
+        if (actions.querySelector('.dlux-btn-next, .dlux-btn-prev')) return;
 
         const form = modalBody.querySelector('form');
         if (form) {
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Programmatic trigger (Context Menu / external integrations)
-    document.body.addEventListener('micro:dynamic_modal:open', function(e) {
+    document.body.addEventListener('dlux:dynamic_modal:open', function(e) {
         const url = e.detail.data?.url || e.detail.action?.url;
         const title = e.detail.data?.title || e.detail.action?.title || 'تفاصيل';
         const trigger = e.detail.trigger || null;
@@ -334,11 +334,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (typeof window.initDluxDatepickers === 'function') {
                 window.initDluxDatepickers(modalBody);
             } else {
-                modalBody.querySelectorAll('.dl-datepicker, .flatpickr').forEach(input => {
-                    if (input.dataset.msDatepickerReady === 'true') {
+                modalBody.querySelectorAll('.dlux-datepicker, .flatpickr').forEach(input => {
+                    if (input.dataset.dluxDatepickerReady === 'true') {
                         return;
                     }
-                    input.dataset.msDatepickerReady = 'true';
+                    input.dataset.dluxDatepickerReady = 'true';
                     new Datepicker(input, {
                         format: 'yyyy-mm-dd',
                         autohide: true,
@@ -482,7 +482,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 6. Context Menu Integration (Catch events fired by auto-generated tables)
-    modalEl.addEventListener('micro:record:edit', function(e) {
+    modalEl.addEventListener('dlux:record:edit', function(e) {
         if (!modalEl.classList.contains('show')) return;
         e.stopPropagation();
         
@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
         openModalAndLoad(editUrl);
     });
 
-    modalEl.addEventListener('micro:record:delete', function(e) {
+    modalEl.addEventListener('dlux:record:delete', function(e) {
         if (!modalEl.classList.contains('show')) return;
         e.stopPropagation();
         
@@ -507,7 +507,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    modalEl.addEventListener('micro:record:view', function(e) {
+    modalEl.addEventListener('dlux:record:view', function(e) {
         if (!modalEl.classList.contains('show')) return;
         e.stopPropagation();
         

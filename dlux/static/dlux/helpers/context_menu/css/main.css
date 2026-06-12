@@ -69,13 +69,13 @@
 }
 
 /* Optimization for mobile double-tap (disables zoom on targets) */
-[data-micro-context="true"] {
+[data-dlux-context="true"] {
     touch-action: manipulation;
 }
 
 /* Double click pointer feedback (CSS-only for maximum robustness) */
-[data-micro-context][data-micro-actions*='"dblclick": true'],
-[data-micro-context][data-micro-actions*='"dblclick": true'] * {
+[data-dlux-context][data-dlux-actions*='"dblclick": true'],
+[data-dlux-context][data-dlux-actions*='"dblclick": true'] * {
     cursor: pointer !important;
 }
 

@@ -63,14 +63,14 @@
     }
 
     function routeLabels(navbar) {
-        const labelsData = navbar.querySelector('#dl-navbar-route-labels-data');
+        const labelsData = navbar.querySelector('#dlux-navbar-route-labels-data');
         const labels = parseJson(labelsData ? labelsData.textContent : '{}', {});
         return labels && typeof labels === 'object' && !Array.isArray(labels) ? labels : {};
     }
 
     function makeCrumbElement(crumb, isCurrent) {
         const item = document.createElement('li');
-        item.className = `dl-navbar__crumb${isCurrent ? ' is-current' : ''}`;
+        item.className = `dlux-navbar__crumb${isCurrent ? ' is-current' : ''}`;
         item.dataset.navbarCrumb = 'true';
 
         if (crumb.clickable && crumb.url) {
@@ -111,7 +111,7 @@
         }
         navbar.dataset.navbarBound = 'true';
 
-        const hierarchyData = navbar.querySelector('#dl-navbar-hierarchy-data');
+        const hierarchyData = navbar.querySelector('#dlux-navbar-hierarchy-data');
         const hierarchy = parseJson(hierarchyData ? hierarchyData.textContent : '[]', []);
         const labelsByPath = routeLabels(navbar);
         const root = hierarchy.find((crumb) => crumb && crumb.kind === 'root') || {
@@ -140,14 +140,14 @@
             renderTrail(navbar, normalizedMode === 'history' ? historyCrumbs() : hierarchy);
         }
 
-        navbar.__msRenderMode = renderMode;
+        navbar.__dluxRenderMode = renderMode;
         renderMode(navbar.dataset.navbarMode);
     }
 
     function setNavbarMode(mode) {
-        document.querySelectorAll('[data-dl-navbar]').forEach((navbar) => {
+        document.querySelectorAll('[data-dlux-navbar]').forEach((navbar) => {
             initNavbar(navbar);
-            navbar.__msRenderMode(mode);
+            navbar.__dluxRenderMode(mode);
         });
     }
 
@@ -155,9 +155,9 @@
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('[data-dl-navbar]').forEach(initNavbar);
+            document.querySelectorAll('[data-dlux-navbar]').forEach(initNavbar);
         });
     } else {
-        document.querySelectorAll('[data-dl-navbar]').forEach(initNavbar);
+        document.querySelectorAll('[data-dlux-navbar]').forEach(initNavbar);
     }
 })();

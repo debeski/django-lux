@@ -110,7 +110,7 @@
                 // Apply immediately
                 const familyName = window.DLUX_FONT_FAMILIES && window.DLUX_FONT_FAMILIES[font];
                 if (familyName) {
-                    document.documentElement.style.setProperty('--dl-main-font', `'${familyName}', sans-serif`);
+                    document.documentElement.style.setProperty('--dlux-main-font', `'${familyName}', sans-serif`);
                 }
                 
                 // Update preferences on server
@@ -122,13 +122,13 @@
     }
 
     function initDensityPickers() {
-        const densityPicker = document.querySelector('.dl-table-density-picker:not([data-setup-table-density-picker]):not(.dl-sidebar-density-picker)');
+        const densityPicker = document.querySelector('.dlux-table-density-picker:not([data-setup-table-density-picker]):not(.dlux-sidebar-density-picker)');
         const densityOptions = densityPicker
-            ? Array.from(densityPicker.querySelectorAll('.dl-density-option[data-table-density]'))
+            ? Array.from(densityPicker.querySelectorAll('.dlux-density-option[data-table-density]'))
             : [];
-        const sidebarDensityPicker = document.querySelector('.dl-sidebar-density-picker');
+        const sidebarDensityPicker = document.querySelector('.dlux-sidebar-density-picker');
         const sidebarDensityOptions = sidebarDensityPicker
-            ? Array.from(sidebarDensityPicker.querySelectorAll('.dl-density-option[data-sidebar-density]'))
+            ? Array.from(sidebarDensityPicker.querySelectorAll('.dlux-density-option[data-sidebar-density]'))
             : [];
 
         if (densityOptions.length) {
@@ -223,7 +223,7 @@
     }
 
     function initResetDefaults(grid) {
-        const panel = document.querySelector('.dl-options-panel--danger[data-reset-url]');
+        const panel = document.querySelector('.dlux-options-panel--danger[data-reset-url]');
         const btnInit = document.getElementById('btnResetInit');
         const actions = document.getElementById('resetActions');
         const btnConfirm = document.getElementById('btnResetConfirm');
@@ -281,7 +281,7 @@
     }
 
     function persistCardOrder(grid, storageKey) {
-        const order = Array.from(grid.querySelectorAll('.dl-options-card[data-options-card]'))
+        const order = Array.from(grid.querySelectorAll('.dlux-options-card[data-options-card]'))
             .map((card) => card.dataset.optionsCard)
             .filter(Boolean);
         localStorage.setItem(storageKey, JSON.stringify(order));
@@ -306,7 +306,7 @@
         }
 
         const cardsByKey = new Map(
-            Array.from(grid.querySelectorAll('.dl-options-card[data-options-card]'))
+            Array.from(grid.querySelectorAll('.dlux-options-card[data-options-card]'))
                 .map((card) => [card.dataset.optionsCard, card])
         );
 
@@ -324,7 +324,7 @@
     }
 
     function initCardOrdering(grid) {
-        const cards = Array.from(grid.querySelectorAll('.dl-options-card[data-options-card]'));
+        const cards = Array.from(grid.querySelectorAll('.dlux-options-card[data-options-card]'));
         if (cards.length < 2) {
             return;
         }
@@ -361,7 +361,7 @@
         }
 
         grid.querySelectorAll('[data-options-card-handle]').forEach((handle) => {
-            const card = handle.closest('.dl-options-card[data-options-card]');
+            const card = handle.closest('.dlux-options-card[data-options-card]');
             if (!card) {
                 return;
             }
@@ -392,7 +392,7 @@
             });
         });
 
-        grid.querySelectorAll('.dl-options-card[data-options-card]').forEach((card) => {
+        grid.querySelectorAll('.dlux-options-card[data-options-card]').forEach((card) => {
             card.addEventListener('dragover', (event) => {
                 if (!draggedCard || draggedCard === card) {
                     return;
@@ -444,7 +444,7 @@
     }
 
     onReady(() => {
-        const grid = document.getElementById('msOptionsGrid');
+        const grid = document.getElementById('dluxOptionsGrid');
         if (!grid) {
             return;
         }

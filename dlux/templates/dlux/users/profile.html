@@ -4,11 +4,11 @@
 {% load static %}
 {% load dlux_tags %}
 
-{% block title %}{{ MS_TRANS.profile }}{% endblock %}
+{% block title %}{{ DLUX_STRINGS.profile }}{% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'dlux/users/css/profile.css' %}">
+    <link rel="stylesheet" href="{% static 'dlux/users/css/profile.css' %}?v=20260612c">
     {% include "dlux/forms/assets_head.html" %}
 {% endblock %}
 
@@ -18,7 +18,7 @@
     <div class="col-lg-12">
         <div class="glass-profile">
             <h1 class="page-title text-center display-6">
-                <i class="bi bi-person-circle me-2"></i> {{ MS_TRANS.profile }}
+                <i class="bi bi-person-circle me-2"></i> {{ DLUX_STRINGS.profile }}
             </h1>
 
             <div class="row align-items-start">
@@ -28,7 +28,7 @@
                     <!-- Completeness -->
                     <div class="completeness-container">
                         <div class="completeness-label">
-                            <span>{{ MS_TRANS.profile_completeness }}</span>
+                            <span>{{ DLUX_STRINGS.profile_completeness }}</span>
                             <span>{{ stats.completeness }}%</span>
                         </div>
                         <div class="progress progress-custom">
@@ -40,25 +40,25 @@
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <div class="mb-2">
-                                <div class="info-label">{{ MS_TRANS.tbl_username }}</div>
+                                <div class="info-label">{{ DLUX_STRINGS.tbl_username }}</div>
                                 <div class="info-value">{{ user.username }}</div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-2">
-                                <div class="info-label">{{ MS_TRANS.tbl_email }}</div>
+                                <div class="info-label">{{ DLUX_STRINGS.tbl_email }}</div>
                                 <div class="info-value">{{ user.email|default:"-" }}</div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-2">
-                                <div class="info-label">{{ MS_TRANS.tbl_phone }}</div>
+                                <div class="info-label">{{ DLUX_STRINGS.tbl_phone }}</div>
                                 <div class="info-value">{{ user.profile.phone|default:"-" }}</div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-2">
-                                <div class="info-label">{{ MS_TRANS.role_type }}</div>
+                                <div class="info-label">{{ DLUX_STRINGS.role_type }}</div>
                                 <div class="info-value">
                                     {{ current_user_management_tier.title }}
                                     {% if current_user_management_tier.can_delegate_staff %}
@@ -70,14 +70,14 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-2">
-                                <div class="info-label">{{ MS_TRANS.date_joined }}</div>
+                                <div class="info-label">{{ DLUX_STRINGS.date_joined }}</div>
                                 <div class="info-value fs-6 text-dark">{{ user.date_joined|date }}</div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-2">
-                                <div class="info-label">{{ MS_TRANS.tbl_last_login }}</div>
-                                <div class="info-value fs-6 text-dark">{% ms_timesince user.last_login %}</div>
+                                <div class="info-label">{{ DLUX_STRINGS.tbl_last_login }}</div>
+                                <div class="info-value fs-6 text-dark">{% dlux_timesince user.last_login %}</div>
                             </div>
                         </div>
                     </div>
@@ -95,7 +95,7 @@
                     </div>
                     <h3 class="fw-bold text-dark mb-1">
                         {{ user.profile.full_name }} 
-                        {% if user.is_active %}<i class="bi bi-check-circle-fill text-success fs-5" title="{{ MS_TRANS.account_active }}"></i>{% endif %}
+                        {% if user.is_active %}<i class="bi bi-check-circle-fill text-success fs-5" title="{{ DLUX_STRINGS.account_active }}"></i>{% endif %}
                     </h3>
                     <div class="mb-3">
                         <span class="badge {{ current_user_management_tier.badge_classes }} badge-role">
@@ -106,21 +106,21 @@
                         {% endif %}
                         {% if user.public_registration %}
                             <span class="badge bg-light text-primary border badge-role ms-1">
-                                <i class="bi bi-person-plus me-1"></i>{{ MS_TRANS.account_source_public|default:"Public signup" }}
+                                <i class="bi bi-person-plus me-1"></i>{{ DLUX_STRINGS.account_source_public|default:"Public signup" }}
                             </span>
                         {% endif %}
                     </div>
                     
                     <!-- Account Health -->
                     <div class="mt-4 p-3 rounded bg-light border">
-                        <small class="text-muted d-block mb-1">{{ MS_TRANS.account_health }}</small>
+                        <small class="text-muted d-block mb-1">{{ DLUX_STRINGS.account_health }}</small>
                         {% if stats.health == 'good' %}
                             <div class="d-flex align-items-center justify-content-center gap-2 text-success fw-bold">
-                                <i class="bi bi-heart-pulse-fill"></i> {{ MS_TRANS.account_health_good }}
+                                <i class="bi bi-heart-pulse-fill"></i> {{ DLUX_STRINGS.account_health_good }}
                             </div>
                         {% else %}
                             <div class="d-flex align-items-center justify-content-center gap-2 text-warning fw-bold">
-                                <i class="bi bi-exclamation-triangle-fill"></i> {{ MS_TRANS.account_health_attention }}
+                                <i class="bi bi-exclamation-triangle-fill"></i> {{ DLUX_STRINGS.account_health_attention }}
                             </div>
                         {% endif %}
                     </div>
@@ -135,24 +135,24 @@
                                     <i class="bi bi-shield-lock-fill text-light"></i>
                                 </div>
                                 <div>
-                                    <h5 class="mb-0">{{ MS_TRANS.2fa_title }}</h5>
-                                    <p class="small mb-0">{{ MS_TRANS.2fa_desc }}</p>
+                                    <h5 class="mb-0">{{ DLUX_STRINGS.2fa_title }}</h5>
+                                    <p class="small mb-0">{{ DLUX_STRINGS.2fa_desc }}</p>
                                 </div>
                             </div>
                             
                             <!-- Action Buttons -->
                             <div class="ms-sm-auto d-flex gap-2">
-                                <!-- <a href="{{ APP_CONFIG.home_url }}" class="btn btn-sm btn-light rounded-pill border action-btn" title="{{ MS_TRANS.btn_home }}">
-                                    <i class="bi bi-house-door"></i> {{ MS_TRANS.btn_home }}
+                                <!-- <a href="{{ APP_CONFIG.home_url }}" class="btn btn-sm btn-light rounded-pill border action-btn" title="{{ DLUX_STRINGS.btn_home }}">
+                                    <i class="bi bi-house-door"></i> {{ DLUX_STRINGS.btn_home }}
                                 </a> -->
-                                <button type="button" class="btn btn-sm btn-info rounded-pill action-btn" data-dynamic-modal="{% url 'user_report_modal' request.user.pk %}" data-modal-title="{{ MS_TRANS.user_report_title }}" title="{{ MS_TRANS.user_report_title }}">
-                                    <i class="bi bi-file-earmark-person"></i> {{ MS_TRANS.user_report_title }}
+                                <button type="button" class="btn btn-sm btn-info rounded-pill action-btn" data-dynamic-modal="{% url 'user_report_modal' request.user.pk %}" data-modal-title="{{ DLUX_STRINGS.user_report_title }}" title="{{ DLUX_STRINGS.user_report_title }}">
+                                    <i class="bi bi-file-earmark-person"></i> {{ DLUX_STRINGS.user_report_title }}
                                 </button>
-                                <button type="button" class="btn btn-sm btn-success rounded-pill action-btn" data-dynamic-modal="{% url 'modal_profile_edit' pk=user.pk %}" data-modal-title="{{ MS_TRANS.btn_edit_profile|default:'Edit Profile' }}" title="{{ MS_TRANS.btn_update_data }}">
-                                    <i class="bi bi-pencil-square"></i> {{ MS_TRANS.btn_edit }}
+                                <button type="button" class="btn btn-sm btn-success rounded-pill action-btn" data-dynamic-modal="{% url 'modal_profile_edit' pk=user.pk %}" data-modal-title="{{ DLUX_STRINGS.btn_edit_profile|default:'Edit Profile' }}" title="{{ DLUX_STRINGS.btn_update_data }}">
+                                    <i class="bi bi-pencil-square"></i> {{ DLUX_STRINGS.btn_edit }}
                                 </button>
-                                <button type="button" class="btn btn-sm btn-danger rounded-pill action-btn" data-bs-toggle="modal" data-bs-target="#resetPasswordModal" title="{{ MS_TRANS.btn_change_password }}">
-                                    <i class="bi bi-key"></i> {{ MS_TRANS.btn_change_password }}
+                                <button type="button" class="btn btn-sm btn-danger rounded-pill action-btn" data-bs-toggle="modal" data-bs-target="#resetPasswordModal" title="{{ DLUX_STRINGS.btn_change_password }}">
+                                    <i class="bi bi-key"></i> {{ DLUX_STRINGS.btn_change_password }}
                                 </button>
                             </div>
                         </div>
@@ -162,16 +162,16 @@
                             {% if config_2fa.email %}
                             <div class="list-group-item bg-transparent d-flex flex-row justify-content-between align-items-center px-0 security-method-row">
                                 <div>
-                                    <i class="bi bi-envelope mx-2"></i> {{ MS_TRANS.2fa_method_email }}
+                                    <i class="bi bi-envelope mx-2"></i> {{ DLUX_STRINGS.2fa_method_email }}
                                 </div>
                                 <div>
                                     {% if user.profile.is_email_2fa_enabled %}
-                                        <span class="badge bg-success me-2">{{ MS_TRANS.status_enabled }}</span>
+                                        <span class="badge bg-success me-2">{{ DLUX_STRINGS.status_enabled }}</span>
                                         <button class="btn btn-sm btn-outline-danger disable-2fa-btn"
                                                 data-method="email" 
                                                 data-url="{% url 'disable_2fa' %}"
-                                                data-confirm-msg="{{ MS_TRANS.msg_confirm_disable_2fa }}">
-                                            <span class="btn-label">{{ MS_TRANS.2fa_disable }}</span>
+                                                data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_disable_2fa }}">
+                                            <span class="btn-label">{{ DLUX_STRINGS.2fa_disable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
@@ -179,7 +179,7 @@
                                                 data-method="email"
                                                 data-url="{% url 'enable_2fa' %}"
                                                 data-email="{{ user.email|default:'' }}">
-                                            <span class="btn-label">{{ MS_TRANS.enable }}</span>
+                                            <span class="btn-label">{{ DLUX_STRINGS.enable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% endif %}
@@ -191,21 +191,21 @@
                             {% if config_2fa.phone %}
                             <div class="list-group-item bg-transparent d-flex flex-row justify-content-between align-items-center px-0 security-method-row">
                                 <div>
-                                    <i class="bi bi-phone mx-2"></i> {{ MS_TRANS.2fa_method_phone }}
+                                    <i class="bi bi-phone mx-2"></i> {{ DLUX_STRINGS.2fa_method_phone }}
                                 </div>
                                 <div>
                                     {% if user.profile.is_phone_2fa_enabled %}
-                                        <span class="badge bg-success me-2">{{ MS_TRANS.status_enabled }}</span>
+                                        <span class="badge bg-success me-2">{{ DLUX_STRINGS.status_enabled }}</span>
                                         <button class="btn btn-sm btn-outline-danger disable-2fa-btn" 
                                                 data-method="phone" 
                                                 data-url="{% url 'disable_2fa' %}"
-                                                data-confirm-msg="{{ MS_TRANS.msg_confirm_disable_2fa }}">
-                                            <span class="btn-label">{{ MS_TRANS.2fa_disable }}</span>
+                                                data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_disable_2fa }}">
+                                            <span class="btn-label">{{ DLUX_STRINGS.2fa_disable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
                                         <button class="btn btn-sm btn-primary setup-2fa-btn" data-method="phone" data-url="{% url 'enable_2fa' %}">
-                                            <span class="btn-label">{{ MS_TRANS.enable }}</span>
+                                            <span class="btn-label">{{ DLUX_STRINGS.enable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% endif %}
@@ -217,21 +217,21 @@
                             {% if config_2fa.totp %}
                             <div class="list-group-item bg-transparent d-flex flex-row justify-content-between align-items-center px-0 security-method-row">
                                 <div>
-                                    <i class="bi bi-app-indicator mx-2"></i> {{ MS_TRANS.2fa_method_totp }}
+                                    <i class="bi bi-app-indicator mx-2"></i> {{ DLUX_STRINGS.2fa_method_totp }}
                                 </div>
                                 <div>
                                     {% if user.profile.is_totp_2fa_enabled %}
-                                        <span class="badge bg-success me-2">{{ MS_TRANS.status_enabled }}</span>
+                                        <span class="badge bg-success me-2">{{ DLUX_STRINGS.status_enabled }}</span>
                                         <button class="btn btn-sm btn-outline-danger disable-2fa-btn" 
                                                 data-method="totp" 
                                                 data-url="{% url 'disable_2fa' %}"
-                                                data-confirm-msg="{{ MS_TRANS.msg_confirm_disable_2fa }}">
-                                            <span class="btn-label">{{ MS_TRANS.2fa_disable }}</span>
+                                                data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_disable_2fa }}">
+                                            <span class="btn-label">{{ DLUX_STRINGS.2fa_disable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
                                         <button class="btn btn-sm btn-primary setup-2fa-btn" data-method="totp" data-url="{% url 'setup_totp' %}">
-                                            <span class="btn-label">{{ MS_TRANS.enable }}</span>
+                                            <span class="btn-label">{{ DLUX_STRINGS.enable }}</span>
                                             <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% endif %}
@@ -243,14 +243,14 @@
                             {% if user.profile.is_2fa_enabled %}
                             <div class="list-group-item bg-transparent d-flex flex-row justify-content-between align-items-center px-0 security-method-row">
                                 <div>
-                                    <i class="bi bi-safe mx-2"></i> {{ MS_TRANS.2fa_method_backup }}
+                                    <i class="bi bi-safe mx-2"></i> {{ DLUX_STRINGS.2fa_method_backup }}
                                 </div>
                                 <div>
                                     <button class="btn btn-sm btn-outline-warning mx-2" 
                                             id="generateBackupCodesBtn" 
                                             data-url="{% url 'generate_backup_codes' %}"
-                                            data-confirm-msg="{{ MS_TRANS.msg_confirm_generate_backup }}">
-                                        <i class="bi bi-arrow-clockwise"></i> {{ MS_TRANS.btn_generate_new }}
+                                            data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_generate_backup }}">
+                                        <i class="bi bi-arrow-clockwise"></i> {{ DLUX_STRINGS.btn_generate_new }}
                                         <span class="spinner-border spinner-border-sm d-none ms-1" aria-hidden="true"></span>
                                     </button>
                                 </div>
@@ -267,11 +267,11 @@
                                     <i class="bi bi-laptop text-light"></i>
                                 </div>
                                 <div>
-                                    <h5 class="mb-0">{{ MS_TRANS.signed_in_devices }}</h5>
-                                    <p class="small mb-0 text-muted">{{ MS_TRANS.signed_in_devices_desc }}</p>
+                                    <h5 class="mb-0">{{ DLUX_STRINGS.signed_in_devices }}</h5>
+                                    <p class="small mb-0 text-muted">{{ DLUX_STRINGS.signed_in_devices_desc }}</p>
                                 </div>
                             </div>
-                            <span class="badge bg-light text-dark border ms-sm-auto">{{ active_sessions|length }} {{ MS_TRANS.active_sessions }}</span>
+                            <span class="badge bg-light text-dark border ms-sm-auto">{{ active_sessions|length }} {{ DLUX_STRINGS.active_sessions }}</span>
                         </div>
 
                         <div class="profile-session-list">
@@ -284,10 +284,10 @@
                                         <div class="d-flex align-items-center gap-2 flex-wrap">
                                             <strong>{{ session.device_label }}</strong>
                                             {% if session.is_current %}
-                                                <span class="badge bg-success-subtle text-success border">{{ MS_TRANS.current_session }}</span>
+                                                <span class="badge bg-success-subtle text-success border">{{ DLUX_STRINGS.current_session }}</span>
                                             {% endif %}
                                             {% if session.is_trusted %}
-                                                <span class="badge bg-light text-primary border">{{ MS_TRANS.trusted_device_badge }}</span>
+                                                <span class="badge bg-light text-primary border">{{ DLUX_STRINGS.trusted_device_badge }}</span>
                                             {% endif %}
                                         </div>
                                         <div class="profile-session-meta">
@@ -295,12 +295,12 @@
                                                 <span><i class="bi bi-globe2 me-1"></i>{{ session.ip_address }}</span>
                                             {% endif %}
                                             {% if session.last_seen %}
-                                                <span><i class="bi bi-clock me-1"></i>{% ms_timesince session.last_seen %}</span>
+                                                <span><i class="bi bi-clock me-1"></i>{% dlux_timesince session.last_seen %}</span>
                                             {% endif %}
                                             {% if session.trusted_until %}
-                                                <span><i class="bi bi-shield-check me-1"></i>{{ MS_TRANS.trusted_until }} {{ session.trusted_until|date:"Y-m-d H:i" }}</span>
+                                                <span><i class="bi bi-shield-check me-1"></i>{{ DLUX_STRINGS.trusted_until }} {{ session.trusted_until|date:"Y-m-d H:i" }}</span>
                                             {% endif %}
-                                            <span><i class="bi bi-hourglass-split me-1"></i>{{ MS_TRANS.session_expires }} {{ session.expire_date|date:"Y-m-d H:i" }}</span>
+                                            <span><i class="bi bi-hourglass-split me-1"></i>{{ DLUX_STRINGS.session_expires }} {{ session.expire_date|date:"Y-m-d H:i" }}</span>
                                         </div>
                                         {% if session.user_agent %}
                                             <div class="profile-session-agent" title="{{ session.user_agent }}">{{ session.user_agent }}</div>
@@ -310,17 +310,17 @@
                                         {% if session.is_current %}
                                             {% if session.is_trusted %}
                                                 <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" disabled>
-                                                    {{ MS_TRANS.current }}
+                                                    {{ DLUX_STRINGS.current }}
                                                 </button>
                                             {% else %}
                                                 <form method="post"
                                                       action="{% url 'trust_current_device' %}"
                                                       class="profile-session-trust-form"
-                                                      data-confirm-msg="{{ MS_TRANS.msg_confirm_trust_current_device }}">
+                                                      data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_trust_current_device }}">
                                                     {% csrf_token %}
                                                     <input type="hidden" name="current_password" value="">
                                                     <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill">
-                                                        <i class="bi bi-shield-plus me-1"></i>{{ MS_TRANS.trust_this_device }}
+                                                        <i class="bi bi-shield-plus me-1"></i>{{ DLUX_STRINGS.trust_this_device }}
                                                     </button>
                                                 </form>
                                             {% endif %}
@@ -328,26 +328,26 @@
                                             <form method="post"
                                                   action="{% url 'revoke_profile_session' session.session_key %}"
                                                   class="profile-session-revoke-form"
-                                                  data-confirm-msg="{{ MS_TRANS.msg_confirm_sign_out_session }}">
+                                                  data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_sign_out_session }}">
                                                 {% csrf_token %}
                                                 <input type="hidden" name="current_password" value="">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
-                                                    <i class="bi bi-box-arrow-right me-1"></i>{{ MS_TRANS.sign_out }}
+                                                    <i class="bi bi-box-arrow-right me-1"></i>{{ DLUX_STRINGS.sign_out }}
                                                 </button>
                                             </form>
                                         {% else %}
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-secondary rounded-pill"
-                                                    data-dl-tooltip="{{ MS_TRANS.session_revoke_trusted_denied }}"
+                                                    data-dlux-tooltip="{{ DLUX_STRINGS.session_revoke_trusted_denied }}"
                                                     disabled>
-                                                <i class="bi bi-shield-lock me-1"></i>{{ MS_TRANS.protected }}
+                                                <i class="bi bi-shield-lock me-1"></i>{{ DLUX_STRINGS.protected }}
                                             </button>
                                         {% endif %}
                                     </div>
                                 </div>
                             {% empty %}
                                 <div class="profile-session-empty">
-                                    <i class="bi bi-info-circle me-1"></i>{{ MS_TRANS.no_active_sessions }}
+                                    <i class="bi bi-info-circle me-1"></i>{{ DLUX_STRINGS.no_active_sessions }}
                                 </div>
                             {% endfor %}
                         </div>
@@ -361,7 +361,7 @@
                                     <i class="bi bi-lightning-charge"></i>
                                 </div>
                                 <div class="stats-value">{{ stats.total_actions }}</div>
-                                <div class="stats-label">{{ MS_TRANS.stats_total_actions|default:"Total Actions" }}</div>
+                                <div class="stats-label">{{ DLUX_STRINGS.stats_total_actions|default:"Total Actions" }}</div>
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
@@ -370,7 +370,7 @@
                                     <i class="bi bi-file-earmark-plus"></i>
                                 </div>
                                 <div class="stats-value">{{ stats.docs_created }}</div>
-                                <div class="stats-label">{{ MS_TRANS.stats_docs_created|default:"Docs Created" }}</div>
+                                <div class="stats-label">{{ DLUX_STRINGS.stats_docs_created|default:"Docs Created" }}</div>
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
@@ -379,7 +379,7 @@
                                     <i class="bi bi-pencil-square"></i>
                                 </div>
                                 <div class="stats-value">{{ stats.total_edits }}</div>
-                                <div class="stats-label">{{ MS_TRANS.stats_edits|default:"Edits" }}</div>
+                                <div class="stats-label">{{ DLUX_STRINGS.stats_edits|default:"Edits" }}</div>
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
@@ -388,7 +388,7 @@
                                     <i class="bi bi-download"></i>
                                 </div>
                                 <div class="stats-value">{{ stats.total_downloads }}</div>
-                                <div class="stats-label">{{ MS_TRANS.stats_downloads|default:"Downloads" }}</div>
+                                <div class="stats-label">{{ DLUX_STRINGS.stats_downloads|default:"Downloads" }}</div>
                             </div>
                         </div>
                     </div>
@@ -401,7 +401,7 @@
                     <div class="row g-4">
                         <!-- Recent Activity -->
                         <div class="col-lg-6">
-                            <h5 class="fw-bold mb-3 text-secondary"><i class="bi bi-clock-history me-2"></i> {{ MS_TRANS.stats_recent_activity }}</h5>
+                            <h5 class="fw-bold mb-3 text-secondary"><i class="bi bi-clock-history me-2"></i> {{ DLUX_STRINGS.stats_recent_activity }}</h5>
                             {% if recent_activity %}
                                 {% load dlux_translation %}
                                 <div class="activity-timeline">
@@ -409,7 +409,7 @@
                                     <div class="timeline-item">
                                         <div class="timeline-dot"></div>
                                         <div class="timeline-content">
-                                            <div class="timeline-time">{% ms_timesince log.timestamp %}</div>
+                                            <div class="timeline-time">{% dlux_timesince log.timestamp %}</div>
                                             <div class="timeline-title">
                                                 {{ log.action|translate_log:'action' }} - 
                                                 {% if log.model_name %}
@@ -429,13 +429,13 @@
                                     {% endfor %}
                                 </div>
                             {% else %}
-                                <p class="text-muted small">{{ MS_TRANS.timeline_empty }}</p>
+                                <p class="text-muted small">{{ DLUX_STRINGS.timeline_empty }}</p>
                             {% endif %}
                         </div>
 
                         <!-- System Interactions -->
                         <div class="col-lg-6">
-                            <h5 class="fw-bold mb-3 text-secondary"><i class="bi bi-cpu me-2"></i> {{ MS_TRANS.stats_system_interactions }}</h5>
+                            <h5 class="fw-bold mb-3 text-secondary"><i class="bi bi-cpu me-2"></i> {{ DLUX_STRINGS.stats_system_interactions }}</h5>
                             {% if system_interactions %}
                                 {% load dlux_translation %}
                                 <div class="activity-timeline">
@@ -443,7 +443,7 @@
                                     <div class="timeline-item">
                                         <div class="timeline-dot timeline-dot--system"></div>
                                         <div class="timeline-content">
-                                            <div class="timeline-time">{% ms_timesince log.timestamp %}</div>
+                                            <div class="timeline-time">{% dlux_timesince log.timestamp %}</div>
                                             <div class="timeline-title">
                                                 {{ log.action|translate_log:'action' }}
                                                 {% if log.model_name %}
@@ -463,7 +463,7 @@
                                     {% endfor %}
                                 </div>
                             {% else %}
-                                <p class="text-muted small">{{ MS_TRANS.timeline_empty }}</p>
+                                <p class="text-muted small">{{ DLUX_STRINGS.timeline_empty }}</p>
                             {% endif %}
                         </div>
                     </div>
@@ -483,28 +483,28 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content glass-card border-0">
             <div class="modal-header border-0">
-                <h5 class="modal-title">{{ MS_TRANS.backup_codes_title }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ MS_TRANS.btn_close }}"></button>
+                <h5 class="modal-title">{{ DLUX_STRINGS.backup_codes_title }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close }}"></button>
             </div>
             <div class="modal-body text-center">
                 <div class="alert alert-warning small text-start">
                     <i class="bi bi-exclamation-triangle-fill me-1"></i> 
-                    {{ MS_TRANS.backup_codes_warning }}
+                    {{ DLUX_STRINGS.backup_codes_warning }}
                 </div>
                 
                 <div class="p-3 rounded mb-3 border font-monospace profile-code-shell" id="backupCodesContainer">
                     <!-- Codes injected here -->
                     <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">{{ MS_TRANS.loading }}</span>
+                        <span class="visually-hidden">{{ DLUX_STRINGS.loading }}</span>
                     </div>
                 </div>
 
                 <div class="d-grid gap-2">
                     <button type="button" class="btn btn-outline-primary" id="downloadBackupCodesBtn">
-                        <i class="bi bi-download"></i> {{ MS_TRANS.btn_download_txt }}
+                        <i class="bi bi-download"></i> {{ DLUX_STRINGS.btn_download_txt }}
                     </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        {{ MS_TRANS.btn_close }}
+                        {{ DLUX_STRINGS.btn_close }}
                     </button>
                 </div>
             </div>
@@ -517,15 +517,15 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content glass-card border-0">
             <div class="modal-header border-0">
-                <h5 class="modal-title">{{ MS_TRANS.2fa_verify_title }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ MS_TRANS.btn_close }}"></button>
+                <h5 class="modal-title">{{ DLUX_STRINGS.2fa_verify_title }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close }}"></button>
             </div>
             <div class="modal-body text-center">
                 <div class="mb-3">
                     <i class="bi bi-shield-lock-fill profile-setup-icon"></i>
                 </div>
                 
-                <p class="text-white-50 mb-4" id="otp-instruction">{{ MS_TRANS.2fa_verify_desc }}</p>
+                <p class="text-white-50 mb-4" id="otp-instruction">{{ DLUX_STRINGS.2fa_verify_desc }}</p>
                 
                 <div id="totp-qr-container" class="mb-4 d-none"></div>
 
@@ -533,7 +533,7 @@
 
                 <div id="email2faConfirm" class="text-start d-none">
                     <label for="email2faAddressInput" class="form-label">
-                        {{ MS_TRANS.2fa_confirm_email_label }}
+                        {{ DLUX_STRINGS.2fa_confirm_email_label }}
                     </label>
                     <input type="email"
                            class="form-control form-control-lg"
@@ -541,10 +541,10 @@
                            autocomplete="email"
                            placeholder="name@example.com">
                     <p class="small text-muted mt-2 mb-3">
-                        {{ MS_TRANS.2fa_confirm_email_help }}
+                        {{ DLUX_STRINGS.2fa_confirm_email_help }}
                     </p>
                     <button type="button" class="btn btn-primary w-100" id="email2faConfirmBtn">
-                        <span class="btn-label">{{ MS_TRANS.2fa_confirm_email_send }}</span>
+                        <span class="btn-label">{{ DLUX_STRINGS.2fa_confirm_email_send }}</span>
                         <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                     </button>
                 </div>
@@ -552,18 +552,18 @@
                 <form id="otpSetupForm" 
                     data-url="{% url 'verify_otp_enable' %}" 
                     data-csrf="{{ csrf_token }}"
-                    data-trans-verify-title="{{ MS_TRANS.2fa_verify_title }}"
-                    data-trans-confirm-email-title="{{ MS_TRANS.2fa_confirm_email_title }}"
-                    data-trans-confirm-email-instruction="{{ MS_TRANS.2fa_confirm_email_instruction }}"
-                    data-trans-invalid-email="{{ MS_TRANS.2fa_invalid_email }}"
-                    data-trans-scan-instruction="{{ MS_TRANS.totp_scan_instruction }}"
-                    data-trans-otp-sent="{{ MS_TRANS.otp_sent_instruction }}"
-                    data-trans-recovery-codes="{{ MS_TRANS.2fa_method_backup }}">
+                    data-trans-verify-title="{{ DLUX_STRINGS.2fa_verify_title }}"
+                    data-trans-confirm-email-title="{{ DLUX_STRINGS.2fa_confirm_email_title }}"
+                    data-trans-confirm-email-instruction="{{ DLUX_STRINGS.2fa_confirm_email_instruction }}"
+                    data-trans-invalid-email="{{ DLUX_STRINGS.2fa_invalid_email }}"
+                    data-trans-scan-instruction="{{ DLUX_STRINGS.totp_scan_instruction }}"
+                    data-trans-otp-sent="{{ DLUX_STRINGS.otp_sent_instruction }}"
+                    data-trans-recovery-codes="{{ DLUX_STRINGS.2fa_method_backup }}">
                     <input type="hidden" id="otpMethodInput" name="method" value="">
                     
                     <div class="mb-3">
                         <input type="text" 
-                                class="form-control form-control-lg text-center fw-bold dl-otp-code-input" 
+                                class="form-control form-control-lg text-center fw-bold dlux-otp-code-input" 
                                 id="otpSetupInput" 
                                 name="otp_code" 
                                 placeholder="######" 
@@ -571,19 +571,19 @@
                                 required>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
-                        {{ MS_TRANS.2fa_verify_btn }}
+                        {{ DLUX_STRINGS.2fa_verify_btn }}
                     </button>
                 </form>
 
                 <!-- Hidden Backup Codes Section for First-Time Setup -->
                 <div id="otpSetupSuccess" class="d-none text-start">
                     <div class="alert alert-success text-center mb-3">
-                        <i class="bi bi-check-circle-fill me-2"></i> {{ MS_TRANS.2fa_enabled_success }}
+                        <i class="bi bi-check-circle-fill me-2"></i> {{ DLUX_STRINGS.2fa_enabled_success }}
                     </div>
                     
                     <div class="alert alert-warning small">
                         <i class="bi bi-exclamation-triangle-fill me-1"></i> 
-                        {{ MS_TRANS.backup_codes_warning }}
+                        {{ DLUX_STRINGS.backup_codes_warning }}
                     </div>
 
                     <div class="p-3 rounded mb-3 border font-monospace text-center profile-code-shell" id="otpSetupBackupCodesContainer">
@@ -592,10 +592,10 @@
 
                     <div class="d-grid gap-2">
                         <button type="button" class="btn btn-outline-primary" id="downloadSetupBackupCodesBtn">
-                            <i class="bi bi-download"></i> {{ MS_TRANS.btn_download_txt }}
+                            <i class="bi bi-download"></i> {{ DLUX_STRINGS.btn_download_txt }}
                         </button>
                         <button type="button" class="btn btn-secondary" id="confirmCodesSavedBtn" data-bs-dismiss="modal">
-                            {{ MS_TRANS.btn_close_reload }}
+                            {{ DLUX_STRINGS.btn_close_reload }}
                         </button>
                     </div>
                 </div>
@@ -610,7 +610,7 @@
         <div class="modal-content glass-card border-0">
             <div class="modal-header border-0">
                 <h5 class="modal-title fw-bold text-primary" id="resetPasswordModalLabel">
-                    <i class="bi bi-key me-2"></i> {{ MS_TRANS.btn_change_password }}
+                    <i class="bi bi-key me-2"></i> {{ DLUX_STRINGS.btn_change_password }}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -620,7 +620,7 @@
                     {{ password_form|crispy }}
                     <div class="d-grid mt-4">
                         <button type="submit" name="change_password" class="btn btn-danger action-btn rounded-pill justify-content-center">
-                            {{ MS_TRANS.btn_confirm_password_change }}
+                            {{ DLUX_STRINGS.btn_confirm_password_change }}
                         </button>
                     </div>
                 </form>
@@ -635,21 +635,21 @@
         <div class="modal-content glass-card border-0">
             <div class="modal-body text-center p-4">
                 <i class="bi bi-exclamation-circle text-warning display-4 mb-3"></i>
-                <h5 class="mb-2 profile-confirmation-title">{{ MS_TRANS.modal_confirm_title }}</h5>
-                <p class="small mb-4 profile-confirmation-copy" id="confirmationMessage">{{ MS_TRANS.modal_confirm_msg }}</p>
+                <h5 class="mb-2 profile-confirmation-title">{{ DLUX_STRINGS.modal_confirm_title }}</h5>
+                <p class="small mb-4 profile-confirmation-copy" id="confirmationMessage">{{ DLUX_STRINGS.modal_confirm_msg }}</p>
                 <div id="confirmationPasswordWrap" class="d-none text-start mb-3">
-                    <label for="confirmationPasswordInput" class="form-label">{{ MS_TRANS.form_old_password }}</label>
+                    <label for="confirmationPasswordInput" class="form-label">{{ DLUX_STRINGS.form_old_password }}</label>
                     <input type="password"
                            class="form-control"
                            id="confirmationPasswordInput"
                            autocomplete="current-password"
-                           data-required-msg="{{ MS_TRANS.current_password_required }}">
-                    <div class="form-text">{{ MS_TRANS.current_password_prompt }}</div>
+                           data-required-msg="{{ DLUX_STRINGS.current_password_required }}">
+                    <div class="form-text">{{ DLUX_STRINGS.current_password_prompt }}</div>
                     <div class="text-danger small mt-2 d-none" id="confirmationPasswordError"></div>
                 </div>
                 <div class="d-flex justify-content-center gap-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">{{ MS_TRANS.cancel }}</button>
-                    <button type="button" class="btn btn-primary btn-sm px-4" id="confirmationConfirmBtn">{{ MS_TRANS.confirm }}</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">{{ DLUX_STRINGS.cancel }}</button>
+                    <button type="button" class="btn btn-primary btn-sm px-4" id="confirmationConfirmBtn">{{ DLUX_STRINGS.confirm }}</button>
                 </div>
             </div>
         </div>

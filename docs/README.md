@@ -18,7 +18,7 @@ Use the sections below based on what you are trying to do.
 ## I am Configuring DjangoLux
 
 - [Admin Guide](admin-guide.md) for the first-launch setup wizard, Options view, sidebar builder, themes, languages, and runtime preferences.
-- [MSRP-1 Security Standard](security-msrp-1.md) for the active backend authorization and security-flow policy.
+- [DSRP-1 Security Standard](security-dsrp-1.md) for the active backend authorization and security-flow policy.
 - [Public Registration Playground](registration.md) for the disabled-by-default email-verified local signup path.
 - [Optional SSO Packages](sso.md) for the separate OIDC provider plugin and client SDK.
 
@@ -31,7 +31,7 @@ Use the sections below based on what you are trying to do.
 
 - [Features](FEATURES.md) — complete feature inventory covering every capability from scaffolding to security, tables, themes, and UI infrastructure.
 - [Reference](reference.md) for management commands, endpoints, template tags, helper utilities, and codebase entry points.
-- [MSRP-1 Security Standard](security-msrp-1.md) for the core backend authorization contract and the no-inline runtime asset policy.
+- [DSRP-1 Security Standard](security-dsrp-1.md) for the core backend authorization contract and the no-inline runtime asset policy.
 - [Customization Guide](customization-guide.md#universal-fetcher-and-excel-export) for download/export helpers.
 - [Customization Guide](customization-guide.md#context-menu-integration) for action schema and integration patterns.
 - [Customization Guide](customization-guide.md#activity-logging-and-audit-trail) for the audit-log model and manual hooks.

@@ -193,11 +193,11 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("_scope_filtered_queryset", views_contents)
             self.assertIn("log_user_action", views_contents)
             self.assertIn('reverse("modal_manager", args=[app_label, model_name, record.pk]) + "?action=view"', tables_contents)
-            self.assertIn('"event": "micro:dynamic_modal:open"', tables_contents)
+            self.assertIn('"event": "dlux:dynamic_modal:open"', tables_contents)
             self.assertIn("{% url 'modal_manager' 'inventory' 'ExampleRecord' 'new' %}", list_template_contents)
             self.assertIn('data-dynamic-modal=', list_template_contents)
             self.assertIn("Dynamic Modal Example", readme_contents)
-            self.assertIn("MS_TRANSLATIONS", translations_contents)
+            self.assertIn("DLUX_STRINGS", translations_contents)
 
     def test_register_updates_settings_and_urls_idempotently(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

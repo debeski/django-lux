@@ -1,59 +1,59 @@
 {% extends 'dlux/base.html' %}
 {% load static %}
 
-{% block title %}{{ MS_TRANS.options_title }}{% endblock %}
+{% block title %}{{ DLUX_STRINGS.options_title }}{% endblock %}
 
 {% block extra_head %}
     {% include "dlux/forms/assets_head.html" %}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260525a">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260612c">
 {% endblock %}
 
 {% block content %}
-    <h2 class="page-title mb-4"><i class="bi bi-gear me-2"></i> {{ MS_TRANS.options_title }}</h2>
+    <h2 class="page-title mb-4"><i class="bi bi-gear me-2"></i> {{ DLUX_STRINGS.options_title }}</h2>
 
-    <div class="dl-options-grid"
-         id="msOptionsGrid"
+    <div class="dlux-options-grid"
+         id="dluxOptionsGrid"
          data-options-order-storage-key="dlux.options.card-order.v1">
         <!-- Accessibility Section -->
-        <div class="dl-options-card no-print" data-options-card="accessibility">
-            <div class="glass-profile option-section h-100 dl-options-panel">
-                <button class="dl-options-card-handle"
+        <div class="dlux-options-card no-print" data-options-card="accessibility">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3"><i class="bi bi-eye me-2"></i> {{ MS_TRANS.accessibility }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.accessibility_desc }}</p>
+                <h4 class="mb-3"><i class="bi bi-eye me-2"></i> {{ DLUX_STRINGS.accessibility }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.accessibility_desc }}</p>
 
-                <div class="d-grid gap-3 dl-options-switch-list">
-                    <div class="dl-options-switch-row">
-                        <label for="options-accessibility-high-contrast">{{ MS_TRANS.high_contrast }}</label>
+                <div class="d-grid gap-3 dlux-options-switch-list">
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-high-contrast">{{ DLUX_STRINGS.high_contrast }}</label>
                         <div class="form-check form-switch">
                             <input id="options-accessibility-high-contrast" name="accessibility_high_contrast" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="high-contrast">
                         </div>
                     </div>
-                    <div class="dl-options-switch-row">
-                        <label for="options-accessibility-grayscale">{{ MS_TRANS.grayscale }}</label>
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-grayscale">{{ DLUX_STRINGS.grayscale }}</label>
                         <div class="form-check form-switch">
                             <input id="options-accessibility-grayscale" name="accessibility_grayscale" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="grayscale">
                         </div>
                     </div>
-                    <div class="dl-options-switch-row">
-                        <label for="options-accessibility-invert">{{ MS_TRANS.invert }}</label>
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-invert">{{ DLUX_STRINGS.invert }}</label>
                         <div class="form-check form-switch">
                             <input id="options-accessibility-invert" name="accessibility_invert" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="invert">
                         </div>
                     </div>
-                    <div class="dl-options-switch-row">
-                        <label for="options-accessibility-large-text">{{ MS_TRANS.large_text }}</label>
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-large-text">{{ DLUX_STRINGS.large_text }}</label>
                         <div class="form-check form-switch">
                             <input id="options-accessibility-large-text" name="accessibility_large_text" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="large-text">
                         </div>
                     </div>
-                    <div class="dl-options-switch-row">
-                        <label for="options-accessibility-no-animations">{{ MS_TRANS.no_animations }}</label>
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-no-animations">{{ DLUX_STRINGS.no_animations }}</label>
                         <div class="form-check form-switch">
                             <input id="options-accessibility-no-animations" name="accessibility_no_animations" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="no-animations">
                         </div>
@@ -64,28 +64,28 @@
 
         {% if show_system_diagnostics %}
         <!-- System Info Section -->
-        <div class="dl-options-card dl-options-card--wide" data-options-card="system-info">
-            <div class="glass-profile option-section h-100 dl-options-panel">
-                <button class="dl-options-card-handle"
+        <div class="dlux-options-card dlux-options-card--wide" data-options-card="system-info">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3"><i class="bi bi-info-circle me-2"></i> {{ MS_TRANS.system_info }}</h4>
-                <div class="table-responsive dl-options-system-info-table">
+                <h4 class="mb-3"><i class="bi bi-info-circle me-2"></i> {{ DLUX_STRINGS.system_info }}</h4>
+                <div class="table-responsive dlux-options-system-info-table">
                 <table class="table table-sm table-borderless mt-4">
                     <tr>
-                        <th width="40%">{{ MS_TRANS.server_time }}:</th>
+                        <th width="40%">{{ DLUX_STRINGS.server_time }}:</th>
                         <td class="dir-ltr-inline-end font-monospace">{{ server_time_backend_display }}</td>
                     </tr>
                     <tr>
-                        <th width="40%">{{ MS_TRANS.storage }}:</th>
+                        <th width="40%">{{ DLUX_STRINGS.storage }}:</th>
                         <td class="dir-ltr font-monospace">
-                            <div class="d-flex dir-ltr-inline-end align-items-center gap-2 dl-options-storage-row">
+                            <div class="d-flex dir-ltr-inline-end align-items-center gap-2 dlux-options-storage-row">
                                 <span>{{ disk_used }}GB / {{ disk_total }}GB</span>
-                                <div class="progress flex-shrink-0 dl-options-storage-progress">
+                                <div class="progress flex-shrink-0 dlux-options-storage-progress">
                                     <div class="progress-bar {% if disk_percent > 90 %}bg-danger{% elif disk_percent > 70 %}bg-warning{% else %}bg-success{% endif %}"
                                         role="progressbar" data-inline-width="{{ disk_percent }}%"
                                         aria-valuenow="{{ disk_percent }}" aria-valuemin="0" aria-valuemax="100">
@@ -95,32 +95,32 @@
                         </td>
                     </tr>
                     <tr>
-                        <th>{{ MS_TRANS.os_info }}:</th>
+                        <th>{{ DLUX_STRINGS.os_info }}:</th>
                         <td class="text-end">{{ os_info }}</td>
                     </tr>
                     <tr>
-                        <th>{{ MS_TRANS.python_version }}:</th>
+                        <th>{{ DLUX_STRINGS.python_version }}:</th>
                         <td class="text-end font-monospace">{{ python_version }}</td>
                     </tr>
                     <tr>
-                        <th>{{ MS_TRANS.django_version }}:</th>
+                        <th>{{ DLUX_STRINGS.django_version }}:</th>
                         <td class="text-end font-monospace">{{ django_version }}</td>
                     </tr>
                     {% if decrypter_version %}
                     <tr>
-                        <th>{{ MS_TRANS.decrypter_version }}:</th>
+                        <th>{{ DLUX_STRINGS.decrypter_version }}:</th>
                         <td class="text-end font-monospace">{{ decrypter_version }}</td>
                     </tr>
                     {% endif %}
                     {% if drf_service %}
                     <tr>
-                        <th>{{ MS_TRANS.drf_version }}:</th>
+                        <th>{{ DLUX_STRINGS.drf_version }}:</th>
                         <td class="text-end font-monospace">{{ drf_service.version }}</td>
                     </tr>
                     {% endif %}
                     {% if api_service %}
                     <tr>
-                        <th>{{ MS_TRANS.api_status }}:</th>
+                        <th>{{ DLUX_STRINGS.api_status }}:</th>
                         <td class="text-end">
                             <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
                                 <span class="badge {{ api_service.badge_class }}" title="{{ api_service.note|default:'' }}">{{ api_service.label }}</span>
@@ -138,7 +138,7 @@
                     {% endif %}
                     {% if db_service %}
                     <tr>
-                        <th>{{ MS_TRANS.database }}:</th>
+                        <th>{{ DLUX_STRINGS.database }}:</th>
                         <td class="text-end">
                             <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
                                 <span class="font-monospace">{{ db_service.detail }}</span>
@@ -152,7 +152,7 @@
                     {% endif %}
                     {% if cache_service %}
                     <tr>
-                        <th>{{ MS_TRANS.cache }}:</th>
+                        <th>{{ DLUX_STRINGS.cache }}:</th>
                         <td class="text-end">
                             <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
                                 <span class="font-monospace">{{ cache_service.detail }}</span>
@@ -166,7 +166,7 @@
                     {% endif %}
                     {% if email_service %}
                     <tr>
-                        <th>{{ MS_TRANS.email_label|default:"Email" }}:</th>
+                        <th>{{ DLUX_STRINGS.email_label|default:"Email" }}:</th>
                         <td class="text-end">
                             <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
                                 <span class="font-monospace">{{ email_service.detail }}</span>
@@ -180,7 +180,7 @@
                     {% endif %}
                     {% if celery_service %}
                     <tr>
-                        <th>{{ MS_TRANS.tasks }}:</th>
+                        <th>{{ DLUX_STRINGS.tasks }}:</th>
                         <td class="text-end">
                             <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
                                 {% if celery_service.detail %}
@@ -195,7 +195,7 @@
                     </tr>
                     {% endif %}
                     <tr>
-                        <th>{{ MS_TRANS.dlux_version }}:</th>
+                        <th>{{ DLUX_STRINGS.dlux_version }}:</th>
                         <td class="text-end"><span class="badge bg-success">v{{ version }}</span></td>
                     </tr>
                 </table>
@@ -210,34 +210,34 @@
             {% if DLUX_THEMES|length > 5 or LANGUAGES|length > 2 %}
 
                 {% if config.allow_user_theme_override and DLUX_THEMES|length > 1 %}
-                <div class="dl-options-card no-print" data-options-card="theme">
-                    <div class="glass-profile option-section h-100 dl-options-panel">
-                        <button class="dl-options-card-handle"
+                <div class="dlux-options-card no-print" data-options-card="theme">
+                    <div class="glass-profile option-section h-100 dlux-options-panel">
+                        <button class="dlux-options-card-handle"
                                 type="button"
                                 data-options-card-handle
-                                aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                                title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                                aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                                title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                             <i class="bi bi-grip-vertical"></i>
                         </button>
-                        <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
-                        <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
+                        <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ DLUX_STRINGS.themes }}</h4>
+                        <p class="text-muted small mb-4">{{ DLUX_STRINGS.themes_desc }}</p>
                         {% include 'dlux/includes/theme_previews.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
                     </div>
                 </div>
                 {% endif %}
 
                 {% if language_picker_enabled %}
-                <div class="dl-options-card no-print" data-options-card="language">
-                    <div class="glass-profile option-section h-100 dl-options-panel">
-                        <button class="dl-options-card-handle"
+                <div class="dlux-options-card no-print" data-options-card="language">
+                    <div class="glass-profile option-section h-100 dlux-options-panel">
+                        <button class="dlux-options-card-handle"
                                 type="button"
                                 data-options-card-handle
-                                aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                                title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                                aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                                title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                             <i class="bi bi-grip-vertical"></i>
                         </button>
-                        <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ MS_TRANS.language }}</h4>
-                        <p class="text-muted small mb-4">{{ MS_TRANS.language_desc }}</p>
+                        <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ DLUX_STRINGS.language }}</h4>
+                        <p class="text-muted small mb-4">{{ DLUX_STRINGS.language_desc }}</p>
 
                         {% if LANGUAGES|length > 1 %}
                             {% include 'dlux/includes/language_previews.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
@@ -248,20 +248,20 @@
 
             {% else %}
 
-                <div class="dl-options-card no-print" data-options-card="theme-language">
-                    <div class="glass-profile option-section h-100 dl-options-panel">
-                        <button class="dl-options-card-handle"
+                <div class="dlux-options-card no-print" data-options-card="theme-language">
+                    <div class="glass-profile option-section h-100 dlux-options-panel">
+                        <button class="dlux-options-card-handle"
                                 type="button"
                                 data-options-card-handle
-                                aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                                title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                                aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                                title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                             <i class="bi bi-grip-vertical"></i>
                         </button>
 
                         {% if config.allow_user_theme_override and DLUX_THEMES|length > 1 %}
                             <div class="mb-4">
-                                <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ MS_TRANS.themes }}</h4>
-                                <p class="text-muted small mb-4">{{ MS_TRANS.themes_desc }}</p>
+                                <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ DLUX_STRINGS.themes }}</h4>
+                                <p class="text-muted small mb-4">{{ DLUX_STRINGS.themes_desc }}</p>
                                 {% include 'dlux/includes/theme_previews.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
                             </div>
                         {% endif %}
@@ -274,8 +274,8 @@
 
                         {% if language_picker_enabled %}
                             <div>
-                                <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ MS_TRANS.language }}</h4>
-                                <p class="text-muted small mb-4">{{ MS_TRANS.language_desc }}</p>
+                                <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ DLUX_STRINGS.language }}</h4>
+                                <p class="text-muted small mb-4">{{ DLUX_STRINGS.language_desc }}</p>
 
                                 {% if LANGUAGES|length > 1 %}
                                     {% include 'dlux/includes/language_previews.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
@@ -292,17 +292,17 @@
         
         <!-- Typography Section -->
         {% if font_picker_enabled %}
-        <div class="dl-options-card no-print" data-options-card="typography">
-            <div class="glass-profile option-section h-100 dl-options-panel">
-                <button class="dl-options-card-handle"
+        <div class="dlux-options-card no-print" data-options-card="typography">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3"><i class="bi bi-fonts me-2"></i> {{ MS_TRANS.typography }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.typography_desc }}</p>
+                <h4 class="mb-3"><i class="bi bi-fonts me-2"></i> {{ DLUX_STRINGS.typography }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.typography_desc }}</p>
 
                 {% include 'dlux/includes/font_previews.html' with selected_font=active_font option_fonts=option_fonts %}
             </div>
@@ -310,109 +310,109 @@
         {% endif %}
 
         <!-- Table Density -->
-        <div class="dl-options-card no-print" data-options-card="table-density">
-            <div class="glass-profile option-section h-100 dl-options-panel">
-                <button class="dl-options-card-handle"
+        <div class="dlux-options-card no-print" data-options-card="table-density">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3"><i class="bi bi-table me-2"></i> {{ MS_TRANS.table_density|default:"Table Density" }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.table_density_desc|default:"Control how much vertical space data tables use while you work." }}</p>
-                {% include 'dlux/includes/table_density_previews.html' with selected_density=user_preferences.table_density|default:APP_CONFIG.default_table_density picker_mode='options' density_choices=DLUX_TABLE_DENSITIES MS_TRANS=MS_TRANS %}
+                <h4 class="mb-3"><i class="bi bi-table me-2"></i> {{ DLUX_STRINGS.table_density|default:"Table Density" }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.table_density_desc|default:"Control how much vertical space data tables use while you work." }}</p>
+                {% include 'dlux/includes/table_density_previews.html' with selected_density=user_preferences.table_density|default:APP_CONFIG.default_table_density picker_mode='options' density_choices=DLUX_TABLE_DENSITIES DLUX_STRINGS=DLUX_STRINGS %}
             </div>
         </div>
 
         {% if navbar.enabled and navbar.allow_user_mode_override %}
-        <div class="dl-options-card no-print" data-options-card="navbar-mode">
-            <div class="glass-profile option-section h-100 dl-options-panel">
-                <button class="dl-options-card-handle"
+        <div class="dlux-options-card no-print" data-options-card="navbar-mode">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder }}"
-                        title="{{ MS_TRANS.sidebar_reorder }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3"><i class="bi bi-signpost-split me-2"></i> {{ MS_TRANS.navbar_options_title }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.navbar_options_desc }}</p>
-                {% include 'dlux/includes/navbar_mode_previews.html' with selected_mode=user_preferences.navbar_mode|default:navbar.default_mode MS_TRANS=MS_TRANS %}
+                <h4 class="mb-3"><i class="bi bi-signpost-split me-2"></i> {{ DLUX_STRINGS.navbar_options_title }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.navbar_options_desc }}</p>
+                {% include 'dlux/includes/navbar_mode_previews.html' with selected_mode=user_preferences.navbar_mode|default:navbar.default_mode DLUX_STRINGS=DLUX_STRINGS %}
             </div>
         </div>
         {% endif %}
 
         {% if config.sidebar.allow_user_density %}
         <!-- Sidebar Density -->
-        <div class="dl-options-card no-print" data-options-card="sidebar-density">
-            <div class="glass-profile option-section h-100 dl-options-panel">
-                <button class="dl-options-card-handle"
+        <div class="dlux-options-card no-print" data-options-card="sidebar-density">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3"><i class="bi bi-layout-sidebar-inset me-2"></i> {{ MS_TRANS.sidebar_density|default:"Sidebar Density" }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.sidebar_density_desc|default:"Control how much vertical space the sidebar navigation uses while you work." }}</p>
-                {% include 'dlux/includes/sidebar_density_previews.html' with selected_density=user_preferences.sidebar_density|default:sidebar_density|default:config.sidebar.density picker_mode='options' density_choices=DLUX_TABLE_DENSITIES MS_TRANS=MS_TRANS %}
+                <h4 class="mb-3"><i class="bi bi-layout-sidebar-inset me-2"></i> {{ DLUX_STRINGS.sidebar_density|default:"Sidebar Density" }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.sidebar_density_desc|default:"Control how much vertical space the sidebar navigation uses while you work." }}</p>
+                {% include 'dlux/includes/sidebar_density_previews.html' with selected_density=user_preferences.sidebar_density|default:sidebar_density|default:config.sidebar.density picker_mode='options' density_choices=DLUX_TABLE_DENSITIES DLUX_STRINGS=DLUX_STRINGS %}
             </div>
         </div>
         {% endif %}
 
         <!-- Autofill -->
-        <div class="dl-options-card no-print" data-options-card="autofill">
-            <div class="glass-profile option-section h-100 dl-options-panel">
-                <button class="dl-options-card-handle"
+        <div class="dlux-options-card no-print" data-options-card="autofill">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3"><i class="bi bi-magic me-2"></i> {{ MS_TRANS.autofill }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.autofill_desc }}</p>
-                <div class="dl-options-toggle-shell">
-                    <label class="dl-options-toggle-label" for="autofillToggle">{{ MS_TRANS.on_off }}</label>
-                    <div class="form-check form-switch dl-options-inline-switch">
+                <h4 class="mb-3"><i class="bi bi-magic me-2"></i> {{ DLUX_STRINGS.autofill }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.autofill_desc }}</p>
+                <div class="dlux-options-toggle-shell">
+                    <label class="dlux-options-toggle-label" for="autofillToggle">{{ DLUX_STRINGS.on_off }}</label>
+                    <div class="form-check form-switch dlux-options-inline-switch">
                         <input class="form-check-input"
                                type="checkbox"
                                id="autofillToggle"
                                name="autofill_enabled"
                                checked
-                               data-enabled-message="{{ MS_TRANS.autofill_enabled }}"
-                               data-disabled-message="{{ MS_TRANS.autofill_disabled }}">
+                               data-enabled-message="{{ DLUX_STRINGS.autofill_enabled }}"
+                               data-disabled-message="{{ DLUX_STRINGS.autofill_disabled }}">
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Reset Defaults -->
-        <div class="dl-options-card no-print" data-options-card="reset-defaults">
-            <div class="glass-profile option-section h-100 dl-options-panel dl-options-panel--danger"
+        <div class="dlux-options-card no-print" data-options-card="reset-defaults">
+            <div class="glass-profile option-section h-100 dlux-options-panel dlux-options-panel--danger"
                  data-reset-url="{% url 'reset_preferences' %}"
-                 data-reset-success="{{ MS_TRANS.reset_success }}"
-                 data-reset-error="{{ MS_TRANS.reset_error|default:'Unable to reset preferences.' }}">
-                <button class="dl-options-card-handle"
+                 data-reset-success="{{ DLUX_STRINGS.reset_success }}"
+                 data-reset-error="{{ DLUX_STRINGS.reset_error|default:'Unable to reset preferences.' }}">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3 text-danger"><i class="bi bi-arrow-counterclockwise me-2"></i> {{ MS_TRANS.reset_defaults }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.reset_desc }}</p>
-                <div class="dl-options-reset-action-shell">
-                    <button class="btn btn-outline-danger btn-sm dl-options-reset-action" id="btnResetInit">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> {{ MS_TRANS.reset_btn }}
+                <h4 class="mb-3 text-danger"><i class="bi bi-arrow-counterclockwise me-2"></i> {{ DLUX_STRINGS.reset_defaults }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.reset_desc }}</p>
+                <div class="dlux-options-reset-action-shell">
+                    <button class="btn btn-outline-danger btn-sm dlux-options-reset-action" id="btnResetInit">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> {{ DLUX_STRINGS.reset_btn }}
                     </button>
-                    <div id="resetActions" class="dl-options-reset-actions" hidden>
+                    <div id="resetActions" class="dlux-options-reset-actions" hidden>
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-danger btn-sm" id="btnResetConfirm">
-                                <i class="bi bi-check-lg me-1"></i> {{ MS_TRANS.confirm }}
+                                <i class="bi bi-check-lg me-1"></i> {{ DLUX_STRINGS.confirm }}
                             </button>
                             <button type="button" class="btn btn-secondary btn-sm" id="btnResetCancel">
-                                <i class="bi bi-x-lg me-1"></i> {{ MS_TRANS.cancel }}
+                                <i class="bi bi-x-lg me-1"></i> {{ DLUX_STRINGS.cancel }}
                             </button>
                         </div>
                     </div>
@@ -422,153 +422,153 @@
 
         {% if user.is_superuser %}
         <!-- Backup & Restore -->
-        <div class="dl-options-card" data-options-card="system-backup">
-            <div class="glass-profile option-section h-100 dl-options-panel">
-                <button class="dl-options-card-handle"
+        <div class="dlux-options-card" data-options-card="system-backup">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3"><i class="bi bi-safe2-fill me-2"></i> {{ MS_TRANS.sysbackup_title }}</h4>
-                <p class="text-muted small mb-4">{{ MS_TRANS.sysbackup_options_desc }}</p>
+                <h4 class="mb-3"><i class="bi bi-safe2-fill me-2"></i> {{ DLUX_STRINGS.sysbackup_title }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.sysbackup_options_desc }}</p>
                 {% with summary=system_backup_summary %}
-                <div class="dl-system-backup-summary">
-                    <div class="dl-system-backup-feature">
-                        <span class="dl-system-backup-label">{{ MS_TRANS.sysbackup_last_backup }}</span>
-                        <strong class="dl-system-backup-value">
+                <div class="dlux-system-backup-summary">
+                    <div class="dlux-system-backup-feature">
+                        <span class="dlux-system-backup-label">{{ DLUX_STRINGS.sysbackup_last_backup }}</span>
+                        <strong class="dlux-system-backup-value">
                             {% if summary.latest_completed_backup and summary.latest_completed_backup.completed_at %}
                                 {{ summary.latest_completed_backup.completed_at|date:'Y-m-d H:i' }}
                             {% elif summary.latest_backup %}
                                 {{ summary.latest_backup.created_at|date:'Y-m-d H:i' }}
                             {% else %}
-                                {{ MS_TRANS.sysbackup_never }}
+                                {{ DLUX_STRINGS.sysbackup_never }}
                             {% endif %}
                         </strong>
                     </div>
-                    <div class="dl-system-backup-metrics">
-                        <div class="dl-system-backup-metric">
-                            <span>{{ MS_TRANS.sysbackup_completed_count }}</span>
+                    <div class="dlux-system-backup-metrics">
+                        <div class="dlux-system-backup-metric">
+                            <span>{{ DLUX_STRINGS.sysbackup_completed_count }}</span>
                             <strong>{{ summary.completed_count|default:0 }}</strong>
                         </div>
-                        <div class="dl-system-backup-metric">
-                            <span>{{ MS_TRANS.sysbackup_protected_count }}</span>
+                        <div class="dlux-system-backup-metric">
+                            <span>{{ DLUX_STRINGS.sysbackup_protected_count }}</span>
                             <strong>{{ summary.protected_count|default:0 }}</strong>
                         </div>
-                        <div class="dl-system-backup-metric">
-                            <span>{{ MS_TRANS.sysrestore_last_restore }}</span>
+                        <div class="dlux-system-backup-metric">
+                            <span>{{ DLUX_STRINGS.sysrestore_last_restore }}</span>
                             <strong>
                                 {% if summary.latest_restore %}
                                     {{ summary.latest_restore.created_at|date:'Y-m-d H:i' }}
                                 {% else %}
-                                    {{ MS_TRANS.sysbackup_never }}
+                                    {{ DLUX_STRINGS.sysbackup_never }}
                                 {% endif %}
                             </strong>
                         </div>
                     </div>
                 </div>
                 {% endwith %}
-                <a class="btn btn-primary dl-system-backup-action"
+                <a class="btn btn-primary dlux-system-backup-action"
                    href="{% url 'system_backup_page' %}">
-                    <i class="bi bi-box-arrow-up-right me-1"></i>{{ MS_TRANS.sysbackup_open }}
+                    <i class="bi bi-box-arrow-up-right me-1"></i>{{ DLUX_STRINGS.sysbackup_open }}
                 </a>
             </div>
         </div>
 
         <!-- System Settings -->
-        <div class="dl-options-card" data-options-card="system-settings">
-            <div class="glass-profile option-section h-100 dl-options-panel">
-                <button class="dl-options-card-handle"
+        <div class="dlux-options-card" data-options-card="system-settings">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
                         type="button"
                         data-options-card-handle
-                        aria-label="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ MS_TRANS.sidebar_reorder|default:'Reorder' }}">
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <div class="dl-system-settings-heading">
-                    <h4 class="mb-1"><i class="bi bi-sliders me-2"></i> {{ MS_TRANS.system_settings_label }}</h4>
-                    <p class="text-muted small mb-0">{{ MS_TRANS.system_settings_desc }}</p>
+                <div class="dlux-system-settings-heading">
+                    <h4 class="mb-1"><i class="bi bi-sliders me-2"></i> {{ DLUX_STRINGS.system_settings_label }}</h4>
+                    <p class="text-muted small mb-0">{{ DLUX_STRINGS.system_settings_desc }}</p>
                 </div>
-                <div class="dl-system-settings-actions dl-system-settings-grid">
-                    <button class="dl-system-settings-action dl-system-settings-tile"
+                <div class="dlux-system-settings-actions dlux-system-settings-grid">
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=0"
-                            data-modal-title="{{ MS_TRANS.system_settings_branding }}"
-                            data-dl-tooltip="{{ MS_TRANS.system_settings_branding_desc }}"
-                            aria-label="{{ MS_TRANS.system_settings_branding }}. {{ MS_TRANS.system_settings_branding_desc }}">
-                        <span class="dl-system-settings-tile-icon"><i class="bi bi-palette-fill"></i></span>
-                        <span class="dl-system-settings-tile-title">{{ MS_TRANS.system_settings_branding }}</span>
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_branding }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_branding_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_branding }}. {{ DLUX_STRINGS.system_settings_branding_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-palette-fill"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_branding }}</span>
                     </button>
-                    <button class="dl-system-settings-action dl-system-settings-tile"
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=1"
-                            data-modal-title="{{ MS_TRANS.system_settings_languages }}"
-                            data-dl-tooltip="{{ MS_TRANS.system_settings_languages_desc }}"
-                            aria-label="{{ MS_TRANS.system_settings_languages }}. {{ MS_TRANS.system_settings_languages_desc }}">
-                        <span class="dl-system-settings-tile-icon"><i class="bi bi-translate"></i></span>
-                        <span class="dl-system-settings-tile-title">{{ MS_TRANS.system_settings_languages }}</span>
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_languages }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_languages_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_languages }}. {{ DLUX_STRINGS.system_settings_languages_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-translate"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_languages }}</span>
                     </button>
-                    <button class="dl-system-settings-action dl-system-settings-tile"
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=2"
-                            data-modal-title="{{ MS_TRANS.system_settings_security }}"
-                            data-dl-tooltip="{{ MS_TRANS.system_settings_security_desc }}"
-                            aria-label="{{ MS_TRANS.system_settings_security }}. {{ MS_TRANS.system_settings_security_desc }}">
-                        <span class="dl-system-settings-tile-icon"><i class="bi bi-shield-lock"></i></span>
-                        <span class="dl-system-settings-tile-title">{{ MS_TRANS.system_settings_security }}</span>
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_security }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_security_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_security }}. {{ DLUX_STRINGS.system_settings_security_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-shield-lock"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_security }}</span>
                     </button>
-                    <button class="dl-system-settings-action dl-system-settings-tile"
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=3"
-                            data-modal-title="{{ MS_TRANS.system_settings_login_page }}"
-                            data-dl-tooltip="{{ MS_TRANS.system_settings_login_page_desc }}"
-                            aria-label="{{ MS_TRANS.system_settings_login_page }}. {{ MS_TRANS.system_settings_login_page_desc }}">
-                        <span class="dl-system-settings-tile-icon"><i class="bi bi-box-arrow-in-right"></i></span>
-                        <span class="dl-system-settings-tile-title">{{ MS_TRANS.system_settings_login_page }}</span>
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_login_page }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_login_page_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_login_page }}. {{ DLUX_STRINGS.system_settings_login_page_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-box-arrow-in-right"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_login_page }}</span>
                     </button>
-                    <button class="dl-system-settings-action dl-system-settings-tile"
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=4"
-                            data-modal-title="{{ MS_TRANS.system_settings_sidebar }}"
-                            data-dl-tooltip="{{ MS_TRANS.system_settings_sidebar_desc }}"
-                            aria-label="{{ MS_TRANS.system_settings_sidebar }}. {{ MS_TRANS.system_settings_sidebar_desc }}">
-                        <span class="dl-system-settings-tile-icon"><i class="bi bi-layout-sidebar-inset"></i></span>
-                        <span class="dl-system-settings-tile-title">{{ MS_TRANS.system_settings_sidebar }}</span>
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_sidebar }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_sidebar_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_sidebar }}. {{ DLUX_STRINGS.system_settings_sidebar_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-layout-sidebar-inset"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_sidebar }}</span>
                     </button>
-                    <button class="dl-system-settings-action dl-system-settings-tile"
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=5"
-                            data-modal-title="{{ MS_TRANS.system_settings_navbar }}"
-                            data-dl-tooltip="{{ MS_TRANS.system_settings_navbar_desc }}"
-                            aria-label="{{ MS_TRANS.system_settings_navbar }}. {{ MS_TRANS.system_settings_navbar_desc }}">
-                        <span class="dl-system-settings-tile-icon"><i class="bi bi-signpost-split"></i></span>
-                        <span class="dl-system-settings-tile-title">{{ MS_TRANS.system_settings_navbar }}</span>
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_navbar }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_navbar_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_navbar }}. {{ DLUX_STRINGS.system_settings_navbar_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-signpost-split"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_navbar }}</span>
                     </button>
-                    <button class="dl-system-settings-action dl-system-settings-tile"
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=6"
-                            data-modal-title="{{ MS_TRANS.system_settings_ui_layout }}"
-                            data-dl-tooltip="{{ MS_TRANS.system_settings_ui_layout_desc }}"
-                            aria-label="{{ MS_TRANS.system_settings_ui_layout }}. {{ MS_TRANS.system_settings_ui_layout_desc }}">
-                        <span class="dl-system-settings-tile-icon"><i class="bi bi-window-stack"></i></span>
-                        <span class="dl-system-settings-tile-title">{{ MS_TRANS.system_settings_ui_layout }}</span>
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_ui_layout }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_ui_layout_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_ui_layout }}. {{ DLUX_STRINGS.system_settings_ui_layout_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-window-stack"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_ui_layout }}</span>
                     </button>
-                    <button class="dl-system-settings-action dl-system-settings-tile"
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=7"
-                            data-modal-title="{{ MS_TRANS.system_settings_appearance }}"
-                            data-dl-tooltip="{{ MS_TRANS.system_settings_appearance_desc }}"
-                            aria-label="{{ MS_TRANS.system_settings_appearance }}. {{ MS_TRANS.system_settings_appearance_desc }}">
-                        <span class="dl-system-settings-tile-icon"><i class="bi bi-brush"></i></span>
-                        <span class="dl-system-settings-tile-title">{{ MS_TRANS.system_settings_appearance }}</span>
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_appearance }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_appearance_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_appearance }}. {{ DLUX_STRINGS.system_settings_appearance_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-brush"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_appearance }}</span>
                     </button>
-                    <a class="dl-system-settings-action dl-system-settings-tile dl-system-settings-action--secondary"
+                    <a class="dlux-system-settings-action dlux-system-settings-tile dlux-system-settings-action--secondary"
                        href="{% url 'system_settings_export' %}"
-                       data-dl-tooltip="{{ MS_TRANS.system_settings_export_desc }}"
-                       aria-label="{{ MS_TRANS.system_settings_export }}. {{ MS_TRANS.system_settings_export_desc }}">
-                        <span class="dl-system-settings-tile-icon"><i class="bi bi-download"></i></span>
-                        <span class="dl-system-settings-tile-title">{{ MS_TRANS.system_settings_export }}</span>
+                       data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_export_desc }}"
+                       aria-label="{{ DLUX_STRINGS.system_settings_export }}. {{ DLUX_STRINGS.system_settings_export_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-download"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_export }}</span>
                     </a>
                 </div>
             </div>
@@ -579,5 +579,5 @@
 
 {% block scripts %}
     {{ block.super }}
-    <script src="{% static 'dlux/main/js/options.js' %}?v=20260522b" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/options.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

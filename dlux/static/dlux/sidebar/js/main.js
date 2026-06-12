@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    document.documentElement.classList.remove('dl-sidebar-precollapse');
+    document.documentElement.classList.remove('dlux-sidebar-precollapse');
 
     const mobileBreakpoint = 1100;
     const collapseMode = sidebar.dataset.sidebarCollapseMode || 'icons';
@@ -76,8 +76,8 @@ document.addEventListener("DOMContentLoaded", function () {
             const label = item.querySelector("span");
             const tooltipText = label ? label.textContent.trim() : '';
             if (tooltipText) {
-                item.setAttribute('data-dl-sidebar-tooltip', tooltipText);
-                item.setAttribute('data-dl-sidebar-tooltip-placement', 'right');
+                item.setAttribute('data-dlux-sidebar-tooltip', tooltipText);
+                item.setAttribute('data-dlux-sidebar-tooltip-placement', 'right');
             }
         });
     }
@@ -85,8 +85,8 @@ document.addEventListener("DOMContentLoaded", function () {
     function deinitializeTooltips() {
         const sidebarItems = document.querySelectorAll(".sidebar .list-group-item, .sidebar .accordion-button");
         sidebarItems.forEach(item => {
-            item.removeAttribute('data-dl-sidebar-tooltip');
-            item.removeAttribute('data-dl-sidebar-tooltip-placement');
+            item.removeAttribute('data-dlux-sidebar-tooltip');
+            item.removeAttribute('data-dlux-sidebar-tooltip-placement');
         });
     }
 

@@ -1,6 +1,6 @@
 {% extends 'dlux/base.html' %}
 {% load static %}
-{% block title %}{{ MS_TRANS.login }}{% endblock %}
+{% block title %}{{ DLUX_STRINGS.login }}{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'dlux/users/css/login.css' %}?v={% now 'U' %}">
 {% if theme %}
@@ -12,11 +12,11 @@
 {% block layout %}
 {% with lc=login_config|default:APP_CONFIG.login %}
 {% with ls=lc.style|default:"split" lt=lc.logo_treatment|default:"none" lts=lc.logo_treatment_shape|default:"soft" lbc=lc.banner_color|default:"" sl=lc.show_logo %}
-{% if messages %}<div class="alert-container position-absolute top-0 start-0 w-100 dl-page-alert-container">{% for message in messages %}<div class="alert alert-{{ message.tags }} text-center h4 dl-page-alert">{{ message }}</div>{% endfor %}</div>{% endif %}
-{% if form.non_field_errors %}<div class="dl-login-error-float shake-trigger">{% for error in form.non_field_errors %}<div class="alert alert-danger d-flex align-items-center gap-2 m-0 h4"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span></div>{% endfor %}</div>{% endif %}
-<div class="page dl-login--{{ ls }}{% if public_registration_enabled %} dl-login-has-register{% endif %}">
+{% if messages %}<div class="alert-container position-absolute top-0 start-0 w-100 dlux-page-alert-container">{% for message in messages %}<div class="alert alert-{{ message.tags }} text-center h4 dlux-page-alert">{{ message }}</div>{% endfor %}</div>{% endif %}
+{% if form.non_field_errors %}<div class="dlux-login-error-float shake-trigger">{% for error in form.non_field_errors %}<div class="alert alert-danger d-flex align-items-center gap-2 m-0 h4"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span></div>{% endfor %}</div>{% endif %}
+<div class="page dlux-login--{{ ls }}{% if public_registration_enabled %} dlux-login-has-register{% endif %}">
     {% if language_picker_enabled %}
-    <div class="lang-toggle-container desktop-lang-toggle dl-login-lang-toggle d-none d-md-flex">
+    <div class="lang-toggle-container desktop-lang-toggle dlux-login-lang-toggle d-none d-md-flex">
         {% for code, meta in LANGUAGES.items %}
         <a href="?lang={{ code }}" class="lang-option {% if CURRENT_LANG == code %}active{% endif %}">{{ meta.label|default:code|upper }}</a>
         {% endfor %}
@@ -26,9 +26,9 @@
       <div class="left">
         {% if sl %}
         {# Mobile: shown for all styles. Desktop: shown only for fullpage (logo sits above the form). #}
-        <div class="d-flex flex-column align-items-center mb-4 dl-login-form-logo {% if ls != 'fullpage' %}d-md-none{% endif %}">
+        <div class="d-flex flex-column align-items-center mb-4 dlux-login-form-logo {% if ls != 'fullpage' %}d-md-none{% endif %}">
             <div class="logo-frame" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}">
-                <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ MS_TRANS.login_logo_alt }}" class="logo-img">
+                <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ DLUX_STRINGS.login_logo_alt }}" class="logo-img">
             </div>
         </div>
         {% endif %}
@@ -40,7 +40,7 @@
 
             <div class="form m-0 mx-auto">
                 <div class="mb-4 position-relative">
-                    <label for="username">{{ MS_TRANS.username }}</label>
+                    <label for="username">{{ DLUX_STRINGS.username }}</label>
                     <input type="text" class="login-input {% if form.username.errors %}is-invalid{% endif %}" id="username" name="username" autofocus required value="{{ form.username.value|default:'' }}">
                     {% if form.username.errors %}
                         <div class="invalid-feedback d-block">
@@ -50,7 +50,7 @@
                 </div>
 
                 <div class="mb-4 position-relative">
-                    <label for="password">{{ MS_TRANS.password }}</label>
+                    <label for="password">{{ DLUX_STRINGS.password }}</label>
                     <input type="password" class="login-input {% if form.password.errors %}is-invalid{% endif %}" id="password" name="password" required>
                     {% if form.password.errors %}
                         <div class="invalid-feedback d-block">
@@ -59,12 +59,12 @@
                     {% endif %}
                 </div>
 
-                <button type="submit" class="w-100 btn btn-lg mt-4" id="submit">{{ MS_TRANS.login_submit }}</button>
+                <button type="submit" class="w-100 btn btn-lg mt-4" id="submit">{{ DLUX_STRINGS.login_submit }}</button>
                 {% if public_registration_enabled %}
                     <div class="login-register-action mt-3">
                         <a href="{% url 'register' %}" class="login-register-link">
                             <i class="bi bi-person-plus"></i>
-                            <span>{{ MS_TRANS.create_account|default:"Create an account" }}</span>
+                            <span>{{ DLUX_STRINGS.create_account|default:"Create an account" }}</span>
                         </a>
                     </div>
                 {% endif %}
@@ -85,12 +85,12 @@
 
       <div class="right d-none d-md-flex" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}"{% if lbc %} data-login-banner-color="{{ lbc }}"{% endif %}>
           {% if ls == 'fullpage' %}
-          <div class="dl-login-hero">
-            <div class="dl-login-hero__body" data-dl-login-hero="{{ login_hero_message }}"></div>
+          <div class="dlux-login-hero">
+            <div class="dlux-login-hero__body" data-dlux-login-hero="{{ login_hero_message }}"></div>
           </div>
           {% elif sl %}
           <div class="logo-frame" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}">
-            <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ MS_TRANS.login_logo_alt }}" class="logo-img">
+            <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ DLUX_STRINGS.login_logo_alt }}" class="logo-img">
           </div>
           {% endif %}
       </div>

@@ -63,9 +63,16 @@ in place, without data loss.
 - **Atomicity:** on PostgreSQL and SQLite the whole migration runs in one
   transaction. **MySQL auto-commits DDL**, so the steps are not rolled back
   together if one fails — your backup is your safety net there.
-- **Index/constraint names:** existing indexes keep their original
-  `microsys_*`/`ms_*` names. This is cosmetic and does not affect runtime; future
-  `dlux` migrations that rebuild those objects will normalise the names.
+- **App translation dicts:** `django-lux` reads each app's translations from a
+  `DLUX_STRINGS` dict in `translations.py`. The legacy `MS_TRANSLATIONS` name is
+  still honoured as an inert fallback, so pre-rebrand apps keep loading their
+  strings unchanged — but rename `MS_TRANSLATIONS` → `DLUX_STRINGS` at your
+  convenience to drop the legacy alias. (Fresh `dlux startapp` scaffolds already
+  emit `DLUX_STRINGS`.)
+- **Index/constraint names:** a database migrated in place keeps its original
+  `microsys_*`/`ms_*` index names, while fresh `django-lux` installs create them
+  as `dlux_*`. This is cosmetic and does not affect runtime; a later
+  `makemigrations` may surface a no-op index rename you can apply when convenient.
 - **Old `.msb` backups:** a system backup taken under `django-microsys` is a
   `.msb` whose payload is labelled `microsys.*`, so it will **not** restore into
   `django-lux` (which expects `dlux.*`). After migrating, take a fresh `.dlb`

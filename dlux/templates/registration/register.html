@@ -1,17 +1,17 @@
 {% extends 'registration/public_auth_base.html' %}
-{% block title %}{{ MS_TRANS.register_title|default:'Register' }}{% endblock %}
-{% block public_auth_page_class %}dl-public-auth-page--register{% endblock %}
+{% block title %}{{ DLUX_STRINGS.register_title|default:'Register' }}{% endblock %}
+{% block public_auth_page_class %}dlux-public-auth-page--register{% endblock %}
 
 {% block public_auth_panel %}
-<div class="dl-public-auth-header">
-    <div class="dl-public-auth-icon"><i class="bi bi-person-plus"></i></div>
-    <h1>{{ MS_TRANS.create_account|default:'Create an account' }}</h1>
+<div class="dlux-public-auth-header">
+    <div class="dlux-public-auth-icon"><i class="bi bi-person-plus"></i></div>
+    <h1>{{ DLUX_STRINGS.create_account|default:'Create an account' }}</h1>
 </div>
 
-<form method="post" novalidate class="dl-public-auth-fields">
+<form method="post" novalidate class="dlux-public-auth-fields">
     {% csrf_token %}
     <div class="mb-3">
-        <label for="{{ form.email.id_for_label }}">{{ MS_TRANS.form_email|default:'Email Address' }}</label>
+        <label for="{{ form.email.id_for_label }}">{{ DLUX_STRINGS.form_email|default:'Email Address' }}</label>
         <input type="email"
                class="login-input {% if form.email.errors %}is-invalid{% endif %}"
                id="{{ form.email.id_for_label }}"
@@ -27,7 +27,7 @@
 
     <div class="row g-3">
         <div class="col-md-6">
-            <label for="{{ form.first_name.id_for_label }}">{{ MS_TRANS.form_firstname|default:'First Name' }}</label>
+            <label for="{{ form.first_name.id_for_label }}">{{ DLUX_STRINGS.form_firstname|default:'First Name' }}</label>
             <input type="text"
                    class="login-input {% if form.first_name.errors %}is-invalid{% endif %}"
                    id="{{ form.first_name.id_for_label }}"
@@ -39,7 +39,7 @@
             {% endif %}
         </div>
         <div class="col-md-6">
-            <label for="{{ form.last_name.id_for_label }}">{{ MS_TRANS.form_lastname|default:'Last Name' }}</label>
+            <label for="{{ form.last_name.id_for_label }}">{{ DLUX_STRINGS.form_lastname|default:'Last Name' }}</label>
             <input type="text"
                    class="login-input {% if form.last_name.errors %}is-invalid{% endif %}"
                    id="{{ form.last_name.id_for_label }}"
@@ -53,7 +53,7 @@
     </div>
 
     <div class="mb-3">
-        <label for="{{ form.password1.id_for_label }}">{{ MS_TRANS.form_password|default:'Password' }}</label>
+        <label for="{{ form.password1.id_for_label }}">{{ DLUX_STRINGS.form_password|default:'Password' }}</label>
         <input type="password"
                class="login-input {% if form.password1.errors %}is-invalid{% endif %}"
                id="{{ form.password1.id_for_label }}"
@@ -66,7 +66,7 @@
     </div>
 
     <div class="mb-3">
-        <label for="{{ form.password2.id_for_label }}">{{ MS_TRANS.form_password_confirm|default:'Confirm Password' }}</label>
+        <label for="{{ form.password2.id_for_label }}">{{ DLUX_STRINGS.form_password_confirm|default:'Confirm Password' }}</label>
         <input type="password"
                class="login-input {% if form.password2.errors %}is-invalid{% endif %}"
                id="{{ form.password2.id_for_label }}"
@@ -84,12 +84,12 @@
     </div>
 
     <button type="submit" class="w-100 btn btn-lg mt-3" id="submit">
-        <i class="bi bi-person-check me-2"></i>{{ MS_TRANS.btn_register|default:'Register' }}
+        <i class="bi bi-person-check me-2"></i>{{ DLUX_STRINGS.btn_register|default:'Register' }}
     </button>
     <div class="login-register-action mt-3">
         <a href="{% url 'login' %}" class="login-register-link">
             <i class="bi bi-arrow-{% if CURRENT_DIR == 'ltr' %}left{% else %}right{% endif %}-short"></i>
-            <span>{{ MS_TRANS.back_to_login|default:'Back to login' }}</span>
+            <span>{{ DLUX_STRINGS.back_to_login|default:'Back to login' }}</span>
         </a>
     </div>
 </form>

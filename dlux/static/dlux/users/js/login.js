@@ -1,5 +1,5 @@
 // Lightweight inline markdown → HTML (no dependencies)
-function msLoginMarkdown(text) {
+function dluxLoginMarkdown(text) {
     if (!text) return '';
     let html = text
         // Escape existing HTML
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    // Apply the admin-configured banner colour via a data-* bridge (no inline style; MSRP-1).
+    // Apply the admin-configured banner colour via a data-* bridge (no inline style; DSRP-1).
     document.querySelectorAll('[data-login-banner-color]').forEach(function (panel) {
         const bannerColor = panel.getAttribute('data-login-banner-color');
         if (bannerColor) {
@@ -95,24 +95,24 @@ document.addEventListener("DOMContentLoaded", function() {
     if (shakeTrigger) {
         const loginCard = document.querySelector('.left');
         if (loginCard) {
-            loginCard.classList.add('dl-shake');
+            loginCard.classList.add('dlux-shake');
             // Remove class after animation ends so it can be re-triggered if needed
             loginCard.addEventListener('animationend', () => {
-                loginCard.classList.remove('dl-shake');
+                loginCard.classList.remove('dlux-shake');
             }, { once: true });
         }
     }
 
     // Render hero message markdown (fullpage style)
-    const heroEl = document.querySelector('[data-dl-login-hero]');
+    const heroEl = document.querySelector('[data-dlux-login-hero]');
     if (heroEl) {
-        const raw = heroEl.getAttribute('data-dl-login-hero') || '';
+        const raw = heroEl.getAttribute('data-dlux-login-hero') || '';
         // The attribute lives on the body element itself; render into it directly.
-        const bodyEl = heroEl.classList.contains('dl-login-hero__body')
+        const bodyEl = heroEl.classList.contains('dlux-login-hero__body')
             ? heroEl
-            : heroEl.querySelector('.dl-login-hero__body');
+            : heroEl.querySelector('.dlux-login-hero__body');
         if (bodyEl && raw.trim()) {
-            bodyEl.innerHTML = msLoginMarkdown(raw);
+            bodyEl.innerHTML = dluxLoginMarkdown(raw);
         }
     }
 

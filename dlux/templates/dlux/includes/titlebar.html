@@ -16,7 +16,7 @@
 >
     <div class="titlebar__side titlebar__side--start{% if request.user.is_authenticated and sidebar_enabled and sidebar.collapse_mode == 'locked_expanded' %} titlebar__side--mobile-toggle{% elif request.user.is_authenticated and sidebar_enabled %} titlebar__side--has-toggle{% else %} titlebar__side--empty{% endif %}">
         {% if request.user.is_authenticated and sidebar_enabled %}
-        <button id="sidebarToggle" class="sidebar-toggle ms-2{% if sidebar.collapse_mode == 'locked_expanded' %} sidebar-toggle--desktop-disabled{% endif %} flex-shrink-0" type="button" aria-label="{{ MS_TRANS.tut_sidebar_title|default:'Sidebar' }}">
+        <button id="sidebarToggle" class="sidebar-toggle ms-2{% if sidebar.collapse_mode == 'locked_expanded' %} sidebar-toggle--desktop-disabled{% endif %} flex-shrink-0" type="button" aria-label="{{ DLUX_STRINGS.tut_sidebar_title|default:'Sidebar' }}">
             <i class="bi bi-list"></i>
         </button>
         {% endif %}
@@ -36,26 +36,26 @@
         {% if user.is_authenticated %}
             <a
                 href="{{ APP_CONFIG.home_url }}"
-                class="dl-titlebar-home ms-2"
-                title="{{ MS_TRANS.btn_home }}"
-                aria-label="{{ MS_TRANS.btn_home }}"
+                class="dlux-titlebar-home ms-2"
+                title="{{ DLUX_STRINGS.btn_home }}"
+                aria-label="{{ DLUX_STRINGS.btn_home }}"
                 data-titlebar-home
             >
                 <i class="bi bi-house-fill"></i>
             </a>
-            <div id="dl-user-dropdown-trigger" class="dl-user-trigger no-print ms-2">
+            <div id="dlux-user-dropdown-trigger" class="dlux-user-trigger no-print ms-2">
                 {% if user.profile.profile_pic %}
-                    <img src="{{ user.profile.profile_pic.url }}" class="dl-trigger-avatar" alt="{{ user.username }}">
+                    <img src="{{ user.profile.profile_pic.url }}" class="dlux-trigger-avatar" alt="{{ user.username }}">
                 {% else %}
-                    <div class="dl-trigger-avatar d-flex align-items-center justify-content-center bg-light text-secondary border">
+                    <div class="dlux-trigger-avatar d-flex align-items-center justify-content-center bg-light text-secondary border">
                         <i class="bi bi-person-fill"></i>
                     </div>
                 {% endif %}
-                <span class="dl-trigger-name">{{ user.username }}</span>
+                <span class="dlux-trigger-name">{{ user.username }}</span>
             </div>
         {% else %}
             {% if request.resolver_match.url_name != 'login' %}
-            <a href="{% url 'login' %}" class="dl-login-round" title="{{ MS_TRANS.login }}">
+            <a href="{% url 'login' %}" class="dlux-login-round" title="{{ DLUX_STRINGS.login }}">
                 <i class="bi bi-person-lock"></i>
             </a>
             {% endif %}

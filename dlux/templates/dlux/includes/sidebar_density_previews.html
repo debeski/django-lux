@@ -1,5 +1,5 @@
 <div
-    class="dl-table-density-picker dl-sidebar-density-picker"
+    class="dlux-table-density-picker dlux-sidebar-density-picker"
     {% if picker_mode == 'setup' %}data-setup-sidebar-density-picker data-sidebar-density-input="{{ input_id }}"{% endif %}
 >
     {% if label %}
@@ -8,15 +8,15 @@
     {% if help_text %}
     <p class="text-muted small mb-3">{{ help_text }}</p>
     {% endif %}
-    <div class="dl-density-options" role="group" aria-label="{{ label|default:'Sidebar density' }}">
+    <div class="dlux-density-options" role="group" aria-label="{{ label|default:'Sidebar density' }}">
         {% for value, _choice_label in density_choices %}
         <button
             type="button"
-            class="dl-density-option{% if selected_density == value %} is-active{% endif %}"
+            class="dlux-density-option{% if selected_density == value %} is-active{% endif %}"
             data-sidebar-density="{{ value }}"
             {% if picker_mode == 'setup' %}data-setup-sidebar-density-choice="{{ value }}"{% endif %}
         >
-            <span class="dl-density-option__icon" aria-hidden="true">
+            <span class="dlux-density-option__icon" aria-hidden="true">
                 {% if value == 'dense' %}
                 <i class="bi bi-list-ul"></i>
                 {% elif value == 'roomy' %}
@@ -25,23 +25,23 @@
                 <i class="bi bi-layout-sidebar-inset"></i>
                 {% endif %}
             </span>
-            <span class="dl-density-option__copy">
+            <span class="dlux-density-option__copy">
                 <strong>
                     {% if value == 'dense' %}
-                    {{ MS_TRANS.table_density_dense|default:"Dense" }}
+                    {{ DLUX_STRINGS.table_density_dense|default:"Dense" }}
                     {% elif value == 'roomy' %}
-                    {{ MS_TRANS.table_density_roomy|default:"Roomy" }}
+                    {{ DLUX_STRINGS.table_density_roomy|default:"Roomy" }}
                     {% else %}
-                    {{ MS_TRANS.table_density_balanced|default:"Balanced" }}
+                    {{ DLUX_STRINGS.table_density_balanced|default:"Balanced" }}
                     {% endif %}
                 </strong>
                 <small>
                     {% if value == 'dense' %}
-                    {{ MS_TRANS.sidebar_density_dense_desc|default:"Tighter rows and spacing for maximum navigation density." }}
+                    {{ DLUX_STRINGS.sidebar_density_dense_desc|default:"Tighter rows and spacing for maximum navigation density." }}
                     {% elif value == 'roomy' %}
-                    {{ MS_TRANS.sidebar_density_roomy_desc|default:"Larger row height and spacing for a more relaxed navigation rail." }}
+                    {{ DLUX_STRINGS.sidebar_density_roomy_desc|default:"Larger row height and spacing for a more relaxed navigation rail." }}
                     {% else %}
-                    {{ MS_TRANS.sidebar_density_balanced_desc|default:"The default balance between compactness and readability." }}
+                    {{ DLUX_STRINGS.sidebar_density_balanced_desc|default:"The default balance between compactness and readability." }}
                     {% endif %}
                 </small>
             </span>

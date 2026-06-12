@@ -1,29 +1,29 @@
 {% load dlux_tags %}
 {% load dlux_translation %}
 
-<div class="dl-user-report" data-dl-user-report>
+<div class="dlux-user-report" data-dlux-user-report>
     <div class="d-flex flex-column flex-lg-row align-items-lg-start justify-content-between gap-3 mb-4">
         <div>
-            <div class="text-uppercase small text-muted fw-bold mb-1">{{ MS_TRANS.user_report_kicker }}</div>
+            <div class="text-uppercase small text-muted fw-bold mb-1">{{ DLUX_STRINGS.user_report_kicker }}</div>
             <h3 class="mb-1">
-                <i class="bi bi-file-earmark-person me-2"></i>{{ MS_TRANS.user_report_title }}
+                <i class="bi bi-file-earmark-person me-2"></i>{{ DLUX_STRINGS.user_report_title }}
             </h3>
-            <p class="text-muted mb-0">{{ MS_TRANS.user_report_subtitle }}</p>
+            <p class="text-muted mb-0">{{ DLUX_STRINGS.user_report_subtitle }}</p>
         </div>
-        <div class="d-flex gap-2 no-print" data-dl-modal-footer>
-            <button type="button" class="btn btn-outline-primary rounded-pill" data-dl-user-report-print>
-                <i class="bi bi-printer me-1"></i>{{ MS_TRANS.user_report_print }}
+        <div class="d-flex gap-2 no-print" data-dlux-modal-footer>
+            <button type="button" class="btn btn-outline-primary rounded-pill" data-dlux-user-report-print>
+                <i class="bi bi-printer me-1"></i>{{ DLUX_STRINGS.user_report_print }}
             </button>
             <a href="{{ xlsx_url }}?window={{ report.selected_window|default:'week' }}"
                class="btn btn-primary rounded-pill"
-               data-dl-user-report-export-base="{{ xlsx_url }}">
-                <i class="bi bi-filetype-xlsx me-1"></i>{{ MS_TRANS.user_report_export_xlsx }}
+               data-dlux-user-report-export-base="{{ xlsx_url }}">
+                <i class="bi bi-filetype-xlsx me-1"></i>{{ DLUX_STRINGS.user_report_export_xlsx }}
             </a>
         </div>
     </div>
 
     <div class="alert alert-info border-0 shadow-sm small mb-4">
-        <i class="bi bi-info-circle me-1"></i>{{ MS_TRANS.user_report_history_note }}
+        <i class="bi bi-info-circle me-1"></i>{{ DLUX_STRINGS.user_report_history_note }}
         {% if report.history_started_at %}
             <span class="fw-bold">{{ report.history_started_at|date:"Y-m-d H:i" }}</span>
         {% endif %}
@@ -31,26 +31,26 @@
 
     <div class="row g-3 mb-4">
         <div class="col-md-6 col-xl-3">
-            <div class="dl-user-report-tile">
-                <span>{{ MS_TRANS.user_report_total_actions }}</span>
+            <div class="dlux-user-report-tile">
+                <span>{{ DLUX_STRINGS.user_report_total_actions }}</span>
                 <strong>{{ report.summary.activity_count }}</strong>
             </div>
         </div>
         <div class="col-md-6 col-xl-3">
-            <div class="dl-user-report-tile">
-                <span>{{ MS_TRANS.user_report_estimated_time }}</span>
+            <div class="dlux-user-report-tile">
+                <span>{{ DLUX_STRINGS.user_report_estimated_time }}</span>
                 <strong>{{ report.summary.estimated_duration }}</strong>
             </div>
         </div>
         <div class="col-md-6 col-xl-3">
-            <div class="dl-user-report-tile">
-                <span>{{ MS_TRANS.user_report_known_devices }}</span>
+            <div class="dlux-user-report-tile">
+                <span>{{ DLUX_STRINGS.user_report_known_devices }}</span>
                 <strong>{{ report.summary.known_device_count }}</strong>
             </div>
         </div>
         <div class="col-md-6 col-xl-3">
-            <div class="dl-user-report-tile">
-                <span>{{ MS_TRANS.user_report_ip_addresses }}</span>
+            <div class="dlux-user-report-tile">
+                <span>{{ DLUX_STRINGS.user_report_ip_addresses }}</span>
                 <strong>{{ report.summary.ip_count }}</strong>
             </div>
         </div>
@@ -58,77 +58,77 @@
 
     <div class="row g-4">
         <div class="col-lg-6">
-            <section class="dl-user-report-card">
-                <h5><i class="bi bi-person-vcard me-2"></i>{{ MS_TRANS.user_report_identity }}</h5>
-                <dl class="dl-user-report-list">
-                    <dt>{{ MS_TRANS.form_username }}</dt>
+            <section class="dlux-user-report-card">
+                <h5><i class="bi bi-person-vcard me-2"></i>{{ DLUX_STRINGS.user_report_identity }}</h5>
+                <dl class="dlux-user-report-list">
+                    <dt>{{ DLUX_STRINGS.form_username }}</dt>
                     <dd>{{ report.summary.username }}</dd>
-                    <dt>{{ MS_TRANS.tbl_full_name }}</dt>
+                    <dt>{{ DLUX_STRINGS.tbl_full_name }}</dt>
                     <dd>{{ report.summary.display_name }}</dd>
-                    <dt>{{ MS_TRANS.form_email }}</dt>
-                    <dd>{{ report.summary.email|default:MS_TRANS.user_report_not_available }}</dd>
-                    <dt>{{ MS_TRANS.role_type }}</dt>
+                    <dt>{{ DLUX_STRINGS.form_email }}</dt>
+                    <dd>{{ report.summary.email|default:DLUX_STRINGS.user_report_not_available }}</dd>
+                    <dt>{{ DLUX_STRINGS.role_type }}</dt>
                     <dd>{{ report.tier.title }}</dd>
-                    <dt>{{ MS_TRANS.tbl_is_active }}</dt>
-                    <dd>{% if report.summary.is_active %}{{ MS_TRANS.account_active }}{% else %}{{ MS_TRANS.account_inactive }}{% endif %}</dd>
-                    <dt>{{ MS_TRANS.date_joined }}</dt>
+                    <dt>{{ DLUX_STRINGS.tbl_is_active }}</dt>
+                    <dd>{% if report.summary.is_active %}{{ DLUX_STRINGS.account_active }}{% else %}{{ DLUX_STRINGS.account_inactive }}{% endif %}</dd>
+                    <dt>{{ DLUX_STRINGS.date_joined }}</dt>
                     <dd>{{ report.summary.date_joined|date:"Y-m-d H:i" }}</dd>
-                    <dt>{{ MS_TRANS.tbl_last_login }}</dt>
-                    <dd>{{ report.summary.last_login|date:"Y-m-d H:i"|default:MS_TRANS.user_report_not_available }}</dd>
+                    <dt>{{ DLUX_STRINGS.tbl_last_login }}</dt>
+                    <dd>{{ report.summary.last_login|date:"Y-m-d H:i"|default:DLUX_STRINGS.user_report_not_available }}</dd>
                 </dl>
             </section>
         </div>
 
         <div class="col-lg-6">
-            <section class="dl-user-report-card">
-                <h5><i class="bi bi-activity me-2"></i>{{ MS_TRANS.user_report_presence }}</h5>
-                <dl class="dl-user-report-list">
-                    <dt>{{ MS_TRANS.user_report_first_seen }}</dt>
-                    <dd>{{ report.summary.first_seen_at|date:"Y-m-d H:i"|default:MS_TRANS.user_report_not_available }}</dd>
-                    <dt>{{ MS_TRANS.user_report_last_seen }}</dt>
-                    <dd>{{ report.summary.last_seen_at|date:"Y-m-d H:i"|default:MS_TRANS.user_report_not_available }}</dd>
-                    <dt>{{ MS_TRANS.user_report_days_observed }}</dt>
+            <section class="dlux-user-report-card">
+                <h5><i class="bi bi-activity me-2"></i>{{ DLUX_STRINGS.user_report_presence }}</h5>
+                <dl class="dlux-user-report-list">
+                    <dt>{{ DLUX_STRINGS.user_report_first_seen }}</dt>
+                    <dd>{{ report.summary.first_seen_at|date:"Y-m-d H:i"|default:DLUX_STRINGS.user_report_not_available }}</dd>
+                    <dt>{{ DLUX_STRINGS.user_report_last_seen }}</dt>
+                    <dd>{{ report.summary.last_seen_at|date:"Y-m-d H:i"|default:DLUX_STRINGS.user_report_not_available }}</dd>
+                    <dt>{{ DLUX_STRINGS.user_report_days_observed }}</dt>
                     <dd>{{ report.summary.days_observed }}</dd>
-                    <dt>{{ MS_TRANS.user_report_requests }}</dt>
+                    <dt>{{ DLUX_STRINGS.user_report_requests }}</dt>
                     <dd>{{ report.summary.request_count }}</dd>
-                    <dt>{{ MS_TRANS.user_report_browsers }}</dt>
-                    <dd>{% if report.browsers %}{{ report.browsers|join:", " }}{% else %}{{ MS_TRANS.user_report_not_available }}{% endif %}</dd>
-                    <dt>{{ MS_TRANS.user_report_operating_systems }}</dt>
-                    <dd>{% if report.operating_systems %}{{ report.operating_systems|join:", " }}{% else %}{{ MS_TRANS.user_report_not_available }}{% endif %}</dd>
+                    <dt>{{ DLUX_STRINGS.user_report_browsers }}</dt>
+                    <dd>{% if report.browsers %}{{ report.browsers|join:", " }}{% else %}{{ DLUX_STRINGS.user_report_not_available }}{% endif %}</dd>
+                    <dt>{{ DLUX_STRINGS.user_report_operating_systems }}</dt>
+                    <dd>{% if report.operating_systems %}{{ report.operating_systems|join:", " }}{% else %}{{ DLUX_STRINGS.user_report_not_available }}{% endif %}</dd>
                 </dl>
             </section>
         </div>
 
         <div class="col-12">
-            <section class="dl-user-report-card">
+            <section class="dlux-user-report-card">
                 <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-3">
-                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>{{ MS_TRANS.user_report_activity_breakdown }}</h5>
-                    <ul class="nav nav-tabs dl-user-report-tabs border-0" role="tablist">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>{{ DLUX_STRINGS.user_report_activity_breakdown }}</h5>
+                    <ul class="nav nav-tabs dlux-user-report-tabs border-0" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dl-report-window-week" type="button" role="tab" data-dl-user-report-window="week">
-                                {{ MS_TRANS.user_report_window_week }}
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dlux-report-window-week" type="button" role="tab" data-dlux-user-report-window="week">
+                                {{ DLUX_STRINGS.user_report_window_week }}
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dl-report-window-month" type="button" role="tab" data-dl-user-report-window="month">
-                                {{ MS_TRANS.user_report_window_month }}
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dlux-report-window-month" type="button" role="tab" data-dlux-user-report-window="month">
+                                {{ DLUX_STRINGS.user_report_window_month }}
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dl-report-window-all" type="button" role="tab" data-dl-user-report-window="all">
-                                {{ MS_TRANS.user_report_window_all }}
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dlux-report-window-all" type="button" role="tab" data-dlux-user-report-window="all">
+                                {{ DLUX_STRINGS.user_report_window_all }}
                             </button>
                         </li>
                     </ul>
                 </div>
                 <div class="tab-content">
-                    <div class="tab-pane fade show active" id="dl-report-window-week" role="tabpanel">
+                    <div class="tab-pane fade show active" id="dlux-report-window-week" role="tabpanel">
                         {% include "dlux/users/_user_report_window.html" with window=report.windows.week %}
                     </div>
-                    <div class="tab-pane fade" id="dl-report-window-month" role="tabpanel">
+                    <div class="tab-pane fade" id="dlux-report-window-month" role="tabpanel">
                         {% include "dlux/users/_user_report_window.html" with window=report.windows.month %}
                     </div>
-                    <div class="tab-pane fade" id="dl-report-window-all" role="tabpanel">
+                    <div class="tab-pane fade" id="dlux-report-window-all" role="tabpanel">
                         {% include "dlux/users/_user_report_window.html" with window=report.windows.all %}
                     </div>
                 </div>
@@ -136,37 +136,37 @@
         </div>
 
         <div class="col-12">
-            <section class="dl-user-report-card">
-                <h5><i class="bi bi-hdd-network me-2"></i>{{ MS_TRANS.user_report_devices_networks }}</h5>
+            <section class="dlux-user-report-card">
+                <h5><i class="bi bi-hdd-network me-2"></i>{{ DLUX_STRINGS.user_report_devices_networks }}</h5>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>{{ MS_TRANS.user_report_device }}</th>
-                                <th>{{ MS_TRANS.user_report_first_seen }}</th>
-                                <th>{{ MS_TRANS.user_report_last_seen }}</th>
-                                <th>{{ MS_TRANS.user_report_ip_addresses }}</th>
-                                <th>{{ MS_TRANS.trusted_device_badge }}</th>
+                                <th>{{ DLUX_STRINGS.user_report_device }}</th>
+                                <th>{{ DLUX_STRINGS.user_report_first_seen }}</th>
+                                <th>{{ DLUX_STRINGS.user_report_last_seen }}</th>
+                                <th>{{ DLUX_STRINGS.user_report_ip_addresses }}</th>
+                                <th>{{ DLUX_STRINGS.trusted_device_badge }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for device in report.known_devices %}
                                 <tr>
-                                    <td>{{ device.device_label|default:MS_TRANS.user_report_not_available }}</td>
+                                    <td>{{ device.device_label|default:DLUX_STRINGS.user_report_not_available }}</td>
                                     <td>{{ device.first_seen_at|date:"Y-m-d H:i" }}</td>
                                     <td>{{ device.last_seen_at|date:"Y-m-d H:i" }}</td>
-                                    <td class="small">{% if device.ip_addresses %}{{ device.ip_addresses|join:", " }}{% else %}{{ MS_TRANS.user_report_not_available }}{% endif %}</td>
+                                    <td class="small">{% if device.ip_addresses %}{{ device.ip_addresses|join:", " }}{% else %}{{ DLUX_STRINGS.user_report_not_available }}{% endif %}</td>
                                     <td>
                                         {% if device.trusted_device and device.trusted_device.is_active %}
-                                            <span class="badge bg-success-subtle text-success border">{{ MS_TRANS.current }}</span>
+                                            <span class="badge bg-success-subtle text-success border">{{ DLUX_STRINGS.current }}</span>
                                         {% else %}
-                                            <span class="badge bg-light text-muted border">{{ MS_TRANS.user_report_no }}</span>
+                                            <span class="badge bg-light text-muted border">{{ DLUX_STRINGS.user_report_no }}</span>
                                         {% endif %}
                                     </td>
                                 </tr>
                             {% empty %}
                                 <tr>
-                                    <td colspan="5" class="text-muted text-center py-4">{{ MS_TRANS.user_report_empty_devices }}</td>
+                                    <td colspan="5" class="text-muted text-center py-4">{{ DLUX_STRINGS.user_report_empty_devices }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -176,29 +176,29 @@
         </div>
 
         <div class="col-12">
-            <section class="dl-user-report-card">
-                <h5><i class="bi bi-clock-history me-2"></i>{{ MS_TRANS.stats_recent_activity }}</h5>
-                <div class="dl-user-report-timeline" data-dl-user-report-activity data-dl-user-report-page-size="8">
+            <section class="dlux-user-report-card">
+                <h5><i class="bi bi-clock-history me-2"></i>{{ DLUX_STRINGS.stats_recent_activity }}</h5>
+                <div class="dlux-user-report-timeline" data-dlux-user-report-activity data-dlux-user-report-page-size="8">
                     {% for log in report.recent_activity %}
-                        <div class="dl-user-report-log{% if forloop.counter0 >= 8 %} d-none{% endif %}" data-dl-user-report-activity-item>
-                            <span class="badge dl-user-report-badge">{{ log.action|translate_log:'action' }}</span>
+                        <div class="dlux-user-report-log{% if forloop.counter0 >= 8 %} d-none{% endif %}" data-dlux-user-report-activity-item>
+                            <span class="badge dlux-user-report-badge">{{ log.action|translate_log:'action' }}</span>
                             <strong>{{ log.model_name|translate_log:'model' }}</strong>
                             <small>{{ log.created_at|date:"Y-m-d H:i" }}</small>
                         </div>
                     {% empty %}
-                        <p class="text-muted mb-0">{{ MS_TRANS.user_report_empty_activity }}</p>
+                        <p class="text-muted mb-0">{{ DLUX_STRINGS.user_report_empty_activity }}</p>
                     {% endfor %}
                 </div>
                 {% if report.recent_activity|length > 8 %}
-                    <div class="dl-user-report-pagination" data-dl-user-report-activity-pagination>
-                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dl-user-report-page-prev>
-                            <i class="bi bi-chevron-left me-1"></i>{{ MS_TRANS.btn_prev }}
+                    <div class="dlux-user-report-pagination" data-dlux-user-report-activity-pagination>
+                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dlux-user-report-page-prev>
+                            <i class="bi bi-chevron-left me-1"></i>{{ DLUX_STRINGS.btn_prev }}
                         </button>
-                        <span class="small" data-dl-user-report-page-state
-                              data-page-label="{{ MS_TRANS.table_page_label }}"
-                              data-of-label="{{ MS_TRANS.table_of_label }}"></span>
-                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dl-user-report-page-next>
-                            {{ MS_TRANS.btn_next }}<i class="bi bi-chevron-right ms-1"></i>
+                        <span class="small" data-dlux-user-report-page-state
+                              data-page-label="{{ DLUX_STRINGS.table_page_label }}"
+                              data-of-label="{{ DLUX_STRINGS.table_of_label }}"></span>
+                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dlux-user-report-page-next>
+                            {{ DLUX_STRINGS.btn_next }}<i class="bi bi-chevron-right ms-1"></i>
                         </button>
                     </div>
                 {% endif %}

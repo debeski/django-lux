@@ -65,7 +65,7 @@ def _get_config_hash(config):
     config_str = json.dumps(config_copy, sort_keys=True)
     return hashlib.md5(config_str.encode()).hexdigest()[:8]
 
-def _process_extra_items(config, request, user_prefs=None, ms_trans=None):
+def _process_extra_items(config, request, user_prefs=None, dlux_strings=None):
     """
     Process EXTRA_ITEMS config into sidebar-ready format.
     
@@ -74,8 +74,8 @@ def _process_extra_items(config, request, user_prefs=None, ms_trans=None):
     from django.utils.text import slugify
     if user_prefs is None:
         user_prefs = {}
-    if ms_trans is None:
-        ms_trans = {}
+    if dlux_strings is None:
+        dlux_strings = {}
     open_accordions = user_prefs.get('open_accordions', [])
 
     extra_items = config.get('EXTRA_ITEMS', {})
@@ -83,7 +83,7 @@ def _process_extra_items(config, request, user_prefs=None, ms_trans=None):
     
     for group_name, group_config in extra_items.items():
         # Prefer the explicitly provided 'label' in config, then translation, then group_name itself
-        translated_group_name = group_config.get('label', ms_trans.get(group_name, group_name))
+        translated_group_name = group_config.get('label', dlux_strings.get(group_name, group_name))
         group_icon = group_config.get('icon', 'bi-gear')
         
         group_url_name = group_config.get('url_name', '')
@@ -119,7 +119,7 @@ def _process_extra_items(config, request, user_prefs=None, ms_trans=None):
                 active = False
             
             raw_label = item.get('label', url_name)
-            translated_label = ms_trans.get(raw_label, raw_label)
+            translated_label = dlux_strings.get(raw_label, raw_label)
             
             items.append({
                 'url_name': url_name,
@@ -200,7 +200,7 @@ def dlux_context(request):
     
     current_lang = None
     preview_lang = request.session.get('lang')
-    if request.session.get('ms_force_language_preview') and preview_lang in languages:
+    if request.session.get('dlux_force_language_preview') and preview_lang in languages:
         current_lang = preview_lang
 
     # 1. User Preference
@@ -245,7 +245,7 @@ def dlux_context(request):
         user_prefs = request.user.profile.preferences or {}
     if not isinstance(user_prefs, dict):
         user_prefs = {}
-    if not allow_user_language_override and not request.session.get('ms_force_language_preview'):
+    if not allow_user_language_override and not request.session.get('dlux_force_language_preview'):
         user_prefs = {key: value for key, value in user_prefs.items() if key != 'language'}
     user_prefs = resolve_user_theme_preference(user_prefs, final_config)
     navbar_runtime_config = normalize_navbar_config(final_config.get('navbar', {}))
@@ -263,17 +263,17 @@ def dlux_context(request):
 
     # Get translated strings (with project-level overrides from config)
     project_overrides = final_config.get('localization', {}).get('translations', final_config.get('translations', None))
-    ms_trans = get_strings(current_lang, overrides=project_overrides)
+    dlux_strings = get_strings(current_lang, overrides=project_overrides)
     allowed_theme_names = list(get_effective_allowed_themes(final_config))
     context['DLUX_THEME_NAMES'] = allowed_theme_names
-    context['DLUX_THEMES'] = get_theme_options(ms_trans, allowed_themes=allowed_theme_names)
+    context['DLUX_THEMES'] = get_theme_options(dlux_strings, allowed_themes=allowed_theme_names)
     context['DLUX_TABLE_DENSITIES'] = list(TABLE_DENSITY_CHOICES)
 
     context['CURRENT_LANG'] = current_lang
     context['CURRENT_DIR'] = current_dir
     context['LANGUAGES'] = languages
     context['LANG_CONFIG'] = lang_config
-    context['MS_TRANS'] = ms_trans
+    context['DLUX_STRINGS'] = dlux_strings
 
     # 5. Setup State
     system_setup_required = bool(
@@ -344,7 +344,7 @@ def dlux_context(request):
     context['config'] = final_config
     context['user'] = request.user
     context['languages'] = languages
-    context['translations'] = ms_trans
+    context['translations'] = dlux_strings
     context['sidebar'] = {
         **sidebar_runtime_config,
         'entries': context['sidebar_entries'],

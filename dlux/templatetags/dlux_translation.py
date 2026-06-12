@@ -26,16 +26,16 @@ def translate_log(value, prefix=''):
         return ""
         
     request = get_current_request()
-    ms_trans = get_strings()
+    dlux_strings = get_strings()
         
     if prefix == 'model':
-        return translate_activity_log_model_name(value, strings=ms_trans)
+        return translate_activity_log_model_name(value, strings=dlux_strings)
 
     # Construct key: e.g. 'action_login'
     key = f"{prefix}_{str(value).lower()}" if prefix else str(value).lower()
     
     # Look up
-    return ms_trans.get(key, value)
+    return dlux_strings.get(key, value)
 
 @register.simple_tag
 def format_log_details(details):
@@ -45,7 +45,7 @@ def format_log_details(details):
     if not details or not isinstance(details, dict):
         return ""
 
-    ms_trans = get_strings()
+    dlux_strings = get_strings()
     html_parts = []
 
     # Check for specific types
@@ -57,7 +57,7 @@ def format_log_details(details):
             '<i class="bi bi-file-earmark-arrow-down me-1"></i> {} <span class="badge bg-light text-dark ms-1">{} {}</span>',
             fname,
             count,
-            ms_trans.get('label_items', 'items'),
+            dlux_strings.get('label_items', 'items'),
         ))
     else:
         # Update Diffs
@@ -121,9 +121,9 @@ def _prepare_log_value(field_name, value):
 
 def _render_detail_value(kind, label, value):
     return format_html(
-        '<div class="dl-log-detail-value dl-log-detail-value--{}">'
-        '<div class="dl-log-detail-value-label">{}</div>'
-        '<div class="dl-log-detail-value-body">{}</div>'
+        '<div class="dlux-log-detail-value dlux-log-detail-value--{}">'
+        '<div class="dlux-log-detail-value-label">{}</div>'
+        '<div class="dlux-log-detail-value-body">{}</div>'
         '</div>',
         kind,
         label,
@@ -137,7 +137,7 @@ def render_log_details_panel(details):
     if not details or not isinstance(details, dict):
         return ""
 
-    ms_trans = get_strings()
+    dlux_strings = get_strings()
     items = []
 
     if 'filename' in details:
@@ -145,25 +145,25 @@ def render_log_details_panel(details):
         count = details.get('count', 1)
         values_html = _render_detail_value(
             'single',
-            ms_trans.get('label_file', 'File'),
+            dlux_strings.get('label_file', 'File'),
             filename,
         )
         if count is not None:
             values_html += _render_detail_value(
                 'single',
-                ms_trans.get('label_count', 'Count'),
+                dlux_strings.get('label_count', 'Count'),
                 str(count),
             )
         items.append(format_html(
-            '<div class="dl-log-detail-item">'
-            '<div class="dl-log-detail-head">'
-            '<div class="dl-log-detail-field">{}</div>'
-            '<span class="dl-log-detail-status is-info"><i class="bi bi-info-circle"></i>{}</span>'
+            '<div class="dlux-log-detail-item">'
+            '<div class="dlux-log-detail-head">'
+            '<div class="dlux-log-detail-field">{}</div>'
+            '<span class="dlux-log-detail-status is-info"><i class="bi bi-info-circle"></i>{}</span>'
             '</div>'
-            '<div class="dl-log-detail-values">{}</div>'
+            '<div class="dlux-log-detail-values">{}</div>'
             '</div>',
-            ms_trans.get('label_download', 'Download'),
-            ms_trans.get('log_change_info', 'Info'),
+            dlux_strings.get('label_download', 'Download'),
+            dlux_strings.get('log_change_info', 'Info'),
             mark_safe(values_html),
         ))
     else:
@@ -175,56 +175,56 @@ def render_log_details_panel(details):
                 new_val = _prepare_log_value(field, changes.get('new'))
 
                 if old_val and not new_val:
-                    status_label = ms_trans.get('log_change_cleared', 'Cleared')
+                    status_label = dlux_strings.get('log_change_cleared', 'Cleared')
                     status_class = 'is-cleared'
                     status_icon = 'bi-dash-circle'
                     values_html = _render_detail_value(
                         'old',
-                        ms_trans.get('label_previous_value', 'Previous Value'),
+                        dlux_strings.get('label_previous_value', 'Previous Value'),
                         old_val,
                     )
                 elif new_val and not old_val:
-                    status_label = ms_trans.get('log_change_set', 'Set')
+                    status_label = dlux_strings.get('log_change_set', 'Set')
                     status_class = 'is-set'
                     status_icon = 'bi-plus-circle'
                     values_html = _render_detail_value(
                         'new',
-                        ms_trans.get('label_new_value', 'New Value'),
+                        dlux_strings.get('label_new_value', 'New Value'),
                         new_val,
                     )
                 else:
-                    status_label = ms_trans.get('log_change_changed', 'Changed')
+                    status_label = dlux_strings.get('log_change_changed', 'Changed')
                     status_class = 'is-changed'
                     status_icon = 'bi-arrow-left-right'
                     values_html = (
                         _render_detail_value(
                             'old',
-                            ms_trans.get('label_previous_value', 'Previous Value'),
-                            old_val or ms_trans.get('log_value_empty', 'Empty'),
+                            dlux_strings.get('label_previous_value', 'Previous Value'),
+                            old_val or dlux_strings.get('log_value_empty', 'Empty'),
                         )
                         + _render_detail_value(
                             'new',
-                            ms_trans.get('label_new_value', 'New Value'),
-                            new_val or ms_trans.get('log_value_empty', 'Empty'),
+                            dlux_strings.get('label_new_value', 'New Value'),
+                            new_val or dlux_strings.get('log_value_empty', 'Empty'),
                         )
                     )
             else:
-                status_label = ms_trans.get('log_change_info', 'Info')
+                status_label = dlux_strings.get('log_change_info', 'Info')
                 status_class = 'is-info'
                 status_icon = 'bi-info-circle'
                 values_html = _render_detail_value(
                     'single',
-                    ms_trans.get('label_value', 'Value'),
-                    _prepare_log_value(field, changes) or ms_trans.get('log_value_empty', 'Empty'),
+                    dlux_strings.get('label_value', 'Value'),
+                    _prepare_log_value(field, changes) or dlux_strings.get('log_value_empty', 'Empty'),
                 )
 
             items.append(format_html(
-                '<div class="dl-log-detail-item">'
-                '<div class="dl-log-detail-head">'
-                '<div class="dl-log-detail-field">{}</div>'
-                '<span class="dl-log-detail-status {}"><i class="bi {}"></i>{}</span>'
+                '<div class="dlux-log-detail-item">'
+                '<div class="dlux-log-detail-head">'
+                '<div class="dlux-log-detail-field">{}</div>'
+                '<span class="dlux-log-detail-status {}"><i class="bi {}"></i>{}</span>'
                 '</div>'
-                '<div class="dl-log-detail-values">{}</div>'
+                '<div class="dlux-log-detail-values">{}</div>'
                 '</div>',
                 field_label,
                 status_class,
@@ -233,4 +233,4 @@ def render_log_details_panel(details):
                 mark_safe(values_html),
             ))
 
-    return mark_safe('<div class="dl-log-details">{}</div>'.format("".join(str(item) for item in items)))
+    return mark_safe('<div class="dlux-log-details">{}</div>'.format("".join(str(item) for item in items)))

@@ -4,9 +4,9 @@
     const DENSITY_VALUES = new Set(['dense', 'balanced', 'roomy']);
 
     function syncDensityOptions(activeDensity) {
-        document.querySelectorAll('[data-dl-table-density-inline]').forEach((group) => {
-            group.querySelectorAll('[data-dl-table-density-option]').forEach((option) => {
-                const isActive = option.getAttribute('data-dl-table-density-option') === activeDensity;
+        document.querySelectorAll('[data-dlux-table-density-inline]').forEach((group) => {
+            group.querySelectorAll('[data-dlux-table-density-option]').forEach((option) => {
+                const isActive = option.getAttribute('data-dlux-table-density-option') === activeDensity;
                 option.classList.toggle('is-active', isActive);
                 option.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             });
@@ -14,11 +14,11 @@
     }
 
     function syncTableShells(activeDensity) {
-        document.querySelectorAll('.dl-table-shell[data-dl-table-density]').forEach((shell) => {
-            if (shell.hasAttribute('data-dl-table-density-locked')) {
+        document.querySelectorAll('.dlux-table-shell[data-dlux-table-density]').forEach((shell) => {
+            if (shell.hasAttribute('data-dlux-table-density-locked')) {
                 return;
             }
-            shell.setAttribute('data-dl-table-density', activeDensity);
+            shell.setAttribute('data-dlux-table-density', activeDensity);
         });
     }
 
@@ -67,12 +67,12 @@
     };
 
     document.addEventListener('click', (event) => {
-        const option = event.target.closest('[data-dl-table-density-option]');
+        const option = event.target.closest('[data-dlux-table-density-option]');
         if (!option) {
             return;
         }
 
-        const activeDensity = option.getAttribute('data-dl-table-density-option');
+        const activeDensity = option.getAttribute('data-dlux-table-density-option');
         applyDensity(activeDensity, true);
     });
 

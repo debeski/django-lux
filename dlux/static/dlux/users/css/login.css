@@ -116,23 +116,23 @@ body {
 }
 
 /* Readable on any login background */
-.dl-login-lang-toggle {
+.dlux-login-lang-toggle {
     background: rgba(255, 255, 255, 0.18);
     border-color: rgba(255, 255, 255, 0.2);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
 
-.dl-login-lang-toggle .lang-option {
+.dlux-login-lang-toggle .lang-option {
     color: rgba(255, 255, 255, 0.8);
 }
 
-.dl-login-lang-toggle .lang-option:hover {
+.dlux-login-lang-toggle .lang-option:hover {
     color: #fff;
     opacity: 1;
 }
 
-.dl-login-lang-toggle .lang-option.active {
+.dlux-login-lang-toggle .lang-option.active {
     background: rgba(255, 255, 255, 0.25);
     color: #fff;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
@@ -363,12 +363,12 @@ input::-moz-focus-inner { border: 0; }
     font-weight: 700;
 }
 
-.dl-page-alert-container {
+.dlux-page-alert-container {
     z-index: 2000;
 }
 
 /* Floating Error at top of page (Prevents card layout shifts) */
-.dl-login-error-float {
+.dlux-login-error-float {
     position: absolute;
     top: 0;
     left: 0;
@@ -377,7 +377,7 @@ input::-moz-focus-inner { border: 0; }
     width: 100%;
 }
 
-.dl-login-error-float .alert {
+.dlux-login-error-float .alert {
     border-radius: 0 0 15px 15px;
     border: none;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -388,7 +388,7 @@ input::-moz-focus-inner { border: 0; }
     color: white;
 }
 
-.dl-login-error {
+.dlux-login-error {
     display: none !important;
 }
 
@@ -410,45 +410,45 @@ input.is-invalid:focus {
 }
 
 /* Public registration uses the same configurable login shell. */
-.dl-public-auth-page {
+.dlux-public-auth-page {
     padding: 1.5rem 0;
 }
 
-.dl-public-auth-page.dl-login--split .container {
+.dlux-public-auth-page.dlux-login--split .container {
     width: min(900px, 94vw);
 }
 
-.dl-public-auth-page--register.dl-login--split .container {
+.dlux-public-auth-page--register.dlux-login--split .container {
     height: 690px;
 }
 
-.dl-public-auth-page--register.dl-login--split .left {
+.dlux-public-auth-page--register.dlux-login--split .left {
     height: 620px;
 }
 
-.dl-public-auth-page--state.dl-login--split .container {
+.dlux-public-auth-page--state.dlux-login--split .container {
     height: 480px;
 }
 
-.dl-public-auth-page--state.dl-login--split .left {
+.dlux-public-auth-page--state.dlux-login--split .left {
     height: 380px;
 }
 
-.dl-public-auth-form {
+.dlux-public-auth-form {
     max-width: 440px;
 }
 
-.dl-public-auth-header,
-.dl-public-auth-status {
+.dlux-public-auth-header,
+.dlux-public-auth-status {
     text-align: center;
 }
 
-.dl-public-auth-header {
+.dlux-public-auth-header {
     margin-bottom: 1.25rem;
 }
 
-.dl-public-auth-header h1,
-.dl-public-auth-status h1 {
+.dlux-public-auth-header h1,
+.dlux-public-auth-status h1 {
     color: var(--title, var(--input-text));
     font-size: 1.45rem;
     font-weight: 800;
@@ -456,15 +456,15 @@ input.is-invalid:focus {
     margin: 0;
 }
 
-.dl-public-auth-status p {
+.dlux-public-auth-status p {
     color: var(--label-color);
     font-size: 0.98rem;
     line-height: 1.6;
     margin: 0.85rem 0 0;
 }
 
-.dl-public-auth-icon,
-.dl-public-auth-status__icon {
+.dlux-public-auth-icon,
+.dlux-public-auth-status__icon {
     align-items: center;
     background: rgba(var(--primal-rgb, 35, 99, 195), 0.1);
     border: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.16);
@@ -478,64 +478,64 @@ input.is-invalid:focus {
     width: 3.1rem;
 }
 
-.dl-public-auth-status__icon {
+.dlux-public-auth-status__icon {
     border-radius: 999px;
     font-size: 1.55rem;
     height: 4rem;
     width: 4rem;
 }
 
-.dl-public-auth-status__icon--warn {
+.dlux-public-auth-status__icon--warn {
     background: rgba(245, 158, 11, 0.12);
     border-color: rgba(245, 158, 11, 0.24);
     color: #b45309;
 }
 
-.dl-public-auth-status__icon--danger {
+.dlux-public-auth-status__icon--danger {
     background: rgba(220, 53, 69, 0.11);
     border-color: rgba(220, 53, 69, 0.22);
     color: #dc3545;
 }
 
-.dl-public-auth-fields label {
+.dlux-public-auth-fields label {
     margin-top: 0.55rem;
 }
 
-.dl-public-auth-fields .login-input {
+.dlux-public-auth-fields .login-input {
     margin-bottom: 0.2rem;
 }
 
 @media (max-width: 767px) {
-    .dl-public-auth-page {
+    .dlux-public-auth-page {
         padding: 1rem 0;
     }
 
-    .dl-public-auth-page.dl-login--split .container,
-    .dl-public-auth-page--register.dl-login--split .container,
-    .dl-public-auth-page--state.dl-login--split .container {
+    .dlux-public-auth-page.dlux-login--split .container,
+    .dlux-public-auth-page--register.dlux-login--split .container,
+    .dlux-public-auth-page--state.dlux-login--split .container {
         height: auto;
         min-height: 0;
     }
 
-    .dl-public-auth-page--register.dl-login--split .left,
-    .dl-public-auth-page--state.dl-login--split .left {
+    .dlux-public-auth-page--register.dlux-login--split .left,
+    .dlux-public-auth-page--state.dlux-login--split .left {
         height: auto;
     }
 
-    .dl-public-auth-form {
+    .dlux-public-auth-form {
         max-width: 100%;
     }
 }
 
 /* Shake Animation */
-@keyframes dl-shake {
+@keyframes dlux-shake {
     0%, 100% { transform: translateX(0); }
     10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
     20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
 
-.dl-shake {
-    animation: dl-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+.dlux-shake {
+    animation: dlux-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
 }
 
 /* Subtle input hover/focus improvements */
@@ -554,7 +554,7 @@ input.is-invalid:focus {
     align-items: center;
 }
 
-.dl-twofa-inline-alert {
+.dlux-twofa-inline-alert {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -565,35 +565,35 @@ input.is-invalid:focus {
     word-break: break-word;
 }
 
-.dl-twofa-inline-alert i {
+.dlux-twofa-inline-alert i {
     flex: 0 0 auto;
 }
 
-.dl-twofa-trust-field {
+.dlux-twofa-trust-field {
     display: flex;
     align-items: center;
     gap: 0.6rem;
 }
 
-.dl-twofa-trust-field .form-check-input {
+.dlux-twofa-trust-field .form-check-input {
     margin-top: 0;
     margin-inline-start: 0;
     flex: 0 0 auto;
 }
 
-.dl-twofa-trust-field .form-check-label {
+.dlux-twofa-trust-field .form-check-label {
     margin: 0;
     line-height: 1.45;
 }
 
 /* ─── Login Style: Centered ─────────────────────────────────────────────────
    Single card: logo badge above, form card below, all centred on the page.  */
-.dl-login--centered {
+.dlux-login--centered {
     align-items: center;
     justify-content: center;
 }
 
-.dl-login--centered .container {
+.dlux-login--centered .container {
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -602,7 +602,7 @@ input.is-invalid:focus {
     gap: 1.5rem;
 }
 
-.dl-login--centered .right {
+.dlux-login--centered .right {
     position: static;
     width: auto;
     height: auto;
@@ -616,13 +616,13 @@ input.is-invalid:focus {
     justify-content: center;
 }
 
-.dl-login--centered .right .logo-frame {
+.dlux-login--centered .right .logo-frame {
     /* Inherits the adaptive frosted plate; just trim the padding/radius here. */
     padding: 1rem 1.5rem;
     border-radius: 16px;
 }
 
-.dl-login--centered .right .logo-img {
+.dlux-login--centered .right .logo-img {
     max-width: 120px;
     height: auto;
     filter: none;
@@ -632,7 +632,7 @@ input.is-invalid:focus {
     object-position: center;
 }
 
-.dl-login--centered .left {
+.dlux-login--centered .left {
     position: static;
     width: 100%;
     left: auto;
@@ -646,20 +646,20 @@ input.is-invalid:focus {
 
 /* ─── Login Style: Minimal ───────────────────────────────────────────────────
    Floating card on a clean gradient — banner hidden entirely.               */
-.dl-login--minimal {
+.dlux-login--minimal {
     align-items: center;
     justify-content: center;
     padding: 0;
 }
 
-.dl-login--minimal .container {
+.dlux-login--minimal .container {
     flex-direction: column;
     height: auto;
     width: min(420px, 92vw);
     background: transparent;
 }
 
-.dl-login--minimal .left {
+.dlux-login--minimal .left {
     position: static;
     width: 100%;
     left: auto;
@@ -674,7 +674,7 @@ input.is-invalid:focus {
         0 12px 40px rgba(15, 23, 42, 0.12);
 }
 
-.dl-login--minimal .right {
+.dlux-login--minimal .right {
     display: none !important;
 }
 
@@ -682,14 +682,14 @@ input.is-invalid:focus {
 
 /* ─── Login Style: Full-Page Split ──────────────────────────────────────────
    True 50/50 split. Start = hero message. End = login form.                */
-.dl-login--fullpage {
+.dlux-login--fullpage {
     align-items: stretch;
     justify-content: stretch;
     min-height: 100vh;
     padding: 0;
 }
 
-.dl-login--fullpage .container {
+.dlux-login--fullpage .container {
     flex-direction: row;
     width: 100%;
     height: 100vh;
@@ -701,7 +701,7 @@ input.is-invalid:focus {
     position: static;
 }
 
-.dl-login--fullpage .right {
+.dlux-login--fullpage .right {
     position: relative; /* anchor for the pinned hero logo */
     width: 50%;
     height: 100%;
@@ -722,7 +722,7 @@ input.is-invalid:focus {
     --bs-link-color: var(--right-text, #f1f1f2);
 }
 
-.dl-login--fullpage .left {
+.dlux-login--fullpage .left {
     position: static;
     width: 50%;
     height: 100%;
@@ -740,7 +740,7 @@ input.is-invalid:focus {
     overflow-y: auto;
 }
 
-.dl-login--fullpage .form {
+.dlux-login--fullpage .form {
     margin: 0;
     width: 100%;
     max-width: 380px;
@@ -749,28 +749,28 @@ input.is-invalid:focus {
 /* .desktop-lang-toggle is now position:fixed globally — no per-layout override needed */
 
 /* Hero message typography */
-.dl-login-hero {
+.dlux-login-hero {
     width: 100%;
     max-width: 480px;
     display: flex;
     flex-direction: column;
-    /* Inherits color from .dl-login--fullpage .right — do not set it here */
+    /* Inherits color from .dlux-login--fullpage .right — do not set it here */
 }
 
 /* Fullpage: the logo sits centered above the login form (in the .left panel). */
-.dl-login--fullpage .dl-login-form-logo .logo-img {
+.dlux-login--fullpage .dlux-login-form-logo .logo-img {
     max-width: 140px;
 }
 
-.dl-login-hero__body {
+.dlux-login-hero__body {
     font-size: 1.05rem;
     line-height: 1.75;
     width: 100%;
 }
 
-.dl-login-hero__body h1,
-.dl-login-hero__body h2,
-.dl-login-hero__body h3 {
+.dlux-login-hero__body h1,
+.dlux-login-hero__body h2,
+.dlux-login-hero__body h3 {
     font-weight: 700;
     margin-bottom: 0.6em;
     margin-top: 1.2em;
@@ -778,33 +778,33 @@ input.is-invalid:focus {
     /* color resolves via --bs-heading-color scoped on the panel */
 }
 
-.dl-login-hero__body h1 { font-size: 2rem; }
-.dl-login-hero__body h2 { font-size: 1.5rem; }
-.dl-login-hero__body h3 { font-size: 1.2rem; }
+.dlux-login-hero__body h1 { font-size: 2rem; }
+.dlux-login-hero__body h2 { font-size: 1.5rem; }
+.dlux-login-hero__body h3 { font-size: 1.2rem; }
 
-.dl-login-hero__body p { margin-bottom: 0.9em; }
+.dlux-login-hero__body p { margin-bottom: 0.9em; }
 
-.dl-login-hero__body ul,
-.dl-login-hero__body ol {
+.dlux-login-hero__body ul,
+.dlux-login-hero__body ol {
     padding-inline-start: 1.4em;
     margin-bottom: 0.9em;
 }
 
-.dl-login-hero__body li { margin-bottom: 0.3em; }
+.dlux-login-hero__body li { margin-bottom: 0.3em; }
 
-.dl-login-hero__body a {
+.dlux-login-hero__body a {
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 3px;
     opacity: 0.85;
 }
 
-.dl-login-hero__body a:hover { opacity: 1; }
+.dlux-login-hero__body a:hover { opacity: 1; }
 
-.dl-login-hero__body strong { font-weight: 700; }
-.dl-login-hero__body em { font-style: italic; }
-.dl-login-hero__body s { opacity: 0.6; text-decoration: line-through; }
-.dl-login-hero__body code {
+.dlux-login-hero__body strong { font-weight: 700; }
+.dlux-login-hero__body em { font-style: italic; }
+.dlux-login-hero__body s { opacity: 0.6; text-decoration: line-through; }
+.dlux-login-hero__body code {
     /* Override Bootstrap's default red/pink for <code> */
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     color: inherit;
@@ -816,27 +816,27 @@ input.is-invalid:focus {
 }
 
 @media (max-width: 767px) {
-    .dl-login--fullpage .container {
+    .dlux-login--fullpage .container {
         flex-direction: column;
         height: auto;
         min-height: 100vh;
     }
 
-    .dl-login--fullpage .right,
-    .dl-login--fullpage .left {
+    .dlux-login--fullpage .right,
+    .dlux-login--fullpage .left {
         width: 100%;
         flex: none;
         height: auto;
         min-height: 50vh;
     }
 
-    .dl-login--fullpage .right {
+    .dlux-login--fullpage .right {
         padding: 2.5rem 1.5rem;
         min-height: auto;
         order: 1;
     }
 
-    .dl-login--fullpage .left {
+    .dlux-login--fullpage .left {
         order: 2;
         padding: 2.5rem 1.5rem;
     }
@@ -887,43 +887,43 @@ input.is-invalid:focus {
 }
 
 /* Banner colour support (--login-banner-color set on the panel by login.js from the
-   data-login-banner-color bridge — no inline style attribute; MSRP-1). */
+   data-login-banner-color bridge — no inline style attribute; DSRP-1). */
 .right[data-login-banner-color] {
     background: var(--login-banner-color) !important;
 }
 
 /* Public registration final sizing overrides.
    Keep these after the login style blocks so split/centered/minimal all obey them. */
-.dl-public-auth-page--register .dl-public-auth-header {
+.dlux-public-auth-page--register .dlux-public-auth-header {
     margin-bottom: 0.75rem;
 }
 
-.dl-public-auth-page--register .dl-public-auth-icon {
+.dlux-public-auth-page--register .dlux-public-auth-icon {
     font-size: 1.15rem;
     height: 2.65rem;
     margin-bottom: 0.55rem;
     width: 2.65rem;
 }
 
-.dl-public-auth-page--register .dl-public-auth-header h1 {
+.dlux-public-auth-page--register .dlux-public-auth-header h1 {
     font-size: 1.32rem;
 }
 
-.dl-public-auth-page--register .dl-public-auth-fields .mb-3 {
+.dlux-public-auth-page--register .dlux-public-auth-fields .mb-3 {
     margin-bottom: 0.55rem !important;
 }
 
-.dl-public-auth-page--register .dl-public-auth-fields .row {
+.dlux-public-auth-page--register .dlux-public-auth-fields .row {
     --bs-gutter-y: 0.55rem;
 }
 
-.dl-public-auth-page--register .dl-public-auth-fields label {
+.dlux-public-auth-page--register .dlux-public-auth-fields label {
     font-size: 0.82rem;
     margin-bottom: 0.28rem;
     margin-top: 0.25rem;
 }
 
-.dl-public-auth-page--register .dl-public-auth-fields .login-input {
+.dlux-public-auth-page--register .dlux-public-auth-fields .login-input {
     font-size: 1rem !important;
     height: 2.55rem;
     line-height: 2.55rem;
@@ -931,56 +931,56 @@ input.is-invalid:focus {
     margin-top: 0;
 }
 
-.dl-public-auth-page--register #submit {
+.dlux-public-auth-page--register #submit {
     margin-top: 1rem;
 }
 
-.dl-public-auth-page--register .login-register-action {
+.dlux-public-auth-page--register .login-register-action {
     margin-top: 0.75rem !important;
 }
 
-.dl-public-auth-page--register.dl-login--split .container {
+.dlux-public-auth-page--register.dlux-login--split .container {
     height: 680px;
     width: min(920px, 94vw);
 }
 
-.dl-public-auth-page--register.dl-login--split .left {
+.dlux-public-auth-page--register.dlux-login--split .left {
     height: 610px;
     padding: 1.35rem 0;
     overflow-y: auto;
 }
 
-.dl-public-auth-page--register.dl-login--centered .container {
+.dlux-public-auth-page--register.dlux-login--centered .container {
     width: min(500px, 94vw);
 }
 
-.dl-public-auth-page--register.dl-login--centered .left,
-.dl-public-auth-page--register.dl-login--minimal .left {
+.dlux-public-auth-page--register.dlux-login--centered .left,
+.dlux-public-auth-page--register.dlux-login--minimal .left {
     padding: 1.55rem 1.75rem;
 }
 
-.dl-public-auth-page--register.dl-login--minimal .container {
+.dlux-public-auth-page--register.dlux-login--minimal .container {
     width: min(460px, 92vw);
 }
 
 @media (max-height: 720px) and (min-width: 768px) {
-    .dl-public-auth-page--register.dl-login--split .container {
+    .dlux-public-auth-page--register.dlux-login--split .container {
         height: calc(100vh - 2rem);
     }
 
-    .dl-public-auth-page--register.dl-login--split .left {
+    .dlux-public-auth-page--register.dlux-login--split .left {
         height: calc(100vh - 4.5rem);
     }
 }
 
 @media (max-width: 767px) {
-    .dl-public-auth-page--register.dl-login--split .container {
+    .dlux-public-auth-page--register.dlux-login--split .container {
         height: auto;
     }
 
-    .dl-public-auth-page--register.dl-login--split .left,
-    .dl-public-auth-page--register.dl-login--centered .left,
-    .dl-public-auth-page--register.dl-login--minimal .left {
+    .dlux-public-auth-page--register.dlux-login--split .left,
+    .dlux-public-auth-page--register.dlux-login--centered .left,
+    .dlux-public-auth-page--register.dlux-login--minimal .left {
         height: auto;
         overflow-y: visible;
         padding: 1.5rem 1.25rem;
@@ -988,25 +988,25 @@ input.is-invalid:focus {
 }
 
 /* Login-only split sizing when public registration adds the create-account link. */
-.dl-login--split.dl-login-has-register:not(.dl-public-auth-page) .container {
+.dlux-login--split.dlux-login-has-register:not(.dlux-public-auth-page) .container {
     height: 530px;
 }
 
-.dl-login--split.dl-login-has-register:not(.dl-public-auth-page) .left {
+.dlux-login--split.dlux-login-has-register:not(.dlux-public-auth-page) .left {
     height: 430px;
 }
 
-.dl-login--split.dl-login-has-register:not(.dl-public-auth-page) .login-register-action {
+.dlux-login--split.dlux-login-has-register:not(.dlux-public-auth-page) .login-register-action {
     margin-top: 0.85rem !important;
 }
 
-.dl-login--split.dl-login-has-register:not(.dl-public-auth-page) #submit {
+.dlux-login--split.dlux-login-has-register:not(.dlux-public-auth-page) #submit {
     margin-top: 1.25rem;
 }
 
 @media (max-width: 767px) {
-    .dl-login--split.dl-login-has-register:not(.dl-public-auth-page) .container,
-    .dl-login--split.dl-login-has-register:not(.dl-public-auth-page) .left {
+    .dlux-login--split.dlux-login-has-register:not(.dlux-public-auth-page) .container,
+    .dlux-login--split.dlux-login-has-register:not(.dlux-public-auth-page) .left {
         height: auto;
     }
 }

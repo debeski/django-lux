@@ -122,7 +122,7 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertContains(response, 'data-options-card="navbar-mode"')
-        self.assertContains(response, 'data-dl-navbar')
+        self.assertContains(response, 'data-dlux-navbar')
         settings_obj.navbar_config['allow_user_mode_override'] = False
         settings_obj.save(update_fields=['navbar_config'])
         response = self.client.get(reverse('options_view'))
@@ -285,20 +285,20 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, '?step=5')
         self.assertContains(response, '?step=6')
         self.assertContains(response, reverse('system_settings_export'))
-        self.assertContains(response, 'dl-system-settings-grid')
-        self.assertContains(response, 'dl-system-settings-tile')
-        self.assertContains(response, 'data-dl-tooltip="System names, logo, favicon, and home route."')
+        self.assertContains(response, 'dlux-system-settings-grid')
+        self.assertContains(response, 'dlux-system-settings-tile')
+        self.assertContains(response, 'data-dlux-tooltip="System names, logo, favicon, and home route."')
 
     def test_options_view_uses_shared_selector_markup_for_font_picker(self):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'dl-font-picker')
-        self.assertContains(response, 'dl-density-options')
+        self.assertContains(response, 'dlux-font-picker')
+        self.assertContains(response, 'dlux-density-options')
         self.assertContains(response, 'data-font="cairo"')
         self.assertContains(response, 'data-font="alexandria"')
         self.assertContains(response, 'dlux/main/js/options.js?v=20260522b')
-        self.assertNotContains(response, 'dl-font-preview-card')
+        self.assertNotContains(response, 'dlux-font-preview-card')
 
     def test_options_view_uses_real_font_family_for_underscore_slug(self):
         settings_obj = SystemSettings.load()
@@ -323,13 +323,13 @@ class GeneralViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertIn('data-dl-wizard-initial-step="4"', payload['html'])
+        self.assertIn('data-dlux-wizard-initial-step="4"', payload['html'])
         self.assertIn('?step=4', payload['html'])
-        self.assertIn('dl-btn-submit', payload['html'])
+        self.assertIn('dlux-btn-submit', payload['html'])
         self.assertNotIn('dlux-form-action-primary', payload['html'])
         self.assertNotIn('dlux-form-action-neutral', payload['html'])
-        self.assertNotIn('dl-btn-next', payload['html'])
-        self.assertNotIn('dl-btn-prev', payload['html'])
+        self.assertNotIn('dlux-btn-next', payload['html'])
+        self.assertNotIn('dlux-btn-prev', payload['html'])
 
     def test_system_settings_modal_honors_requested_wizard_step_five(self):
         response = self.client.get(
@@ -339,9 +339,9 @@ class GeneralViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertIn('data-dl-wizard-initial-step="5"', payload['html'])
+        self.assertIn('data-dlux-wizard-initial-step="5"', payload['html'])
         self.assertIn('?step=5', payload['html'])
-        self.assertIn('dl-btn-submit', payload['html'])
+        self.assertIn('dlux-btn-submit', payload['html'])
 
     def test_system_settings_modal_honors_requested_wizard_step_six(self):
         response = self.client.get(
@@ -351,9 +351,9 @@ class GeneralViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertIn('data-dl-wizard-initial-step="6"', payload['html'])
+        self.assertIn('data-dlux-wizard-initial-step="6"', payload['html'])
         self.assertIn('?step=6', payload['html'])
-        self.assertIn('dl-btn-submit', payload['html'])
+        self.assertIn('dlux-btn-submit', payload['html'])
 
     def test_system_settings_export_downloads_setup_payload_for_superuser(self):
         settings_obj = SystemSettings.load()
@@ -429,7 +429,7 @@ class GeneralViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertIn('class="dlux-form dl-system-setup-form"', payload['html'])
+        self.assertIn('class="dlux-form dlux-system-setup-form"', payload['html'])
 
     def test_system_settings_modal_post_preserves_step_six_values_when_omitted(self):
         settings_obj = SystemSettings.load()
@@ -570,11 +570,11 @@ class GeneralViewsTests(TestCase):
         
         response = self.client.get(reverse('system_setup'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'data-dl-wizard-step-nav')
-        self.assertContains(response, 'data-dl-wizard-step-target="0"')
-        self.assertContains(response, 'data-dl-wizard-step-target="6"')
+        self.assertContains(response, 'data-dlux-wizard-step-nav')
+        self.assertContains(response, 'data-dlux-wizard-step-target="0"')
+        self.assertContains(response, 'data-dlux-wizard-step-target="6"')
         self.assertContains(response, 'aria-label="Setup step navigation"')
-        self.assertContains(response, 'dl-setup-step-nav__bullet')
+        self.assertContains(response, 'dlux-setup-step-nav__bullet')
 
     def test_system_setup_redirects_if_configured(self):
         """Test that system_setup redirects if system is already configured."""
@@ -1031,9 +1031,9 @@ class ActivityLogViewsTests(TestCase):
         response = self.client.get(reverse('user_activity_log_detail', args=[log.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'dl-log-detail-panel')
-        self.assertContains(response, 'dl-log-detail-item')
-        self.assertContains(response, 'dl-log-detail-status is-changed')
+        self.assertContains(response, 'dlux-log-detail-panel')
+        self.assertContains(response, 'dlux-log-detail-item')
+        self.assertContains(response, 'dlux-log-detail-status is-changed')
         self.assertContains(response, '********')
         self.assertNotContains(response, 'RAWOLDSECRET')
         self.assertNotContains(response, 'RAWNEWSECRET')
@@ -1183,9 +1183,9 @@ class SecurityHardeningViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertIn('data-bs-dismiss="modal"', payload['html'])
-        self.assertIn('dl-btn-prev d-none', payload['html'])
-        self.assertIn('dl-btn-next', payload['html'])
-        self.assertIn('dl-btn-submit d-none', payload['html'])
+        self.assertIn('dlux-btn-prev d-none', payload['html'])
+        self.assertIn('dlux-btn-next', payload['html'])
+        self.assertIn('dlux-btn-submit d-none', payload['html'])
 
     def test_manage_users_requires_view_user_permission_for_staff(self):
         self.client.login(username='staffer', password='staffpass123')
@@ -1374,7 +1374,7 @@ class SecurityHardeningViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Global Staff')
         self.assertContains(response, 'Can Assign Staff Roles')
-        self.assertContains(response, 'dl-staff-tier-badge--global_staff')
+        self.assertContains(response, 'dlux-staff-tier-badge--global_staff')
 
     def test_reset_password_requires_change_user_permission(self):
         self.client.login(username='staffer', password='staffpass123')
@@ -2553,10 +2553,10 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertIn('User Report', payload['html'])
-        self.assertIn('data-dl-user-report-activity', payload['html'])
-        self.assertIn('data-dl-user-report-activity-item', payload['html'])
-        self.assertIn('data-dl-user-report-activity-pagination', payload['html'])
-        self.assertIn('dl-user-report-badge', payload['html'])
+        self.assertIn('data-dlux-user-report-activity', payload['html'])
+        self.assertIn('data-dlux-user-report-activity-item', payload['html'])
+        self.assertIn('data-dlux-user-report-activity-pagination', payload['html'])
+        self.assertIn('dlux-user-report-badge', payload['html'])
         self.assertNotIn('bg-secondary-subtle text-secondary', payload['html'])
         self.assertNotIn('session_key_hash', payload['html'])
 

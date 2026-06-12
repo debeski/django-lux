@@ -81,8 +81,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        if (window.__microSectionManagerInitialized) return;
-        window.__microSectionManagerInitialized = true;
+        if (window.__dluxSectionManagerInitialized) return;
+        window.__dluxSectionManagerInitialized = true;
 
         const sectionDataEl = document.getElementById('sectionData');
         if (!sectionDataEl) return;
@@ -93,7 +93,7 @@
         // ---------------------------------------------------------
         // Smart Delete Handler
         // ---------------------------------------------------------
-        document.body.addEventListener('micro:record:delete', function(e) {
+        document.body.addEventListener('dlux:record:delete', function(e) {
             // Ignore events that originated from inside a dynamic modal (handled by dynamic_modals.js)
             if (e.target.closest('.modal')) return;
 
@@ -153,7 +153,7 @@
         // ---------------------------------------------------------
         // Smart View Handler
         // ---------------------------------------------------------
-        document.body.addEventListener('micro:record:view', function(e) {
+        document.body.addEventListener('dlux:record:view', function(e) {
             // Ignore events that originated from inside a dynamic modal
             if (e.target.closest('.modal')) return;
 
@@ -213,7 +213,7 @@
         // ---------------------------------------------------------
         // Smart Edit Handler (Fallback for generic Section Managers)
         // ---------------------------------------------------------
-        document.body.addEventListener('micro:record:edit', function(e) {
+        document.body.addEventListener('dlux:record:edit', function(e) {
             // Ignore events that originated from inside a dynamic modal
             if (e.target.closest('.modal')) return;
 

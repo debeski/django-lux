@@ -8,9 +8,9 @@ Optional packages such as `django-lux-sso` and `django-lux-sso-client` are maint
 
 ## Required Security Standard
 
-All Dlux security-sensitive work must follow the active [MSRP-1 Security Standard](docs/security-msrp-1.md). MSRP-1 is the required baseline for authorization boundaries, security-flow design, backend enforcement, CSP/runtime asset expectations, and related review decisions.
+All Dlux security-sensitive work must follow the active [DSRP-1 Security Standard](docs/security-dsrp-1.md). DSRP-1 is the required baseline for authorization boundaries, security-flow design, backend enforcement, CSP/runtime asset expectations, and related review decisions.
 
-Contributions, fixes, refactors, configuration changes, and documentation updates must not weaken or bypass MSRP-1. If a proposed change conflicts with MSRP-1, update the design so it complies before merging or releasing it.
+Contributions, fixes, refactors, configuration changes, and documentation updates must not weaken or bypass DSRP-1. If a proposed change conflicts with DSRP-1, update the design so it complies before merging or releasing it.
 
 ## Reporting a Vulnerability
 

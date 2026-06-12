@@ -230,22 +230,22 @@ def update_preferences(request):
                             prefs.pop('language', None)
                             request.session.pop('lang', None)
                             request.session.pop('django_language', None)
-                            request.session.pop('ms_force_language_preview', None)
+                            request.session.pop('dlux_force_language_preview', None)
                             continue
                         if language_preview_requested and request.user.is_superuser:
                             request.session['lang'] = value
                             request.session['django_language'] = value
-                            request.session['ms_force_language_preview'] = True
+                            request.session['dlux_force_language_preview'] = True
                             continue
                         if not system_config.get('allow_user_language_override', True):
                             prefs.pop('language', None)
                             request.session.pop('lang', None)
                             request.session.pop('django_language', None)
-                            request.session.pop('ms_force_language_preview', None)
+                            request.session.pop('dlux_force_language_preview', None)
                             continue
                         request.session['lang'] = value
                         request.session['django_language'] = value
-                        request.session.pop('ms_force_language_preview', None)
+                        request.session.pop('dlux_force_language_preview', None)
                     if key == 'table_density':
                         if value not in TABLE_DENSITY_VALUES:
                             prefs.pop('table_density', None)

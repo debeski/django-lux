@@ -69,7 +69,7 @@ _SENSITIVE_ACTIVITY_FIELD_NAMES = {
     "apitoken",
 }
 
-# Normalize activity log model names for translation lookup
+# Activity Log - Function normalizes model labels into stable translation keys.
 def normalize_activity_log_model_key(value):
     raw = str(value or '').strip().lower()
     if not raw:
@@ -78,11 +78,11 @@ def normalize_activity_log_model_key(value):
     normalized = re.sub(r'_+', '_', normalized).strip('_')
     return normalized
 
-# Normalize string for fuzzy model matching
+# Model Discovery - Helper casefolds names for fuzzy model lookup.
 def _normalize_fuzzy_string(s):
     return unicodedata.normalize('NFKD', str(s)).casefold() if s else ""
 
-# Fuzzy Model Lookup — Builds a cached mapping of normalized model names to model classes
+# Model Discovery - Helper caches fuzzy model identifiers to model classes.
 @lru_cache(maxsize=1)
 def _get_fuzzy_model_mapping():
     """Builds a cached mapping of normalized model names to model classes."""
@@ -104,7 +104,7 @@ def _get_fuzzy_model_mapping():
             
     return mapping
 
-# Translate activity log model names using MS_TRANS
+# Activity Log - Function resolves activity model labels through DLUX_STRINGS.
 def translate_activity_log_model_name(value, strings=None):
     if not value:
         return ""
@@ -124,7 +124,7 @@ def translate_activity_log_model_name(value, strings=None):
             return s[key]
     return value
 
-# Coerce a setting value to a list
+# Settings Bootstrap - Helper normalizes mutable list settings in-place.
 def _coerce_list_setting(scope, key):
     value = scope.get(key)
     if value is None:
@@ -134,7 +134,7 @@ def _coerce_list_setting(scope, key):
     scope[key] = value
     return value
 
-# Insert middleware at specified position, removing duplicates
+# Settings Bootstrap - Helper inserts middleware once at a requested position.
 def _insert_middleware_once(middleware, middleware_path, *, after=None, before=None):
     if middleware_path in middleware:
         middleware.remove(middleware_path)
@@ -147,7 +147,7 @@ def _insert_middleware_once(middleware, middleware_path, *, after=None, before=N
 
     middleware.insert(insert_at, middleware_path)
 
-# Secret Management — Reads a Docker secret first, then falls back to an environment variable
+# Secrets - Function reads Docker secrets with environment fallback.
 def get_secret(secret_name, env_var):
     """Read a Docker secret first, then fall back to an environment variable."""
     secret_path = os.path.join("/run/secrets", secret_name)
@@ -176,7 +176,7 @@ CLIENT_IP_MODE_VALUES = {
     CLIENT_IP_MODE_AUTO,
 }
 
-# Return default email configuration structure
+# Email Config - Function returns the default outbound email configuration.
 def default_email_config():
     return {
         'transport': 'direct',
@@ -191,7 +191,7 @@ def default_email_config():
         'password_configured': False,
     }
 
-# Return default client IP resolution configuration
+# Client IP - Function returns the default client address resolution policy.
 def default_client_ip_config():
     return {
         'mode': CLIENT_IP_MODE_X_FORWARDED_FOR,
@@ -199,7 +199,7 @@ def default_client_ip_config():
         'custom_header': '',
     }
 
-# Normalize custom header name for client IP resolution
+# Client IP - Helper converts custom proxy headers to Django META keys.
 def _normalize_client_ip_header_name(value):
     raw_value = str(value or '').strip()
     if not raw_value:
@@ -211,7 +211,7 @@ def _normalize_client_ip_header_name(value):
         normalized = f'HTTP_{normalized}'
     return normalized
 
-# Normalize and validate client IP configuration
+# Client IP - Function validates and clamps stored client IP settings.
 def normalize_client_ip_config(value):
     normalized = default_client_ip_config()
     if not isinstance(value, dict):
@@ -233,7 +233,7 @@ def normalize_client_ip_config(value):
 
     return normalized
 
-# Normalize and validate email configuration
+# Email Config - Function validates transport settings and optional secret redaction.
 def normalize_email_config(value, *, redact_secret=False):
     config = value if isinstance(value, dict) else {}
     normalized = default_email_config()
@@ -261,7 +261,7 @@ def normalize_email_config(value, *, redact_secret=False):
         normalized.pop('encrypted_password', None)
     return normalized
 
-# Normalize allowed fonts list against available fonts
+# Typography Config - Function keeps configured font slugs valid and unique.
 def normalize_allowed_fonts(allowed_fonts=None):
     from .fonts import get_builtin_fonts
     available = {f['slug'] for f in get_builtin_fonts()}
@@ -276,7 +276,7 @@ def normalize_allowed_fonts(allowed_fonts=None):
 
     return normalized or list(available)
 
-# Get seed key for email encryption
+# Email Secrets - Helper derives the encryption seed for stored email passwords.
 def _email_secret_seed():
     configured_key = (
         os.getenv('DLUX_EMAIL_SECRET_KEY')
@@ -286,21 +286,21 @@ def _email_secret_seed():
     )
     return str(configured_key or 'dlux-email-secret-dev-key')
 
-# Get Fernet instance for email encryption
+# Email Secrets - Helper builds the Fernet instance for email password encryption.
 def _email_fernet():
     from cryptography.fernet import Fernet
 
     digest = hashlib.sha256(_email_secret_seed().encode('utf-8')).digest()
     return Fernet(base64.urlsafe_b64encode(digest))
 
-# Encrypt email secret using Fernet
+# Email Secrets - Function encrypts SMTP passwords for DB storage.
 def encrypt_email_secret(raw_secret):
     raw_secret = str(raw_secret or '')
     if not raw_secret:
         return ''
     return _email_fernet().encrypt(raw_secret.encode('utf-8')).decode('utf-8')
 
-# Decrypt email secret using Fernet
+# Email Secrets - Function decrypts stored SMTP passwords with legacy fallback.
 def decrypt_email_secret(encrypted_secret):
     encrypted_secret = str(encrypted_secret or '').strip()
     if not encrypted_secret:
@@ -313,7 +313,7 @@ def decrypt_email_secret(encrypted_secret):
 TOTP_SECRET_PREFIX = 'fernet$'
 _UNSET = object()
 
-# Get seed key for TOTP encryption
+# Two-Factor Secrets - Helper derives the encryption seed for TOTP secrets.
 def _totp_secret_seed():
     configured_key = (
         os.getenv('DLUX_TOTP_SECRET_KEY')
@@ -323,18 +323,18 @@ def _totp_secret_seed():
     )
     return str(configured_key or 'dlux-totp-secret-dev-key')
 
-# Get Fernet instance for TOTP encryption
+# Two-Factor Secrets - Helper builds the Fernet instance for TOTP secret encryption.
 def _totp_fernet():
     from cryptography.fernet import Fernet
 
     digest = hashlib.sha256(_totp_secret_seed().encode('utf-8')).digest()
     return Fernet(base64.urlsafe_b64encode(digest))
 
-# Check if TOTP secret is encrypted
+# Two-Factor Secrets - Function detects encrypted TOTP payload markers.
 def is_encrypted_totp_secret(value):
     return isinstance(value, str) and value.startswith(TOTP_SECRET_PREFIX)
 
-# Encrypt TOTP secret using Fernet
+# Two-Factor Secrets - Function encrypts raw TOTP shared secrets.
 def encrypt_totp_secret(raw_secret):
     raw_secret = str(raw_secret or '').strip()
     if not raw_secret:
@@ -344,7 +344,7 @@ def encrypt_totp_secret(raw_secret):
     encrypted = _totp_fernet().encrypt(raw_secret.encode('utf-8')).decode('utf-8')
     return f'{TOTP_SECRET_PREFIX}{encrypted}'
 
-# Decrypt TOTP secret using Fernet
+# Two-Factor Secrets - Function decrypts TOTP secrets and tolerates legacy plaintext.
 def decrypt_totp_secret(stored_secret):
     stored_secret = str(stored_secret or '').strip()
     if not stored_secret:
@@ -357,11 +357,11 @@ def decrypt_totp_secret(stored_secret):
     except Exception:
         return ''
 
-# Get decrypted TOTP secret from profile
+# Two-Factor Secrets - Function returns a profile TOTP secret in usable plaintext.
 def get_profile_totp_secret(profile):
     return decrypt_totp_secret(getattr(profile, 'totp_secret', ''))
 
-# Update profile TOTP state without full profile save
+# Two-Factor Secrets - Function updates encrypted TOTP state on a profile.
 def set_profile_totp_state(profile, *, raw_secret=_UNSET, enabled=_UNSET):
     if profile is None or not getattr(profile, 'pk', None):
         raise ValueError('Profile must be saved before updating TOTP state.')
@@ -379,7 +379,7 @@ def set_profile_totp_state(profile, *, raw_secret=_UNSET, enabled=_UNSET):
         setattr(profile, field_name, value)
     return profile
 
-# Get effective email configuration from settings or database
+# Email Runtime - Function resolves the active Dlux email backend configuration.
 def get_dlux_email_config(*, include_secret=False):
     try:
         SystemSettings = apps.get_model('dlux', 'SystemSettings')
@@ -440,7 +440,7 @@ def get_dlux_email_config(*, include_secret=False):
         'ui_hints': stored_hints,
     }
 
-# Get email service status
+# Email Runtime - Function reports configured email capability without network I/O.
 def get_email_service_status():
     """
     Report whether Dlux-owned email flows are configured without touching
@@ -547,7 +547,7 @@ def get_email_service_status():
         'reason': 'custom_backend_configured' if configured else 'missing_default_from_email',
     }
 
-# Send Dlux-owned transactional email
+# Email Runtime - Function sends Dlux transactional mail through direct or relay transport.
 def send_dlux_mail(subject, message, recipient_list, *, from_email=None, fail_silently=False):
     """Send Dlux-owned transactional email through the selected delivery path."""
     email_config = get_dlux_email_config(include_secret=True)
@@ -585,6 +585,7 @@ def send_dlux_mail(subject, message, recipient_list, *, from_email=None, fail_si
     return email.send(fail_silently=fail_silently)
 
 
+# Activity Log - Function identifies fields that must be masked in audit records.
 def is_sensitive_activity_field_name(field_name):
     """Return True when an activity-log field should be masked before display/storage."""
     if not field_name:
@@ -609,6 +610,7 @@ def is_sensitive_activity_field_name(field_name):
     return False
 
 
+# Settings Bootstrap - Function applies Dlux defaults to a Django settings module.
 def dlux_settings(scope):
     """
     Apply the default DjangoLux settings requirements to a Django settings module.
@@ -718,6 +720,7 @@ def dlux_settings(scope):
     return scope
 
 
+# Asset URLs - Helper turns stored media/static values into browser-safe paths.
 def _normalize_asset_url(value, fallback_base='/media/'):
     """Ensure stored media paths render as browser-safe absolute URLs."""
     if not value:
@@ -750,15 +753,15 @@ def _normalize_asset_url(value, fallback_base='/media/'):
 
     return f"{base_url}{normalized.lstrip('/')}"
 
-# Auth Check — Staff permission test for @user_passes_test decorator
+# User Roles - Function checks staff status defensively.
 def is_staff(user):
     return user.is_staff
 
-# Auth Check — Superuser permission test for @user_passes_test decorator
+# User Roles - Function checks superuser status defensively.
 def is_superuser(user):
     return user.is_superuser
 
-# Network Helper — Extract client IP from request (supports X-Forwarded-For)
+# Client IP - Function resolves the request IP from the configured proxy strategy.
 def get_client_ip(request):
     """Extract client IP address from request."""
     if not request:
@@ -772,9 +775,11 @@ def get_client_ip(request):
     meta = getattr(request, 'META', {}) or {}
     remote_addr = str(meta.get('REMOTE_ADDR') or '').strip()
 
+    # Client IP - Helper reads a configured request header safely.
     def _header_value(header_name):
         return str(meta.get(header_name) or '').strip()
 
+    # Client IP - Helper splits proxy IP chains into ordered candidates.
     def _parse_chain(raw_value):
         parts = [part.strip() for part in str(raw_value or '').split(',') if part.strip()]
         if not parts:
@@ -825,6 +830,7 @@ def get_client_ip(request):
     return remote_addr or None
 
 
+# Scopes - Function returns a user scope from profile or direct attribute.
 def get_user_scope(user):
     """Return the user's scope from profile first, then direct attribute."""
     if not user:
@@ -835,6 +841,7 @@ def get_user_scope(user):
     return getattr(user, 'scope', None)
 
 
+# User Profiles - Function returns a related profile when one exists.
 def get_user_profile(user):
     """Return the related profile when it exists; missing profiles fail closed elsewhere."""
     if not user:
@@ -845,6 +852,7 @@ def get_user_profile(user):
         return None
 
 
+# Scopes - Function verifies whether a user has explicit scoped state.
 def user_has_scope_state(user):
     """
     Return True when the user's scoped/unscoped state is knowable.
@@ -859,6 +867,7 @@ def user_has_scope_state(user):
     return get_user_profile(user) is not None
 
 
+# User Management - Function removes Global Staff users from querysets.
 def exclude_global_staff_users(queryset):
     """Exclude users who have the Global Staff `manage_scopes` permission."""
     return queryset.exclude(
@@ -870,6 +879,7 @@ def exclude_global_staff_users(queryset):
     ).distinct()
 
 
+# User Management - Function removes Global Staff elevation from permission lists.
 def strip_manage_scopes_permissions(permissions):
     """Return a permission list with Dlux Global Staff elevation removed."""
     return [
@@ -882,6 +892,7 @@ def strip_manage_scopes_permissions(permissions):
     ]
 
 
+# User Management - Function enforces staff-tier rules for managing another user.
 def can_manage_target_user(actor, target_user=None):
     """
     Reuse the existing user-management guardrails:
@@ -922,6 +933,7 @@ def can_manage_target_user(actor, target_user=None):
     return True
 
 
+# User Management - Function detects the Global Staff tier.
 def is_global_staff(user):
     """
     Global Staff tier: Non-scoped staff with manage_scopes permission.
@@ -943,6 +955,7 @@ def is_global_staff(user):
     return user.has_perm('dlux.manage_scopes')
 
 
+# User Management - Function detects the Central Staff tier.
 def is_central_staff(user):
     """
     Central Staff tier: Non-scoped staff WITHOUT manage_scopes permission.
@@ -963,7 +976,7 @@ def is_central_staff(user):
         return False
     return not user.has_perm('dlux.manage_scopes')
 
-# Normalize permission codenames to a set
+# Permissions - Helper normalizes permission codenames from varied inputs.
 def _normalize_permission_codename_set(permission_codenames):
     normalized = set()
     for permission in permission_codenames or []:
@@ -976,6 +989,7 @@ def _normalize_permission_codename_set(permission_codenames):
     return normalized
 
 
+# User Management - Function classifies a user-management tier from booleans and permissions.
 def get_user_management_tier_state(
     *,
     is_superuser,
@@ -1118,6 +1132,7 @@ def get_user_management_tier_state(
     return tier_state
 
 
+# Permissions - Helper extracts permission codenames from prefetched user data.
 def _get_prefetched_permission_codenames(user):
     prefetched = getattr(user, '_prefetched_objects_cache', None)
     if not isinstance(prefetched, dict):
@@ -1146,7 +1161,7 @@ def _get_prefetched_permission_codenames(user):
     return permissions
 
 
-# Get user management tier state for a specific user
+# User Management - Function builds the current management tier state for a user.
 def get_user_management_tier_state_for_user(user, strings=None):
     if not user or not getattr(user, 'is_authenticated', False):
         return get_user_management_tier_state(
@@ -1174,6 +1189,7 @@ def get_user_management_tier_state_for_user(user, strings=None):
     )
 
 
+# Authorization - Function gates access to user directory surfaces.
 def user_can_view_user_directory(user):
     """
     The full user-management surfaces stay staff-only.
@@ -1195,6 +1211,7 @@ def user_can_view_user_directory(user):
     return user.has_perm('auth.view_user') or user.has_perm('dlux.manage_staff')
 
 
+# Authorization - Function gates access to activity logs.
 def user_can_view_activity_log(user):
     """
     Activity-log access is explicit.
@@ -1208,6 +1225,7 @@ def user_can_view_activity_log(user):
     return user.has_perm('dlux.view_activitylog') or user.has_perm('dlux.view_activity_log')
 
 
+# Authorization - Function gates detailed user reports.
 def user_can_view_user_report(actor, target_user=None):
     """
     Full user reports expose activity, network, and device history.
@@ -1228,6 +1246,7 @@ def user_can_view_user_report(actor, target_user=None):
     return can_manage_target_user(actor, target_user)
 
 
+# Authorization - Function gates project-level report overviews.
 def user_can_view_reports(user):
     """
     Project-level report overview access.
@@ -1242,6 +1261,7 @@ def user_can_view_reports(user):
     return user.has_perm('dlux.view_reports')
 
 
+# Authorization - Function gates backup download permissions.
 def user_can_download_backup(user):
     """
     Backup ZIP access is intentionally separate from report viewing.
@@ -1254,7 +1274,7 @@ def user_can_download_backup(user):
         return False
     return user.has_perm('dlux.download_backup')
 
-# Check if user has section view permission
+# Authorization - Function checks section view access.
 def user_has_section_view_permission(user):
     if not user or not getattr(user, 'is_authenticated', False):
         return False
@@ -1263,7 +1283,7 @@ def user_has_section_view_permission(user):
     return user.has_perm('dlux.view_sections') or user.has_perm('dlux.manage_sections')
 
 
-# Check if user has section manage permission
+# Authorization - Function checks section management access.
 def user_has_section_manage_permission(user):
     if not user or not getattr(user, 'is_authenticated', False):
         return False
@@ -1272,6 +1292,7 @@ def user_has_section_manage_permission(user):
     return user.has_perm('dlux.manage_sections')
 
 
+# Authorization - Function checks a Django model action permission.
 def user_has_model_permission(user, model, action):
     """Return True when the user has the Django model permission for the given action."""
     if not user or not getattr(user, 'is_authenticated', False) or not model or not action:
@@ -1282,12 +1303,13 @@ def user_has_model_permission(user, model, action):
     return user.has_perm(permission)
 
 
+# Authorization - Function resolves Dlux permission tokens and Django permissions.
 def user_matches_permission_token(user, permission):
     """
     Resolve Dlux-internal permission tokens plus normal Django permission strings.
 
     Internal tokens are used by discovery/sidebar/template-adjacent code so those
-    surfaces can stay aligned with the newer MSRP authorization helpers.
+    surfaces can stay aligned with the newer DSRP authorization helpers.
     """
     if not permission:
         return True
@@ -1298,20 +1320,21 @@ def user_matches_permission_token(user, permission):
         return bool(getattr(user, 'is_staff', False))
     if permission == 'is_superuser':
         return bool(getattr(user, 'is_superuser', False))
-    if permission == '__ms_authenticated__':
+    if permission == '__dlux_authenticated__':
         return True
-    if permission == '__ms_user_directory__':
+    if permission == '__dlux_user_directory__':
         return user_can_view_user_directory(user)
-    if permission == '__ms_activity_log__':
+    if permission == '__dlux_activity_log__':
         return user_can_view_activity_log(user)
-    if permission == '__ms_sections_view__':
+    if permission == '__dlux_sections_view__':
         return user_has_section_view_permission(user)
-    if permission == '__ms_sections_manage__':
+    if permission == '__dlux_sections_manage__':
         return user_has_section_manage_permission(user)
 
     return bool(user.has_perm(permission))
 
 
+# Authorization - Function tests whether any configured permission token grants access.
 def user_has_any_permission_tokens(user, permissions, default_visible_to_all=False):
     """
     Check if user has any of the given permissions.
@@ -1328,7 +1351,7 @@ def user_has_any_permission_tokens(user, permissions, default_visible_to_all=Fal
         permissions = [permissions]
     return any(user_matches_permission_token(user, p) for p in permissions)
 
-# Activity Logging — Universal logging utility for user actions
+# Activity Log - Function creates normalized audit entries for user actions.
 def log_user_action(request, action, instance=None, model_name=None, details=None, number=None, object_id=None, model_key=None):
     """
     Centralized activity logging. All manual UserActivityLog creation should go through here.
@@ -1373,7 +1396,7 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
     )
 
-# Config Merger — Merges translation dictionaries across language layers
+# Localization - Helper deep-merges translation dictionaries by language.
 def _merge_translation_layers(*layers):
     merged = {}
     for layer in layers:
@@ -1386,7 +1409,7 @@ def _merge_translation_layers(*layers):
             merged[lang].update(values)
     return merged
 
-# Config Merger — Merges language configuration dictionaries
+# Localization - Helper merges language catalog metadata across config layers.
 def _merge_language_layers(*layers):
     merged = {}
     for layer in layers:
@@ -1405,7 +1428,7 @@ DEFAULT_LANGUAGE_CATALOG = {
     'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
 }
 
-# Normalize language code to standard format
+# Localization - Helper canonicalizes supported language codes.
 def _normalize_language_code(code):
     normalized = str(code or '').strip().lower().replace('_', '-')
     if not normalized:
@@ -1415,6 +1438,7 @@ def _normalize_language_code(code):
     return normalized
 
 
+# Localization - Function validates enabled language catalog settings.
 def normalize_language_catalog(*layers):
     """Normalize explicitly enabled UI languages without enabling discovered translations."""
     merged = deepcopy(DEFAULT_LANGUAGE_CATALOG)
@@ -1443,7 +1467,7 @@ def normalize_language_catalog(*layers):
                 }
     return merged
 
-# Normalize system names dictionary
+# Branding Config - Function normalizes language-keyed system display names.
 def normalize_system_names(value):
     names = {}
     if isinstance(value, dict):
@@ -1454,7 +1478,7 @@ def normalize_system_names(value):
                 names[code] = name
     return names
 
-# Resolve system name for a given language
+# Branding Config - Function selects the best system name for a language.
 def resolve_system_name(system_names, lang_code=None, default_language='en'):
     names = normalize_system_names(system_names)
     lang = _normalize_language_code(lang_code) or _normalize_language_code(default_language) or 'en'
@@ -1467,7 +1491,7 @@ def resolve_system_name(system_names, lang_code=None, default_language='en'):
             return value
     return 'DjangoLux'
 
-# Build grouped configuration structure
+# System Config - Function builds grouped config views for templates and forms.
 def build_config_groups(config, current_language=None):
     languages = normalize_language_catalog(config.get('languages', {}))
     default_language = _normalize_language_code(config.get('default_language')) or 'en'
@@ -1523,7 +1547,7 @@ def build_config_groups(config, current_language=None):
         },
     }
 
-# Sidebar Helper — Removes duplicate sidebar entries by id/url_name/label
+# Sidebar Config - Helper removes duplicate sidebar entries by route key.
 def _dedupe_sidebar_entries(entries):
     seen = set()
     deduped = []
@@ -1537,7 +1561,7 @@ def _dedupe_sidebar_entries(entries):
         deduped.append(entry)
     return deduped
 
-# Return default titlebar configuration
+# Titlebar Config - Function returns default titlebar behavior.
 def default_titlebar_config():
     return {
         'show_title': True,
@@ -1553,7 +1577,7 @@ def default_titlebar_config():
         'logo_treatment_shape': 'soft',
     }
 
-# Normalize and validate titlebar configuration
+# Titlebar Config - Function validates titlebar display settings.
 def normalize_titlebar_config(titlebar_config):
     config = titlebar_config if isinstance(titlebar_config, dict) else {}
     normalized = default_titlebar_config()
@@ -1600,6 +1624,7 @@ def normalize_titlebar_config(titlebar_config):
 LOGIN_STYLE_VALUES = {'split', 'centered', 'minimal', 'fullpage'}
 
 
+# Login Config - Function returns default public login/register page settings.
 def default_login_config():
     return {
         'style': 'split',
@@ -1611,6 +1636,7 @@ def default_login_config():
     }
 
 
+# Login Config - Function validates login page branding and registration settings.
 def normalize_login_config(value):
     config = value if isinstance(value, dict) else {}
     normalized = default_login_config()
@@ -1640,7 +1666,7 @@ def normalize_login_config(value):
     return normalized
 
 
-# Return default sidebar configuration
+# Sidebar Config - Function returns default sidebar structure and behavior.
 def default_sidebar_config():
     return {
         'enabled': True,
@@ -1654,7 +1680,7 @@ def default_sidebar_config():
         'collapse_mode': DEFAULT_SIDEBAR_COLLAPSE_MODE,
     }
 
-# Normalize and validate sidebar behavior configuration
+# Sidebar Config - Function validates sidebar behavior flags.
 def normalize_sidebar_behavior(sidebar_config):
     config = sidebar_config if isinstance(sidebar_config, dict) else {}
     normalized = default_sidebar_config()
@@ -1681,6 +1707,7 @@ def normalize_sidebar_behavior(sidebar_config):
     return normalized
 
 
+# Navbar Config - Function returns default navbar structure and mode settings.
 def default_navbar_config():
     return {
         'enabled': False,
@@ -1690,6 +1717,7 @@ def default_navbar_config():
     }
 
 
+# Navbar Config - Helper validates translated navbar labels.
 def _normalize_navbar_labels(value):
     if not isinstance(value, dict):
         return {}
@@ -1702,6 +1730,7 @@ def _normalize_navbar_labels(value):
     return labels
 
 
+# Navbar Config - Helper validates recursive navbar nodes.
 def _normalize_navbar_nodes(value, depth=0):
     if not isinstance(value, list) or depth > 6:
         return []
@@ -1734,6 +1763,7 @@ def _normalize_navbar_nodes(value, depth=0):
     return nodes
 
 
+# Navbar Config - Function validates navbar modes, labels, and hierarchy.
 def normalize_navbar_config(navbar_config):
     config = navbar_config if isinstance(navbar_config, dict) else {}
     normalized = default_navbar_config()
@@ -1752,6 +1782,7 @@ def normalize_navbar_config(navbar_config):
     return normalized
 
 
+# Navbar Config - Function builds a default navbar hierarchy from sidebar config.
 def seed_navbar_config_from_sidebar(navbar_config, sidebar_config, lang_code='en'):
     navbar = normalize_navbar_config(navbar_config)
     if not navbar.get('enabled'):
@@ -1762,10 +1793,12 @@ def seed_navbar_config_from_sidebar(navbar_config, sidebar_config, lang_code='en
     sidebar = normalize_sidebar_behavior(sidebar_config)
     language_code = _normalize_language_code(lang_code) or 'en'
 
+    # Navbar Config - Helper resolves entry labels across configured languages.
     def labels_for(entry):
         label = str((entry or {}).get('label') or '').strip()
         return {language_code: label} if label else {}
 
+    # Navbar Config - Helper derives stable navbar node identifiers.
     def node_id(prefix, entry, index):
         return str(
             (entry or {}).get('url_name')
@@ -1774,6 +1807,7 @@ def seed_navbar_config_from_sidebar(navbar_config, sidebar_config, lang_code='en
             or f'{prefix}-{index}'
         ).strip()
 
+    # Navbar Config - Helper converts sidebar entries into navbar nodes.
     def convert_entry(entry, index=0):
         if not isinstance(entry, dict):
             return None
@@ -1832,13 +1866,13 @@ def seed_navbar_config_from_sidebar(navbar_config, sidebar_config, lang_code='en
         navbar['hierarchy'] = {'nodes': nodes}
     return normalize_navbar_config(navbar)
 
-# Get effective allowed themes from configuration
+# Theme Config - Function resolves the allowed theme set with default protection.
 def get_effective_allowed_themes(config):
     if not isinstance(config, dict):
         return tuple(normalize_allowed_themes())
     return tuple(normalize_allowed_themes(config.get('allowed_themes')))
 
-# Resolve user theme preference against allowed themes
+# Theme Config - Function resolves user theme preference under system policy.
 def resolve_user_theme_preference(user_prefs, config):
     prefs = dict(user_prefs or {})
     allowed_themes = set(get_effective_allowed_themes(config))
@@ -1855,7 +1889,7 @@ def resolve_user_theme_preference(user_prefs, config):
         prefs['theme'] = default_theme
     return prefs
 
-# Resolve user sidebar density preference
+# Sidebar Config - Function resolves user sidebar density under system policy.
 def resolve_sidebar_density_preference(user_prefs, config):
     prefs = dict(user_prefs or {})
     sidebar_config = normalize_sidebar_behavior(config.get('sidebar', {}))
@@ -1868,7 +1902,7 @@ def resolve_sidebar_density_preference(user_prefs, config):
         prefs['sidebar_density'] = sidebar_config.get('density', DEFAULT_SIDEBAR_DENSITY)
     return prefs
 
-# Resolve user sidebar collapsed preference
+# Sidebar Config - Function resolves sidebar collapsed state under lock policy.
 def resolve_sidebar_collapsed_preference(user_prefs, config, session_collapsed=False):
     prefs = dict(user_prefs or {})
     collapse_mode = normalize_sidebar_behavior(config.get('sidebar', {})).get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
@@ -1916,19 +1950,20 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'login_config',
 )
 
-# Extract filename from FieldFile or string
+# System Import Export - Helper extracts portable names from file fields.
 def _field_file_name(value):
     if isinstance(value, FieldFile):
         return value.name or ''
     return str(value or '')
 
-# Coerce value to boolean for import settings
+# System Import Export - Helper coerces imported checkbox-like values.
 def _coerce_import_bool(value):
     if isinstance(value, str):
         return value.strip().lower() in {'1', 'true', 'yes', 'on'}
     return bool(value)
 
 
+# System Import Export - Function serializes DB-backed settings for transport.
 def export_system_settings_payload(instance=None):
     """Return a portable JSON payload for DB-backed setup settings."""
     if instance is None:
@@ -1975,6 +2010,7 @@ def export_system_settings_payload(instance=None):
     }
 
 
+# System Import Export - Function validates exported or raw settings payloads.
 def normalize_system_settings_import_payload(payload):
     """Validate and normalize an exported setup payload or a direct settings dict."""
     if not isinstance(payload, dict):
@@ -2057,6 +2093,7 @@ def normalize_system_settings_import_payload(payload):
     return normalized
 
 
+# Typography Config - Function validates per-language default font settings.
 def normalize_default_fonts(value=None, *, allowed_fonts=None):
     """Normalize language-keyed default font settings against available fonts."""
     if not isinstance(value, dict):
@@ -2073,6 +2110,7 @@ def normalize_default_fonts(value=None, *, allowed_fonts=None):
     return normalized
 
 
+# System Import Export - Function applies normalized settings payloads to SystemSettings.
 def apply_system_settings_import(
     instance,
     payload,
@@ -2118,6 +2156,7 @@ def apply_system_settings_import(
     return instance
 
 
+# System Import Export - Function loads first-launch config.json settings.
 def load_system_settings_config_json(path=None):
     """Load and normalize BASE_DIR/config.json for first-launch setup bootstrapping."""
     if path is None:
@@ -2138,6 +2177,7 @@ def load_system_settings_config_json(path=None):
     return normalize_system_settings_import_payload(payload)
 
 
+# System Config - Function merges defaults, settings, and DB-backed runtime config.
 def get_system_config():
     """
     Returns the deeply merged system configuration.
@@ -2197,6 +2237,7 @@ def get_system_config():
         sys_settings = SystemSettings.load()
         system_is_configured = bool(getattr(sys_settings, 'is_configured', False))
 
+        # System Config - Helper decides when DB settings should override file settings.
         def _should_apply_db_override(value, default):
             return system_is_configured or value != default
 
@@ -2490,7 +2531,7 @@ def get_system_config():
 
     return final_config
 
-# Context Menu Helper — Filters context menu actions based on user permissions
+# Context Menu - Function filters row actions by permissions and section rules.
 def filter_context_actions(user, actions, manage_sections_perm=None):
     """
     Filter a list of context menu actions based on user permissions.
@@ -2535,7 +2576,7 @@ def filter_context_actions(user, actions, manage_sections_perm=None):
 
     return filtered
 
-# Model Introspection — Returns possible import base paths for a model's app
+# Model Discovery - Helper lists import bases for a model app.
 def _get_model_app_bases(model):
     """
     Return possible import bases for a model's app.
@@ -2558,7 +2599,7 @@ def _get_model_app_bases(model):
 
     return bases
 
-# Model Resolution — Convention-based class importer (App.<submodule>.Model<Suffix>)
+# Model Discovery - Helper imports conventional model-adjacent classes.
 def _import_by_convention(model, submodule, class_suffix):
     """
     Try importing a class following App.<submodule>.ModelName<class_suffix>.
@@ -2572,7 +2613,7 @@ def _import_by_convention(model, submodule, class_suffix):
             continue
     return None
 
-# Model Resolution — Resolves a class from a model method/attr (class or string path)
+# Model Discovery - Helper resolves model-provided class references.
 def _resolve_model_class(model, getter_name):
     """
     Resolve class from model method/attr that may return a class or a string path.
@@ -2600,11 +2641,13 @@ def _resolve_model_class(model, getter_name):
 # System Variables for Model Classes Caching
 _MODEL_CLASSES_CACHE = {}
 
+# Model Discovery - Class lazily resolves form, table, and filter classes.
 class LazyModelClasses(dict):
     """
     Lazy dictionary that only resolves model classes (form, table, filter)
     when they are explicitly requested, and caches them for subsequent accesses.
     """
+    # Model Discovery - Method stores the model and optional explicit class overrides.
     def __init__(self, model, overrides=None):
         self._model = model
         
@@ -2618,6 +2661,7 @@ class LazyModelClasses(dict):
             'verbose_name_plural': model._meta.verbose_name_plural,
         })
 
+    # Model Discovery - Method normalizes lazy lookup keys.
     @staticmethod
     def _normalize_key(key):
         aliases = {
@@ -2627,6 +2671,7 @@ class LazyModelClasses(dict):
         }
         return aliases.get(key, key)
         
+    # Model Discovery - Method resolves and caches requested class entries.
     def __getitem__(self, key):
         key = self._normalize_key(key)
         if super().__contains__(key):
@@ -2644,18 +2689,21 @@ class LazyModelClasses(dict):
         self[key] = val
         return val
 
+    # Model Discovery - Method returns resolved class entries with default fallback.
     def get(self, key, default=None):
         try:
             return self[key]
         except KeyError:
             return default
 
+    # Model Discovery - Method reports supported lazy class keys.
     def __contains__(self, key):
         key = self._normalize_key(key)
         if super().__contains__(key):
             return True
         return key in ('form', 'table', 'filter')
 
+    # Model Discovery - Method returns configured class overrides when present.
     def _get_override_or_none(self, key):
         if key in self._overrides:
             val = self._overrides[key]
@@ -2667,6 +2715,7 @@ class LazyModelClasses(dict):
             return val
         return None
 
+    # Model Discovery - Method resolves the form class for the current model.
     def _resolve_form(self):
         override = self._get_override_or_none('form')
         if override: return override
@@ -2676,6 +2725,7 @@ class LazyModelClasses(dict):
             form_class = resolve_form_class_for_model(self._model)
         return form_class
         
+    # Model Discovery - Method resolves the table class for the current model.
     def _resolve_table(self):
         override = self._get_override_or_none('table')
         if override: return override
@@ -2687,6 +2737,7 @@ class LazyModelClasses(dict):
              table_class = _build_generic_table_class(self._model)
         return table_class
         
+    # Model Discovery - Method resolves the filter class for the current model.
     def _resolve_filter(self):
         override = self._get_override_or_none('filter')
         if override: return override
@@ -2698,7 +2749,7 @@ class LazyModelClasses(dict):
              filter_class = _build_generic_filter_class(self._model)
         return filter_class
 
-# Model Resolution — Dynamically imports model, form, table, and filter classes by name
+# Model Discovery - Function resolves model, form, table, and filter classes.
 def get_model_classes(model_name, app_label=None, overrides=None):
     """
     Dynamically import model, form, table, and filter classes for a given model
@@ -2733,6 +2784,7 @@ def get_model_classes(model_name, app_label=None, overrides=None):
     return lazy_classes
 
 
+# User Profiles - Function discovers models linked one-to-one to users.
 def get_user_linked_models():
     """
     Finds all models across the Django project that have a OneToOneField 
@@ -2761,7 +2813,7 @@ def get_user_linked_models():
                     })
     return linked_models
 
-# Model Resolution — Dynamically Resolves a Model by Name
+# Model Discovery - Function resolves models by name, label, or fuzzy match.
 def resolve_model_by_name(model_name, app_label=None):
     """
     Resolve a model by name, optionally constrained to an app label.
@@ -2790,12 +2842,12 @@ def resolve_model_by_name(model_name, app_label=None):
     norm_name = _normalize_fuzzy_string(model_name)
     return _get_fuzzy_model_mapping().get(norm_name)
 
-# Model Resolution — Dynamically imports and returns a class from a dotted string path
+# Model Discovery - Function imports a class from a dotted path.
 def get_class_from_string(class_path):
     """Dynamically imports and returns a class from a string path."""
     return import_string(class_path)
 
-# Section Detection — Checks if a model is marked as a section model
+# Sections - Helper detects explicit section model declarations.
 def _model_is_section(model):
     """
     Determine if a model should be treated as a section model.
@@ -2808,7 +2860,7 @@ def _model_is_section(model):
         return True
     return bool(getattr(model._meta, 'is_section', False))
 
-# Form Resolution — Resolves or generates a ModelForm class for any model
+# Model Forms - Function resolves a model form class or creates a fallback.
 def resolve_form_class_for_model(model):
     """
     Resolve a ModelForm class for a model using conventions or fallbacks.
@@ -2863,7 +2915,9 @@ def resolve_form_class_for_model(model):
             form_class = modelform_factory(model, fields='__all__', widgets=widgets)
 
     if has_scope_field:
+        # Model Forms - Class injects request-aware scope defaults into generated forms.
         class ScopeDynamicForm(form_class):
+            # Model Forms - Method removes unmanaged request kwargs before Django form init.
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 if 'scope' in self.fields and not is_scope_enabled():
@@ -2872,7 +2926,7 @@ def resolve_form_class_for_model(model):
 
     return form_class
 
-# Related Objects Inspector — Introspects all related objects for Smart Delete/View
+# Generic Detail - Function gathers reverse and many-to-many related objects.
 def collect_related_objects(instance):
     """
     Introspects a model instance to find all related objects (Reverse FK, M2M).
@@ -2939,7 +2993,7 @@ def collect_related_objects(instance):
                 
     return related_data
 
-# Generate detail context from model instance
+# Generic Detail - Helper builds field rows for fallback detail views.
 def _build_generic_detail_context(instance, request=None):
     """
     Dynamically generates a list of {'label': ..., 'value': ...} dictionaries 
@@ -3004,7 +3058,7 @@ def _build_generic_detail_context(instance, request=None):
 
     return fields_data
 
-# Resolve translated display label for detail views
+# Generic Detail - Function resolves translated labels for detail fields.
 def resolve_detail_field_label(instance, field, request=None, strings=None):
     """Resolve a translated display label for generic detail views."""
     s = strings or get_strings(get_current_language_code(request))
@@ -3035,7 +3089,7 @@ def resolve_detail_field_label(instance, field, request=None, strings=None):
 
     return raw_label or field_name
 
-# Dynamic Table Builder — Generates a django-tables2 Table class at runtime
+# Generic Tables - Helper creates fallback django-tables2 table classes.
 def _build_generic_table_class(model):
     """
     Build a minimal django-tables2 Table for a model.
@@ -3067,7 +3121,7 @@ def _build_generic_table_class(model):
             'class': 'section-row',
             'data-pk': lambda record: record.pk,
             'data-name': lambda record: str(record),
-            'data-micro-context': 'true',
+            'data-dlux-context': 'true',
         },
     }
     if raw_exclude:
@@ -3076,7 +3130,7 @@ def _build_generic_table_class(model):
     table_attrs = {"Meta": Meta}
     return type(f"{model.__name__}AutoTable", (DluxTable,), table_attrs)
 
-# Dynamic Filter Builder — Generates a django-filters FilterSet class at runtime
+# Generic Filters - Helper creates fallback django-filter FilterSet classes.
 def _build_generic_filter_class(model):
     """
     Build a minimal django-filters FilterSet:
@@ -3106,7 +3160,7 @@ def _build_generic_filter_class(model):
         elif date_field is None and isinstance(field, (dj_models.DateField, dj_models.DateTimeField)):
             date_field = field.name
 
-    # Filter Helper — Parses string value to Decimal for numeric filtering
+    # Generic Filters - Helper parses numeric keyword searches without raising.
     def _parse_number(value):
         if value is None:
             return None
@@ -3115,7 +3169,7 @@ def _build_generic_filter_class(model):
         except (InvalidOperation, ValueError):
             return None
 
-    # Filter Init — Initializes filter with translated labels and year choices
+    # Generic Filters - Method patches generated filters with translated labels.
     def _init(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
         s = get_strings()
@@ -3135,7 +3189,7 @@ def _build_generic_filter_class(model):
             # Layout handled by setup_filter_helper in the view
             pass
 
-    # Filter Method — Performs keyword search across text and numeric fields
+    # Generic Filters - Method applies broad keyword search across model fields.
     def _filter_keyword(self, queryset, name, value, text_fields=text_fields, int_fields=int_fields, num_fields=num_fields):
         if not value:
             return queryset
@@ -3171,13 +3225,13 @@ def _build_generic_filter_class(model):
             field_name=date_field,
             lookup_expr="gte",
             label='',
-            widget=dj_forms.DateInput(attrs={'class': 'form-control dl-datepicker', 'placeholder': 'من تاريخ', 'autocomplete': 'off'}),
+            widget=dj_forms.DateInput(attrs={'class': 'form-control dlux-datepicker', 'placeholder': 'من تاريخ', 'autocomplete': 'off'}),
         )
         attrs["date_lte"] = django_filters.DateFilter(
             field_name=date_field,
             lookup_expr="lte",
             label='',
-            widget=dj_forms.DateInput(attrs={'class': 'form-control dl-datepicker', 'placeholder': 'إلى تاريخ', 'autocomplete': 'off'}),
+            widget=dj_forms.DateInput(attrs={'class': 'form-control dlux-datepicker', 'placeholder': 'إلى تاريخ', 'autocomplete': 'off'}),
         )
         attrs["year"] = django_filters.ChoiceFilter(
             field_name=f"{date_field}__year",
@@ -3192,7 +3246,7 @@ def _build_generic_filter_class(model):
 
     return type(f"{model.__name__}AutoFilter", (django_filters.FilterSet,), attrs)
 
-# Section Detection — Identifies child/subsection models (M2M targets)
+# Sections - Helper identifies models primarily linked through parent M2M fields.
 def _is_child_model(model, app_name=None):
     """
     Detect if a model is a "child model" - one that exists primarily 
@@ -3215,7 +3269,7 @@ def _is_child_model(model, app_name=None):
     
     return has_m2m_rel and lacks_table
 
-# Section Discovery — Scans apps for section models and resolves their Form/Table/Filter classes
+# Sections - Function discovers configured section models and optional children.
 def discover_section_models(app_name=None, include_children=False):
     """
     Discover section models based on explicit `is_section = True` in class/meta.
@@ -3350,6 +3404,7 @@ def discover_section_models(app_name=None, include_children=False):
     return section_models
 
 
+# Sections - Function reports whether section models are available.
 @lru_cache(maxsize=None)
 def has_section_models(app_name=None):
     """
@@ -3376,7 +3431,7 @@ def has_section_models(app_name=None):
 
     return False
 
-# Section Discovery — Returns the first section model name for default tab selection
+# Sections - Function chooses the first available section model name.
 def get_default_section_model(app_name=None):
     """
     Get the first available section model name for auto-selection.
@@ -3389,7 +3444,7 @@ def get_default_section_model(app_name=None):
         return section_models[0]['model_name']
     return None
 
-# Section Management - M2M Helper — Provides through_defaults for scoped M2M relations
+# Sections - Helper prepares scoped through-model defaults for M2M additions.
 def _get_m2m_through_defaults(model, field_name, request):
     """
     Provide through_defaults for M2M relations when the through model is scoped.
@@ -3420,7 +3475,7 @@ def _get_m2m_through_defaults(model, field_name, request):
 
     return defaults or None
 
-# Section Management - Record Creation Helper — Creates a minimal model instance from raw POST data
+# Sections - Helper creates inline child records from POST data.
 def _create_minimal_instance_from_post(model, data, request):
     """
     Fallback: create a minimal instance from POST data when a simple
@@ -3476,7 +3531,7 @@ def _create_minimal_instance_from_post(model, data, request):
     instance.save()
     return instance, []
 
-# Scope Management — Checks if the multi-tenant Scope system is globally enabled
+# Scopes - Function reports whether scope filtering is globally enabled.
 def is_scope_enabled():
     """
     Checks if the Scope system is globally enabled.
@@ -3491,7 +3546,7 @@ def is_scope_enabled():
         # Fallback if model or table isn't ready (e.g., during migrations or empty DB)
         return False
 
-# Deletion Safety — Checks if an instance has related records (lock/protect logic)
+# Relations - Function checks whether an instance has protected related records.
 def has_related_records(instance, ignore_relations=None):
     """
     Check if a model instance has any related records (FK, M2M, OneToOne).
@@ -3567,7 +3622,7 @@ def has_related_records(instance, ignore_relations=None):
                 
     return False
 
-# Sidebar State Manager — Handles sidebar collapse toggle and persists state to session/profile
+# Sidebar Runtime - Function toggles collapsed sidebar state in the session.
 def toggle_sidebar(request):
     if request.method == "POST" and request.user.is_authenticated:
         collapsed = request.POST.get("collapsed") == "true"
@@ -3598,20 +3653,20 @@ def toggle_sidebar(request):
         return JsonResponse({"status": "success"})
     return JsonResponse({"status": "error"}, status=400)
 
-# Form Helper — Applies shared field classes, direction, and optional inline labels
+# Form Styling - Function applies Dlux widget classes and runtime affordances.
 def set_field_attrs(form, request=None, inline_labels=False):
     """Set common attributes for all fields in the form."""
     from dlux.translations import get_current_language_code
 
     lang = get_current_language_code(request)
-    ms_trans = get_strings(lang)
+    dlux_strings = get_strings(lang)
     
     # Detect language for direction
     direction = 'rtl' if lang.startswith('ar') else 'ltr'
     
     for field_name in form.fields:
         field = form.fields.get(field_name)
-        # Try to get label from MS_TRANS (model-specific first, then generic)
+        # Try to get label from DLUX_STRINGS (model-specific first, then generic)
         model_name = ""
         if hasattr(form, '_meta') and hasattr(form._meta, 'model'):
              model_name = form._meta.model.__name__.lower()
@@ -3619,9 +3674,9 @@ def set_field_attrs(form, request=None, inline_labels=False):
         label_key_model = f"label_{model_name}_{field_name}" if model_name else None
         label_key_generic = f"label_{field_name}"
         
-        label = ms_trans.get(label_key_model) if label_key_model else None
+        label = dlux_strings.get(label_key_model) if label_key_model else None
         if not label:
-            label = ms_trans.get(label_key_generic)
+            label = dlux_strings.get(label_key_generic)
         
         if not label:
             # Handle auto-generated filter suffixes (gte/lte) for cleaner Arabic translation
@@ -3630,31 +3685,31 @@ def set_field_attrs(form, request=None, inline_labels=False):
             range_type = None
             if "__gte" in field_name:
                 clean_name = field_name.replace("__gte", "")
-                suffix = f" ({ms_trans.get('filter_from', 'From')})"
+                suffix = f" ({dlux_strings.get('filter_from', 'From')})"
                 range_type = "from"
             elif "__lte" in field_name:
                 clean_name = field_name.replace("__lte", "")
-                suffix = f" ({ms_trans.get('filter_to', 'To')})"
+                suffix = f" ({dlux_strings.get('filter_to', 'To')})"
                 range_type = "to"
             elif field_name.endswith("_gte"):
                 clean_name = field_name[:-4]
-                suffix = f" ({ms_trans.get('filter_from', 'From')})"
+                suffix = f" ({dlux_strings.get('filter_from', 'From')})"
                 range_type = "from"
             elif field_name.endswith("_lte"):
                 clean_name = field_name[:-4]
-                suffix = f" ({ms_trans.get('filter_to', 'To')})"
+                suffix = f" ({dlux_strings.get('filter_to', 'To')})"
                 range_type = "to"
 
             if clean_name == "date" and range_type == "from":
-                label = ms_trans.get('filter_date_from')
+                label = dlux_strings.get('filter_date_from')
             elif clean_name == "date" and range_type == "to":
-                label = ms_trans.get('filter_date_to')
+                label = dlux_strings.get('filter_date_to')
             
             if not label:
                 # Try to resolve base label (e.g. label_created_at)
                 base_label = (
-                    ms_trans.get(f"label_{clean_name}")
-                    or ms_trans.get(f"filter_{clean_name}")
+                    dlux_strings.get(f"label_{clean_name}")
+                    or dlux_strings.get(f"filter_{clean_name}")
                     or field.label
                 )
                 
@@ -3668,10 +3723,10 @@ def set_field_attrs(form, request=None, inline_labels=False):
                     base_label = clean_name.replace('_', ' ').split('.')[-1].title()
                     # Secondary lookup for core field name in translations
                     base_label = (
-                        ms_trans.get(f"label_{clean_name}")
-                        or ms_trans.get(f"filter_{clean_name}")
-                        or ms_trans.get(f"label_{base_label.lower()}")
-                        or ms_trans.get(f"filter_{base_label.lower()}")
+                        dlux_strings.get(f"label_{clean_name}")
+                        or dlux_strings.get(f"filter_{clean_name}")
+                        or dlux_strings.get(f"label_{base_label.lower()}")
+                        or dlux_strings.get(f"filter_{base_label.lower()}")
                         or base_label
                     )
                 
@@ -3724,13 +3779,13 @@ def set_field_attrs(form, request=None, inline_labels=False):
             )
         )
         
-        if is_date and 'dl-datepicker' not in field.widget.attrs.get('class', '') and 'flatpickr' not in field.widget.attrs.get('class', ''):
+        if is_date and 'dlux-datepicker' not in field.widget.attrs.get('class', '') and 'flatpickr' not in field.widget.attrs.get('class', ''):
             current_class = field.widget.attrs.get('class', '')
-            field.widget.attrs['class'] = f"{current_class} dl-datepicker".strip()
+            field.widget.attrs['class'] = f"{current_class} dlux-datepicker".strip()
         if is_date:
             field.widget.attrs['autocomplete'] = 'off'
 
-# Set up modern Crispy layout for django-filter FilterSet
+# Filter UI - Function builds the standard compact filter form layout.
 def setup_filter_helper(filter_instance, request=None, preserve_keys=None, inline_labels=True):
     """
     Sets up a modern, responsive Crispy layout for a django-filter FilterSet.
@@ -3803,7 +3858,7 @@ def setup_filter_helper(filter_instance, request=None, preserve_keys=None, inlin
     # Apply shared field attrs, defaulting filters to inline placeholder labels.
     set_field_attrs(filter_instance.form, request, inline_labels=inline_labels)
 
-# Build advanced filter helper with expandable fields
+# Filter UI - Function builds grouped advanced filter layouts.
 def advanced_filter_helper(filter_instance, config=None, request=None, preserve_keys=None, inline_labels=True):
     """
     Build an "advanced" filter helper with:
@@ -3871,7 +3926,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
     helper.form_class = config.get('form_class', 'py-3 row g-2 no-print m-0 dlux-form dlux-filter')
     helper.attrs = dict(config.get('form_attrs', {}) or {})
     if config.get('autosubmit_selects', True):
-        helper.attrs['data-dl-filter-autosubmit'] = 'true'
+        helper.attrs['data-dlux-filter-autosubmit'] = 'true'
 
     if preserve_keys is None:
         preserve_keys = (
@@ -3899,19 +3954,19 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
     for hidden_html in config.get('hidden_inputs', []) or []:
         hidden_layout.append(HTML(hidden_html))
 
-    # Config Helper — Resolves translation text from MS_TRANS with fallback
+    # Filter UI - Helper resolves translated button and label text.
     def _resolve_text(key=None, fallback=''):
         if key:
             return s.get(key, fallback)
         return fallback
 
-    # Config Helper — Merges custom attributes into field widget
+    # Filter UI - Helper merges HTML attributes for generated controls.
     def _merge_attrs(field_obj, attrs):
         if not attrs:
             return
         field_obj.widget.attrs.update(attrs)
 
-    # Config Helper — Resolves placeholder text from spec with translation support
+    # Filter UI - Helper chooses field placeholders from config or labels.
     def _resolve_placeholder(spec):
         if spec.get('placeholder') is not None:
             return spec['placeholder']
@@ -3927,7 +3982,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
             return f"{base} {suffix}".strip()
         return None
 
-    # Layout Builder — Renders a field spec into a Crispy Div with proper styling
+    # Filter UI - Helper renders one filter field from a layout specification.
     def _render_field_spec(spec, default_col_class):
         if isinstance(spec, str):
             spec = {'name': spec}
@@ -3966,7 +4021,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
             css_class=col_class,
         )
 
-    # Layout Builder — Builds an action button with permission check support
+    # Filter UI - Helper builds submit and clear action buttons.
     def _build_action_button(spec):
         if not isinstance(spec, dict):
             return None
@@ -3991,7 +4046,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
 
         return Div(HTML(button_html), css_class=spec.get('col_class', 'col-auto text-center'))
 
-    # URL Builder — Constructs clear URL preserving specified query parameters
+    # Filter UI - Helper preserves allowed query parameters for reset links.
     def _build_clear_url():
         explicit = config.get('clear_url')
         if explicit:
@@ -4006,7 +4061,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
                 clear_url = f'?{qs}'
         return clear_url
 
-    # Filter State — Checks if any non-preserved filters are active
+    # Filter UI - Helper detects whether current query parameters affect filters.
     def _has_active_filters():
         if not request or not request.GET:
             return False
@@ -4117,7 +4172,7 @@ def advanced_filter_helper(filter_instance, config=None, request=None, preserve_
     helper.layout = Layout(*layout_items)
     filter_instance.form.helper = helper
 
-# Form Helper — Set the first choice of a selection field safely
+# Form Choices - Function safely replaces a field placeholder choice.
 def set_first_choice(field, placeholder):
     """Set the first choice of a specified field safely without overwriting data."""
     # 1. Handle fields with explicit empty_label (ModelChoiceField, etc.)
@@ -4151,10 +4206,10 @@ def set_first_choice(field, placeholder):
         
     field.choices = choices
 
-# Form Helper — Translates a choices list using MS_TRANS choice_ prefix
-def translate_choices(choices, ms_trans):
+# Form Choices - Function translates Django choices through DLUX_STRINGS.
+def translate_choices(choices, dlux_strings):
     """
-    Translate a choices list using MS_TRANS choice_ prefix.
+    Translate a choices list using DLUX_STRINGS choice_ prefix.
     Expects choices in format [(value, label), ...]
     """
     translated = []
@@ -4163,10 +4218,10 @@ def translate_choices(choices, ms_trans):
             # Keep placeholder as is (or '---' if not set)
             translated.append((value, label or '---'))
         else:
-            translated.append((value, ms_trans.get(f'choice_{value}', label)))
+            translated.append((value, dlux_strings.get(f'choice_{value}', label)))
     return translated
 
-# Form Helper — Detects if a Crispy form layout already contains Submit/Button elements
+# Crispy Layout - Function detects whether a layout already includes submit controls.
 def has_submit_button(form):
     """
     Recursively inspects a Crispy Form helper layout to determine if the developer
@@ -4178,7 +4233,7 @@ def has_submit_button(form):
         
     from crispy_forms.layout import Submit, Button, HTML
     
-    # Layout Inspector — Recursively checks for Submit/Button objects in layout
+    # Crispy Layout - Helper recursively inspects layout nodes for submit controls.
     def check_node(node):
         # Direct match for Submit or Button objects
         if isinstance(node, (Submit, Button)):
@@ -4216,7 +4271,7 @@ def has_submit_button(form):
             
     return False
 
-# Return app version from VERSION file at the parent caller's folder
+# Versioning - Function reads a package-local VERSION file.
 def get_app_version(calling_file_path: str) -> str:
     """
     Reads the VERSION file from the same directory as the calling file.

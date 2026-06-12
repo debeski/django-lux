@@ -2,22 +2,22 @@
 
 {% with id=widget.attrs.id %}
 <div class="grouped-permissions-widget" id="{{ id }}_container">
-    <link rel="stylesheet" href="{% static 'dlux/users/css/permissions.css' %}">
+    <link rel="stylesheet" href="{% static 'dlux/users/css/permissions.css' %}?v=20260612c">
 
     {% if widget.staff_tier_preview %}
-    <div class="dl-staff-tier-preview mb-3"
+    <div class="dlux-staff-tier-preview mb-3"
          data-tier-preview-config="{{ widget.staff_tier_preview.config_json|escape }}">
-        <div class="dl-staff-tier-preview__header">
+        <div class="dlux-staff-tier-preview__header">
             <div>
-                <div class="dl-staff-tier-preview__eyebrow">{{ MS_TRANS.staff_tier_preview|default:"Staff Tier Preview" }}</div>
-                <h5 class="dl-staff-tier-preview__title mb-1"></h5>
-                <p class="dl-staff-tier-preview__description mb-0"></p>
-                <p class="small text-muted mt-2 mb-0">{{ MS_TRANS.staff_tier_preview_caption|default:"Read-only summary based on staff access, scope, and selected permissions." }}</p>
+                <div class="dlux-staff-tier-preview__eyebrow">{{ DLUX_STRINGS.staff_tier_preview|default:"Staff Tier Preview" }}</div>
+                <h5 class="dlux-staff-tier-preview__title mb-1"></h5>
+                <p class="dlux-staff-tier-preview__description mb-0"></p>
+                <p class="small text-muted mt-2 mb-0">{{ DLUX_STRINGS.staff_tier_preview_caption|default:"Read-only summary based on staff access, scope, and selected permissions." }}</p>
             </div>
-            <div class="dl-staff-tier-preview__badges"></div>
+            <div class="dlux-staff-tier-preview__badges"></div>
         </div>
-        <ul class="dl-staff-tier-preview__capabilities mb-0"></ul>
-        <div class="dl-staff-tier-preview__warnings"></div>
+        <ul class="dlux-staff-tier-preview__capabilities mb-0"></ul>
+        <div class="dlux-staff-tier-preview__warnings"></div>
     </div>
     {% endif %}
     
@@ -33,14 +33,14 @@
                 <div class="d-flex align-items-center">
                     <div class="form-check me-3 prevent-toggle">
                         <input class="form-check-input app-master-checkbox" type="checkbox" id="master_{{ app_label }}">
-                        <label class="form-check-label d-none" for="master_{{ app_label }}">{{ MS_TRANS.select_all }}</label>
+                        <label class="form-check-label d-none" for="master_{{ app_label }}">{{ DLUX_STRINGS.select_all }}</label>
                     </div>
                     <h5 class="app-title">{{ app_data.name|title }}</h5>
                 </div>
                 
                 <div class="d-flex align-items-center">
                     <span class="badge bg-soft-primary text-primary border-primary me-3 px-2 py-1">
-                        {{ app_data.models|length }} {{ MS_TRANS.unit_items }}
+                        {{ app_data.models|length }} {{ DLUX_STRINGS.unit_items }}
                     </span>
                     <i class="bi bi-chevron-down toggle-icon"></i>
                 </div>
@@ -56,7 +56,7 @@
                                 <div class="model-header">
                                     <div class="form-check me-2">
                                         <input class="form-check-input model-master-checkbox" type="checkbox" id="master_{{ app_label }}_{{ model_name }}">
-                                        <label class="form-check-label d-none" for="master_{{ app_label }}_{{ model_name }}">{{ MS_TRANS.select_all }}</label>
+                                        <label class="form-check-label d-none" for="master_{{ app_label }}_{{ model_name }}">{{ DLUX_STRINGS.select_all }}</label>
                                     </div>
                                     <h6 class="model-title">{{ model_data.name }}</h6>
                                 </div>
@@ -93,5 +93,5 @@
     </div>
 </div>
 
-<script src="{% static 'dlux/users/js/permissions.js' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% static 'dlux/users/js/permissions.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}"></script>
 {% endwith %}

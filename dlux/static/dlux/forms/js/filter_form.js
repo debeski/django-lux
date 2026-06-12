@@ -4,11 +4,11 @@ document.addEventListener('change', function (event) {
         return;
     }
 
-    const form = target.closest('form.dlux-filter[data-dl-filter-autosubmit="true"]');
+    const form = target.closest('form.dlux-filter[data-dlux-filter-autosubmit="true"]');
     if (!form) {
         return;
     }
-    if (target.multiple || target.disabled || target.dataset.msNoAutosubmit === 'true') {
+    if (target.multiple || target.disabled || target.dataset.dluxNoAutosubmit === 'true') {
         return;
     }
 

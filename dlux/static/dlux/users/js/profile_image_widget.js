@@ -1,6 +1,6 @@
 document.addEventListener('change', function (event) {
     const fileInput = event.target;
-    if (!(fileInput instanceof HTMLInputElement) || !fileInput.matches('.dl-profile-file-input')) {
+    if (!(fileInput instanceof HTMLInputElement) || !fileInput.matches('.dlux-profile-file-input')) {
         return;
     }
 
@@ -26,7 +26,7 @@ document.addEventListener('change', function (event) {
 
         const image = document.createElement('img');
         image.src = result;
-        image.className = 'dl-image-preview-circle';
+        image.className = 'dlux-image-preview-circle';
         image.id = previewElement.id;
         previewElement.parentNode.replaceChild(image, previewElement);
     };

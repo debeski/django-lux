@@ -11,10 +11,10 @@
             return;
         }
 
-        fieldWrapper.classList.add('dl-choice-selector-field');
+        fieldWrapper.classList.add('dlux-choice-selector-field');
         fieldWrapper.classList.toggle(
-            'dl-choice-selector-field--toggle',
-            selector.getAttribute('data-dl-selector-variant') === 'toggle'
+            'dlux-choice-selector-field--toggle',
+            selector.getAttribute('data-dlux-selector-variant') === 'toggle'
         );
     }
 
@@ -23,33 +23,33 @@
     }
 
     function filterSelectorOptions(searchInput) {
-        const selector = searchInput.closest('[data-dl-selector]');
+        const selector = searchInput.closest('[data-dlux-selector]');
         if (!selector) {
             return;
         }
 
         const query = normalizeText(searchInput.value);
-        selector.querySelectorAll('[data-dl-selector-option]').forEach((option) => {
-            const haystack = normalizeText(option.getAttribute('data-dl-selector-text'));
+        selector.querySelectorAll('[data-dlux-selector-option]').forEach((option) => {
+            const haystack = normalizeText(option.getAttribute('data-dlux-selector-text'));
             option.style.display = !query || haystack.includes(query) ? '' : 'none';
         });
     }
 
     function syncToggleSelector(selector) {
-        if (!selector || selector.getAttribute('data-dl-selector-variant') !== 'toggle') {
+        if (!selector || selector.getAttribute('data-dlux-selector-variant') !== 'toggle') {
             return;
         }
 
         decorateSelectorField(selector);
 
-        const options = Array.from(selector.querySelectorAll('[data-dl-selector-option]'));
+        const options = Array.from(selector.querySelectorAll('[data-dlux-selector-option]'));
         const visibleOptions = options.filter((option) => option.style.display !== 'none');
         const columnCount = Math.max(visibleOptions.length || options.length || 1, 1);
-        selector.style.setProperty('--dl-choice-toggle-columns', String(columnCount));
+        selector.style.setProperty('--dlux-choice-toggle-columns', String(columnCount));
 
         options.forEach((option) => {
-            const input = option.querySelector('.dl-choice-option__input');
-            const surface = option.querySelector('[data-dl-selector-surface]');
+            const input = option.querySelector('.dlux-choice-option__input');
+            const surface = option.querySelector('[data-dlux-selector-surface]');
             if (!input || !surface) {
                 return;
             }
@@ -61,28 +61,28 @@
         if (!root || !(root instanceof Element || root instanceof Document)) {
             return;
         }
-        root.querySelectorAll('[data-dl-selector]').forEach(decorateSelectorField);
-        root.querySelectorAll('[data-dl-selector-variant="toggle"]').forEach(syncToggleSelector);
-        if (root instanceof Element && root.matches('[data-dl-selector]')) {
+        root.querySelectorAll('[data-dlux-selector]').forEach(decorateSelectorField);
+        root.querySelectorAll('[data-dlux-selector-variant="toggle"]').forEach(syncToggleSelector);
+        if (root instanceof Element && root.matches('[data-dlux-selector]')) {
             decorateSelectorField(root);
         }
-        if (root instanceof Element && root.matches('[data-dl-selector-variant="toggle"]')) {
+        if (root instanceof Element && root.matches('[data-dlux-selector-variant="toggle"]')) {
             syncToggleSelector(root);
         }
     }
 
     document.addEventListener('input', function (event) {
-        if (!(event.target instanceof HTMLElement) || !event.target.matches('[data-dl-selector-search]')) {
+        if (!(event.target instanceof HTMLElement) || !event.target.matches('[data-dlux-selector-search]')) {
             return;
         }
         filterSelectorOptions(event.target);
     });
 
     document.addEventListener('change', function (event) {
-        if (!(event.target instanceof HTMLElement) || !event.target.matches('.dl-choice-option__input')) {
+        if (!(event.target instanceof HTMLElement) || !event.target.matches('.dlux-choice-option__input')) {
             return;
         }
-        const selector = event.target.closest('[data-dl-selector]');
+        const selector = event.target.closest('[data-dlux-selector]');
         if (!selector) {
             return;
         }
@@ -103,7 +103,7 @@
                 if (!(node instanceof Element)) {
                     continue;
                 }
-                if (node.matches('[data-dl-selector]') || node.querySelector('[data-dl-selector]')) {
+                if (node.matches('[data-dlux-selector]') || node.querySelector('[data-dlux-selector]')) {
                     scan(node);
                 }
             }

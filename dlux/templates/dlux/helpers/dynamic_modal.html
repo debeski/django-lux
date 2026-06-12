@@ -7,7 +7,7 @@
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title" id="dynamicModalTitle">
                     <i class="bi bi-gear-fill me-2 text-primary"></i>
-                    <span id="dynamicModalTitleText" class="fw-bold">{{ MS_TRANS.manage_records|default:"Manage Records" }}</span>
+                    <span id="dynamicModalTitleText" class="fw-bold">{{ DLUX_STRINGS.manage_records|default:"Manage Records" }}</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -16,11 +16,11 @@
             </div>
             <div class="modal-footer border-0 pt-0" id="universalDynamicModalFooter">
                 <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">
-                    {{ MS_TRANS.close_label|default:"إغلاق" }}
+                    {{ DLUX_STRINGS.close_label|default:"إغلاق" }}
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<script src="{% static 'dlux/helpers/dynamic_modal/js/main.js' %}?v=20260607c" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% static 'dlux/helpers/dynamic_modal/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>

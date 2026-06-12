@@ -114,7 +114,7 @@ class CustomLoginView(LoginView):
         if allow_lang_override and lang_param in config.get('languages', {'ar', 'en'}):
             self.request.session['lang'] = lang_param
 
-        context['MS_TRANS'] = get_strings()
+        context['DLUX_STRINGS'] = get_strings()
         context['allow_language_override'] = allow_lang_override
         login_cfg = config.get('login', {})
         context['login_config'] = login_cfg
@@ -174,7 +174,7 @@ def session_ended_view(request):
         target_is_login = True
 
     return render(request, 'dlux/session_ended.html', {
-        'MS_TRANS': get_strings(),
+        'DLUX_STRINGS': get_strings(),
         'home_target': home_target,
         'target_is_login': target_is_login,
         'reason': str(request.GET.get('reason') or 'ended').strip(),
@@ -416,7 +416,7 @@ def user_report_modal_view(request, pk):
     window = request.GET.get('window') or 'week'
     report = build_user_report(target_user, actor=request.user, window=window)
     context = {
-        'MS_TRANS': get_strings(),
+        'DLUX_STRINGS': get_strings(),
         'report': report,
         'target_user': target_user,
         'xlsx_url': reverse('user_report_xlsx', args=[target_user.pk]),

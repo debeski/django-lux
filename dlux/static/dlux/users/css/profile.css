@@ -374,19 +374,19 @@ html[dir="rtl"] .timeline-dot {
 }
 
 /* --- Profile Image Widget --- */
-.dl-profile-image-input-wrapper {
+.dlux-profile-image-input-wrapper {
     display: flex;
     justify-content: center;
     padding: 20px 0;
 }
 
-.dl-profile-image-preview-area {
+.dlux-profile-image-preview-area {
     position: relative;
     width: 140px;
     height: 140px;
 }
 
-.dl-image-preview-circle {
+.dlux-image-preview-circle {
     width: 100%;
     height: 100%;
     border-radius: 50%;
@@ -400,13 +400,13 @@ html[dir="rtl"] .timeline-dot {
     overflow: hidden;
 }
 
-.dl-image-placeholder {
+.dlux-image-placeholder {
     background: rgba(var(--primal-rgb), 0.05);
     color: var(--primal);
     font-size: 4rem;
 }
 
-.dl-image-upload-label {
+.dlux-image-upload-label {
     position: absolute;
     bottom: 5px;
     right: 5px;
@@ -425,18 +425,18 @@ html[dir="rtl"] .timeline-dot {
     font-size: 1.1rem;
 }
 
-.dl-image-upload-label:hover {
+.dlux-image-upload-label:hover {
     transform: scale(1.1) rotate(15deg);
     background: var(--primal_dark);
     box-shadow: 0 6px 15px rgba(var(--primal-rgb), 0.4);
 }
 
-.dl-profile-image-preview-area:hover .dl-image-preview-circle {
+.dlux-profile-image-preview-area:hover .dlux-image-preview-circle {
     transform: scale(1.03);
 }
 
 /* RTL Adjustments for the label badge */
-[dir="rtl"] .dl-image-upload-label {
+[dir="rtl"] .dlux-image-upload-label {
     right: auto;
     left: 5px;
 }

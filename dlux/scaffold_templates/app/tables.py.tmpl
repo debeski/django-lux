@@ -26,7 +26,7 @@ class ExampleRecordTable(DluxTable):
                 "label": "view_label",
                 "icon": "bi bi-eye",
                 "type": "event",
-                "event": "micro:dynamic_modal:open",
+                "event": "dlux:dynamic_modal:open",
                 "data": {
                     "url": reverse("modal_manager", args=[app_label, model_name, record.pk]) + "?action=view",
                     "title": f"View {display_name}",
@@ -38,7 +38,7 @@ class ExampleRecordTable(DluxTable):
                 "label": "edit_label",
                 "icon": "bi bi-pencil",
                 "type": "event",
-                "event": "micro:dynamic_modal:open",
+                "event": "dlux:dynamic_modal:open",
                 "data": {
                     "url": reverse("modal_manager", args=[app_label, model_name, record.pk]),
                     "title": f"Edit {display_name}",

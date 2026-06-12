@@ -6,43 +6,43 @@
     {% if help_text %}
     <p class="text-muted small mb-3">{{ help_text }}</p>
     {% endif %}
-    <div class="dl-choice-selector dl-choice-selector--swatch dl-theme-settings-matrix">
-    <div class="dl-choice-selector__options">
+    <div class="dlux-choice-selector dlux-choice-selector--swatch dlux-theme-settings-matrix">
+    <div class="dlux-choice-selector__options">
         {% for theme in DLUX_THEMES %}
         <div
-            class="dl-choice-option dl-choice-option--swatch dl-theme-settings-option{% if selected_theme == theme.slug %} is-default{% endif %}"
-            data-dl-selector-option
-            data-dl-selector-text="{{ theme.label }} {{ theme.slug }}"
+            class="dlux-choice-option dlux-choice-option--swatch dlux-theme-settings-option{% if selected_theme == theme.slug %} is-default{% endif %}"
+            data-dlux-selector-option
+            data-dlux-selector-text="{{ theme.label }} {{ theme.slug }}"
             data-theme-option="{{ theme.slug }}"
             data-setup-theme-allow-toggle="{{ theme.slug }}"
         >
-            <div class="dl-choice-option__surface">
-                <div class="dl-theme-settings-option__header">
-                    <label class="dl-theme-settings-option__allow" for="id_allowed_theme_{{ forloop.counter0 }}" data-setup-theme-allowed-control>
+            <div class="dlux-choice-option__surface">
+                <div class="dlux-theme-settings-option__header">
+                    <label class="dlux-theme-settings-option__allow" for="id_allowed_theme_{{ forloop.counter0 }}" data-setup-theme-allowed-control>
                         <input
                             type="checkbox"
-                            class="form-check-input dl-theme-settings-option__checkbox"
+                            class="form-check-input dlux-theme-settings-option__checkbox"
                             id="id_allowed_theme_{{ forloop.counter0 }}"
                             name="{{ allowed_input_name }}"
                             value="{{ theme.slug }}"
-                            aria-label="{{ theme.label }}: {{ MS_TRANS.form_sys_allowed_themes|default:'Allowed Themes' }}"
+                            aria-label="{{ theme.label }}: {{ DLUX_STRINGS.form_sys_allowed_themes|default:'Allowed Themes' }}"
                             data-setup-theme-allowed="{{ theme.slug }}"
                             {% if theme.slug in allowed_themes %}checked{% endif %}
                         >
                     </label>
                 </div>
-                <div class="dl-theme-settings-option__select">
+                <div class="dlux-theme-settings-option__select">
                     <button
                         type="button"
-                        class="dl-theme-settings-option__preview"
+                        class="dlux-theme-settings-option__preview"
                         data-setup-theme-choice="{{ theme.slug }}"
-                        data-setup-theme-preview-url="{% static theme.css_path %}?v=20260523c"
+                        data-setup-theme-preview-url="{% static theme.css_path %}?v=20260612c"
                         aria-pressed="{% if selected_theme == theme.slug %}true{% else %}false{% endif %}"
-                        aria-label="{{ MS_TRANS.form_sys_default_theme|default:'Default Theme' }}: {{ theme.label }}"
-                        title="{{ MS_TRANS.form_sys_default_theme|default:'Default Theme' }}: {{ theme.label }}"
+                        aria-label="{{ DLUX_STRINGS.form_sys_default_theme|default:'Default Theme' }}: {{ theme.label }}"
+                        title="{{ DLUX_STRINGS.form_sys_default_theme|default:'Default Theme' }}: {{ theme.label }}"
                     >
                         <span
-                            class="dl-choice-option__swatch theme-preview dl-theme-preview dl-theme-preview--{{ theme.slug }}{% if selected_theme == theme.slug %} active{% endif %}"
+                            class="dlux-choice-option__swatch theme-preview dlux-theme-preview dlux-theme-preview--{{ theme.slug }}{% if selected_theme == theme.slug %} active{% endif %}"
                             data-theme="{{ theme.slug }}"
                             title="{{ theme.label }}"
                         ></span>

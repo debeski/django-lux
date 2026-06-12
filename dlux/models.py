@@ -863,11 +863,11 @@ class UserActivityLog(ScopedModel):
         verbose_name_plural = "Activity Logs"
         default_permissions = ()
         indexes = [
-            models.Index(fields=['created_at'], name='ms_ual_created_idx'),
-            models.Index(fields=['scope', 'created_at'], name='ms_ual_scope_created_idx'),
-            models.Index(fields=['created_by', 'created_at'], name='ms_ual_actor_created_idx'),
-            models.Index(fields=['model_key', 'created_at'], name='ms_ual_model_created_idx'),
-            models.Index(fields=['action', 'created_at'], name='ms_ual_action_created_idx'),
+            models.Index(fields=['created_at'], name='dlux_ual_created_idx'),
+            models.Index(fields=['scope', 'created_at'], name='dlux_ual_scope_created_idx'),
+            models.Index(fields=['created_by', 'created_at'], name='dlux_ual_actor_created_idx'),
+            models.Index(fields=['model_key', 'created_at'], name='dlux_ual_model_created_idx'),
+            models.Index(fields=['action', 'created_at'], name='dlux_ual_action_created_idx'),
         ]
         permissions = [
             ("view_activitylog", "View activity log"),

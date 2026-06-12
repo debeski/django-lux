@@ -123,7 +123,7 @@ class ExtendedActionsTable(DluxTable):
             'label': 'custom_action',
             'icon': 'bi bi-stars',
             'type': 'event',
-            'event': 'micro:record:custom',
+            'event': 'dlux:record:custom',
             'data': {'id': record.pk},
         })
         return base_actions
@@ -179,7 +179,7 @@ class TableRenderingTests(TestCase):
         table = UserTable(User.objects.filter(pk=self.user.pk), request=self._request())
 
         self.assertEqual(table.template_name, 'dlux/tables/table.html')
-        self.assertIn('dl-data-table', table.attrs.get('class', ''))
+        self.assertIn('dlux-data-table', table.attrs.get('class', ''))
 
     def test_host_table_without_template_is_auto_captured(self):
         table = AutoCapturedHostTable(User.objects.filter(pk=self.user.pk), request=self._request())
@@ -195,13 +195,13 @@ class TableRenderingTests(TestCase):
         table = CustomTemplateHostTable(User.objects.filter(pk=self.user.pk), request=self._request())
 
         self.assertEqual(table.template_name, 'project/custom_table.html')
-        self.assertNotIn('dl-data-table', table.attrs.get('class', ''))
+        self.assertNotIn('dlux-data-table', table.attrs.get('class', ''))
 
     def test_dlux_table_false_opts_out(self):
         table = OptOutHostTable(User.objects.filter(pk=self.user.pk), request=self._request())
 
         self.assertEqual(table.template_name, 'django_tables2/bootstrap5.html')
-        self.assertNotIn('dl-data-table', table.attrs.get('class', ''))
+        self.assertNotIn('dlux-data-table', table.attrs.get('class', ''))
 
     def test_density_resolution_prefers_table_meta_then_user_pref(self):
         dense_table = DenseHostTable(User.objects.filter(pk=self.user.pk), request=self._request())
@@ -223,8 +223,8 @@ class TableRenderingTests(TestCase):
         template = Template('{% load django_tables2 %}{% render_table table %}')
         html = template.render(Context({'table': table, 'request': self._request()}))
 
-        self.assertIn('dl-table-shell', html)
-        self.assertIn('data-dl-table-density="roomy"', html)
+        self.assertIn('dlux-table-shell', html)
+        self.assertIn('data-dlux-table-density="roomy"', html)
 
     def test_rendered_table_outputs_dynamic_sort_querystring(self):
         request = self._request('page=3')
@@ -242,8 +242,8 @@ class TableRenderingTests(TestCase):
 
         self.assertIn('Global Staff', html)
         self.assertIn('Can Assign Staff Roles', html)
-        self.assertIn('dl-staff-tier-badge--global_staff', html)
-        self.assertIn('dl-staff-tier-badge--delegate', html)
+        self.assertIn('dlux-staff-tier-badge--global_staff', html)
+        self.assertIn('dlux-staff-tier-badge--delegate', html)
 
     def test_rendered_table_outputs_per_page_options_and_resets_page(self):
         request = self._request('page=3&sort=username')
@@ -251,9 +251,9 @@ class TableRenderingTests(TestCase):
         template = Template('{% load django_tables2 %}{% render_table table %}')
         html = template.render(Context({'table': table, 'request': request}))
 
-        self.assertIn('dl-table-page-size__option', html)
-        self.assertIn('data-dl-table-density-inline', html)
-        self.assertIn('data-dl-table-density-option="balanced"', html)
+        self.assertIn('dlux-table-page-size__option', html)
+        self.assertIn('data-dlux-table-density-inline', html)
+        self.assertIn('data-dlux-table-density-option="balanced"', html)
         self.assertIn('?sort=username&amp;per_page=50', html)
         self.assertNotIn('?page=3&amp;sort=username&amp;per_page=50', html)
 
@@ -263,9 +263,9 @@ class TableRenderingTests(TestCase):
         template = Template('{% load django_tables2 %}{% render_table table %}')
         html = template.render(Context({'table': table, 'request': request}))
 
-        self.assertIn('data-dl-table-density="dense"', html)
-        self.assertIn('data-dl-table-density-locked="true"', html)
-        self.assertNotIn('data-dl-table-density-inline', html)
+        self.assertIn('data-dlux-table-density="dense"', html)
+        self.assertIn('data-dlux-table-density-locked="true"', html)
+        self.assertNotIn('data-dlux-table-density-inline', html)
 
     def test_request_per_page_overrides_saved_preference_and_persists(self):
         request = self._request('per_page=100')
@@ -282,7 +282,7 @@ class TableRenderingTests(TestCase):
         html = template.render(Context({'table': table, 'request': request}))
 
         self.assertEqual(table.dlux_per_page, 50)
-        self.assertRegex(html, r'dl-table-page-size__option is-active[\s\S]*?>\s*50\s*</a>')
+        self.assertRegex(html, r'dlux-table-page-size__option is-active[\s\S]*?>\s*50\s*</a>')
 
     def test_invalid_request_per_page_falls_back_to_saved_preference(self):
         self.user.profile.preferences = {'table_density': 'roomy', 'table_page_size': 50}
@@ -303,30 +303,30 @@ class TableRenderingTests(TestCase):
     def test_default_actions_are_auto_wired_for_superuser(self):
         request = self._request(user=self.superuser)
         table = AutoCapturedHostTable(User.objects.filter(pk=self.user.pk), request=request)
-        actions = json.loads(table.row_attrs['data-micro-actions'](self.user))
+        actions = json.loads(table.row_attrs['data-dlux-actions'](self.user))
 
         self.assertEqual(
             [action.get('event') for action in actions if action.get('type') == 'event'],
-            ['micro:record:view', 'micro:record:edit', 'micro:record:delete'],
+            ['dlux:record:view', 'dlux:record:edit', 'dlux:record:delete'],
         )
         self.assertEqual(actions[1].get('type'), 'divider')
 
     def test_default_actions_filter_permissions_and_trim_dividers(self):
         request = self._request(user=self.user)
         table = AutoCapturedHostTable(User.objects.filter(pk=self.user.pk), request=request)
-        actions = json.loads(table.row_attrs['data-micro-actions'](self.user))
+        actions = json.loads(table.row_attrs['data-dlux-actions'](self.user))
 
         self.assertEqual(len(actions), 1)
-        self.assertEqual(actions[0].get('event'), 'micro:record:view')
+        self.assertEqual(actions[0].get('event'), 'dlux:record:view')
 
     def test_custom_row_actions_extend_base_actions(self):
         request = self._request(user=self.superuser)
         table = ExtendedActionsTable(User.objects.filter(pk=self.user.pk), request=request)
-        actions = json.loads(table.row_attrs['data-micro-actions'](self.user))
+        actions = json.loads(table.row_attrs['data-dlux-actions'](self.user))
 
-        self.assertEqual(actions[-1].get('event'), 'micro:record:custom')
+        self.assertEqual(actions[-1].get('event'), 'dlux:record:custom')
 
     def test_dlux_actions_false_disables_default_action_wiring(self):
         table = ActionlessTable(User.objects.filter(pk=self.user.pk), request=self._request())
 
-        self.assertNotIn('data-micro-actions', table.row_attrs)
+        self.assertNotIn('data-dlux-actions', table.row_attrs)

@@ -32,87 +32,87 @@
     --right-bg: var(--title);
     --primary-color: var(--primal);
     /* Setup Builder Theme Tokens */
-    --dl-setup-shell-bg: linear-gradient(180deg, rgba(30, 30, 30, 0.96), rgba(18, 18, 18, 0.96));
-    --dl-setup-shell-border: rgba(255, 255, 255, 0.08);
-    --dl-setup-card-bg: rgba(30, 30, 30, 0.9);
-    --dl-setup-card-border: rgba(255, 255, 255, 0.08);
-    --dl-setup-pane-bg: rgba(255, 255, 255, 0.03);
-    --dl-setup-pane-border: rgba(255, 255, 255, 0.08);
-    --dl-setup-item-bg: rgba(255, 255, 255, 0.03);
-    --dl-setup-item-border: rgba(255, 255, 255, 0.08);
-    --dl-setup-item-hover-bg: rgba(255, 255, 255, 0.05);
-    --dl-setup-item-shadow: none;
-    --dl-setup-item-active-bg: rgba(var(--primal-rgb), 0.1);
-    --dl-setup-item-active-ring: rgba(var(--primal-rgb), 0.22);
-    --dl-setup-tree-bg: linear-gradient(180deg, rgba(18, 18, 18, 0.92), rgba(30, 30, 30, 0.92));
-    --dl-setup-tree-accent: rgba(var(--primal-rgb), 0.28);
-    --dl-setup-connector: rgba(148, 163, 184, 0.28);
-    --dl-setup-badge-bg: rgba(255, 255, 255, 0.08);
-    --dl-setup-badge-color: #e9ecef;
-    --dl-setup-text: var(--title);
-    --dl-setup-muted: #cbd5e1;
+    --dlux-setup-shell-bg: linear-gradient(180deg, rgba(30, 30, 30, 0.96), rgba(18, 18, 18, 0.96));
+    --dlux-setup-shell-border: rgba(255, 255, 255, 0.08);
+    --dlux-setup-card-bg: rgba(30, 30, 30, 0.9);
+    --dlux-setup-card-border: rgba(255, 255, 255, 0.08);
+    --dlux-setup-pane-bg: rgba(255, 255, 255, 0.03);
+    --dlux-setup-pane-border: rgba(255, 255, 255, 0.08);
+    --dlux-setup-item-bg: rgba(255, 255, 255, 0.03);
+    --dlux-setup-item-border: rgba(255, 255, 255, 0.08);
+    --dlux-setup-item-hover-bg: rgba(255, 255, 255, 0.05);
+    --dlux-setup-item-shadow: none;
+    --dlux-setup-item-active-bg: rgba(var(--primal-rgb), 0.1);
+    --dlux-setup-item-active-ring: rgba(var(--primal-rgb), 0.22);
+    --dlux-setup-tree-bg: linear-gradient(180deg, rgba(18, 18, 18, 0.92), rgba(30, 30, 30, 0.92));
+    --dlux-setup-tree-accent: rgba(var(--primal-rgb), 0.28);
+    --dlux-setup-connector: rgba(148, 163, 184, 0.28);
+    --dlux-setup-badge-bg: rgba(255, 255, 255, 0.08);
+    --dlux-setup-badge-color: #e9ecef;
+    --dlux-setup-text: var(--title);
+    --dlux-setup-muted: #cbd5e1;
     /* Dlux Table Tokens */
-    --dl-table-surface:
+    --dlux-table-surface:
         radial-gradient(circle at top, rgba(var(--primal-rgb), 0.08), transparent 68%),
         linear-gradient(180deg, rgba(34, 34, 34, 0.98), rgba(18, 18, 18, 0.98));
-    --dl-table-border: rgba(255, 255, 255, 0.08);
-    --dl-table-border-strong: rgba(255, 255, 255, 0.14);
-    --dl-table-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.62);
-    --dl-table-header-surface: linear-gradient(180deg, rgba(40, 40, 40, 0.98), rgba(34, 34, 34, 0.97));
-    --dl-table-header-text: #f4f7fb;
-    --dl-table-row-odd: rgba(26, 26, 26, 0.96);
-    --dl-table-row-even: rgba(34, 34, 34, 0.96);
-    --dl-table-row-hover: rgba(52, 58, 64, 0.96);
-    --dl-table-cell-border: rgba(255, 255, 255, 0.08);
-    --dl-table-sort-muted: rgba(226, 232, 240, 0.72);
-    --dl-table-empty-muted: rgba(203, 213, 225, 0.84);
-    --dl-table-empty-surface: linear-gradient(180deg, rgba(28, 28, 28, 0.98), rgba(20, 20, 20, 0.98));
-    --dl-table-empty-icon-bg: rgba(255, 255, 255, 0.04);
-    --dl-table-empty-icon-color: #dbe5f0;
-    --dl-table-empty-icon-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --dl-table-footer-surface: linear-gradient(180deg, rgba(20, 20, 20, 0.96), rgba(16, 16, 16, 0.98));
-    --dl-table-footer-text: rgba(226, 232, 240, 0.82);
-    --dl-density-card-border: rgba(255, 255, 255, 0.1);
-    --dl-density-card-surface:
+    --dlux-table-border: rgba(255, 255, 255, 0.08);
+    --dlux-table-border-strong: rgba(255, 255, 255, 0.14);
+    --dlux-table-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.62);
+    --dlux-table-header-surface: linear-gradient(180deg, rgba(40, 40, 40, 0.98), rgba(34, 34, 34, 0.97));
+    --dlux-table-header-text: #f4f7fb;
+    --dlux-table-row-odd: rgba(26, 26, 26, 0.96);
+    --dlux-table-row-even: rgba(34, 34, 34, 0.96);
+    --dlux-table-row-hover: rgba(52, 58, 64, 0.96);
+    --dlux-table-cell-border: rgba(255, 255, 255, 0.08);
+    --dlux-table-sort-muted: rgba(226, 232, 240, 0.72);
+    --dlux-table-empty-muted: rgba(203, 213, 225, 0.84);
+    --dlux-table-empty-surface: linear-gradient(180deg, rgba(28, 28, 28, 0.98), rgba(20, 20, 20, 0.98));
+    --dlux-table-empty-icon-bg: rgba(255, 255, 255, 0.04);
+    --dlux-table-empty-icon-color: #dbe5f0;
+    --dlux-table-empty-icon-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --dlux-table-footer-surface: linear-gradient(180deg, rgba(20, 20, 20, 0.96), rgba(16, 16, 16, 0.98));
+    --dlux-table-footer-text: rgba(226, 232, 240, 0.82);
+    --dlux-density-card-border: rgba(255, 255, 255, 0.1);
+    --dlux-density-card-surface:
         radial-gradient(circle at top, rgba(var(--primal-rgb), 0.06), transparent 68%),
         linear-gradient(180deg, rgba(30, 30, 30, 0.98), rgba(20, 20, 20, 0.98));
-    --dl-density-card-shadow:
+    --dlux-density-card-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.05),
         0 16px 30px -26px rgba(0, 0, 0, 0.62);
-    --dl-density-card-hover-border: rgba(var(--primal-rgb), 0.22);
-    --dl-density-card-hover-shadow:
+    --dlux-density-card-hover-border: rgba(var(--primal-rgb), 0.22);
+    --dlux-density-card-hover-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.06),
         0 20px 34px -28px rgba(0, 0, 0, 0.72);
-    --dl-density-card-active-border: rgba(var(--primal-rgb), 0.3);
-    --dl-density-card-active-shadow:
+    --dlux-density-card-active-border: rgba(var(--primal-rgb), 0.3);
+    --dlux-density-card-active-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.07),
         0 0 0 0.18rem rgba(var(--primal-rgb), 0.12);
-    --dl-density-card-icon-bg: rgba(255, 255, 255, 0.05);
-    --dl-density-card-icon-color: #e9eff7;
-    --dl-density-card-title: #eef3f9;
-    --dl-density-card-copy: rgba(203, 213, 225, 0.84);
-    --dl-table-chip-bg: rgba(255, 255, 255, 0.04);
-    --dl-table-chip-border: rgba(255, 255, 255, 0.1);
-    --dl-table-chip-text: #e9ecef;
-    --dl-table-chip-hover-bg: rgba(255, 255, 255, 0.09);
-    --dl-table-chip-active-bg: rgba(var(--primal-rgb), 0.18);
-    --dl-table-chip-active-border: rgba(var(--primal-rgb), 0.34);
-    --dl-table-page-bg: rgba(255, 255, 255, 0.04);
-    --dl-table-page-border: rgba(255, 255, 255, 0.1);
-    --dl-table-page-text: #eef2f7;
-    --dl-table-page-hover-bg: rgba(255, 255, 255, 0.08);
-    --dl-table-page-hover-border: rgba(var(--primal-rgb), 0.3);
-    --dl-table-page-active-bg: rgba(var(--primal-rgb), 0.92);
-    --dl-table-page-active-border: rgba(var(--primal-rgb), 0.92);
-    --dl-table-page-active-text: #101216;
-    --dl-table-page-disabled-bg: rgba(255, 255, 255, 0.02);
-    --dl-table-page-disabled-border: rgba(255, 255, 255, 0.08);
-    --dl-table-page-disabled-text: rgba(226, 232, 240, 0.45);
-    --dl-table-sticky-shadow: 10px 0 24px -20px rgba(0, 0, 0, 0.75);
-    --dl-table-row-deleted-bg: rgba(255, 255, 255, 0.03);
-    --dl-table-row-deleted-text: #7c8797;
-    --dl-table-row-danger-bg: rgba(88, 31, 44, 0.82);
-    --dl-table-row-danger-hover-bg: rgba(108, 40, 54, 0.9);
+    --dlux-density-card-icon-bg: rgba(255, 255, 255, 0.05);
+    --dlux-density-card-icon-color: #e9eff7;
+    --dlux-density-card-title: #eef3f9;
+    --dlux-density-card-copy: rgba(203, 213, 225, 0.84);
+    --dlux-table-chip-bg: rgba(255, 255, 255, 0.04);
+    --dlux-table-chip-border: rgba(255, 255, 255, 0.1);
+    --dlux-table-chip-text: #e9ecef;
+    --dlux-table-chip-hover-bg: rgba(255, 255, 255, 0.09);
+    --dlux-table-chip-active-bg: rgba(var(--primal-rgb), 0.18);
+    --dlux-table-chip-active-border: rgba(var(--primal-rgb), 0.34);
+    --dlux-table-page-bg: rgba(255, 255, 255, 0.04);
+    --dlux-table-page-border: rgba(255, 255, 255, 0.1);
+    --dlux-table-page-text: #eef2f7;
+    --dlux-table-page-hover-bg: rgba(255, 255, 255, 0.08);
+    --dlux-table-page-hover-border: rgba(var(--primal-rgb), 0.3);
+    --dlux-table-page-active-bg: rgba(var(--primal-rgb), 0.92);
+    --dlux-table-page-active-border: rgba(var(--primal-rgb), 0.92);
+    --dlux-table-page-active-text: #101216;
+    --dlux-table-page-disabled-bg: rgba(255, 255, 255, 0.02);
+    --dlux-table-page-disabled-border: rgba(255, 255, 255, 0.08);
+    --dlux-table-page-disabled-text: rgba(226, 232, 240, 0.45);
+    --dlux-table-sticky-shadow: 10px 0 24px -20px rgba(0, 0, 0, 0.75);
+    --dlux-table-row-deleted-bg: rgba(255, 255, 255, 0.03);
+    --dlux-table-row-deleted-text: #7c8797;
+    --dlux-table-row-danger-bg: rgba(88, 31, 44, 0.82);
+    --dlux-table-row-danger-hover-bg: rgba(108, 40, 54, 0.9);
 }
 
 /* Force options to inherit dark theme colors */
@@ -336,8 +336,8 @@
 }
 
 /* IE/Edge Legacy */
-.theme-dark input:-dl-input-placeholder,
-.theme-dark textarea:-dl-input-placeholder {
+.theme-dark input:-dlux-input-placeholder,
+.theme-dark textarea:-dlux-input-placeholder {
     color: #f8f9fa !important;
     opacity: 1 !important;
 }
@@ -481,7 +481,7 @@
 :root.theme-dark .archive-file-meta {
     color: #cbd5e1 !important;
 }
-/* Toggle cards (lang-option / dl-choice-selector--toggle) */
+/* Toggle cards (lang-option / dlux-choice-selector--toggle) */
 :root.theme-dark .lang-option,
 .theme-dark .lang-option {
     background-color: rgba(38, 38, 38, 0.92) !important;
@@ -504,8 +504,8 @@
     color: var(--title) !important;
     box-shadow: 0 0 0 3px rgba(var(--primal-rgb), 0.14) !important;
 }
-/* dl-settings-toggle-field card (bg-light override) */
-:root.theme-dark .dl-settings-toggle-field {
+/* dlux-settings-toggle-field card (bg-light override) */
+:root.theme-dark .dlux-settings-toggle-field {
     background-color: rgba(38, 38, 38, 0.92) !important;
     border-color: rgba(255, 255, 255, 0.08) !important;
     color: var(--title) !important;
@@ -519,7 +519,7 @@
 }
 
 :root.theme-dark .table thead th {
-    background: var(--dl-table-header-surface) !important;
+    background: var(--dlux-table-header-surface) !important;
     color: #fff !important;
     border-color: #343a40 !important;
 }
@@ -679,20 +679,20 @@
     background-color: transparent !important;
 }
 
-:root.theme-dark .titlebar .dl-titlebar-home,
-:root.theme-dark .titlebar .dl-login-round {
+:root.theme-dark .titlebar .dlux-titlebar-home,
+:root.theme-dark .titlebar .dlux-login-round {
     color: #e2e8f0 !important;
     background: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(255, 255, 255, 0.12) !important;
     box-shadow: none !important;
 }
 
-:root.theme-dark .titlebar .dl-titlebar-home:hover,
-:root.theme-dark .titlebar .dl-login-round:hover,
-:root.theme-dark .titlebar .dl-titlebar-home:focus,
-:root.theme-dark .titlebar .dl-login-round:focus,
-:root.theme-dark .titlebar .dl-titlebar-home:focus-visible,
-:root.theme-dark .titlebar .dl-login-round:focus-visible {
+:root.theme-dark .titlebar .dlux-titlebar-home:hover,
+:root.theme-dark .titlebar .dlux-login-round:hover,
+:root.theme-dark .titlebar .dlux-titlebar-home:focus,
+:root.theme-dark .titlebar .dlux-login-round:focus,
+:root.theme-dark .titlebar .dlux-titlebar-home:focus-visible,
+:root.theme-dark .titlebar .dlux-login-round:focus-visible {
     color: #ffffff !important;
     background: rgba(var(--primal-rgb), 0.18) !important;
     border-color: rgba(var(--primal-rgb), 0.32) !important;
@@ -1181,7 +1181,7 @@ html[dir="rtl"] :root.theme-dark .activity-timeline {
     border-color: #343a40 !important;
 }
 
-/* 25. Micro Context Menu Dark Mode Fix */
+/* 25. Dlux Context Menu Dark Mode Fix */
 :root.theme-dark .context-menu {
     background-color: var(--hbody) !important;
     border-color: #343a40 !important;
@@ -1447,17 +1447,17 @@ html[dir="rtl"] :root.theme-dark .activity-timeline {
 
 
 /* 27. User Hub - Dark Mode Overrides (Trigger & Dropdown) */
-:root.theme-dark .dl-user-trigger {
+:root.theme-dark .dlux-user-trigger {
     background: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-:root.theme-dark .dl-user-trigger:hover {
+:root.theme-dark .dlux-user-trigger:hover {
     background: rgba(255, 255, 255, 0.08) !important;
     border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-:root.theme-dark .dl-user-dropdown-card {
+:root.theme-dark .dlux-user-dropdown-card {
     background: rgba(20, 20, 20, 0.95) !important;
     backdrop-filter: blur(25px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
@@ -1465,29 +1465,29 @@ html[dir="rtl"] :root.theme-dark .activity-timeline {
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6) !important;
 }
 
-:root.theme-dark .dl-dropdown-header {
+:root.theme-dark .dlux-dropdown-header {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
-:root.theme-dark .dl-dropdown-toolbar {
+:root.theme-dark .dlux-dropdown-toolbar {
     background: rgba(255, 255, 255, 0.03) !important;
     border-top-color: rgba(255, 255, 255, 0.05) !important;
 }
 
-:root.theme-dark .dl-tool-btn {
+:root.theme-dark .dlux-tool-btn {
     background: #2a2a2a !important;
     border-color: #3e3e3e !important;
     color: var(--primal) !important;
     box-shadow: none !important;
 }
 
-:root.theme-dark .dl-tool-btn:hover {
+:root.theme-dark .dlux-tool-btn:hover {
     background: var(--table-row-hover) !important;
     color: #121212 !important;
     transform: translateY(-2px) !important;
 }
 
-:root.theme-dark .dl-trigger-avatar {
+:root.theme-dark .dlux-trigger-avatar {
     border-color: rgba(255, 255, 255, 0.15) !important;
 }
 

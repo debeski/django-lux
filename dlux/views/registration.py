@@ -61,7 +61,7 @@ def _public_auth_context(request):
     return {
         'login_config': login_cfg,
         'login_hero_message': hero,
-        'MS_TRANS': get_strings(current_lang, overrides=project_overrides),
+        'DLUX_STRINGS': get_strings(current_lang, overrides=project_overrides),
     }
 
 
@@ -75,7 +75,7 @@ def register_view(request):
         if form.is_valid():
             email = form.cleaned_data['email']
             if not public_registration_available():
-                form.add_error(None, context['MS_TRANS'].get(
+                form.add_error(None, context['DLUX_STRINGS'].get(
                     'msg_registration_not_configured',
                     "Registration email delivery is not configured.",
                 ))
@@ -86,7 +86,7 @@ def register_view(request):
             else:
                 registration, token = create_inactive_registration_user(form, request)
                 if not send_registration_verification_email(request, registration, token):
-                    _safe_error_message(request, context['MS_TRANS'].get(
+                    _safe_error_message(request, context['DLUX_STRINGS'].get(
                         'msg_verification_email_failed',
                         "We could not send the verification email. Please try again later.",
                     ))

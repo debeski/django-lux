@@ -1,7 +1,7 @@
 {% load static %}
 <!-- Driver.js for Tutorial -->
-<link rel="stylesheet" href="{% static 'dlux/tutorial/css/main.css' %}"/>
+<link rel="stylesheet" href="{% static 'dlux/tutorial/css/main.css' %}?v=20260612c"/>
 <script src="{% static 'dlux/tutorial/js/driver.js' %}" nonce="{{ request.csp_nonce }}"></script>
-{{ MS_TRANS|json_script:"tutorial-strings-data" }}
+{{ DLUX_STRINGS|json_script:"tutorial-strings-data" }}
 
-<script src="{% static 'dlux/tutorial/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% static 'dlux/tutorial/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}"></script>

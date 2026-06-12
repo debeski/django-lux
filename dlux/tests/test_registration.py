@@ -119,8 +119,8 @@ class PublicRegistrationTests(TestCase):
         response = self.client.get(reverse('register'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'dl-login--centered')
-        self.assertContains(response, 'dl-public-auth-page--register')
+        self.assertContains(response, 'dlux-login--centered')
+        self.assertContains(response, 'dlux-public-auth-page--register')
         self.assertContains(response, 'data-login-logo-treatment="halo"')
         self.assertContains(response, 'class="login-input')
 
@@ -149,7 +149,7 @@ class PublicRegistrationTests(TestCase):
         response = self.client.get(reverse('login'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'dl-login--split dl-login-has-register')
+        self.assertContains(response, 'dlux-login--split dlux-login-has-register')
         self.assertContains(response, 'data-login-logo-treatment="none"')
         self.assertContains(response, reverse('register'))
 

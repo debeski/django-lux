@@ -695,8 +695,8 @@
     ];
 
     function t(key, fallback) {
-        if (window.__MS_TRANS && typeof window.__MS_TRANS[key] === 'string' && window.__MS_TRANS[key]) {
-            return window.__MS_TRANS[key];
+        if (window.DLUX_STRINGS && typeof window.DLUX_STRINGS[key] === 'string' && window.DLUX_STRINGS[key]) {
+            return window.DLUX_STRINGS[key];
         }
         return fallback;
     }
@@ -732,7 +732,7 @@
     }
 
     function persistSetupFormState(form) {
-        if (!form || !form.classList.contains('dl-system-setup-form')) {
+        if (!form || !form.classList.contains('dlux-system-setup-form')) {
             return;
         }
 
@@ -765,7 +765,7 @@
     }
 
     function restoreSetupFormState(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.setupStateRestored === 'true') {
                 return;
             }
@@ -836,11 +836,11 @@
         rebuildLanguageCatalog(form, languages, systemNames, defaultLanguage);
     }
 
-    window.__msGetWizardInitialStep = function (container) {
-        const form = (container && container.matches && container.matches('form.dl-system-setup-form'))
+    window.__dluxGetWizardInitialStep = function (container) {
+        const form = (container && container.matches && container.matches('form.dlux-system-setup-form'))
             ? container
             : container && container.querySelector
-                ? container.querySelector('form.dl-system-setup-form')
+                ? container.querySelector('form.dlux-system-setup-form')
                 : null;
         if (!form) return null;
         const steps = Array.from(form.querySelectorAll('.wizard-step'));
@@ -912,7 +912,7 @@
             return;
         }
 
-        const selectorRoot = inputs[0].closest('[data-dl-selector]');
+        const selectorRoot = inputs[0].closest('[data-dlux-selector]');
         if (selectorRoot) {
             selectorRoot.classList.toggle('is-readonly', Boolean(isReadonly));
         }
@@ -934,7 +934,7 @@
             return;
         }
 
-        const selectorRoot = inputs[0].closest('[data-dl-selector]');
+        const selectorRoot = inputs[0].closest('[data-dlux-selector]');
         if (selectorRoot) {
             selectorRoot.classList.toggle('is-disabled', Boolean(isDisabled));
             selectorRoot.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
@@ -1145,7 +1145,7 @@
     }
 
     function seedNavbarConfigFromSidebar(form) {
-        const shell = form ? form.closest('.dl-system-settings-shell') : null;
+        const shell = form ? form.closest('.dlux-system-settings-shell') : null;
         if (!shell || !shell.classList.contains('mode-setup')) {
             return;
         }
@@ -1183,11 +1183,11 @@
             return;
         }
 
-        const catalog = parseJson(builder.querySelector('.dl-navbar-catalog-data')?.value || '[]', [])
+        const catalog = parseJson(builder.querySelector('.dlux-navbar-catalog-data')?.value || '[]', [])
             .filter((entry) => entry && entry.kind === 'item' && entry.url_name && !entry.is_system);
-        const languages = parseJson(builder.querySelector('.dl-navbar-languages-data')?.value || '{}', {});
+        const languages = parseJson(builder.querySelector('.dlux-navbar-languages-data')?.value || '{}', {});
         const state = {
-            config: readNavbarBuilderConfig(parseJson(hiddenInput.value || builder.querySelector('.dl-navbar-config-data')?.value || '{}', {})),
+            config: readNavbarBuilderConfig(parseJson(hiddenInput.value || builder.querySelector('.dlux-navbar-config-data')?.value || '{}', {})),
             selectedId: '',
             search: '',
         };
@@ -1250,12 +1250,12 @@
 
         function createTreeNode(node) {
             const shell = document.createElement('div');
-            shell.className = 'dl-navbar-node';
+            shell.className = 'dlux-navbar-node';
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = `dl-navbar-node__surface${state.selectedId === node.id ? ' is-active' : ''}`;
+            button.className = `dlux-navbar-node__surface${state.selectedId === node.id ? ' is-active' : ''}`;
             button.innerHTML = `
-                <span class="dl-navbar-node__label">
+                <span class="dlux-navbar-node__label">
                     <i class="bi ${node.kind === 'route' ? 'bi-link-45deg' : 'bi-folder2-open'}"></i>
                     <span>${escapeHtml(nodeLabel(node))}</span>
                 </span>
@@ -1265,7 +1265,7 @@
             shell.appendChild(button);
             if ((node.children || []).length) {
                 const children = document.createElement('div');
-                children.className = 'dl-navbar-node__children';
+                children.className = 'dlux-navbar-node__children';
                 node.children.forEach((child) => children.appendChild(createTreeNode(child)));
                 shell.appendChild(children);
             }
@@ -1299,12 +1299,12 @@
             });
             Object.entries(groups).forEach(([groupLabel, entries]) => {
                 const group = document.createElement('section');
-                group.className = 'dl-navbar-route-group';
+                group.className = 'dlux-navbar-route-group';
                 group.innerHTML = `<h6>${escapeHtml(groupLabel)}</h6>`;
                 entries.forEach((entry) => {
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'dl-navbar-route';
+                    button.className = 'dlux-navbar-route';
                     button.innerHTML = `
                         <span>${escapeHtml(entry.label)}</span>
                         <small>${escapeHtml(entry.url_name)}</small>
@@ -1341,7 +1341,7 @@
             refs.labelInputs.innerHTML = '';
             languageRows(node).forEach(([code, payload]) => {
                 const field = document.createElement('label');
-                field.className = 'form-label dl-navbar-label-field';
+                field.className = 'form-label dlux-navbar-label-field';
                 field.innerHTML = `
                     <span>${escapeHtml((payload && payload.name) || code)} <small>${escapeHtml(code)}</small></span>
                     <input type="text" class="form-control glass-input" value="${escapeHtml((node.labels || {})[code] || '')}"
@@ -1499,7 +1499,7 @@
         if (logoInput && logoInput.files && logoInput.files[0]) {
             const reader = new FileReader();
             reader.onload = () => {
-                document.querySelectorAll('.titlebar__logo, .dl-setup-page-logo').forEach((image) => {
+                document.querySelectorAll('.titlebar__logo, .dlux-setup-page-logo').forEach((image) => {
                     image.setAttribute('src', reader.result);
                 });
             };
@@ -1613,7 +1613,7 @@
     }
 
     function applyImmediateSystemSettingsPreview(form) {
-        if (!form || !form.classList.contains('dl-system-setup-form')) {
+        if (!form || !form.classList.contains('dlux-system-setup-form')) {
             return;
         }
         applyTitlebarPreview(form);
@@ -1624,7 +1624,7 @@
     }
 
     function initImmediateSystemSettingsPreview(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.immediatePreviewBound === 'true') {
                 applyImmediateSystemSettingsPreview(form);
                 return;
@@ -1973,9 +1973,9 @@
             return;
         }
 
-        const catalogData = builder.querySelector('.dl-sidebar-catalog-data');
-        const fallbackCatalogData = builder.querySelector('.dl-sidebar-catalog-fallback-data');
-        const configData = builder.querySelector('.dl-sidebar-config-data');
+        const catalogData = builder.querySelector('.dlux-sidebar-catalog-data');
+        const fallbackCatalogData = builder.querySelector('.dlux-sidebar-catalog-fallback-data');
+        const configData = builder.querySelector('.dlux-sidebar-config-data');
         const catalog = normalizeCatalog(parseJson(catalogData ? catalogData.value : '[]', []));
         const fallbackCatalog = normalizeCatalog(parseJson(fallbackCatalogData ? fallbackCatalogData.value : '[]', []));
         const catalogLookup = buildCatalogLookup(catalog);
@@ -2010,9 +2010,9 @@
         };
 
         function clearDragFeedback() {
-            builder.querySelectorAll('.dl-builder-drop-target').forEach(el => el.classList.remove('dl-builder-drop-target'));
-            builder.querySelectorAll('.dl-builder-drop-before').forEach(el => el.classList.remove('dl-builder-drop-before'));
-            builder.querySelectorAll('.dl-builder-drop-after').forEach(el => el.classList.remove('dl-builder-drop-after'));
+            builder.querySelectorAll('.dlux-builder-drop-target').forEach(el => el.classList.remove('dlux-builder-drop-target'));
+            builder.querySelectorAll('.dlux-builder-drop-before').forEach(el => el.classList.remove('dlux-builder-drop-before'));
+            builder.querySelectorAll('.dlux-builder-drop-after').forEach(el => el.classList.remove('dlux-builder-drop-after'));
             builder.querySelectorAll('.is-dragging').forEach(el => el.classList.remove('is-dragging'));
         }
 
@@ -2025,10 +2025,10 @@
 
             groupedAvailableItems(state).forEach(group => {
                 const section = document.createElement('div');
-                section.className = 'dl-builder-available-group';
+                section.className = 'dlux-builder-available-group';
                 const groupButton = document.createElement('button');
                 groupButton.type = 'button';
-                groupButton.className = 'dl-builder-item available-item fw-semibold';
+                groupButton.className = 'dlux-builder-item available-item fw-semibold';
                 groupButton.dataset.pane = 'available';
                 groupButton.dataset.entryId = group.id;
                 groupButton.dataset.entryKind = 'group';
@@ -2036,7 +2036,7 @@
                     groupButton.classList.add('is-active');
                 }
                 groupButton.innerHTML = `
-                    <span class="dl-builder-item-main">
+                    <span class="dlux-builder-item-main">
                         <i class="bi ${group.icon}"></i>
                         <span>${group.label}</span>
                     </span>
@@ -2062,12 +2062,12 @@
                 section.appendChild(groupButton);
 
                 const children = document.createElement('div');
-                children.className = 'dl-builder-available-items';
+                children.className = 'dlux-builder-available-items';
 
                 group.items.forEach(item => {
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'dl-builder-item available-item is-child';
+                    button.className = 'dlux-builder-item available-item is-child';
                     button.dataset.pane = 'available';
                     button.dataset.entryId = item.id;
                     button.dataset.entryKind = 'item';
@@ -2075,11 +2075,11 @@
                         button.classList.add('is-active');
                     }
                     button.innerHTML = `
-                        <span class="dl-builder-item-main">
+                        <span class="dlux-builder-item-main">
                             <i class="bi ${item.icon}"></i>
-                            <span class="dl-builder-item-copy">
-                                <span class="dl-builder-item-label">${availableItemDisplayLabel(item)}</span>
-                                <span class="dl-builder-item-meta">${item.url_name || item.id}</span>
+                            <span class="dlux-builder-item-copy">
+                                <span class="dlux-builder-item-label">${availableItemDisplayLabel(item)}</span>
+                                <span class="dlux-builder-item-meta">${item.url_name || item.id}</span>
                             </span>
                         </span>
                     `;
@@ -2115,7 +2115,7 @@
 
         function makeNode(entry, parentGroupId) {
             const wrapper = document.createElement('div');
-            wrapper.className = `dl-builder-node ${entry.kind === 'group' ? 'is-group' : 'is-item'}`;
+            wrapper.className = `dlux-builder-node ${entry.kind === 'group' ? 'is-group' : 'is-item'}`;
             wrapper.dataset.entryId = entry.id;
             wrapper.dataset.entryKind = entry.kind;
             wrapper.draggable = true;
@@ -2146,12 +2146,12 @@
                 event.preventDefault();
                 const rect = wrapper.getBoundingClientRect();
                 const before = event.clientY < rect.top + rect.height / 2;
-                wrapper.classList.toggle('dl-builder-drop-before', before);
-                wrapper.classList.toggle('dl-builder-drop-after', !before);
+                wrapper.classList.toggle('dlux-builder-drop-before', before);
+                wrapper.classList.toggle('dlux-builder-drop-after', !before);
             });
 
             wrapper.addEventListener('dragleave', () => {
-                wrapper.classList.remove('dl-builder-drop-before', 'dl-builder-drop-after');
+                wrapper.classList.remove('dlux-builder-drop-before', 'dlux-builder-drop-after');
             });
 
             wrapper.addEventListener('drop', (event) => {
@@ -2171,24 +2171,24 @@
 
             if (entry.kind === 'group') {
                 wrapper.innerHTML = `
-                    <div class="dl-builder-group-header">
-                        <span class="dl-builder-item-main">
+                    <div class="dlux-builder-group-header">
+                        <span class="dlux-builder-item-main">
                             <i class="bi ${entry.icon}"></i>
                             <span>${entry.label}</span>
                         </span>
                         <span class="badge text-bg-light">${(entry.items || []).length}</span>
                     </div>
-                    <div class="dl-builder-group-items" data-group-dropzone="${entry.id}"></div>
+                    <div class="dlux-builder-group-items" data-group-dropzone="${entry.id}"></div>
                 `;
 
                 const itemsContainer = wrapper.querySelector('[data-group-dropzone]');
                 itemsContainer.addEventListener('dragover', (event) => {
                     if (!state.dragging || state.dragging.kind !== 'item') return;
                     event.preventDefault();
-                    itemsContainer.classList.add('dl-builder-drop-target');
+                    itemsContainer.classList.add('dlux-builder-drop-target');
                 });
                 itemsContainer.addEventListener('dragleave', () => {
-                    itemsContainer.classList.remove('dl-builder-drop-target');
+                    itemsContainer.classList.remove('dlux-builder-drop-target');
                 });
                 itemsContainer.addEventListener('drop', (event) => {
                     if (!state.dragging || state.dragging.kind !== 'item') return;
@@ -2202,7 +2202,7 @@
                 });
             } else {
                 wrapper.innerHTML = `
-                    <span class="dl-builder-item-main">
+                    <span class="dlux-builder-item-main">
                         <i class="bi ${entry.icon}"></i>
                         <span>${entry.label}</span>
                     </span>
@@ -2258,7 +2258,7 @@
             filtered.forEach(icon => {
                 const button = document.createElement('button');
                 button.type = 'button';
-                button.className = `btn btn-sm dl-builder-icon-choice ${location.entry.icon === icon ? 'is-active' : ''}`;
+                button.className = `btn btn-sm dlux-builder-icon-choice ${location.entry.icon === icon ? 'is-active' : ''}`;
                 button.setAttribute('title', icon);
                 button.setAttribute('aria-label', icon);
                 button.innerHTML = `<i class="bi ${icon}"></i>`;
@@ -2502,10 +2502,10 @@
         refs.selectedTree.addEventListener('dragover', (event) => {
             if (!state.dragging) return;
             event.preventDefault();
-            refs.selectedTree.classList.add('dl-builder-drop-target');
+            refs.selectedTree.classList.add('dlux-builder-drop-target');
         });
         refs.selectedTree.addEventListener('dragleave', () => {
-            refs.selectedTree.classList.remove('dl-builder-drop-target');
+            refs.selectedTree.classList.remove('dlux-builder-drop-target');
         });
         refs.selectedTree.addEventListener('drop', (event) => {
             if (!state.dragging) return;
@@ -2517,10 +2517,10 @@
         refs.availableList.addEventListener('dragover', (event) => {
             if (!state.dragging || state.dragging.pane !== 'selected') return;
             event.preventDefault();
-            refs.availableList.classList.add('dl-builder-drop-target');
+            refs.availableList.classList.add('dlux-builder-drop-target');
         });
         refs.availableList.addEventListener('dragleave', () => {
-            refs.availableList.classList.remove('dl-builder-drop-target');
+            refs.availableList.classList.remove('dlux-builder-drop-target');
         });
         refs.availableList.addEventListener('drop', (event) => {
             if (!state.dragging || state.dragging.pane !== 'selected') return;
@@ -2787,19 +2787,19 @@
 
     function createLanguageRow(code, name, dir, flag) {
         const row = document.createElement('div');
-        row.className = 'dl-language-row';
+        row.className = 'dlux-language-row';
         row.dataset.languageRow = 'true';
         row.dataset.languageCode = code;
         const locked = code === 'en' || code === 'ar';
         row.innerHTML = `
-            <div class="dl-language-row__code">${code}</div>
+            <div class="dlux-language-row__code">${code}</div>
             <input type="text" class="form-control glass-input" data-language-name value="${escapeHtml(name || code)}" aria-label="Display name (${escapeHtml(code)})">
             <select class="form-select glass-input" data-language-dir aria-label="Direction (${escapeHtml(code)})">
                 <option value="ltr"${dir !== 'rtl' ? ' selected' : ''}>LTR</option>
                 <option value="rtl"${dir === 'rtl' ? ' selected' : ''}>RTL</option>
             </select>
-            <input type="text" class="form-control glass-input dl-language-flag-input" data-language-flag value="${escapeHtml(flag || '')}" aria-label="Flag (${escapeHtml(code)})">
-            <label class="dl-language-default">
+            <input type="text" class="form-control glass-input dlux-language-flag-input" data-language-flag value="${escapeHtml(flag || '')}" aria-label="Flag (${escapeHtml(code)})">
+            <label class="dlux-language-default">
                 <input type="radio" data-language-default value="${code}">
                 <span>Default</span>
             </label>
@@ -2812,13 +2812,13 @@
 
     function createSystemNameRow(code, label, value) {
         const row = document.createElement('div');
-        row.className = 'dl-system-name-row';
+        row.className = 'dlux-system-name-row';
         row.dataset.systemNameRow = 'true';
         row.dataset.languageCode = code;
         row.innerHTML = `
-            <div class="dl-system-name-row__meta">
-                <span class="dl-system-name-row__code">${escapeHtml(code)}</span>
-                <span class="dl-system-name-row__label">${escapeHtml(label || code)}</span>
+            <div class="dlux-system-name-row__meta">
+                <span class="dlux-system-name-row__code">${escapeHtml(code)}</span>
+                <span class="dlux-system-name-row__label">${escapeHtml(label || code)}</span>
             </div>
             <input type="text" class="form-control glass-input" data-system-name-input value="${escapeHtml(value || '')}" placeholder="System name">
         `;
@@ -2840,7 +2840,7 @@
             list.appendChild(row);
             bindSystemNameRow(form, row);
         }
-        const labelTarget = row.querySelector('.dl-system-name-row__label');
+        const labelTarget = row.querySelector('.dlux-system-name-row__label');
         if (labelTarget) {
             labelTarget.textContent = label || code;
         }
@@ -2900,7 +2900,7 @@
             cell.dataset.source = 'missing';
             cell.innerHTML = `
                 <textarea class="form-control form-control-sm glass-input" rows="2" data-translation-input data-lang="${code}" data-key="${key}" data-base-value="" data-override-value="" placeholder=""></textarea>
-                <span class="badge dl-translation-source">missing</span>
+                <span class="badge dlux-translation-source">missing</span>
             `;
             row.appendChild(cell);
             const input = cell.querySelector('[data-translation-input]');
@@ -3188,9 +3188,9 @@
         const passwordField = form.querySelector('[name="email_config_password"]');
         if (!passwordField || typeof passwordField.setCustomValidity !== 'function') return;
 
-        if (passwordField.dataset.msSetupCustomInvalid === 'true') {
+        if (passwordField.dataset.dluxSetupCustomInvalid === 'true') {
             passwordField.classList.remove('is-invalid');
-            passwordField.dataset.msSetupCustomInvalid = '';
+            passwordField.dataset.dluxSetupCustomInvalid = '';
         }
         passwordField.setCustomValidity('');
 
@@ -3200,7 +3200,7 @@
         form.dataset.importNeedsEmailPassword = needsPassword ? 'true' : '';
 
         if (needsPassword) {
-            passwordField.dataset.msSetupCustomInvalid = 'true';
+            passwordField.dataset.dluxSetupCustomInvalid = 'true';
             passwordField.classList.add('is-invalid');
             passwordField.setCustomValidity(t(
                 'system_setup_import_needs_email_password',
@@ -3220,7 +3220,7 @@
     }
 
     function stepHasRenderedServerError(step) {
-        if (!step || step.dataset.msStepUserEdited === 'true') return false;
+        if (!step || step.dataset.dluxStepUserEdited === 'true') return false;
         return Boolean(step.querySelector('.invalid-feedback, .errorlist, .alert-danger'));
     }
 
@@ -3244,7 +3244,7 @@
         if (!form) return -1;
         syncSetupCustomValidation(form);
         const steps = Array.from(form.querySelectorAll('.wizard-step'));
-        const navItems = Array.from(form.querySelectorAll('[data-dl-wizard-step-target]'));
+        const navItems = Array.from(form.querySelectorAll('[data-dlux-wizard-step-target]'));
         let firstInvalidStep = -1;
 
         steps.forEach((step, index) => {
@@ -3252,26 +3252,26 @@
             if (hasError && firstInvalidStep === -1) {
                 firstInvalidStep = index;
             }
-            step.classList.toggle('dl-setup-step-has-error', hasError);
-            step.setAttribute('data-dl-step-validation', hasError ? 'error' : 'ok');
+            step.classList.toggle('dlux-setup-step-has-error', hasError);
+            step.setAttribute('data-dlux-step-validation', hasError ? 'error' : 'ok');
 
-            const navItem = navItems.find((item) => Number(item.dataset.msWizardStepTarget) === index);
+            const navItem = navItems.find((item) => Number(item.dataset.dluxWizardStepTarget) === index);
             if (!navItem) return;
             navItem.classList.toggle('has-validation-error', hasError);
             navItem.setAttribute('aria-invalid', hasError ? 'true' : 'false');
-            const bullet = navItem.querySelector('.dl-setup-step-nav__bullet');
+            const bullet = navItem.querySelector('.dlux-setup-step-nav__bullet');
             if (!bullet) return;
-            if (!bullet.dataset.msStepNumber) {
-                bullet.dataset.msStepNumber = String(bullet.textContent || index + 1).trim();
+            if (!bullet.dataset.dluxStepNumber) {
+                bullet.dataset.dluxStepNumber = String(bullet.textContent || index + 1).trim();
             }
-            bullet.textContent = hasError ? '!' : bullet.dataset.msStepNumber;
+            bullet.textContent = hasError ? '!' : bullet.dataset.dluxStepNumber;
         });
 
         return firstInvalidStep;
     }
 
     function initSystemSetupStepValidation(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.stepValidationBound === 'true') return;
             form.dataset.stepValidationBound = 'true';
 
@@ -3286,17 +3286,17 @@
 
             form.addEventListener('input', (event) => {
                 const step = event.target && event.target.closest ? event.target.closest('.wizard-step') : null;
-                if (step) step.dataset.msStepUserEdited = 'true';
+                if (step) step.dataset.dluxStepUserEdited = 'true';
                 syncSoon();
             });
             form.addEventListener('change', (event) => {
                 const step = event.target && event.target.closest ? event.target.closest('.wizard-step') : null;
-                if (step) step.dataset.msStepUserEdited = 'true';
+                if (step) step.dataset.dluxStepUserEdited = 'true';
                 syncSoon();
             });
             form.addEventListener('invalid', syncSoon, true);
-            form.addEventListener('ms:wizard-step-change', syncSoon);
-            form.querySelectorAll('.dl-btn-submit').forEach((button) => {
+            form.addEventListener('dlux:wizard-step-change', syncSoon);
+            form.querySelectorAll('.dlux-btn-submit').forEach((button) => {
                 button.addEventListener('click', (event) => {
                     persistSetupFormState(form);
                     const firstInvalidStep = updateSetupStepValidationState(form);
@@ -3304,7 +3304,7 @@
                     const firstInvalidControl = firstInvalidControlInStep(form.querySelectorAll('.wizard-step')[firstInvalidStep]);
                     if (!firstInvalidControl) return;
                     event.preventDefault();
-                    const navItem = form.querySelector(`[data-dl-wizard-step-target="${firstInvalidStep}"]`);
+                    const navItem = form.querySelector(`[data-dlux-wizard-step-target="${firstInvalidStep}"]`);
                     if (navItem) navItem.click();
                     window.setTimeout(() => {
                         if (typeof firstInvalidControl.reportValidity === 'function') {
@@ -3323,7 +3323,7 @@
                 const firstInvalidControl = firstInvalidControlInStep(form.querySelectorAll('.wizard-step')[firstInvalidStep]);
                 if (!firstInvalidControl) return;
                 event.preventDefault();
-                const navItem = form.querySelector(`[data-dl-wizard-step-target="${firstInvalidStep}"]`);
+                const navItem = form.querySelector(`[data-dlux-wizard-step-target="${firstInvalidStep}"]`);
                 if (navItem) navItem.click();
                 window.setTimeout(() => {
                     if (typeof firstInvalidControl.reportValidity === 'function') {
@@ -3340,7 +3340,7 @@
     }
 
     function initSystemSetupEnterBehavior(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.enterBehaviorBound === 'true') return;
             form.dataset.enterBehaviorBound = 'true';
 
@@ -3369,7 +3369,7 @@
                     return;
                 }
                 const visibleStepIndex = steps.findIndex((step) => isElementVisible(step));
-                const nextButton = form.querySelector('.dl-btn-next');
+                const nextButton = form.querySelector('.dlux-btn-next');
                 if (visibleStepIndex >= 0 && visibleStepIndex < steps.length - 1 && nextButton && isElementVisible(nextButton)) {
                     event.preventDefault();
                     nextButton.click();
@@ -3422,12 +3422,12 @@
             notice = document.createElement('div');
             notice.setAttribute('data-import-email-password-notice', '');
             notice.setAttribute('data-autoclose', 'false');
-            notice.className = 'alert alert-warning dl-import-email-password-notice mt-2 mb-0';
+            notice.className = 'alert alert-warning dlux-import-email-password-notice mt-2 mb-0';
             notice.textContent = t(
                 'system_setup_import_needs_email_password',
                 'The SMTP password is never included in an exported setup file for security. Re-enter it below to finish setup.'
             );
-            const wrapper = passwordField.closest('.dl-email-config-password-field')
+            const wrapper = passwordField.closest('.dlux-email-config-password-field')
                 || passwordField.closest('div')
                 || passwordField.parentElement;
             if (wrapper) wrapper.appendChild(notice);
@@ -3465,7 +3465,7 @@
         const defaultFonts = settings.default_fonts && typeof settings.default_fonts === 'object' ? settings.default_fonts : null;
         if (defaultFonts) {
             setJsonField(form, 'default_fonts', defaultFonts);
-            form.querySelectorAll('.dl-lang-font-select').forEach((select) => {
+            form.querySelectorAll('.dlux-lang-font-select').forEach((select) => {
                 const lang = normalizeLanguageCode(select.getAttribute('data-lang'));
                 if (lang && Object.prototype.hasOwnProperty.call(defaultFonts, lang)) {
                     select.value = defaultFonts[lang] || select.value;
@@ -3482,10 +3482,10 @@
         if (hiddenInput) {
             hiddenInput.value = raw;
         }
-        form.querySelectorAll('.dl-sidebar-config-data').forEach((node) => {
+        form.querySelectorAll('.dlux-sidebar-config-data').forEach((node) => {
             node.value = raw;
         });
-        form.querySelectorAll('.dl-setup-builder').forEach((builder) => {
+        form.querySelectorAll('.dlux-setup-builder').forEach((builder) => {
             builder.dispatchEvent(new CustomEvent('dlux:sidebar-config-imported', {
                 detail: { config: sidebar }
             }));
@@ -3656,7 +3656,7 @@
     }
 
     function initSystemSetupImportFile(root) {
-        root.querySelectorAll('form.dl-system-setup-form [data-settings-import-file]').forEach((input) => {
+        root.querySelectorAll('form.dlux-system-setup-form [data-settings-import-file]').forEach((input) => {
             if (input.dataset.importBound === 'true') return;
             input.dataset.importBound = 'true';
             input.addEventListener('change', () => {
@@ -3724,7 +3724,7 @@
     }
 
     function initLanguageFontsEditor(root) {
-        root.querySelectorAll('#msLanguageFontsEditor').forEach((editor) => {
+        root.querySelectorAll('#dluxLanguageFontsEditor').forEach((editor) => {
             if (editor.dataset.bound === 'true') return;
             editor.dataset.bound = 'true';
 
@@ -3733,14 +3733,14 @@
 
             function updateHiddenInput() {
                 const config = {};
-                editor.querySelectorAll('.dl-lang-font-select').forEach((select) => {
+                editor.querySelectorAll('.dlux-lang-font-select').forEach((select) => {
                     config[select.getAttribute('data-lang')] = select.value;
                 });
                 hiddenInput.value = JSON.stringify(config);
                 hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
 
-            editor.querySelectorAll('.dl-lang-font-select').forEach((select) => {
+            editor.querySelectorAll('.dlux-lang-font-select').forEach((select) => {
                 select.addEventListener('change', updateHiddenInput);
             });
 
@@ -3748,7 +3748,7 @@
             if (hiddenInput.value) {
                 try {
                     const data = JSON.parse(hiddenInput.value);
-                    editor.querySelectorAll('.dl-lang-font-select').forEach((select) => {
+                    editor.querySelectorAll('.dlux-lang-font-select').forEach((select) => {
                         const lang = select.getAttribute('data-lang');
                         if (data[lang]) {
                             select.value = data[lang];
@@ -3982,7 +3982,7 @@
     }
 
     function initSidebarBehaviorOptions(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.sidebarBehaviorBound === 'true') {
                 return;
             }
@@ -4092,7 +4092,7 @@
     }
 
     function initNavbarBehaviorOptions(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.navbarBehaviorBound === 'true') {
                 return;
             }
@@ -4123,7 +4123,7 @@
     }
 
     function syncSidebarToolbarWarningFallback(form) {
-        if (!form || !form.classList || !form.classList.contains('dl-system-setup-form')) {
+        if (!form || !form.classList || !form.classList.contains('dlux-system-setup-form')) {
             return;
         }
 
@@ -4182,7 +4182,7 @@
     }
 
     function initEmailDeliveryOptions(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.emailDeliveryBound === 'true') {
                 return;
             }
@@ -4192,7 +4192,7 @@
             const email2faToggle = form.querySelector('#id_email_2fa');
             const secretStorageInput = form.querySelector('[name="email_config_secret_storage"]');
             const passwordInput = form.querySelector('[name="email_config_password"]');
-            const passwordField = form.querySelector('.dl-email-config-password-field') || (passwordInput && passwordInput.closest('.col-lg-4, .col-lg-6, .col-12'));
+            const passwordField = form.querySelector('.dlux-email-config-password-field') || (passwordInput && passwordInput.closest('.col-lg-4, .col-lg-6, .col-12'));
             if (!section || (!publicRegistrationToggle && !email2faToggle)) {
                 return;
             }
@@ -4235,7 +4235,7 @@
     }
 
     function initPublicRegistrationOptions(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.publicRegistrationBound === 'true') {
                 return;
             }
@@ -4296,9 +4296,9 @@
     }
 
     function initPublicRootOptions(root) {
-        const forms = root.matches && root.matches('form.dl-system-setup-form')
+        const forms = root.matches && root.matches('form.dlux-system-setup-form')
             ? [root]
-            : Array.from(root.querySelectorAll('form.dl-system-setup-form'));
+            : Array.from(root.querySelectorAll('form.dlux-system-setup-form'));
 
         forms.forEach((form) => {
             if (form.dataset.publicRootBound === 'true') {
@@ -4326,7 +4326,7 @@
     }
 
     function initClientIpOptions(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.clientIpBound === 'true') {
                 return;
             }
@@ -4360,7 +4360,7 @@
     }
 
     function initLoginPageOptions(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.loginPageBound === 'true') return;
 
             const hasStyle = getNamedFieldInputs(form, 'login_style').length > 0;
@@ -4389,8 +4389,8 @@
                     node.setAttribute('aria-hidden', isPlate ? 'false' : 'true');
                     setNamedFieldDisabled(form, 'login_logo_treatment_shape', !isPlate);
                 });
-                form.querySelectorAll('.dl-login-logo-treatment-primary').forEach((node) => {
-                    node.classList.toggle('dl-logo-treatment-primary--wide', !isPlate);
+                form.querySelectorAll('.dlux-login-logo-treatment-primary').forEach((node) => {
+                    node.classList.toggle('dlux-logo-treatment-primary--wide', !isPlate);
                 });
             }
 
@@ -4407,7 +4407,7 @@
     }
 
     function initTitlebarBehaviorOptions(root) {
-        root.querySelectorAll('form.dl-system-setup-form').forEach((form) => {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.titlebarBehaviorBound === 'true') {
                 return;
             }
@@ -4429,14 +4429,14 @@
                 setNamedFieldReadonly(form, 'titlebar_title_size', !showTitleToggle.checked);
                 setNamedFieldReadonly(form, 'titlebar_logo_treatment', !showLogo);
                 setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showPlateShape);
-                form.querySelectorAll('.dl-titlebar-logo-dependent').forEach((node) => {
+                form.querySelectorAll('.dlux-titlebar-logo-dependent').forEach((node) => {
                     node.classList.toggle('d-none', !showLogo);
                     node.setAttribute('aria-hidden', showLogo ? 'false' : 'true');
                 });
-                form.querySelectorAll('.dl-titlebar-logo-treatment-primary').forEach((node) => {
-                    node.classList.toggle('dl-logo-treatment-primary--wide', showLogo && !showPlateShape);
+                form.querySelectorAll('.dlux-titlebar-logo-treatment-primary').forEach((node) => {
+                    node.classList.toggle('dlux-logo-treatment-primary--wide', showLogo && !showPlateShape);
                 });
-                form.querySelectorAll('.dl-titlebar-logo-plate-dependent').forEach((node) => {
+                form.querySelectorAll('.dlux-titlebar-logo-plate-dependent').forEach((node) => {
                     node.classList.toggle('d-none', !showPlateShape);
                     node.setAttribute('aria-hidden', showPlateShape ? 'false' : 'true');
                 });
@@ -4457,7 +4457,7 @@
     function scan(root) {
         restoreSetupFormState(root);
         initSetupHomeFields(root);
-        root.querySelectorAll('.dl-setup-builder').forEach(initBuilder);
+        root.querySelectorAll('.dlux-setup-builder').forEach(initBuilder);
         root.querySelectorAll('[data-navbar-builder]').forEach(initNavbarBuilder);
         initLanguageCatalogEditor(root);
         initTranslationMatrixEditor(root);
@@ -4472,7 +4472,7 @@
         initSetupSidebarDensityPicker(root);
         initSidebarBehaviorOptions(root);
         initNavbarBehaviorOptions(root);
-        root.querySelectorAll('form.dl-system-setup-form').forEach(syncSidebarToolbarWarningFallback);
+        root.querySelectorAll('form.dlux-system-setup-form').forEach(syncSidebarToolbarWarningFallback);
         initEmailDeliveryOptions(root);
         initPublicRegistrationOptions(root);
         initPublicRootOptions(root);
@@ -4482,12 +4482,12 @@
         initImmediateSystemSettingsPreview(root);
     }
 
-    window.__msPrepareWizardContainer = function (container) {
+    window.__dluxPrepareWizardContainer = function (container) {
         const root = container || document;
-        const form = root.matches && root.matches('form.dl-system-setup-form')
+        const form = root.matches && root.matches('form.dlux-system-setup-form')
             ? root
             : root.querySelector
-                ? root.querySelector('form.dl-system-setup-form')
+                ? root.querySelector('form.dlux-system-setup-form')
                 : null;
         if (!form) {
             return;
@@ -4511,7 +4511,7 @@
         )) {
             return;
         }
-        syncSidebarToolbarWarningFallback(target.closest('form.dl-system-setup-form'));
+        syncSidebarToolbarWarningFallback(target.closest('form.dlux-system-setup-form'));
     });
 
     const observer = new MutationObserver((mutations) => {
@@ -4520,20 +4520,20 @@
                 if (node.nodeType !== 1) continue;
                 if (
                     node.matches && (
-                        node.matches('form.dl-system-setup-form') ||
-                        node.matches('.dl-setup-builder') ||
+                        node.matches('form.dlux-system-setup-form') ||
+                        node.matches('.dlux-setup-builder') ||
                         node.matches('[data-navbar-builder]') ||
-                        node.matches('[data-dl-selector]') ||
-                        node.querySelector('.dl-setup-builder') ||
+                        node.matches('[data-dlux-selector]') ||
+                        node.querySelector('.dlux-setup-builder') ||
                         node.querySelector('[data-navbar-builder]') ||
-                        node.querySelector('form.dl-system-setup-form') ||
-	                        node.querySelector('[data-dl-selector]') ||
+                        node.querySelector('form.dlux-system-setup-form') ||
+	                        node.querySelector('[data-dlux-selector]') ||
 	                        node.querySelector('[data-language-catalog-editor]') ||
 	                        node.querySelector('[data-translation-matrix]') ||
 	                        node.querySelector('[data-setup-language-picker]') ||
                         node.querySelector('[data-setup-table-density-picker]') ||
                         node.querySelector('[data-setup-font-picker]') ||
-                        node.querySelector('#msLanguageFontsEditor') ||
+                        node.querySelector('#dluxLanguageFontsEditor') ||
                         node.querySelector('[data-setup-sidebar-density-picker]')
                     )
                 ) {

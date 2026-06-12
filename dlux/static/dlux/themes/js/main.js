@@ -17,14 +17,14 @@ document.addEventListener('DOMContentLoaded', function() {
     root.classList.add(`theme-${themes.includes(savedTheme) ? savedTheme : defaultTheme}`);
 
     function loadPreviewStylesheet(theme, url) {
-        if (!theme || !url || document.querySelector(`[data-dl-preview-theme-css="${theme}"]`)) {
+        if (!theme || !url || document.querySelector(`[data-dlux-preview-theme-css="${theme}"]`)) {
             return;
         }
 
         const stylesheet = document.createElement('link');
         stylesheet.rel = 'stylesheet';
         stylesheet.href = url;
-        stylesheet.dataset.msPreviewThemeCss = theme;
+        stylesheet.dataset.dluxPreviewThemeCss = theme;
         document.head.appendChild(stylesheet);
     }
 
@@ -54,8 +54,8 @@ document.addEventListener('DOMContentLoaded', function() {
         window.clearTimeout(themeSwitchFade.cleanupTimer);
         themeSwitchFade.swapTimer = null;
         themeSwitchFade.cleanupTimer = null;
-        root.classList.remove('dl-theme-switching', 'dl-theme-switching-covered');
-        root.style.removeProperty('--dl-theme-switch-surface');
+        root.classList.remove('dlux-theme-switching', 'dlux-theme-switching-covered');
+        root.style.removeProperty('--dlux-theme-switch-surface');
     }
 
     function shouldFadeThemeSwitch() {
@@ -76,22 +76,22 @@ document.addEventListener('DOMContentLoaded', function() {
         clearThemeSwitchFade();
         const revision = themeSwitchFade.revision;
         root.style.setProperty(
-            '--dl-theme-switch-surface',
+            '--dlux-theme-switch-surface',
             window.getComputedStyle(document.body).backgroundColor || 'var(--body)'
         );
-        root.classList.add('dl-theme-switching');
+        root.classList.add('dlux-theme-switching');
 
         window.requestAnimationFrame(() => {
             if (revision !== themeSwitchFade.revision) {
                 return;
             }
-            root.classList.add('dl-theme-switching-covered');
+            root.classList.add('dlux-theme-switching-covered');
             themeSwitchFade.swapTimer = window.setTimeout(() => {
                 if (revision !== themeSwitchFade.revision) {
                     return;
                 }
                 applyTheme(resolvedTheme);
-                root.classList.remove('dl-theme-switching-covered');
+                root.classList.remove('dlux-theme-switching-covered');
                 themeSwitchFade.cleanupTimer = window.setTimeout(clearThemeSwitchFade, 220);
             }, 110);
         });

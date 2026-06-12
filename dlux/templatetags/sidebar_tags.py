@@ -43,7 +43,7 @@ def auto_sidebar(context):
         'has_extra': has_extra,
         'CURRENT_DIR': context.get('CURRENT_DIR'),
         'CURRENT_LANG': context.get('CURRENT_LANG'),
-        'MS_TRANS': context.get('MS_TRANS'),
+        'DLUX_STRINGS': context.get('DLUX_STRINGS'),
     }
 
 
@@ -84,6 +84,6 @@ def extra_sidebar(context):
         'request': request,
         'CURRENT_DIR': context.get('CURRENT_DIR'),
         'CURRENT_LANG': context.get('CURRENT_LANG'),
-        'MS_TRANS': context.get('MS_TRANS'),
+        'DLUX_STRINGS': context.get('DLUX_STRINGS'),
     }
 

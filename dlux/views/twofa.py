@@ -512,7 +512,7 @@ def verify_otp_view(request, intent='login'):
             return render(request, 'dlux/2fa/verify.html', {
                 'intent': intent,
                 'error_message': error_message,
-                'MS_TRANS': s,
+                'DLUX_STRINGS': s,
                 'user_methods': user_methods,
                 'challenge_state': _build_login_challenge_state(request, user) if intent == 'login' else {},
             }, status=429)
@@ -602,7 +602,7 @@ def verify_otp_view(request, intent='login'):
     return render(request, 'dlux/2fa/verify.html', {
         'intent': intent,
         'error_message': error_message,
-        'MS_TRANS': s,
+        'DLUX_STRINGS': s,
         'user_methods': user_methods,
         'challenge_state': _build_login_challenge_state(request, user) if intent == 'login' else {},
     })

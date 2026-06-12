@@ -2,7 +2,7 @@
 
 * {
     box-sizing: border-box;
-    font-family: var(--dl-main-font, var(--dl-font-fallback, sans-serif)) !important;
+    font-family: var(--dlux-main-font, var(--dlux-font-fallback, sans-serif)) !important;
 }
 
 :root {
@@ -24,25 +24,25 @@
     --glass-input-focus-bg: rgba(255, 255, 255, 0.6); /* No opacity change on focus */
     --glass-input-border: rgba(0, 0, 0, 0.1);
     /* Setup Builder Theme Tokens */
-    --dl-setup-shell-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.94));
-    --dl-setup-shell-border: rgba(255, 255, 255, 0.75);
-    --dl-setup-card-bg: rgba(255, 255, 255, 0.82);
-    --dl-setup-card-border: rgba(255, 255, 255, 0.5);
-    --dl-setup-pane-bg: rgba(255, 255, 255, 0.45);
-    --dl-setup-pane-border: rgba(148, 163, 184, 0.35);
-    --dl-setup-item-bg: rgba(255, 255, 255, 0.92);
-    --dl-setup-item-border: rgba(203, 213, 225, 0.85);
-    --dl-setup-item-hover-bg: rgba(var(--primal-rgb), 0.04);
-    --dl-setup-item-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-    --dl-setup-item-active-bg: rgba(var(--primal-rgb), 0.06);
-    --dl-setup-item-active-ring: rgba(var(--primal-rgb), 0.18);
-    --dl-setup-tree-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(241, 245, 249, 0.92));
-    --dl-setup-tree-accent: rgba(var(--primal-rgb), 0.24);
-    --dl-setup-connector: rgba(148, 163, 184, 0.5);
-    --dl-setup-badge-bg: rgba(var(--primal-rgb), 0.1);
-    --dl-setup-badge-color: var(--primal_dark);
-    --dl-setup-text: var(--title);
-    --dl-setup-muted: var(--htitle);
+    --dlux-setup-shell-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.94));
+    --dlux-setup-shell-border: rgba(255, 255, 255, 0.75);
+    --dlux-setup-card-bg: rgba(255, 255, 255, 0.82);
+    --dlux-setup-card-border: rgba(255, 255, 255, 0.5);
+    --dlux-setup-pane-bg: rgba(255, 255, 255, 0.45);
+    --dlux-setup-pane-border: rgba(148, 163, 184, 0.35);
+    --dlux-setup-item-bg: rgba(255, 255, 255, 0.92);
+    --dlux-setup-item-border: rgba(203, 213, 225, 0.85);
+    --dlux-setup-item-hover-bg: rgba(var(--primal-rgb), 0.04);
+    --dlux-setup-item-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    --dlux-setup-item-active-bg: rgba(var(--primal-rgb), 0.06);
+    --dlux-setup-item-active-ring: rgba(var(--primal-rgb), 0.18);
+    --dlux-setup-tree-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(241, 245, 249, 0.92));
+    --dlux-setup-tree-accent: rgba(var(--primal-rgb), 0.24);
+    --dlux-setup-connector: rgba(148, 163, 184, 0.5);
+    --dlux-setup-badge-bg: rgba(var(--primal-rgb), 0.1);
+    --dlux-setup-badge-color: var(--primal_dark);
+    --dlux-setup-text: var(--title);
+    --dlux-setup-muted: var(--htitle);
 }
 
 :root .btn-secondary .bi,
@@ -176,29 +176,29 @@ body {
     background-color: var(--body);
 }
 
-:root.dl-theme-switching body::after {
+:root.dlux-theme-switching body::after {
     content: "";
     position: fixed;
     inset: 0;
     z-index: 2147483000;
     pointer-events: none;
     opacity: 0;
-    background: var(--dl-theme-switch-surface, var(--body));
+    background: var(--dlux-theme-switch-surface, var(--body));
     transition: opacity 0.22s ease;
 }
 
-:root.dl-theme-switching body *,
-:root.dl-theme-switching body *::before,
-:root.dl-theme-switching body *::after {
+:root.dlux-theme-switching body *,
+:root.dlux-theme-switching body *::before,
+:root.dlux-theme-switching body *::after {
     transition-property: none !important;
 }
 
-:root.dl-theme-switching.dl-theme-switching-covered body::after {
+:root.dlux-theme-switching.dlux-theme-switching-covered body::after {
     opacity: 0.98;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    :root.dl-theme-switching body::after {
+    :root.dlux-theme-switching body::after {
         display: none;
     }
 }
@@ -234,12 +234,12 @@ body {
         break-inside: avoid;
     }
 
-    .dl-user-report {
+    .dlux-user-report {
         color: #111 !important;
     }
 
-    .dl-user-report-card,
-    .dl-user-report-tile {
+    .dlux-user-report-card,
+    .dlux-user-report-tile {
         border: 1px solid #ddd !important;
         break-inside: avoid;
         background: #fff !important;
@@ -283,7 +283,7 @@ form label {
     font-size: 1.2rem;
 }
 
-.dl-log-detail-panel {
+.dlux-log-detail-panel {
     max-height: 26rem;
     overflow-y: auto;
     padding: 1rem;
@@ -293,20 +293,20 @@ form label {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
-.dl-log-details {
+.dlux-log-details {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
 }
 
-.dl-log-detail-item {
+.dlux-log-detail-item {
     border-radius: 14px;
     padding: 0.95rem 1rem;
     background: rgba(var(--primal-rgb), 0.045);
     border: 1px solid rgba(var(--primal-rgb), 0.11);
 }
 
-.dl-log-detail-head {
+.dlux-log-detail-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -314,14 +314,14 @@ form label {
     margin-bottom: 0.75rem;
 }
 
-.dl-log-detail-field {
+.dlux-log-detail-field {
     font-size: 0.95rem;
     font-weight: 700;
     color: var(--title);
     word-break: break-word;
 }
 
-.dl-log-detail-status {
+.dlux-log-detail-status {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
@@ -332,33 +332,33 @@ form label {
     white-space: nowrap;
 }
 
-.dl-log-detail-status.is-set {
+.dlux-log-detail-status.is-set {
     background: rgba(25, 135, 84, 0.14);
     color: #198754;
 }
 
-.dl-log-detail-status.is-cleared {
+.dlux-log-detail-status.is-cleared {
     background: rgba(220, 53, 69, 0.14);
     color: #dc3545;
 }
 
-.dl-log-detail-status.is-changed {
+.dlux-log-detail-status.is-changed {
     background: rgba(var(--primal-rgb), 0.14);
     color: var(--primal_dark);
 }
 
-.dl-log-detail-status.is-info {
+.dlux-log-detail-status.is-info {
     background: rgba(13, 110, 253, 0.14);
     color: #0d6efd;
 }
 
-.dl-log-detail-values {
+.dlux-log-detail-values {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
 }
 
-.dl-log-detail-value {
+.dlux-log-detail-value {
     min-width: 0;
     border-radius: 12px;
     padding: 0.8rem 0.9rem;
@@ -366,11 +366,11 @@ form label {
     border: 1px solid rgba(var(--primal-rgb), 0.1);
 }
 
-.dl-log-detail-value--single {
+.dlux-log-detail-value--single {
     grid-column: 1 / -1;
 }
 
-.dl-log-detail-value-label {
+.dlux-log-detail-value-label {
     margin-bottom: 0.35rem;
     font-size: 0.72rem;
     font-weight: 700;
@@ -379,25 +379,25 @@ form label {
     color: var(--htitle);
 }
 
-.dl-log-detail-value-body {
+.dlux-log-detail-value-body {
     font-size: 0.92rem;
     color: var(--title);
     white-space: pre-wrap;
     word-break: break-word;
 }
 
-.dl-log-detail-empty {
+.dlux-log-detail-empty {
     font-size: 0.88rem;
     color: var(--htitle);
 }
 
 @media (max-width: 767.98px) {
-    .dl-log-detail-head {
+    .dlux-log-detail-head {
         align-items: flex-start;
         flex-direction: column;
     }
 
-    .dl-log-detail-values {
+    .dlux-log-detail-values {
         grid-template-columns: 1fr;
     }
 }
@@ -520,20 +520,20 @@ form label {
    in-body placement; neutralize them inside the footer so they don't stack a
    second divider/gap on top of the footer's own. */
 #universalDynamicModalFooter .dlux-form-actions,
-#universalDynamicModalFooter .dl-setup-wizard-actions,
-#universalDynamicModalFooter .dl-modal-form-actions,
-#universalDynamicModalFooter > [data-dl-modal-footer] {
+#universalDynamicModalFooter .dlux-setup-wizard-actions,
+#universalDynamicModalFooter .dlux-modal-form-actions,
+#universalDynamicModalFooter > [data-dlux-modal-footer] {
     margin: 0 !important;
     padding: 0 !important;
     border: 0 !important;
 }
 
 /* Signed-out interstitial */
-.dl-session-ended__card {
+.dlux-session-ended__card {
     max-width: 480px;
     width: 100%;
 }
 
-.dl-session-ended__icon {
+.dlux-session-ended__icon {
     font-size: 3rem;
 }

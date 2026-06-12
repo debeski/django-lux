@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    document.addEventListener('micro:view-log-details', function(e) {
+    document.addEventListener('dlux:view-log-details', function(e) {
         const detail = e.detail;
         const data = detail.data || detail.actionData?.data || detail.action?.data;
         const url = data?.url;

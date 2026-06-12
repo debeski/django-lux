@@ -38,8 +38,8 @@ class _DluxSelectorMixin:
         value = self.format_value(value)
         final_attrs = self.build_attrs(self.attrs, attrs)
         container_classes = [
-            'dl-choice-selector',
-            f'dl-choice-selector--{self.selector_variant}',
+            'dlux-choice-selector',
+            f'dlux-choice-selector--{self.selector_variant}',
         ]
         extra_class = str(final_attrs.pop('class', '') or '').strip()
         if extra_class:
@@ -55,11 +55,11 @@ class _DluxSelectorMixin:
 
         container_attrs = {
             'class': ' '.join(container_classes),
-            'data-dl-selector': 'true',
-            'data-dl-selector-variant': self.selector_variant,
+            'data-dlux-selector': 'true',
+            'data-dlux-selector-variant': self.selector_variant,
         }
         if self.searchable:
-            container_attrs['data-dl-selector-searchable'] = 'true'
+            container_attrs['data-dlux-selector-searchable'] = 'true'
         if final_attrs.get('id'):
             container_attrs['id'] = final_attrs['id']
 
@@ -69,21 +69,21 @@ class _DluxSelectorMixin:
             output.append(
                 format_html(
                     (
-                        '<div class="dl-choice-selector__search">'
+                        '<div class="dlux-choice-selector__search">'
                         '<input type="search" class="form-control glass-input" '
-                        'placeholder="{}" data-dl-selector-search>'
+                        'placeholder="{}" data-dlux-selector-search>'
                         '</div>'
                     ),
                     self.search_placeholder or 'Search',
                 )
             )
 
-        output.append(mark_safe('<div class="dl-choice-selector__options" data-dl-selector-options>'))
+        output.append(mark_safe('<div class="dlux-choice-selector__options" data-dlux-selector-options>'))
         for group_name, group_options, _index in self.optgroups(name, value, final_attrs):
             if group_name:
                 output.append(
                     format_html(
-                        '<div class="dl-choice-selector__group-label">{}</div>',
+                        '<div class="dlux-choice-selector__group-label">{}</div>',
                         group_name,
                     )
                 )
@@ -97,7 +97,7 @@ class _DluxSelectorMixin:
             return self._render_toggle_option(option)
 
         option_attrs = dict(option.get('attrs') or {})
-        option_attrs['class'] = 'dl-choice-option__input'
+        option_attrs['class'] = 'dlux-choice-option__input'
         option_attrs['type'] = self.input_type
         option_attrs['name'] = option.get('name')
         option_attrs['value'] = option.get('value')
@@ -119,8 +119,8 @@ class _DluxSelectorMixin:
         ).strip()
 
         option_classes = [
-            'dl-choice-option',
-            f'dl-choice-option--{self.selector_variant}',
+            'dlux-choice-option',
+            f'dlux-choice-option--{self.selector_variant}',
         ]
         if option_attrs.get('disabled'):
             option_classes.append('is-disabled')
@@ -129,28 +129,28 @@ class _DluxSelectorMixin:
         preview_class = str(meta.get('preview_class') or '').strip()
         if preview_class:
             indicator = format_html(
-                '<span class="dl-choice-option__swatch {}"></span>',
+                '<span class="dlux-choice-option__swatch {}"></span>',
                 preview_class,
             )
         elif meta.get('icon'):
             indicator = format_html(
-                '<span class="dl-choice-option__icon"><i class="bi {}"></i></span>',
+                '<span class="dlux-choice-option__icon"><i class="bi {}"></i></span>',
                 meta.get('icon'),
             )
 
         meta_lines = []
         if description:
-            meta_lines.append(format_html('<span class="dl-choice-option__meta">{}</span>', description))
+            meta_lines.append(format_html('<span class="dlux-choice-option__meta">{}</span>', description))
         if secondary:
-            meta_lines.append(format_html('<span class="dl-choice-option__meta dl-choice-option__meta--secondary">{}</span>', secondary))
+            meta_lines.append(format_html('<span class="dlux-choice-option__meta dlux-choice-option__meta--secondary">{}</span>', secondary))
 
         return format_html(
             (
-                '<label class="{}" data-dl-selector-option data-dl-selector-text="{}">'
+                '<label class="{}" data-dlux-selector-option data-dlux-selector-text="{}">'
                 '<input{}>'
-                '<span class="dl-choice-option__surface">{}'
-                '<span class="dl-choice-option__copy">'
-                '<span class="dl-choice-option__label">{}</span>{}'
+                '<span class="dlux-choice-option__surface">{}'
+                '<span class="dlux-choice-option__copy">'
+                '<span class="dlux-choice-option__label">{}</span>{}'
                 '</span>'
                 '</span>'
                 '</label>'
@@ -165,7 +165,7 @@ class _DluxSelectorMixin:
 
     def _render_toggle_option(self, option):
         option_attrs = dict(option.get('attrs') or {})
-        option_attrs['class'] = 'dl-choice-option__input'
+        option_attrs['class'] = 'dlux-choice-option__input'
         option_attrs['type'] = self.input_type
         option_attrs['name'] = option.get('name')
         option_attrs['value'] = option.get('value')
@@ -189,16 +189,16 @@ class _DluxSelectorMixin:
         ).strip()
 
         option_classes = [
-            'dl-choice-option',
-            'dl-choice-option--toggle',
+            'dlux-choice-option',
+            'dlux-choice-option--toggle',
         ]
         if option_attrs.get('disabled'):
             option_classes.append('is-disabled')
 
         surface_classes = [
             'lang-option',
-            'dl-choice-option__surface',
-            'dl-choice-option__surface--toggle',
+            'dlux-choice-option__surface',
+            'dlux-choice-option__surface--toggle',
         ]
         if option.get('selected'):
             surface_classes.append('lang-active')
@@ -207,46 +207,46 @@ class _DluxSelectorMixin:
         if meta.get('icon'):
             surface_bits.append(
                 format_html(
-                    '<span class="dl-choice-option__icon"><i class="bi {}"></i></span>',
+                    '<span class="dlux-choice-option__icon"><i class="bi {}"></i></span>',
                     meta.get('icon'),
                 )
             )
         if surface_label:
             surface_bits.append(
                 format_html(
-                    '<span class="dl-choice-toggle__surface-label">{}</span>',
+                    '<span class="dlux-choice-toggle__surface-label">{}</span>',
                     surface_label,
                 )
             )
         if not surface_bits:
             surface_bits.append(
                 format_html(
-                    '<span class="dl-choice-toggle__surface-label">{}</span>',
+                    '<span class="dlux-choice-toggle__surface-label">{}</span>',
                     label,
                 )
             )
 
         caption_bits = [
-            format_html('<span class="dl-choice-toggle__caption-label">{}</span>', label),
+            format_html('<span class="dlux-choice-toggle__caption-label">{}</span>', label),
         ]
         if description:
             caption_bits.append(
-                format_html('<span class="dl-choice-toggle__caption-meta">{}</span>', description)
+                format_html('<span class="dlux-choice-toggle__caption-meta">{}</span>', description)
             )
         if secondary:
             caption_bits.append(
-                format_html('<span class="dl-choice-toggle__caption-meta">{}</span>', secondary)
+                format_html('<span class="dlux-choice-toggle__caption-meta">{}</span>', secondary)
             )
 
         return format_html(
             (
-                '<label class="{}" data-dl-selector-option data-dl-selector-text="{}">'
+                '<label class="{}" data-dlux-selector-option data-dlux-selector-text="{}">'
                 '<input{}>'
-                '<span class="dl-choice-toggle">'
-                '<span class="{}" data-dl-selector-surface>'
-                '<span class="dl-choice-toggle__surface-content">{}</span>'
+                '<span class="dlux-choice-toggle">'
+                '<span class="{}" data-dlux-selector-surface>'
+                '<span class="dlux-choice-toggle__surface-content">{}</span>'
                 '</span>'
-                '<span class="dl-choice-toggle__caption">{}</span>'
+                '<span class="dlux-choice-toggle__caption">{}</span>'
                 '</span>'
                 '</label>'
             ),

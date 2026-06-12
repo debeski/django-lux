@@ -1,5 +1,5 @@
 <div
-    class="dl-language-picker"
+    class="dlux-language-picker"
     {% if picker_mode == 'setup' %}data-setup-language-picker data-language-input="{{ input_id }}"{% endif %}
 >
     {% if label %}
@@ -8,19 +8,19 @@
     {% if help_text %}
     <p class="text-muted small mb-3">{{ help_text }}</p>
     {% endif %}
-    <div class="dl-density-options" role="group" aria-label="{{ label|default:'Language' }}">
+    <div class="dlux-density-options" role="group" aria-label="{{ label|default:'Language' }}">
         {% for code, lang in languages.items %}
         <button
             type="button"
-            class="dl-density-option{% if code == selected_language %} is-active{% endif %}"
+            class="dlux-density-option{% if code == selected_language %} is-active{% endif %}"
             {% if picker_mode == 'options' %}data-lang="{{ code }}"{% endif %}
             {% if picker_mode == 'setup' %}data-setup-language-choice="{{ code }}"{% endif %}
             data-dir="{{ lang.dir|default:'ltr' }}"
         >
-            <span class="dl-density-option__icon" aria-hidden="true">
-                <span class="dl-language-flag">{{ lang.flag|default:"🌐" }}</span>
+            <span class="dlux-density-option__icon" aria-hidden="true">
+                <span class="dlux-language-flag">{{ lang.flag|default:"🌐" }}</span>
             </span>
-            <span class="dl-density-option__copy">
+            <span class="dlux-density-option__copy">
                 <strong>{{ lang.name|default:code }}</strong>
                 <small>{{ lang.desc|default:code|upper }}</small>
             </span>

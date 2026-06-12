@@ -75,7 +75,7 @@ configure_dlux_sso(
 )
 ```
 
-See [Optional SSO Packages](sso.md), [Public Registration Playground](registration.md), and [MSRP-1 Security Standard](security-msrp-1.md).
+See [Optional SSO Packages](sso.md), [Public Registration Playground](registration.md), and [DSRP-1 Security Standard](security-dsrp-1.md).
 
 ## Core Routes
 
@@ -238,9 +238,9 @@ Supported table extension hook:
 
 | Event | Purpose |
 | --- | --- |
-| `micro:record:view` | View a record from a context-enabled element |
-| `micro:record:edit` | Open or route into an edit flow |
-| `micro:record:delete` | Trigger a delete flow |
+| `dlux:record:view` | View a record from a context-enabled element |
+| `dlux:record:edit` | Open or route into an edit flow |
+| `dlux:record:delete` | Trigger a delete flow |
 
 Common action keys:
 
@@ -332,7 +332,7 @@ notice.setAttribute('data-autoclose', 'false');
 
 | Name | Type | Purpose |
 | --- | --- | --- |
-| `ms_timesince` | simple tag | Translated relative timestamp output |
+| `dlux_timesince` | simple tag | Translated relative timestamp output |
 | `include_if_exists` | simple tag | Render a template only if it exists |
 
 ### `dlux_translation`
@@ -371,7 +371,7 @@ notice.setAttribute('data-autoclose', 'false');
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
 | `advanced_filter_helper()` | Build a primary filter row plus collapsible advanced rows, optional action buttons, and separate hidden/clear preserve behavior |
-| `set_field_attrs()` | Apply DjangoLux-friendly widget classes and affordances to a form, including the shared datepicker hook (`.dl-datepicker` with legacy `.flatpickr` compatibility) |
+| `set_field_attrs()` | Apply DjangoLux-friendly widget classes and affordances to a form, including the shared datepicker hook (`.dlux-datepicker` with legacy `.flatpickr` compatibility) |
 | `translate_choices()` | Translate choice lists using the system translation engine |
 | `log_user_action()` | Create consistent audit log entries |
 | `fetch_file()` | Download one file, many files, or ZIP bundles from model instances |
@@ -401,11 +401,11 @@ notice.setAttribute('data-autoclose', 'false');
 Sidebar items are only visible to users who have the required view permission. The permission for each item is inferred in this order:
 
 1. **Explicit decorator**: `sidebar_permissions` or `permission_required` on the view callback — used as-is.
-2. **System route meta**: items in `SYSTEM_ROUTE_META` use their declared `__ms_*` permission tokens:
-   - `manage_users` → `__ms_user_directory__`
-   - `user_activity_log` → `__ms_activity_log__`
-   - `manage_sections` → `__ms_sections_view__`
-   - `options_view` → `__ms_authenticated__`
+2. **System route meta**: items in `SYSTEM_ROUTE_META` use their declared `__dlux_*` permission tokens:
+   - `manage_users` → `__dlux_user_directory__`
+   - `user_activity_log` → `__dlux_activity_log__`
+   - `manage_sections` → `__dlux_sections_view__`
+   - `options_view` → `__dlux_authenticated__`
 3. **Model-based inference**: for class-based views with a model, the permission is `app_label.view_model_name`.
 4. **URL pattern inference**: for function-based views without a model, the app label comes from the URL namespace (or callback module) and the model name from the URL name prefix (e.g., `documents:outgoing_list` → `documents.view_outgoing`).
 5. **No inference**: if none of the above produce a permission, the item is hidden from non-superusers.

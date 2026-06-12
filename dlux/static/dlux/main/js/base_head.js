@@ -15,7 +15,7 @@
     }
 
     window.USER_PREFS = parseJsonScript('user-prefs-data', {});
-    window.__MS_TRANS = parseJsonScript('dl-trans-data', {});
+    window.DLUX_STRINGS = parseJsonScript('dlux-strings-data', {});
     window.DLUX_THEME_NAMES = parseJsonScript('dlux-theme-names', ['light']);
     window.DLUX_CONFIG = parseJsonScript('dlux-config-data', {});
     window.DLUX_FONT_FAMILIES = parseJsonScript('dlux-font-families', {});
@@ -38,7 +38,7 @@
     if (savedFont && (allowedFonts.length === 0 || allowedFonts.includes(savedFont))) {
         const familyName = window.DLUX_FONT_FAMILIES[savedFont];
         if (familyName) {
-        document.documentElement.style.setProperty('--dl-main-font', `'${familyName}', sans-serif`);
+        document.documentElement.style.setProperty('--dlux-main-font', `'${familyName}', sans-serif`);
         }
     }
 

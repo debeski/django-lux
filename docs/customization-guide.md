@@ -104,7 +104,7 @@ Sidebar items are only visible to users who have the required view permission. T
 - **Class-based views**: `app_label.view_model_name` from the model.
 - **Function-based views**: `app_label.view_model_name` from URL namespace and name pattern (e.g., `documents:file_list` → `documents.view_file`).
 - **Explicit decorators**: `sidebar_permissions` or `permission_required` on the view take precedence.
-- **System routes**: use internal tokens like `__ms_user_directory__`, `__ms_activity_log__`, and `__ms_sections_view__`; Options uses `__ms_authenticated__`.
+- **System routes**: use internal tokens like `__dlux_user_directory__`, `__dlux_activity_log__`, and `__dlux_sections_view__`; Options uses `__dlux_authenticated__`.
 
 If a user lacks the required permission, the sidebar item is hidden. Ensure staff users are granted the appropriate `app.view_model` permissions.
 
@@ -172,13 +172,13 @@ If you need a nonstandard stack, you can still wire those settings manually, but
 
 Project-level translations come from two places:
 
-- app-local `translations.py` files containing `MS_TRANSLATIONS`
+- app-local `translations.py` files containing `DLUX_STRINGS`
 - runtime JSON overrides stored in `SystemSettings.translations_override`
 
 App-local example:
 
 ```python
-MS_TRANSLATIONS = {
+DLUX_STRINGS = {
     "ar": {"my_key": "قيمة مخصصة"},
     "en": {"my_key": "Custom value"},
 }
@@ -187,7 +187,7 @@ MS_TRANSLATIONS = {
 Template usage:
 
 ```django
-{{ MS_TRANS.my_key }}
+{{ DLUX_STRINGS.my_key }}
 ```
 
 Important behavior:
@@ -306,8 +306,8 @@ Basic HTML usage:
 
 ```html
 <tr
-  data-micro-context="true"
-  data-micro-actions='[{"label": "Edit", "icon": "bi bi-pencil", "url": "/zones/1/edit/"}]'>
+  data-dlux-context="true"
+  data-dlux-actions='[{"label": "Edit", "icon": "bi bi-pencil", "url": "/zones/1/edit/"}]'>
 </tr>
 ```
 
@@ -339,7 +339,7 @@ Example event action:
   "label": "Edit",
   "icon": "bi bi-pencil",
   "type": "event",
-  "event": "micro:record:edit",
+  "event": "dlux:record:edit",
   "data": {
     "model": "zone",
     "id": 1,
@@ -350,14 +350,14 @@ Example event action:
 
 Built-in record events:
 
-- `micro:record:view`
-- `micro:record:edit`
-- `micro:record:delete`
+- `dlux:record:view`
+- `dlux:record:edit`
+- `dlux:record:delete`
 
 JavaScript integration example:
 
 ```javascript
-document.addEventListener("micro:record:edit", (event) => {
+document.addEventListener("dlux:record:edit", (event) => {
   console.log(event.detail.data);
 });
 ```
@@ -374,7 +374,7 @@ def get_actions(record):
             "label": "View",
             "icon": "bi bi-eye",
             "type": "event",
-            "event": "micro:record:view",
+            "event": "dlux:record:view",
             "data": {"model": "department", "id": record.pk, "name": str(record)},
             "dblclick": True,
         },
@@ -592,11 +592,11 @@ The system automatically:
 
 That means project code normally only needs to supply selectors and popover content.
 
-If your project needs translated strings inside the custom hook, `dlux/base.html` already exposes the resolved translation map on `window.__MS_TRANS`. A tiny helper is usually enough:
+If your project needs translated strings inside the custom hook, `dlux/base.html` already exposes the resolved translation map on `window.DLUX_STRINGS`. A tiny helper is usually enough:
 
 ```javascript
 function tr(key, fallback) {
-    return (window.__MS_TRANS && window.__MS_TRANS[key]) || fallback;
+    return (window.DLUX_STRINGS && window.DLUX_STRINGS[key]) || fallback;
 }
 
 window.get_custom_tutorial_steps = function(path) {
@@ -768,7 +768,7 @@ class InvoiceTable(DluxTable):
         dlux_per_page = 50
 ```
 
-`DluxTable` gives handwritten tables the same renderer, sorting affordances, page-size controls, and default `micro:record:view|edit|delete` row actions used by the generated Dlux tables. To customize the default actions, override `get_dlux_row_actions(self, record, base_actions)`. To disable them entirely, set `dlux_actions = False` in `Meta`.
+`DluxTable` gives handwritten tables the same renderer, sorting affordances, page-size controls, and default `dlux:record:view|edit|delete` row actions used by the generated Dlux tables. To customize the default actions, override `get_dlux_row_actions(self, record, base_actions)`. To disable them entirely, set `dlux_actions = False` in `Meta`.
 
 If a page mixes list/filter and full form behavior, either:
 

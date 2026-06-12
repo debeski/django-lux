@@ -139,7 +139,7 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 - [Developer Guide](docs/developer-guide.md)
 - [Customization Guide](docs/customization-guide.md)
 - [Reference](docs/reference.md)
-- [MSRP-1 Security Standard](docs/security-msrp-1.md)
+- [DSRP-1 Security Standard](docs/security-dsrp-1.md)
 - [Optional SSO Packages](docs/sso.md)
 - [Standalone .dlb Backup Viewer](tools/dlb-viewer/README.md)
 - [Releasing](docs/RELEASING.md) — tag-driven PyPI + GitHub release flow

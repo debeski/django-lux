@@ -1,6 +1,6 @@
-# MSRP-1 Security Standard
+# DSRP-1 Security Standard
 
-MSRP-1, the Dlux Secure Runtime Policy, is the active security contract for
+DSRP-1, the Dlux Secure Runtime Policy, is the active security contract for
 runtime-exposed Dlux surfaces. It exists so visual affordances, direct URL
 access, AJAX endpoints, and state-changing flows all agree on the same backend
 authorization decision.
@@ -36,8 +36,8 @@ authorization decision.
 - User directory, user detail, reset-password, activity-log, section-management,
   dashboard, user-hub, and sidebar surfaces use helper-backed authorization.
 - Built-in system sidebar entries use internal permission tokens:
-  `__ms_user_directory__`, `__ms_activity_log__`, `__ms_sections_view__`,
-  `__ms_sections_manage__`, and `__ms_authenticated__`.
+  `__dlux_user_directory__`, `__dlux_activity_log__`, `__dlux_sections_view__`,
+  `__dlux_sections_manage__`, and `__dlux_authenticated__`.
 - Staff management follows the documented Superuser, Global Staff, Central Staff,
   and Scoped Staff tiers.
 - 2FA enable/setup/disable/resend/backup-code mutators are POST-only and backup

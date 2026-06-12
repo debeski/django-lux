@@ -1,29 +1,29 @@
-<div class="dl-table-density-picker dl-navbar-mode-picker" data-navbar-mode-picker>
-    <div class="dl-density-options" role="group" aria-label="{{ MS_TRANS.navbar_options_title }}">
+<div class="dlux-table-density-picker dlux-navbar-mode-picker" data-navbar-mode-picker>
+    <div class="dlux-density-options" role="group" aria-label="{{ DLUX_STRINGS.navbar_options_title }}">
         <button
             type="button"
-            class="dl-density-option{% if selected_mode == 'hierarchy' %} is-active{% endif %}"
+            class="dlux-density-option{% if selected_mode == 'hierarchy' %} is-active{% endif %}"
             data-navbar-mode="hierarchy"
         >
-            <span class="dl-density-option__icon" aria-hidden="true">
+            <span class="dlux-density-option__icon" aria-hidden="true">
                 <i class="bi bi-diagram-3"></i>
             </span>
-            <span class="dl-density-option__copy">
-                <strong>{{ MS_TRANS.navbar_mode_hierarchy }}</strong>
-                <small>{{ MS_TRANS.navbar_mode_hierarchy_desc }}</small>
+            <span class="dlux-density-option__copy">
+                <strong>{{ DLUX_STRINGS.navbar_mode_hierarchy }}</strong>
+                <small>{{ DLUX_STRINGS.navbar_mode_hierarchy_desc }}</small>
             </span>
         </button>
         <button
             type="button"
-            class="dl-density-option{% if selected_mode == 'history' %} is-active{% endif %}"
+            class="dlux-density-option{% if selected_mode == 'history' %} is-active{% endif %}"
             data-navbar-mode="history"
         >
-            <span class="dl-density-option__icon" aria-hidden="true">
+            <span class="dlux-density-option__icon" aria-hidden="true">
                 <i class="bi bi-clock-history"></i>
             </span>
-            <span class="dl-density-option__copy">
-                <strong>{{ MS_TRANS.navbar_mode_history }}</strong>
-                <small>{{ MS_TRANS.navbar_mode_history_desc }}</small>
+            <span class="dlux-density-option__copy">
+                <strong>{{ DLUX_STRINGS.navbar_mode_history }}</strong>
+                <small>{{ DLUX_STRINGS.navbar_mode_history_desc }}</small>
             </span>
         </button>
     </div>

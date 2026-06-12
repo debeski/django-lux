@@ -512,7 +512,7 @@ class UtilsTests(TestCase):
             label='demo_matrix_app',
             verbose_name='Demo Matrix App',
         )
-        app_module = SimpleNamespace(MS_TRANSLATIONS={
+        app_module = SimpleNamespace(DLUX_STRINGS={
             'en': {'demo_matrix_only_key': 'Demo app value'},
             'ar': {'demo_matrix_only_key': 'قيمة التطبيق'},
         })

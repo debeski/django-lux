@@ -1,0 +1,11 @@
+{% load static %}
+
+<!-- Dlux Context Menu Resources -->
+<link rel="stylesheet" href="{% static 'dlux/helpers/context_menu/css/main.css' %}?v=20260612c">
+<script nonce="{{ request.csp_nonce }}" src="{% static 'dlux/helpers/context_menu/js/main.js' %}?v=20260612c"></script>
+
+<!-- 
+    Dlux Context Menu Container
+    Automatically initialized by JS if not present, but valid to include here.
+-->
+<div id="dluxContextMenu" class="context-menu dlux-context-menu-hidden"></div>

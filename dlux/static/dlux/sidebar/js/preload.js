@@ -1,5 +1,5 @@
 (function () {
     if (window.innerWidth < 1100) {
-        document.documentElement.classList.add('dl-sidebar-precollapse');
+        document.documentElement.classList.add('dlux-sidebar-precollapse');
     }
 })();

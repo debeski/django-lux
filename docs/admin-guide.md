@@ -152,8 +152,8 @@ From the **Appearance and Typography** setup step (or the corresponding System S
 
 ### Technical implementation notes:
 
-- **FOUC Prevention**: The system includes early-load logic in `base_head.js` to inject the selected font CSS variable (`--dl-main-font`) before the page renders, preventing "Flash of Unstyled Content".
-- **Global Control**: The entire UI honors the `--dl-main-font` variable for typography consistency.
+- **FOUC Prevention**: The system includes early-load logic in `base_head.js` to inject the selected font CSS variable (`--dlux-main-font`) before the page renders, preventing "Flash of Unstyled Content".
+- **Global Control**: The entire UI honors the `--dlux-main-font` variable for typography consistency.
 
 ## Options View
 

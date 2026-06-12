@@ -1,7 +1,7 @@
 /* user_dropdown.js */
 document.addEventListener('DOMContentLoaded', function() {
-    const trigger = document.getElementById('dl-user-dropdown-trigger');
-    const card = document.getElementById('dl-user-dropdown-card');
+    const trigger = document.getElementById('dlux-user-dropdown-trigger');
+    const card = document.getElementById('dlux-user-dropdown-card');
 
     if (trigger && card) {
         trigger.addEventListener('click', function(e) {

@@ -5,7 +5,7 @@
     // dropping the " - scope" suffix, then (only when there is barely any room and a logo
     // can carry the brand) collapsing the heading to logo-only. Whenever any part of the
     // title is hidden or clipped, the full text is exposed on hover/focus through the
-    // shared Dlux tooltip (data-dl-tooltip) so nothing is ever lost.
+    // shared Dlux tooltip (data-dlux-tooltip) so nothing is ever lost.
     function syncBrand(brand) {
         const title = brand.querySelector('.titlebar__title[data-titlebar-title]');
         const heading = brand.querySelector('.titlebar__heading');
@@ -44,9 +44,9 @@
         // 3) Reveal the full title on demand via the shared tooltip.
         const full = `${name.textContent}${scope ? scope.textContent : ''}`.replace(/\s+/g, ' ').trim();
         if (truncated && full) {
-            brand.setAttribute('data-dl-tooltip', full);
+            brand.setAttribute('data-dlux-tooltip', full);
         } else {
-            brand.removeAttribute('data-dl-tooltip');
+            brand.removeAttribute('data-dlux-tooltip');
         }
     }
 
@@ -73,5 +73,5 @@
     }
 
     // Expose a manual re-sync hook (e.g. the System Settings live titlebar preview).
-    window.__msSyncTitlebar = syncAll;
+    window.__dluxSyncTitlebar = syncAll;
 }());
