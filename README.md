@@ -139,5 +139,6 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 - [Optional SSO Packages](docs/sso.md)
 - [Standalone .dlb Backup Viewer](tools/dlb-viewer/README.md)
 - [Releasing](docs/RELEASING.md) — tag-driven PyPI + GitHub release flow
+- [Migrating from django-microsys](docs/migrating-from-microsys.md) — in-place upgrade for existing deployments
 - [Features](docs/FEATURES.md) — complete feature inventory
 - [Changelog](CHANGELOG.md)
