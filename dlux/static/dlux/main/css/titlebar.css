@@ -97,7 +97,8 @@
     transition: all 0.3s;
     font-size: clamp(1.1rem, 1.4vw, 1.8rem);
     margin: 0;
-    line-height: 1;
+    line-height: 1.18;
+    padding-block: 0.06em 0.12em;
     display: flex;
     align-items: center;
     /* max-width caps the title to its column so a long title truncates instead of

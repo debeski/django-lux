@@ -1,4 +1,4 @@
-# DjangoLux - System Integration Service
+# DjangoLux — A Modern UX/UI Framework for Django
 
 [![PyPI version](https://img.shields.io/pypi/v/django-lux?color=blue)](https://pypi.org/project/django-lux/)
 [![Python versions](https://img.shields.io/pypi/pyversions/django-lux)](https://pypi.org/project/django-lux/)
@@ -15,10 +15,13 @@
   <sub>Specialized custom GPT for django-lux integration, configuration, extension, and troubleshooting.</sub>
 </p>
 
-DjangoLux is a multilingual Django app that gives a project-level system layer for user management, branding, translations, scopes, navigation, activity logging, guided onboarding, data export, and dynamic CRUD tooling. It is not just a themed admin shell: it is a fairly large internal-systems toolkit that bundles runtime configuration, user operations, auditability, UI infrastructure, and zero-boilerplate management patterns into one package. The package keeps the landing README short, You can view the long-form operating and integration guidance at [`docs/`](docs/README.md).
+DjangoLux is an extensive UX/UI framework for Django — a complete, design-first playground for building modern web apps. It ships a polished, themeable design system on top of Bootstrap 5 (multiple built-in themes, full RTL/LTR + multilingual support, custom font management, and theme/language/direction-aware components) and pairs it with the batteries a real application needs: a first-launch setup wizard, user management and security, scopes, navigation, activity logging, guided onboarding, data export, and zero-boilerplate CRUD tooling.
+
+Think of it as a cohesive foundation rather than a themed admin shell — instead of assembling auth, theming, tables, forms, navigation, and auditing yourself, you get them wired together and configurable at runtime, so you can focus on your app's actual features. The package keeps the landing README short; long-form operating and integration guidance lives at [`docs/`](docs/README.md).
 
 ## What DjangoLux gives you
 
+- A complete, themeable design system on Bootstrap 5: multiple built-in themes with a shared theme registry, full RTL/LTR and multilingual rendering, custom font management, responsive layouts, reusable components (tables, forms, modals, selectors, sidebar, navbar, tutorials), and theme/language/direction-aware surfaces — all driven by a single `dlux` token vocabulary.
 - A first-launch setup wizard at `/sys/setup/` for identity, explicit language catalog management, translation-matrix overrides, access/security toggles, UI-first Dlux email delivery, themes, default table density, global home URL, and sidebar structure, including full sidebar disable, runtime sidebar-toolbar, and user-reordering controls.
 - A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
 - A disabled-by-default public registration playground for email-first local signup with mandatory email verification, Dlux email readiness checks, public-account provenance badges, throttles, and optional approval.

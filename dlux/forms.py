@@ -30,7 +30,6 @@ from .constants import (
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
-    LEGACY_HOME_URL,
     REGISTRATION_ACTIVATION_CHOICES,
     REGISTRATION_ACTIVATION_VALUES,
     NAVBAR_MODE_CHOICES,
@@ -94,6 +93,8 @@ from .utils import (
 from .widgets import DluxChoiceSelectorWidget
 
 User = get_user_model()
+
+_LEGACY_HOME_URL = '/sys/'
 
 THEME_CHOICES = get_theme_choices()
 from .fonts import get_font_choices
@@ -2505,7 +2506,7 @@ class SystemSettingsForm(forms.ModelForm):
         instance_home_url = str(self.instance.home_url or '').strip()
         if (
             not getattr(self.instance, 'is_configured', False)
-            and instance_home_url == LEGACY_HOME_URL
+            and instance_home_url == _LEGACY_HOME_URL
         ):
             instance_home_url = ''
 

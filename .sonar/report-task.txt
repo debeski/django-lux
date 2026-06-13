@@ -1,6 +1,0 @@
-projectKey=microsys
-serverUrl=http://192.168.20.32:9000
-serverVersion=26.4.0.121862
-dashboardUrl=http://192.168.20.32:9000/dashboard?id=microsys
-ceTaskId=9ed2dac1-93a0-49b0-9cde-2e0958a89ffd
-ceTaskUrl=http://192.168.20.32:9000/api/ce/task?id=9ed2dac1-93a0-49b0-9cde-2e0958a89ffd

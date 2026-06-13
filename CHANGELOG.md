@@ -6,6 +6,33 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.0.3
+
+- **Utils Package Modular Split**: Reorganized the 4,286-line monolithic
+  `dlux/utils.py` (140 public symbols) into a `dlux/utils/` package — 13 feature
+  modules (`config`, `crud`, `discovery`, `mail`, `navigation`, `twofactor`,
+  `authorization`, `users`, `sections`, `activity_log`, `settings`,
+  `localization`, `import_export`) plus `common.py` for the cross-feature leaf
+  helpers (role/profile/scope/permission accessors, `_normalize_asset_url`,
+  `_coerce_import_bool`). The inter-module import graph is an acyclic DAG;
+  `__init__.py` re-exports all 140 names so every `from dlux.utils import X` and
+  `dlux.utils.X` call site is unchanged. Code was extracted verbatim
+  (AST-faithful), with dlux-level relative imports rewritten `.x` → `..x`. The
+  original `dlux/utils.py` is kept intact on disk (inert; shadowed by the
+  package) as a reference/rollback.
+- **Constants Import Cleanup**: Removed stale imports of the deleted legacy
+  home-url constant from the split `dlux/utils/` modules and localized the old
+  `/sys/` compatibility sentinel in the remaining unconfigured-settings
+  fallback checks and regression test.
+- **Titlebar Text Clipping Fix**: Relaxed the titlebar title line-height and
+  added a small vertical text buffer so Arabic lower dots and Latin descenders
+  (`g`, `j`, etc.) are not clipped by the title row's overflow/truncation box;
+  bumped the `titlebar.css` cache-buster.
+- **Options Sidebar Density Visibility**: Hid the Options-page Sidebar Density
+  card when the sidebar runtime surface is disabled, matching the existing
+  context processor and setup-preview behavior that already suppress runtime
+  sidebar density controls unless `sidebar.enabled` is true.
+
 ## v1.0.2
 
 - **Rebrand Wizard Navigation Regression Fix**: Fixed the first-launch System

@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "django_lux"
 dynamic = ["version"]
-description = "DjangoLux (System Integration Service) - Multilingual Django Starter Pack, Packed with Features."
+description = "DjangoLux - A modern UX/UI framework for Django: a themeable, multilingual design system plus batteries-included app infrastructure (auth, CRUD, audit, navigation)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve `django-lux`. This package is a Django system layer, so contributions should preserve host-project compatibility, security boundaries, multilingual behavior, and theme/runtime configurability.
+Thanks for helping improve `django-lux`. This package is a Django UX/UI framework and system layer, so contributions should preserve host-project compatibility, security boundaries, multilingual behavior, and theme/runtime configurability.
 
 ## Before You Start
 

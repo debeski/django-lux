@@ -1,0 +1,297 @@
+"""dlux.utils.import_export — System-settings export/import payload handling.
+
+Split from the original ``dlux/utils.py`` (kept intact, inert).
+"""
+import base64
+import hashlib
+import json
+import os
+import re
+from copy import deepcopy
+from decimal import Decimal, InvalidOperation
+from functools import lru_cache
+import inspect
+from pathlib import Path
+import unicodedata
+from django import forms
+from django.apps import apps
+from django.conf import settings
+from django.contrib.messages import constants as messages
+from django.db import models as dj_models
+from django.db.models import ManyToManyRel, Q
+from django.db.models.fields.files import FieldFile
+from django.db.models.fields.related import ManyToManyField
+from django.forms import modelform_factory
+from django.http import JsonResponse
+from django.core.mail import EmailMessage, get_connection, send_mail
+from django.core.exceptions import FieldDoesNotExist
+from django.utils.module_loading import import_string
+from ..constants import (
+    DEFAULT_HOME_URL,
+    DEFAULT_NAVBAR_MODE,
+    DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    DEFAULT_SIDEBAR_DENSITY,
+    DEFAULT_TABLE_DENSITY,
+    REGISTRATION_ACTIVATION_AUTO_LOGIN,
+    REGISTRATION_ACTIVATION_VALUES,
+    NAVBAR_MODE_VALUES,
+    SIDEBAR_COLLAPSE_MODE_VALUES,
+    SIDEBAR_DENSITY_VALUES,
+    TABLE_DENSITY_VALUES,
+    TITLEBAR_ALIGN_VALUES,
+    TITLEBAR_HEIGHT_VALUES,
+    TITLEBAR_HOME_SHAPE_VALUES,
+    TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES,
+    TITLEBAR_LOGO_TREATMENT_VALUES,
+    TITLEBAR_SIZE_VALUES,
+    TITLEBAR_SURFACE_VALUES,
+)
+from ..fonts import DEFAULT_FONT_SLUG, get_builtin_fonts
+from ..themes import is_valid_theme, normalize_allowed_themes
+from ..translations import get_current_language_code, get_strings
+# try-except for django_filters as it might not be installed (though likely is)
+try:
+    import django_filters
+except ImportError:
+    django_filters = None
+
+# ── intra-package imports (shared + feature deps) ──
+from .common import _coerce_import_bool
+from .config import normalize_allowed_fonts, normalize_client_ip_config, normalize_default_fonts, normalize_email_config, normalize_login_config, normalize_system_names, normalize_titlebar_config
+from .localization import _normalize_language_code, normalize_language_catalog
+from .navigation import normalize_navbar_config, normalize_sidebar_behavior
+
+SYSTEM_SETTINGS_EXPORT_FORMAT = 'django-lux.system-settings'
+
+SYSTEM_SETTINGS_EXPORT_VERSION = 1
+
+SYSTEM_SETTINGS_EXPORT_FIELDS = (
+    'system_names',
+    'logo',
+    'favicon',
+    'home_url',
+    'default_language',
+    'default_theme',
+    'allowed_themes',
+    'allow_user_theme_override',
+    'allowed_fonts',
+    'default_fonts',
+    'allow_user_font_override',
+    'allow_user_language_override',
+    'default_table_density',
+    'email_2fa',
+    'prevent_multiple_active_sessions',
+    'client_ip_config',
+    'public_root',
+    'public_root_split_enabled',
+    'public_root_url',
+    'public_registration_enabled',
+    'registration_activation_mode',
+    'registration_throttle_enabled',
+    'email_config',
+    'languages',
+    'translations_override',
+    'sidebar_config',
+    'navbar_config',
+    'titlebar_config',
+    'login_config',
+)
+
+# System Import Export - Helper extracts portable names from file fields.
+def _field_file_name(value):
+    if isinstance(value, FieldFile):
+        return value.name or ''
+    return str(value or '')
+
+# System Import Export - Function serializes DB-backed settings for transport.
+def export_system_settings_payload(instance=None):
+    """Return a portable JSON payload for DB-backed setup settings."""
+    if instance is None:
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        instance = SystemSettings.load()
+
+    from dlux import __version__
+
+    data = {}
+    for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
+        value = getattr(instance, field_name, None)
+        if field_name in {'logo', 'favicon'}:
+            data[field_name] = _field_file_name(value)
+        elif field_name == 'languages':
+            data[field_name] = normalize_language_catalog(value)
+        elif field_name == 'system_names':
+            data[field_name] = normalize_system_names(value)
+        elif field_name == 'sidebar_config':
+            data[field_name] = normalize_sidebar_behavior(value)
+        elif field_name == 'navbar_config':
+            data[field_name] = normalize_navbar_config(value)
+        elif field_name == 'email_config':
+            data[field_name] = normalize_email_config(value, redact_secret=True)
+        elif field_name == 'client_ip_config':
+            data[field_name] = normalize_client_ip_config(value)
+        elif field_name == 'titlebar_config':
+            data[field_name] = normalize_titlebar_config(value)
+        elif field_name == 'login_config':
+            data[field_name] = normalize_login_config(value)
+        elif field_name == 'allowed_themes':
+            data[field_name] = list(normalize_allowed_themes(value))
+        elif field_name == 'allowed_fonts':
+            data[field_name] = list(normalize_allowed_fonts(value))
+        elif field_name == 'default_fonts':
+            data[field_name] = normalize_default_fonts(value, allowed_fonts=getattr(instance, 'allowed_fonts', None))
+        else:
+            data[field_name] = deepcopy(value)
+
+    return {
+        'format': SYSTEM_SETTINGS_EXPORT_FORMAT,
+        'version': SYSTEM_SETTINGS_EXPORT_VERSION,
+        'dlux_version': __version__,
+        'settings': data,
+    }
+
+# System Import Export - Function validates exported or raw settings payloads.
+def normalize_system_settings_import_payload(payload):
+    """Validate and normalize an exported setup payload or a direct settings dict."""
+    if not isinstance(payload, dict):
+        raise ValueError("Setup import must be a JSON object.")
+
+    raw_settings = payload.get('settings') if payload.get('format') == SYSTEM_SETTINGS_EXPORT_FORMAT else payload
+    if not isinstance(raw_settings, dict):
+        raise ValueError("Setup import is missing a valid settings object.")
+
+    normalized = {}
+    for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
+        if field_name in raw_settings:
+            normalized[field_name] = deepcopy(raw_settings[field_name])
+    import_aliases = {
+        'translations': 'translations_override',
+        'sidebar': 'sidebar_config',
+        'navbar': 'navbar_config',
+        'titlebar': 'titlebar_config',
+        'login': 'login_config',
+    }
+    for source_name, target_name in import_aliases.items():
+        if target_name not in normalized and source_name in raw_settings:
+            normalized[target_name] = deepcopy(raw_settings[source_name])
+
+    if 'system_names' in normalized:
+        normalized['system_names'] = normalize_system_names(normalized['system_names'])
+    if 'languages' in normalized:
+        normalized['languages'] = normalize_language_catalog(normalized['languages'])
+    if 'translations_override' in normalized and not isinstance(normalized['translations_override'], dict):
+        normalized['translations_override'] = {}
+    if 'sidebar_config' in normalized:
+        normalized['sidebar_config'] = normalize_sidebar_behavior(normalized['sidebar_config'])
+    if 'navbar_config' in normalized:
+        normalized['navbar_config'] = normalize_navbar_config(normalized['navbar_config'])
+    if 'email_config' in normalized:
+        normalized['email_config'] = normalize_email_config(normalized['email_config'], redact_secret=True)
+    if 'client_ip_config' in normalized:
+        normalized['client_ip_config'] = normalize_client_ip_config(normalized['client_ip_config'])
+    if 'titlebar_config' in normalized:
+        normalized['titlebar_config'] = normalize_titlebar_config(normalized['titlebar_config'])
+    if 'login_config' in normalized:
+        normalized['login_config'] = normalize_login_config(normalized['login_config'])
+    if 'allowed_themes' in normalized:
+        normalized['allowed_themes'] = list(normalize_allowed_themes(normalized['allowed_themes']))
+    if 'allowed_fonts' in normalized:
+        normalized['allowed_fonts'] = list(normalize_allowed_fonts(normalized['allowed_fonts']))
+    if 'default_fonts' in normalized:
+        normalized['default_fonts'] = normalize_default_fonts(
+            normalized['default_fonts'],
+            allowed_fonts=normalized.get('allowed_fonts'),
+        )
+    if 'default_theme' in normalized and not is_valid_theme(normalized['default_theme']):
+        normalized.pop('default_theme', None)
+    if 'default_table_density' in normalized and normalized['default_table_density'] not in TABLE_DENSITY_VALUES:
+        normalized.pop('default_table_density', None)
+    if 'default_language' in normalized:
+        normalized['default_language'] = _normalize_language_code(normalized['default_language']) or 'en'
+    if 'home_url' in normalized:
+        normalized['home_url'] = str(normalized['home_url'] or '').strip()
+    if 'public_root_url' in normalized:
+        normalized['public_root_url'] = str(normalized['public_root_url'] or '').strip()
+    if (
+        'registration_activation_mode' in normalized
+        and normalized['registration_activation_mode'] not in REGISTRATION_ACTIVATION_VALUES
+    ):
+        normalized.pop('registration_activation_mode', None)
+    for bool_field in (
+        'allow_user_theme_override',
+        'allow_user_font_override',
+        'allow_user_language_override',
+        'email_2fa',
+        'prevent_multiple_active_sessions',
+        'public_root',
+        'public_root_split_enabled',
+        'public_registration_enabled',
+        'registration_throttle_enabled',
+    ):
+        if bool_field in normalized:
+            normalized[bool_field] = _coerce_import_bool(normalized[bool_field])
+    return normalized
+
+# System Import Export - Function applies normalized settings payloads to SystemSettings.
+def apply_system_settings_import(
+    instance,
+    payload,
+    *,
+    mark_configured=True,
+    commit=True,
+    preserve_email_secret=False,
+):
+    """Apply a normalized System Settings import payload to a SystemSettings instance."""
+    raw_settings = payload.get('settings') if isinstance(payload, dict) and payload.get('format') == SYSTEM_SETTINGS_EXPORT_FORMAT else payload
+    raw_email_config = raw_settings.get('email_config') if isinstance(raw_settings, dict) else None
+    normalized = normalize_system_settings_import_payload(payload)
+    if not instance:
+        raise ValueError("A SystemSettings instance is required.")
+
+    for field_name, value in normalized.items():
+        if field_name == 'logo':
+            if value:
+                instance.logo = str(value)
+        elif field_name == 'favicon':
+            if value:
+                instance.favicon = str(value)
+        elif field_name == 'email_config':
+            source = raw_email_config if preserve_email_secret and isinstance(raw_email_config, dict) else value
+            email_config = normalize_email_config(source)
+            if email_config.get('secret_storage') == 'encrypted_db' and not email_config.get('encrypted_password'):
+                email_config['password_configured'] = False
+            instance.email_config = email_config
+        elif field_name == 'allowed_fonts':
+            instance.allowed_fonts = list(normalize_allowed_fonts(value))
+        elif field_name == 'default_fonts':
+            instance.default_fonts = normalize_default_fonts(
+                value,
+                allowed_fonts=normalized.get('allowed_fonts', getattr(instance, 'allowed_fonts', None)),
+            )
+        elif hasattr(instance, field_name):
+            setattr(instance, field_name, value)
+
+    if mark_configured:
+        instance.is_configured = True
+    if commit:
+        instance.save()
+    return instance
+
+# System Import Export - Function loads first-launch config.json settings.
+def load_system_settings_config_json(path=None):
+    """Load and normalize BASE_DIR/config.json for first-launch setup bootstrapping."""
+    if path is None:
+        base_dir = getattr(settings, 'BASE_DIR', None)
+        if not base_dir:
+            return None
+        config_path = Path(base_dir) / 'config.json'
+    else:
+        config_path = Path(path)
+    if not config_path.exists():
+        return None
+    if not config_path.is_file():
+        raise ValueError("config.json exists but is not a file.")
+    try:
+        payload = json.loads(config_path.read_text(encoding='utf-8') or '{}')
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("config.json is not valid JSON.") from exc
+    return normalize_system_settings_import_payload(payload)

@@ -65,7 +65,7 @@ import json
 import re
 import tempfile
 
-from dlux.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, LEGACY_HOME_URL
+from dlux.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY
 from dlux.context_processors import dlux_context
 from dlux.forms import SystemSettingsForm
 from dlux.models import SystemSettings
@@ -81,6 +81,8 @@ from dlux.utils import (
     seed_navbar_config_from_sidebar,
 )
 from dlux.navbar import build_navbar_hierarchy_crumbs
+
+_LEGACY_HOME_URL = '/sys/'
 
 
 class DluxDefaultRouteTests(SimpleTestCase):
@@ -501,7 +503,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
     @override_settings(DLUX_CONFIG={})
     def test_setup_form_replaces_legacy_sys_home_url_for_unconfigured_instance(self):
         form = SystemSettingsForm(
-            instance=SystemSettings(home_url=LEGACY_HOME_URL, is_configured=False),
+            instance=SystemSettings(home_url=_LEGACY_HOME_URL, is_configured=False),
         )
 
         self.assertEqual(form.initial['home_url'], DEFAULT_HOME_URL)

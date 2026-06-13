@@ -3,7 +3,7 @@
 ## Part 1: Project Related
 ### Current Verified Snapshot:
 - REBRAND PUBLISHED per user correction: `django-microsys`→`django-lux` is complete and published to git/PyPI; package imports as `dlux`, app_label/db use `dlux_*`, config is `DLUX_CONFIG`, CLI is `dlux`, backups are `.dlb`/`DLB1`, migrations squashed to `0001_initial`.
-- `dlux/VERSION` is the release source of truth (`1.0.2` in current tree, unreleased — v1.0.1 is tagged/published); GitHub Actions tag-driven release flow owns dist build + PyPI/GitHub publishing. Do not use the old local `dist/` changelog rule.
+- `dlux/VERSION` is the release source of truth (`1.0.3` in current tree, unreleased — v1.0.2 is tagged/published); GitHub Actions tag-driven release flow owns dist build + PyPI/GitHub publishing. CHANGELOG: post-tag work goes under a new version, never edit a tagged one.
 - REBRAND JS REGRESSION CLASS FOUND+FIXED (v1.0.2): rebrand renamed kebab `data-ms-*`→`data-dl-*` in templates/Python/`querySelector`, but missed matching camelCase `element.dataset.msX` reads (a `data-ms-` find/replace can't catch them). `dataset.msWizardStepTarget`→`NaN` killed setup wizard step highlight+navigation. Swept all `data-ms-*` producers (0 remain) and fixed 9 `dataset.ms*` reads→`dataset.dl*` (wizard step target+initial step, theme preview de-dupe, user-report export/window/pagesize, filter no-autosubmit). Surviving `dataset.ms*` (msDatepickerReady/msStepNumber/msWizardBound/etc + `data-msg-*`) are JS-internal/legit.
 - Default branding is SVG-first: `base_logo.svg` and `login_logo.svg` are the active graphite/crimson DjangoLux mark/wordmark; WebP files remain compatibility artifacts.
 - Migration helper from microsys is included: `dlux_migrate_from_microsys` dry-runs by default and can relabel a fully migrated `django-microsys` 2.4.1 DB to `django-lux`.
@@ -38,8 +38,12 @@
   - [ ] Harden `dlux/fetcher.py` fallback redirects against missing/local/forged referers.
 - **Priority 2:**
   - [ ] Bump `?v=` cache-busters for changed `main.css`/`login.css` (system_setup.js/wizard/themes/user_report bumped to `20260612a` in v1.0.2) and refresh the 3 stale tests.
-  - [ ] Implement the validated `dlux/utils.py` split (`utils_split_plan.md`), preserving import contracts.
+  - [ ] RUNTIME-VERIFY the `dlux/utils/` package split (import under a real Django env / run test suite) — built+structurally verified but NOT import-tested here (no venv/Django in sandbox). The package SHADOWS `dlux/utils.py`; instant rollback = delete `dlux/utils/` folder.
 - **Completed Recently:**
+  - [x] Fixed titlebar title clipping: `.titlebar__title` line-height/padding now leave room for Arabic lower dots and Latin descenders; `titlebar.css` cache-buster bumped to `20260613a`.
+  - [x] Fixed Options sidebar-density card visibility: server template now requires `sidebar_enabled` as well as `allow_user_density`; added regression test for disabled sidebar + allowed density override.
+  - [x] Fixed deleted-constant fallout after `LEGACY_HOME_URL` removal: removed stale split-utils imports, localized the old `/sys/` sentinel in active fallback checks/tests, and verified no missing `dlux.constants` imports remain.
+  - [x] Split `dlux/utils.py` (4286 lines, 140 symbols) into a `dlux/utils/` package (13 feature modules + `common.py` for cross-feature leaves) WITHOUT touching `utils.py` (kept intact + inert/shadowed per user). AST-faithful extraction; relative imports `.x`→`..x`; `__init__` re-exports all 140 names (contract preserved); import graph is an acyclic DAG; verified completeness (no missing/extra/dup), all cross-imports resolve, `compileall` clean. Runtime import NOT verified (no Django here).
   - [x] Prepared `dlux/utils.py` split map: every top-level/nested function helper and class/method now has a concise `# Category - ...` responsibility marker; corrected stale comments while preserving import contracts.
   - [x] v1.0.2: Fixed setup-wizard nav highlight/navigation (user bug #1) — rebrand `data-ms-*`→`data-dl-*` missed camelCase `dataset.msX` reads; fixed 9 sites→`dataset.dl*`.
   - [x] v1.0.2: PREFIX STREAMLINE — unified pre-existing `dl-`/`dlux` two-tier convention to single `dlux` token: 267 `.dlux-*` classes, 36 `data-dlux-*` attrs (+camelCase dataset reads), 124 `--dlux-*` vars, `dlux-btn-*`, ids — across all authored CSS/HTML/JS/PY in lockstep; producer↔consumer pairs verified; vendored untouched; cache-busters→`20260612c`.
@@ -55,9 +59,13 @@
   - [x] Fixed `lazy_translator()` migration churn via `MigrationSafeTranslation` (v2.3.8); `model_key` reports fix (`0011`); single active session (v2.3.2); setup import fixes (v2.3.6); DSRP-1 (v2.3.4); scaffold (v2.3.5); titlebar (v2.3.7).
 
 ### One-line info about last verified Tests:
+- 2026-06-13: titlebar clipping fix verified with `git diff --check` and static probes for `.titlebar__title` line-height/padding plus `titlebar.css?v=20260613a`; no browser render available in this env.
+- 2026-06-13: sidebar-density Options fix verified with `python3 -m py_compile dlux/tests/test_views.py`, `git diff --check`, and template condition probe; targeted Django test could not run because active Python lacks `django`.
+- 2026-06-13: deleted-constant cleanup verified with AST missing-constant-import audit (`0` missing), `python3 -m py_compile dlux/forms.py dlux/utils/common.py dlux/utils/config.py dlux/tests/test_defaults_and_urls.py`, and `git diff --check`.
 - 2026-06-12: `python3 -m py_compile dlux/utils.py` passes; AST audit found 147 functions/classes/helpers with category comments and 0 missing markers. Broader runtime/browser tests not run.
 
 ### One-line info about last time edited Docs:
+- 2026-06-12: Repositioned README + `pyproject` description + CONTRIBUTING from "System Integration Service / Starter Pack" to "modern UX/UI framework for Django" (design-first playground); led capability list with the design-system/theming identity.
 - 2026-06-12: refreshed developer-guide/reference/customization/FEATURES/security docs to `DLUX_STRINGS`/`dlux:`/`__dlux_*`/`dlux_timesince` + renamed `security-msrp-1.md`→`security-dsrp-1.md`; migration guide gained DLUX_STRINGS + index-name caveats.
 
 ## Part 2: Global

@@ -128,6 +128,28 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
         self.assertNotContains(response, 'data-options-card="navbar-mode"')
 
+    def test_options_view_hides_sidebar_density_card_when_sidebar_disabled(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.sidebar_config = {
+            'enabled': False,
+            'home_url_name': None,
+            'entries': [],
+            'enable_reorder': True,
+            'show_toolbar': True,
+            'show_icons': True,
+            'density': 'balanced',
+            'allow_user_density': True,
+            'collapse_mode': 'icons',
+        }
+        settings_obj.save(update_fields=['sidebar_config'])
+
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['sidebar_enabled'])
+        self.assertFalse(response.context['sidebar_density_picker_enabled'])
+        self.assertNotContains(response, 'data-options-card="sidebar-density"')
+
     def test_options_email_diagnostics_only_render_when_email_features_enabled(self):
         settings_obj = SystemSettings.load()
         settings_obj.email_2fa = False
