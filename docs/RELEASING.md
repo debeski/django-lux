@@ -47,16 +47,19 @@ pauses for your approval before the PyPI upload.) The name must match the
 git switch main && git pull
 
 # 1. bump the single version source
-#    e.g. 2.4.0 -> 2.4.1   (patch=fix, minor=feature, major=breaking)
-echo "2.4.1" > dlux/VERSION
+#    e.g. 1.0.0 -> 1.0.1   (patch=fix, minor=feature, major=breaking)
+echo "1.0.1" > dlux/VERSION
 
-# 2. add a CHANGELOG section for it (newest at top): "## v2.4.1"
+# 2. add a CHANGELOG section for it (newest at top): "## v1.0.1"
 $EDITOR CHANGELOG.md
 
 # 3. commit, tag, push
-git commit -am "release: v2.4.1"
-git tag -a v2.4.1 -m "v2.4.1"
+git commit -am "release: v1.0.1"
+git tag -a v1.0.1 -m "v1.0.1"
 git push && git push --tags
+
+# or just use a one line command like this:
+git add -A && git commit -m "release: v1.0.1" && git tag -a v1.0.1 -m "v1.0.1" && git push origin --follow-tags
 ```
 
 Pushing the tag triggers the pipeline:
@@ -66,7 +69,7 @@ Pushing the tag triggers the pipeline:
 2. **publish-pypi** — uploads to PyPI via Trusted Publishing.
 3. **build-viewer** — runs `make all` in `tools/dlb-viewer/`, producing the 5
    platform binaries.
-4. **github-release** — extracts the `## v2.4.1` section from `CHANGELOG.md` as
+4. **github-release** — extracts the `## v1.0.1` section from `CHANGELOG.md` as
    the release notes and publishes a GitHub Release with the wheel/sdist **and**
    the viewer binaries attached.
 
@@ -82,7 +85,7 @@ Watch it under the repo's **Actions** tab.
   version, and a tag is immutable. So any change after a release = a new version.
   (This replaces the old "check `dist/` before editing the changelog" workaround
   — the tooling now enforces it.)
-- **Tag from `main` only**, after CI is green. `git checkout v2.4.1` will always
+- **Tag from `main` only**, after CI is green. `git checkout v1.0.1` will always
   show exactly what shipped.
 - **If a release run fails before PyPI upload**, fix forward: bump to the next
   patch and re-tag. Don't try to reuse a tag.

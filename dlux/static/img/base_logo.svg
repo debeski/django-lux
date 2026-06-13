@@ -16,6 +16,11 @@
       <stop offset="0" stop-color="#ff4055"/>
       <stop offset="1" stop-color="#8f0f1e"/>
     </linearGradient>
+    <linearGradient id="sheen" x1="150" y1="70" x2="486" y2="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.05"/>
+    </linearGradient>
     <filter id="lift" x="-12%" y="-12%" width="124%" height="124%">
       <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000000" flood-opacity="0.32"/>
     </filter>
@@ -32,11 +37,13 @@
           d="M230 397V192h92c92 0 154 58 154 153s-62 154-154 154h-92"/>
     <path fill="none" stroke="#25323a" stroke-width="26" stroke-linecap="square" stroke-linejoin="round"
           d="M230 397V192h92c92 0 154 58 154 153s-62 154-154 154h-92"/>
-    <path fill="none" stroke="url(#crimson)" stroke-width="62" stroke-linecap="butt" stroke-linejoin="miter"
-          d="M372 170v266h132"/>
-    <path fill="none" stroke="#ffecf0" stroke-opacity="0.95" stroke-width="10" stroke-linecap="square" stroke-linejoin="round"
-          d="M372 170v266h132"/>
-    <path fill="#ffffff" opacity="0.84" d="M154 137 320 67 486 137 320 102Z"/>
-    <path fill="#ffffff" opacity="0.16" d="M148 156 320 86 492 156v30L320 116 148 186Z"/>
+    <path fill="none" stroke="#10191f" stroke-width="72" stroke-linecap="butt" stroke-linejoin="miter"
+          d="M372 163v273h139"/>
+    <path fill="none" stroke="url(#crimson)" stroke-width="54" stroke-linecap="butt" stroke-linejoin="miter"
+          d="M372 172v264h130"/>
+    <path fill="none" stroke="#ff8593" stroke-opacity="0.55" stroke-width="9" stroke-linecap="round"
+          d="M361 194v150"/>
+    <path fill="url(#sheen)" d="M154 137 320 67 486 137 320 101Z"/>
+    <path fill="#ffffff" opacity="0.1" d="M150 156 320 86 490 156v28L320 116 150 184Z"/>
   </g>
 </svg>

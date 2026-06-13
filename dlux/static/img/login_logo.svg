@@ -16,6 +16,11 @@
       <stop offset="0" stop-color="#ff4055"/>
       <stop offset="1" stop-color="#8f0f1e"/>
     </linearGradient>
+    <linearGradient id="sheen" x1="205" y1="53" x2="432" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.05"/>
+    </linearGradient>
     <filter id="markLift" x="-18%" y="-18%" width="136%" height="136%">
       <feDropShadow dx="0" dy="13" stdDeviation="11" flood-color="#000000" flood-opacity="0.32"/>
     </filter>
@@ -35,11 +40,13 @@
           d="M259 274V136h62c62 0 104 39 104 103s-42 104-104 104h-62"/>
     <path fill="none" stroke="#25323a" stroke-width="18" stroke-linecap="square" stroke-linejoin="round"
           d="M259 274V136h62c62 0 104 39 104 103s-42 104-104 104h-62"/>
-    <path fill="none" stroke="url(#crimson)" stroke-width="40" stroke-linecap="butt" stroke-linejoin="miter"
-          d="M354 121v179h89"/>
-    <path fill="none" stroke="#ffecf0" stroke-opacity="0.92" stroke-width="7" stroke-linecap="square" stroke-linejoin="round"
-          d="M354 121v179h89"/>
-    <path fill="#ffffff" opacity="0.82" d="M208 98 320 51 432 98 320 75Z"/>
+    <path fill="none" stroke="#10191f" stroke-width="50" stroke-linecap="butt" stroke-linejoin="miter"
+          d="M354 115v185h95"/>
+    <path fill="none" stroke="url(#crimson)" stroke-width="36" stroke-linecap="butt" stroke-linejoin="miter"
+          d="M354 122v178h88"/>
+    <path fill="none" stroke="#ff8593" stroke-opacity="0.55" stroke-width="6" stroke-linecap="round"
+          d="M346 138v100"/>
+    <path fill="url(#sheen)" d="M208 98 320 51 432 98 320 74Z"/>
   </g>
 
   <g filter="url(#wordLift)">

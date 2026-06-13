@@ -8,6 +8,12 @@ This file owns the release history for `django-lux`.
 
 ## v1.0.3
 
+- **Logo Mark Polish**: Refined the crimson `L` in `base_logo.svg` and
+  `login_logo.svg` — removed the white center-seam highlight, added a graphite
+  (`#10191f`) outline so it seats into the shield like the `D`, slimmed the
+  stroke to match the `D`'s weight, and replaced the seam with a subtle
+  upper-stem edge sheen. Reworked the top bevel reflection from a flat opaque
+  chevron into a fading `sheen` gradient glint.
 - **Utils Package Modular Split**: Reorganized the 4,286-line monolithic
   `dlux/utils.py` (140 public symbols) into a `dlux/utils/` package — 13 feature
   modules (`config`, `crud`, `discovery`, `mail`, `navigation`, `twofactor`,
