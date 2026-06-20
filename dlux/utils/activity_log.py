@@ -26,7 +26,7 @@ from django.http import JsonResponse
 from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.utils.module_loading import import_string
-from ..constants import (
+from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -253,7 +253,7 @@ def get_active_log_config():
     Critically it must NOT create the singleton: this runs inside save/delete signals, and
     a get_or_create here would recreate the row mid-mutation (e.g. during settings reset).
     """
-    from ..system_settings_defaults import default_log_config
+    from ..system.defaults import default_log_config
     try:
         from django.apps import apps
         from django.core.cache import cache

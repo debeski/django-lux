@@ -1,6 +1,6 @@
 from django.urls import NoReverseMatch, reverse
 
-from .constants import DEFAULT_NAVBAR_MODE, NAVBAR_MODE_VALUES
+from .system.constants import DEFAULT_NAVBAR_MODE, NAVBAR_MODE_VALUES
 from .discovery import SYSTEM_ROUTE_META, discover_sidebar_catalog
 from .utils import normalize_navbar_config
 

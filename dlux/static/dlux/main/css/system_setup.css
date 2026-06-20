@@ -1128,3 +1128,208 @@
 .dlux-log-model-row.dlux-log-row-hidden {
     display: none !important;
 }
+
+/* ───────────────────────────────────────────────────────────────────────
+   Full-viewport setup shell (initial system setup page only).
+   Matches the dynamic modal exactly: a fixed step-nav header flush under the
+   titlebar, a single scrollable body (the logo/title/desc row at its top scrolls
+   out of view, then the active step's fields), and a fixed footer holding the
+   wizard buttons. ONLY .dlux-setup-scroll scrolls, so the scrollbar runs from
+   just below the nav to the footer's top edge — never the whole page. Bounded
+   with an explicit titlebar offset and viewport height so the document never
+   scrolls. Scoped to .dlux-setup-viewport; the single-step modal render is
+   untouched. The wizard action bar is moved into .dlux-setup-footer by
+   system_setup.js (initSetupFooterRelocation).
+   ─────────────────────────────────────────────────────────────────────── */
+.dlux-setup-viewport {
+    /* Plain flow box that fills the space under the titlebar — the same scaffold
+       base.html's #mainContent uses. Deliberately NOT position:fixed and with NO
+       `top` offset, so nothing (including the live preview re-measuring the
+       titlebar) can shove it up behind the titlebar. The (sticky) titlebar is a
+       normal flex child of <body>; this fills the remaining height. */
+    height: calc(100vh - var(--header-height, 60px));
+    overflow: hidden;             /* the inner .dlux-setup-scroll does the scrolling */
+    display: flex;
+    padding: 0 0.6rem;
+}
+
+.dlux-setup-viewport .dlux-setup-page {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-width: none;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 0 0 1rem 1rem;
+}
+
+/* The form owns the header / scroll-body / footer rows. */
+.dlux-setup-viewport .dlux-system-setup-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The one scrollable region: from the top of the body to the footer's top edge.
+   Contains the intro row + the sticky step nav + the active step's fields. */
+.dlux-setup-viewport .dlux-setup-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 1.25rem 0.75rem;   /* no top: the sticky nav sits flush under the titlebar */
+    scrollbar-width: thin;
+}
+
+/* Step nav: sticks to the top of the scroll body, so the intro row above it
+   scrolls out of view while the nav stays pinned. Opaque background so the
+   fields scrolling underneath do not show through. */
+.dlux-setup-viewport .dlux-setup-step-nav {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    margin: 0 0 1rem;
+    border-radius: 0 0 1rem 1rem;
+    background:
+        linear-gradient(135deg, rgba(var(--primal-rgb), 0.08), transparent 38%),
+        var(--dlux-setup-shell-bg);
+}
+
+/* Logo at the start, title/desc on the opposite side (RTL-aware via logical
+   properties); this row is the top of the scroll body and scrolls out of view
+   above the sticky nav. */
+.dlux-setup-intro {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin: 0.75rem 0 1rem;
+}
+
+.dlux-setup-page-logo {
+    max-height: 72px;
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.dlux-setup-intro__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: end;
+}
+
+.dlux-setup-intro__title {
+    font-weight: 800;
+    margin: 0 0 0.25rem;
+}
+
+.dlux-setup-intro__desc {
+    color: var(--dlux-setup-muted);
+    margin: 0;
+}
+
+/* Fixed footer holding the relocated wizard buttons. */
+.dlux-setup-viewport .dlux-setup-footer {
+    flex: 0 0 auto;
+}
+
+.dlux-setup-viewport .dlux-setup-footer:empty {
+    display: none;
+}
+
+.dlux-setup-viewport .dlux-setup-footer .dlux-setup-wizard-actions {
+    margin: 0;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--dlux-setup-pane-border);
+    background: var(--dlux-setup-shell-bg);
+}
+
+.dlux-setup-viewport--language {
+    align-items: stretch;
+}
+
+.dlux-setup-language-page {
+    justify-content: center;
+}
+
+.dlux-setup-language-form {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
+.dlux-setup-language-panel {
+    width: min(100%, 900px);
+    margin: auto;
+    padding: clamp(1.2rem, 3vw, 2rem);
+}
+
+.dlux-setup-language-intro {
+    margin-top: 0;
+}
+
+.dlux-setup-language-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.8rem;
+}
+
+.dlux-setup-language-choice {
+    appearance: none;
+    -webkit-appearance: none;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.8rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.95rem 1rem;
+    border: 1px solid var(--dlux-setup-item-border);
+    border-radius: 0.95rem;
+    color: var(--dlux-setup-text);
+    background: var(--dlux-setup-item-bg);
+    text-align: start;
+    box-shadow: var(--dlux-setup-item-shadow);
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.dlux-setup-language-choice:hover,
+.dlux-setup-language-choice:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(var(--primal-rgb), 0.42);
+    background: var(--dlux-setup-item-hover-bg);
+    box-shadow: 0 0 0 3px var(--dlux-setup-item-active-ring);
+    outline: none;
+}
+
+.dlux-setup-language-choice__flag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.75rem;
+    color: var(--primal);
+    background: rgba(var(--primal-rgb), 0.1);
+    font-weight: 800;
+}
+
+.dlux-setup-language-choice__copy {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.dlux-setup-language-choice__copy strong,
+.dlux-setup-language-choice__copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dlux-setup-language-choice__copy small {
+    color: var(--dlux-setup-muted);
+}

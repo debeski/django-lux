@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from .constants import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS
+from .system.constants import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS
 from .translations import get_strings
 from .utils import get_user_management_tier_state_for_user, translate_activity_log_model_name
 

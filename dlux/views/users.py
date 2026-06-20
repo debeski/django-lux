@@ -22,7 +22,7 @@ from django_tables2 import SingleTableView
 from django.views.generic.detail import DetailView
 
 # Project imports
-from ..constants import DEFAULT_HOME_URL
+from ..system.constants import DEFAULT_HOME_URL
 from ..forms import DluxAuthenticationForm
 from ..notifications import notify
 from ..utils import (

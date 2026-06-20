@@ -8,7 +8,7 @@ import json
 from datetime import date, datetime
 import logging
 # Project imports
-from .constants import NAVBAR_MODE_VALUES, SIDEBAR_DENSITY_VALUES, TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
+from .system.constants import NAVBAR_MODE_VALUES, SIDEBAR_DENSITY_VALUES, TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
 from .utils import (
     get_effective_allowed_themes,
     get_system_config,

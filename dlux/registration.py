@@ -9,7 +9,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.text import slugify
 
-from .constants import REGISTRATION_ACTIVATION_AUTO_LOGIN
+from .system.constants import REGISTRATION_ACTIVATION_AUTO_LOGIN
 from .models import PublicRegistration
 from .utils import build_config_groups, get_client_ip, get_email_service_status, get_system_config, send_dlux_mail
 

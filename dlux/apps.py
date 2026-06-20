@@ -2,7 +2,7 @@
 ######################################################
 from django.apps import AppConfig
 from django.apps import apps
-from .constants import DEFAULT_HOME_URL
+from .system.constants import DEFAULT_HOME_URL
 
 
 def custom_permission_str(self):

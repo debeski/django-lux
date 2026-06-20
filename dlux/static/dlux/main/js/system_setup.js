@@ -783,6 +783,36 @@
         }
     }
 
+    function readSetupWizardCurrentStep(form) {
+        if (!form) {
+            return null;
+        }
+        const datasetStep = Number(form.dataset.dluxWizardCurrentStep);
+        if (Number.isInteger(datasetStep) && datasetStep >= 0) {
+            return datasetStep;
+        }
+        const activeNavItem = form.querySelector('[data-dlux-wizard-step-target].is-active');
+        const activeNavStep = activeNavItem ? Number(activeNavItem.getAttribute('data-dlux-wizard-step-target')) : NaN;
+        if (Number.isInteger(activeNavStep) && activeNavStep >= 0) {
+            return activeNavStep;
+        }
+        const steps = Array.from(form.querySelectorAll('.wizard-step'));
+        const visibleIndex = steps.findIndex((step) => (
+            !step.classList.contains('d-none') &&
+            step.getAttribute('aria-hidden') !== 'true' &&
+            step.style.display !== 'none'
+        ));
+        return visibleIndex >= 0 ? visibleIndex : null;
+    }
+
+    function rememberSetupWizardStep(form, step) {
+        const resolvedStep = Number(step);
+        if (!form || !Number.isInteger(resolvedStep) || resolvedStep < 0) {
+            return;
+        }
+        form.dataset.dluxWizardCurrentStep = String(resolvedStep);
+    }
+
     function persistSetupFormState(form) {
         if (!form || !form.classList.contains('dlux-system-setup-form')) {
             return;
@@ -792,28 +822,111 @@
             surface: resolveSetupStateSurface(form),
             values: {},
         };
+        const currentStep = readSetupWizardCurrentStep(form);
+        if (currentStep !== null) {
+            state.currentStep = currentStep;
+        }
 
+        const fieldsByName = new Map();
         form.querySelectorAll('input[name], select[name], textarea[name]').forEach((field) => {
             if (!field.name || field.name === 'csrfmiddlewaretoken' || field.disabled || field.type === 'file') {
                 return;
             }
+            if (!fieldsByName.has(field.name)) {
+                fieldsByName.set(field.name, []);
+            }
+            fieldsByName.get(field.name).push(field);
+        });
 
-            if (field.type === 'radio') {
-                if (field.checked) {
-                    state.values[field.name] = field.value;
+        fieldsByName.forEach((fields, name) => {
+            if (!fields.length) {
+                return;
+            }
+            const firstField = fields[0];
+
+            if (firstField.type === 'radio') {
+                const checked = fields.find((field) => field.checked);
+                if (checked) {
+                    state.values[name] = checked.value;
                 }
                 return;
             }
 
-            if (field.type === 'checkbox') {
-                state.values[field.name] = Boolean(field.checked);
+            if (firstField.type === 'checkbox') {
+                if (fields.length === 1) {
+                    state.values[name] = Boolean(firstField.checked);
+                } else {
+                    state.values[name] = fields
+                        .filter((field) => field.checked)
+                        .map((field) => field.value);
+                }
                 return;
             }
 
-            state.values[field.name] = field.value;
+            if (firstField.multiple && firstField.options) {
+                state.values[name] = Array.from(firstField.selectedOptions).map((option) => option.value);
+                return;
+            }
+
+            state.values[name] = firstField.value;
         });
 
         sessionStorage.setItem(getSetupStateKey(form), JSON.stringify(state));
+    }
+
+    function applySetupFormStateValues(form, values, options) {
+        const config = options && typeof options === 'object' ? options : {};
+        const dispatchEvents = Boolean(config.dispatchEvents);
+        const fieldsToDispatch = [];
+        Object.entries(values || {}).forEach(([name, value]) => {
+            const safeName = String(name).replace(/"/g, '\\"');
+            const fields = Array.from(form.querySelectorAll(`[name="${safeName}"]`));
+            if (!fields.length) {
+                return;
+            }
+
+            if (fields[0].type === 'radio') {
+                fields.forEach((field) => {
+                    field.checked = field.value === value;
+                });
+                if (dispatchEvents) {
+                    const checked = fields.find((field) => field.checked);
+                    if (checked) {
+                        fieldsToDispatch.push({ field: checked, input: false, change: true });
+                    }
+                }
+                return;
+            }
+
+            fields.forEach((field) => {
+                if (field.type === 'checkbox') {
+                    if (Array.isArray(value)) {
+                        const allowedValues = value.map((item) => String(item));
+                        field.checked = allowedValues.includes(String(field.value));
+                    } else {
+                        field.checked = Boolean(value);
+                    }
+                } else if (field.multiple && field.options && Array.isArray(value)) {
+                    const selectedValues = value.map((item) => String(item));
+                    Array.from(field.options).forEach((option) => {
+                        option.selected = selectedValues.includes(String(option.value));
+                    });
+                } else if (field.type !== 'file') {
+                    field.value = value;
+                }
+                if (dispatchEvents && field.type !== 'file') {
+                    fieldsToDispatch.push({ field, input: field.type !== 'checkbox', change: true });
+                }
+            });
+        });
+        fieldsToDispatch.forEach(({ field, input, change }) => {
+            if (input) {
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            if (change) {
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
     }
 
     function restoreSetupFormState(root) {
@@ -829,42 +942,38 @@
                 return;
             }
 
-            Object.entries(state.values).forEach(([name, value]) => {
-                const safeName = String(name).replace(/"/g, '\\"');
-                const fields = Array.from(form.querySelectorAll(`[name="${safeName}"]`));
-                if (!fields.length) {
-                    return;
+            applySetupFormStateValues(form, state.values);
+            form.__dluxPendingSetupState = state;
+            if (Number.isInteger(Number(state.currentStep)) && Number(state.currentStep) >= 0) {
+                rememberSetupWizardStep(form, Number(state.currentStep));
+                form.dataset.dluxWizardInitialStep = String(Number(state.currentStep));
+            }
+
+            rehydrateSetupLanguageEditors(form);
+            restoreImportedEmailPasswordNotice(form);
+        });
+    }
+
+    function finalizeSetupFormStateRestore(root) {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
+            const state = form.__dluxPendingSetupState;
+            if (!state || form.dataset.setupStateRestoreFinalized === 'true') {
+                return;
+            }
+            form.dataset.setupStateRestoreFinalized = 'true';
+            window.requestAnimationFrame(() => {
+                if (Number.isInteger(Number(state.currentStep)) && Number(state.currentStep) >= 0) {
+                    rememberSetupWizardStep(form, Number(state.currentStep));
                 }
-
-                if (fields[0].type === 'radio') {
-                    fields.forEach((field) => {
-                        field.checked = field.value === value;
-                    });
-                    return;
-                }
-
-                fields.forEach((field) => {
-                    if (field.type === 'checkbox') {
-                        field.checked = Boolean(value);
-                    } else if (field.type !== 'file') {
-                        field.value = value;
-                    }
-                });
-            });
-
-            const previousLanguagePreviewSuppression = form.dataset.suppressSetupLanguagePreview;
-            form.dataset.suppressSetupLanguagePreview = 'true';
-            try {
+                applySetupFormStateValues(form, state.values, { dispatchEvents: true });
                 rehydrateSetupLanguageEditors(form);
                 restoreImportedEmailPasswordNotice(form);
-            } finally {
-                if (previousLanguagePreviewSuppression) {
-                    form.dataset.suppressSetupLanguagePreview = previousLanguagePreviewSuppression;
-                } else {
-                    delete form.dataset.suppressSetupLanguagePreview;
-                }
-            }
-            sessionStorage.removeItem(getSetupStateKey(form));
+                syncSetupLanguagePickers(form);
+                syncTranslationOverrides(form);
+                applyImmediateSystemSettingsPreview(form);
+                sessionStorage.removeItem(getSetupStateKey(form));
+                delete form.__dluxPendingSetupState;
+            });
         });
     }
 
@@ -2787,7 +2896,6 @@
 
             const inputId = picker.getAttribute('data-language-input');
             const input = inputId ? document.getElementById(inputId) : null;
-            const form = picker.closest('form');
             if (!input) return;
 
             const options = Array.from(picker.querySelectorAll('[data-setup-language-choice]'));
@@ -2807,20 +2915,9 @@
             options.forEach((option) => {
                 option.addEventListener('click', () => {
                     const language = option.getAttribute('data-setup-language-choice') || 'en';
-                    const currentLanguage = (window.USER_PREFS && window.USER_PREFS._lang) || 'en';
                     input.value = language;
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                     syncActive();
-                    if (language === currentLanguage) {
-                        return;
-                    }
-                    persistSetupFormState(form);
-                    if (typeof window.persistCurrentDynamicModalState === 'function') {
-                        window.persistCurrentDynamicModalState();
-                    }
-                    if (window.setLanguage) {
-                        window.setLanguage(language, { previewOnly: true });
-                    }
                 });
             });
 
@@ -2841,29 +2938,6 @@
                 option.classList.toggle('lang-active', isActive);
             });
         });
-    }
-
-    function previewSetupDefaultLanguage(form, language) {
-        const normalizedLanguage = normalizeLanguageCode(language);
-        if (!form || !normalizedLanguage) {
-            return;
-        }
-        if (form.dataset.suppressSetupLanguagePreview === 'true') {
-            return;
-        }
-
-        const currentLanguage = normalizeLanguageCode((window.USER_PREFS && window.USER_PREFS._lang) || document.documentElement.getAttribute('lang') || 'en');
-        if (normalizedLanguage === currentLanguage) {
-            return;
-        }
-
-        persistSetupFormState(form);
-        if (typeof window.persistCurrentDynamicModalState === 'function') {
-            window.persistCurrentDynamicModalState();
-        }
-        if (window.setLanguage) {
-            window.setLanguage(normalizedLanguage, { previewOnly: true });
-        }
     }
 
     function normalizeLanguageCode(value) {
@@ -3079,7 +3153,6 @@
                         }
                     });
                     syncLanguageCatalog(form);
-                    previewSetupDefaultLanguage(form, input.value);
                 }
             });
         });
@@ -3425,7 +3498,10 @@
                 syncSoon();
             });
             form.addEventListener('invalid', syncSoon, true);
-            form.addEventListener('dlux:wizard-step-change', syncSoon);
+            form.addEventListener('dlux:wizard-step-change', (event) => {
+                rememberSetupWizardStep(form, event.detail && event.detail.currentStep);
+                syncSoon();
+            });
             form.querySelectorAll('.dlux-btn-submit').forEach((button) => {
                 button.addEventListener('click', (event) => {
                     persistSetupFormState(form);
@@ -3628,22 +3704,19 @@
     function applyImportedSetupSettings(form, payload) {
         const settings = extractImportedSettings(payload);
         if (!form || !settings) return false;
-        const previousLanguagePreviewSuppression = form.dataset.suppressSetupLanguagePreview;
-        form.dataset.suppressSetupLanguagePreview = 'true';
 
         const languages = settings.languages && typeof settings.languages === 'object' ? settings.languages : null;
         const systemNames = settings.system_names && typeof settings.system_names === 'object' ? settings.system_names : {};
-        try {
-            if (languages) {
-                rebuildLanguageCatalog(form, languages, systemNames, settings.default_language || getNamedFieldValue(form, 'default_language') || 'en');
-            } else if (Object.keys(systemNames).length) {
-                Object.entries(systemNames).forEach(([rawCode, value]) => {
-                    const code = normalizeLanguageCode(rawCode);
-                    const row = ensureSystemNameRow(form, code, code, value);
-                    const input = row && row.querySelector('[data-system-name-input]');
-                    if (input) input.value = value || '';
-                });
-            }
+        if (languages) {
+            rebuildLanguageCatalog(form, languages, systemNames, settings.default_language || getNamedFieldValue(form, 'default_language') || 'en');
+        } else if (Object.keys(systemNames).length) {
+            Object.entries(systemNames).forEach(([rawCode, value]) => {
+                const code = normalizeLanguageCode(rawCode);
+                const row = ensureSystemNameRow(form, code, code, value);
+                const input = row && row.querySelector('[data-system-name-input]');
+                if (input) input.value = value || '';
+            });
+        }
 
             if (settings.system_names) setJsonField(form, 'system_names', settings.system_names);
             if (settings.languages) setJsonField(form, 'languages', settings.languages);
@@ -3768,22 +3841,11 @@
             });
         }
 
-            syncLanguageCatalog(form);
-            syncSetupLanguagePickers(form);
-            syncTranslationOverrides(form);
-            applyImmediateSystemSettingsPreview(form);
-            persistSetupFormState(form);
-        } finally {
-            if (previousLanguagePreviewSuppression) {
-                form.dataset.suppressSetupLanguagePreview = previousLanguagePreviewSuppression;
-            } else {
-                delete form.dataset.suppressSetupLanguagePreview;
-            }
-        }
-
-        if (Object.prototype.hasOwnProperty.call(settings, 'default_language')) {
-            previewSetupDefaultLanguage(form, settings.default_language);
-        }
+        syncLanguageCatalog(form);
+        syncSetupLanguagePickers(form);
+        syncTranslationOverrides(form);
+        applyImmediateSystemSettingsPreview(form);
+        persistSetupFormState(form);
         return true;
     }
 
@@ -4881,8 +4943,25 @@
         });
     }
 
+    // Full-page setup only: lift the wizard action bar out of the scroll body into
+    // the pinned footer row, so the body scrolls between the fixed nav and footer
+    // (mirrors how the dynamic modal relocates actions into its sticky footer).
+    function initSetupFooterRelocation(root) {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
+            const footer = form.querySelector('[data-dlux-setup-footer]');
+            if (!footer) {
+                return;
+            }
+            const actions = form.querySelector('.dlux-setup-scroll .dlux-setup-wizard-actions');
+            if (actions && actions.parentElement !== footer) {
+                footer.appendChild(actions);
+            }
+        });
+    }
+
     function scan(root) {
         restoreSetupFormState(root);
+        initSetupFooterRelocation(root);
         initSetupHomeFields(root);
         initLogBuilder(root);
         initProfileBuilder(root);
@@ -4910,6 +4989,7 @@
         initTitlebarBehaviorOptions(root);
         initNotificationBehaviorOptions(root);
         initImmediateSystemSettingsPreview(root);
+        finalizeSetupFormStateRestore(root);
     }
 
     window.__dluxPrepareWizardContainer = function (container) {

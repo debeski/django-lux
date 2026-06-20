@@ -355,7 +355,7 @@ class ActivityLogCategoryTests(TestCase):
 
     def test_is_model_logging_enabled_floor_and_actions(self):
         from dlux.utils.activity_log import is_model_logging_enabled
-        from dlux.system_settings_defaults import default_log_config
+        from dlux.system.defaults import default_log_config
         cfg = default_log_config()
         # correctness floor always wins
         self.assertFalse(is_model_logging_enabled('system', 'sessions.session', 'update', cfg))
@@ -518,7 +518,7 @@ class LogModelCatalogTests(TestCase):
 
     def test_custom_action_default_logged_and_toggleable(self):
         from dlux.utils.activity_log import is_model_logging_enabled
-        from dlux.system_settings_defaults import default_log_config
+        from dlux.system.defaults import default_log_config
         cfg = default_log_config()
         # An undeclared custom action is logged by default...
         self.assertTrue(is_model_logging_enabled('user', 'app.doc', 'download', cfg))
@@ -529,7 +529,7 @@ class LogModelCatalogTests(TestCase):
 
     def test_identity_logging_toggle(self):
         from dlux.utils.activity_log import is_model_logging_enabled, LOG_IDENTITY_MODEL_KEY
-        from dlux.system_settings_defaults import default_log_config
+        from dlux.system.defaults import default_log_config
         cfg = default_log_config()
         # Identity is gated under the system section.
         self.assertTrue(is_model_logging_enabled('system', LOG_IDENTITY_MODEL_KEY, 'update', cfg))

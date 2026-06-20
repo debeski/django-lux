@@ -540,7 +540,7 @@ class GeneralViewsTests(TestCase):
         self.assertEqual(response.status_code, 403)  # Permission denied
 
     def test_system_setup_view_accessible_to_superuser(self):
-        """Test that system_setup_view is accessible to superusers."""
+        """Test that system_setup_view starts with the setup language gate."""
         from dlux.models import SystemSettings
         settings = SystemSettings.load()
         settings.is_configured = False
@@ -548,11 +548,36 @@ class GeneralViewsTests(TestCase):
         
         response = self.client.get(reverse('system_setup'))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="setup_language"')
+        self.assertContains(response, 'data-setup-language-start="en"')
+        self.assertContains(response, 'data-setup-language-start="ar"')
+        self.assertNotContains(response, 'data-dlux-wizard-step-nav')
+
+    def test_system_setup_language_choice_unlocks_localized_wizard(self):
+        from dlux.models import SystemSettings
+        settings = SystemSettings.load()
+        settings.is_configured = False
+        settings.save()
+
+        response = self.client.post(reverse('system_setup'), {'setup_language': 'ar'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('system_setup'))
+
+        session = self.client.session
+        self.assertEqual(session['dlux_initial_setup_language'], 'ar')
+        self.assertEqual(session['lang'], 'ar')
+
+        response = self.client.get(reverse('system_setup'))
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-dlux-wizard-step-nav')
         self.assertContains(response, 'data-dlux-wizard-step-target="0"')
         self.assertContains(response, 'data-dlux-wizard-step-target="6"')
-        self.assertContains(response, 'aria-label="Setup step navigation"')
+        self.assertContains(response, 'aria-label="التنقل بين خطوات التهيئة"')
         self.assertContains(response, 'dlux-setup-step-nav__bullet')
+        self.assertContains(response, 'data-language-default value="en" checked')
+        self.assertContains(response, 'data-language-default value="ar"')
+        self.assertNotContains(response, 'data-default-language-locked')
+        self.assertNotContains(response, 'disabled aria-disabled="true"')
 
     def test_system_setup_redirects_if_configured(self):
         """Test that system_setup redirects if system is already configured."""
@@ -603,7 +628,7 @@ class GeneralViewsTests(TestCase):
         self.assertTrue(settings_obj.navbar_config['enabled'])
         self.assertFalse(settings_obj.titlebar_config['show_title'])
 
-    def test_system_setup_ignores_invalid_config_json_and_renders_setup(self):
+    def test_system_setup_ignores_invalid_config_json_and_renders_language_gate(self):
         settings_obj = SystemSettings.load()
         settings_obj.is_configured = False
         settings_obj.save()
@@ -613,6 +638,7 @@ class GeneralViewsTests(TestCase):
             response = self.client.get(reverse('system_setup'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="setup_language"')
         settings_obj.refresh_from_db()
         self.assertFalse(settings_obj.is_configured)
 

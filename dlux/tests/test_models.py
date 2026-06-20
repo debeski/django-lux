@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.test.utils import isolate_apps
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from dlux.constants import DEFAULT_TABLE_DENSITY
+from dlux.system.constants import DEFAULT_TABLE_DENSITY
 from dlux.models import (
     SystemSettings, Scope, ScopeSettings, Profile, UserActivityLog,
     ScopedModel, TranslationMixin, Section

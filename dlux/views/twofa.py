@@ -34,7 +34,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 # Project imports
-from ..constants import DEFAULT_HOME_URL
+from ..system.constants import DEFAULT_HOME_URL
 from ..guards import require_current_password
 from ..notifications import notify
 from ..translations import get_strings

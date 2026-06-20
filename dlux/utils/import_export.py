@@ -26,7 +26,7 @@ from django.http import JsonResponse
 from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.utils.module_loading import import_string
-from ..constants import (
+from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -49,6 +49,7 @@ from ..constants import (
 from ..fonts import DEFAULT_FONT_SLUG, get_builtin_fonts
 from ..themes import is_valid_theme, normalize_allowed_themes
 from ..translations import get_current_language_code, get_strings
+from ..system.registry import get_exportable_settings, get_import_aliases
 # try-except for django_filters as it might not be installed (though likely is)
 try:
     import django_filters
@@ -79,42 +80,7 @@ SYSTEM_SETTINGS_EXPORT_FORMAT = 'django-lux.system-settings'
 
 SYSTEM_SETTINGS_EXPORT_VERSION = 1
 
-SYSTEM_SETTINGS_EXPORT_FIELDS = (
-    'system_names',
-    'logo',
-    'favicon',
-    'home_url',
-    'default_language',
-    'default_theme',
-    'allowed_themes',
-    'allow_user_theme_override',
-    'allowed_fonts',
-    'default_fonts',
-    'allow_user_font_override',
-    'allow_user_language_override',
-    'default_table_density',
-    'email_2fa',
-    'prevent_multiple_active_sessions',
-    'login_lockout_enabled',
-    'client_ip_config',
-    'public_root',
-    'public_root_split_enabled',
-    'public_root_url',
-    'public_registration_enabled',
-    'registration_activation_mode',
-    'registration_throttle_enabled',
-    'email_config',
-    'languages',
-    'translations_override',
-    'sidebar_config',
-    'navbar_config',
-    'log_config',
-    'profile_config',
-    'titlebar_config',
-    'notification_config',
-    'login_config',
-    'extra_config',
-)
+SYSTEM_SETTINGS_EXPORT_FIELDS = get_exportable_settings()
 
 # System Import Export - Helper extracts portable names from file fields.
 def _field_file_name(value):
@@ -134,7 +100,12 @@ def export_system_settings_payload(instance=None):
     data = {}
     auth_export = normalize_auth_config(getattr(instance, 'auth_config', None) or {})
     for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
-        if field_name in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled'):
+        if field_name in (
+            'email_2fa',
+            'prevent_multiple_active_sessions',
+            'login_lockout_enabled',
+            'enforce_strong_passwords',
+        ):
             # These toggles are stored in the consolidated auth_config JSON field;
             # keep exporting them as flat keys for backward-compatible import files.
             value = auth_export.get(field_name)
@@ -195,17 +166,7 @@ def normalize_system_settings_import_payload(payload):
     for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
         if field_name in raw_settings:
             normalized[field_name] = deepcopy(raw_settings[field_name])
-    import_aliases = {
-        'translations': 'translations_override',
-        'sidebar': 'sidebar_config',
-        'navbar': 'navbar_config',
-        'titlebar': 'titlebar_config',
-        'notifications': 'notification_config',
-        'login': 'login_config',
-        'log': 'log_config',
-        'profile': 'profile_config',
-    }
-    for source_name, target_name in import_aliases.items():
+    for source_name, target_name in get_import_aliases().items():
         if target_name not in normalized and source_name in raw_settings:
             normalized[target_name] = deepcopy(raw_settings[source_name])
 
@@ -266,6 +227,7 @@ def normalize_system_settings_import_payload(payload):
         'email_2fa',
         'prevent_multiple_active_sessions',
         'login_lockout_enabled',
+        'enforce_strong_passwords',
         'public_root',
         'public_root_split_enabled',
         'public_registration_enabled',
@@ -311,7 +273,12 @@ def apply_system_settings_import(
                 value,
                 allowed_fonts=normalized.get('allowed_fonts', getattr(instance, 'allowed_fonts', None)),
             )
-        elif field_name in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled'):
+        elif field_name in (
+            'email_2fa',
+            'prevent_multiple_active_sessions',
+            'login_lockout_enabled',
+            'enforce_strong_passwords',
+        ):
             # Flat auth toggles route into the consolidated auth_config JSON field.
             auth = dict(getattr(instance, 'auth_config', None) or {})
             auth[field_name] = _coerce_import_bool(value)

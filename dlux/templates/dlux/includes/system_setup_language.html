@@ -1,0 +1,39 @@
+{% extends 'dlux/form_base.html' %}
+{% load static %}
+
+{% block title %}{{ DLUX_STRINGS.system_setup_language_title|default:"Choose setup language" }}{% endblock %}
+
+{% block extra_head %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260620k">
+{% endblock %}
+
+{% block layout %}
+<div class="dlux-setup-viewport dlux-setup-viewport--language">
+    <div class="card border-0 shadow-sm dlux-setup-page dlux-setup-language-page">
+        <form method="post" class="dlux-setup-language-form">
+            {% csrf_token %}
+            <div class="dlux-setup-language-panel">
+                <div class="dlux-setup-intro dlux-setup-language-intro">
+                    <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="Logo" class="dlux-setup-page-logo">
+                    <div class="dlux-setup-intro__text">
+                        <h2 class="dlux-setup-intro__title">{{ DLUX_STRINGS.system_setup_language_title|default:"Choose setup language" }}</h2>
+                        <p class="dlux-setup-intro__desc">{{ DLUX_STRINGS.system_setup_language_desc|default:"This language is only used to display first-launch setup. Choose the actual system default language in the Localization step." }}</p>
+                    </div>
+                </div>
+                <div class="dlux-setup-language-grid" role="group" aria-label="{{ DLUX_STRINGS.system_setup_language_title|default:'Choose setup language' }}">
+                    {% for code, lang in setup_languages.items %}
+                    <button type="submit" class="dlux-setup-language-choice" name="setup_language" value="{{ code }}" data-setup-language-start="{{ code }}" data-dir="{{ lang.dir|default:'ltr' }}">
+                        <span class="dlux-setup-language-choice__flag" aria-hidden="true">{{ lang.flag|default:code|upper }}</span>
+                        <span class="dlux-setup-language-choice__copy">
+                            <strong>{{ lang.name|default:code }}</strong>
+                            <small>{{ code|upper }} · {{ lang.dir|default:"ltr"|upper }}</small>
+                        </span>
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

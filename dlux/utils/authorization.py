@@ -26,7 +26,7 @@ from django.http import JsonResponse
 from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.utils.module_loading import import_string
-from ..constants import (
+from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,

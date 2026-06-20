@@ -100,6 +100,38 @@ class PermissionsUiTests(TestCase):
 
         self.assertEqual(dlux_groups['profile']['name'], 'Users')
 
+    def test_dlux_owned_permissions_include_descriptions(self):
+        form = CustomUserPermissionsForm(instance=self.user, user=self.user)
+        context = form.fields['permissions'].widget.get_context('permissions', [], {'id': 'id_permissions'})
+        dlux_groups = context['widget']['grouped_perms']['dlux']['models']
+        help_by_codename = {
+            option['codename']: option.get('help_text')
+            for model_group in dlux_groups.values()
+            for option in model_group.get('permissions', [])
+            if option.get('codename')
+        }
+
+        self.assertEqual(
+            help_by_codename.get('view_reports'),
+            'Allows viewing the reports overview and exporting report summaries.',
+        )
+        self.assertEqual(
+            help_by_codename.get('download_backup'),
+            'Allows building and downloading report backup ZIP archives.',
+        )
+        self.assertEqual(
+            help_by_codename.get('view_sections'),
+            'Allows opening the Sections screen and viewing the section hierarchy.',
+        )
+        self.assertEqual(
+            help_by_codename.get('manage_sections'),
+            'Allows creating, editing, reordering, and deleting sections and subsections.',
+        )
+        self.assertEqual(
+            help_by_codename.get('view_activitylog'),
+            'Allows viewing activity-log pages and activity detail modals.',
+        )
+
     def test_creation_form_renders_staff_tier_preview(self):
         form = CustomUserCreationForm(user=self.user)
 

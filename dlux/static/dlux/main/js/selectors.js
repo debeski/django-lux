@@ -89,6 +89,52 @@
         syncToggleSelector(selector);
     });
 
+    // A choice option's input is `position:absolute; opacity:0` (focusable). Clicking
+    // an off-screen card focuses that input, and the browser scrolls it into view —
+    // yanking a scroll container (e.g. the system setup body) so the header/logo
+    // appears to jump up out of sight. The scroll happens during focus, so we must
+    // snapshot scroll positions on pointerdown (BEFORE the click) and restore them
+    // once the focus has landed. Keyboard focus (no pointerdown) is left alone so it
+    // stays accessible.
+    let choiceScrollRestore = null;
+    document.addEventListener('pointerdown', function (event) {
+        if (!(event.target instanceof HTMLElement)
+            || !event.target.closest('[data-dlux-selector-option], .dlux-choice-option')) {
+            choiceScrollRestore = null;
+            return;
+        }
+        const scrollers = [];
+        let node = event.target;
+        while (node && node !== document.body && node !== document.documentElement) {
+            const overflowY = window.getComputedStyle(node).overflowY;
+            if (overflowY === 'auto' || overflowY === 'scroll') {
+                scrollers.push([node, node.scrollTop, node.scrollLeft]);
+            }
+            node = node.parentElement;
+        }
+        choiceScrollRestore = { scrollers: scrollers, x: window.scrollX, y: window.scrollY };
+    }, true);
+    document.addEventListener('focusin', function (event) {
+        if (!choiceScrollRestore) {
+            return;
+        }
+        if (!(event.target instanceof HTMLElement) || !event.target.matches('.dlux-choice-option__input')) {
+            choiceScrollRestore = null;
+            return;
+        }
+        const snapshot = choiceScrollRestore;
+        choiceScrollRestore = null;
+        const restore = function () {
+            snapshot.scrollers.forEach(function (entry) {
+                entry[0].scrollTop = entry[1];
+                entry[0].scrollLeft = entry[2];
+            });
+            window.scrollTo(snapshot.x, snapshot.y);
+        };
+        restore();
+        window.requestAnimationFrame(restore);
+    });
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
             scan(document);

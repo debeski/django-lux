@@ -11,7 +11,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import constants as messages
 from django.core.cache import cache
 from dlux import __version__, get_version
-from dlux.constants import DEFAULT_TABLE_DENSITY
+from dlux.system.constants import DEFAULT_TABLE_DENSITY
 from dlux.utils import (
     get_system_config, is_staff, is_superuser, get_client_ip,
     log_user_action, is_scope_enabled, _normalize_asset_url,

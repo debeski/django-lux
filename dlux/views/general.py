@@ -24,7 +24,7 @@ from django.utils.module_loading import import_string
 from django.utils.text import slugify
 
 from dlux import __version__
-from dlux.constants import DEFAULT_HOME_URL
+from dlux.system.constants import DEFAULT_HOME_URL
 from dlux.notifications import notify
 from dlux.translations import get_current_language_code, get_strings
 from dlux.utils import (
@@ -34,6 +34,7 @@ from dlux.utils import (
     get_system_config,
     is_global_staff,
     load_system_settings_config_json,
+    normalize_language_catalog,
     normalize_system_names,
 )
 
@@ -581,6 +582,29 @@ def system_setup_view(request):
                 )
                 return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
 
+    config = get_system_config()
+    setup_languages = normalize_language_catalog(config.get('languages', {}))
+    selected_setup_language = str(request.session.get('dlux_initial_setup_language') or '').strip().lower()
+    if selected_setup_language not in setup_languages:
+        selected_setup_language = ''
+
+    if not selected_setup_language:
+        if request.method == 'POST' and 'setup_language' in request.POST:
+            candidate = str(request.POST.get('setup_language') or '').strip().lower().replace('_', '-')
+            if candidate in setup_languages:
+                request.session['dlux_initial_setup_language'] = candidate
+                request.session['lang'] = candidate
+                request.session['django_language'] = candidate
+                request.session.pop('dlux_force_language_preview', None)
+                return redirect('system_setup')
+
+        context = {
+            'page_title': 'System Setup',
+            'setup_languages': setup_languages,
+            'hide_sidebar_toggle': True,
+        }
+        return render(request, 'dlux/includes/system_setup_language.html', context)
+
     if request.method == 'POST':
         form = SystemSettingsForm(
             request.POST,
@@ -592,6 +616,13 @@ def system_setup_view(request):
         )
         if form.is_valid():
             form.save()
+            resolved_language = form.cleaned_data.get('default_language') or selected_setup_language
+            saved_languages = normalize_language_catalog(form.cleaned_data.get('languages') or setup_languages)
+            if resolved_language in saved_languages:
+                request.session['lang'] = resolved_language
+                request.session['django_language'] = resolved_language
+            request.session.pop('dlux_initial_setup_language', None)
+            request.session.pop('dlux_force_language_preview', None)
             return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
     else:
         form = SystemSettingsForm(
@@ -604,6 +635,7 @@ def system_setup_view(request):
     context = {
         'form': form,
         'page_title': 'System Setup',
+        'hide_sidebar_toggle': True,
     }
     return render(request, 'dlux/includes/system_setup.html', context)
 

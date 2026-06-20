@@ -4,7 +4,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from ..constants import (
+from ..system.constants import (
     REGISTRATION_STATUS_PENDING_APPROVAL,
     REGISTRATION_STATUS_PENDING_EMAIL,
 )

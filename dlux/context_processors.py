@@ -1,7 +1,7 @@
 from urllib.parse import urlsplit
 
 from . import __version__
-from .constants import (
+from .system.constants import (
     DEFAULT_TABLE_DENSITY,
     TABLE_DENSITY_CHOICES,
     TABLE_DENSITY_VALUES,
@@ -300,6 +300,7 @@ def dlux_context(request):
     # 1. Branding / App Config
     from .utils import build_config_groups, get_system_config, normalize_allowed_fonts
     final_config = get_system_config()
+    current_route_name = getattr(getattr(request, 'resolver_match', None), 'url_name', '')
 
     # 4. Language / i18n (resolved BEFORE branding overrides so we know current_lang)
     from .translations import get_strings
@@ -320,6 +321,15 @@ def dlux_context(request):
     preview_lang = request.session.get('lang')
     if request.session.get('dlux_force_language_preview') and preview_lang in languages:
         current_lang = preview_lang
+
+    setup_lang = request.session.get('dlux_initial_setup_language')
+    if (
+        not current_lang
+        and current_route_name == 'system_setup'
+        and not final_config.get('is_configured', False)
+        and setup_lang in languages
+    ):
+        current_lang = setup_lang
 
     # 1. User Preference
     if not current_lang and request.user.is_authenticated and hasattr(request.user, 'profile'):
@@ -462,7 +472,6 @@ def dlux_context(request):
         context['sidebar_reorder_enabled'],
         context['sidebar_has_sections_manager'],
     ])
-    current_route_name = getattr(getattr(request, 'resolver_match', None), 'url_name', '')
     navbar_enabled = bool(navbar_runtime_config.get('enabled', False)) and current_route_name != 'system_setup'
     context['navbar_enabled'] = navbar_enabled
     context['navbar_mode'] = resolve_navbar_mode(user_prefs, navbar_runtime_config)

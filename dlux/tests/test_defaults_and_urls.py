@@ -19,7 +19,7 @@ import json
 import re
 import tempfile
 
-from dlux.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, TITLEBAR_ACTIONS_ORDER
+from dlux.system.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, TITLEBAR_ACTIONS_ORDER
 from dlux.context_processors import dlux_context
 from dlux.forms import SystemSettingsForm
 from dlux.models import SystemSettings
@@ -243,6 +243,22 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('layout_config', settings_payload)
         self.assertNotIn('theme_config', settings_payload)
         self.assertNotIn('language_config', settings_payload)
+
+    def test_system_settings_export_import_preserves_flat_strong_password_toggle(self):
+        instance = SystemSettings.load()
+        instance.auth_config = {
+            'email_2fa': False,
+            'prevent_multiple_active_sessions': False,
+            'login_lockout_enabled': True,
+            'enforce_strong_passwords': True,
+        }
+        instance.save()
+
+        payload = export_system_settings_payload(instance)
+        imported = normalize_system_settings_import_payload(payload)
+
+        self.assertTrue(payload['settings']['enforce_strong_passwords'])
+        self.assertTrue(imported['enforce_strong_passwords'])
 
     def test_titlebar_logo_treatment_normalizes_defaults_and_invalid_values(self):
         defaults = normalize_titlebar_config({})
@@ -1700,23 +1716,113 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(instance.client_ip_config['trusted_proxy_hops'], 3)
         self.assertEqual(instance.client_ip_config['custom_header'], 'HTTP_CF_CONNECTING_IP')
 
-    def test_system_setup_js_toggles_email_password_and_previews_default_language(self):
+    def test_setup_form_schema_covers_simple_config_field_names(self):
+        from dlux.system.registry import get_setting_group
+
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        for storage_field in SystemSettingsForm._SCHEMA_SIMPLE_CONFIG_GROUPS:
+            for field_schema in get_setting_group(storage_field).fields:
+                self.assertIn(field_schema.form_name, form.fields)
+
+    def test_setup_form_schema_packs_simple_config_groups(self):
+        from dlux.system.normalizers import normalize_auth_config, normalize_client_ip_config
+
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+        form.cleaned_data = {
+            'email_2fa': True,
+            'prevent_multiple_active_sessions': True,
+            'login_lockout_enabled': False,
+            'enforce_strong_passwords': True,
+            'client_ip_mode': 'custom',
+            'client_ip_trusted_proxy_hops': 4,
+            'client_ip_custom_header': 'CF-Connecting-IP',
+        }
+
+        self.assertEqual(
+            form._schema_group_from_cleaned('auth_config'),
+            normalize_auth_config({
+                'email_2fa': True,
+                'prevent_multiple_active_sessions': True,
+                'login_lockout_enabled': False,
+                'enforce_strong_passwords': True,
+            }),
+        )
+        self.assertEqual(
+            form._schema_group_from_cleaned('client_ip_config'),
+            normalize_client_ip_config({
+                'mode': 'custom',
+                'trusted_proxy_hops': 4,
+                'custom_header': 'CF-Connecting-IP',
+            }),
+        )
+
+    def test_setup_form_saves_enforce_strong_passwords_to_auth_config(self):
+        form = SystemSettingsForm(
+            data={
+                'home_url': DEFAULT_HOME_URL,
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': DEFAULT_TABLE_DENSITY,
+                'login_lockout_enabled': 'on',
+                'enforce_strong_passwords': 'on',
+            },
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        instance = form.save(commit=False)
+
+        self.assertTrue(instance.auth_config['login_lockout_enabled'])
+        self.assertTrue(instance.auth_config['enforce_strong_passwords'])
+
+    def test_system_setup_js_toggles_email_password_and_keeps_default_language_save_only(self):
         script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
         contents = script.read_text(encoding='utf-8')
 
         self.assertIn('dlux-email-config-password-field', contents)
         self.assertIn("secretStorageInput.value === 'encrypted_db'", contents)
-        self.assertIn('previewSetupDefaultLanguage', contents)
-        self.assertIn('window.setLanguage(normalizedLanguage, { previewOnly: true })', contents)
-        self.assertNotIn('window.setLanguage(normalizedLanguage, { previewOnly: true, reload: false })', contents)
+        self.assertNotIn('previewSetupDefaultLanguage', contents)
+        self.assertNotIn('__language_preview', contents)
+        self.assertNotIn('window.setLanguage', contents)
+        self.assertNotIn('function getLockedDefaultLanguage(form) {', contents)
+        self.assertNotIn('function enforceDefaultLanguageLock(form) {', contents)
+        self.assertNotIn('defaultInput.disabled = true;', contents)
+        self.assertNotIn('aria-disabled="true"', contents)
+        self.assertIn('function applySetupFormStateValues(form, values, options) {', contents)
+        self.assertIn('function finalizeSetupFormStateRestore(root) {', contents)
+        self.assertIn('function readSetupWizardCurrentStep(form) {', contents)
+        self.assertIn('function rememberSetupWizardStep(form, step) {', contents)
+        self.assertIn('state.currentStep = currentStep;', contents)
+        self.assertIn('form.dataset.dluxWizardInitialStep = String(Number(state.currentStep));', contents)
+        self.assertIn('form.__dluxPendingSetupState = state;', contents)
+        self.assertIn('const fieldsByName = new Map();', contents)
+        self.assertIn("state.values[name] = fields\n                        .filter((field) => field.checked)\n                        .map((field) => field.value);", contents)
+        self.assertIn('if (Array.isArray(value)) {', contents)
+        self.assertIn('const allowedValues = value.map((item) => String(item));', contents)
+        self.assertIn('field.checked = allowedValues.includes(String(field.value));', contents)
+        self.assertIn('const fieldsToDispatch = [];', contents)
+        self.assertIn('fieldsToDispatch.forEach(({ field, input, change }) => {', contents)
+        self.assertIn('applySetupFormStateValues(form, state.values, { dispatchEvents: true });', contents)
+        self.assertIn('syncSetupLanguagePickers(form);', contents)
+        self.assertIn('syncTranslationOverrides(form);', contents)
+        self.assertIn('applyImmediateSystemSettingsPreview(form);', contents)
+        self.assertIn('delete form.__dluxPendingSetupState;', contents)
         self.assertIn('rehydrateSetupLanguageEditors(form)', contents)
         self.assertIn('restoreImportedEmailPasswordNotice(form);', contents)
         self.assertGreaterEqual(contents.count('restoreImportedEmailPasswordNotice(form);'), 2)
         self.assertIn('function restoreImportedEmailPasswordNotice(form) {', contents)
         self.assertIn('sessionStorage.removeItem(getSetupStateKey(form));', contents)
         self.assertIn("notice.setAttribute('data-autoclose', 'false');", contents)
-        self.assertIn("form.dataset.suppressSetupLanguagePreview = 'true';", contents)
-        self.assertNotIn('form.dataset.dluxWizardInitialStep = String(state.currentStep);', contents)
+        self.assertNotIn('suppressSetupLanguagePreview', contents)
         self.assertIn('window.__dluxGetWizardInitialStep = function (container) {', contents)
         self.assertIn('if (stepHasValidationError(steps[index])) {', contents)
         self.assertIn('return index;', contents)
@@ -1743,15 +1849,21 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("function setupRequiresEmailPassword(form)", contents)
         self.assertIn("setupRequiresEmailPassword(form) && !emailConfig.encrypted_password", contents)
         self.assertIn("getNamedFieldValue(form, 'email_config_secret_storage') !== 'encrypted_db'", contents)
+        # The setup viewport is a plain flow box; it must NOT measure the titlebar
+        # height into a CSS var (that measurement shoved the shell up behind the
+        # titlebar on every preview change). The wizard action bar is relocated into
+        # the fixed footer instead.
+        self.assertIn("function initSetupFooterRelocation(root)", contents)
+        self.assertIn("footer.appendChild(actions)", contents)
+        self.assertNotIn("getBoundingClientRect().height", contents)
+        self.assertNotIn("--dlux-setup-titlebar-offset", contents)
         self.assertNotIn("emailConfig.password_configured === true", contents)
         self.assertNotIn("const needsEncryptedDbPassword = emailConfig.secret_storage === 'encrypted_db'", contents)
-        self.assertIn("form.dataset.suppressSetupLanguagePreview = 'true';", contents)
-        self.assertIn("if (form.dataset.suppressSetupLanguagePreview === 'true')", contents)
         self.assertIn('window.__dluxPrepareWizardContainer = function (container) {', contents)
         self.assertIn('scan(document);', contents)
+        self.assertLess(contents.index('restoreSetupFormState(root);'), contents.index('finalizeSetupFormStateRestore(root);'))
         self.assertNotIn('dlux-setup-language-switch-pending', contents)
         self.assertNotIn('function setupDefaultLanguageWillSwitch(language) {', contents)
-        self.assertIn('previewSetupDefaultLanguage(form, settings.default_language);', contents)
         self.assertIn("'allow_user_font_override'", contents)
         self.assertIn('applyImportedFontSettings(form, settings);', contents)
         self.assertIn("hiddenInput.addEventListener('change', () => {", contents)
@@ -1902,6 +2014,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('.titlebar__actions--titlebar', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--dropdown', titlebar_css)
         self.assertIn('.titlebar__actions--titlebar {', titlebar_css)
+        titlebar_surfaces_css = (static_root / 'main' / 'css' / 'titlebar_surfaces.css').read_text(encoding='utf-8')
+        self.assertIn(':root .titlebar[data-titlebar-surface="muted"] {', titlebar_surfaces_css)
+        self.assertIn(':root .titlebar[data-titlebar-surface="glass"] {', titlebar_surfaces_css)
+        self.assertIn('background:', titlebar_surfaces_css)
+        self.assertIn('!important;', titlebar_surfaces_css)
+        self.assertIn('backdrop-filter: blur(16px) saturate(1.2) !important;', titlebar_surfaces_css)
         base_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'base.html'
         base_markup = base_template.read_text(encoding='utf-8')
         self.assertIn("user.is_authenticated and titlebar.user_hub_style != 'titlebar_actions'", base_markup)
@@ -1935,6 +2053,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('.dlux-choice-selector--toggle .dlux-choice-selector__options {', contents)
         self.assertIn('padding-block: 0.8rem;', contents)
         self.assertIn('align-self: stretch;', contents)
+        self.assertIn('.dlux-choice-option {\n  display: block;\n  position: relative;', contents)
+        self.assertIn('.dlux-choice-option__input {\n  position: absolute;\n  inset: 0;\n  width: 100%;\n  height: 100%;', contents)
         self.assertIn('--dlux-choice-toggle-surface:', contents)
         self.assertIn('background: var(--dlux-choice-toggle-surface);', contents)
         self.assertIn('background: var(--dlux-choice-toggle-surface-hover);', contents)
@@ -1965,6 +2085,17 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('@media (max-width: 400px)', contents)
         self.assertIn('flex-direction: column;', contents)
         self.assertIn('justify-content: flex-end;', contents)
+        # The setup viewport is a plain flow box (same scaffold as #mainContent),
+        # NOT a position:fixed overlay with a JS-measured top offset — that offset
+        # collapsed to ~0 on preview changes and shoved the shell up behind the
+        # titlebar. No `position: fixed`, no `top`, no measured-offset var.
+        self.assertIn('height: calc(100vh - var(--header-height, 60px));', contents)
+        self.assertIn('width: 100%;', contents)
+        self.assertIn('max-width: none;', contents)
+        self.assertNotIn('max-width: 1180px;', contents)
+        self.assertNotIn('--dlux-setup-titlebar-offset', contents)
+        self.assertNotIn('--dlux-setup-active-titlebar-height', contents)
+        self.assertNotIn('position: fixed;', contents)
         self.assertIn('.dlux-setup-step-nav {', contents)
         self.assertIn('grid-template-columns: repeat(7, minmax(6.2rem, 1fr));', contents)
         self.assertIn('.dlux-setup-step-nav__item.is-active {', contents)
@@ -2083,8 +2214,16 @@ class DluxDefaultRouteTests(SimpleTestCase):
         _assert_versioned_static_asset(self, contents, "dlux/main/css/main.css")
         self.assertIn("dlux/main/css/system_setup.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/system_setup.css")
+        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260620k", contents)
+        self.assertIn("dlux/main/css/titlebar_surfaces.css", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/main/css/titlebar_surfaces.css")
+        self.assertLess(
+            contents.index("{% static theme.css_path %}?v="),
+            contents.index("dlux/main/css/titlebar_surfaces.css"),
+        )
         self.assertIn("dlux/main/js/system_setup.js", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/js/system_setup.js")
+        self.assertIn("dlux/main/js/system_setup.js' %}?v=20260620l", contents)
         self.assertIn("dlux/helpers/wizard/js/main.js", contents)
         self.assertLess(
             contents.index("dlux/main/js/system_setup.js"),
@@ -2098,6 +2237,61 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("{% static theme.css_path %}?v=", contents)
         self.assertIn("dlux/main/css/template_cleanup.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/template_cleanup.css")
+
+    def test_system_setup_hides_sidebar_toggle_but_keeps_titlebar(self):
+        titlebar_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'titlebar.html'
+        setup_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'system_setup.html'
+        view_source = Path(__file__).resolve().parents[1] / 'views' / 'general.py'
+
+        titlebar_contents = titlebar_template.read_text(encoding='utf-8')
+        setup_contents = setup_template.read_text(encoding='utf-8')
+        view_contents = view_source.read_text(encoding='utf-8')
+
+        self.assertIn('and not hide_sidebar_toggle', titlebar_contents)
+        self.assertIn('id="sidebarToggle"', titlebar_contents)
+        self.assertIn("'hide_sidebar_toggle': True,", view_contents)
+        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260620k", setup_contents)
+
+    def test_system_setup_language_gate_template_uses_setup_language_choices(self):
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'system_setup_language.html'
+        contents = template_path.read_text(encoding='utf-8')
+
+        self.assertIn('name="setup_language"', contents)
+        self.assertIn('data-setup-language-start="{{ code }}"', contents)
+        self.assertIn('dlux-setup-language-choice', contents)
+        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260620k", contents)
+
+    def test_setup_language_does_not_force_saved_default_language(self):
+        request = RequestFactory().get('/sys/setup/')
+        request.session = {'dlux_initial_setup_language': 'en'}
+
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "النظام"}',
+                'home_url': '/',
+                'default_language': 'ar',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': DEFAULT_TABLE_DENSITY,
+                'languages': '{"en": {"name": "English", "dir": "ltr"}, "ar": {"name": "Arabic", "dir": "rtl"}}',
+                'translations_override': '{}',
+                'sidebar_config': '{"entries":[]}',
+                'navbar_config': '{"enabled": false, "hierarchy": {"nodes": []}}',
+                'log_config': '{}',
+                'profile_config': '{}',
+            },
+            instance=SystemSettings(is_configured=False),
+            request=request,
+            mode='setup',
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['default_language'], 'ar')
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+        self.assertNotIn('data-default-language-locked', html)
+        self.assertIn('data-language-default value="ar" checked', html)
+        self.assertNotIn('disabled aria-disabled="true"', html)
 
     def test_theme_preview_surfaces_include_aether_and_light_mono(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'template_cleanup.css'
@@ -2333,7 +2527,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
         for path in sorted(templates_root.rglob('*.html')):
             contents = path.read_text(encoding='utf-8')
             rel_path = path.relative_to(templates_root).as_posix()
-            if re.search(r'<style\b', contents, re.IGNORECASE) and rel_path != 'dlux/base.html':
+            # base.html: dynamic font-face bridge. system_setup.html: a tiny
+            # layout guard that forces the setup shell to a flow box, rendered
+            # live from the template so a stale collected system_setup.css cannot
+            # reintroduce the position:fixed/measured-top that hid the shell.
+            inline_style_allowed = {'dlux/base.html', 'dlux/includes/system_setup.html'}
+            if re.search(r'<style\b', contents, re.IGNORECASE) and rel_path not in inline_style_allowed:
                 violations.append(f'{rel_path}:style-block')
             if inline_script_pattern.search(contents):
                 violations.append(f'{rel_path}:inline-script')

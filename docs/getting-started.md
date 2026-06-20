@@ -152,7 +152,9 @@ python -m dlux startapp billing --register
 
 On a fresh install, Dlux protects ordinary requests until the system is configured. In practice, an anonymous visitor can be redirected toward `/sys/setup/`, then on to login, and the first superuser who signs in is guided through the wizard.
 
-The setup wizard runs in eight steps:
+The setup flow first asks the superuser to choose the setup language. That choice controls only the first-launch setup UI language and direction. The actual saved system default language is selected separately in the Localization step and can be different.
+
+The setup wizard then runs in eleven steps:
 
 1. Identity: language-keyed system names (JSON dict), logo, favicon, and setup import.
 2. Localization: explicit language catalog, default language, user language override policy, and the translation matrix editor.
@@ -161,7 +163,10 @@ The setup wizard runs in eight steps:
 5. Sidebar: sidebar builder and sidebar behavior controls.
 6. Nav Bar: optional authenticated nav bar mode, override policy, and hierarchy tree.
 7. UI and Layout: titlebar controls (logo/home visibility, treatment, button shape, user-hub layout style, action order, alignment, height, surface).
-8. Appearance and Typography: theme availability, default theme, theme override policy, fonts, and table-density defaults.
+8. Notifications: flash, drawer, badge, browser bridge, email delivery, and automatic CRUD notification behavior.
+9. Appearance and Typography: theme availability, default theme, theme override policy, fonts, and table-density defaults.
+10. Logging: user/system activity logging, audit event logging, and retention controls.
+11. Profile Page: profile-page modules and first-login user setup/onboarding options.
 
 When the form is saved:
 

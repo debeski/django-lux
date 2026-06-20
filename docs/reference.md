@@ -89,7 +89,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/accounts/profile/` | User profile |
 | `/accounts/profile/sessions/<session_key>/revoke/` | POST-only revocation for one of the current user’s signed-in sessions |
 | `/health/` | Django health-check endpoint for readiness checks |
-| `/sys/setup/` | First-launch system setup |
+| `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
 | `/sys/users/` | User management |
 | `/sys/registrations/` | Superuser-only pending public registration approvals |
@@ -392,6 +392,25 @@ The model keeps only identity fields as standalone columns (`system_names`,
 `language_config`, `theme_config`, `typography_config`, `login_config`,
 `titlebar_config`, `sidebar_config`, `navbar_config`, `log_config`,
 `profile_config`, and `extra_config`.
+
+The canonical source for those grouped settings is `dlux.system`: `constants.py`
+owns settings choices/constants, `defaults.py` owns `default_*_config()`
+factories, `normalizers.py` owns config coercion, and `schema.py`/`registry.py`
+describe groups, legacy flat keys, runtime aliases, and export/import coverage.
+New Dlux internals should import from `dlux.system`. Root `dlux.constants`
+exists only as a compatibility re-export, and the old defaults modules are not
+canonical APIs. Important migration invariant:
+published migrations `0001` and `0002` serialize default callable paths under
+`dlux.models.default_*_config`, so those wrappers must remain importable
+indefinitely. Keep the wrappers as thin delegates; do not move canonical
+settings logic back into `dlux.models`.
+
+`SystemSettingsForm` consumes registry schema metadata for the low-risk scalar
+groups (`auth_config`, `registration_config`, `public_root_config`,
+`layout_config`, and `client_ip_config`) when hydrating form initials and packing
+cleaned split fields back into normalized groups. The complex builders for email
+secrets, notifications, login hero copy, titlebar, sidebar, navbar, logging,
+profile, language catalogs, theme, and font pickers remain custom.
 
 Use existing flat keys in `DLUX_CONFIG`, templates, and host code unless you
 are working on Dlux internals. `get_system_config()` flattens grouped DB values

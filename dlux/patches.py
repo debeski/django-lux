@@ -111,13 +111,13 @@ def _merge_class_tokens(existing, *tokens):
 
 
 def _is_valid_table_density(value):
-    from dlux.constants import TABLE_DENSITY_VALUES
+    from dlux.system.constants import TABLE_DENSITY_VALUES
 
     return value in TABLE_DENSITY_VALUES
 
 
 def _resolve_table_density(request, table_meta):
-    from dlux.constants import DEFAULT_TABLE_DENSITY
+    from dlux.system.constants import DEFAULT_TABLE_DENSITY
     from dlux.middleware import get_current_user
     from dlux.utils import get_system_config
 
@@ -152,7 +152,7 @@ def _coerce_positive_int(value):
 
 
 def _normalize_table_page_size_options(raw_options):
-    from dlux.constants import TABLE_PAGE_SIZE_OPTIONS
+    from dlux.system.constants import TABLE_PAGE_SIZE_OPTIONS
 
     if raw_options is None:
         return TABLE_PAGE_SIZE_OPTIONS
@@ -210,7 +210,7 @@ def _persist_table_page_size_preference(request, page_size):
 
 
 def _resolve_table_page_size(request, table, table_meta, explicit_default=None):
-    from dlux.constants import DEFAULT_TABLE_PAGE_SIZE
+    from dlux.system.constants import DEFAULT_TABLE_PAGE_SIZE
 
     options = getattr(table, 'dlux_per_page_options', None) or _resolve_table_page_size_options(table_meta)
     override = _coerce_positive_int(_table_meta_explicit_value(table_meta, 'dlux_per_page'))

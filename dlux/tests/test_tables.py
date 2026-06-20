@@ -11,7 +11,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.template import Context, Template
 from django.test import RequestFactory, TestCase
 
-from dlux.constants import DEFAULT_TABLE_PAGE_SIZE
+from dlux.system.constants import DEFAULT_TABLE_PAGE_SIZE
 from dlux.tables import DluxTable, UserTable
 from dlux.utils import _build_generic_table_class
 

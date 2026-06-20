@@ -1,6 +1,6 @@
 # DjangoLux Complete Feature Reference
 
-**Version:** 1.0.4
+**Version:** 1.2.0
 **Package:** `django-lux` — A multilingual Django framework layer for internal systems
 
 ---
@@ -35,19 +35,22 @@
 - **Stable storage layout** keeps only identity columns standalone (`system_names`, logo/favicon, default language/theme, home URL, configured flag) and stores future-changing settings in JSON groups:
   - `auth_config`, `email_config`, `registration_config`, `public_root_config`, `client_ip_config`, `notification_config`
   - `layout_config`, `language_config`, `theme_config`, `typography_config`
-  - `login_config`, `titlebar_config`, `sidebar_config`, `navbar_config`, and reserved `extra_config`
+  - `login_config`, `titlebar_config`, `sidebar_config`, `navbar_config`, `log_config`, `profile_config`, and reserved `extra_config`
+- **Canonical settings registry:** `dlux.system` owns settings constants, default factories, normalizers, schema metadata, registry helpers, legacy flat-key mappings, runtime aliases, setup import/export field coverage, and the low-risk scalar System Settings form packing path. `dlux.models.default_*_config` wrappers are permanent migration-history shims for published migrations `0001`/`0002`.
 - **Backward-compatible runtime contract:** `get_system_config()`, `DLUX_CONFIG`, setup import/export, templates, and host callers still use flat keys such as `allowed_themes`, `public_root`, `translations_override`, and `default_table_density`.
 - **Override-only translations:** `language_config.translations_override` stores only admin/dev overrides, never the merged discovered translation catalog.
 
 ### First-Launch Setup Wizard
-- **8-step wizard:** Identity → Localization → Access and security → Login Page → Sidebar → Nav Bar → UI and Layout → Appearance and Typography
+- **11-step wizard:** Identity → Localization → Access and security → Login Page → Sidebar → Nav Bar → UI and Layout → Notifications → Appearance and Typography → Logging → Profile Page
 - **Step 3 routing controls** for the main Home URL plus optional anonymous public-root split when public root access is enabled
 - **Step 4 Login Page** controls login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message
 - **Step 7 Titlebar** includes titlebar button-shape controls, Dropdown vs Titlebar Actions user-hub layout, and orderable titlebar actions
 - **Step 8 Notifications** is a dedicated step (notifications were split out of the Titlebar step) with a top-level `notifications_enabled` master toggle — like the sidebar/nav-bar enablement switches — gating flash/drawer/badge/bridge/email and automatic CRUD controls; when off, the whole notification subsystem (including `notify(...)`) is suppressed
 - **Setup import/export path** for reusing System Settings payloads across environments
-- **Live preview** for theme, language, sidebar, titlebar, and notification drawer/flash presentation changes
-- **Unsaved preview state** with session-based language switching
+- **Setup language gate** on first launch chooses only the setup UI language/direction before the wizard renders; the persisted system default language remains an editable Localization setting and may be different
+- **Live preview** for theme, sidebar, titlebar, and notification drawer/flash presentation changes
+- **Save-only default language** in setup/System Settings so language changes no longer trigger preview reloads or discard unsaved wizard values
+- **Full-width first-launch setup shell** that hides the runtime sidebar toggle because the setup page does not render the runtime sidebar
 - **Dynamic sidebar builder** with drag-and-drop cross-pane support
 - **Theme allowlist matrix** with visual selector cards: preview circle sets the default theme, the rest of the card and checkbox toggle whether that theme is allowed
 - **Translation matrix editor** plus explicit language-catalog management
@@ -239,6 +242,7 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 
 ### Permissions
 - Grouped translated permissions display
+- Localized descriptions for Dlux-owned permissions in user/staff assignment cards
 - Custom permissions: `manage_staff`, `manage_scopes`
 - Scope-based permission filtering
 - Permission assignment principle: users can only assign permissions they themselves have
@@ -529,7 +533,7 @@ ActivityLog.safe_log(
 
 ### Language Picker
 - Runtime language switching
-- Session-based preview (for admin changes)
+- System Settings default-language changes are save-only and do not preview or reload the active page
 - User preference persistence
 - Admin lock capability (`allow_user_language_override`)
 

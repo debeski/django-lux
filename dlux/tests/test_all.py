@@ -20,6 +20,7 @@ TEST_LABELS = [
     'dlux.tests.test_scaffold',
     'dlux.tests.test_sidebar_discovery',
     'dlux.tests.test_signals',
+    'dlux.tests.test_system_registry',
     'dlux.tests.test_system_backup',
     'dlux.tests.test_tables',
     'dlux.tests.test_utils',

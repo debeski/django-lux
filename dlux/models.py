@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 from django.core.cache import cache
 from django.core.files.base import ContentFile
-from .constants import (
+from .system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_TABLE_DENSITY,
     REGISTRATION_ACTIVATION_AUTO_LOGIN,
@@ -21,7 +21,7 @@ from .constants import (
     TABLE_DENSITY_VALUES,
 )
 from .managers import ScopedManager
-from .system_settings_defaults import (
+from .system.defaults import (
     default_auth_config as _default_auth_config,
     default_client_ip_config as _default_client_ip_config,
     default_email_config as _default_email_config,
@@ -39,6 +39,7 @@ from .system_settings_defaults import (
     default_log_config as _default_log_config,
     default_profile_config as _default_profile_config,
 )
+from .system.registry import get_config_defaults, get_flat_config_fields
 import hashlib
 import io
 import secrets
@@ -307,46 +308,9 @@ class SingletonModel(models.Model):
                  pass
 
 
-_SYSTEM_SETTINGS_CONFIG_DEFAULTS = {
-    'auth_config': default_auth_config,
-    'email_config': default_email_config,
-    'registration_config': default_registration_config,
-    'public_root_config': default_public_root_config,
-    'client_ip_config': default_client_ip_config,
-    'notification_config': default_notification_config,
-    'layout_config': default_layout_config,
-    'language_config': default_language_config,
-    'theme_config': default_theme_config,
-    'typography_config': default_typography_config,
-    'login_config': default_login_config,
-    'titlebar_config': default_titlebar_config,
-    'sidebar_config': dict,
-    'navbar_config': default_navbar_config,
-    'log_config': default_log_config,
-    'profile_config': default_profile_config,
-    'extra_config': default_extra_config,
-}
+_SYSTEM_SETTINGS_CONFIG_DEFAULTS = get_config_defaults()
 
-_SYSTEM_SETTINGS_FLAT_CONFIG_FIELDS = {
-    'email_2fa': ('auth_config', 'email_2fa'),
-    'prevent_multiple_active_sessions': ('auth_config', 'prevent_multiple_active_sessions'),
-    'login_lockout_enabled': ('auth_config', 'login_lockout_enabled'),
-    'public_registration_enabled': ('registration_config', 'public_registration_enabled'),
-    'registration_activation_mode': ('registration_config', 'registration_activation_mode'),
-    'registration_throttle_enabled': ('registration_config', 'registration_throttle_enabled'),
-    'public_root': ('public_root_config', 'public_root'),
-    'public_root_split_enabled': ('public_root_config', 'public_root_split_enabled'),
-    'public_root_url': ('public_root_config', 'public_root_url'),
-    'default_table_density': ('layout_config', 'default_table_density'),
-    'languages': ('language_config', 'languages'),
-    'translations_override': ('language_config', 'translations_override'),
-    'allow_user_language_override': ('language_config', 'allow_user_language_override'),
-    'allowed_themes': ('theme_config', 'allowed_themes'),
-    'allow_user_theme_override': ('theme_config', 'allow_user_theme_override'),
-    'allowed_fonts': ('typography_config', 'allowed_fonts'),
-    'default_fonts': ('typography_config', 'default_fonts'),
-    'allow_user_font_override': ('typography_config', 'allow_user_font_override'),
-}
+_SYSTEM_SETTINGS_FLAT_CONFIG_FIELDS = get_flat_config_fields()
 
 
 def _system_settings_config_get(instance, config_field, key):

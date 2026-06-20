@@ -14,11 +14,11 @@ User-specific preferences live separately in `Profile.preferences`. That is wher
 
 ## First-Launch Setup Wizard
 
-The setup wizard lives at `/sys/setup/` and is only intended for the initial system configuration pass. It is the canonical place to establish the project-wide defaults that later users inherit.
+The setup wizard lives at `/sys/setup/` and is only intended for the initial system configuration pass. It is the canonical place to establish the project-wide defaults that later users inherit. On an unconfigured system, `/sys/setup/` first asks for the setup language; that choice controls only the first-launch setup UI language and direction. The actual app default language is still chosen separately in the Localization step.
 
 ![Setup wizard capture slot](assets/setup-wizard.webp)
 
-The wizard currently runs in eight steps:
+The wizard currently runs in eleven steps:
 
 1. Identity
    This step sets language-keyed system names (a JSON dict such as `{"en": "System", "ar": "النظام"}`), logo, and favicon. It also includes the JSON setup import control, which can prefill the wizard from a previously exported Dlux setup file.
@@ -41,10 +41,19 @@ The wizard currently runs in eight steps:
 7. UI and Layout
    This step manages titlebar controls (logo/home visibility, logo treatment, action-button shape, Dropdown vs Titlebar Actions user-hub layout, action ordering, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
 
-8. Appearance and Typography
+8. Notifications
+   This step controls the notification subsystem, including the flash, drawer, badge, browser bridge, email delivery, and automatic CRUD notification behavior.
+
+9. Appearance and Typography
    This step manages theme availability, default theme, theme override policy, and the Dynamic Font Management system.
 
-The first-launch page includes a bullet-style step navigation bar above the setup form. Each bullet jumps to its corresponding setup step while staying synchronized with the wizard's Next and Previous buttons.
+10. Logging
+   This step manages user/system activity logging, audit event logging, and retention controls.
+
+11. Profile Page
+   This step controls the profile page modules and first-login user setup/onboarding options.
+
+The first-launch page expands to the available page width and hides the runtime sidebar toggle because the runtime sidebar is not rendered during initial setup. Its bullet-style step navigation bar jumps to the corresponding setup step while staying synchronized with the wizard's Next and Previous buttons. The default-language control is save-only: changing it in first-launch setup or later System Settings modals no longer previews the language or reloads the page, and it remains editable independently of the initial setup-language choice.
 
 Useful language/system-name patterns:
 
@@ -76,7 +85,7 @@ When the wizard is saved:
 
 Superusers can export the current setup from the Options System Settings card. The downloaded filename uses `dlux-{project-slug}-{YYYY-MM-DD}.json`, where the project slug comes from the deployed project `BASE_DIR` folder name (generic container work-dir names such as `app`, `src`, or `code` are skipped), falling back to the configured English System Settings name when one is set, and finally to `project`. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, optional anonymous public-root URL/split toggle, Client IP resolution config, notifications, login page, sidebar, Nav Bar, titlebar, security toggles, themes, fonts, density defaults, and reserved `extra_config` host data. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
 
-The database stores most of those values in grouped `SystemSettings` JSON fields (`auth_config`, `registration_config`, `public_root_config`, `language_config`, `theme_config`, `typography_config`, `layout_config`, and related UI configs), but exports remain flat and imports accept both flat keys and grouped aliases. Translation exports include only `translations_override` edits, not the full merged translation catalog.
+The database stores most of those values in grouped `SystemSettings` JSON fields (`auth_config`, `registration_config`, `public_root_config`, `language_config`, `theme_config`, `typography_config`, `layout_config`, and related UI configs), but exports remain flat and imports accept both flat keys and grouped aliases. The `dlux.system` registry is the canonical internal source for those group constants, defaults, normalizers, legacy aliases, export/import field coverage, and simple scalar form packing. The `dlux.models.default_*_config` wrappers must remain importable because published migrations `0001`/`0002` serialize those callable paths. Translation exports include only `translations_override` edits, not the full merged translation catalog.
 
 On a fresh, unconfigured project, Dlux also checks `BASE_DIR/config.json` when `/sys/setup/` is opened by a superuser. A valid exported payload or direct settings dict is applied once, marks setup complete, and redirects to the configured home URL. Invalid JSON is ignored with a setup warning, and already configured systems never treat `config.json` as a live settings layer.
 
@@ -405,5 +414,7 @@ This tier system ensures that:
 - `manage_staff` permission can only be assigned by users who have it
 - `manage_scopes` permission can only be assigned by superusers (who can create Global Staff)
 - `view_activitylog` permission can only be assigned by users who have it
+
+The grouped permission cards show localized descriptions for Dlux-owned permissions such as reports, report backups, sections, activity logs, and staff access so administrators can see what each grant unlocks before assigning it.
 
 This prevents privilege escalation where a user could grant themselves or others permissions they don't possess.

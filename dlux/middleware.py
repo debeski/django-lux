@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
-from .constants import DEFAULT_HOME_URL
+from .system.constants import DEFAULT_HOME_URL
 
 _thread_locals = threading.local()
 

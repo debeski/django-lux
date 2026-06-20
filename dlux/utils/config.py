@@ -28,7 +28,7 @@ from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.db.utils import OperationalError, ProgrammingError
 from django.utils.module_loading import import_string
-from ..constants import (
+from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -53,8 +53,19 @@ from ..constants import (
     TITLEBAR_USER_HUB_STYLE_VALUES,
 )
 from ..fonts import DEFAULT_FONT_SLUG, get_builtin_fonts
-from ..notification_defaults import default_notification_config, normalize_notification_config
-from ..system_settings_defaults import (
+from ..system.constants import (
+    CLIENT_IP_MODE_AUTO,
+    CLIENT_IP_MODE_CLOUDFLARE,
+    CLIENT_IP_MODE_CUSTOM,
+    CLIENT_IP_MODE_REMOTE_ADDR,
+    CLIENT_IP_MODE_VALUES,
+    CLIENT_IP_MODE_X_FORWARDED_FOR,
+    CLIENT_IP_MODE_X_REAL_IP,
+    EMAIL_CONFIG_SECRET_STORAGES,
+    EMAIL_CONFIG_TRANSPORTS,
+    LOGIN_STYLE_VALUES,
+)
+from ..system.defaults import (
     default_auth_config as _default_auth_config,
     default_client_ip_config as _default_client_ip_config,
     default_email_config as _default_email_config,
@@ -63,6 +74,7 @@ from ..system_settings_defaults import (
     default_layout_config as _default_layout_config,
     default_login_config as _default_login_config,
     default_navbar_config as _default_navbar_config,
+    default_notification_config as _default_notification_config,
     default_public_root_config as _default_public_root_config,
     default_registration_config as _default_registration_config,
     default_theme_config as _default_theme_config,
@@ -70,6 +82,35 @@ from ..system_settings_defaults import (
     default_typography_config as _default_typography_config,
     default_log_config as _default_log_config,
     default_profile_config as _default_profile_config,
+)
+from ..system.normalizers import (
+    _normalize_client_ip_header_name as _system_normalize_client_ip_header_name,
+    normalize_allowed_fonts as _system_normalize_allowed_fonts,
+    normalize_auth_config as _system_normalize_auth_config,
+    normalize_client_ip_config as _system_normalize_client_ip_config,
+    normalize_default_fonts as _system_normalize_default_fonts,
+    normalize_email_config as _system_normalize_email_config,
+    normalize_extra_config as _system_normalize_extra_config,
+    normalize_language_config as _system_normalize_language_config,
+    normalize_layout_config as _system_normalize_layout_config,
+    normalize_log_config as _system_normalize_log_config,
+    normalize_login_config as _system_normalize_login_config,
+    normalize_navbar_config as _system_normalize_navbar_config,
+    normalize_notification_config as _system_normalize_notification_config,
+    normalize_profile_config as _system_normalize_profile_config,
+    normalize_public_root_config as _system_normalize_public_root_config,
+    normalize_registration_config as _system_normalize_registration_config,
+    normalize_sidebar_behavior as _system_normalize_sidebar_behavior,
+    normalize_theme_config as _system_normalize_theme_config,
+    normalize_titlebar_actions_order as _system_normalize_titlebar_actions_order,
+    normalize_titlebar_config as _system_normalize_titlebar_config,
+    normalize_typography_config as _system_normalize_typography_config,
+)
+from ..system.registry import (
+    build_default_system_config,
+    get_config_aliases,
+    get_config_normalizers,
+    get_flat_config_keys_by_group,
 )
 from ..themes import is_valid_theme, normalize_allowed_themes
 from ..translations import get_current_language_code, get_strings
@@ -105,31 +146,6 @@ from .navigation import _dedupe_sidebar_entries, default_navbar_config, default_
 
 _LEGACY_HOME_URL = '/sys/'
 
-EMAIL_CONFIG_TRANSPORTS = {'direct', 'relay'}
-
-EMAIL_CONFIG_SECRET_STORAGES = {'env', 'encrypted_db'}
-
-CLIENT_IP_MODE_REMOTE_ADDR = 'remote_addr'
-
-CLIENT_IP_MODE_X_FORWARDED_FOR = 'x_forwarded_for'
-
-CLIENT_IP_MODE_X_REAL_IP = 'x_real_ip'
-
-CLIENT_IP_MODE_CLOUDFLARE = 'cloudflare'
-
-CLIENT_IP_MODE_CUSTOM = 'custom'
-
-CLIENT_IP_MODE_AUTO = 'auto'
-
-CLIENT_IP_MODE_VALUES = {
-    CLIENT_IP_MODE_REMOTE_ADDR,
-    CLIENT_IP_MODE_X_FORWARDED_FOR,
-    CLIENT_IP_MODE_X_REAL_IP,
-    CLIENT_IP_MODE_CLOUDFLARE,
-    CLIENT_IP_MODE_CUSTOM,
-    CLIENT_IP_MODE_AUTO,
-}
-
 # Email Config - Function returns the default outbound email configuration.
 def default_email_config():
     return _default_email_config()
@@ -137,6 +153,10 @@ def default_email_config():
 # Client IP - Function returns the default client address resolution policy.
 def default_client_ip_config():
     return _default_client_ip_config()
+
+
+def default_notification_config():
+    return _default_notification_config()
 
 # Client IP - Helper converts custom proxy headers to Django META keys.
 def _normalize_client_ip_header_name(value):
@@ -436,8 +456,6 @@ def normalize_titlebar_config(titlebar_config):
 
     return normalized
 
-LOGIN_STYLE_VALUES = {'split', 'centered', 'minimal', 'fullpage'}
-
 # Login Config - Function returns default public login/register page settings.
 def default_login_config():
     return _default_login_config()
@@ -568,19 +586,7 @@ def normalize_extra_config(value):
     return dict(value) if isinstance(value, dict) else {}
 
 
-_CONFIG_GROUP_FLAT_KEYS = {
-    'auth_config': ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled', 'enforce_strong_passwords'),
-    'registration_config': (
-        'public_registration_enabled',
-        'registration_activation_mode',
-        'registration_throttle_enabled',
-    ),
-    'public_root_config': ('public_root', 'public_root_split_enabled', 'public_root_url'),
-    'layout_config': ('default_table_density',),
-    'language_config': ('languages', 'translations_override', 'allow_user_language_override'),
-    'theme_config': ('allowed_themes', 'allow_user_theme_override'),
-    'typography_config': ('allowed_fonts', 'default_fonts', 'allow_user_font_override'),
-}
+_CONFIG_GROUP_FLAT_KEYS = get_flat_config_keys_by_group()
 
 # Login Config - Function validates login page branding and registration settings.
 def normalize_login_config(value):
@@ -693,7 +699,7 @@ def default_profile_config():
 
 # Profile Config - Function validates the profile-page + onboarding experience settings.
 def normalize_profile_config(value):
-    from ..constants import DEFAULT_SECURITY_NUDGE, SECURITY_NUDGE_VALUES
+    from ..system.constants import DEFAULT_SECURITY_NUDGE, SECURITY_NUDGE_VALUES
     config = value if isinstance(value, dict) else {}
     defaults = default_profile_config()
     normalized = {
@@ -732,25 +738,7 @@ def resolve_user_home_url(user, config=None):
     return ''
 
 
-_CONFIG_GROUP_NORMALIZERS = {
-    'auth_config': normalize_auth_config,
-    'registration_config': normalize_registration_config,
-    'public_root_config': normalize_public_root_config,
-    'layout_config': normalize_layout_config,
-    'language_config': normalize_language_config,
-    'theme_config': normalize_theme_config,
-    'typography_config': normalize_typography_config,
-    'client_ip_config': normalize_client_ip_config,
-    'email_config': normalize_email_config,
-    'notification_config': normalize_notification_config,
-    'login_config': normalize_login_config,
-    'titlebar_config': normalize_titlebar_config,
-    'navbar_config': normalize_navbar_config,
-    'sidebar_config': normalize_sidebar_behavior,
-    'log_config': normalize_log_config,
-    'profile_config': normalize_profile_config,
-    'extra_config': normalize_extra_config,
-}
+_CONFIG_GROUP_NORMALIZERS = get_config_normalizers()
 
 
 def expand_system_config_groups(config):
@@ -763,17 +751,7 @@ def expand_system_config_groups(config):
     if not isinstance(config, dict):
         return {}
     expanded = deepcopy(config)
-    alias_map = {
-        'notifications': 'notification_config',
-        'login': 'login_config',
-        'titlebar': 'titlebar_config',
-        'navbar': 'navbar_config',
-        'sidebar': 'sidebar_config',
-        'client_ip': 'client_ip_config',
-        'log': 'log_config',
-        'logging': 'log_config',
-        'profile': 'profile_config',
-    }
+    alias_map = get_config_aliases()
     for alias, canonical in alias_map.items():
         if canonical not in expanded and isinstance(expanded.get(alias), dict):
             expanded[canonical] = deepcopy(expanded[alias])
@@ -859,6 +837,31 @@ def normalize_default_fonts(value=None, *, allowed_fonts=None):
             normalized[code] = font
     return normalized
 
+
+# Canonical settings normalizers live in ``dlux.system.normalizers``. Keep the
+# public names in this module as aliases for existing callers.
+_normalize_client_ip_header_name = _system_normalize_client_ip_header_name
+normalize_allowed_fonts = _system_normalize_allowed_fonts
+normalize_auth_config = _system_normalize_auth_config
+normalize_client_ip_config = _system_normalize_client_ip_config
+normalize_default_fonts = _system_normalize_default_fonts
+normalize_email_config = _system_normalize_email_config
+normalize_extra_config = _system_normalize_extra_config
+normalize_language_config = _system_normalize_language_config
+normalize_layout_config = _system_normalize_layout_config
+normalize_log_config = _system_normalize_log_config
+normalize_login_config = _system_normalize_login_config
+normalize_navbar_config = _system_normalize_navbar_config
+normalize_notification_config = _system_normalize_notification_config
+normalize_profile_config = _system_normalize_profile_config
+normalize_public_root_config = _system_normalize_public_root_config
+normalize_registration_config = _system_normalize_registration_config
+normalize_sidebar_behavior = _system_normalize_sidebar_behavior
+normalize_theme_config = _system_normalize_theme_config
+normalize_titlebar_actions_order = _system_normalize_titlebar_actions_order
+normalize_titlebar_config = _system_normalize_titlebar_config
+normalize_typography_config = _system_normalize_typography_config
+
 # System Config - Function merges defaults, settings, and DB-backed runtime config.
 def get_system_config():
     """
@@ -867,64 +870,7 @@ def get_system_config():
     2. settings.DLUX_CONFIG (host project codebase)
     3. SystemSettings Singleton (database UI overrides)
     """
-    # Default configuration
-    default_config = {
-        'system_names': {
-            'en': 'DjangoLux',
-            'ar': 'DjangoLux',
-        },
-        'verbose_name': 'DjangoLux',
-        'logo': '/static/img/base_logo.svg',
-        'login_logo': '/static/img/login_logo.svg',
-        'favicon': '/static/img/base_logo.svg',
-        'home_url': DEFAULT_HOME_URL,
-        'default_language': 'en',
-        'default_theme': 'light',
-        'allowed_themes': list(normalize_allowed_themes()),
-        'allow_user_theme_override': True,
-        'default_font': DEFAULT_FONT_SLUG,
-        'allowed_fonts': list(normalize_allowed_fonts()),
-        'default_fonts': {},
-        'allow_user_font_override': True,
-        'allow_user_language_override': True,
-        'default_table_density': DEFAULT_TABLE_DENSITY,
-        'email_2fa': False,
-        'prevent_multiple_active_sessions': False,
-        'login_lockout_enabled': True,
-        'enforce_strong_passwords': False,
-        'auth_config': default_auth_config(),
-        'email_config': default_email_config(),
-        'registration_config': default_registration_config(),
-        'public_root_config': default_public_root_config(),
-        'client_ip_config': default_client_ip_config(),
-        'notification_config': default_notification_config(),
-        'layout_config': default_layout_config(),
-        'language_config': default_language_config(),
-        'theme_config': default_theme_config(),
-        'typography_config': default_typography_config(),
-        'login_config': default_login_config(),
-        'titlebar_config': default_titlebar_config(),
-        'sidebar_config': default_sidebar_config(),
-        'navbar_config': default_navbar_config(),
-        'log_config': default_log_config(),
-        'profile_config': default_profile_config(),
-        'extra_config': default_extra_config(),
-        'client_ip': default_client_ip_config(),
-        'login': default_login_config(),
-        'public_root': False,
-        'public_root_split_enabled': False,
-        'public_root_url': '',
-        'public_registration_enabled': False,
-        'registration_activation_mode': REGISTRATION_ACTIVATION_AUTO_LOGIN,
-        'registration_throttle_enabled': True,
-        'notifications': default_notification_config(),
-        'languages': deepcopy(DEFAULT_LANGUAGE_CATALOG),
-        'translations': {},
-        'sidebar': default_sidebar_config(),
-        'navbar': default_navbar_config(),
-        'titlebar': default_titlebar_config(),
-        'is_configured': False,
-    }
+    default_config = build_default_system_config()
 
     # Project settings
     user_config = getattr(settings, 'DLUX_CONFIG', {})
@@ -1055,7 +1001,12 @@ def get_system_config():
             auth_config = normalize_auth_config(getattr(sys_settings, 'auth_config', None) or {})
             if _should_apply_db_override(auth_config, default_config['auth_config']):
                 db_config['auth_config'] = auth_config
-            for auth_key in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled'):
+            for auth_key in (
+                'email_2fa',
+                'prevent_multiple_active_sessions',
+                'login_lockout_enabled',
+                'enforce_strong_passwords',
+            ):
                 if _should_apply_db_override(bool(auth_config.get(auth_key)), default_config[auth_key]):
                     db_config[auth_key] = bool(auth_config.get(auth_key))
         client_ip_config = normalize_client_ip_config(getattr(sys_settings, 'client_ip_config', {}))
@@ -1295,7 +1246,12 @@ def get_system_config():
         if isinstance(final_config.get('auth_config'), dict)
         else {}
     )
-    for auth_key in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled'):
+    for auth_key in (
+        'email_2fa',
+        'prevent_multiple_active_sessions',
+        'login_lockout_enabled',
+        'enforce_strong_passwords',
+    ):
         if auth_key in final_config:
             auth_seed[auth_key] = final_config[auth_key]
     final_config['auth_config'] = normalize_auth_config(auth_seed)

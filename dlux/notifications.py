@@ -21,7 +21,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from .middleware import get_current_request, get_current_user
-from .notification_defaults import normalize_notification_config
+from .system.normalizers import normalize_notification_config
 
 
 FLASH_SESSION_KEY = '_dlux_notification_flash_queue'

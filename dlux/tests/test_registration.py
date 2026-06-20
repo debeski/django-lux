@@ -10,7 +10,7 @@ from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from dlux.constants import REGISTRATION_ACTIVATION_PENDING_APPROVAL
+from dlux.system.constants import REGISTRATION_ACTIVATION_PENDING_APPROVAL
 from dlux.models import PublicRegistration, SystemSettings
 
 

@@ -26,7 +26,7 @@ from django.http import JsonResponse
 from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
 from django.utils.module_loading import import_string
-from ..constants import (
+from ..system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -56,6 +56,14 @@ except ImportError:
     django_filters = None
 
 # ── intra-package imports (shared + feature deps) ──
+from ..system.defaults import (
+    default_navbar_config as _system_default_navbar_config,
+    default_sidebar_config as _system_default_sidebar_config,
+)
+from ..system.normalizers import (
+    normalize_navbar_config as _system_normalize_navbar_config,
+    normalize_sidebar_behavior as _system_normalize_sidebar_behavior,
+)
 from .localization import _normalize_language_code
 
 # Sidebar Config - Helper removes duplicate sidebar entries by route key.
@@ -74,52 +82,15 @@ def _dedupe_sidebar_entries(entries):
 
 # Sidebar Config - Function returns default sidebar structure and behavior.
 def default_sidebar_config():
-    return {
-        'enabled': True,
-        'home_url_name': None,
-        'entries': [],
-        'enable_reorder': True,
-        'show_toolbar': True,
-        'show_icons': True,
-        'density': DEFAULT_SIDEBAR_DENSITY,
-        'allow_user_density': True,
-        'collapse_mode': DEFAULT_SIDEBAR_COLLAPSE_MODE,
-    }
+    return _system_default_sidebar_config()
 
 # Sidebar Config - Function validates sidebar behavior flags.
 def normalize_sidebar_behavior(sidebar_config):
-    config = sidebar_config if isinstance(sidebar_config, dict) else {}
-    normalized = default_sidebar_config()
-    normalized['enabled'] = bool(config.get('enabled', normalized['enabled']))
-    normalized['home_url_name'] = config.get('home_url_name') if config.get('home_url_name') else None
-    if isinstance(config.get('entries'), list):
-        normalized['entries'] = [entry for entry in config.get('entries', []) if isinstance(entry, dict)]
-    normalized['enable_reorder'] = bool(config.get('enable_reorder', normalized['enable_reorder']))
-    normalized['show_toolbar'] = bool(config.get('show_toolbar', normalized['show_toolbar']))
-    normalized['show_icons'] = bool(config.get('show_icons', normalized['show_icons']))
-    normalized['allow_user_density'] = bool(config.get('allow_user_density', normalized['allow_user_density']))
-
-    density = config.get('density')
-    if density in SIDEBAR_DENSITY_VALUES:
-        normalized['density'] = density
-
-    collapse_mode = config.get('collapse_mode')
-    if collapse_mode in SIDEBAR_COLLAPSE_MODE_VALUES:
-        normalized['collapse_mode'] = collapse_mode
-
-    if not normalized['show_icons'] and normalized['collapse_mode'] == 'icons':
-        normalized['collapse_mode'] = 'hidden'
-
-    return normalized
+    return _system_normalize_sidebar_behavior(sidebar_config)
 
 # Navbar Config - Function returns default navbar structure and mode settings.
 def default_navbar_config():
-    return {
-        'enabled': False,
-        'default_mode': DEFAULT_NAVBAR_MODE,
-        'allow_user_mode_override': True,
-        'hierarchy': {'nodes': []},
-    }
+    return _system_default_navbar_config()
 
 # Navbar Config - Helper validates translated navbar labels.
 def _normalize_navbar_labels(value):
@@ -167,21 +138,7 @@ def _normalize_navbar_nodes(value, depth=0):
 
 # Navbar Config - Function validates navbar modes, labels, and hierarchy.
 def normalize_navbar_config(navbar_config):
-    config = navbar_config if isinstance(navbar_config, dict) else {}
-    normalized = default_navbar_config()
-    normalized['enabled'] = bool(config.get('enabled', normalized['enabled']))
-    mode = config.get('default_mode')
-    if mode in NAVBAR_MODE_VALUES:
-        normalized['default_mode'] = mode
-    normalized['allow_user_mode_override'] = bool(
-        config.get('allow_user_mode_override', normalized['allow_user_mode_override'])
-    )
-    hierarchy = config.get('hierarchy')
-    hierarchy = hierarchy if isinstance(hierarchy, dict) else {}
-    normalized['hierarchy'] = {
-        'nodes': _normalize_navbar_nodes(hierarchy.get('nodes')),
-    }
-    return normalized
+    return _system_normalize_navbar_config(navbar_config)
 
 # Navbar Config - Function builds a default navbar hierarchy from sidebar config.
 def seed_navbar_config_from_sidebar(navbar_config, sidebar_config, lang_code='en'):

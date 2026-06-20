@@ -24,7 +24,7 @@ from django.forms.widgets import ChoiceWidget
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
-from .constants import (
+from .system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -104,11 +104,43 @@ from .utils import (
     normalize_allowed_fonts,
     seed_navbar_config_from_sidebar,
 )
+from .system.registry import get_setting_group
 from .widgets import DluxChoiceSelectorWidget
 
 User = get_user_model()
 
 _LEGACY_HOME_URL = '/sys/'
+
+DLUX_PERMISSION_HELP_TEXTS = {
+    'view_reports': (
+        'help_perm_view_reports',
+        'Allows viewing the reports overview and exporting report summaries.',
+    ),
+    'download_backup': (
+        'help_perm_download_backup',
+        'Allows building and downloading report backup ZIP archives.',
+    ),
+    'view_sections': (
+        'help_perm_view_sections',
+        'Allows opening the Sections screen and viewing the section hierarchy.',
+    ),
+    'manage_sections': (
+        'help_perm_manage_sections',
+        'Allows creating, editing, reordering, and deleting sections and subsections.',
+    ),
+    'view_activitylog': (
+        'help_perm_view_activitylog',
+        'Allows viewing activity-log pages and activity detail modals.',
+    ),
+    'manage_staff': (
+        'help_perm_manage_staff',
+        'Lets this staff user assign staff access to other users. It does not widen their own scope.',
+    ),
+    'manage_scopes': (
+        'help_perm_manage_scopes',
+        'Creates Global Staff access only when the user has no assigned scope.',
+    ),
+}
 
 THEME_CHOICES = get_theme_choices()
 from .fonts import get_font_choices
@@ -757,12 +789,12 @@ class GroupedPermissionWidget(ChoiceWidget):
             # applied in apps.py (which overrides Permission.__str__)
             perm_label = s.get(f"perm_{codename}", str(perm))
 
-            # Tier-oriented help text for the staff-access controls.
+            # Dlux-owned permissions carry concise descriptions in the grouped UI.
             help_text = ""
-            if codename == 'manage_staff':
-                 help_text = s.get('help_perm_manage_staff', "Lets this staff user assign staff access to other users. It does not widen their own scope.")
-            elif codename == 'manage_scopes':
-                 help_text = s.get('help_perm_manage_scopes', "Creates Global Staff access only when the user has no assigned scope.")
+            help_config = DLUX_PERMISSION_HELP_TEXTS.get(codename) if app_label == 'dlux' else None
+            if help_config:
+                help_key, help_default = help_config
+                help_text = s.get(help_key, help_default)
 
             option = {
                 'name': name,
@@ -1556,6 +1588,14 @@ class ScopeForm(forms.ModelForm):
 
 
 class SystemSettingsForm(forms.ModelForm):
+    _SCHEMA_SIMPLE_CONFIG_GROUPS = (
+        'auth_config',
+        'registration_config',
+        'public_root_config',
+        'layout_config',
+        'client_ip_config',
+    )
+
     home_url_discovered = forms.ChoiceField(
         required=False,
         choices=(),
@@ -2000,6 +2040,26 @@ class SystemSettingsForm(forms.ModelForm):
             'notification_config',
             'login_config',
         ]
+
+    def _apply_schema_group_initials(self, storage_field, source, *, hidden_field=True):
+        group = get_setting_group(storage_field)
+        normalized = group.normalizer(source)
+        if hidden_field and group.storage_field in self.fields:
+            self.initial[group.storage_field] = _json_dump(normalized, ensure_ascii=False)
+        for field_schema in group.fields:
+            form_name = field_schema.form_name
+            if form_name in self.fields:
+                self.initial[form_name] = normalized.get(field_schema.storage[1], field_schema.default)
+        return normalized
+
+    def _schema_group_from_cleaned(self, storage_field, *, fallback=None):
+        group = get_setting_group(storage_field)
+        values = dict(fallback or {})
+        for field_schema in group.fields:
+            form_name = field_schema.form_name
+            if form_name in self.cleaned_data:
+                values[field_schema.storage[1]] = self.cleaned_data.get(form_name)
+        return group.normalizer(values)
 
     def __init__(self, *args, request=None, user=None, mode='modal', **kwargs):
         self.request = request if request is not None else kwargs.pop('request', None)
@@ -2953,19 +3013,15 @@ class SystemSettingsForm(forms.ModelForm):
             self.initial['allowed_themes'] = list(normalize_allowed_themes(config.get('allowed_themes')))
         if self.initial.get('default_table_density') not in TABLE_DENSITY_VALUES:
             self.initial['default_table_density'] = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
-        # Authentication toggles are stored in the consolidated auth_config JSON
-        # field; split it out into the individual UI checkboxes (and keep the
-        # canonical JSON in the hidden auth_config field).
-        initial_auth_config = normalize_auth_config(
+        self._apply_schema_group_initials(
+            'layout_config',
+            {'default_table_density': self.initial.get('default_table_density')},
+            hidden_field=False,
+        )
+        self._apply_schema_group_initials(
+            'auth_config',
             getattr(self.instance, 'auth_config', None) or config.get('auth_config') or config
         )
-        self.initial['auth_config'] = _json_dump(initial_auth_config, ensure_ascii=False)
-        self.initial['email_2fa'] = bool(initial_auth_config.get('email_2fa', False))
-        self.initial['prevent_multiple_active_sessions'] = bool(
-            initial_auth_config.get('prevent_multiple_active_sessions', False)
-        )
-        self.initial['login_lockout_enabled'] = bool(initial_auth_config.get('login_lockout_enabled', True))
-        self.initial['enforce_strong_passwords'] = bool(initial_auth_config.get('enforce_strong_passwords', False))
         initial_login_config = normalize_login_config(
             getattr(self.instance, 'login_config', None) or config.get('login', {})
         )
@@ -2976,42 +3032,49 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['login_logo_treatment'] = initial_login_config.get('logo_treatment', 'none')
         self.initial['login_logo_treatment_shape'] = initial_login_config.get('logo_treatment_shape', 'soft')
         # per-language hero message initial values set dynamically in __init__ above
-        initial_client_ip_config = normalize_client_ip_config(
+        self._apply_schema_group_initials(
+            'client_ip_config',
             (
                 getattr(self.instance, 'client_ip_config', None)
                 if isinstance(getattr(self.instance, 'client_ip_config', None), dict) and getattr(self.instance, 'client_ip_config', None)
                 else config.get('client_ip', {})
             )
         )
-        self.initial['client_ip_config'] = _json_dump(initial_client_ip_config, ensure_ascii=False)
-        self.initial['client_ip_mode'] = initial_client_ip_config.get('mode', CLIENT_IP_MODE_X_FORWARDED_FOR)
-        self.initial['client_ip_trusted_proxy_hops'] = initial_client_ip_config.get('trusted_proxy_hops', 1)
-        self.initial['client_ip_custom_header'] = initial_client_ip_config.get('custom_header', '')
-        self.initial['public_root'] = bool(
-            getattr(self.instance, 'public_root', False)
-            or config.get('public_root', False)
-        )
-        self.initial['public_root_split_enabled'] = bool(
-            (
-                config.get('public_root_split_enabled', False)
-                if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
-                else getattr(self.instance, 'public_root_split_enabled', config.get('public_root_split_enabled', False))
-            )
-        )
-        self.initial['public_registration_enabled'] = bool(
-            getattr(self.instance, 'public_registration_enabled', False)
-            or config.get('public_registration_enabled', False)
+        self._apply_schema_group_initials(
+            'public_root_config',
+            {
+                'public_root': (
+                    getattr(self.instance, 'public_root', False)
+                    or config.get('public_root', False)
+                ),
+                'public_root_split_enabled': (
+                    config.get('public_root_split_enabled', False)
+                    if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+                    else getattr(self.instance, 'public_root_split_enabled', config.get('public_root_split_enabled', False))
+                ),
+                'public_root_url': current_public_root_url,
+            },
+            hidden_field=False,
         )
         registration_activation_mode = (
             getattr(self.instance, 'registration_activation_mode', None)
             or config.get('registration_activation_mode')
         )
-        if registration_activation_mode in REGISTRATION_ACTIVATION_VALUES:
-            self.initial['registration_activation_mode'] = registration_activation_mode
-        self.initial['registration_throttle_enabled'] = bool(
-            getattr(self.instance, 'registration_throttle_enabled', True)
-            if hasattr(self.instance, 'registration_throttle_enabled')
-            else config.get('registration_throttle_enabled', True)
+        self._apply_schema_group_initials(
+            'registration_config',
+            {
+                'public_registration_enabled': (
+                    getattr(self.instance, 'public_registration_enabled', False)
+                    or config.get('public_registration_enabled', False)
+                ),
+                'registration_activation_mode': registration_activation_mode,
+                'registration_throttle_enabled': (
+                    getattr(self.instance, 'registration_throttle_enabled', True)
+                    if hasattr(self.instance, 'registration_throttle_enabled')
+                    else config.get('registration_throttle_enabled', True)
+                ),
+            },
+            hidden_field=False,
         )
         initial_email_config = normalize_email_config(
             (
@@ -3160,7 +3223,11 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['public_root_url_discovered'].widget.option_meta = home_url_option_meta
         self.initial['public_root_url_discovered'] = current_public_root_url if current_public_root_url in seen_home_urls else ''
 
-        initial_languages = self.initial.get('languages') or {}
+        initial_languages = (
+            self.data.get('languages')
+            if self.is_bound and 'languages' in self.data
+            else self.initial.get('languages')
+        ) or {}
         if isinstance(initial_languages, str):
             try:
                 initial_languages = json.loads(initial_languages)
@@ -3168,10 +3235,22 @@ class SystemSettingsForm(forms.ModelForm):
                 initial_languages = {}
         current_languages = normalize_language_catalog(initial_languages)
         self.initial['languages'] = _json_dump(current_languages, ensure_ascii=False)
-        if self.initial.get('default_language') not in current_languages:
+        initial_default_language = (
+            self.data.get('default_language')
+            if self.is_bound and 'default_language' in self.data
+            else self.initial.get('default_language')
+        )
+        initial_default_language = str(initial_default_language or '').strip().lower().replace('_', '-')
+        if initial_default_language in current_languages:
+            self.initial['default_language'] = initial_default_language
+        else:
             self.initial['default_language'] = 'en' if 'en' in current_languages else next(iter(current_languages), 'en')
 
-        initial_system_names = self.initial.get('system_names') or {}
+        initial_system_names = (
+            self.data.get('system_names')
+            if self.is_bound and 'system_names' in self.data
+            else self.initial.get('system_names')
+        ) or {}
         if isinstance(initial_system_names, str):
             try:
                 initial_system_names = json.loads(initial_system_names)
@@ -3180,7 +3259,11 @@ class SystemSettingsForm(forms.ModelForm):
         initial_system_names = normalize_system_names(initial_system_names)
         self.initial['system_names'] = _json_dump(initial_system_names, ensure_ascii=False)
 
-        initial_translation_overrides = self.initial.get('translations_override') or {}
+        initial_translation_overrides = (
+            self.data.get('translations_override')
+            if self.is_bound and 'translations_override' in self.data
+            else self.initial.get('translations_override')
+        ) or {}
         if isinstance(initial_translation_overrides, str):
             try:
                 initial_translation_overrides = json.loads(initial_translation_overrides)
@@ -4408,9 +4491,17 @@ class SystemSettingsForm(forms.ModelForm):
         if default_language not in languages:
             fallback_language = 'en' if 'en' in languages else next(iter(languages), 'en')
             cleaned['default_language'] = fallback_language
-        cleaned['public_root_split_enabled'] = bool(cleaned.get('public_root_split_enabled', False))
-        if not cleaned.get('public_root', False):
-            cleaned['public_root_split_enabled'] = False
+        layout_config = self._schema_group_from_cleaned('layout_config')
+        cleaned['layout_config'] = layout_config
+        cleaned.update(layout_config)
+        public_root_config = self._schema_group_from_cleaned('public_root_config')
+        if not public_root_config.get('public_root', False):
+            public_root_config['public_root_split_enabled'] = False
+        cleaned['public_root_config'] = public_root_config
+        cleaned.update(public_root_config)
+        registration_config = self._schema_group_from_cleaned('registration_config')
+        cleaned['registration_config'] = registration_config
+        cleaned.update(registration_config)
 
         sidebar = cleaned.get('sidebar_config')
         if isinstance(sidebar, dict):
@@ -4500,21 +4591,18 @@ class SystemSettingsForm(forms.ModelForm):
             email_config['password_configured'] = bool(email_config.get('encrypted_password'))
             cleaned['email_config'] = email_config
         email_config = normalize_email_config(cleaned.get('email_config') or existing_email_config)
-        cleaned['client_ip_config'] = normalize_client_ip_config({
-            'mode': cleaned.get('client_ip_mode') or CLIENT_IP_MODE_X_FORWARDED_FOR,
-            'trusted_proxy_hops': cleaned.get('client_ip_trusted_proxy_hops'),
-            'custom_header': cleaned.get('client_ip_custom_header') or '',
-        })
+        client_ip_config = self._schema_group_from_cleaned('client_ip_config')
+        cleaned['client_ip_config'] = client_ip_config
+        cleaned['client_ip_mode'] = client_ip_config.get('mode', CLIENT_IP_MODE_X_FORWARDED_FOR)
+        cleaned['client_ip_trusted_proxy_hops'] = client_ip_config.get('trusted_proxy_hops', 1)
+        cleaned['client_ip_custom_header'] = client_ip_config.get('custom_header', '')
         hero_dict = {
             lang_code: str(cleaned.get(field_name) or '').strip()
             for lang_code, _label, field_name in getattr(self, '_login_hero_lang_fields', [])
         }
-        cleaned['auth_config'] = normalize_auth_config({
-            'email_2fa': bool(cleaned.get('email_2fa', False)),
-            'prevent_multiple_active_sessions': bool(cleaned.get('prevent_multiple_active_sessions', False)),
-            'login_lockout_enabled': bool(cleaned.get('login_lockout_enabled', True)),
-            'enforce_strong_passwords': bool(cleaned.get('enforce_strong_passwords', False)),
-        })
+        auth_config = self._schema_group_from_cleaned('auth_config')
+        cleaned['auth_config'] = auth_config
+        cleaned.update(auth_config)
         cleaned['login_config'] = normalize_login_config({
             'style': cleaned.get('login_style') or 'split',
             'show_logo': bool(cleaned.get('login_show_logo', True)),
@@ -4665,6 +4753,10 @@ class SystemSettingsForm(forms.ModelForm):
     def save(self, commit=True):
         instance = super().save(commit=False)
         fallback_home = getattr(settings, 'DLUX_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
+        auth_config = self.cleaned_data.get('auth_config') or default_auth_config()
+        layout_config = self.cleaned_data.get('layout_config') or {}
+        public_root_config = self.cleaned_data.get('public_root_config') or {}
+        registration_config = self.cleaned_data.get('registration_config') or {}
         apply_system_settings_import(instance, {
             'system_names': self.cleaned_data.get('system_names', {}),
             'languages': self.cleaned_data.get('languages', normalize_language_catalog()),
@@ -4678,17 +4770,21 @@ class SystemSettingsForm(forms.ModelForm):
             'default_fonts': self.cleaned_data.get('default_fonts', {}),
             'allow_user_font_override': bool(self.cleaned_data.get('allow_user_font_override', True)),
             'allow_user_language_override': bool(self.cleaned_data.get('allow_user_language_override', True)),
-            'default_table_density': self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),
-            'email_2fa': bool(self.cleaned_data.get('email_2fa', False)),
-            'prevent_multiple_active_sessions': bool(self.cleaned_data.get('prevent_multiple_active_sessions', False)),
-            'login_lockout_enabled': bool(self.cleaned_data.get('login_lockout_enabled', True)),
+            'default_table_density': layout_config.get(
+                'default_table_density',
+                self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),
+            ),
+            'email_2fa': bool(auth_config.get('email_2fa', False)),
+            'prevent_multiple_active_sessions': bool(auth_config.get('prevent_multiple_active_sessions', False)),
+            'login_lockout_enabled': bool(auth_config.get('login_lockout_enabled', True)),
+            'enforce_strong_passwords': bool(auth_config.get('enforce_strong_passwords', False)),
             'client_ip_config': self.cleaned_data.get('client_ip_config', default_client_ip_config()),
-            'public_root': bool(self.cleaned_data.get('public_root', False)),
-            'public_root_split_enabled': bool(self.cleaned_data.get('public_root_split_enabled', False)),
-            'public_root_url': str(self.cleaned_data.get('public_root_url') or '').strip(),
-            'public_registration_enabled': bool(self.cleaned_data.get('public_registration_enabled', False)),
-            'registration_activation_mode': self.cleaned_data.get('registration_activation_mode'),
-            'registration_throttle_enabled': bool(self.cleaned_data.get('registration_throttle_enabled', True)),
+            'public_root': bool(public_root_config.get('public_root', False)),
+            'public_root_split_enabled': bool(public_root_config.get('public_root_split_enabled', False)),
+            'public_root_url': str(public_root_config.get('public_root_url') or '').strip(),
+            'public_registration_enabled': bool(registration_config.get('public_registration_enabled', False)),
+            'registration_activation_mode': registration_config.get('registration_activation_mode'),
+            'registration_throttle_enabled': bool(registration_config.get('registration_throttle_enabled', True)),
             'email_config': self.cleaned_data.get('email_config', default_email_config()),
             'sidebar_config': self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []}),
             'navbar_config': self.cleaned_data.get('navbar_config', default_navbar_config()),

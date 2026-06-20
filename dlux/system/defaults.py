@@ -1,10 +1,19 @@
-"""Storage defaults for SystemSettings JSON config groups.
+"""Canonical defaults for Dlux system settings.
 
-Keep this module free of model imports so migration defaults stay stable.
+Keep this module free of model/form/admin/view/translations imports so migration
+callables and Django startup remain stable.
 """
 
-from .constants import DEFAULT_TABLE_DENSITY, REGISTRATION_ACTIVATION_AUTO_LOGIN
-from .notification_defaults import default_notification_config
+from .constants import (
+    DEFAULT_NAVBAR_MODE,
+    DEFAULT_SECURITY_NUDGE,
+    DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    DEFAULT_SIDEBAR_DENSITY,
+    DEFAULT_TABLE_DENSITY,
+    REGISTRATION_ACTIVATION_AUTO_LOGIN,
+    TITLEBAR_ACTIONS_ORDER,
+    TITLEBAR_USER_HUB_STYLE_DROPDOWN,
+)
 
 
 def default_auth_config():
@@ -55,6 +64,43 @@ def default_client_ip_config():
     }
 
 
+def default_notification_config():
+    return {
+        'enabled': True,
+        'flash': {
+            'enabled': True,
+            'position': 'top_center',
+            'size': 'balanced',
+            'text_size': 'md',
+            'timeout_ms': 3200,
+            'max_visible': 3,
+        },
+        'drawer': {
+            'enabled': True,
+            'badge_enabled': True,
+            'preview_limit': 8,
+        },
+        'bridge': {
+            'django_messages_enabled': False,
+        },
+        'email': {
+            'enabled': False,
+            'default': False,
+        },
+        'retention': {
+            'default_expiry_days': 30,
+        },
+        'automatic': {
+            'scoped_model_crud': True,
+            'create': True,
+            'update': 'summary',
+            'delete': True,
+            'actor_flash_actions': ['create', 'delete', 'error'],
+            'watchable': True,
+        },
+    }
+
+
 def default_layout_config():
     return {
         'default_table_density': DEFAULT_TABLE_DENSITY,
@@ -70,7 +116,7 @@ def default_language_config():
 
 
 def default_theme_config():
-    from .themes import get_theme_names
+    from ..themes import get_theme_names
 
     return {
         'allowed_themes': list(get_theme_names()),
@@ -79,7 +125,7 @@ def default_theme_config():
 
 
 def default_typography_config():
-    from .fonts import get_builtin_fonts
+    from ..fonts import get_builtin_fonts
 
     return {
         'allowed_fonts': [font['slug'] for font in get_builtin_fonts()],
@@ -100,8 +146,6 @@ def default_login_config():
 
 
 def default_titlebar_config():
-    from .constants import TITLEBAR_ACTIONS_ORDER, TITLEBAR_USER_HUB_STYLE_DROPDOWN
-
     return {
         'show_title': True,
         'show_logo': True,
@@ -120,49 +164,30 @@ def default_titlebar_config():
     }
 
 
+def default_sidebar_config():
+    return {
+        'enabled': True,
+        'home_url_name': None,
+        'entries': [],
+        'enable_reorder': True,
+        'show_toolbar': True,
+        'show_icons': True,
+        'density': DEFAULT_SIDEBAR_DENSITY,
+        'allow_user_density': True,
+        'collapse_mode': DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    }
+
+
 def default_navbar_config():
     return {
         'enabled': False,
-        'default_mode': 'hierarchy',
+        'default_mode': DEFAULT_NAVBAR_MODE,
         'allow_user_mode_override': True,
         'hierarchy': {'nodes': []},
     }
 
 
-def default_profile_config():
-    """User profile page + account experience (NOT personalization defaults — those live in
-    theme/typography/layout/language configs; NOT per-user prefs — those live in
-    Profile.preferences). System-level group: what the profile page shows and whether the
-    first-login Initial User Setup modal runs and what it offers."""
-    from .constants import DEFAULT_SECURITY_NUDGE
-    return {
-        'show_completion_widget': True,
-        'show_session_device_cards': True,
-        'show_activity_feed': True,
-        'security_nudges': DEFAULT_SECURITY_NUDGE,
-        'allow_user_home_url': False,
-        'onboarding_enabled': True,
-        'onboarding_options': {
-            'theme': True,
-            'language': True,
-            'fonts': True,
-        },
-    }
-
-
-def default_extra_config():
-    return {}
-
-
 def default_log_config():
-    """Activity-logging policy (user / system / audit), consolidated into one JSON field.
-
-    Per-section `models` is a sparse override map keyed by "app_label.model"; absent models
-    are included with `default_actions`. High-churn dlux operational models and Django
-    framework internals are hard-excluded (never logged or shown) rather than seeded here.
-    Audit is privileged: it is not disabled by per-model toggles and is never auto-pruned by
-    default.
-    """
     return {
         'enabled': True,
         'user': {
@@ -195,3 +220,44 @@ def default_log_config():
             },
         },
     }
+
+
+def default_profile_config():
+    return {
+        'show_completion_widget': True,
+        'show_session_device_cards': True,
+        'show_activity_feed': True,
+        'security_nudges': DEFAULT_SECURITY_NUDGE,
+        'allow_user_home_url': False,
+        'onboarding_enabled': True,
+        'onboarding_options': {
+            'theme': True,
+            'language': True,
+            'fonts': True,
+        },
+    }
+
+
+def default_extra_config():
+    return {}
+
+
+__all__ = [
+    'default_auth_config',
+    'default_client_ip_config',
+    'default_email_config',
+    'default_extra_config',
+    'default_language_config',
+    'default_layout_config',
+    'default_log_config',
+    'default_login_config',
+    'default_navbar_config',
+    'default_notification_config',
+    'default_profile_config',
+    'default_public_root_config',
+    'default_registration_config',
+    'default_sidebar_config',
+    'default_theme_config',
+    'default_titlebar_config',
+    'default_typography_config',
+]

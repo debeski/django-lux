@@ -1,0 +1,27 @@
+:root .titlebar[data-titlebar-surface="muted"] {
+    background:
+        linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--hbody, #f1f5f9) 88%, var(--body, #ffffff) 12%) 0%,
+            color-mix(in srgb, var(--hbody, #f1f5f9) 68%, var(--body, #ffffff) 32%) 100%
+        ) !important;
+    border-bottom-color: color-mix(in srgb, var(--title, #334155) 16%, transparent) !important;
+    box-shadow: 0 2px 14px rgba(15, 23, 42, 0.08) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+:root .titlebar[data-titlebar-surface="glass"] {
+    background:
+        linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--hbody, #ffffff) 72%, transparent) 0%,
+            color-mix(in srgb, var(--body, #f8fafc) 58%, transparent) 100%
+        ) !important;
+    border-bottom-color: color-mix(in srgb, var(--primal, #475569) 34%, transparent) !important;
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--title, #334155) 14%, transparent),
+        0 14px 32px -26px rgba(15, 23, 42, 0.45) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.2) !important;
+    backdrop-filter: blur(16px) saturate(1.2) !important;
+}
