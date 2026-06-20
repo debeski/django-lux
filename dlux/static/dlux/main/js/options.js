@@ -76,6 +76,27 @@
         });
     }
 
+    function initLandingPageControl() {
+        const input = document.querySelector('[data-user-home-url]');
+        const saveBtn = document.querySelector('[data-user-home-url-save]');
+        if (!input || !saveBtn) {
+            return;
+        }
+        function save() {
+            const value = input.value.trim();
+            if (window.updatePreferences) {
+                window.updatePreferences({ user_home_url: value });
+            }
+            if (window.showToast) {
+                window.showToast(saveBtn.dataset.savedMessage || 'Saved');
+            }
+        }
+        saveBtn.addEventListener('click', save);
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); save(); }
+        });
+    }
+
     function initAccessibilityToggles() {
         document.querySelectorAll('.accessibility-switch').forEach((element) => {
             element.addEventListener('change', function () {
@@ -453,6 +474,7 @@
         initAutofill();
         initThemePicker();
         initAccessibilityToggles();
+        initLandingPageControl();
         initLanguagePicker();
         initFontPicker();
         initDensityPickers();

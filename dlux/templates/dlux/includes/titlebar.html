@@ -1,4 +1,5 @@
 {% load static %}
+{% with titlebar_buttons_shape=titlebar.buttons_shape|default:titlebar.home_shape|default:'circle' %}
 <div
     class="titlebar shadow-sm no-print"
     data-title-align="{{ titlebar.title_align|default:'start' }}"
@@ -7,7 +8,9 @@
     data-titlebar-surface="{{ titlebar.surface|default:'default' }}"
     data-titlebar-logo-treatment="{{ titlebar.logo_treatment|default:'none' }}"
     data-titlebar-logo-treatment-shape="{{ titlebar.logo_treatment_shape|default:'soft' }}"
-    data-titlebar-home-shape="{{ titlebar.home_shape|default:'circle' }}"
+    data-titlebar-buttons-shape="{{ titlebar_buttons_shape }}"
+    data-titlebar-home-shape="{{ titlebar_buttons_shape }}"
+    data-titlebar-user-hub-style="{{ titlebar.user_hub_style|default:'dropdown' }}"
     data-titlebar-show-title="{% if titlebar.show_title %}true{% else %}false{% endif %}"
     data-titlebar-show-logo="{% if titlebar.show_logo %}true{% else %}false{% endif %}"
     data-titlebar-show-home="{% if titlebar.show_home_button %}true{% else %}false{% endif %}"
@@ -34,31 +37,94 @@
     </div>
     <div class="titlebar__side titlebar__side--end pe-2">
         {% if user.is_authenticated %}
-            <a
-                href="{{ APP_CONFIG.home_url }}"
-                class="dlux-titlebar-home ms-2"
-                title="{{ DLUX_STRINGS.btn_home }}"
-                aria-label="{{ DLUX_STRINGS.btn_home }}"
-                data-titlebar-home
-            >
-                <i class="bi bi-house-fill"></i>
-            </a>
-            <div id="dlux-user-dropdown-trigger" class="dlux-user-trigger no-print ms-2">
-                {% if user.profile.profile_pic %}
-                    <img src="{{ user.profile.profile_pic.url }}" class="dlux-trigger-avatar" alt="{{ user.username }}">
-                {% else %}
-                    <div class="dlux-trigger-avatar d-flex align-items-center justify-content-center bg-light text-secondary border">
-                        <i class="bi bi-person-fill"></i>
-                    </div>
-                {% endif %}
-                <span class="dlux-trigger-name">{{ user.username }}</span>
+            <div class="titlebar__actions titlebar__actions--dropdown" data-titlebar-actions-group="dropdown">
+                {% include 'dlux/includes/notifications.html' %}
+                <a
+                    href="{{ APP_CONFIG.home_url }}"
+                    class="dlux-titlebar-btn dlux-titlebar-home"
+                    data-dlux-tooltip="{{ DLUX_STRINGS.btn_home }}"
+                    aria-label="{{ DLUX_STRINGS.btn_home }}"
+                    data-titlebar-home
+                >
+                    <i class="bi bi-house-fill"></i>
+                </a>
+                <div id="dlux-user-dropdown-trigger" class="dlux-user-trigger no-print">
+                    {% if user.profile.profile_pic %}
+                        <img src="{{ user.profile.profile_pic.url }}" class="dlux-trigger-avatar" alt="{{ user.username }}">
+                    {% else %}
+                        <div class="dlux-trigger-avatar d-flex align-items-center justify-content-center bg-light text-secondary border">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    {% endif %}
+                    <span class="dlux-trigger-name">{{ user.username }}</span>
+                </div>
+            </div>
+            <div class="titlebar__actions titlebar__actions--titlebar" data-titlebar-actions data-titlebar-actions-group="titlebar_actions">
+                {% for action in titlebar_actions %}
+                    {% if action.kind == 'notifications' %}
+                        <div class="titlebar__action-slot" data-titlebar-action-key="{{ action.key }}">
+                            {% include 'dlux/includes/notifications.html' %}
+                        </div>
+                    {% elif action.kind == 'logout' %}
+                        <form method="POST" action="{{ action.url }}" class="titlebar__action-form" data-titlebar-action-key="{{ action.key }}">
+                            {% csrf_token %}
+                            <button
+                                type="submit"
+                                class="dlux-titlebar-btn dlux-titlebar-action dlux-titlebar-action--auth text-danger"
+                                aria-label="{{ action.label }}"
+                                data-dlux-tooltip="{{ action.label }}"
+                            >
+                                <i class="bi bi-box-arrow-{% if CURRENT_DIR == 'ltr' %}right{% else %}left{% endif %}" aria-hidden="true"></i>
+                            </button>
+                        </form>
+                    {% elif action.kind == 'help' %}
+                        <button
+                            {% if titlebar.user_hub_style == 'titlebar_actions' %}id="start-tour"{% endif %}
+                            type="button"
+                            class="dlux-titlebar-btn dlux-titlebar-action"
+                            aria-label="{{ action.label }}"
+                            data-titlebar-action-key="{{ action.key }}"
+                            data-dlux-start-tour
+                            data-dlux-tooltip="{{ action.label }}"
+                        >
+                            <i class="bi {{ action.icon }}" aria-hidden="true"></i>
+                        </button>
+                    {% else %}
+                        <a
+                            href="{{ action.url }}"
+                            class="dlux-titlebar-btn {% if action.key == 'home' %}dlux-titlebar-home{% else %}dlux-titlebar-action{% endif %}"
+                            aria-label="{{ action.label }}"
+                            data-titlebar-action-key="{{ action.key }}"
+                            data-dlux-tooltip="{{ action.label }}"
+                            {% if action.key == 'home' %}data-titlebar-home{% endif %}
+                        >
+                            <i class="bi {{ action.icon }}" aria-hidden="true"></i>
+                        </a>
+                    {% endif %}
+                {% endfor %}
             </div>
         {% else %}
-            {% if request.resolver_match.url_name != 'login' %}
-            <a href="{% url 'login' %}" class="dlux-login-round" title="{{ DLUX_STRINGS.login }}">
-                <i class="bi bi-person-lock"></i>
-            </a>
-            {% endif %}
+            <div class="titlebar__actions titlebar__actions--dropdown" data-titlebar-actions-group="dropdown">
+                {% if request.resolver_match.url_name != 'login' %}
+                <a href="{% url 'login' %}" class="dlux-titlebar-btn dlux-login-round" data-dlux-tooltip="{{ DLUX_STRINGS.login }}" aria-label="{{ DLUX_STRINGS.login }}">
+                    <i class="bi bi-person-lock" aria-hidden="true"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="titlebar__actions titlebar__actions--titlebar" data-titlebar-actions data-titlebar-actions-group="titlebar_actions">
+                {% for action in titlebar_actions %}
+                    <a
+                        href="{{ action.url }}"
+                        class="dlux-titlebar-btn dlux-login-round"
+                        aria-label="{{ action.label }}"
+                        data-titlebar-action-key="{{ action.key }}"
+                        data-dlux-tooltip="{{ action.label }}"
+                    >
+                        <i class="bi {{ action.icon }}" aria-hidden="true"></i>
+                    </a>
+                {% endfor %}
+            </div>
         {% endif %}
     </div>
 </div>
+{% endwith %}

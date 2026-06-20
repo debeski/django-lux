@@ -8,15 +8,7 @@
 
 {% block layout %}
 <div class="page">
-    {% if messages %}
-        <div class="alert-container position-absolute top-0 start-0 w-100 dlux-page-alert-container">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} text-center h4 dlux-page-alert">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
+    {% include 'dlux/includes/messages.html' with dlux_flash_mode='page' %}
 
     <div class="container">
       <div class="left">

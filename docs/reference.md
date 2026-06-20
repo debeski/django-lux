@@ -98,6 +98,12 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/reset_password/<int:pk>/` | Staff password-reset endpoint for a target user |
 | `/sys/logs/` | Activity log |
 | `/sys/logs/<int:pk>/details/` | Activity log detail modal |
+| `/sys/reports/` | Activity reports overview |
+| `/sys/reports/backup.zip` | Permission-gated report backup ZIP |
+| `/sys/backup/` | Superuser-only full system backup and restore page |
+| `/sys/backup/create/` | Create an encrypted `.dlb` system backup |
+| `/sys/backup/upload/` | Upload an encrypted `.dlb` for restore |
+| `/sys/backup/restore/` | Start a system restore from an uploaded or existing `.dlb` |
 | `/sys/scopes/manage/` | Scope management |
 | `/sys/sections/` | Section management |
 
@@ -106,11 +112,19 @@ Section security contract:
 - `/sys/sections/`, `/sys/section/details/`, `/sys/section/delete/`, and subsection CRUD endpoints require the existing section permissions
 - section detail/delete and subsection CRUD no longer accept arbitrary `model=` tokens; the target must be a discovered Dlux section or discovered section child model
 - `/sys/users/` plus the user-detail page/modal require `auth.view_user` for staff users (superusers still bypass)
-- `/sys/reset_password/<int:pk>/` now requires `auth.change_user` and the same staff/scope/superuser target checks as the hardened user-management modal routes
+- `/sys/reset_password/<int:pk>/` now requires `auth.change_user` and the same staff/scope/superuser target checks as the hardened user-management modal routes. Reset submissions are rejected if the new password matches the target user's current password.
+- the create-user modal can mark a new account with `profile.preferences["force_password_change"]`; `DluxMiddleware` then redirects that user to `/accounts/profile/?force_password_change=1` until the profile password-change form succeeds and clears the marker. While this marker is active, the first-login Initial User Setup auto-modal is deferred so the password-change requirement remains the only blocking first action. The forced change must set a password different from the current one.
 - `/sys/logs/` and `/sys/logs/<int:pk>/details/` now require the explicit `dlux.view_activitylog` permission or superuser status rather than plain `is_staff`
 - embedded activity snippets on user-detail surfaces only render when the caller also has `dlux.view_activitylog`
 - sidebar-discovered system routes plus the built-in dashboard/user-hub shortcuts now mirror those same helper-backed checks instead of older template-only `is_staff` assumptions
 - sidebar items are only visible to users with the required view permission; no implicit staff fallback (see Sidebar Permission Inference below)
+
+Backup export contract:
+
+- report ZIP and full system `.dlb` exports use primary-key pagination plus a backup-local JSON serializer, so PostgreSQL deployments do not need Django server-side named cursors for export streaming
+- system backup rows, report backup rows, system restore rows, sessions, content types, permissions, and admin log entries remain excluded from full `.dlb` payloads
+- `.dlb` payloads are encrypted in chunked Fernet frames and include a manifest with Dlux version, migration state, model counts, file counts, and omitted-superuser-password policy
+- superuser password hashes are omitted from system backups and preserved from the target database during restore
 
 ## 2FA Routes
 
@@ -131,7 +145,7 @@ Section security contract:
 - login 2FA redirects validate `next` against allowed hosts before redirecting
 - destructive profile-side 2FA actions such as disable, backup-code regeneration, and session revocation require the current-password guard on the backend
 - Profile can trust the current browser after current-password confirmation; untrusted sessions cannot revoke trusted sessions
-- when `prevent_multiple_active_sessions` is enabled, each newly trusted session revokes every other active session for that user
+- when `prevent_multiple_active_sessions` is enabled, each newly authenticated session revokes every other active session for that user; the older browser is redirected to the session-ended page on its next request
 - email 2FA supports auto-send on login and 120s resend cooldown to reduce authentication friction
 - TOTP setup persists secret/enabled state through `set_profile_totp_state(...)` instead of the full `Profile.save()` path, so unrelated profile-save side effects do not block authenticator setup
 
@@ -157,6 +171,190 @@ Autofill security contract:
 | --- | --- | --- |
 | `/sys/api/preferences/update/` | `POST` | Merge updated preference values into `Profile.preferences` |
 | `/sys/api/preferences/reset/` | `POST` | Clear saved preferences and related session keys |
+
+### Notifications
+
+| Route | Method | Purpose |
+| --- | --- | --- |
+| `/sys/api/notifications/` | `GET` | Return the current user’s notification drawer items and unread count |
+| `/sys/api/notifications/<pk>/read/` | `POST` | Mark one notification state as read for the current user |
+| `/sys/api/notifications/<pk>/dismiss/` | `POST` | Mark one notification state dismissed for the current user |
+| `/sys/api/notifications/read-all/` | `POST` | Mark all current-user notification states as read |
+| `/sys/api/notifications/clear-all/` | `POST` | Dismiss read current-user notification states from the drawer |
+
+Dlux Notifications replace Dlux-owned uses of Django message storage with a durable, inferred event pipeline. Public API:
+
+```python
+from dlux.notifications import notify
+
+notify("Invoice approved.")
+notify.success("Saved.")
+notify.error("Could not delete record.", obj=record)
+notify("Backup completed.", action="backup_complete", target_url="/sys/backup/")
+notify.success(message_key="msg_password_changed")
+```
+
+Optional routing stays compact:
+
+```python
+notify(
+    "Payroll batch exported.",
+    obj=batch,
+    action="export",
+    category="reports",
+    to="watchers",
+    email=True,
+)
+```
+
+For language-aware Dlux-owned notices, pass `message_key` and optional `title_key` values from `DLUX_STRINGS`. The stored `DluxNotification.message` remains a fallback for history/email, while flash notices, the titlebar drawer, and `/sys/api/notifications/` resolve keyed text in the active request language at render time. Legacy rows without metadata also rerender when the stored text exactly matches a known Dlux/app/project translation value; interpolated and free-form messages remain stored text.
+
+Notification data model:
+
+- `DluxNotification(ScopedModel)`: durable event content, level, category, source/action, source model/object metadata, target URL, request path, metadata, audience type, and expiry.
+- `DluxNotificationState`: per-user read/dismiss/email state for each delivered notification.
+- `DluxNotificationRule(ScopedModel)`: JSON match/delivery rules for persist/flash/badge/email/recipient routing.
+- `DluxNotificationWatch(ScopedModel)`: model-level watches per user/scope; object-level watches are intentionally deferred.
+
+Automatic behavior:
+
+- `ScopedModel` create/update/delete events are notification-capable by default unless the model sets `dlux_notify = False`.
+- Updates use the activity-log diff payload, including existing sensitive-field masking, and default to quiet persisted summaries rather than flash.
+- Generic modal/context-menu CRUD attaches route/surface metadata before the signal pipeline emits the event.
+- Activity logs remain the audit source; notifications are user-facing delivery records that may link to activity metadata.
+
+Model tuning:
+
+```python
+class Invoice(ScopedModel):
+    dlux_notify = {
+        "watchable": True,
+        "update": "summary",
+        "flash": ["create", "delete"],
+    }
+
+
+class TempCalculation(ScopedModel):
+    dlux_notify = False
+```
+
+System Settings store `notification_config` with:
+
+- `enabled`: top-level master gate (default on), edited via the dedicated **Notifications** settings step (`?step=7`). When off, `emit_notification_event()`, `get_flash_notifications()`, and `get_notification_context()` short-circuit, suppressing flash notices, the titlebar drawer/badge, emails, automatic CRUD notifications, and `notify(...)` — the same enable/disable pattern as the sidebar and nav bar.
+- `flash`: `enabled`, `position`, `size`, `text_size`, `timeout_ms`, `max_visible`
+- `drawer`: `enabled`, `badge_enabled`, `preview_limit`
+- `bridge.django_messages_enabled`: optional compatibility bridge for host-project Django messages
+- `email.enabled/default`: `enabled` is the master gate for notification email and remains disabled/server-coerced off unless Dlux email delivery is configured; `default` emails eligible persisted notifications only after that gate is on
+- `retention.default_expiry_days`
+- `automatic.scoped_model_crud`: master switch for automatic `ScopedModel` CRUD notification sources
+- `automatic.create/delete`: per-action gates under the automatic CRUD source
+- `automatic.update`: `off`, `summary`, or `full`; summary emits quiet changed-field summaries and full keeps richer update metadata
+- `automatic.actor_flash_actions/watchable`: actor flash defaults and model-watch support
+
+DEBUG-only internal test trigger:
+
+- `/sys/debug/notifications/` creates test notifications for the current superuser/global-staff user when `settings.DEBUG` is true; outside DEBUG it returns 404.
+- Query examples: `?level=success`, `?level=all`, `?persist=0`, `?flash=0`, `?next=/sys/options/`.
+
+### Titlebar User Hub Styles
+
+System Settings store titlebar layout in `titlebar_config`:
+
+- `user_hub_style`: `dropdown` (default) or `titlebar_actions`
+- `actions_order`: ordered rail keys; defaults to `notifications`, `home`, `profile`, `help`, `users`, `activity`, `reports`, `settings`, `auth`
+
+`dropdown` preserves the current notification/home/user-trigger layout and `dlux/users/user_hub.html` dropdown. `titlebar_actions` suppresses the dropdown card and renders available shortcuts as `.dlux-titlebar-action` buttons using the shared `titlebar.buttons_shape` setting. Runtime gates are unchanged for users/activity/reports; hidden home and disabled notification drawer settings omit those actions. Authenticated logout is always a POST form with CSRF.
+
+### Activity logging (`log_config`)
+
+`ActivityLog` (formerly `UserActivityLog`; the old name remains importable as an alias)
+is the single source of truth for all logs. Every row carries a `category`:
+
+- `user` — project work and dev-invoked logs (auto-discovered project/auxiliary models).
+- `system` — dlux-internal events (`app_label == 'dlux'`, backups, etc.).
+- `audit` — security events (login success/failure, logout, lockout, 2FA
+  enable/disable/failure, password change, session & trusted-device revoke, permission
+  denied). Audit rows are **append-only** (cannot be edited/deleted in-app) and are never
+  auto-pruned by default.
+
+`log_config` (Step 10 of the setup wizard) governs logging:
+
+- `enabled` — master switch (does not gate audit).
+- `user` / `system` — each has `enabled`, `default_actions` (`create`/`update`/`delete`),
+  `retention_days` (0 = keep forever), and a sparse `models` override map keyed by
+  `"app_label.model"` supporting per-action sub-toggles.
+- The system list carries a synthetic **User accounts** entry (`dlux.useridentity`)
+  controlling the unified User+Profile identity log — user accounts are a core dlux
+  component, so identity rows are stored under the `system` category.
+
+Only models that produce meaningful logs appear in the grid — Django framework internals
+(`auth`/`sessions`/`contenttypes`/`admin`), health-check/`testmodel` models, and dlux
+operational/identity/self/dummy models (devices, presence, notifications, backups, Profile,
+ActivityLog, the fieldless Section placeholder) are hard-excluded.
+
+**Custom actions:** actions beyond `create`/`update`/`delete` (e.g. `DOWNLOAD`, `EXPORT`,
+`APPROVE`) are **logged by default** with no configuration. To surface a toggle for one in
+the settings grid, declare it on the model:
+
+```python
+class Decree(ScopedModel):
+    dlux_log_actions = ["download", "export"]   # adds per-action toggles in Step 10
+```
+
+A dev can then disable a specific action via its per-model `actions` override
+(`{"download": false}`) without affecting CRUD. Security-sensitive account actions (password
+reset, 2FA, lockouts) are logged under `audit`, not the per-model grid.
+- `audit` — `enabled` (always on), per-event `events` flags, `immutable`, and its own
+  `retention_days`.
+
+A correctness floor (`LOG_FORCED_EXCLUDED_MODEL_KEYS`) — Session and other
+non-integer-PK/bookkeeping tables — is never logged regardless of config.
+
+Custom dev logging (zero boilerplate):
+
+```python
+from dlux import log_activity
+log_activity("APPROVE", obj)                       # instance form
+log_activity("EXPORT", pk, model="documents.decree")  # pk + model form
+```
+
+It resolves model/scope/actor/IP from the current request, defaults to the `user` category,
+and honours `log_config` gating.
+
+Retention is enforced by the `dlux_prune_activity_log` management command (deletes
+`user`/`system` rows past their `retention_days`; skips `audit` unless its
+`retention_days > 0`; supports `--dry-run`). The `/sys/logs/` view shows user/system/audit
+tabs (`?category=`); the audit tab is restricted to superusers/global staff.
+
+### Profile page + onboarding (`profile_config`)
+
+`profile_config` (Step 11 of the setup wizard) governs the user profile page and the
+first-login experience — it is **not** personalization defaults (those stay in
+theme/typography/layout/language configs) and **not** per-user prefs (those live in
+`Profile.preferences`):
+
+- `show_completion_widget`, `show_session_device_cards`, `show_activity_feed` — gate the
+  matching profile-page sections. The profile activity feed shows at most the latest five
+  project activity entries and latest five system interaction entries.
+- `security_nudges` — `off` / `subtle` / `persistent` (account-health prompt for missing 2FA).
+- `allow_user_home_url` — let users pick their own landing page (stored as
+  `Profile.preferences['user_home_url']`; honoured at login after an explicit `?next` and
+  before the system `home_url` via `resolve_user_home_url()`).
+- `onboarding_enabled` + `onboarding_options` (`theme`/`language`/`fonts`/`user_home_url`) —
+  whether the first-login modal runs and which preferences it offers.
+
+The three landing-page values share the `*_url` family: `home_url` (system default,
+public `DLUX_CONFIG` key), `public_root_url` (anonymous public landing, in
+`public_root_config`), and `user_home_url` (per-user, in `Profile.preferences`).
+
+**Initial User Setup** is the per-user first-login counterpart to the system setup wizard: a
+lightweight dlux dynamic modal (`/accounts/welcome/`, `initial_user_setup`) that auto-opens
+once per user when `onboarding_enabled` and the user's `Profile.is_configured` is false. It
+writes the chosen theme/language/fonts (+ optional home override) into `Profile.preferences`
+and sets `Profile.is_configured`; "Skip for now" just sets the flag. The auto-open trigger is
+gated by the `DLUX_SHOW_INITIAL_USER_SETUP` context flag, and is suppressed while
+`Profile.preferences["force_password_change"]` is active so a first-login password change
+always happens before optional onboarding preferences.
 
 Common preference keys:
 
@@ -185,10 +383,28 @@ Common runtime sidebar config keys in `get_system_config()["sidebar"]`:
 When `enabled` is `false`, Dlux does not render the runtime sidebar, ignores
 sidebar toolbar/reorder/density controls, and lets the main layout expand.
 
+`SystemSettings` storage is grouped, but the public/runtime contract is flat.
+The model keeps only identity fields as standalone columns (`system_names`,
+`logo`, `favicon`, `default_language`, `default_theme`, `home_url`,
+`is_configured`). Mutable settings live in JSON groups in this order:
+`auth_config`, `email_config`, `registration_config`, `public_root_config`,
+`client_ip_config`, `notification_config`, `layout_config`,
+`language_config`, `theme_config`, `typography_config`, `login_config`,
+`titlebar_config`, `sidebar_config`, `navbar_config`, `log_config`,
+`profile_config`, and `extra_config`.
+
+Use existing flat keys in `DLUX_CONFIG`, templates, and host code unless you
+are working on Dlux internals. `get_system_config()` flattens grouped DB values
+back to keys such as `allowed_themes`, `public_root`,
+`default_table_density`, and `translations_override`, while also exposing
+normalized group aliases for internal use. `translations_override` remains
+override-only data; Dlux never stores the merged translation catalog in
+`language_config`.
+
 Common runtime feature flags in `get_system_config()`:
 
 - `email_2fa` — Enable email-based 2FA (set via `DLUX_CONFIG['email_2fa']` or the System Settings UI)
-- `prevent_multiple_active_sessions` — When true, a newly trusted session becomes the user's only active session; untrusted logins remain allowed and do not evict trusted sessions.
+- `prevent_multiple_active_sessions` — When true, each successful login or completed 2FA login becomes the user's only active session. Dlux evicts other session keys for that user regardless of trusted-device status; trusted devices keep their trust record but must start a new session next time.
 - `email_config` — Redacted Dlux email delivery config. Supports delivery `transport` (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never include SMTP secrets.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
@@ -308,7 +524,11 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 
 `dlux/main/js/base_runtime.js` auto-closes every Bootstrap-style `.alert` after a short delay unless the alert explicitly opts out with `data-autoclose="false"`.
 
+Default Django messages render through `dlux/includes/messages.html` as compact fixed flash notices rather than full-width titlebar overlays. Authenticated pages use `.dlux-flash-container`, positioned below `--header-height`; public auth pages pass `dlux_flash_mode='page'` to use `.dlux-page-alert-container` near the viewport top. Both containers are `pointer-events: none`, while visible alerts remain closeable and `.dlux-alert--closing` disables pointer events before the removal transition.
+
 Use the opt-out for alerts that remain actionable after the first few seconds, such as validation blockers, missing-secret warnings, setup/import instructions, or status messages that explain why a field must be changed before the form can submit. Do not use it for normal Django flash messages that should behave like transient success/error notices.
+
+Profile password-change validation is modal-scoped: invalid submissions render field errors inside `#resetPasswordModal`, reopen that modal on the response, and do not enqueue the generic form-error flash.
 
 Server-rendered or template alerts:
 
@@ -325,6 +545,10 @@ const notice = document.createElement('div');
 notice.className = 'alert alert-warning';
 notice.setAttribute('data-autoclose', 'false');
 ```
+
+### Lux Signature Contract
+
+`dlux/main/js/signature.js` is the removable, client-only DjangoLux attribution layer. It reads `<html data-dlux="DjangoLux X.Y.Z ...">`, prints one quiet console credit on load, exposes non-enumerable `window.lux` / `window.dlux` console getters, and reveals a compact `.dlux-signature-pop` visual credit when a user types `dlux` on the page outside input, textarea, select, or contenteditable targets. It makes no network calls and stores no data.
 
 ## Template Tags and Filters
 

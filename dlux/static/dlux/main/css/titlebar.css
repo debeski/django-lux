@@ -36,6 +36,65 @@
 
 .titlebar__side--end {
     justify-content: flex-end;
+    min-width: 0;
+    max-width: min(64vw, 620px);
+}
+
+.titlebar__actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.titlebar__actions--titlebar {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    padding-block: 0.2rem;
+    scrollbar-width: thin;
+}
+
+.titlebar__actions--titlebar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.titlebar__actions--titlebar::-webkit-scrollbar-thumb {
+    background: rgba(var(--primal-rgb), 0.25);
+    border-radius: 999px;
+}
+
+.titlebar[data-titlebar-user-hub-style="dropdown"] .titlebar__actions--titlebar,
+.titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--dropdown {
+    display: none;
+}
+
+.titlebar__action-slot,
+.titlebar__action-form {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.titlebar__actions .dlux-notifications {
+    margin: 0 !important;
+}
+
+/* Style 2: the titlebar action rail is a horizontal scroll container
+   (overflow-x: auto / overflow-y: hidden), which clips the absolutely-positioned
+   notification dropdown so it opens but never shows. Pin the panel with
+   position: fixed (anchored to the titlebar's top-end corner) so it escapes the
+   rail. Mobile (<=575.98px) keeps its own full-width fixed rule in notifications.css. */
+@media (min-width: 576px) {
+    .titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--titlebar .dlux-notifications__panel {
+        position: fixed;
+        inset-block-start: calc(var(--header-height, 60px) + 0.5rem);
+        inset-inline-end: 0.5rem;
+        inset-inline-start: auto;
+    }
 }
 
 .titlebar__center {
@@ -204,8 +263,7 @@
     border-color: rgba(var(--primal-rgb), 0.2) !important;
 }
 
-.titlebar .dlux-titlebar-home,
-.titlebar .dlux-login-round {
+.titlebar .dlux-titlebar-btn {
     width: 34px;
     height: 34px;
     min-width: 34px;
@@ -220,24 +278,38 @@
     transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
     font-size: 1rem;
+    flex: 0 0 auto;
+    padding: 0;
 }
 
+.titlebar button.dlux-titlebar-btn {
+    appearance: none;
+    cursor: pointer;
+}
+
+.titlebar[data-titlebar-buttons-shape="square"] .dlux-titlebar-action,
+.titlebar[data-titlebar-buttons-shape="square"] .dlux-titlebar-home,
+.titlebar[data-titlebar-buttons-shape="square"] .dlux-notifications__trigger,
+.titlebar[data-titlebar-buttons-shape="square"] .dlux-login-round,
 .titlebar[data-titlebar-home-shape="square"] .dlux-titlebar-home,
+.titlebar[data-titlebar-home-shape="square"] .dlux-notifications__trigger,
 .titlebar[data-titlebar-home-shape="square"] .dlux-login-round {
     border-radius: 10px;
 }
 
+.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-titlebar-action,
+.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-titlebar-home,
+.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-notifications__trigger,
+.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-login-round,
 .titlebar[data-titlebar-home-shape="squircle"] .dlux-titlebar-home,
+.titlebar[data-titlebar-home-shape="squircle"] .dlux-notifications__trigger,
 .titlebar[data-titlebar-home-shape="squircle"] .dlux-login-round {
     border-radius: 14px;
 }
 
-.titlebar .dlux-titlebar-home:hover,
-.titlebar .dlux-login-round:hover,
-.titlebar .dlux-titlebar-home:focus,
-.titlebar .dlux-login-round:focus,
-.titlebar .dlux-titlebar-home:focus-visible,
-.titlebar .dlux-login-round:focus-visible {
+.titlebar .dlux-titlebar-btn:hover,
+.titlebar .dlux-titlebar-btn:focus,
+.titlebar .dlux-titlebar-btn:focus-visible {
     color: var(--primal_dark);
     background: rgba(255, 255, 255, 0.9);
     border-color: rgba(var(--primal-rgb), 0.22);
@@ -247,6 +319,7 @@
 }
 
 .titlebar .dlux-titlebar-home i,
+.titlebar .dlux-titlebar-action i,
 .titlebar .dlux-login-round i {
     font-size: 1rem;
     line-height: 1;
@@ -328,5 +401,13 @@
     .titlebar .titlebar__heading {
         align-items: flex-start !important;
         text-align: start !important;
+    }
+
+    .titlebar__side--end {
+        max-width: 56vw;
+    }
+
+    .titlebar__actions--titlebar {
+        justify-content: flex-start;
     }
 }

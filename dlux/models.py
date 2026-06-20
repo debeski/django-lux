@@ -1,5 +1,6 @@
 # Imports of the required python modules and libraries
 ######################################################
+import logging
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -17,50 +18,107 @@ from .constants import (
     REGISTRATION_STATUS_PENDING_APPROVAL,
     REGISTRATION_STATUS_PENDING_EMAIL,
     REGISTRATION_STATUS_REJECTED,
-    TABLE_DENSITY_CHOICES,
     TABLE_DENSITY_VALUES,
 )
 from .managers import ScopedManager
+from .system_settings_defaults import (
+    default_auth_config as _default_auth_config,
+    default_client_ip_config as _default_client_ip_config,
+    default_email_config as _default_email_config,
+    default_extra_config as _default_extra_config,
+    default_language_config as _default_language_config,
+    default_layout_config as _default_layout_config,
+    default_login_config as _default_login_config,
+    default_navbar_config as _default_navbar_config,
+    default_notification_config as _default_notification_config,
+    default_public_root_config as _default_public_root_config,
+    default_registration_config as _default_registration_config,
+    default_theme_config as _default_theme_config,
+    default_titlebar_config as _default_titlebar_config,
+    default_typography_config as _default_typography_config,
+    default_log_config as _default_log_config,
+    default_profile_config as _default_profile_config,
+)
 import hashlib
 import io
 import secrets
 from datetime import timedelta
 from PIL import Image
 
+logger = logging.getLogger('dlux')
+
 
 def default_allowed_fonts():
-    from .fonts import get_builtin_fonts
-    return [f['slug'] for f in get_builtin_fonts()]
+    return _default_typography_config()['allowed_fonts']
 
 
 def default_allowed_themes():
-    from .themes import get_theme_names
-    return list(get_theme_names())
+    return _default_theme_config()['allowed_themes']
 
 
 def default_titlebar_config():
-    return {
-        'show_title': True,
-        'show_logo': True,
-        'show_home_button': True,
-        'hide_on_public_unauthenticated_index': False,
-        'home_shape': 'circle',
-        'title_align': 'start',
-        'title_size': 'md',
-        'height': 'balanced',
-        'surface': 'default',
-        'logo_treatment': 'none',
-        'logo_treatment_shape': 'soft',
-    }
+    return _default_titlebar_config()
 
 
 def default_navbar_config():
-    return {
-        'enabled': False,
-        'default_mode': 'hierarchy',
-        'allow_user_mode_override': True,
-        'hierarchy': {'nodes': []},
-    }
+    return _default_navbar_config()
+
+
+def default_auth_config():
+    """Authentication & session-security policy, consolidated into one JSON field."""
+    return _default_auth_config()
+
+
+def default_email_config():
+    return _default_email_config()
+
+
+def default_registration_config():
+    return _default_registration_config()
+
+
+def default_public_root_config():
+    return _default_public_root_config()
+
+
+def default_client_ip_config():
+    return _default_client_ip_config()
+
+
+def default_notification_config():
+    return _default_notification_config()
+
+
+def default_layout_config():
+    return _default_layout_config()
+
+
+def default_language_config():
+    return _default_language_config()
+
+
+def default_theme_config():
+    return _default_theme_config()
+
+
+def default_typography_config():
+    return _default_typography_config()
+
+
+def default_login_config():
+    return _default_login_config()
+
+
+def default_extra_config():
+    return _default_extra_config()
+
+
+def default_log_config():
+    return _default_log_config()
+
+
+def default_profile_config():
+    return _default_profile_config()
 
 
 class Scope(models.Model):
@@ -109,17 +167,70 @@ class SingletonModel(models.Model):
 
     @classmethod
     def load(cls):
-        obj = cache.get(cls.__name__)
-        if obj:
+        try:
+            obj = cache.get(cls.__name__)
+        except Exception:
+            # A corrupt or incompatible cache entry (e.g. a pickle written by an
+            # older code revision after a dev hot-reload or a deploy that changed
+            # this model) must never bubble up: callers such as get_system_config()
+            # would then silently treat the system as unconfigured and bounce users
+            # into the setup wizard. Drop the poisoned key and rebuild from the DB.
+            logger.warning(
+                "Discarding unreadable cache entry for singleton %s; rebuilding from DB.",
+                cls.__name__,
+                exc_info=True,
+            )
+            try:
+                cache.delete(cls.__name__)
+            except Exception:
+                pass
+            obj = None
+
+        if obj is not None:
             # Check if object still exists in DB to prevent stale cache after DB wipes
-            if not cls.objects.filter(pk=obj.pk).exists():
+            try:
+                if not cls.objects.filter(pk=obj.pk).exists():
+                    obj = None
+            except Exception:
                 obj = None
-        
+
+        if obj is not None:
+            # Guard against a STALE-but-readable pickle written by an older model
+            # revision — a dev hot-reload, or a deploy/migration that ADDED fields
+            # (e.g. auth_config, notification_config). Such a pickle unpickles fine
+            # (so the poisoned-key guard above never fires) but is missing the new
+            # field attributes, so get_system_config()'s hasattr() guards silently
+            # serve their DEFAULTS — the "settings reset, then return afterwards"
+            # symptom. If any current concrete field is absent, rebuild from the DB.
+            try:
+                expected = {f.attname for f in cls._meta.concrete_fields}
+                if not expected.issubset(vars(obj)):
+                    logger.warning(
+                        "Discarding stale cache entry for singleton %s (missing fields %s); rebuilding from DB.",
+                        cls.__name__,
+                        sorted(expected.difference(vars(obj))),
+                    )
+                    cache.delete(cls.__name__)
+                    obj = None
+            except Exception:
+                try:
+                    cache.delete(cls.__name__)
+                except Exception:
+                    pass
+                obj = None
+
         if not obj:
             obj, created = cls.objects.get_or_create(pk=1)
             if created:
                 # Seed from codebase DLUX_CONFIG if available
                 config = getattr(settings, 'DLUX_CONFIG', {})
+                try:
+                    from .utils.config import expand_system_config_groups
+
+                    config = expand_system_config_groups(config)
+                except Exception:
+                    if not isinstance(config, dict):
+                        config = {}
                 if hasattr(obj, 'system_names') and isinstance(config.get('system_names'), dict):
                     obj.system_names = config.get('system_names')
                 if 'default_language' in config:
@@ -148,10 +259,16 @@ class SingletonModel(models.Model):
                     obj.titlebar_config = config.get('titlebar')
                 if hasattr(obj, 'navbar_config') and isinstance(config.get('navbar'), dict):
                     obj.navbar_config = config.get('navbar')
-                if hasattr(obj, 'email_2fa') and 'email_2fa' in config:
-                    obj.email_2fa = bool(config.get('email_2fa'))
-                if hasattr(obj, 'prevent_multiple_active_sessions') and 'prevent_multiple_active_sessions' in config:
-                    obj.prevent_multiple_active_sessions = bool(config.get('prevent_multiple_active_sessions'))
+                if hasattr(obj, 'notification_config'):
+                    notifications = config.get('notifications', config.get('notification_config', None))
+                    if isinstance(notifications, dict):
+                        obj.notification_config = notifications
+                if hasattr(obj, 'auth_config'):
+                    auth = dict(obj.auth_config or {})
+                    for auth_key in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled', 'enforce_strong_passwords'):
+                        if auth_key in config:
+                            auth[auth_key] = bool(config.get(auth_key))
+                    obj.auth_config = auth
                 if hasattr(obj, 'public_root') and 'public_root' in config:
                     obj.public_root = bool(config.get('public_root'))
                 if hasattr(obj, 'public_root_split_enabled') and 'public_root_split_enabled' in config:
@@ -171,11 +288,17 @@ class SingletonModel(models.Model):
                 if hasattr(obj, 'allow_user_font_override') and 'allow_user_font_override' in config:
                     obj.allow_user_font_override = bool(config.get('allow_user_font_override'))
                 obj.save()
-            cache.set(cls.__name__, obj, timeout=86400)
+            try:
+                cache.set(cls.__name__, obj, timeout=86400)
+            except Exception:
+                logger.warning("Failed to cache singleton %s; serving DB value uncached.", cls.__name__, exc_info=True)
         return obj
 
     def refresh_cache(self):
-         cache.set(self.__class__.__name__, self, timeout=86400)
+         try:
+             cache.set(self.__class__.__name__, self, timeout=86400)
+         except Exception:
+             logger.warning("Failed to refresh cache for singleton %s.", self.__class__.__name__, exc_info=True)
          if self.__class__.__name__ == 'SystemSettings':
              try:
                  from .context_processors import clear_sidebar_cache
@@ -184,47 +307,98 @@ class SingletonModel(models.Model):
                  pass
 
 
+_SYSTEM_SETTINGS_CONFIG_DEFAULTS = {
+    'auth_config': default_auth_config,
+    'email_config': default_email_config,
+    'registration_config': default_registration_config,
+    'public_root_config': default_public_root_config,
+    'client_ip_config': default_client_ip_config,
+    'notification_config': default_notification_config,
+    'layout_config': default_layout_config,
+    'language_config': default_language_config,
+    'theme_config': default_theme_config,
+    'typography_config': default_typography_config,
+    'login_config': default_login_config,
+    'titlebar_config': default_titlebar_config,
+    'sidebar_config': dict,
+    'navbar_config': default_navbar_config,
+    'log_config': default_log_config,
+    'profile_config': default_profile_config,
+    'extra_config': default_extra_config,
+}
+
+_SYSTEM_SETTINGS_FLAT_CONFIG_FIELDS = {
+    'email_2fa': ('auth_config', 'email_2fa'),
+    'prevent_multiple_active_sessions': ('auth_config', 'prevent_multiple_active_sessions'),
+    'login_lockout_enabled': ('auth_config', 'login_lockout_enabled'),
+    'public_registration_enabled': ('registration_config', 'public_registration_enabled'),
+    'registration_activation_mode': ('registration_config', 'registration_activation_mode'),
+    'registration_throttle_enabled': ('registration_config', 'registration_throttle_enabled'),
+    'public_root': ('public_root_config', 'public_root'),
+    'public_root_split_enabled': ('public_root_config', 'public_root_split_enabled'),
+    'public_root_url': ('public_root_config', 'public_root_url'),
+    'default_table_density': ('layout_config', 'default_table_density'),
+    'languages': ('language_config', 'languages'),
+    'translations_override': ('language_config', 'translations_override'),
+    'allow_user_language_override': ('language_config', 'allow_user_language_override'),
+    'allowed_themes': ('theme_config', 'allowed_themes'),
+    'allow_user_theme_override': ('theme_config', 'allow_user_theme_override'),
+    'allowed_fonts': ('typography_config', 'allowed_fonts'),
+    'default_fonts': ('typography_config', 'default_fonts'),
+    'allow_user_font_override': ('typography_config', 'allow_user_font_override'),
+}
+
+
+def _system_settings_config_get(instance, config_field, key):
+    config = getattr(instance, config_field, None)
+    if not isinstance(config, dict):
+        config = {}
+    default_factory = _SYSTEM_SETTINGS_CONFIG_DEFAULTS.get(config_field, dict)
+    defaults = default_factory()
+    return config.get(key, defaults.get(key))
+
+
+def _system_settings_config_set(instance, config_field, key, value):
+    config = getattr(instance, config_field, None)
+    if not isinstance(config, dict):
+        config = {}
+    config = dict(config)
+    config[key] = value
+    setattr(instance, config_field, config)
+
+
+def _system_settings_config_property(config_field, key):
+    return property(
+        lambda self: _system_settings_config_get(self, config_field, key),
+        lambda self, value: _system_settings_config_set(self, config_field, key, value),
+    )
+
+
 class SystemSettings(SingletonModel):
     system_names = models.JSONField(default=dict, blank=True, verbose_name="System Names by Language")
     logo = models.ImageField(upload_to='dlux/branding/', null=True, blank=True, verbose_name="System Logo (Logo)")
     favicon = models.ImageField(upload_to='dlux/branding/', null=True, blank=True, verbose_name="Site Icon (Favicon)")
     default_language = models.CharField(max_length=10, default='en', verbose_name="Default Language")
     default_theme = models.CharField(max_length=20, default='light', verbose_name="Default Theme")
-    default_table_density = models.CharField(
-        max_length=20,
-        default=DEFAULT_TABLE_DENSITY,
-        choices=TABLE_DENSITY_CHOICES,
-        verbose_name="Default Table Density",
-    )
-    allowed_themes = models.JSONField(default=default_allowed_themes, blank=True, verbose_name="Allowed Themes")
-    allow_user_theme_override = models.BooleanField(default=True, verbose_name="Allow User Theme Override")
-    allowed_fonts = models.JSONField(default=default_allowed_fonts, blank=True, verbose_name="Allowed Fonts")
-    default_fonts = models.JSONField(default=dict, blank=True, verbose_name="Default Fonts by Language")
-    allow_user_font_override = models.BooleanField(default=True, verbose_name="Allow User Font Override")
-    allow_user_language_override = models.BooleanField(default=True, verbose_name="Allow User Language Override")
     home_url = models.CharField(max_length=255, default=DEFAULT_HOME_URL, verbose_name="Home URL")
     is_configured = models.BooleanField(default=False, verbose_name="Is Configured")
-    email_2fa = models.BooleanField(default=False, verbose_name="Enable Email 2FA")
-    client_ip_config = models.JSONField(default=dict, blank=True, verbose_name="Client IP Configuration")
-    public_root = models.BooleanField(default=False, verbose_name="Public Root Access")
-    public_root_split_enabled = models.BooleanField(default=False, verbose_name="Separate Public Root From Home")
-    public_root_url = models.CharField(max_length=255, default='', blank=True, verbose_name="Public Root URL")
-    public_registration_enabled = models.BooleanField(default=False, verbose_name="Enable Public Registration")
-    registration_activation_mode = models.CharField(
-        max_length=32,
-        choices=REGISTRATION_ACTIVATION_CHOICES,
-        default=REGISTRATION_ACTIVATION_AUTO_LOGIN,
-        verbose_name="Registration Activation Mode",
-    )
-    registration_throttle_enabled = models.BooleanField(default=True, verbose_name="Enable Registration Throttles")
-    email_config = models.JSONField(default=dict, blank=True, verbose_name="Email Configuration")
-    languages = models.JSONField(default=dict, blank=True, verbose_name="Available Languages")
-    translations_override = models.JSONField(default=dict, blank=True, verbose_name="Translations Override")
+    auth_config = models.JSONField(default=default_auth_config, blank=True, verbose_name="Authentication Configuration")
+    email_config = models.JSONField(default=default_email_config, blank=True, verbose_name="Email Configuration")
+    registration_config = models.JSONField(default=default_registration_config, blank=True, verbose_name="Registration Configuration")
+    public_root_config = models.JSONField(default=default_public_root_config, blank=True, verbose_name="Public Root Configuration")
+    client_ip_config = models.JSONField(default=default_client_ip_config, blank=True, verbose_name="Client IP Configuration")
+    notification_config = models.JSONField(default=default_notification_config, blank=True, verbose_name="Notification Configuration")
+    layout_config = models.JSONField(default=default_layout_config, blank=True, verbose_name="Layout Configuration")
+    language_config = models.JSONField(default=default_language_config, blank=True, verbose_name="Language Configuration")
+    theme_config = models.JSONField(default=default_theme_config, blank=True, verbose_name="Theme Configuration")
+    typography_config = models.JSONField(default=default_typography_config, blank=True, verbose_name="Typography Configuration")
+    login_config = models.JSONField(default=default_login_config, blank=True, verbose_name="Login Page Configuration")
+    titlebar_config = models.JSONField(default=default_titlebar_config, blank=True, verbose_name="Titlebar Configuration")
     sidebar_config = models.JSONField(default=dict, blank=True, verbose_name="Sidebar Configuration")
     navbar_config = models.JSONField(default=default_navbar_config, blank=True, verbose_name="Nav Bar Configuration")
-    titlebar_config = models.JSONField(default=default_titlebar_config, blank=True, verbose_name="Titlebar Configuration")
-    login_config = models.JSONField(default=dict, blank=True, verbose_name="Login Page Configuration")
-    prevent_multiple_active_sessions = models.BooleanField(default=False, verbose_name="Prevent Multiple Active Sessions")
+    log_config = models.JSONField(default=default_log_config, blank=True, verbose_name="Logging Configuration")
+    profile_config = models.JSONField(default=default_profile_config, blank=True, verbose_name="Profile Page Configuration")
+    extra_config = models.JSONField(default=default_extra_config, blank=True, verbose_name="Extra Configuration")
 
     class Meta:
         verbose_name = "System Settings"
@@ -232,6 +406,21 @@ class SystemSettings(SingletonModel):
 
     def __str__(self):
         return "System Settings"
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            normalized_update_fields = []
+            for field_name in update_fields:
+                config_field = _SYSTEM_SETTINGS_FLAT_CONFIG_FIELDS.get(field_name, (field_name, None))[0]
+                if config_field not in normalized_update_fields:
+                    normalized_update_fields.append(config_field)
+            kwargs['update_fields'] = normalized_update_fields
+        super().save(*args, **kwargs)
+
+
+for _flat_name, (_config_field, _config_key) in _SYSTEM_SETTINGS_FLAT_CONFIG_FIELDS.items():
+    setattr(SystemSettings, _flat_name, _system_settings_config_property(_config_field, _config_key))
 
 
 class ScopeForeignKey(models.ForeignKey):
@@ -327,12 +516,168 @@ class ScopedModel(models.Model):
         super().delete(using=using, keep_parents=keep_parents)
 
 
+class DluxNotification(ScopedModel):
+    """Durable user-facing notification event."""
+
+    LEVEL_INFO = 'info'
+    LEVEL_SUCCESS = 'success'
+    LEVEL_WARNING = 'warning'
+    LEVEL_ERROR = 'error'
+    LEVEL_CHOICES = (
+        (LEVEL_INFO, 'Info'),
+        (LEVEL_SUCCESS, 'Success'),
+        (LEVEL_WARNING, 'Warning'),
+        (LEVEL_ERROR, 'Error'),
+    )
+
+    AUDIENCE_ACTOR = 'actor'
+    AUDIENCE_WATCHERS = 'watchers'
+    AUDIENCE_USERS = 'users'
+    AUDIENCE_BROADCAST = 'broadcast'
+    AUDIENCE_CHOICES = (
+        (AUDIENCE_ACTOR, 'Actor'),
+        (AUDIENCE_WATCHERS, 'Watchers'),
+        (AUDIENCE_USERS, 'Specific Users'),
+        (AUDIENCE_BROADCAST, 'Broadcast'),
+    )
+
+    title = models.CharField(max_length=180, blank=True, verbose_name="Title")
+    message = models.TextField(verbose_name="Message")
+    level = models.CharField(max_length=16, choices=LEVEL_CHOICES, default=LEVEL_INFO, db_index=True, verbose_name="Level")
+    category = models.CharField(max_length=64, default='general', db_index=True, verbose_name="Category")
+    source = models.CharField(max_length=64, default='manual', db_index=True, verbose_name="Source")
+    action = models.CharField(max_length=64, blank=True, db_index=True, verbose_name="Action")
+    source_model = models.CharField(max_length=120, blank=True, verbose_name="Source Model")
+    source_model_key = models.CharField(max_length=120, blank=True, db_index=True, verbose_name="Source Model Key")
+    source_object_id = models.CharField(max_length=64, blank=True, db_index=True, verbose_name="Source Object ID")
+    source_label = models.CharField(max_length=255, blank=True, verbose_name="Source Label")
+    target_url = models.CharField(max_length=512, blank=True, verbose_name="Target URL")
+    request_path = models.CharField(max_length=512, blank=True, verbose_name="Request Path")
+    audience_type = models.CharField(max_length=24, choices=AUDIENCE_CHOICES, default=AUDIENCE_ACTOR, verbose_name="Audience Type")
+    metadata = models.JSONField(default=dict, blank=True, verbose_name="Metadata")
+    expires_at = models.DateTimeField(blank=True, null=True, db_index=True, verbose_name="Expires At")
+
+    class Meta:
+        verbose_name = "Dlux Notification"
+        verbose_name_plural = "Dlux Notifications"
+        default_permissions = ()
+        indexes = [
+            models.Index(fields=['created_at'], name='dlux_notif_created_idx'),
+            models.Index(fields=['scope', 'created_at'], name='dlux_notif_scope_created_idx'),
+            models.Index(fields=['level', 'created_at'], name='dlux_notif_level_created_idx'),
+            models.Index(fields=['source_model_key', 'created_at'], name='dlux_notif_model_created_idx'),
+            models.Index(fields=['action', 'created_at'], name='dlux_notif_action_created_idx'),
+        ]
+        permissions = [
+            ('view_notification', 'View notifications'),
+            ('manage_notifications', 'Manage notification rules and watches'),
+        ]
+
+    def __str__(self):
+        return self.title or self.message[:80]
+
+
+class DluxNotificationState(models.Model):
+    """Per-user state for a notification."""
+
+    notification = models.ForeignKey(
+        'dlux.DluxNotification',
+        related_name='states',
+        on_delete=models.CASCADE,
+        verbose_name="Notification",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='dlux_notification_states',
+        on_delete=models.CASCADE,
+        verbose_name="User",
+    )
+    read_at = models.DateTimeField(blank=True, null=True, db_index=True, verbose_name="Read At")
+    dismissed_at = models.DateTimeField(blank=True, null=True, db_index=True, verbose_name="Dismissed At")
+    emailed_at = models.DateTimeField(blank=True, null=True, verbose_name="Emailed At")
+    email_status = models.CharField(max_length=32, blank=True, verbose_name="Email Status")
+    email_error = models.TextField(blank=True, verbose_name="Email Error")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+
+    class Meta:
+        verbose_name = "Dlux Notification State"
+        verbose_name_plural = "Dlux Notification States"
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=['notification', 'user'], name='dlux_notif_state_user_uniq'),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'read_at'], name='dlux_ns_read_idx'),
+            models.Index(fields=['user', 'dismissed_at'], name='dlux_ns_dismiss_idx'),
+            models.Index(fields=['user', 'created_at'], name='dlux_ns_created_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user} / {self.notification_id}"
+
+
+class DluxNotificationRule(ScopedModel):
+    """Admin-configured routing rule for notification events."""
+
+    name = models.CharField(max_length=120, verbose_name="Name")
+    enabled = models.BooleanField(default=True, db_index=True, verbose_name="Enabled")
+    priority = models.IntegerField(default=100, db_index=True, verbose_name="Priority")
+    match_config = models.JSONField(default=dict, blank=True, verbose_name="Match Configuration")
+    delivery_config = models.JSONField(default=dict, blank=True, verbose_name="Delivery Configuration")
+    stop_processing = models.BooleanField(default=False, verbose_name="Stop Processing")
+
+    class Meta:
+        verbose_name = "Dlux Notification Rule"
+        verbose_name_plural = "Dlux Notification Rules"
+        default_permissions = ()
+        ordering = ['priority', 'name']
+        indexes = [
+            models.Index(fields=['enabled', 'priority'], name='dlux_notif_rule_enabled_idx'),
+            models.Index(fields=['scope', 'priority'], name='dlux_notif_rule_scope_idx'),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class DluxNotificationWatch(ScopedModel):
+    """Model-level notification watch for a user and optional scope."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='dlux_notification_watches',
+        on_delete=models.CASCADE,
+        verbose_name="User",
+    )
+    model_key = models.CharField(max_length=120, db_index=True, verbose_name="Model Key")
+    enabled = models.BooleanField(default=True, db_index=True, verbose_name="Enabled")
+    email_enabled = models.BooleanField(default=False, verbose_name="Email Enabled")
+
+    class Meta:
+        verbose_name = "Dlux Notification Watch"
+        verbose_name_plural = "Dlux Notification Watches"
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'scope', 'model_key'], name='dlux_nw_user_scope_model'),
+        ]
+        indexes = [
+            models.Index(fields=['model_key', 'enabled'], name='dlux_nw_model_idx'),
+            models.Index(fields=['scope', 'model_key'], name='dlux_nw_scope_model_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user} watches {self.model_key}"
+
+
 class Profile(ScopedModel):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile', verbose_name="User")
     phone = models.CharField(max_length=15, blank=True, null=True, verbose_name="Phone Number")
     profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     # deleted_at is inherited from ScopedModel
     preferences = models.JSONField(default=dict, blank=True, verbose_name="User Preferences")
+    # Per-user onboarding flag: set once the user completes/skips the Initial User Setup modal.
+    is_configured = models.BooleanField(default=False, verbose_name="Completed Initial User Setup")
     
     # 2FA Fields
     is_email_2fa_enabled = models.BooleanField(default=False, verbose_name="2FA via Email")
@@ -501,6 +846,7 @@ class UserPresenceSession(models.Model):
         verbose_name="Known Device",
     )
     session_key_hash = models.CharField(max_length=64, verbose_name="Session Key Hash")
+    session_key = models.CharField(max_length=64, blank=True, verbose_name="Session Key")
     device_label = models.CharField(max_length=255, blank=True, verbose_name="Device Label")
     ip_addresses = models.JSONField(default=list, blank=True, verbose_name="IP Addresses")
     user_agents = models.JSONField(default=list, blank=True, verbose_name="User Agents")
@@ -822,15 +1168,36 @@ class PublicRegistration(models.Model):
         self.save(update_fields=['status', 'rejected_at', 'rejected_by', 'token_hash', 'updated_at'])
 
 
-class UserActivityLog(ScopedModel):
+class ActivityLog(ScopedModel):
     """
-    Activity log model. Uses inherited ScopedModel fields:
+    Activity log model — the single source of truth for all logs (user/system/audit).
+    Uses inherited ScopedModel fields:
     - created_by → the user who performed the action (was 'user')
     - created_at → when the action occurred (was 'timestamp')
+
+    Renamed from ``UserActivityLog`` (the "User" prefix is obsolete now that this stores
+    system and audit entries too). ``UserActivityLog`` remains a module alias for
+    backward-compatible imports.
     """
+    CATEGORY_USER = 'user'
+    CATEGORY_SYSTEM = 'system'
+    CATEGORY_AUDIT = 'audit'
+    CATEGORY_CHOICES = (
+        (CATEGORY_USER, "User"),
+        (CATEGORY_SYSTEM, "System"),
+        (CATEGORY_AUDIT, "Audit"),
+    )
+
     # created_by (inherited) → replaces old 'user' field
     # created_at (inherited) → replaces old 'timestamp' field
     action = models.CharField(max_length=50, verbose_name="Action")
+    # Log category: 'user' (project work / dev-invoked), 'system' (dlux-internal), or
+    # 'audit' (security events). Derived at log time by resolve_log_category(); audit rows
+    # are privileged (append-only, never auto-pruned by default).
+    category = models.CharField(
+        max_length=10, choices=CATEGORY_CHOICES, default=CATEGORY_USER,
+        verbose_name="Category",
+    )
     # Human-readable label (the model's translated verbose name at log time). Used for
     # display. NOTE: this is locale-dependent, so never key reports/grouping off it.
     model_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="Model Name")
@@ -858,6 +1225,21 @@ class UserActivityLog(ScopedModel):
     def __str__(self):
         return f"{self.created_by} {self.action} {self.model_name or 'General'} at {self.created_at}"
 
+    def save(self, *args, **kwargs):
+        # Audit entries are append-only: block in-app mutation of an existing audit row.
+        # (Inserts have no pk yet and are allowed.) Bulk QuerySet.update() bypasses this by
+        # design; app code must not target audit rows for updates.
+        if self.pk and self.category == self.CATEGORY_AUDIT:
+            raise ValueError("Audit activity-log entries are immutable and cannot be modified.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Audit entries cannot be deleted through the app (never auto-pruned by default).
+        # Bulk QuerySet.delete() bypasses this; the prune command excludes audit explicitly.
+        if self.category == self.CATEGORY_AUDIT:
+            return None
+        return super().delete(*args, **kwargs)
+
     class Meta:
         verbose_name = "Activity Log"
         verbose_name_plural = "Activity Logs"
@@ -868,22 +1250,27 @@ class UserActivityLog(ScopedModel):
             models.Index(fields=['created_by', 'created_at'], name='dlux_ual_actor_created_idx'),
             models.Index(fields=['model_key', 'created_at'], name='dlux_ual_model_created_idx'),
             models.Index(fields=['action', 'created_at'], name='dlux_ual_action_created_idx'),
+            models.Index(fields=['category', 'created_at'], name='dlux_ual_cat_created_idx'),
         ]
         permissions = [
             ("view_activitylog", "View activity log"),
         ]
 
     @classmethod
-    def safe_log(cls, user, action, model_name=None, object_id=None, number=None, details=None, ip_address=None, user_agent=None, scope=None, model_key=None):
+    def safe_log(cls, user, action, model_name=None, object_id=None, number=None, details=None, ip_address=None, user_agent=None, scope=None, model_key=None, category=None):
         """
         Log an action only if a duplicate entry hasn't been created in the last 2 seconds.
+
+        ``category`` is the log type ('user'/'system'/'audit'); when omitted it is derived
+        from (action, model_key, model_name) via resolve_log_category. It is NOT part of the
+        dedupe key — it is a pure function of fields already in the key.
         """
         from django.utils.timezone import now
         from datetime import timedelta
-        
+
         # Debounce window
         time_threshold = now() - timedelta(seconds=2)
-        
+
         # Check for duplicates
         duplicate = cls.objects.filter(
             created_by=user,
@@ -892,10 +1279,10 @@ class UserActivityLog(ScopedModel):
             object_id=object_id,
             created_at__gte=time_threshold
         )
-        
+
         if details:
              duplicate = duplicate.filter(details=details)
-             
+
         if duplicate.exists():
             return None
 
@@ -904,9 +1291,14 @@ class UserActivityLog(ScopedModel):
             from .utils import get_user_scope
             scope = get_user_scope(user)
 
+        if category is None:
+            from .utils.activity_log import resolve_log_category
+            category = resolve_log_category(action, model_key=model_key, model_name=model_name)
+
         return cls.objects.create(
             created_by=user,
             action=action,
+            category=category,
             model_name=model_name,
             model_key=(str(model_key).strip().lower() or None) if model_key else None,
             object_id=object_id,
@@ -935,6 +1327,14 @@ class UserActivityLog(ScopedModel):
             'related_object': related_object,
             'related_object_model': related_object._meta.verbose_name if related_object else (self.model_name or "-"),
         }
+
+
+# Backward-compatible alias: the model was renamed UserActivityLog -> ActivityLog.
+# Keeps `from dlux.models import UserActivityLog` and dlux.models.UserActivityLog.* working.
+# NOTE: apps.get_model('dlux', 'ActivityLog') does NOT follow this alias — those string
+# lookups were updated to 'ActivityLog'.
+UserActivityLog = ActivityLog
+
 
 class TranslationMixin:
     """

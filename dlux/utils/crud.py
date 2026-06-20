@@ -233,6 +233,42 @@ def _build_generic_detail_context(instance, request=None):
         except Exception:
             pass
 
+    try:
+        from dlux.models import SystemSettings, _SYSTEM_SETTINGS_FLAT_CONFIG_FIELDS
+    except Exception:
+        SystemSettings = None
+        _SYSTEM_SETTINGS_FLAT_CONFIG_FIELDS = {}
+
+    if SystemSettings is not None and isinstance(instance, SystemSettings):
+        concrete_field_names = {field.name for field in instance._meta.get_fields() if getattr(field, 'concrete', False)}
+
+        class _CompatField:
+            many_to_many = False
+            choices = ()
+
+            def __init__(self, name):
+                self.name = name
+                self.verbose_name = name.replace('_', ' ')
+
+        for field_name in _SYSTEM_SETTINGS_FLAT_CONFIG_FIELDS:
+            if field_name in exclude_fields or field_name in concrete_field_names:
+                continue
+            try:
+                field = _CompatField(field_name)
+                value = getattr(instance, field_name, None)
+                if isinstance(value, bool):
+                    value = f'<i class="bi bi-check-circle-fill text-success"></i>' if value else f'<i class="bi bi-x-circle text-danger"></i>'
+                elif value is None or value == "":
+                    value = "-"
+                label = resolve_detail_field_label(instance, field, request=request, strings=s)
+                fields_data.append({
+                    'label': str(label).capitalize(),
+                    'value': value,
+                    'is_html': isinstance(value, str) and ('<a' in value or '<i' in value)
+                })
+            except Exception:
+                pass
+
     return fields_data
 
 # Generic Detail - Function resolves translated labels for detail fields.

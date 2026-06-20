@@ -5,6 +5,7 @@ Split from the original ``dlux/utils.py`` (kept intact, inert).
 import base64
 import hashlib
 import json
+import logging
 import os
 import re
 from copy import deepcopy
@@ -25,6 +26,7 @@ from django.forms import modelform_factory
 from django.http import JsonResponse
 from django.core.mail import EmailMessage, get_connection, send_mail
 from django.core.exceptions import FieldDoesNotExist
+from django.db.utils import OperationalError, ProgrammingError
 from django.utils.module_loading import import_string
 from ..constants import (
     DEFAULT_HOME_URL,
@@ -45,8 +47,30 @@ from ..constants import (
     TITLEBAR_LOGO_TREATMENT_VALUES,
     TITLEBAR_SIZE_VALUES,
     TITLEBAR_SURFACE_VALUES,
+    TITLEBAR_ACTIONS_ORDER,
+    TITLEBAR_ACTIONS_ORDER_VALUES,
+    TITLEBAR_USER_HUB_STYLE_DROPDOWN,
+    TITLEBAR_USER_HUB_STYLE_VALUES,
 )
 from ..fonts import DEFAULT_FONT_SLUG, get_builtin_fonts
+from ..notification_defaults import default_notification_config, normalize_notification_config
+from ..system_settings_defaults import (
+    default_auth_config as _default_auth_config,
+    default_client_ip_config as _default_client_ip_config,
+    default_email_config as _default_email_config,
+    default_extra_config as _default_extra_config,
+    default_language_config as _default_language_config,
+    default_layout_config as _default_layout_config,
+    default_login_config as _default_login_config,
+    default_navbar_config as _default_navbar_config,
+    default_public_root_config as _default_public_root_config,
+    default_registration_config as _default_registration_config,
+    default_theme_config as _default_theme_config,
+    default_titlebar_config as _default_titlebar_config,
+    default_typography_config as _default_typography_config,
+    default_log_config as _default_log_config,
+    default_profile_config as _default_profile_config,
+)
 from ..themes import is_valid_theme, normalize_allowed_themes
 from ..translations import get_current_language_code, get_strings
 # try-except for django_filters as it might not be installed (though likely is)
@@ -54,6 +78,25 @@ try:
     import django_filters
 except ImportError:
     django_filters = None
+
+logger = logging.getLogger('dlux')
+
+
+def _system_config_db_unavailable_error(exc):
+    """Return True for expected startup/test cases where config DB cannot be read yet."""
+    if exc.__class__.__name__ == 'DatabaseOperationForbidden':
+        return True
+    if isinstance(exc, (OperationalError, ProgrammingError)):
+        message = str(exc).lower()
+        return any(
+            fragment in message
+            for fragment in (
+                'no such table',
+                'does not exist',
+                'undefined table',
+            )
+        )
+    return False
 
 # ── intra-package imports (shared + feature deps) ──
 from .common import DEFAULT_LANGUAGE_CATALOG, _coerce_import_bool, _normalize_asset_url
@@ -89,26 +132,11 @@ CLIENT_IP_MODE_VALUES = {
 
 # Email Config - Function returns the default outbound email configuration.
 def default_email_config():
-    return {
-        'transport': 'direct',
-        'secret_storage': 'env',
-        'host': '',
-        'port': 587,
-        'use_tls': True,
-        'use_ssl': False,
-        'username': '',
-        'default_from_email': '',
-        'encrypted_password': '',
-        'password_configured': False,
-    }
+    return _default_email_config()
 
 # Client IP - Function returns the default client address resolution policy.
 def default_client_ip_config():
-    return {
-        'mode': CLIENT_IP_MODE_X_FORWARDED_FOR,
-        'trusted_proxy_hops': 1,
-        'custom_header': '',
-    }
+    return _default_client_ip_config()
 
 # Client IP - Helper converts custom proxy headers to Django META keys.
 def _normalize_client_ip_header_name(value):
@@ -314,6 +342,8 @@ def build_config_groups(config, current_language=None):
                 REGISTRATION_ACTIVATION_AUTO_LOGIN,
             ),
             'registration_throttle_enabled': bool(config.get('registration_throttle_enabled', True)),
+            'login_lockout_enabled': bool(config.get('login_lockout_enabled', True)),
+            'enforce_strong_passwords': bool(config.get('enforce_strong_passwords', False)),
         },
         'navigation': {
             'home_url': config.get('home_url') or DEFAULT_HOME_URL,
@@ -337,19 +367,23 @@ def build_config_groups(config, current_language=None):
 
 # Titlebar Config - Function returns default titlebar behavior.
 def default_titlebar_config():
-    return {
-        'show_title': True,
-        'show_logo': True,
-        'show_home_button': True,
-        'hide_on_public_unauthenticated_index': False,
-        'home_shape': 'circle',
-        'title_align': 'start',
-        'title_size': 'md',
-        'height': 'balanced',
-        'surface': 'default',
-        'logo_treatment': 'none',
-        'logo_treatment_shape': 'soft',
-    }
+    return _default_titlebar_config()
+
+# Titlebar Config - Function returns a sanitized right-side action order.
+def normalize_titlebar_actions_order(value):
+    if not isinstance(value, (list, tuple)):
+        value = []
+    normalized = []
+    seen = set()
+    for item in value:
+        action_key = str(item or '').strip()
+        if action_key in TITLEBAR_ACTIONS_ORDER_VALUES and action_key not in seen:
+            normalized.append(action_key)
+            seen.add(action_key)
+    for action_key in TITLEBAR_ACTIONS_ORDER:
+        if action_key not in seen:
+            normalized.append(action_key)
+    return normalized
 
 # Titlebar Config - Function validates titlebar display settings.
 def normalize_titlebar_config(titlebar_config):
@@ -365,9 +399,10 @@ def normalize_titlebar_config(titlebar_config):
         )
     )
 
-    home_shape = config.get('home_shape')
-    if home_shape in TITLEBAR_HOME_SHAPE_VALUES:
-        normalized['home_shape'] = home_shape
+    buttons_shape = config.get('buttons_shape', config.get('home_shape'))
+    if buttons_shape in TITLEBAR_HOME_SHAPE_VALUES:
+        normalized['buttons_shape'] = buttons_shape
+        normalized['home_shape'] = buttons_shape
 
     title_align = config.get('title_align')
     if title_align in TITLEBAR_ALIGN_VALUES:
@@ -393,20 +428,159 @@ def normalize_titlebar_config(titlebar_config):
     if logo_treatment_shape in TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES:
         normalized['logo_treatment_shape'] = logo_treatment_shape
 
+    user_hub_style = config.get('user_hub_style')
+    if user_hub_style in TITLEBAR_USER_HUB_STYLE_VALUES:
+        normalized['user_hub_style'] = user_hub_style
+
+    normalized['actions_order'] = normalize_titlebar_actions_order(config.get('actions_order'))
+
     return normalized
 
 LOGIN_STYLE_VALUES = {'split', 'centered', 'minimal', 'fullpage'}
 
 # Login Config - Function returns default public login/register page settings.
 def default_login_config():
+    return _default_login_config()
+
+
+# Auth Config - Default authentication/session-security policy.
+def default_auth_config():
+    return _default_auth_config()
+
+
+# Auth Config - Function coerces the consolidated auth/session toggles to booleans.
+def normalize_auth_config(value):
+    cfg = value if isinstance(value, dict) else {}
     return {
-        'style': 'split',
-        'show_logo': True,
-        'banner_color': '',
-        'logo_treatment': 'none',
-        'logo_treatment_shape': 'soft',
-        'hero_message': '',
+        'email_2fa': bool(cfg.get('email_2fa', False)),
+        'prevent_multiple_active_sessions': bool(cfg.get('prevent_multiple_active_sessions', False)),
+        'login_lockout_enabled': bool(cfg.get('login_lockout_enabled', True)),
+        'enforce_strong_passwords': bool(cfg.get('enforce_strong_passwords', False)),
     }
+
+
+def default_registration_config():
+    return _default_registration_config()
+
+
+def normalize_registration_config(value):
+    cfg = value if isinstance(value, dict) else {}
+    activation_mode = cfg.get('registration_activation_mode') or REGISTRATION_ACTIVATION_AUTO_LOGIN
+    if activation_mode not in REGISTRATION_ACTIVATION_VALUES:
+        activation_mode = REGISTRATION_ACTIVATION_AUTO_LOGIN
+    return {
+        'public_registration_enabled': bool(cfg.get('public_registration_enabled', False)),
+        'registration_activation_mode': activation_mode,
+        'registration_throttle_enabled': bool(cfg.get('registration_throttle_enabled', True)),
+    }
+
+
+def default_public_root_config():
+    return _default_public_root_config()
+
+
+def normalize_public_root_config(value):
+    cfg = value if isinstance(value, dict) else {}
+    public_root = bool(cfg.get('public_root', False))
+    split_enabled = bool(cfg.get('public_root_split_enabled', False))
+    return {
+        'public_root': public_root,
+        'public_root_split_enabled': split_enabled,
+        'public_root_url': str(cfg.get('public_root_url') or '').strip(),
+    }
+
+
+def default_layout_config():
+    return _default_layout_config()
+
+
+def normalize_layout_config(value):
+    cfg = value if isinstance(value, dict) else {}
+    density = cfg.get('default_table_density') or DEFAULT_TABLE_DENSITY
+    if density not in TABLE_DENSITY_VALUES:
+        density = DEFAULT_TABLE_DENSITY
+    return {
+        'default_table_density': density,
+    }
+
+
+def default_language_config():
+    return _default_language_config()
+
+
+def normalize_language_config(value):
+    cfg = value if isinstance(value, dict) else {}
+    translations_override = cfg.get('translations_override', {})
+    if not isinstance(translations_override, dict):
+        translations_override = {}
+    cleaned_translations = {}
+    for lang, values in translations_override.items():
+        if not isinstance(values, dict):
+            continue
+        lang_code = _normalize_language_code(lang)
+        if not lang_code:
+            continue
+        lang_values = {
+            str(key): str(text or '').strip()
+            for key, text in values.items()
+            if str(key or '').strip() and str(text or '').strip()
+        }
+        if lang_values:
+            cleaned_translations[lang_code] = lang_values
+    return {
+        'languages': normalize_language_catalog(cfg.get('languages', {})),
+        'translations_override': cleaned_translations,
+        'allow_user_language_override': bool(cfg.get('allow_user_language_override', True)),
+    }
+
+
+def default_theme_config():
+    return _default_theme_config()
+
+
+def normalize_theme_config(value):
+    cfg = value if isinstance(value, dict) else {}
+    return {
+        'allowed_themes': list(normalize_allowed_themes(cfg.get('allowed_themes'))),
+        'allow_user_theme_override': bool(cfg.get('allow_user_theme_override', True)),
+    }
+
+
+def default_typography_config():
+    return _default_typography_config()
+
+
+def normalize_typography_config(value):
+    cfg = value if isinstance(value, dict) else {}
+    allowed_fonts = list(normalize_allowed_fonts(cfg.get('allowed_fonts')))
+    return {
+        'allowed_fonts': allowed_fonts,
+        'default_fonts': normalize_default_fonts(cfg.get('default_fonts'), allowed_fonts=allowed_fonts),
+        'allow_user_font_override': bool(cfg.get('allow_user_font_override', True)),
+    }
+
+
+def default_extra_config():
+    return _default_extra_config()
+
+
+def normalize_extra_config(value):
+    return dict(value) if isinstance(value, dict) else {}
+
+
+_CONFIG_GROUP_FLAT_KEYS = {
+    'auth_config': ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled', 'enforce_strong_passwords'),
+    'registration_config': (
+        'public_registration_enabled',
+        'registration_activation_mode',
+        'registration_throttle_enabled',
+    ),
+    'public_root_config': ('public_root', 'public_root_split_enabled', 'public_root_url'),
+    'layout_config': ('default_table_density',),
+    'language_config': ('languages', 'translations_override', 'allow_user_language_override'),
+    'theme_config': ('allowed_themes', 'allow_user_theme_override'),
+    'typography_config': ('allowed_fonts', 'default_fonts', 'allow_user_font_override'),
+}
 
 # Login Config - Function validates login page branding and registration settings.
 def normalize_login_config(value):
@@ -436,6 +610,215 @@ def normalize_login_config(value):
         # Legacy plain string — store as-is for backwards compatibility
         normalized['hero_message'] = str(raw_hero or '').strip()
     return normalized
+
+
+def default_log_config():
+    return _default_log_config()
+
+
+_LOG_ACTION_KEYS = ('create', 'update', 'delete')
+
+
+def _normalize_log_section(value, defaults):
+    """Normalize a user/system log section: enabled, default_actions, retention_days, models."""
+    section = value if isinstance(value, dict) else {}
+    out = {
+        'enabled': bool(section.get('enabled', defaults['enabled'])),
+        'default_actions': {},
+        'retention_days': 0,
+        'models': {},
+    }
+    base_actions = defaults['default_actions']
+    raw_actions = section.get('default_actions') if isinstance(section.get('default_actions'), dict) else {}
+    for key in _LOG_ACTION_KEYS:
+        out['default_actions'][key] = bool(raw_actions.get(key, base_actions.get(key, True)))
+
+    try:
+        out['retention_days'] = max(0, int(section.get('retention_days', 0) or 0))
+    except (TypeError, ValueError):
+        out['retention_days'] = 0
+
+    raw_models = section.get('models') if isinstance(section.get('models'), dict) else {}
+    for raw_key, raw_override in raw_models.items():
+        key = str(raw_key or '').strip().lower()
+        if not key or '.' not in key or not isinstance(raw_override, dict):
+            continue
+        entry = {'enabled': bool(raw_override.get('enabled', True))}
+        raw_entry_actions = raw_override.get('actions') if isinstance(raw_override.get('actions'), dict) else {}
+        actions = {}
+        for act_key, act_val in raw_entry_actions.items():
+            norm_act = str(act_key or '').strip().lower()
+            if norm_act:
+                actions[norm_act] = bool(act_val)
+        if actions:
+            entry['actions'] = actions
+        out['models'][key] = entry
+    return out
+
+
+# Logging Config - Function validates user/system/audit activity-logging policy.
+def normalize_log_config(value):
+    config = value if isinstance(value, dict) else {}
+    defaults = default_log_config()
+    normalized = {
+        'enabled': bool(config.get('enabled', True)),
+        'user': _normalize_log_section(config.get('user'), defaults['user']),
+        'system': _normalize_log_section(config.get('system'), defaults['system']),
+        'audit': {},
+    }
+
+    audit_in = config.get('audit') if isinstance(config.get('audit'), dict) else {}
+    audit_defaults = defaults['audit']
+    audit = {
+        # Audit is privileged: always enabled and immutable, never silently disabled.
+        'enabled': True,
+        'immutable': True,
+        'retention_days': 0,
+        'events': {},
+    }
+    try:
+        audit['retention_days'] = max(0, int(audit_in.get('retention_days', 0) or 0))
+    except (TypeError, ValueError):
+        audit['retention_days'] = 0
+    raw_events = audit_in.get('events') if isinstance(audit_in.get('events'), dict) else {}
+    for event_key, default_on in audit_defaults['events'].items():
+        audit['events'][event_key] = bool(raw_events.get(event_key, default_on))
+    normalized['audit'] = audit
+    return normalized
+
+
+def default_profile_config():
+    return _default_profile_config()
+
+
+# Profile Config - Function validates the profile-page + onboarding experience settings.
+def normalize_profile_config(value):
+    from ..constants import DEFAULT_SECURITY_NUDGE, SECURITY_NUDGE_VALUES
+    config = value if isinstance(value, dict) else {}
+    defaults = default_profile_config()
+    normalized = {
+        'show_completion_widget': bool(config.get('show_completion_widget', defaults['show_completion_widget'])),
+        'show_session_device_cards': bool(config.get('show_session_device_cards', defaults['show_session_device_cards'])),
+        'show_activity_feed': bool(config.get('show_activity_feed', defaults['show_activity_feed'])),
+        'security_nudges': DEFAULT_SECURITY_NUDGE,
+        'allow_user_home_url': bool(config.get('allow_user_home_url', defaults['allow_user_home_url'])),
+        'onboarding_enabled': bool(config.get('onboarding_enabled', defaults['onboarding_enabled'])),
+        'onboarding_options': {},
+    }
+    nudge = config.get('security_nudges')
+    if nudge in SECURITY_NUDGE_VALUES:
+        normalized['security_nudges'] = nudge
+    raw_options = config.get('onboarding_options') if isinstance(config.get('onboarding_options'), dict) else {}
+    for key, default_on in defaults['onboarding_options'].items():
+        normalized['onboarding_options'][key] = bool(raw_options.get(key, default_on))
+    return normalized
+
+
+def resolve_user_home_url(user, config=None):
+    """Return the user's per-user landing page (``Profile.preferences['user_home_url']``)
+    when ``profile_config.allow_user_home_url`` is enabled, else ''. Safe/never raises."""
+    try:
+        if config is None:
+            config = get_system_config()
+        profile_config = config.get('profile_config') or {}
+        if not profile_config.get('allow_user_home_url'):
+            return ''
+        profile = getattr(user, 'profile', None)
+        prefs = getattr(profile, 'preferences', None) if profile is not None else None
+        if isinstance(prefs, dict):
+            return str(prefs.get('user_home_url') or '').strip()
+    except Exception:
+        pass
+    return ''
+
+
+_CONFIG_GROUP_NORMALIZERS = {
+    'auth_config': normalize_auth_config,
+    'registration_config': normalize_registration_config,
+    'public_root_config': normalize_public_root_config,
+    'layout_config': normalize_layout_config,
+    'language_config': normalize_language_config,
+    'theme_config': normalize_theme_config,
+    'typography_config': normalize_typography_config,
+    'client_ip_config': normalize_client_ip_config,
+    'email_config': normalize_email_config,
+    'notification_config': normalize_notification_config,
+    'login_config': normalize_login_config,
+    'titlebar_config': normalize_titlebar_config,
+    'navbar_config': normalize_navbar_config,
+    'sidebar_config': normalize_sidebar_behavior,
+    'log_config': normalize_log_config,
+    'profile_config': normalize_profile_config,
+    'extra_config': normalize_extra_config,
+}
+
+
+def expand_system_config_groups(config):
+    """Return config with nested group aliases normalized and flattened.
+
+    Existing flat keys remain authoritative when both flat and nested keys are
+    present. This keeps the public settings contract stable while allowing the
+    storage model to use grouped JSON fields.
+    """
+    if not isinstance(config, dict):
+        return {}
+    expanded = deepcopy(config)
+    alias_map = {
+        'notifications': 'notification_config',
+        'login': 'login_config',
+        'titlebar': 'titlebar_config',
+        'navbar': 'navbar_config',
+        'sidebar': 'sidebar_config',
+        'client_ip': 'client_ip_config',
+        'log': 'log_config',
+        'logging': 'log_config',
+        'profile': 'profile_config',
+    }
+    for alias, canonical in alias_map.items():
+        if canonical not in expanded and isinstance(expanded.get(alias), dict):
+            expanded[canonical] = deepcopy(expanded[alias])
+    for group_name, flat_keys in _CONFIG_GROUP_FLAT_KEYS.items():
+        if group_name not in expanded and not any(flat_key in expanded for flat_key in flat_keys):
+            continue
+        group = deepcopy(expanded.get(group_name, {})) if isinstance(expanded.get(group_name), dict) else {}
+        for flat_key in flat_keys:
+            if flat_key in expanded:
+                group[flat_key] = expanded[flat_key]
+        normalized = _CONFIG_GROUP_NORMALIZERS[group_name](group)
+        expanded[group_name] = normalized
+        for flat_key in flat_keys:
+            if flat_key not in expanded and flat_key in normalized:
+                expanded[flat_key] = normalized[flat_key]
+    for group_name in (
+        'client_ip_config',
+        'email_config',
+        'notification_config',
+        'login_config',
+        'titlebar_config',
+        'navbar_config',
+        'sidebar_config',
+        'log_config',
+        'profile_config',
+        'extra_config',
+    ):
+        if group_name in expanded:
+            expanded[group_name] = _CONFIG_GROUP_NORMALIZERS[group_name](expanded[group_name])
+    canonical_aliases = {
+        'client_ip_config': 'client_ip',
+        'notification_config': 'notifications',
+        'login_config': 'login',
+        'titlebar_config': 'titlebar',
+        'navbar_config': 'navbar',
+        'sidebar_config': 'sidebar',
+        'log_config': 'log',
+        'profile_config': 'profile',
+    }
+    for canonical, alias in canonical_aliases.items():
+        if alias not in expanded and canonical in expanded:
+            expanded[alias] = deepcopy(expanded[canonical])
+    if 'translations' not in expanded and 'translations_override' in expanded:
+        expanded['translations'] = deepcopy(expanded['translations_override'])
+    return expanded
 
 # Theme Config - Function resolves the allowed theme set with default protection.
 def get_effective_allowed_themes(config):
@@ -507,6 +890,25 @@ def get_system_config():
         'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
         'prevent_multiple_active_sessions': False,
+        'login_lockout_enabled': True,
+        'enforce_strong_passwords': False,
+        'auth_config': default_auth_config(),
+        'email_config': default_email_config(),
+        'registration_config': default_registration_config(),
+        'public_root_config': default_public_root_config(),
+        'client_ip_config': default_client_ip_config(),
+        'notification_config': default_notification_config(),
+        'layout_config': default_layout_config(),
+        'language_config': default_language_config(),
+        'theme_config': default_theme_config(),
+        'typography_config': default_typography_config(),
+        'login_config': default_login_config(),
+        'titlebar_config': default_titlebar_config(),
+        'sidebar_config': default_sidebar_config(),
+        'navbar_config': default_navbar_config(),
+        'log_config': default_log_config(),
+        'profile_config': default_profile_config(),
+        'extra_config': default_extra_config(),
         'client_ip': default_client_ip_config(),
         'login': default_login_config(),
         'public_root': False,
@@ -515,7 +917,7 @@ def get_system_config():
         'public_registration_enabled': False,
         'registration_activation_mode': REGISTRATION_ACTIVATION_AUTO_LOGIN,
         'registration_throttle_enabled': True,
-        'email_config': default_email_config(),
+        'notifications': default_notification_config(),
         'languages': deepcopy(DEFAULT_LANGUAGE_CATALOG),
         'translations': {},
         'sidebar': default_sidebar_config(),
@@ -528,6 +930,8 @@ def get_system_config():
     user_config = getattr(settings, 'DLUX_CONFIG', {})
     if not isinstance(user_config, dict):
         user_config = {}
+    default_config = expand_system_config_groups(default_config)
+    user_config = expand_system_config_groups(user_config)
     
     # DB settings
     db_config = {}
@@ -609,6 +1013,7 @@ def get_system_config():
         if isinstance(sys_settings.languages, dict) and sys_settings.languages:
             db_config['languages'] = sys_settings.languages
         if isinstance(sys_settings.translations_override, dict) and sys_settings.translations_override:
+            db_config['translations_override'] = sys_settings.translations_override
             db_config['translations'] = sys_settings.translations_override
         if isinstance(getattr(sys_settings, 'sidebar_config', None), dict) and sys_settings.sidebar_config:
             db_config['sidebar'] = sys_settings.sidebar_config
@@ -627,21 +1032,32 @@ def get_system_config():
             db_config['titlebar'] = sys_settings.titlebar_config
         if isinstance(getattr(sys_settings, 'login_config', None), dict) and sys_settings.login_config:
             db_config['login'] = sys_settings.login_config
+        if hasattr(sys_settings, 'notification_config'):
+            notification_config = normalize_notification_config(getattr(sys_settings, 'notification_config', None) or {})
+            if _should_apply_db_override(notification_config, default_config['notifications']):
+                db_config['notifications'] = notification_config
+        if hasattr(sys_settings, 'log_config'):
+            log_config = normalize_log_config(getattr(sys_settings, 'log_config', None) or {})
+            if _should_apply_db_override(log_config, default_config['log_config']):
+                db_config['log_config'] = log_config
+                db_config['log'] = log_config
+        if hasattr(sys_settings, 'profile_config'):
+            profile_config = normalize_profile_config(getattr(sys_settings, 'profile_config', None) or {})
+            if _should_apply_db_override(profile_config, default_config['profile_config']):
+                db_config['profile_config'] = profile_config
+                db_config['profile'] = profile_config
         if system_is_configured:
             db_config['is_configured'] = True
-        if (
-            hasattr(sys_settings, 'email_2fa')
-            and _should_apply_db_override(bool(sys_settings.email_2fa), default_config['email_2fa'])
-        ):
-            db_config['email_2fa'] = bool(sys_settings.email_2fa)
-        if (
-            hasattr(sys_settings, 'prevent_multiple_active_sessions')
-            and _should_apply_db_override(
-                bool(sys_settings.prevent_multiple_active_sessions),
-                default_config['prevent_multiple_active_sessions'],
-            )
-        ):
-            db_config['prevent_multiple_active_sessions'] = bool(sys_settings.prevent_multiple_active_sessions)
+        # Authentication/session toggles live in the consolidated auth_config JSON
+        # field. We flatten them back to top-level config keys so every existing
+        # read site (`config.get('email_2fa')`, etc.) keeps working unchanged.
+        if hasattr(sys_settings, 'auth_config'):
+            auth_config = normalize_auth_config(getattr(sys_settings, 'auth_config', None) or {})
+            if _should_apply_db_override(auth_config, default_config['auth_config']):
+                db_config['auth_config'] = auth_config
+            for auth_key in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled'):
+                if _should_apply_db_override(bool(auth_config.get(auth_key)), default_config[auth_key]):
+                    db_config[auth_key] = bool(auth_config.get(auth_key))
         client_ip_config = normalize_client_ip_config(getattr(sys_settings, 'client_ip_config', {}))
         if _should_apply_db_override(client_ip_config, default_config['client_ip']):
             db_config['client_ip'] = client_ip_config
@@ -704,13 +1120,44 @@ def get_system_config():
         if isinstance(getattr(sys_settings, 'default_fonts', None), dict) and sys_settings.default_fonts:
             db_config['default_fonts'] = sys_settings.default_fonts
 
+        allow_user_font_override = bool(getattr(sys_settings, 'allow_user_font_override', True))
         if _should_apply_db_override(
-            bool(getattr(sys_settings, 'allow_user_font_override', True)),
+            allow_user_font_override,
             default_config['allow_user_font_override'],
         ):
-            db_config['allow_user_font_override'] = bool(sys_settings.allow_user_font_override)
-    except Exception:
-        pass
+            db_config['allow_user_font_override'] = allow_user_font_override
+        if isinstance(getattr(sys_settings, 'extra_config', None), dict) and sys_settings.extra_config:
+            db_config['extra_config'] = normalize_extra_config(sys_settings.extra_config)
+    except Exception as exc:
+        if _system_config_db_unavailable_error(exc):
+            logger.debug(
+                "SystemSettings are unavailable while building system config; using defaults."
+            )
+        else:
+            logger.warning(
+                "Failed to read SystemSettings while building system config; using defaults for the failed fields.",
+                exc_info=True,
+            )
+
+    # Safety net: a failure while *reading* config above (e.g. an unreadable cache
+    # entry, or any error in the merge block) must never masquerade as "system not
+    # configured" — that bounces authenticated users into the setup wizard. If the
+    # persisted row says the system is configured, honor it via a direct, cache-free
+    # DB check regardless of whatever went wrong above.
+    if not db_config.get('is_configured'):
+        try:
+            from dlux.models import SystemSettings
+            if SystemSettings.objects.filter(pk=1, is_configured=True).exists():
+                db_config['is_configured'] = True
+        except Exception as exc:
+            if _system_config_db_unavailable_error(exc):
+                logger.debug(
+                    "SystemSettings are unavailable during fallback is_configured check."
+                )
+            else:
+                logger.warning("Fallback is_configured DB check failed.", exc_info=True)
+
+    db_config = expand_system_config_groups(db_config)
 
     user_sidebar = user_config.get('sidebar', {})
     if not isinstance(user_sidebar, dict):
@@ -733,11 +1180,17 @@ def get_system_config():
     db_titlebar = db_config.get('titlebar', {})
     if not isinstance(db_titlebar, dict):
         db_titlebar = {}
+    user_notifications = user_config.get('notifications', user_config.get('notification_config', {}))
+    if not isinstance(user_notifications, dict):
+        user_notifications = {}
+    db_notifications = db_config.get('notifications', db_config.get('notification_config', {}))
+    if not isinstance(db_notifications, dict):
+        db_notifications = {}
 
     final_config = deepcopy(default_config)
     for layer in (user_config, db_config):
         for key, value in layer.items():
-            if key in ['system_names', 'languages', 'translations', 'sidebar', 'navbar', 'titlebar']:
+            if key in ['system_names', 'languages', 'translations', 'sidebar', 'navbar', 'titlebar', 'notifications', 'notification_config']:
                 continue
             final_config[key] = value
 
@@ -783,6 +1236,17 @@ def get_system_config():
         for key, value in layer.items():
             merged_titlebar[key] = value
     final_config['titlebar'] = normalize_titlebar_config(merged_titlebar)
+    merged_notifications = deepcopy(default_config['notifications'])
+    for layer in (user_notifications, db_notifications):
+        if not isinstance(layer, dict):
+            continue
+        for key, value in layer.items():
+            if isinstance(value, dict) and isinstance(merged_notifications.get(key), dict):
+                merged_notifications[key].update(value)
+            else:
+                merged_notifications[key] = value
+    final_config['notifications'] = normalize_notification_config(merged_notifications)
+    final_config['notification_config'] = deepcopy(final_config['notifications'])
     merged_client_ip = deepcopy(default_config['client_ip'])
     if isinstance(user_client_ip, dict):
         merged_client_ip.update(user_client_ip)
@@ -825,6 +1289,37 @@ def get_system_config():
     final_config['public_root_url'] = str(final_config.get('public_root_url') or '').strip()
     if final_config.get('default_language') not in final_config['languages']:
         final_config['default_language'] = 'en' if 'en' in final_config['languages'] else next(iter(final_config['languages']), 'en')
+
+    auth_seed = (
+        dict(final_config.get('auth_config'))
+        if isinstance(final_config.get('auth_config'), dict)
+        else {}
+    )
+    for auth_key in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled'):
+        if auth_key in final_config:
+            auth_seed[auth_key] = final_config[auth_key]
+    final_config['auth_config'] = normalize_auth_config(auth_seed)
+    for auth_key, auth_value in final_config['auth_config'].items():
+        final_config[auth_key] = auth_value
+    final_config['registration_config'] = normalize_registration_config(final_config)
+    final_config.update(final_config['registration_config'])
+    final_config['public_root_config'] = normalize_public_root_config(final_config)
+    final_config.update(final_config['public_root_config'])
+    final_config['layout_config'] = normalize_layout_config(final_config)
+    final_config.update(final_config['layout_config'])
+    final_config['theme_config'] = normalize_theme_config(final_config)
+    final_config.update(final_config['theme_config'])
+    final_config['typography_config'] = normalize_typography_config(final_config)
+    final_config.update(final_config['typography_config'])
+    final_config['language_config'] = normalize_language_config({
+        'languages': final_config.get('languages', {}),
+        'translations_override': _merge_translation_layers(
+            user_config.get('translations_override', {}),
+            db_config.get('translations_override', {}),
+        ),
+        'allow_user_language_override': final_config.get('allow_user_language_override', True),
+    })
+    final_config['extra_config'] = normalize_extra_config(final_config.get('extra_config', {}))
 
     final_config.update(build_config_groups(final_config, final_config.get('default_language')))
 

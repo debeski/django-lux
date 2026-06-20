@@ -1,67 +1,46 @@
-"""
-Test runner that executes all dlux test modules independently.
-Run this file to run all tests at once.
-"""
-import subprocess
-import sys
 import os
+import sys
+from pathlib import Path
 
-def run_test_file(test_file):
-    """Run a single test file and return the exit code."""
-    print(f"\n{'='*70}")
-    print(f"Running {test_file}...")
-    print('='*70)
-    
-    result = subprocess.run(
-        [sys.executable, test_file],
-        cwd=os.path.dirname(os.path.dirname(__file__)),
-        capture_output=False
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+
+TEST_LABELS = [
+    'dlux.tests.test_models',
+    'dlux.tests.test_views',
+    'dlux.tests.test_api',
+    'dlux.tests.test_context_processors',
+    'dlux.tests.test_defaults_and_urls',
+    'dlux.tests.test_middleware',
+    'dlux.tests.test_notifications',
+    'dlux.tests.test_permissions_ui',
+    'dlux.tests.test_registration',
+    'dlux.tests.test_report_backup',
+    'dlux.tests.test_scaffold',
+    'dlux.tests.test_sidebar_discovery',
+    'dlux.tests.test_signals',
+    'dlux.tests.test_system_backup',
+    'dlux.tests.test_tables',
+    'dlux.tests.test_utils',
+    'dlux.tests.test_utils_discovery',
+]
+
+
+def run_all_tests(argv=None):
+    """Run the package CI suite through Django's test runner."""
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dlux.tests.settings')
+
+    from django.core.management import execute_from_command_line
+
+    args = list(argv or sys.argv[1:])
+    verbosity = []
+    if not any(arg.startswith('--verbosity') or arg == '-v' for arg in args):
+        verbosity = ['--verbosity=2']
+    execute_from_command_line(
+        [sys.argv[0], 'test', *TEST_LABELS, *verbosity, *args]
     )
-    
-    return result.returncode
-
-
-def run_all_tests():
-    """Run all dlux test files independently."""
-    test_dir = os.path.dirname(__file__)
-    test_files = [
-        'test_models.py',
-        'test_views.py',
-        'test_api.py',
-        'test_middleware.py',
-        'test_signals.py',
-        'test_utils.py',
-        'test_context_processors.py',
-        'test_scaffold.py',
-    ]
-    
-    print("="*70)
-    print("Running all dlux test files...")
-    print("="*70)
-    
-    results = {}
-    for test_file in test_files:
-        test_path = os.path.join(test_dir, test_file)
-        exit_code = run_test_file(test_path)
-        results[test_file] = exit_code
-    
-    # Print summary
-    print("\n" + "="*70)
-    print("TEST SUMMARY")
-    print("="*70)
-    
-    passed = sum(1 for code in results.values() if code == 0)
-    failed = len(results) - passed
-    
-    for test_file, exit_code in results.items():
-        status = "✓ PASSED" if exit_code == 0 else "✗ FAILED"
-        print(f"{status}: {test_file}")
-    
-    print("="*70)
-    print(f"Total: {len(results)} | Passed: {passed} | Failed: {failed}")
-    print("="*70)
-    
-    return 0 if failed == 0 else 1
+    return 0
 
 
 if __name__ == '__main__':

@@ -14,17 +14,18 @@ from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.cache import caches
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import connection
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.module_loading import import_string
 from django.utils.text import slugify
 
 from dlux import __version__
 from dlux.constants import DEFAULT_HOME_URL
+from dlux.notifications import notify
 from dlux.translations import get_current_language_code, get_strings
 from dlux.utils import (
     apply_system_settings_import,
@@ -467,10 +468,78 @@ def options_view(request):
         'current_time': server_time,
         'server_time_backend_display': server_time.strftime('%Y-%m-%d %H:%M:%S'),
     }
+    # Permission-filtered landing-page options (when the admin allows per-user landing pages).
+    profile_config = get_system_config().get('profile_config') or {}
+    if profile_config.get('allow_user_home_url'):
+        from dlux.discovery import build_user_home_url_options
+        context['user_home_url_options'] = build_user_home_url_options(
+            request.user, lang_code=get_current_language_code(request),
+        )
     if request.user.is_superuser:
         context['system_backup_summary'] = _get_system_backup_summary()
     context.update(diagnostic_context)
     return render(request, 'dlux/includes/options.html', context)
+
+
+def _debug_bool_param(request, name, default=None):
+    raw_value = request.GET.get(name)
+    if raw_value is None:
+        return default
+    return str(raw_value).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+@login_required
+def debug_notifications_view(request):
+    """DEBUG-only internal route for visually testing Dlux notifications."""
+    if not settings.DEBUG:
+        raise Http404
+    if not (request.user.is_superuser or is_global_staff(request.user)):
+        raise PermissionDenied
+
+    samples = {
+        'success': ('success', 'Dlux notification success test.'),
+        'info': ('info', 'Dlux notification info test.'),
+        'warning': ('warning', 'Dlux notification warning test.'),
+        'error': ('error', 'Dlux notification error test.'),
+    }
+    requested_level = str(request.GET.get('level') or 'all').strip().lower()
+    selected = samples.items() if requested_level == 'all' else [(requested_level, samples.get(requested_level, samples['info']))]
+    flash = _debug_bool_param(request, 'flash', None)
+    persist = _debug_bool_param(request, 'persist', None)
+    email = _debug_bool_param(request, 'email', False)
+
+    try:
+        target_url = request.build_absolute_uri(request.GET.get('target') or get_system_config().get('home_url') or DEFAULT_HOME_URL)
+    except Exception:
+        target_url = request.GET.get('target') or DEFAULT_HOME_URL
+
+    for name, (level, text) in selected:
+        notify(
+            text,
+            level=level,
+            request=request,
+            action=f'debug_notification_{name}',
+            category='debug',
+            target_url=target_url,
+            flash=flash,
+            persist=persist,
+            email=email,
+            to='actor',
+            metadata={
+                'debug': True,
+                'route': 'debug_notifications',
+                'nonce': uuid.uuid4().hex,
+            },
+        )
+
+    next_url = str(request.GET.get('next') or request.META.get('HTTP_REFERER') or '').strip()
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
+    return redirect('options_view')
 
 
 @login_required
@@ -492,21 +561,23 @@ def system_setup_view(request):
             imported_settings = load_system_settings_config_json()
         except ValueError as exc:
             logger.warning("Ignoring invalid first-launch config.json: %s", exc)
-            messages.warning(
-                request,
+            notify.warning(
                 strings.get(
                     'system_setup_config_auto_invalid',
                     'config.json could not be loaded; continue with manual setup.',
                 ),
-                fail_silently=True,
+                request=request,
+                action='system_setup_import_invalid',
+                category='system',
             )
         else:
             if imported_settings:
                 apply_system_settings_import(instance, imported_settings, mark_configured=True)
-                messages.success(
-                    request,
+                notify.success(
                     strings.get('system_setup_config_auto_loaded', 'System setup loaded from config.json.'),
-                    fail_silently=True,
+                    request=request,
+                    action='system_setup_import_loaded',
+                    category='system',
                 )
                 return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
 

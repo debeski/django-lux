@@ -13,6 +13,20 @@
         </div>
     </div>
 
+    {% if log_category_tabs %}
+    <ul class="nav nav-tabs border-0 mb-3 no-print" role="tablist">
+        {% for tab in log_category_tabs %}
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if tab.active %}active{% endif %}"
+               href="?category={{ tab.key }}" role="tab">
+                {{ tab.label }}
+                <span class="badge rounded-pill text-bg-secondary ms-1">{{ tab.count }}</span>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
     <div class="py-2 no-print">
         {% crispy filter.form %}
     </div>

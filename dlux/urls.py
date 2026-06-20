@@ -15,6 +15,7 @@ urlpatterns = [
     path('accounts/register/sent/', views.register_sent_view, name='register_sent'),
     path('accounts/register/verify/<str:token>/', views.register_verify_view, name='register_verify'),
     path('accounts/profile/', views.user_profile, name='user_profile'),
+    path('accounts/welcome/', views.initial_user_setup, name='initial_user_setup'),
     path('accounts/profile/sessions/<str:session_key>/revoke/', views.revoke_profile_session, name='revoke_profile_session'),
     path('accounts/profile/device/trust/', views.trust_current_device, name='trust_current_device'),
     path('accounts/profile/edit/<str:pk>/modal/', views.DynamicModalManagerView.as_view(
@@ -84,6 +85,7 @@ urlpatterns = [
     path('sys/scopes/toggle-auto/', views.toggle_auto_scopes, name='toggle_auto_scopes'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
+    path('sys/debug/notifications/', views.debug_notifications_view, name='debug_notifications'),
     path('sys/sections/', views.core_models_view, name='manage_sections'),
     path('sys/subsection/add/', views.add_subsection, name='add_subsection'),
     path('sys/subsection/edit/<int:pk>/', views.edit_subsection, name='edit_subsection'),
@@ -110,6 +112,12 @@ urlpatterns = [
     # preferences API
     path('sys/api/preferences/update/', api.update_preferences, name='update_preferences'),
     path('sys/api/preferences/reset/', api.reset_preferences, name='reset_preferences'),
+    # notifications API
+    path('sys/api/notifications/', api.notifications_list, name='notifications_list'),
+    path('sys/api/notifications/read-all/', api.notifications_mark_all_read, name='notifications_read_all'),
+    path('sys/api/notifications/clear-all/', api.notifications_clear_all, name='notifications_clear_all'),
+    path('sys/api/notifications/<int:pk>/read/', api.notification_mark_read, name='notification_mark_read'),
+    path('sys/api/notifications/<int:pk>/dismiss/', api.notification_dismiss, name='notification_dismiss'),
     # Dynamic Modal CRUD
     path('sys/modals/manager/<str:app_label>/<str:model_name>/<str:pk>/', views.DynamicModalManagerView.as_view(), name='modal_manager'),
     path('sys/modals/delete/<str:app_label>/<str:model_name>/<int:pk>/', views.DynamicModalDeleteView.as_view(), name='modal_delete'),

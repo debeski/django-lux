@@ -1,3 +1,7 @@
+from dlux.tests.harness import setup_test_environment
+
+setup_test_environment()
+
 from django.db import models
 from django.test import SimpleTestCase
 from django.test.utils import isolate_apps
@@ -24,7 +28,7 @@ class DiscoverSectionModelsTests(SimpleTestCase):
             def get_models():
                 return [Document]
 
-        with patch('dlux.utils.apps.get_app_config', return_value=StubAppConfig()):
+        with patch('dlux.utils.sections.apps.get_app_config', return_value=StubAppConfig()):
             section_models = discover_section_models(app_name="dlux")
 
         self.assertEqual(len(section_models), 1)

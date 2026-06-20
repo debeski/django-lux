@@ -2,54 +2,9 @@ import io
 import json
 import zipfile
 
-from django.conf import settings
+from dlux.tests.harness import setup_test_environment
 
-if not settings.configured:
-    settings.configure(
-        SECRET_KEY='dlux-test-key',
-        ALLOWED_HOSTS=['testserver', 'localhost'],
-        INSTALLED_APPS=[
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
-            'crispy_forms',
-            'crispy_bootstrap5',
-            'django_filters',
-            'django_tables2',
-            'dlux',
-        ],
-        MIDDLEWARE=[
-            'django.contrib.sessions.middleware.SessionMiddleware',
-            'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'dlux.middleware.DluxMiddleware',
-        ],
-        ROOT_URLCONF='dlux.urls',
-        TEMPLATES=[
-            {
-                'BACKEND': 'django.template.backends.django.DjangoTemplates',
-                'APP_DIRS': True,
-                'OPTIONS': {
-                    'context_processors': [
-                        'django.template.context_processors.request',
-                        'django.contrib.auth.context_processors.auth',
-                        'django.contrib.messages.context_processors.messages',
-                        'dlux.context_processors.dlux_context',
-                    ],
-                },
-            }
-        ],
-        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-        STATIC_URL='/static/',
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-        USE_TZ=True,
-        CRISPY_ALLOWED_TEMPLATE_PACKS='bootstrap5',
-        CRISPY_TEMPLATE_PACK='bootstrap5',
-    )
-
-    import django
-    django.setup()
+setup_test_environment()
 
 import tempfile
 from unittest import mock
@@ -58,6 +13,7 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.db.models.query import QuerySet
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -151,6 +107,15 @@ class DlbContainerTests(TestCase):
         self.assertLess(index['auth.group'], index['auth.user'])
         self.assertLess(index['dlux.scope'], index['dlux.profile'])
 
+    def test_system_backup_does_not_require_queryset_iterator(self):
+        """Regression: PostgreSQL server-side cursors can disappear in pooled deployments."""
+        User.objects.create_superuser('dlb-admin', 'a@example.com', 'pass12345')
+        buffer = io.BytesIO()
+        with mock.patch.object(QuerySet, 'iterator', side_effect=AssertionError('named cursor disabled')):
+            metadata, manifest = write_system_backup(buffer)
+        self.assertGreater(metadata['rows'], 0)
+        self.assertTrue(manifest['models'])
+
 
 class SystemRestoreRoundTripTests(TestCase):
     def test_full_backup_and_restore_replaces_everything(self):
@@ -162,7 +127,7 @@ class SystemRestoreRoundTripTests(TestCase):
                 worker_hash = worker.password
                 worker.profile.profile_picture.save('pic.png', ContentFile(_tiny_png()), save=True)
                 picture_name = worker.profile.profile_picture.name
-                ActivityLog = apps.get_model('dlux', 'UserActivityLog')
+                ActivityLog = apps.get_model('dlux', 'ActivityLog')
                 ActivityLog.objects.create(created_by=worker, action='CREATE', model_name='Thing')
 
                 SystemBackup = apps.get_model('dlux', 'SystemBackup')
@@ -244,6 +209,10 @@ class SystemRestoreRoundTripTests(TestCase):
 
 class SystemBackupViewTests(TestCase):
     def setUp(self):
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save(update_fields=['is_configured'])
         self.superuser = User.objects.create_superuser('boss', 'boss@example.com', 'bosspass123')
         self.staff = User.objects.create_user('staffer', 's@example.com', 'staffpass123', is_staff=True)
 

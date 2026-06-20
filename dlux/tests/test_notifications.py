@@ -1,0 +1,261 @@
+from dlux.tests.harness import setup_test_environment
+
+setup_test_environment()
+
+from django.contrib.auth import get_user_model
+from django.contrib.sessions.backends.db import SessionStore
+from django.core.cache import cache
+from django.test import Client, RequestFactory, TestCase, override_settings
+from django.urls import reverse
+
+from dlux.forms import SystemSettingsForm
+from dlux.models import DluxNotification, DluxNotificationRule, DluxNotificationState, SystemSettings
+from dlux.notifications import (
+    FLASH_SESSION_KEY,
+    clear_all_notifications,
+    dismiss_notification,
+    get_flash_notifications,
+    get_notification_context,
+    mark_notification_read,
+    notify,
+)
+
+
+User = get_user_model()
+
+
+class NotificationPipelineTests(TestCase):
+    def setUp(self):
+        cache.delete(SystemSettings.__name__)
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save()
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username='notify-user',
+            email='notify@example.com',
+            password='testpass123',
+        )
+
+    def _request(self, path='/sys/options/'):
+        request = self.factory.get(path)
+        request.user = self.user
+        request.session = SessionStore()
+        return request
+
+    def test_notify_success_creates_inbox_state_and_flash(self):
+        request = self._request()
+
+        notification = notify.success('Saved.', request=request, action='save')
+
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.level, 'success')
+        self.assertEqual(notification.action, 'save')
+        self.assertTrue(DluxNotificationState.objects.filter(notification=notification, user=self.user).exists())
+        self.assertEqual(request.session[FLASH_SESSION_KEY][0]['message'], 'Saved.')
+
+    def test_flash_queue_drains_once(self):
+        request = self._request()
+        notify.warning('Check this.', request=request, persist=False)
+
+        first = get_flash_notifications(request)
+        second = get_flash_notifications(request)
+
+        self.assertEqual(len(first), 1)
+        self.assertEqual(first[0]['level'], 'warning')
+        self.assertEqual(second, [])
+
+    def test_keyed_notifications_render_in_request_language(self):
+        request = self._request()
+        notification = notify.success(
+            request=request,
+            action='password_changed',
+            category='security',
+            message_key='msg_password_changed',
+        )
+
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.message, 'Password changed successfully!')
+        self.assertEqual(notification.metadata.get('message_key'), 'msg_password_changed')
+
+        profile = self.user.profile
+        profile.preferences = {**(profile.preferences or {}), 'language': 'ar'}
+        profile.save(update_fields=['preferences'])
+        request.session['lang'] = 'ar'
+
+        flash_items = get_flash_notifications(request)
+        drawer_items = get_notification_context(request)['items']
+
+        self.assertEqual(flash_items[0]['message'], 'تم تغيير كلمة المرور بنجاح!')
+        self.assertEqual(drawer_items[0]['message'], 'تم تغيير كلمة المرور بنجاح!')
+
+    def test_legacy_translated_notification_text_rerenders_in_request_language(self):
+        request = self._request()
+        notification = notify.success(
+            'Password changed successfully!',
+            request=request,
+            action='legacy_password_changed_en',
+            category='security',
+        )
+
+        self.assertIsNotNone(notification)
+        self.assertNotIn('message_key', notification.metadata)
+
+        profile = self.user.profile
+        profile.preferences = {**(profile.preferences or {}), 'language': 'ar'}
+        profile.save(update_fields=['preferences'])
+        request.session['lang'] = 'ar'
+
+        flash_items = get_flash_notifications(request)
+        drawer_items = get_notification_context(request)['items']
+
+        self.assertEqual(flash_items[0]['message'], 'تم تغيير كلمة المرور بنجاح!')
+        self.assertEqual(drawer_items[0]['message'], 'تم تغيير كلمة المرور بنجاح!')
+
+    def test_legacy_arabic_notification_text_rerenders_in_english(self):
+        request = self._request()
+        notification = notify.error(
+            'لا يمكنك حذف حسابك الخاص!',
+            request=request,
+            action='legacy_delete_self_ar',
+            category='users',
+        )
+
+        self.assertIsNotNone(notification)
+        self.assertNotIn('message_key', notification.metadata)
+
+        request.session['lang'] = 'en'
+        drawer_items = get_notification_context(request)['items']
+
+        self.assertEqual(drawer_items[0]['message'], 'You cannot delete your own account!')
+
+    def test_rule_can_make_matching_event_persist_without_flash(self):
+        request = self._request()
+        DluxNotificationRule.objects.create(
+            name='Quiet custom',
+            match_config={'action': 'quiet_action'},
+            delivery_config={'flash': False, 'persist': True},
+            created_by=self.user,
+            updated_by=self.user,
+        )
+
+        notification = notify('Stored only.', request=request, action='quiet_action')
+
+        self.assertIsNotNone(notification)
+        self.assertTrue(DluxNotification.objects.filter(pk=notification.pk).exists())
+        self.assertNotIn(FLASH_SESSION_KEY, request.session)
+
+    def test_mark_read_and_dismiss_helpers_only_touch_current_user_state(self):
+        request = self._request()
+        notification = notify('Read me.', request=request)
+
+        read_state = mark_notification_read(self.user, notification.pk)
+        dismissed_state = dismiss_notification(self.user, notification.pk)
+
+        self.assertIsNotNone(read_state.read_at)
+        self.assertIsNotNone(dismissed_state.dismissed_at)
+
+    def test_clear_all_notifications_api_dismisses_only_read_drawer_states(self):
+        request = self._request()
+        unread_notification = notify('First.', request=request, action='first')
+        read_notification = notify('Second.', request=request, action='second')
+        mark_notification_read(self.user, read_notification.pk)
+
+        client = Client()
+        client.force_login(self.user)
+        response = client.post(reverse('notifications_clear_all'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['updated'], 1)
+        unread_state = DluxNotificationState.objects.get(user=self.user, notification=unread_notification)
+        read_state = DluxNotificationState.objects.get(user=self.user, notification=read_notification)
+        self.assertIsNone(unread_state.dismissed_at)
+        self.assertIsNone(unread_state.read_at)
+        self.assertIsNotNone(read_state.dismissed_at)
+        self.assertIsNotNone(read_state.read_at)
+
+    def test_clear_all_notifications_helper_dismisses_read_without_touching_unread(self):
+        request = self._request()
+        unread_notification = notify('Clear helper.', request=request, action='clear_helper')
+        read_notification = notify('Keep helper.', request=request, action='keep_helper')
+        mark_notification_read(self.user, read_notification.pk)
+
+        count = clear_all_notifications(self.user)
+        unread_state = DluxNotificationState.objects.get(user=self.user, notification=unread_notification)
+        read_state = DluxNotificationState.objects.get(user=self.user, notification=read_notification)
+
+        self.assertEqual(count, 1)
+        self.assertIsNone(unread_state.read_at)
+        self.assertIsNone(unread_state.dismissed_at)
+        self.assertIsNotNone(read_state.read_at)
+        self.assertIsNotNone(read_state.dismissed_at)
+
+    def test_master_gate_off_suppresses_emit_flash_and_drawer(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.notification_config = {'enabled': False}
+        settings_obj.save()
+        cache.delete(SystemSettings.__name__)
+
+        request = self._request()
+        notification = notify.success('Gated.', request=request, action='save')
+
+        self.assertIsNone(notification)
+        self.assertFalse(DluxNotificationState.objects.filter(user=self.user).exists())
+        self.assertNotIn(FLASH_SESSION_KEY, request.session)
+        self.assertEqual(get_flash_notifications(request), [])
+        self.assertFalse(get_notification_context(request)['enabled'])
+
+
+class NotificationSettingsFormTests(TestCase):
+    def setUp(self):
+        cache.delete(SystemSettings.__name__)
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        EMAIL_HOST='',
+        EMAIL_PORT=None,
+        DEFAULT_FROM_EMAIL='',
+    )
+    def test_notification_email_toggles_disable_without_email_delivery(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.notification_config = {
+            'email': {
+                'enabled': True,
+                'default': True,
+            },
+        }
+        settings_obj.save()
+
+        form = SystemSettingsForm(instance=settings_obj)
+
+        self.assertTrue(form.fields['notification_email_enabled'].disabled)
+        self.assertTrue(form.fields['notification_email_default'].disabled)
+        self.assertFalse(form.initial['notification_email_enabled'])
+        self.assertFalse(form.initial['notification_email_default'])
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        EMAIL_HOST='smtp.example.com',
+        EMAIL_PORT=587,
+        DEFAULT_FROM_EMAIL='notify@example.com',
+    )
+    def test_notification_email_toggles_enable_when_email_delivery_is_configured(self):
+        from dlux.models import SystemSettings
+
+        form = SystemSettingsForm(instance=SystemSettings.load())
+
+        self.assertFalse(form.fields['notification_email_enabled'].disabled)
+        self.assertFalse(form.fields['notification_email_default'].disabled)
+
+    def test_master_gate_initial_reflects_config(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.notification_config = {'enabled': False}
+        settings_obj.save()
+
+        form = SystemSettingsForm(instance=settings_obj)
+
+        self.assertFalse(form.initial['notifications_enabled'])

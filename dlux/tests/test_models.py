@@ -1,54 +1,10 @@
-from django.conf import settings
+from dlux.tests.harness import setup_test_environment
 
-if not settings.configured:
-    settings.configure(
-        SECRET_KEY='dlux-test-key',
-        ALLOWED_HOSTS=['testserver', 'localhost'],
-        INSTALLED_APPS=[
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
-            'crispy_forms',
-            'crispy_bootstrap5',
-            'django_filters',
-            'django_tables2',
-            'dlux',
-        ],
-        MIDDLEWARE=[
-            'django.contrib.sessions.middleware.SessionMiddleware',
-            'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'dlux.middleware.DluxMiddleware',
-        ],
-        ROOT_URLCONF='dlux.urls',
-        TEMPLATES=[
-            {
-                'BACKEND': 'django.template.backends.django.DjangoTemplates',
-                'APP_DIRS': True,
-                'OPTIONS': {
-                    'context_processors': [
-                        'django.template.context_processors.request',
-                        'django.contrib.auth.context_processors.auth',
-                        'django.contrib.messages.context_processors.messages',
-                        'dlux.context_processors.dlux_context',
-                    ],
-                },
-            }
-        ],
-        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-        STATIC_URL='/static/',
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-        USE_TZ=True,
-        CRISPY_ALLOWED_TEMPLATE_PACKS='bootstrap5',
-        CRISPY_TEMPLATE_PACK='bootstrap5',
-    )
-
-    import django
-    django.setup()
+setup_test_environment()
 
 from django.db import models
 from django.test import TestCase, override_settings
+from django.test.utils import isolate_apps
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from dlux.constants import DEFAULT_TABLE_DENSITY
@@ -63,6 +19,37 @@ User = get_user_model()
 class SystemSettingsTests(TestCase):
     def setUp(self):
         cache.clear()
+
+    def test_system_settings_field_order_uses_json_config_groups(self):
+        """SystemSettings keeps identity columns first, then grouped JSON config fields."""
+        field_names = [field.name for field in SystemSettings._meta.fields]
+        self.assertEqual(field_names, [
+            'id',
+            'system_names',
+            'logo',
+            'favicon',
+            'default_language',
+            'default_theme',
+            'home_url',
+            'is_configured',
+            'auth_config',
+            'email_config',
+            'registration_config',
+            'public_root_config',
+            'client_ip_config',
+            'notification_config',
+            'layout_config',
+            'language_config',
+            'theme_config',
+            'typography_config',
+            'login_config',
+            'titlebar_config',
+            'sidebar_config',
+            'navbar_config',
+            'log_config',
+            'profile_config',
+            'extra_config',
+        ])
 
     def test_singleton_load_creates_instance(self):
         """Test that load() creates a singleton instance if it doesn't exist."""
@@ -85,6 +72,60 @@ class SystemSettingsTests(TestCase):
         self.assertEqual(instance.default_table_density, DEFAULT_TABLE_DENSITY)
         self.assertFalse(instance.is_configured)
 
+    def test_system_settings_flat_properties_write_grouped_json(self):
+        instance = SystemSettings.load()
+        instance.public_registration_enabled = True
+        instance.registration_activation_mode = 'verified_pending_approval'
+        instance.public_root = True
+        instance.public_root_split_enabled = True
+        instance.public_root_url = '/public/'
+        instance.default_table_density = 'roomy'
+        instance.allowed_themes = ['dark']
+        instance.allow_user_theme_override = False
+        instance.allowed_fonts = ['cairo']
+        instance.default_fonts = {'en': 'cairo'}
+        instance.allow_user_font_override = False
+        instance.languages = {'en': {'name': 'English', 'direction': 'ltr'}}
+        instance.translations_override = {'en': {'custom_key': 'Custom'}}
+        instance.allow_user_language_override = False
+        instance.save(update_fields=[
+            'public_registration_enabled',
+            'registration_activation_mode',
+            'public_root',
+            'public_root_split_enabled',
+            'public_root_url',
+            'default_table_density',
+            'allowed_themes',
+            'allow_user_theme_override',
+            'allowed_fonts',
+            'default_fonts',
+            'allow_user_font_override',
+            'languages',
+            'translations_override',
+            'allow_user_language_override',
+        ])
+
+        fresh = SystemSettings._default_manager.get(pk=instance.pk)
+        self.assertEqual(fresh.registration_config['public_registration_enabled'], True)
+        self.assertEqual(fresh.registration_config['registration_activation_mode'], 'verified_pending_approval')
+        self.assertEqual(fresh.public_root_config['public_root_url'], '/public/')
+        self.assertEqual(fresh.layout_config['default_table_density'], 'roomy')
+        self.assertEqual(fresh.theme_config['allowed_themes'], ['dark'])
+        self.assertFalse(fresh.theme_config['allow_user_theme_override'])
+        self.assertEqual(fresh.typography_config['allowed_fonts'], ['cairo'])
+        self.assertEqual(fresh.typography_config['default_fonts'], {'en': 'cairo'})
+        self.assertFalse(fresh.typography_config['allow_user_font_override'])
+        self.assertEqual(fresh.language_config['translations_override'], {'en': {'custom_key': 'Custom'}})
+        self.assertFalse(fresh.language_config['allow_user_language_override'])
+
+    def test_system_settings_legacy_update_fields_maps_to_group_owner(self):
+        instance = SystemSettings.load()
+        instance.allowed_themes = ['dark']
+        instance.save(update_fields=['allowed_themes'])
+
+        fresh = SystemSettings._default_manager.get(pk=instance.pk)
+        self.assertEqual(fresh.theme_config['allowed_themes'], ['dark'])
+
     def test_system_settings_caching(self):
         """Test that SystemSettings uses caching."""
         instance1 = SystemSettings.load()
@@ -100,6 +141,43 @@ class SystemSettingsTests(TestCase):
         instance.refresh_cache()
         cached_instance = cache.get('SystemSettings')
         self.assertEqual(cached_instance.name, 'Test System')
+
+    def test_load_survives_unreadable_cache(self):
+        """Regression: an unreadable cached singleton (e.g. an incompatible pickle
+        from an older code revision) must fall back to the DB, not raise."""
+        from unittest.mock import patch
+        instance = SystemSettings.load()
+        instance.is_configured = True
+        instance.save()
+        with patch('dlux.models.cache.get', side_effect=Exception('unpickle boom')):
+            result = SystemSettings.load()
+        self.assertEqual(result.pk, 1)
+        self.assertTrue(result.is_configured)
+
+    def test_get_system_config_keeps_configured_when_cache_unreadable(self):
+        """Regression: a cache read failure must never collapse get_system_config()
+        to is_configured=False (which would bounce users into the setup wizard)."""
+        from unittest.mock import patch
+        from dlux.utils import get_system_config
+        instance = SystemSettings.load()
+        instance.is_configured = True
+        instance.save()
+        with patch('dlux.models.cache.get', side_effect=Exception('unpickle boom')):
+            config = get_system_config()
+        self.assertTrue(config.get('is_configured'))
+
+    def test_get_system_config_safety_net_when_load_raises(self):
+        """Regression: even if SystemSettings.load() fails outright, the cache-free
+        DB safety net in get_system_config() honors a configured row."""
+        from unittest.mock import patch
+        from dlux.utils import get_system_config
+        instance = SystemSettings.load()
+        instance.is_configured = True
+        instance.save()
+        cache.clear()
+        with patch('dlux.models.SystemSettings.load', side_effect=Exception('load boom')):
+            config = get_system_config()
+        self.assertTrue(config.get('is_configured'))
 
 
 class ScopeTests(TestCase):
@@ -254,6 +332,7 @@ class ScopedModelTests(TestCase):
         )
         self.scope = Scope.objects.create(name='Test Scope')
 
+    @isolate_apps('dlux')
     def test_scoped_model_auto_populates_audit_fields(self):
         """Test that ScopedModel auto-populates audit fields."""
         from dlux.middleware import get_current_user
@@ -290,6 +369,7 @@ class ScopedModelTests(TestCase):
 
 
 class TranslationMixinTests(TestCase):
+    @isolate_apps('dlux')
     def test_translation_mixin_getattr(self):
         """Test TranslationMixin __getattr__ for field translation."""
         

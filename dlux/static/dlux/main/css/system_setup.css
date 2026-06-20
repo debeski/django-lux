@@ -220,6 +220,58 @@
   flex: 0 0 auto;
 }
 
+.dlux-titlebar-actions-order-builder {
+  min-width: 0;
+}
+
+.dlux-titlebar-actions-order-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dlux-titlebar-action-order-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--dlux-setup-item-border);
+  border-radius: 0.7rem;
+  background: var(--dlux-setup-item-bg);
+  box-shadow: var(--dlux-setup-item-shadow);
+}
+
+.dlux-titlebar-action-order-handle {
+  color: var(--dlux-setup-muted);
+  line-height: 1;
+}
+
+.dlux-titlebar-action-order-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 0.55rem;
+  color: var(--primal);
+  background: rgba(var(--primal-rgb), 0.08);
+}
+
+.dlux-titlebar-action-order-label {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dlux-titlebar-action-order-controls {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
 @media (min-width: 992px) {
   .dlux-logo-treatment-primary.dlux-logo-treatment-primary--wide {
     flex: 0 0 100%;
@@ -1063,4 +1115,16 @@
 .dlux-font-settings-option {
   position: relative;
   min-width: 120px;
+}
+
+/* ── Logging settings builder ── */
+.dlux-log-model-list {
+    max-height: 18rem;
+    overflow: auto;
+}
+.dlux-log-retention-input {
+    width: 6rem;
+}
+.dlux-log-model-row.dlux-log-row-hidden {
+    display: none !important;
 }

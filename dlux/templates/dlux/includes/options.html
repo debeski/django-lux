@@ -5,7 +5,7 @@
 
 {% block extra_head %}
     {% include "dlux/forms/assets_head.html" %}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260615e">
 {% endblock %}
 
 {% block content %}
@@ -61,6 +61,35 @@
                 </div>
             </div>
         </div>
+
+        {% if config.profile_config.allow_user_home_url %}
+        <!-- Landing Page (per-user) -->
+        <div class="dlux-options-card no-print" data-options-card="landing-page">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi bi-house-door me-2"></i> {{ DLUX_STRINGS.options_landing_page|default:"Landing page" }}</h4>
+                <p class="text-muted small mb-3">{{ DLUX_STRINGS.options_landing_page_desc|default:"Where you land after signing in. Leave on system default to use the configured home." }}</p>
+                <div class="input-group">
+                    <select class="form-select" id="options-user-home-url" data-user-home-url>
+                        <option value="">{{ DLUX_STRINGS.options_landing_page_default|default:"System default" }}</option>
+                        {% for opt in user_home_url_options %}
+                        <option value="{{ opt.value }}" {% if opt.value == user_preferences.user_home_url %}selected{% endif %}>{{ opt.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-primary" type="button" data-user-home-url-save
+                            data-saved-message="{{ DLUX_STRINGS.options_landing_page_saved|default:'Landing page saved.' }}">
+                        {{ DLUX_STRINGS.btn_save|default:"Save" }}
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         {% if show_system_diagnostics %}
         <!-- System Info Section -->
@@ -557,11 +586,38 @@
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=7"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_notifications }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_notifications_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_notifications }}. {{ DLUX_STRINGS.system_settings_notifications_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-bell-fill"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_notifications }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=8"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_appearance }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_appearance_desc }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_appearance }}. {{ DLUX_STRINGS.system_settings_appearance_desc }}">
                         <span class="dlux-system-settings-tile-icon"><i class="bi bi-brush"></i></span>
                         <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_appearance }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=9"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_logging_desc|default:'Control activity, system, and audit logging.' }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}. {{ DLUX_STRINGS.system_settings_logging_desc|default:'Control activity, system, and audit logging.' }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-journal-text"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=10"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_profile_desc|default:'Profile-page composition and first-launch user setup.' }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}. {{ DLUX_STRINGS.system_settings_profile_desc|default:'Profile-page composition and first-launch user setup.' }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-person-badge"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}</span>
                     </button>
                     <a class="dlux-system-settings-action dlux-system-settings-tile dlux-system-settings-action--secondary"
                        href="{% url 'system_settings_export' %}"
@@ -579,5 +635,5 @@
 
 {% block scripts %}
     {{ block.super }}
-    <script src="{% static 'dlux/main/js/options.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/options.js' %}?v=20260618a" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

@@ -1,6 +1,7 @@
 # Imports of the required python modules and libraries
 ######################################################
 from contextlib import contextmanager
+from datetime import timedelta
 
 from django.dispatch import receiver
 from django.db.models.signals import post_save, post_delete, pre_save
@@ -14,40 +15,87 @@ from .utils import (
     SENSITIVE_ACTIVITY_MASK,
     get_client_ip,
     is_sensitive_activity_field_name,
+    log_audit_event,
     log_user_action,
 )
+from .utils.activity_log import (
+    LOG_FORCED_EXCLUDED_MODEL_KEYS,
+    LOG_IDENTITY_MODEL_KEY,
+    get_active_log_config,
+    is_model_logging_enabled,
+    resolve_log_category,
+)
 
-# Models to exclude from activity logging (e.g., internal Django models with non-integer PKs)
-# and high-frequency operational tracking models (presence/device churn that updates every
-# few minutes and would otherwise flood the activity log).
-EXCLUDED_MODELS = [
-    'django.contrib.sessions.models.Session',
-    'dlux.models.TrustedDevice',
-    'dlux.models.UserKnownDevice',
-    'dlux.models.UserPresenceSession',
-    # Backup/restore runs log a single explicit EXPORT/RESTORE action; their
-    # status churn is not user work.
-    'dlux.models.ReportBackup',
-    'dlux.models.SystemBackup',
-    'dlux.models.SystemRestore',
-]
+# Sentinel action used for the action-independent "is this model fully enabled?" fast path
+# (skips diff capture / old-state fetch for models disabled at the master/section/model level).
+_LOG_NOOP_ACTION = '__noop__'
+
+# Rolling window for unifying a user's identity rows (User + Profile) into one "User
+# Profile" entry. A rolling window — rather than the old `created_at >=
+# now().replace(microsecond=0)` calendar-second check — eliminates the boundary bug where
+# two saves a few ms apart straddled a second and double-logged.
+_IDENTITY_MERGE_WINDOW_SECONDS = 2
+
+
+def _resolve_identity_user_pk(instance):
+    """Return the User pk this instance's changes should unify under (User or Profile),
+    else None. Cheap — reads only *_id attributes, no DB."""
+    try:
+        User = get_user_model()
+        if isinstance(instance, User):
+            return instance.pk
+        Profile = apps.get_model('dlux', 'Profile')
+        if isinstance(instance, Profile):
+            return getattr(instance, 'user_id', None)
+    except Exception:
+        pass
+    return None
+
+
+def _is_identity_model(model_cls):
+    """True for the User and dlux Profile models (logged as one unified identity entry)."""
+    try:
+        User = get_user_model()
+        Profile = apps.get_model('dlux', 'Profile')
+        return issubclass(model_cls, (User, Profile))
+    except Exception:
+        return False
+
+
+# User identity (User + Profile) is a core dlux component — logged under the 'system'
+# category and gated by the synthetic 'User accounts' toggle in the system section.
+LOG_IDENTITY_CATEGORY = 'system'
+
+
+def _model_event_allowed_fast(model_cls, log_config):
+    """Action-independent gate: master/section/model-level enabled. Identity models (User +
+    Profile) are gated by the synthetic 'User accounts' toggle under the system section."""
+    if _is_identity_model(model_cls):
+        return is_model_logging_enabled(LOG_IDENTITY_CATEGORY, LOG_IDENTITY_MODEL_KEY, _LOG_NOOP_ACTION, log_config)
+    real_key = model_cls._meta.label_lower
+    category = resolve_log_category(None, model=model_cls, model_key=real_key)
+    return is_model_logging_enabled(category, real_key, _LOG_NOOP_ACTION, log_config)
 
 @receiver(user_logged_in)
 def log_login(sender, request, user, **kwargs):
-    """Log user login actions."""
-    log_user_action(request, "LOGIN", model_name="auth")
+    """Log successful login as an audit event."""
+    log_audit_event(request, 'login_success', "LOGIN", model_name="auth")
 
 @receiver(user_logged_out)
 def log_logout(sender, request, user, **kwargs):
-    """Log user logout actions."""
-    log_user_action(request, "LOGOUT", model_name="auth")
+    """Log logout as an audit event."""
+    log_audit_event(request, 'logout', "LOGOUT", model_name="auth")
 
 @receiver(pre_save)
 def capture_original_state(sender, instance, **kwargs):
     """Capture state before save to calculate diffs."""
     # Skip log model itself
-    UserActivityLog = apps.get_model('dlux', 'UserActivityLog')
+    UserActivityLog = apps.get_model('dlux', 'ActivityLog')
     if sender == UserActivityLog:
+        return
+    # Cheap correctness-floor skip only (no config/DB load on pre_save). Full config gating
+    # happens in log_save/log_delete; capturing old state for a disabled model is harmless.
+    if sender._meta.label_lower in LOG_FORCED_EXCLUDED_MODEL_KEYS:
         return
 
     if instance.pk:
@@ -71,12 +119,8 @@ def capture_original_state(sender, instance, **kwargs):
 def log_save(sender, instance, created, **kwargs):
     """Log create and update actions for all models."""
     # Prevent infinite recursion by skipping the log model itself
-    UserActivityLog = apps.get_model('dlux', 'UserActivityLog')
+    UserActivityLog = apps.get_model('dlux', 'ActivityLog')
     if sender == UserActivityLog:
-        return
-    
-    # Skip excluded models (like Session)
-    if f"{sender.__module__}.{sender.__name__}" in EXCLUDED_MODELS:
         return
 
     # Skip if instance explicitly requests no logging
@@ -86,6 +130,12 @@ def log_save(sender, instance, created, **kwargs):
     # Get the current user from thread locals
     user = get_current_user()
     if not user or not user.is_authenticated:
+        return
+
+    # Config-driven gating (replaces the old hardcoded EXCLUDED_MODELS list). Fully-disabled
+    # models are skipped here; per-action gating happens after the action is finalized.
+    log_config = get_active_log_config()
+    if not _model_event_allowed_fast(sender, log_config):
         return
 
     update_fields = kwargs.get('update_fields')
@@ -137,27 +187,17 @@ def log_save(sender, instance, created, **kwargs):
             except Exception:
                 pass
 
-    # Normalize Model and Object ID for User/Profile unification
+    # Normalize Model and Object ID for User/Profile/satellite identity unification.
     is_user_entry = False
-    target_user_id = None
     # Stable, locale-independent key ("app_label.model_name"). Left None for the unified
-    # User/Profile entry (keyed off its "User Profile" label, which reports already exclude).
+    # identity entry (keyed off its "User Profile" label, which reports already exclude).
     model_key = None
 
-    # Use proper class checks instead of string matching
-    User = get_user_model()
-    Profile = apps.get_model('dlux', 'Profile')
-
-    if isinstance(instance, User):
+    identity_pk = _resolve_identity_user_pk(instance)
+    if identity_pk is not None:
         is_user_entry = True
-        target_user_id = instance.pk
-        model_name = "User Profile" # Logical name for both User and Profile
-        obj_id = int(instance.pk)
-    elif isinstance(instance, Profile):
-        is_user_entry = True
-        target_user_id = instance.user_id
-        model_name = "User Profile"
-        obj_id = int(instance.user_id) # Log against the User ID for unification
+        model_name = "User Profile"  # Unified logical name for User + Profile + satellites
+        obj_id = int(identity_pk)
     else:
         model_name = instance._meta.verbose_name
         model_key = instance._meta.label_lower
@@ -178,14 +218,14 @@ def log_save(sender, instance, created, **kwargs):
                 else:
                     details[field.name] = {'old': None, 'new': str(val)}
 
-    # Aggressive Grouping: Look for log in the SAME SECOND
+    # Grouping: fold this identity change into a recent unified entry within a rolling
+    # window (deterministic — no calendar-second boundary bug).
     if is_user_entry:
-        # Search for a log created by the same actor for the same target in the last 1 second
         recent_log = UserActivityLog.objects.filter(
             created_by=user,
             model_name="User Profile",
             object_id=obj_id,
-            created_at__gte=now().replace(microsecond=0) # Round to the current second
+            created_at__gte=now() - timedelta(seconds=_IDENTITY_MERGE_WINDOW_SECONDS),
         ).order_by('-created_at').first()
         
         if recent_log:
@@ -202,6 +242,16 @@ def log_save(sender, instance, created, **kwargs):
                 recent_log.save()
             return # Skip creating new log entry
 
+    # Per-action gating (action is now finalized, incl. soft-delete). Identity rows are gated
+    # by the synthetic 'User accounts' key under the system section.
+    if is_user_entry:
+        if not is_model_logging_enabled(LOG_IDENTITY_CATEGORY, LOG_IDENTITY_MODEL_KEY, action, log_config):
+            return
+    else:
+        category = resolve_log_category(action, model=type(instance), model_key=model_key)
+        if not is_model_logging_enabled(category, model_key, action, log_config):
+            return
+
     # Use string representation of the object for 'number' or reference
     try:
         obj_str = str(instance)
@@ -213,16 +263,15 @@ def log_save(sender, instance, created, **kwargs):
     ip = get_client_ip(request)
     user_agent = request.META.get("HTTP_USER_AGENT", "") if request else ""
 
-    # Determine target scope
+    # Determine target scope. For an identity entry (User/Profile/satellite) the scope may
+    # live on the instance's own `scope` (Profile/satellite) or on the related profile (User).
     scope = getattr(instance, 'scope', None)
     if not scope and is_user_entry:
-        # For User/Profile, if not directly on instance, check profile
-        if isinstance(instance, User) and hasattr(instance, 'profile'):
-            scope = instance.profile.scope
-        elif isinstance(instance, Profile):
-            scope = instance.scope # From Profile model directly
+        profile = getattr(instance, 'profile', None)
+        if profile is not None:
+            scope = getattr(profile, 'scope', None)
 
-    UserActivityLog.safe_log(
+    activity_log = UserActivityLog.safe_log(
         user=user,
         action=action,
         model_name=model_name,
@@ -233,38 +282,48 @@ def log_save(sender, instance, created, **kwargs):
         ip_address=ip,
         user_agent=user_agent,
         scope=scope,
+        category=LOG_IDENTITY_CATEGORY if is_user_entry else None,
     )
+    if hasattr(instance, 'scope') and hasattr(instance, 'created_at'):
+        try:
+            from .notifications import notify_model_event
+
+            notify_model_event(
+                instance,
+                action.lower(),
+                details=details,
+                activity_log=activity_log,
+                request=request,
+                user=user,
+            )
+        except Exception:
+            pass
 
 @receiver(post_delete)
 def log_delete(sender, instance, **kwargs):
     """Log delete actions for all models."""
-    UserActivityLog = apps.get_model('dlux', 'UserActivityLog')
+    UserActivityLog = apps.get_model('dlux', 'ActivityLog')
     if sender == UserActivityLog:
-        return
-    
-    # Skip excluded models (like Session)
-    if f"{sender.__module__}.{sender.__name__}" in EXCLUDED_MODELS:
         return
 
     user = get_current_user()
     if not user or not user.is_authenticated:
         return
 
+    log_config = get_active_log_config()
+    if not _model_event_allowed_fast(sender, log_config):
+        return
+
     action = "DELETE"
-    # Normalize Model and Object ID for User/Profile unification
+    # Normalize Model and Object ID for User/Profile/satellite identity unification.
     is_user_entry = False
     model_key = None
-    User = get_user_model()
-    Profile = apps.get_model('dlux', 'Profile')
 
-    if isinstance(instance, User):
+    identity_pk = _resolve_identity_user_pk(instance)
+    if identity_pk is not None:
         is_user_entry = True
         model_name = "User Profile"
-        obj_id = int(instance.pk)
-    elif isinstance(instance, Profile):
-        is_user_entry = True
-        model_name = "User Profile"
-        obj_id = int(instance.user_id) # Profile's User ID
+        obj_id = int(identity_pk)
     else:
         model_name = instance._meta.verbose_name
         model_key = instance._meta.label_lower
@@ -273,17 +332,26 @@ def log_delete(sender, instance, **kwargs):
         except (ValueError, TypeError):
             obj_id = None
 
-    # Aggressive Grouping for Delete as well
+    # Grouping for delete: collapse the unified identity deletion within a rolling window.
     if is_user_entry:
         recent_log = UserActivityLog.objects.filter(
             created_by=user,
             model_name="User Profile",
             action="DELETE",
             object_id=obj_id,
-            created_at__gte=now().replace(microsecond=0)
+            created_at__gte=now() - timedelta(seconds=_IDENTITY_MERGE_WINDOW_SECONDS),
         ).first()
         if recent_log:
-            return # Already logged deletion of this pair
+            return # Already logged deletion of this identity
+
+    # Per-action gating. Identity rows gated by the synthetic 'User accounts' key (system).
+    if is_user_entry:
+        if not is_model_logging_enabled(LOG_IDENTITY_CATEGORY, LOG_IDENTITY_MODEL_KEY, action, log_config):
+            return
+    else:
+        category = resolve_log_category(action, model=type(instance), model_key=model_key)
+        if not is_model_logging_enabled(category, model_key, action, log_config):
+            return
 
     try:
         obj_str = str(instance)
@@ -294,7 +362,8 @@ def log_delete(sender, instance, **kwargs):
     ip = get_client_ip(request)
     user_agent = request.META.get("HTTP_USER_AGENT", "") if request else ""
 
-    UserActivityLog.safe_log(
+    scope = getattr(instance, 'scope', None)
+    activity_log = UserActivityLog.safe_log(
         user=user,
         action=action,
         model_name=model_name,
@@ -304,7 +373,23 @@ def log_delete(sender, instance, **kwargs):
         details=None,
         ip_address=ip,
         user_agent=user_agent,
+        scope=scope,
+        category=LOG_IDENTITY_CATEGORY if is_user_entry else None,
     )
+    if hasattr(instance, 'scope') and hasattr(instance, 'created_at'):
+        try:
+            from .notifications import notify_model_event
+
+            notify_model_event(
+                instance,
+                action.lower(),
+                details=None,
+                activity_log=activity_log,
+                request=request,
+                user=user,
+            )
+        except Exception:
+            pass
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_user_profile(sender, instance, created, **kwargs):
@@ -416,12 +501,13 @@ def suspend_dlux_signals():
     auto-created Profiles/linked profiles colliding with the Profile rows that
     are part of the backup itself.
     """
+    User = get_user_model()
     pairs = [
         (pre_save, capture_original_state, None),
         (post_save, log_save, None),
         (post_delete, log_delete, None),
-        (post_save, create_user_profile, settings.AUTH_USER_MODEL),
-        (post_save, create_user_connected_profiles, settings.AUTH_USER_MODEL),
+        (post_save, create_user_profile, User),
+        (post_save, create_user_connected_profiles, User),
     ]
     disconnected = []
     for signal, handler, sender in pairs:

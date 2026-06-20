@@ -1,8 +1,7 @@
 name: CI
 
-# Green-checkmark gate: runs the self-contained test modules on every push/PR to
-# main. This does NOT block releases (release.yml is independent) — once the
-# suite is consolidated you can make this a required check via branch protection.
+# Green-checkmark gate: runs the curated package Django test suite on every
+# push/PR to main. Releases still run independently through release.yml.
 
 on:
   push:
@@ -33,22 +32,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
-      - name: Run self-contained test modules
+      - name: Run package Django test suite
         run: |
-          set -e
-          # These modules call settings.configure() themselves and need no host
-          # project. Excluded on purpose:
-          #   test_m2m / test_scaffold / verify_detailed_logs -> need an external
-          #     project's DJANGO_SETTINGS_MODULE (xPy.settings)
-          #   test_defaults_and_urls -> known harness issue (see tracker)
-          tests=(
-            test_models test_views test_api test_context_processors
-            test_middleware test_permissions_ui test_registration
-            test_sidebar_discovery test_signals test_tables test_utils
-            test_report_backup test_system_backup
-          )
-          for t in "${tests[@]}"; do
-            echo "::group::$t"
-            python "dlux/tests/$t.py"
-            echo "::endgroup::"
-          done
+          python dlux/tests/test_all.py

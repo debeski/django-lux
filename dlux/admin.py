@@ -8,7 +8,7 @@ from django.apps import apps
 
 User = get_user_model()
 
-UserActivityLog = apps.get_model('dlux', 'UserActivityLog')
+UserActivityLog = apps.get_model('dlux', 'ActivityLog')
 Scope = apps.get_model('dlux', 'Scope')
 
 class CustomUserAdmin(UserAdmin):
@@ -22,10 +22,10 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(UserActivityLog)
 class UserActivityLogAdmin(admin.ModelAdmin):
-    list_display = ('created_by', 'action', 'model_name', 'object_id', 'created_at', 'ip_address')
-    list_filter = ('action', 'model_name', 'created_at')
+    list_display = ('created_by', 'category', 'action', 'model_name', 'object_id', 'created_at', 'ip_address')
+    list_filter = ('category', 'action', 'model_name', 'created_at')
     search_fields = ('created_by__username', 'model_name', 'object_id', 'ip_address')
-    readonly_fields = ('created_by', 'action', 'model_name', 'object_id', 'number', 'ip_address', 'user_agent', 'created_at')
+    readonly_fields = ('created_by', 'category', 'action', 'model_name', 'object_id', 'number', 'ip_address', 'user_agent', 'created_at')
 
     def has_add_permission(self, request):
         return False

@@ -45,6 +45,8 @@ Keep in mind:
 - `sidebar.enable_reorder` controls whether end users can save their own sidebar order
 - `sidebar.show_toolbar` controls whether the runtime sidebar footer toolbar is rendered
 - `navbar` seeds the optional authenticated Nav Bar before System Settings edits its runtime hierarchy
+- flat keys remain the project-facing contract; grouped aliases such as `language_config`, `theme_config`, `layout_config`, and `public_root_config` are accepted, but Dlux flattens them back to the same runtime keys
+- future settings should be added to an existing JSON config group or `extra_config` unless they need durable relational state
 
 ## Themes and Sidebar Runtime Controls
 
@@ -116,11 +118,15 @@ The system config layer now also supports governed theme exposure and titlebar l
 - `titlebar.show_home_button`
 - `titlebar.logo_treatment`: `none`, `plate`, `halo`, or `contrast`
 - `titlebar.logo_treatment_shape`: `soft`, `pill`, or `square` for the `plate` treatment
-- `titlebar.home_shape`: `circle`, `square`, or `squircle`
+- `titlebar.buttons_shape`: `circle`, `square`, or `squircle` for all titlebar action buttons; legacy `titlebar.home_shape` remains accepted as an alias
+- `titlebar.user_hub_style`: `dropdown` keeps the current user-hub dropdown; `titlebar_actions` moves user shortcuts into the right-side titlebar action rail
+- `titlebar.actions_order`: ordered keys for the titlebar rail; unknown keys are dropped and missing known keys are appended in the default order
 - `titlebar.title_align`: `start`, `center`, or `end`
 - `titlebar.title_size`: `sm`, `md`, or `lg`
 - `titlebar.height`: `dense`, `balanced`, or `roomy`
 - `titlebar.surface`: `default`, `muted`, or `glass`
+
+The default action order is `notifications`, `home`, `profile`, `help`, `users`, `activity`, `reports`, `settings`, `auth`. Runtime visibility still follows the existing gates: disabled notification drawers omit `notifications`, hidden home buttons omit `home`, and users/activity/reports require the same authorization flags used by the dropdown. In `titlebar_actions` mode the `auth` action renders login for anonymous users and a CSRF-protected POST logout button for authenticated users.
 
 Runtime precedence for the new appearance controls is:
 
@@ -173,7 +179,7 @@ If you need a nonstandard stack, you can still wire those settings manually, but
 Project-level translations come from two places:
 
 - app-local `translations.py` files containing `DLUX_STRINGS`
-- runtime JSON overrides stored in `SystemSettings.translations_override`
+- runtime JSON overrides stored in `SystemSettings.language_config["translations_override"]` and exposed through the compatibility key `translations_override`
 
 App-local example:
 
@@ -195,7 +201,7 @@ Important behavior:
 - DjangoLux auto-discovers `translations.py` across installed apps
 - discovered translation languages are suggestions only; a language becomes available to users only after it is added to the language catalog in setup/System Settings
 - setup/System Settings provides a source-tabbed translation matrix editor that groups keys by Dlux, installed app, project translations, or settings-only overrides
-- the translation matrix saves only admin edits into `SystemSettings.translations_override`
+- the translation matrix saves only admin edits into `translations_override`; it never writes the merged discovered catalog back into System Settings
 - forms, filters, tables, and some context-menu labels are translated automatically by startup patches
 - language resolution is layered, so user preference and runtime defaults matter
 
@@ -203,13 +209,16 @@ Important behavior:
 
 Superusers can export the current System Settings payload from the Options System Settings card. The exported JSON uses the `django-lux.system-settings` format and is meant to be imported from step 1 of the setup/System Settings wizard in another development, staging, or local environment. Browser downloads are named `dlux-{project-slug}-{YYYY-MM-DD}.json`; the slug comes from the deployed project `BASE_DIR` folder name (generic container work-dir names such as `app`/`src`/`code` are skipped), falling back to the configured English system name (`system_names['en']`) when set, then to `project`.
 
-The file contains the stable DB-backed setup fields:
+The file contains the stable, flat DB-backed setup keys:
 
 - `system_names`
 - `languages`
 - `translations_override`
 - `home_url`
 - theme, dynamic font, density, security, sidebar, Nav Bar, and titlebar settings
+- notification, login, Client IP, public-root, registration, and reserved `extra_config` settings
+
+Internally those values are stored in grouped JSON fields on `SystemSettings`, but exports stay flat for compatibility with older setup files. Imports accept both the flat keys and nested group aliases.
 
 Logo and favicon values are exported as stored file names only. The JSON file does not embed binary media content, so those media files must already exist in the target environment if you want the imported file names to resolve.
 

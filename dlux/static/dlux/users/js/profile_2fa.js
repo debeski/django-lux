@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const setupButtons = document.querySelectorAll('.setup-2fa-btn');
     const disableButtons = document.querySelectorAll('.disable-2fa-btn');
     const otpSetupForm = document.getElementById('otpSetupForm');
+    const resetPasswordModal = document.getElementById('resetPasswordModal');
 
     // Use Event Delegation for robust button handling
     document.body.addEventListener('click', function(e) {
@@ -84,6 +85,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 : document.getElementById('otpSetupInput');
             if (input) input.focus();
         });
+    }
+
+    if (resetPasswordModal && resetPasswordModal.dataset.dluxOpenOnLoad === 'true' && window.bootstrap?.Modal) {
+        resetPasswordModal.addEventListener('shown.bs.modal', function handlePasswordModalShown() {
+            resetPasswordModal.removeEventListener('shown.bs.modal', handlePasswordModalShown);
+            const invalidField = resetPasswordModal.querySelector('.is-invalid, [aria-invalid="true"]');
+            const fallbackField = resetPasswordModal.querySelector('input:not([type="hidden"]), select, textarea, button');
+            const focusTarget = invalidField || fallbackField;
+            if (focusTarget && typeof focusTarget.focus === 'function') {
+                focusTarget.focus();
+            }
+        });
+        window.bootstrap.Modal.getOrCreateInstance(resetPasswordModal).show();
     }
 });
 

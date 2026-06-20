@@ -195,6 +195,17 @@ def dlux_settings(scope):
         scope["FORMAT_MODULE_PATH"] = merged_format_module_path
     else:
         scope["FORMAT_MODULE_PATH"] = [format_module_path, "dlux.formats"]
+
+    # Register the dlux strong-password validator (a no-op unless the SystemSettings
+    # `enforce_strong_passwords` toggle is on) so every set-password path that runs
+    # Django's validate_password() honours the runtime setting.
+    validators = scope.get("AUTH_PASSWORD_VALIDATORS")
+    validators = list(validators) if isinstance(validators, (list, tuple)) else []
+    dlux_validator = "dlux.password_validation.DluxStrongPasswordValidator"
+    if not any(isinstance(v, dict) and v.get("NAME") == dlux_validator for v in validators):
+        validators.append({"NAME": dlux_validator})
+    scope["AUTH_PASSWORD_VALIDATORS"] = validators
+
     return scope
 
 # Versioning - Function reads a package-local VERSION file.

@@ -1,7 +1,6 @@
 import logging
 
 from django.apps import apps
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
@@ -19,6 +18,7 @@ from ..backup import (
     run_system_restore,
 )
 from ..guards import require_current_password
+from ..notifications import notify
 from ..reports import get_backup_storage_prefix
 from ..translations import get_strings
 
@@ -168,7 +168,7 @@ def system_backup_delete_view(request, token):
         except Exception:
             pass
     backup.delete()
-    messages.success(request, get_strings().get('sysbackup_deleted'), fail_silently=True)
+    notify.success(get_strings().get('sysbackup_deleted'), request=request, action='backup_delete', category='backup')
     return redirect('system_backup_page')
 
 
@@ -179,21 +179,21 @@ def system_backup_upload_view(request):
     s = get_strings()
     uploaded = request.FILES.get('backup_file')
     if uploaded is None:
-        messages.error(request, s.get('sysbackup_upload_invalid'), fail_silently=True)
+        notify.error(s.get('sysbackup_upload_invalid'), request=request, action='backup_upload_invalid', category='backup')
         return redirect('system_backup_page')
     max_mb = DLB_UPLOAD_MAX_MB_DEFAULT
     if uploaded.size > max_mb * 1024 * 1024:
-        messages.error(request, s.get('sysbackup_upload_too_large'), fail_silently=True)
+        notify.error(s.get('sysbackup_upload_too_large'), request=request, action='backup_upload_too_large', category='backup')
         return redirect('system_backup_page')
     try:
         read_dlb_metadata(uploaded)
         uploaded.seek(0)
     except Exception:
-        messages.error(request, s.get('sysbackup_upload_invalid'), fail_silently=True)
+        notify.error(s.get('sysbackup_upload_invalid'), request=request, action='backup_upload_invalid', category='backup')
         return redirect('system_backup_page')
     stamp = timezone.now().strftime('%Y%m%d-%H%M%S')
     default_storage.save(f'{get_backup_storage_prefix()}/uploaded-{stamp}.dlb', uploaded)
-    messages.success(request, s.get('sysbackup_upload_done'), fail_silently=True)
+    notify.success(s.get('sysbackup_upload_done'), request=request, action='backup_upload_done', category='backup')
     return redirect('system_backup_page')
 
 
@@ -221,11 +221,11 @@ def system_restore_start_view(request):
     if failure := require_current_password(request, redirect_name='system_backup_page'):
         return failure
     if str(request.POST.get('confirm_replace') or '') != 'yes':
-        messages.error(request, s.get('sysrestore_confirm_required'), fail_silently=True)
+        notify.error(s.get('sysrestore_confirm_required'), request=request, action='restore_confirm_required', category='backup')
         return redirect('system_backup_page')
     source_path = _resolve_restore_source(request)
     if not source_path:
-        messages.error(request, s.get('sysrestore_source_missing'), fail_silently=True)
+        notify.error(s.get('sysrestore_source_missing'), request=request, action='restore_source_missing', category='backup')
         return redirect('system_backup_page')
     SystemRestore = _system_restore_model()
     restore = SystemRestore.objects.create(

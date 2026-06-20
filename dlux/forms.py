@@ -54,6 +54,11 @@ from .constants import (
     TITLEBAR_SIZE_VALUES,
     TITLEBAR_SURFACE_CHOICES,
     TITLEBAR_SURFACE_VALUES,
+    TITLEBAR_ACTIONS_ORDER,
+    TITLEBAR_USER_HUB_STYLE_ACTIONS,
+    TITLEBAR_USER_HUB_STYLE_CHOICES,
+    TITLEBAR_USER_HUB_STYLE_DROPDOWN,
+    TITLEBAR_USER_HUB_STYLE_VALUES,
 )
 from .translations import build_translation_matrix_groups, discover_translation_languages, get_strings, get_current_language_code
 from .themes import get_theme_choices, get_theme_options, is_valid_theme, normalize_allowed_themes
@@ -65,8 +70,12 @@ from .utils import (
     CLIENT_IP_MODE_X_FORWARDED_FOR,
     CLIENT_IP_MODE_X_REAL_IP,
     default_client_ip_config,
+    default_auth_config,
+    default_log_config,
+    default_profile_config,
     default_login_config,
     default_navbar_config,
+    default_notification_config,
     default_titlebar_config,
     default_email_config,
     encrypt_email_secret,
@@ -82,10 +91,15 @@ from .utils import (
     normalize_client_ip_config,
     normalize_language_catalog,
     LOGIN_STYLE_VALUES,
+    normalize_auth_config,
+    normalize_log_config,
+    normalize_profile_config,
     normalize_login_config,
     normalize_navbar_config,
+    normalize_notification_config,
     normalize_sidebar_behavior,
     normalize_system_names,
+    normalize_titlebar_actions_order,
     normalize_titlebar_config,
     normalize_allowed_fonts,
     seed_navbar_config_from_sidebar,
@@ -576,6 +590,70 @@ def build_email_toggle_field(form, field_name, css_class=None, attrs=None):
         return Div(HTML(wrapper_html), css_class=css_class, **(attrs or {}))
     return HTML(wrapper_html)
 
+
+_TITLEBAR_ACTION_META = {
+    'notifications': ('bi-bell-fill', 'notifications', 'Notifications'),
+    'home': ('bi-house-fill', 'btn_home', 'Home'),
+    'profile': ('bi-person-bounding-box', 'profile', 'Profile'),
+    'help': ('bi-question-circle-fill', 'help', 'Help'),
+    'users': ('bi-people-fill', 'manage_users', 'Users'),
+    'activity': ('bi-clock-history', 'activity_log', 'Activity'),
+    'reports': ('bi-bar-chart-fill', 'reports_title', 'Reports'),
+    'settings': ('bi-gear-fill', 'options_title', 'Settings'),
+    'auth': ('bi-box-arrow-right', 'logout', 'Login / Logout'),
+}
+
+
+def build_titlebar_actions_order_builder(order, strings, *, visible=True):
+    if isinstance(order, str):
+        try:
+            order = json.loads(order)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            order = []
+    normalized_order = normalize_titlebar_actions_order(order)
+    items_html = []
+    for action_key in normalized_order:
+        icon, label_key, fallback = _TITLEBAR_ACTION_META.get(action_key, ('bi-app', action_key, action_key.title()))
+        label = conditional_escape(strings.get(label_key, fallback))
+        key = conditional_escape(action_key)
+        items_html.append(
+            "<div class='dlux-titlebar-action-order-item' "
+            f"data-titlebar-action-order-item data-action-key='{key}'>"
+            "<span class='dlux-titlebar-action-order-handle'><i class='bi bi-grip-vertical' aria-hidden='true'></i></span>"
+            f"<span class='dlux-titlebar-action-order-icon'><i class='bi {conditional_escape(icon)}' aria-hidden='true'></i></span>"
+            f"<span class='dlux-titlebar-action-order-label'>{label}</span>"
+            "<span class='dlux-titlebar-action-order-controls'>"
+            "<button type='button' class='btn btn-sm btn-light' data-titlebar-action-move='-1' aria-label='Move up'>"
+            "<i class='bi bi-arrow-up-short' aria-hidden='true'></i>"
+            "</button>"
+            "<button type='button' class='btn btn-sm btn-light' data-titlebar-action-move='1' aria-label='Move down'>"
+            "<i class='bi bi-arrow-down-short' aria-hidden='true'></i>"
+            "</button>"
+            "</span>"
+            "</div>"
+        )
+
+    hidden_class = '' if visible else ' d-none'
+    title = conditional_escape(strings.get('titlebar_actions_order_title', 'Titlebar action order'))
+    help_text = conditional_escape(
+        strings.get(
+            'titlebar_actions_order_help',
+            'Choose the right-side titlebar button order for the Titlebar Actions layout.',
+        )
+    )
+    return mark_safe(
+        f"<div class='dlux-titlebar-actions-order-builder border rounded bg-light p-3 mb-3{hidden_class}' "
+        "data-titlebar-actions-order-builder>"
+        "<div class='d-flex align-items-start justify-content-between gap-3 mb-2'>"
+        f"<div><div class='fw-semibold'>{title}</div><div class='small text-muted'>{help_text}</div></div>"
+        "</div>"
+        "<div class='dlux-titlebar-actions-order-list' data-titlebar-actions-order-list>"
+        f"{''.join(items_html)}"
+        "</div>"
+        "</div>"
+    )
+
+
 class GroupedPermissionWidget(ChoiceWidget):
     template_name = 'dlux/users/grouped_permissions.html'
     allow_multiple_selected = True
@@ -777,6 +855,7 @@ class CustomUserCreationForm(UserCreationForm):
     # Added fields from Profile
     phone = forms.CharField(max_length=15, required=False)
     scope = forms.ModelChoiceField(queryset=None, required=False, label="Scope")
+    force_password_change = forms.BooleanField(required=False, initial=False)
     
     permissions = forms.ModelMultipleChoiceField(
         queryset=get_assignable_permissions_queryset(),
@@ -851,6 +930,7 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields["password1"].label = s.get('form_password', "Password")
         self.fields["password2"].label = s.get('form_password_confirm', "Confirm Password")
         self.fields["is_active"].label = s.get('form_is_active', "Active")
+        self.fields["force_password_change"].label = s.get('form_force_password_change', "Require password change on first login")
         self.fields["phone"].label = s.get('form_phone', "Phone Number")
         self.fields["scope"].label = s.get('form_scope', "Scope")
         self.fields["permissions"].label = s.get('form_permissions', "Permissions")
@@ -859,6 +939,7 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields["username"].help_text = s.get('help_username', "Username must be unique. 150 characters or fewer. Letters, digits and @/./+/-/_ only.")
         self.fields["email"].help_text = s.get('help_email', "Enter a valid email address (optional).")
         self.fields["is_active"].help_text = s.get('help_is_active', "Designates whether this user should be treated as active.")
+        self.fields["force_password_change"].help_text = s.get('help_force_password_change', "The new user must change this password before using the system.")
         self.fields["is_staff"].help_text = s.get('help_is_staff', "Enables staff access. The final tier depends on scope and selected permissions.")
         self.fields["password1"].help_text = s.get('help_password_common', "Your password can't be too similar to your other personal information.")
         self.fields["password2"].help_text = s.get('help_password_match', "Enter the same password as before, for verification.")
@@ -914,7 +995,8 @@ class CustomUserCreationForm(UserCreationForm):
                 Div(Field("email", css_class="form-control"), css_class="col-md-6"),
                 css_class="row"
             ),
-            Field("is_active")
+            Field("is_active"),
+            Field("force_password_change"),
         ]
         
         if scope_visible:
@@ -970,6 +1052,12 @@ class CustomUserCreationForm(UserCreationForm):
             elif self.cleaned_data.get('scope'):
                 profile.scope = self.cleaned_data.get('scope')
             # If empty scope, we do not overwrite since signal may have auto-assigned one
+            preferences = dict(profile.preferences or {})
+            if self.cleaned_data.get('force_password_change'):
+                preferences['force_password_change'] = True
+            else:
+                preferences.pop('force_password_change', None)
+            profile.preferences = preferences
             profile.save()
             
         return user
@@ -1242,8 +1330,27 @@ class UserModalForm:
         return form
 
 
+class DluxPasswordMustChangeMixin:
+    unchanged_password_error_code = 'password_unchanged'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = self.cleaned_data.get('new_password2')
+        user = getattr(self, 'user', None)
+        if password and user is not None and user.check_password(password):
+            s = get_strings()
+            self.add_error(
+                'new_password2',
+                ValidationError(
+                    s.get('err_password_unchanged', 'New password must be different from the current password.'),
+                    code=self.unchanged_password_error_code,
+                ),
+            )
+        return cleaned_data
+
+
 # Custom User Reset Password form layout
-class ResetPasswordForm(SetPasswordForm):
+class ResetPasswordForm(DluxPasswordMustChangeMixin, SetPasswordForm):
     username = forms.CharField(label="Username", widget=forms.TextInput(attrs={"readonly": "readonly"}))
 
     def __init__(self, user, *args, **kwargs):
@@ -1402,7 +1509,7 @@ class UserProfileEditForm(forms.ModelForm):
         return user
 
 
-class CustomPasswordChangeForm(PasswordChangeForm):
+class CustomPasswordChangeForm(DluxPasswordMustChangeMixin, PasswordChangeForm):
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
         s = get_strings()
@@ -1551,6 +1658,14 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.HiddenInput(),
         required=False,
     )
+    log_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
+    profile_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
     sidebar_enabled = forms.BooleanField(
         required=False,
         initial=True,
@@ -1615,6 +1730,15 @@ class SystemSettingsForm(forms.ModelForm):
         choices=TITLEBAR_HOME_SHAPE_CHOICES,
         initial='circle',
     )
+    titlebar_user_hub_style = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_USER_HUB_STYLE_CHOICES,
+        initial=TITLEBAR_USER_HUB_STYLE_DROPDOWN,
+    )
+    titlebar_actions_order = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+    )
     titlebar_title_align = forms.ChoiceField(
         required=False,
         choices=TITLEBAR_ALIGN_CHOICES,
@@ -1644,6 +1768,101 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         choices=TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES,
         initial='soft',
+    )
+    notification_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
+    notifications_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    notification_flash_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    notification_flash_position = forms.ChoiceField(
+        required=False,
+        choices=(
+            ('top_center', 'Top center'),
+            ('top_start', 'Top start'),
+            ('top_end', 'Top end'),
+            ('titlebar_end', 'Titlebar end'),
+            ('bottom_start', 'Bottom start'),
+            ('bottom_end', 'Bottom end'),
+        ),
+        initial='top_center',
+    )
+    notification_flash_size = forms.ChoiceField(
+        required=False,
+        choices=(
+            ('compact', 'Compact'),
+            ('balanced', 'Balanced'),
+            ('prominent', 'Prominent'),
+        ),
+        initial='balanced',
+    )
+    notification_flash_text_size = forms.ChoiceField(
+        required=False,
+        choices=(
+            ('sm', 'Small'),
+            ('md', 'Medium'),
+            ('lg', 'Large'),
+        ),
+        initial='md',
+    )
+    notification_flash_timeout_ms = forms.IntegerField(
+        required=False,
+        min_value=0,
+        max_value=60000,
+        initial=3200,
+    )
+    notification_flash_max_visible = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=10,
+        initial=3,
+    )
+    notification_drawer_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    notification_badge_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    notification_bridge_enabled = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    notification_email_enabled = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    notification_email_default = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    notification_auto_crud_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    notification_auto_create = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    notification_auto_update = forms.ChoiceField(
+        required=False,
+        choices=(
+            ('off', 'Off'),
+            ('summary', 'Summary'),
+            ('full', 'Full'),
+        ),
+        initial='summary',
+    )
+    notification_auto_delete = forms.BooleanField(
+        required=False,
+        initial=True,
     )
     login_config = forms.CharField(
         widget=forms.HiddenInput(),
@@ -1691,6 +1910,18 @@ class SystemSettingsForm(forms.ModelForm):
     prevent_multiple_active_sessions = forms.BooleanField(
         required=False,
         initial=False,
+    )
+    login_lockout_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    enforce_strong_passwords = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    auth_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
     )
     client_ip_config = forms.CharField(
         widget=forms.HiddenInput(),
@@ -1750,8 +1981,7 @@ class SystemSettingsForm(forms.ModelForm):
             'default_fonts',
             'allow_user_language_override',
             'default_table_density',
-            'email_2fa',
-            'prevent_multiple_active_sessions',
+            'auth_config',
             'client_ip_config',
             'public_root',
             'public_root_split_enabled',
@@ -1764,7 +1994,10 @@ class SystemSettingsForm(forms.ModelForm):
             'translations_override',
             'sidebar_config',
             'navbar_config',
+            'log_config',
+            'profile_config',
             'titlebar_config',
+            'notification_config',
             'login_config',
         ]
 
@@ -1787,7 +2020,7 @@ class SystemSettingsForm(forms.ModelForm):
                 parsed_step = int(raw_step)
             except (TypeError, ValueError):
                 parsed_step = None
-            if parsed_step in (0, 1, 2, 3, 4, 5, 6, 7):
+            if parsed_step in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
         if self.mode != 'setup' and self.single_step_mode:
@@ -1959,6 +2192,8 @@ class SystemSettingsForm(forms.ModelForm):
             ('locked_expanded', s.get('sidebar_collapse_locked_expanded', 'Always expanded')),
         )
         self.fields['navbar_config'].label = s.get('form_sys_navbar', '')
+        self.fields['log_config'].label = s.get('form_sys_log', 'Logging Configuration')
+        self.fields['profile_config'].label = s.get('form_sys_profile', 'Profile Page Configuration')
         self.fields['navbar_enabled'].label = s.get('form_sys_navbar_enabled', '')
         self.fields['navbar_enabled'].help_text = s.get('help_sys_navbar_enabled', '')
         self.fields['navbar_default_mode'].label = s.get('form_sys_navbar_default_mode', '')
@@ -1982,7 +2217,9 @@ class SystemSettingsForm(forms.ModelForm):
             'form_sys_titlebar_hide_on_public_unauthenticated_index',
             'Hide titlebar on anonymous public home/index',
         )
-        self.fields['titlebar_home_shape'].label = s.get('form_sys_titlebar_home_shape', 'Home button shape')
+        self.fields['titlebar_home_shape'].label = s.get('form_sys_titlebar_home_shape', 'Titlebar buttons shape')
+        self.fields['titlebar_user_hub_style'].label = s.get('form_sys_titlebar_user_hub_style', 'Titlebar and user hub style')
+        self.fields['titlebar_actions_order'].label = s.get('form_sys_titlebar_actions_order', 'Titlebar action order')
         self.fields['titlebar_title_align'].label = s.get('form_sys_titlebar_title_align', 'Title alignment')
         self.fields['titlebar_title_size'].label = s.get('form_sys_titlebar_title_size', 'Title size')
         self.fields['titlebar_height'].label = s.get('form_sys_titlebar_height', 'Titlebar height')
@@ -2016,10 +2253,18 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_titlebar_logo_treatment_shape',
             'Choose the plate silhouette when the Plate treatment is active.',
         )
+        self.fields['titlebar_user_hub_style'].help_text = s.get(
+            'help_sys_titlebar_user_hub_style',
+            'Choose whether user shortcuts stay in the user hub dropdown or move into orderable titlebar action buttons.',
+        )
         self.fields['titlebar_home_shape'].choices = (
             ('circle', s.get('titlebar_home_shape_circle', 'Circle')),
             ('square', s.get('titlebar_home_shape_square', 'Square')),
             ('squircle', s.get('titlebar_home_shape_squircle', 'Squircle')),
+        )
+        self.fields['titlebar_user_hub_style'].choices = (
+            (TITLEBAR_USER_HUB_STYLE_DROPDOWN, s.get('titlebar_user_hub_style_dropdown', 'Dropdown')),
+            (TITLEBAR_USER_HUB_STYLE_ACTIONS, s.get('titlebar_user_hub_style_actions', 'Titlebar Actions')),
         )
         self.fields['titlebar_title_align'].choices = (
             ('start', s.get('titlebar_align_start', 'Start')),
@@ -2052,6 +2297,102 @@ class SystemSettingsForm(forms.ModelForm):
             ('pill', s.get('titlebar_logo_treatment_shape_pill', 'Pill')),
             ('square', s.get('titlebar_logo_treatment_shape_square', 'Square')),
         )
+        self.fields['notification_config'].label = s.get('form_sys_notification_config', 'Notification configuration')
+        self.fields['notifications_enabled'].label = s.get('form_sys_notifications_enabled', 'Enable notifications')
+        self.fields['notifications_enabled'].help_text = s.get(
+            'help_sys_notifications_enabled',
+            'Master switch for the entire notification subsystem. When off, flash notices, the titlebar drawer/badge, emails, automatic CRUD notifications, and notify(...) are all suppressed.',
+        )
+        self.fields['notification_flash_enabled'].label = s.get('form_sys_notification_flash_enabled', 'Show flash notices')
+        self.fields['notification_flash_enabled'].help_text = s.get(
+            'help_sys_notification_flash_enabled',
+            'Show short-lived notices for user-facing events.',
+        )
+        self.fields['notification_flash_position'].label = s.get('form_sys_notification_flash_position', 'Flash position')
+        self.fields['notification_flash_size'].label = s.get('form_sys_notification_flash_size', 'Flash size')
+        self.fields['notification_flash_text_size'].label = s.get('form_sys_notification_flash_text_size', 'Flash text size')
+        self.fields['notification_flash_timeout_ms'].label = s.get('form_sys_notification_flash_timeout', 'Flash timeout (ms)')
+        self.fields['notification_flash_max_visible'].label = s.get('form_sys_notification_flash_max_visible', 'Max visible flash notices')
+        self.fields['notification_drawer_enabled'].label = s.get('form_sys_notification_drawer_enabled', 'Enable titlebar notification drawer')
+        self.fields['notification_drawer_enabled'].help_text = s.get(
+            'help_sys_notification_drawer_enabled',
+            'Store user-facing notifications under the titlebar icon for authenticated users.',
+        )
+        self.fields['notification_badge_enabled'].label = s.get('form_sys_notification_badge_enabled', 'Show unread badge')
+        self.fields['notification_bridge_enabled'].label = s.get('form_sys_notification_bridge_enabled', 'Import legacy Django messages')
+        self.fields['notification_bridge_enabled'].help_text = s.get(
+            'help_sys_notification_bridge_enabled',
+            'Drain host-project Django messages into Dlux flash notices when enabled.',
+        )
+        notification_email_status = get_email_service_status()
+        self.notification_email_available = bool(notification_email_status.get('available'))
+        notification_email_reason = str(notification_email_status.get('reason') or '').replace('_', ' ')
+        self.fields['notification_email_enabled'].label = s.get('form_sys_notification_email_enabled', 'Enable notification email channel')
+        self.fields['notification_email_enabled'].help_text = s.get(
+            'help_sys_notification_email_enabled',
+            'Master gate for notification emails. Requires configured Dlux email delivery; when off, rules and notify(..., email=True) cannot send mail.',
+        )
+        self.fields['notification_email_default'].label = s.get('form_sys_notification_email_default', 'Email by default')
+        self.fields['notification_email_default'].help_text = s.get(
+            'help_sys_notification_email_default',
+            'After the email channel is allowed, send eligible persisted notifications by email unless a rule or notify(...) call overrides delivery.',
+        )
+        if not self.notification_email_available:
+            unavailable_help = s.get(
+                'help_sys_notification_email_unavailable',
+                'Disabled until Dlux email delivery is configured.',
+            )
+            if notification_email_reason:
+                unavailable_help = f"{unavailable_help} ({notification_email_reason})"
+            self.fields['notification_email_enabled'].help_text = unavailable_help
+            self.fields['notification_email_default'].help_text = unavailable_help
+            self.fields['notification_email_enabled'].disabled = True
+            self.fields['notification_email_default'].disabled = True
+        self.fields['notification_auto_crud_enabled'].label = s.get('form_sys_notification_auto_crud', 'Enable automatic ScopedModel CRUD notifications')
+        self.fields['notification_auto_crud_enabled'].help_text = s.get(
+            'help_sys_notification_auto_crud',
+            'Master switch for automatic notifications emitted by ScopedModel create, update, and delete events.',
+        )
+        self.fields['notification_auto_create'].label = s.get('form_sys_notification_auto_create', 'Automatic create notifications')
+        self.fields['notification_auto_create'].help_text = s.get(
+            'help_sys_notification_auto_create',
+            'When automatic CRUD notifications are enabled, emit notifications for new ScopedModel records.',
+        )
+        self.fields['notification_auto_update'].label = s.get('form_sys_notification_auto_update', 'Automatic update mode')
+        self.fields['notification_auto_update'].help_text = s.get(
+            'help_sys_notification_auto_update',
+            'Off suppresses update notifications; Summary emits quiet changed-field summaries; Full emits update notifications with full metadata.',
+        )
+        self.fields['notification_auto_delete'].label = s.get('form_sys_notification_auto_delete', 'Automatic delete notifications')
+        self.fields['notification_auto_delete'].help_text = s.get(
+            'help_sys_notification_auto_delete',
+            'When automatic CRUD notifications are enabled, emit notifications for deleted ScopedModel records.',
+        )
+        self.fields['notification_flash_position'].choices = (
+            ('top_center', s.get('notification_position_top_center', 'Top center')),
+            ('top_start', s.get('notification_position_top_start', 'Top start')),
+            ('top_end', s.get('notification_position_top_end', 'Top end')),
+            ('titlebar_end', s.get('notification_position_titlebar_end', 'Titlebar end')),
+            ('bottom_start', s.get('notification_position_bottom_start', 'Bottom start')),
+            ('bottom_end', s.get('notification_position_bottom_end', 'Bottom end')),
+        )
+        self.fields['notification_flash_size'].choices = (
+            ('compact', s.get('notification_size_compact', 'Compact')),
+            ('balanced', s.get('notification_size_balanced', 'Balanced')),
+            ('prominent', s.get('notification_size_prominent', 'Prominent')),
+        )
+        self.fields['notification_flash_text_size'].choices = (
+            ('sm', s.get('titlebar_size_sm', 'Small')),
+            ('md', s.get('titlebar_size_md', 'Medium')),
+            ('lg', s.get('titlebar_size_lg', 'Large')),
+        )
+        self.fields['notification_auto_update'].choices = (
+            ('off', s.get('notification_update_off', 'Off')),
+            ('summary', s.get('notification_update_summary', 'Summary')),
+            ('full', s.get('notification_update_full', 'Full')),
+        )
+        for field_name in ('notification_flash_timeout_ms', 'notification_flash_max_visible'):
+            self.fields[field_name].widget.attrs.update({'class': 'form-control glass-input'})
         self.fields['login_style'].label = s.get('form_sys_login_style', 'Login Layout Style')
         self.fields['login_style'].help_text = ''
         self.fields['login_style'].choices = (
@@ -2150,6 +2491,16 @@ class SystemSettingsForm(forms.ModelForm):
         )
         self.fields['prevent_multiple_active_sessions'].label = s.get('form_sys_prevent_multiple_active_sessions')
         self.fields['prevent_multiple_active_sessions'].help_text = s.get('help_sys_prevent_multiple_active_sessions')
+        self.fields['login_lockout_enabled'].label = s.get('form_sys_login_lockout', 'Enable Login Lockout')
+        self.fields['login_lockout_enabled'].help_text = s.get(
+            'help_sys_login_lockout',
+            'Temporarily block sign-in after repeated failed password attempts from the same IP or username.',
+        )
+        self.fields['enforce_strong_passwords'].label = s.get('form_sys_enforce_strong_passwords', 'Enforce strong passwords')
+        self.fields['enforce_strong_passwords'].help_text = s.get(
+            'help_sys_enforce_strong_passwords',
+            'Require new passwords to be at least 12 characters with upper and lower case letters, a digit, and a symbol.',
+        )
         self.fields['client_ip_mode'].label = s.get('form_sys_client_ip_mode')
         self.fields['client_ip_mode'].help_text = s.get('help_sys_client_ip_mode')
         self.fields['client_ip_mode'].choices = (
@@ -2303,6 +2654,28 @@ class SystemSettingsForm(forms.ModelForm):
                     'squircle': {
                         'icon': 'bi-app-indicator',
                         'description': s.get('titlebar_home_shape_squircle_desc', 'Soft rounded square edges.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['titlebar_user_hub_style'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    TITLEBAR_USER_HUB_STYLE_DROPDOWN: {
+                        'icon': 'bi-person-lines-fill',
+                        'description': s.get(
+                            'titlebar_user_hub_style_dropdown_desc',
+                            'Keep user shortcuts inside the current user hub dropdown.',
+                        ),
+                    },
+                    TITLEBAR_USER_HUB_STYLE_ACTIONS: {
+                        'icon': 'bi-ui-checks-grid',
+                        'description': s.get(
+                            'titlebar_user_hub_style_actions_desc',
+                            'Render user shortcuts as orderable titlebar action buttons.',
+                        ),
                     },
                 },
             ),
@@ -2542,6 +2915,24 @@ class SystemSettingsForm(forms.ModelForm):
             ) or config.get('navbar', {})
         )
         self.initial['navbar_config'] = _json_dump(initial_navbar_config, ensure_ascii=False)
+        initial_log_config = normalize_log_config(
+            (
+                config.get('log', {})
+                if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+                else getattr(self.instance, 'log_config', None)
+            ) or config.get('log', {})
+        )
+        self.initial['log_config'] = _json_dump(initial_log_config, ensure_ascii=False)
+        self._initial_log_config = initial_log_config
+        initial_profile_config = normalize_profile_config(
+            (
+                config.get('profile', {})
+                if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+                else getattr(self.instance, 'profile_config', None)
+            ) or config.get('profile', {})
+        )
+        self.initial['profile_config'] = _json_dump(initial_profile_config, ensure_ascii=False)
+        self._initial_profile_config = initial_profile_config
         initial_titlebar_config = normalize_titlebar_config(
             (
                 config.get('titlebar', {})
@@ -2562,14 +2953,19 @@ class SystemSettingsForm(forms.ModelForm):
             self.initial['allowed_themes'] = list(normalize_allowed_themes(config.get('allowed_themes')))
         if self.initial.get('default_table_density') not in TABLE_DENSITY_VALUES:
             self.initial['default_table_density'] = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
-        self.initial['email_2fa'] = bool(
-            getattr(self.instance, 'email_2fa', False)
-            or config.get('email_2fa', False)
+        # Authentication toggles are stored in the consolidated auth_config JSON
+        # field; split it out into the individual UI checkboxes (and keep the
+        # canonical JSON in the hidden auth_config field).
+        initial_auth_config = normalize_auth_config(
+            getattr(self.instance, 'auth_config', None) or config.get('auth_config') or config
         )
+        self.initial['auth_config'] = _json_dump(initial_auth_config, ensure_ascii=False)
+        self.initial['email_2fa'] = bool(initial_auth_config.get('email_2fa', False))
         self.initial['prevent_multiple_active_sessions'] = bool(
-            getattr(self.instance, 'prevent_multiple_active_sessions', False)
-            or config.get('prevent_multiple_active_sessions', False)
+            initial_auth_config.get('prevent_multiple_active_sessions', False)
         )
+        self.initial['login_lockout_enabled'] = bool(initial_auth_config.get('login_lockout_enabled', True))
+        self.initial['enforce_strong_passwords'] = bool(initial_auth_config.get('enforce_strong_passwords', False))
         initial_login_config = normalize_login_config(
             getattr(self.instance, 'login_config', None) or config.get('login', {})
         )
@@ -2677,13 +3073,56 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['titlebar_hide_on_public_unauthenticated_index'] = bool(
             initial_titlebar_config.get('hide_on_public_unauthenticated_index', False)
         )
-        self.initial['titlebar_home_shape'] = initial_titlebar_config.get('home_shape', 'circle')
+        self.initial['titlebar_home_shape'] = initial_titlebar_config.get(
+            'buttons_shape',
+            initial_titlebar_config.get('home_shape', 'circle'),
+        )
+        self.initial['titlebar_user_hub_style'] = initial_titlebar_config.get(
+            'user_hub_style',
+            TITLEBAR_USER_HUB_STYLE_DROPDOWN,
+        )
+        self.initial['titlebar_actions_order'] = _json_dump(
+            normalize_titlebar_actions_order(initial_titlebar_config.get('actions_order')),
+            ensure_ascii=False,
+        )
         self.initial['titlebar_title_align'] = initial_titlebar_config.get('title_align', 'start')
         self.initial['titlebar_title_size'] = initial_titlebar_config.get('title_size', 'md')
         self.initial['titlebar_height'] = initial_titlebar_config.get('height', 'balanced')
         self.initial['titlebar_surface'] = initial_titlebar_config.get('surface', 'default')
         self.initial['titlebar_logo_treatment'] = initial_titlebar_config.get('logo_treatment', 'none')
         self.initial['titlebar_logo_treatment_shape'] = initial_titlebar_config.get('logo_treatment_shape', 'soft')
+        initial_notification_config = normalize_notification_config(
+            (
+                config.get('notifications', {})
+                if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+                else getattr(self.instance, 'notification_config', None)
+            ) or config.get('notifications', {})
+        )
+        self.initial['notification_config'] = _json_dump(initial_notification_config, ensure_ascii=False)
+        flash_config = initial_notification_config.get('flash', {})
+        drawer_config = initial_notification_config.get('drawer', {})
+        bridge_config = initial_notification_config.get('bridge', {})
+        email_notification_config = initial_notification_config.get('email', {})
+        automatic_config = initial_notification_config.get('automatic', {})
+        self.initial['notifications_enabled'] = bool(initial_notification_config.get('enabled', True))
+        self.initial['notification_flash_enabled'] = bool(flash_config.get('enabled', True))
+        self.initial['notification_flash_position'] = flash_config.get('position', 'top_center')
+        self.initial['notification_flash_size'] = flash_config.get('size', 'balanced')
+        self.initial['notification_flash_text_size'] = flash_config.get('text_size', 'md')
+        self.initial['notification_flash_timeout_ms'] = flash_config.get('timeout_ms', 3200)
+        self.initial['notification_flash_max_visible'] = flash_config.get('max_visible', 3)
+        self.initial['notification_drawer_enabled'] = bool(drawer_config.get('enabled', True))
+        self.initial['notification_badge_enabled'] = bool(drawer_config.get('badge_enabled', True))
+        self.initial['notification_bridge_enabled'] = bool(bridge_config.get('django_messages_enabled', False))
+        self.initial['notification_email_enabled'] = bool(email_notification_config.get('enabled', False))
+        self.initial['notification_email_default'] = bool(email_notification_config.get('default', False))
+        if not getattr(self, 'notification_email_available', False):
+            self.initial['notification_email_enabled'] = False
+            self.initial['notification_email_default'] = False
+        self.initial['notification_auto_crud_enabled'] = bool(automatic_config.get('scoped_model_crud', True))
+        self.initial['notification_auto_create'] = bool(automatic_config.get('create', True))
+        self.initial['notification_auto_update'] = automatic_config.get('update', 'summary')
+        self.initial['notification_auto_delete'] = bool(automatic_config.get('delete', True))
 
         catalog_lang = self.initial.get('default_language') or self.instance.default_language or config.get('default_language', 'en')
         public_sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=False)
@@ -2869,6 +3308,72 @@ class SystemSettingsForm(forms.ModelForm):
                 'DLUX_STRINGS': s,
             },
         )
+        from dlux.discovery import build_log_model_catalog
+        log_catalog = build_log_model_catalog()
+
+        def _log_action_label(key):
+            base = {
+                'create': s.get('action_create', 'Create'),
+                'update': s.get('action_update', 'Update'),
+                'delete': s.get('action_delete', 'Delete'),
+            }
+            return base.get(key) or s.get(f'action_{key}', key.replace('_', ' ').title())
+
+        for _bucket in ('user', 'system'):
+            for _item in log_catalog[_bucket]:
+                _item['display_actions'] = [
+                    {'key': a, 'label': _log_action_label(a)}
+                    for a in _item.get('actions') or ('create', 'update', 'delete')
+                ]
+
+        self.log_builder_html = render_to_string(
+            'dlux/includes/log_builder.html',
+            {
+                'log_config_json': _json_dump(initial_log_config, ensure_ascii=False),
+                'sections': [
+                    {'key': 'user', 'title': s.get('form_sys_log_user', 'User activity (project)'), 'models': log_catalog['user']},
+                    {'key': 'system', 'title': s.get('form_sys_log_system', 'System activity (dlux)'), 'models': log_catalog['system']},
+                ],
+                'actions': [
+                    {'key': 'create', 'label': s.get('action_create', 'Create')},
+                    {'key': 'update', 'label': s.get('action_update', 'Update')},
+                    {'key': 'delete', 'label': s.get('action_delete', 'Delete')},
+                ],
+                'audit_events': [
+                    {'key': key, 'label': s.get(f'form_sys_log_audit_{key}', key.replace('_', ' ').title())}
+                    for key in initial_log_config.get('audit', {}).get('events', {}).keys()
+                ],
+                'DLUX_STRINGS': s,
+            },
+        )
+        self.profile_builder_html = render_to_string(
+            'dlux/includes/profile_builder.html',
+            {
+                'profile_config_json': _json_dump(initial_profile_config, ensure_ascii=False),
+                'page_toggles': [
+                    {'key': 'show_completion_widget', 'label': s.get('profile_show_completion', 'Show profile completion widget')},
+                    {'key': 'show_session_device_cards', 'label': s.get('profile_show_devices', 'Show session/device cards')},
+                    {'key': 'show_activity_feed', 'label': s.get('profile_show_activity', 'Show activity feed')},
+                    {'key': 'allow_user_home_url', 'label': s.get('profile_allow_user_home_url', 'Allow users to set their landing page')},
+                ],
+                'nudge_options': [
+                    {'key': 'off', 'label': s.get('nudge_off', 'Off')},
+                    {'key': 'subtle', 'label': s.get('nudge_subtle', 'Subtle')},
+                    {'key': 'persistent', 'label': s.get('nudge_persistent', 'Persistent')},
+                ],
+                'onboarding_toggles': [
+                    {'key': 'theme', 'label': s.get('options_theme', 'Theme')},
+                    {'key': 'language', 'label': s.get('options_language', 'Language')},
+                    {'key': 'fonts', 'label': s.get('options_font', 'Font')},
+                ],
+                'DLUX_STRINGS': s,
+            },
+        )
+        self.titlebar_actions_order_html = build_titlebar_actions_order_builder(
+            initial_titlebar_config.get('actions_order'),
+            s,
+            visible=self.initial.get('titlebar_user_hub_style') == TITLEBAR_USER_HUB_STYLE_ACTIONS,
+        )
 
         modal_desc = s.get('system_settings_modal_desc', 'حدّث العلامة التجارية واللغات والشريط الجانبي من نافذة الإعدادات.')
         intro_html = ''
@@ -2977,9 +3482,12 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
                     build_settings_toggle_field(self, 'email_2fa', css_class='col-lg-6'),
-                    build_settings_toggle_field(self, 'prevent_multiple_active_sessions', css_class='col-lg-12'),
+                    build_settings_toggle_field(self, 'prevent_multiple_active_sessions', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'login_lockout_enabled', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'enforce_strong_passwords', css_class='col-lg-6'),
                     css_class='g-3 mb-3',
                 ),
+                Field('auth_config'),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title')}</h6>"),
                 HTML(
                     f"<p class='small text-muted mb-3'>"
@@ -3223,6 +3731,12 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('titlebar_height'), css_class='col-lg-6'),
                 ),
                 Row(
+                    Div(Field('titlebar_user_hub_style'), css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
+                ),
+                HTML(self.titlebar_actions_order_html),
+                Field('titlebar_actions_order'),
+                Row(
                     Div(Field('titlebar_surface'), css_class='col-lg-12'),
                 ),
                 Row(
@@ -3251,7 +3765,52 @@ class SystemSettingsForm(forms.ModelForm):
                 css_class=_step_css_class(6),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step8', 'Step 8: Themes & Typography')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step8', 'Step 8: Notifications')}</span></div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('notification_settings_title', 'Notifications')}</h6>"),
+                Row(
+                    build_settings_toggle_field(self, 'notifications_enabled', css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
+                ),
+                HTML(
+                    f"<div class='dlux-notifications-dependent-settings{' d-none' if not self.initial.get('notifications_enabled', True) else ''}' "
+                    f"data-notifications-dependent>"
+                ),
+                Row(
+                    build_settings_toggle_field(self, 'notification_flash_enabled', css_class='col-lg-6 col-xl-3'),
+                    build_settings_toggle_field(self, 'notification_drawer_enabled', css_class='col-lg-6 col-xl-3'),
+                    build_settings_toggle_field(self, 'notification_badge_enabled', css_class='col-lg-6 col-xl-3'),
+                    build_settings_toggle_field(self, 'notification_bridge_enabled', css_class='col-lg-6 col-xl-3'),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
+                    Div(Field('notification_flash_position'), css_class='col-lg-4'),
+                    Div(Field('notification_flash_size'), css_class='col-lg-4'),
+                    Div(Field('notification_flash_text_size'), css_class='col-lg-4'),
+                    css_class='g-3',
+                ),
+                Row(
+                    Div(Field('notification_flash_timeout_ms'), css_class='col-lg-4'),
+                    Div(Field('notification_flash_max_visible'), css_class='col-lg-4'),
+                    Div(Field('notification_auto_update'), css_class='col-lg-4'),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
+                    build_settings_toggle_field(self, 'notification_auto_crud_enabled', css_class='col-lg-4'),
+                    build_settings_toggle_field(self, 'notification_auto_create', css_class='col-lg-4'),
+                    build_settings_toggle_field(self, 'notification_auto_delete', css_class='col-lg-4'),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
+                    build_settings_toggle_field(self, 'notification_email_enabled', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'notification_email_default', css_class='col-lg-6'),
+                    css_class='g-3 mb-3',
+                ),
+                HTML("</div>"),
+                Field('notification_config'),
+                css_class=_step_css_class(7),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step9', 'Step 9: Themes & Typography')}</span></div>"),
                 Row(
                     Div(
                         HTML(self.theme_picker_html),
@@ -3273,7 +3832,21 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('default_table_density'), css_class='col'),
                     css_class='mb-3'
                 ),
-                css_class=_step_css_class(7),
+                css_class=_step_css_class(8),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step10', 'Step 10: Logging')}</span></div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('log_settings_title', 'Activity Logging')}</h6>"),
+                HTML(self.log_builder_html),
+                Field('log_config'),
+                css_class=_step_css_class(9),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step11', 'Step 11: Profile Page')}</span></div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('profile_settings_title', 'Profile Page & Onboarding')}</h6>"),
+                HTML(self.profile_builder_html),
+                Field('profile_config'),
+                css_class=_step_css_class(10),
             ),
             FormActions(
                 HTML(
@@ -3423,16 +3996,33 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Invalid table density choice.")
         return value
 
-    def clean_prevent_multiple_active_sessions(self):
+    def _auth_toggle_clean(self, key, default):
+        # The auth toggles now live in the auth_config JSON field. In a non-setup
+        # single-step modal post that doesn't own the security step (index 2), the
+        # checkbox is omitted; preserve the stored value instead of reading it as
+        # an unchecked False.
         if (
             self.is_bound
             and self.mode != 'setup'
             and self.single_step_mode
             and self.single_step_index != 2
-            and 'prevent_multiple_active_sessions' not in self.data
+            and key not in self.data
         ):
-            return bool(getattr(self.instance, 'prevent_multiple_active_sessions', False))
-        return bool(self.cleaned_data.get('prevent_multiple_active_sessions', False))
+            existing = normalize_auth_config(getattr(self.instance, 'auth_config', None) or {})
+            return bool(existing.get(key, default))
+        return bool(self.cleaned_data.get(key, default))
+
+    def clean_email_2fa(self):
+        return self._auth_toggle_clean('email_2fa', False)
+
+    def clean_prevent_multiple_active_sessions(self):
+        return self._auth_toggle_clean('prevent_multiple_active_sessions', False)
+
+    def clean_login_lockout_enabled(self):
+        return self._auth_toggle_clean('login_lockout_enabled', True)
+
+    def clean_enforce_strong_passwords(self):
+        return self._auth_toggle_clean('enforce_strong_passwords', False)
 
     def clean_sidebar_density(self):
         value = self.cleaned_data.get('sidebar_density') or DEFAULT_SIDEBAR_DENSITY
@@ -3451,6 +4041,25 @@ class SystemSettingsForm(forms.ModelForm):
         if value not in TITLEBAR_HOME_SHAPE_VALUES:
             raise ValidationError("Invalid titlebar home shape.")
         return value
+
+    def clean_titlebar_user_hub_style(self):
+        value = self.cleaned_data.get('titlebar_user_hub_style') or TITLEBAR_USER_HUB_STYLE_DROPDOWN
+        if value not in TITLEBAR_USER_HUB_STYLE_VALUES:
+            raise ValidationError("Invalid titlebar and user hub style.")
+        return value
+
+    def clean_titlebar_actions_order(self):
+        value = self.cleaned_data.get('titlebar_actions_order')
+        if isinstance(value, str):
+            value = value.strip()
+            if value:
+                try:
+                    value = json.loads(value)
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    value = []
+            else:
+                value = []
+        return normalize_titlebar_actions_order(value)
 
     def clean_titlebar_title_align(self):
         value = self.cleaned_data.get('titlebar_title_align') or 'start'
@@ -3561,6 +4170,48 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Nav bar configuration must be a valid JSON object.")
         return normalize_navbar_config(parsed)
 
+    def clean_log_config(self):
+        data = self.cleaned_data.get('log_config')
+        if not data:
+            return default_log_config()
+        if isinstance(data, dict):
+            return normalize_log_config(data)
+        try:
+            parsed = json.loads(data)
+        except json.JSONDecodeError:
+            raise ValidationError("Invalid logging JSON format.")
+        if not isinstance(parsed, dict):
+            raise ValidationError("Logging configuration must be a valid JSON object.")
+        return normalize_log_config(parsed)
+
+    def clean_profile_config(self):
+        data = self.cleaned_data.get('profile_config')
+        if not data:
+            return default_profile_config()
+        if isinstance(data, dict):
+            return normalize_profile_config(data)
+        try:
+            parsed = json.loads(data)
+        except json.JSONDecodeError:
+            raise ValidationError("Invalid profile JSON format.")
+        if not isinstance(parsed, dict):
+            raise ValidationError("Profile configuration must be a valid JSON object.")
+        return normalize_profile_config(parsed)
+
+    def clean_notification_config(self):
+        data = self.cleaned_data.get('notification_config')
+        if not data:
+            return default_notification_config()
+        if isinstance(data, dict):
+            return normalize_notification_config(data)
+        try:
+            parsed = json.loads(data)
+        except json.JSONDecodeError:
+            raise ValidationError("Invalid notification JSON format.")
+        if not isinstance(parsed, dict):
+            raise ValidationError("Notification configuration must be a valid JSON object.")
+        return normalize_notification_config(parsed)
+
     def clean_email_config(self):
         existing = normalize_email_config(getattr(self.instance, 'email_config', {}))
         transport = self.cleaned_data.get('email_config_transport') or existing.get('transport', 'direct')
@@ -3623,6 +4274,8 @@ class SystemSettingsForm(forms.ModelForm):
             'default_table_density',
             'email_2fa',
             'prevent_multiple_active_sessions',
+            'login_lockout_enabled',
+            'enforce_strong_passwords',
             'client_ip_config',
             'public_root',
             'public_root_split_enabled',
@@ -3630,6 +4283,7 @@ class SystemSettingsForm(forms.ModelForm):
             'registration_activation_mode',
             'registration_throttle_enabled',
             'email_config',
+            'notification_config',
         )
         for field_name in direct_fields:
             if field_name in imported:
@@ -3675,21 +4329,58 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['navbar_default_mode'] = navbar.get('default_mode', DEFAULT_NAVBAR_MODE)
             cleaned['navbar_allow_user_mode_override'] = bool(navbar.get('allow_user_mode_override', True))
 
+        log = imported.get('log_config')
+        if isinstance(log, dict):
+            cleaned['log_config'] = normalize_log_config(log)
+
+        profile = imported.get('profile_config')
+        if isinstance(profile, dict):
+            cleaned['profile_config'] = normalize_profile_config(profile)
+
         titlebar = imported.get('titlebar_config')
         if isinstance(titlebar, dict):
+            titlebar = normalize_titlebar_config(titlebar)
             cleaned['titlebar_show_title'] = bool(titlebar.get('show_title', True))
             cleaned['titlebar_show_logo'] = bool(titlebar.get('show_logo', True))
             cleaned['titlebar_show_home_button'] = bool(titlebar.get('show_home_button', True))
             cleaned['titlebar_hide_on_public_unauthenticated_index'] = bool(
                 titlebar.get('hide_on_public_unauthenticated_index', False)
             )
-            cleaned['titlebar_home_shape'] = titlebar.get('home_shape', 'circle')
+            cleaned['titlebar_home_shape'] = titlebar.get('buttons_shape', titlebar.get('home_shape', 'circle'))
+            cleaned['titlebar_user_hub_style'] = titlebar.get('user_hub_style', TITLEBAR_USER_HUB_STYLE_DROPDOWN)
+            cleaned['titlebar_actions_order'] = normalize_titlebar_actions_order(titlebar.get('actions_order'))
             cleaned['titlebar_title_align'] = titlebar.get('title_align', 'start')
             cleaned['titlebar_title_size'] = titlebar.get('title_size', 'md')
             cleaned['titlebar_height'] = titlebar.get('height', 'balanced')
             cleaned['titlebar_surface'] = titlebar.get('surface', 'default')
             cleaned['titlebar_logo_treatment'] = titlebar.get('logo_treatment', 'none')
             cleaned['titlebar_logo_treatment_shape'] = titlebar.get('logo_treatment_shape', 'soft')
+
+        notifications = imported.get('notification_config')
+        if isinstance(notifications, dict):
+            notifications = normalize_notification_config(notifications)
+            cleaned['notification_config'] = notifications
+            cleaned['notifications_enabled'] = bool(notifications.get('enabled', True))
+            flash_config = notifications.get('flash', {})
+            drawer_config = notifications.get('drawer', {})
+            bridge_config = notifications.get('bridge', {})
+            email_notification_config = notifications.get('email', {})
+            automatic_config = notifications.get('automatic', {})
+            cleaned['notification_flash_enabled'] = bool(flash_config.get('enabled', True))
+            cleaned['notification_flash_position'] = flash_config.get('position', 'top_center')
+            cleaned['notification_flash_size'] = flash_config.get('size', 'balanced')
+            cleaned['notification_flash_text_size'] = flash_config.get('text_size', 'md')
+            cleaned['notification_flash_timeout_ms'] = flash_config.get('timeout_ms', 3200)
+            cleaned['notification_flash_max_visible'] = flash_config.get('max_visible', 3)
+            cleaned['notification_drawer_enabled'] = bool(drawer_config.get('enabled', True))
+            cleaned['notification_badge_enabled'] = bool(drawer_config.get('badge_enabled', True))
+            cleaned['notification_bridge_enabled'] = bool(bridge_config.get('django_messages_enabled', False))
+            cleaned['notification_email_enabled'] = bool(email_notification_config.get('enabled', False))
+            cleaned['notification_email_default'] = bool(email_notification_config.get('default', False))
+            cleaned['notification_auto_crud_enabled'] = bool(automatic_config.get('scoped_model_crud', True))
+            cleaned['notification_auto_create'] = bool(automatic_config.get('create', True))
+            cleaned['notification_auto_update'] = automatic_config.get('update', 'summary')
+            cleaned['notification_auto_delete'] = bool(automatic_config.get('delete', True))
 
         login = imported.get('login_config')
         if isinstance(login, dict):
@@ -3754,6 +4445,12 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['navbar_enabled'] = navbar.get('enabled', False)
             cleaned['navbar_default_mode'] = navbar.get('default_mode', DEFAULT_NAVBAR_MODE)
             cleaned['navbar_allow_user_mode_override'] = navbar.get('allow_user_mode_override', True)
+        log = cleaned.get('log_config')
+        if isinstance(log, dict):
+            cleaned['log_config'] = normalize_log_config(log)
+        profile = cleaned.get('profile_config')
+        if isinstance(profile, dict):
+            cleaned['profile_config'] = normalize_profile_config(profile)
         existing_email_config = normalize_email_config(getattr(self.instance, 'email_config', {}))
         email_features_enabled = bool(cleaned.get('public_registration_enabled') or cleaned.get('email_2fa'))
         email_fields_posted = any(
@@ -3812,6 +4509,12 @@ class SystemSettingsForm(forms.ModelForm):
             lang_code: str(cleaned.get(field_name) or '').strip()
             for lang_code, _label, field_name in getattr(self, '_login_hero_lang_fields', [])
         }
+        cleaned['auth_config'] = normalize_auth_config({
+            'email_2fa': bool(cleaned.get('email_2fa', False)),
+            'prevent_multiple_active_sessions': bool(cleaned.get('prevent_multiple_active_sessions', False)),
+            'login_lockout_enabled': bool(cleaned.get('login_lockout_enabled', True)),
+            'enforce_strong_passwords': bool(cleaned.get('enforce_strong_passwords', False)),
+        })
         cleaned['login_config'] = normalize_login_config({
             'style': cleaned.get('login_style') or 'split',
             'show_logo': bool(cleaned.get('login_show_logo', True)),
@@ -3827,7 +4530,10 @@ class SystemSettingsForm(forms.ModelForm):
             'hide_on_public_unauthenticated_index': bool(
                 cleaned.get('titlebar_hide_on_public_unauthenticated_index', False)
             ),
+            'buttons_shape': cleaned.get('titlebar_home_shape', 'circle'),
             'home_shape': cleaned.get('titlebar_home_shape', 'circle'),
+            'user_hub_style': cleaned.get('titlebar_user_hub_style', TITLEBAR_USER_HUB_STYLE_DROPDOWN),
+            'actions_order': cleaned.get('titlebar_actions_order') or list(TITLEBAR_ACTIONS_ORDER),
             'title_align': cleaned.get('titlebar_title_align', 'start'),
             'title_size': cleaned.get('titlebar_title_size', 'md'),
             'height': cleaned.get('titlebar_height', 'balanced'),
@@ -3835,6 +4541,67 @@ class SystemSettingsForm(forms.ModelForm):
             'logo_treatment': cleaned.get('titlebar_logo_treatment', 'none'),
             'logo_treatment_shape': cleaned.get('titlebar_logo_treatment_shape', 'soft'),
         })
+        notification_split_fields = (
+            'notifications_enabled',
+            'notification_flash_enabled',
+            'notification_flash_position',
+            'notification_flash_size',
+            'notification_flash_text_size',
+            'notification_flash_timeout_ms',
+            'notification_flash_max_visible',
+            'notification_drawer_enabled',
+            'notification_badge_enabled',
+            'notification_bridge_enabled',
+            'notification_email_enabled',
+            'notification_email_default',
+            'notification_auto_crud_enabled',
+            'notification_auto_create',
+            'notification_auto_update',
+            'notification_auto_delete',
+        )
+        notification_fields_posted = any(field_name in self.data for field_name in notification_split_fields)
+        if (
+            self.is_bound
+            and self.mode != 'setup'
+            and self.single_step_mode
+            and self.single_step_index != 7
+            and not notification_fields_posted
+        ):
+            cleaned['notification_config'] = normalize_notification_config(
+                getattr(self.instance, 'notification_config', None) or cleaned.get('notification_config')
+            )
+        else:
+            notification_email_enabled = bool(cleaned.get('notification_email_enabled', False))
+            cleaned['notification_config'] = normalize_notification_config({
+                'enabled': bool(cleaned.get('notifications_enabled', True)),
+                'flash': {
+                    'enabled': bool(cleaned.get('notification_flash_enabled', True)),
+                    'position': cleaned.get('notification_flash_position') or 'top_center',
+                    'size': cleaned.get('notification_flash_size') or 'balanced',
+                    'text_size': cleaned.get('notification_flash_text_size') or 'md',
+                    'timeout_ms': cleaned.get('notification_flash_timeout_ms') if cleaned.get('notification_flash_timeout_ms') is not None else 3200,
+                    'max_visible': cleaned.get('notification_flash_max_visible') if cleaned.get('notification_flash_max_visible') is not None else 3,
+                },
+                'drawer': {
+                    'enabled': bool(cleaned.get('notification_drawer_enabled', True)),
+                    'badge_enabled': bool(cleaned.get('notification_badge_enabled', True)),
+                },
+                'bridge': {
+                    'django_messages_enabled': bool(cleaned.get('notification_bridge_enabled', False)),
+                },
+                'email': {
+                    'enabled': notification_email_enabled,
+                    'default': bool(notification_email_enabled and cleaned.get('notification_email_default', False)),
+                },
+                'automatic': {
+                    'scoped_model_crud': bool(cleaned.get('notification_auto_crud_enabled', True)),
+                    'create': bool(cleaned.get('notification_auto_create', True)),
+                    'update': cleaned.get('notification_auto_update') or 'summary',
+                    'delete': bool(cleaned.get('notification_auto_delete', True)),
+                    'actor_flash_actions': ['create', 'delete', 'error'],
+                    'watchable': True,
+                },
+            })
         if cleaned.get('registration_activation_mode') not in REGISTRATION_ACTIVATION_VALUES:
             cleaned['registration_activation_mode'] = 'auto_login_after_verify'
         email_ready = get_email_service_status().get('available')
@@ -3875,6 +4642,19 @@ class SystemSettingsForm(forms.ModelForm):
                     or getattr(settings, 'DEFAULT_FROM_EMAIL', '')
                 )
             )
+        if not email_ready:
+            cleaned['notification_email_enabled'] = False
+            cleaned['notification_email_default'] = False
+            notification_config = cleaned.get('notification_config')
+            if isinstance(notification_config, dict):
+                notification_config = {
+                    **notification_config,
+                    'email': {
+                        'enabled': False,
+                        'default': False,
+                    },
+                }
+                cleaned['notification_config'] = normalize_notification_config(notification_config)
         if (cleaned.get('public_registration_enabled') or cleaned.get('email_2fa')) and not email_ready:
             self.add_error(
                 'email_config',
@@ -3901,6 +4681,7 @@ class SystemSettingsForm(forms.ModelForm):
             'default_table_density': self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),
             'email_2fa': bool(self.cleaned_data.get('email_2fa', False)),
             'prevent_multiple_active_sessions': bool(self.cleaned_data.get('prevent_multiple_active_sessions', False)),
+            'login_lockout_enabled': bool(self.cleaned_data.get('login_lockout_enabled', True)),
             'client_ip_config': self.cleaned_data.get('client_ip_config', default_client_ip_config()),
             'public_root': bool(self.cleaned_data.get('public_root', False)),
             'public_root_split_enabled': bool(self.cleaned_data.get('public_root_split_enabled', False)),
@@ -3911,7 +4692,10 @@ class SystemSettingsForm(forms.ModelForm):
             'email_config': self.cleaned_data.get('email_config', default_email_config()),
             'sidebar_config': self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []}),
             'navbar_config': self.cleaned_data.get('navbar_config', default_navbar_config()),
+            'log_config': self.cleaned_data.get('log_config', default_log_config()),
+            'profile_config': self.cleaned_data.get('profile_config', default_profile_config()),
             'titlebar_config': self.cleaned_data.get('titlebar_config', default_titlebar_config()),
+            'notification_config': self.cleaned_data.get('notification_config', default_notification_config()),
             'login_config': self.cleaned_data.get('login_config', default_login_config()),
         }, commit=False, preserve_email_secret=True)
         imported = getattr(self, '_imported_settings', {}) or {}

@@ -1,54 +1,8 @@
-from django.conf import settings
+from dlux.tests.harness import setup_test_environment
 
+setup_test_environment()
 
-if not settings.configured:
-    settings.configure(
-        SECRET_KEY='dlux-test-key',
-        ALLOWED_HOSTS=['testserver', 'localhost'],
-        INSTALLED_APPS=[
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
-            'crispy_forms',
-            'crispy_bootstrap5',
-            'django_filters',
-            'django_tables2',
-            'dlux',
-        ],
-        MIDDLEWARE=[
-            'django.contrib.sessions.middleware.SessionMiddleware',
-            'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'dlux.middleware.DluxMiddleware',
-        ],
-        ROOT_URLCONF='dlux.urls',
-        TEMPLATES=[
-            {
-                'BACKEND': 'django.template.backends.django.DjangoTemplates',
-                'APP_DIRS': True,
-                'OPTIONS': {
-                    'context_processors': [
-                        'django.template.context_processors.request',
-                        'django.contrib.auth.context_processors.auth',
-                        'django.contrib.messages.context_processors.messages',
-                        'dlux.context_processors.dlux_context',
-                    ],
-                },
-            }
-        ],
-        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-        STATIC_URL='/static/',
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-        USE_TZ=True,
-        CRISPY_ALLOWED_TEMPLATE_PACKS='bootstrap5',
-        CRISPY_TEMPLATE_PACK='bootstrap5',
-    )
-
-    import django
-
-    django.setup()
-
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.test import Client, RequestFactory, SimpleTestCase, override_settings
 from django.template import Context, Template
@@ -65,7 +19,7 @@ import json
 import re
 import tempfile
 
-from dlux.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY
+from dlux.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, TITLEBAR_ACTIONS_ORDER
 from dlux.context_processors import dlux_context
 from dlux.forms import SystemSettingsForm
 from dlux.models import SystemSettings
@@ -77,12 +31,17 @@ from dlux.utils import (
     get_system_config,
     normalize_navbar_config,
     normalize_system_settings_import_payload,
+    normalize_titlebar_actions_order,
     normalize_titlebar_config,
     seed_navbar_config_from_sidebar,
 )
 from dlux.navbar import build_navbar_hierarchy_crumbs
 
 _LEGACY_HOME_URL = '/sys/'
+
+
+def _assert_versioned_static_asset(testcase, contents, asset_path):
+    testcase.assertRegex(contents, rf"{re.escape(asset_path)}[^\\n]*\\?v=")
 
 
 class DluxDefaultRouteTests(SimpleTestCase):
@@ -206,6 +165,85 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(imported['titlebar_config']['logo_treatment_shape'], 'pill')
         self.assertTrue(imported['prevent_multiple_active_sessions'])
 
+    def test_system_settings_import_accepts_grouped_config_aliases(self):
+        imported = normalize_system_settings_import_payload({
+            'auth_config': {
+                'email_2fa': True,
+                'prevent_multiple_active_sessions': True,
+                'login_lockout_enabled': False,
+            },
+            'registration_config': {
+                'public_registration_enabled': True,
+                'registration_activation_mode': 'verified_pending_approval',
+                'registration_throttle_enabled': False,
+            },
+            'public_root_config': {
+                'public_root': True,
+                'public_root_split_enabled': True,
+                'public_root_url': '/public-import/',
+            },
+            'layout_config': {'default_table_density': 'dense'},
+            'language_config': {
+                'translations_override': {'en': {'custom_key': 'Custom'}},
+                'allow_user_language_override': False,
+            },
+            'theme_config': {
+                'allowed_themes': ['dark'],
+                'allow_user_theme_override': False,
+            },
+            'typography_config': {
+                'allowed_fonts': ['cairo'],
+                'default_fonts': {'en': 'cairo'},
+                'allow_user_font_override': False,
+            },
+            'extra_config': {'host_flag': True},
+        })
+
+        self.assertTrue(imported['email_2fa'])
+        self.assertTrue(imported['prevent_multiple_active_sessions'])
+        self.assertFalse(imported['login_lockout_enabled'])
+        self.assertTrue(imported['public_registration_enabled'])
+        self.assertEqual(imported['registration_activation_mode'], 'verified_pending_approval')
+        self.assertFalse(imported['registration_throttle_enabled'])
+        self.assertTrue(imported['public_root'])
+        self.assertTrue(imported['public_root_split_enabled'])
+        self.assertEqual(imported['public_root_url'], '/public-import/')
+        self.assertEqual(imported['default_table_density'], 'dense')
+        self.assertEqual(imported['translations_override'], {'en': {'custom_key': 'Custom'}})
+        self.assertFalse(imported['allow_user_language_override'])
+        self.assertEqual(imported['allowed_themes'], ['dark'])
+        self.assertFalse(imported['allow_user_theme_override'])
+        self.assertEqual(imported['allowed_fonts'], ['cairo'])
+        self.assertEqual(imported['default_fonts'], {'en': 'cairo'})
+        self.assertFalse(imported['allow_user_font_override'])
+        self.assertEqual(imported['extra_config'], {'host_flag': True})
+
+    def test_system_settings_export_remains_flat_after_grouped_storage(self):
+        instance = SystemSettings.load()
+        instance.public_root = True
+        instance.public_root_split_enabled = True
+        instance.public_root_url = '/public-export/'
+        instance.default_table_density = 'roomy'
+        instance.translations_override = {'en': {'custom_key': 'Custom'}}
+        instance.allowed_themes = ['dark']
+        instance.extra_config = {'host_flag': True}
+        instance.save()
+
+        payload = export_system_settings_payload(instance)
+        settings_payload = payload['settings']
+
+        self.assertTrue(settings_payload['public_root'])
+        self.assertTrue(settings_payload['public_root_split_enabled'])
+        self.assertEqual(settings_payload['public_root_url'], '/public-export/')
+        self.assertEqual(settings_payload['default_table_density'], 'roomy')
+        self.assertEqual(settings_payload['translations_override'], {'en': {'custom_key': 'Custom'}})
+        self.assertEqual(settings_payload['allowed_themes'], ['dark'])
+        self.assertEqual(settings_payload['extra_config'], {'host_flag': True})
+        self.assertNotIn('public_root_config', settings_payload)
+        self.assertNotIn('layout_config', settings_payload)
+        self.assertNotIn('theme_config', settings_payload)
+        self.assertNotIn('language_config', settings_payload)
+
     def test_titlebar_logo_treatment_normalizes_defaults_and_invalid_values(self):
         defaults = normalize_titlebar_config({})
         invalid = normalize_titlebar_config({
@@ -217,6 +255,29 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(defaults['logo_treatment_shape'], 'soft')
         self.assertEqual(invalid['logo_treatment'], 'none')
         self.assertEqual(invalid['logo_treatment_shape'], 'soft')
+
+    def test_titlebar_user_hub_style_and_actions_order_normalize(self):
+        defaults = normalize_titlebar_config({})
+        invalid = normalize_titlebar_config({
+            'user_hub_style': 'drawer',
+            'actions_order': ['auth', 'unknown', 'home', 'auth'],
+        })
+        custom = normalize_titlebar_config({
+            'user_hub_style': 'titlebar_actions',
+            'actions_order': ['auth', 'settings', 'home'],
+        })
+
+        self.assertEqual(defaults['user_hub_style'], 'dropdown')
+        self.assertEqual(defaults['actions_order'], list(TITLEBAR_ACTIONS_ORDER))
+        self.assertEqual(invalid['user_hub_style'], 'dropdown')
+        self.assertEqual(invalid['actions_order'][:2], ['auth', 'home'])
+        self.assertNotIn('unknown', invalid['actions_order'])
+        self.assertEqual(custom['user_hub_style'], 'titlebar_actions')
+        self.assertEqual(custom['actions_order'][:3], ['auth', 'settings', 'home'])
+        self.assertEqual(
+            normalize_titlebar_actions_order(['home', 'home', 'profile'])[:2],
+            ['home', 'profile'],
+        )
 
     def test_navbar_seed_from_sidebar_only_when_enabled_and_empty(self):
         seeded = seed_navbar_config_from_sidebar(
@@ -444,8 +505,26 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('!entry.is_system', setup_js)
         self.assertNotIn('crumb.clickable && crumb.url && !isCurrent', navbar_js)
 
-    def test_unconfigured_root_url_redirects_to_system_setup(self):
+    def test_unconfigured_root_url_redirects_anonymous_to_login(self):
         response = Client().get('/')
+
+        self.assertRedirects(
+            response,
+            '/accounts/login/',
+            fetch_redirect_response=False,
+        )
+
+    def test_unconfigured_root_url_redirects_superuser_to_system_setup(self):
+        user_model = get_user_model()
+        user = user_model.objects.create_superuser(
+            username='setup-admin',
+            email='setup-admin@example.com',
+            password='adminpass123',
+        )
+        client = Client()
+        client.force_login(user)
+
+        response = client.get('/')
 
         self.assertRedirects(
             response,
@@ -474,12 +553,15 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
     @override_settings(ROOT_URLCONF='dlux.tests.urls_with_root_index')
-    def test_unconfigured_existing_project_root_respects_dev_view(self):
+    def test_unconfigured_existing_project_root_requires_login_before_dev_view(self):
         clear_url_caches()
         response = Client().get('/')
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.content, b'project index')
+        self.assertRedirects(
+            response,
+            '/accounts/login/',
+            fetch_redirect_response=False,
+        )
 
     @override_settings(ROOT_URLCONF='dlux.tests.urls_with_root_index', DLUX_CONFIG={'is_configured': True})
     def test_configured_existing_project_root_view_is_not_hijacked(self):
@@ -549,6 +631,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             'show_logo': False,
             'show_home_button': False,
             'hide_on_public_unauthenticated_index': True,
+            'buttons_shape': 'square',
             'home_shape': 'square',
             'title_align': 'center',
             'title_size': 'lg',
@@ -585,6 +668,27 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
     @override_settings(DLUX_CONFIG={
         'titlebar': {
+            'user_hub_style': 'titlebar_actions',
+            'actions_order': ['auth', 'settings', 'home', 'bogus', 'auth'],
+        },
+    })
+    def test_setup_form_surfaces_titlebar_user_hub_style_and_order_builder(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+        )
+
+        self.assertEqual(form.initial['titlebar_user_hub_style'], 'titlebar_actions')
+        self.assertEqual(
+            json.loads(form.initial['titlebar_actions_order'])[:3],
+            ['auth', 'settings', 'home'],
+        )
+        self.assertIn('data-titlebar-actions-order-builder', form.titlebar_actions_order_html)
+        self.assertIn("data-action-key='auth'", form.titlebar_actions_order_html)
+        self.assertIn('id="id_titlebar_user_hub_style"', str(form['titlebar_user_hub_style']))
+        self.assertIn('data-dlux-selector-variant="toggle"', str(form['titlebar_user_hub_style']))
+
+    @override_settings(DLUX_CONFIG={
+        'titlebar': {
             'show_title': False,
         },
     })
@@ -617,7 +721,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
-        self.assertIn('data-setup-theme-preview-url="/static/dlux/themes/css/light.css?v=20260523c"', form.theme_picker_html)
+        self.assertIn('data-setup-theme-preview-url="/static/dlux/themes/css/light.css?v=', form.theme_picker_html)
         self.assertIn('data-setup-theme-allow-toggle="light"', form.theme_picker_html)
         self.assertIn('dlux-theme-settings-option__preview', form.theme_picker_html)
         self.assertIn('aria-pressed="true"', form.theme_picker_html)
@@ -690,6 +794,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
                     'title_align': 'center',
                     'logo_treatment': 'halo',
                     'logo_treatment_shape': 'square',
+                    'user_hub_style': 'titlebar_actions',
+                    'actions_order': ['auth', 'settings', 'home', 'missing'],
                 },
             },
         }
@@ -730,6 +836,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertTrue(form.cleaned_data['titlebar_config']['hide_on_public_unauthenticated_index'])
         self.assertEqual(form.cleaned_data['titlebar_config']['logo_treatment'], 'halo')
         self.assertEqual(form.cleaned_data['titlebar_config']['logo_treatment_shape'], 'square')
+        self.assertEqual(form.cleaned_data['titlebar_config']['user_hub_style'], 'titlebar_actions')
+        self.assertEqual(form.cleaned_data['titlebar_config']['actions_order'][:3], ['auth', 'settings', 'home'])
+        self.assertNotIn('missing', form.cleaned_data['titlebar_config']['actions_order'])
 
     def test_setup_form_import_restores_email_config_and_sidebar_enabled_flag(self):
         payload = {
@@ -1653,6 +1762,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('const translationOverrides = settings.translations_override || settings.translations;', contents)
         self.assertIn('const navbarSource = settings.navbar_config || settings.navbar;', contents)
         self.assertIn('const titlebarSource = settings.titlebar_config || settings.titlebar;', contents)
+        self.assertIn("setNamedFieldValue(form, 'titlebar_user_hub_style', titlebar.user_hub_style === 'titlebar_actions' ? 'titlebar_actions' : 'dropdown');", contents)
+        self.assertIn("writeTitlebarActionsOrder(form, titlebar.actions_order || TITLEBAR_ACTIONS_DEFAULT_ORDER);", contents)
+        self.assertIn('function normalizeTitlebarActionsOrder(value) {', contents)
+        self.assertIn('function initTitlebarActionsOrderBuilder(form) {', contents)
+        self.assertIn('titlebar.dataset.titlebarUserHubStyle = userHubStyle ===', contents)
+        self.assertIn("document.querySelectorAll('#dlux-user-dropdown-card').forEach((card) => {", contents)
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment', titlebar.logo_treatment || 'none');", contents)
         self.assertIn("setNamedFieldValue(form, 'titlebar_logo_treatment_shape', titlebar.logo_treatment_shape || 'soft');", contents)
         self.assertIn("setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showPlateShape);", contents)
@@ -1762,25 +1877,45 @@ class DluxDefaultRouteTests(SimpleTestCase):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
         titlebar_css = (static_root / 'main' / 'css' / 'titlebar.css').read_text(encoding='utf-8')
 
-        self.assertIn('.titlebar .dlux-login-round {', titlebar_css)
+        # All titlebar buttons (home/action/login/notification trigger) share the
+        # `dlux-titlebar-btn` class, so base appearance + hover are styled once.
+        self.assertIn('.titlebar .dlux-titlebar-btn {', titlebar_css)
+        self.assertIn('.titlebar .dlux-titlebar-btn:hover,', titlebar_css)
+        self.assertIn('.titlebar .dlux-titlebar-btn:focus-visible {', titlebar_css)
+        # Shape variants stay per-class (home-shape applies to home/trigger/login, not actions).
         self.assertIn('.titlebar[data-titlebar-home-shape="square"] .dlux-login-round {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-home-shape="squircle"] .dlux-login-round {', titlebar_css)
-        self.assertIn('.titlebar .dlux-login-round:hover,', titlebar_css)
-        self.assertIn('.titlebar .dlux-login-round:focus-visible {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"][data-titlebar-logo-treatment-shape="pill"] .titlebar__logo {', titlebar_css)
         titlebar_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'titlebar.html'
         titlebar_markup = titlebar_template.read_text(encoding='utf-8')
+        notifications_markup = (Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'notifications.html').read_text(encoding='utf-8')
         self.assertIn('data-titlebar-logo-treatment="{{ titlebar.logo_treatment|default:\'none\' }}"', titlebar_markup)
         self.assertIn('data-titlebar-logo-treatment-shape="{{ titlebar.logo_treatment_shape|default:\'soft\' }}"', titlebar_markup)
+        self.assertIn('data-titlebar-user-hub-style="{{ titlebar.user_hub_style|default:\'dropdown\' }}"', titlebar_markup)
+        self.assertIn('data-titlebar-actions', titlebar_markup)
+        self.assertIn('method="POST" action="{{ action.url }}"', titlebar_markup)
+        self.assertIn('{% csrf_token %}', titlebar_markup)
+        self.assertIn('data-titlebar-action-key="{{ action.key }}"', titlebar_markup)
+        self.assertIn('.titlebar__actions--titlebar', titlebar_css)
+        self.assertIn('.titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--dropdown', titlebar_css)
+        self.assertIn('.titlebar__actions--titlebar {', titlebar_css)
+        base_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'base.html'
+        base_markup = base_template.read_text(encoding='utf-8')
+        self.assertIn("user.is_authenticated and titlebar.user_hub_style != 'titlebar_actions'", base_markup)
 
+        # Dark themes override the single shared button class (so the bell / action buttons
+        # get the dark treatment too, not just home/login).
+        self.assertIn('dlux-titlebar-btn dlux-notifications__trigger', notifications_markup)
+        self.assertIn('dlux-titlebar-btn dlux-login-round', titlebar_markup)
         for theme_name in ('dark', 'gothic', 'retro', 'neon', 'prism', 'aether'):
             theme_css = (static_root / 'themes' / 'css' / f'{theme_name}.css').read_text(encoding='utf-8')
-            self.assertIn('.titlebar .dlux-login-round {', theme_css)
-            self.assertIn('.titlebar .dlux-login-round:hover,', theme_css)
-            self.assertIn('.titlebar .dlux-login-round:focus-visible {', theme_css)
+            self.assertIn('.titlebar .dlux-titlebar-btn {', theme_css)
+            self.assertIn('.titlebar .dlux-titlebar-btn:hover,', theme_css)
+            self.assertIn('.titlebar .dlux-titlebar-btn:focus-visible {', theme_css)
+            self.assertNotIn('.titlebar .dlux-login-round {', theme_css)
             self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {', theme_css)
 
     def test_neon_theme_excludes_options_panels_from_generic_option_section_overlays(self):
@@ -1800,6 +1935,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('.dlux-choice-selector--toggle .dlux-choice-selector__options {', contents)
         self.assertIn('padding-block: 0.8rem;', contents)
         self.assertIn('align-self: stretch;', contents)
+        self.assertIn('--dlux-choice-toggle-surface:', contents)
+        self.assertIn('background: var(--dlux-choice-toggle-surface);', contents)
+        self.assertIn('background: var(--dlux-choice-toggle-surface-hover);', contents)
+        self.assertIn('background: var(--dlux-choice-toggle-surface-active);', contents)
+        self.assertNotIn('linear-gradient(180deg, rgba(255, 255, 255, 0.99)', contents)
 
     def test_system_setup_css_makes_shared_toggle_cards_reflow_inside_narrow_columns(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
@@ -1914,8 +2054,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("dlux/main/css/options.css", contents)
-        self.assertIn("?v=20260525a", contents)
         self.assertIn("dlux/main/js/options.js", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/main/css/options.css")
+        _assert_versioned_static_asset(self, contents, "dlux/main/js/options.js")
         self.assertIn('{{ server_time_backend_display }}', contents)
         self.assertIn('id="dluxOptionsGrid"', contents)
         self.assertIn('data-options-card="system-info"', contents)
@@ -1939,22 +2080,24 @@ class DluxDefaultRouteTests(SimpleTestCase):
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn("dlux/main/css/main.css", contents)
-        self.assertIn("?v=20260607d", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/main/css/main.css")
         self.assertIn("dlux/main/css/system_setup.css", contents)
-        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260611b", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/main/css/system_setup.css")
         self.assertIn("dlux/main/js/system_setup.js", contents)
-        self.assertIn("dlux/main/js/system_setup.js' %}?v=20260611a", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/main/js/system_setup.js")
         self.assertIn("dlux/helpers/wizard/js/main.js", contents)
         self.assertLess(
             contents.index("dlux/main/js/system_setup.js"),
             contents.index("dlux/helpers/wizard/js/main.js"),
         )
-        self.assertGreaterEqual(contents.count("?v=20260610a"), 3)
+        self.assertGreaterEqual(contents.count("?v="), 20)
         self.assertIn("dlux/main/js/navbar.js", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/main/js/navbar.js")
         self.assertIn("dlux/main/css/navbar.css", contents)
-        self.assertIn("{% static theme.css_path %}?v=20260528c", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/main/css/navbar.css")
+        self.assertIn("{% static theme.css_path %}?v=", contents)
         self.assertIn("dlux/main/css/template_cleanup.css", contents)
-        self.assertIn("?v=20260529a", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/main/css/template_cleanup.css")
 
     def test_theme_preview_surfaces_include_aether_and_light_mono(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'template_cleanup.css'
@@ -2006,9 +2149,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         script = script_path.read_text(encoding='utf-8')
 
         self.assertIn("dlux/users/css/login.css", contents)
-        self.assertIn("?v=20260515e", contents)
         self.assertIn("dlux/users/js/twofa_verify.js", contents)
-        self.assertIn("?v=20260515e", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/users/css/login.css")
+        _assert_versioned_static_asset(self, contents, "dlux/users/js/twofa_verify.js")
         self.assertIn('id="usePrimaryMethodBtn"', contents)
         self.assertIn('name="trust_device"', contents)
         self.assertIn('dlux-twofa-login-state', contents)
@@ -2051,7 +2194,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         script = script_path.read_text(encoding='utf-8')
 
         self.assertIn("dlux/helpers/dynamic_modal/js/main.js", contents)
-        self.assertIn("?v=20260525e", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/helpers/dynamic_modal/js/main.js")
         self.assertIn('nonce="{{ request.csp_nonce }}"', contents)
         self.assertIn("'Accept': 'application/json'", script)
         self.assertIn("dynamic-modal-loading-shell", script)
@@ -2152,12 +2295,17 @@ class DluxDefaultRouteTests(SimpleTestCase):
         template = template_path.read_text(encoding='utf-8')
         script = script_path.read_text(encoding='utf-8')
 
-        self.assertIn("dlux/users/js/profile_2fa.js' %}?v=20260524a", template)
+        _assert_versioned_static_asset(self, template, "dlux/users/js/profile_2fa.js")
         self.assertIn("passwordInput.addEventListener('keydown', submitOnEnter);", script)
         self.assertIn('profile-session-trust-form', template)
         self.assertIn('DLUX_STRINGS.msg_confirm_trust_current_device', template)
         self.assertIn('DLUX_STRINGS.session_revoke_trusted_denied', template)
+        self.assertIn('force_password_change_required', template)
+        self.assertIn('data-autoclose="false"', template)
+        self.assertIn('data-dlux-open-on-load="true"', template)
         self.assertIn('function confirmSessionTrust(form)', script)
+        self.assertIn("resetPasswordModal.dataset.dluxOpenOnLoad === 'true'", script)
+        self.assertIn('window.bootstrap.Modal.getOrCreateInstance(resetPasswordModal).show();', script)
         self.assertIn("passwordInput.addEventListener('input', clearPasswordError);", script)
         self.assertIn("if (event.key !== 'Enter') return;", script)
         self.assertIn('confirmCurrentModal();', script)
@@ -2211,11 +2359,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
     def test_templates_do_not_use_inline_style_attributes(self):
         templates_root = Path(__file__).resolve().parents[1] / 'templates'
+        inline_style_pattern = re.compile(r'(?<![\w:-])style\s*=', re.IGNORECASE)
         violations = []
 
         for path in sorted(templates_root.rglob('*.html')):
             for lineno, line in enumerate(path.read_text(encoding='utf-8').splitlines(), start=1):
-                if 'style=' in line:
+                if inline_style_pattern.search(line):
                     violations.append(f'{path.relative_to(templates_root)}:{lineno}')
 
         self.assertEqual(violations, [])
@@ -2242,7 +2391,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             },
             sidebar_config={'enabled': False, 'entries': []},
             navbar_config={'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}},
-            prevent_multiple_active_sessions=True,
+            auth_config={'prevent_multiple_active_sessions': True},
         )
 
         payload = export_system_settings_payload(settings_obj)

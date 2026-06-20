@@ -47,19 +47,33 @@ in place, without data loss.
    python manage.py dlux_migrate_from_microsys --yes
    ```
    This renames every `microsys_*` table to `dlux_*`, repoints
-   `django_content_type` (permissions follow automatically), records dlux's
+   `django_content_type` (permissions follow automatically), creates any Dlux
+   `0001_initial` tables missing from the source Microsys schema, records dlux's
    `0001_initial` as applied while dropping the old `microsys` migration history,
    and rewrites `UserActivityLog.model_key` values (`microsys.*` → `dlux.*`).
 
 6. **Confirm and finish:**
    ```bash
-   python manage.py migrate          # should report "No migrations to apply"
+   python manage.py migrate
    python manage.py collectstatic --noinput
    # restart the app / workers
    ```
 
+   `migrate` should not recreate the relabelled framework tables, but it may
+   apply newer `dlux` migrations released after the rebrand baseline, including
+   the unified SystemSettings/notifications migration.
+
 ## Notes & caveats
 
+- **Older Microsys repair:** if an earlier command version was already run
+  against a pre-2.4.x Microsys database and Dlux pages fail because tables such
+  as `dlux_systembackup`, `dlux_reportbackup`, or `dlux_systemrestore` are
+  missing, upgrade to a fixed DjangoLux build and run:
+  ```bash
+  python manage.py dlux_migrate_from_microsys --repair-missing-tables
+  python manage.py dlux_migrate_from_microsys --repair-missing-tables --yes
+  python manage.py migrate
+  ```
 - **Atomicity:** on PostgreSQL and SQLite the whole migration runs in one
   transaction. **MySQL auto-commits DDL**, so the steps are not rolled back
   together if one fails — your backup is your safety net there.

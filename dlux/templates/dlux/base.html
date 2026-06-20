@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 {% load static %}
-<html lang="{{ CURRENT_LANG|default:'en' }}" dir="{{ CURRENT_DIR|default:'ltr' }}">
+<html lang="{{ CURRENT_LANG|default:'en' }}" dir="{{ CURRENT_DIR|default:'ltr' }}" data-dlux="DjangoLux {{ DLUX_VERSION }} · github.com/debeski/django-lux">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="DjangoLux {{ DLUX_VERSION }}">
     <title>{{ APP_CONFIG.identity.display_name|default:"DjangoLux" }} &nbsp;|&nbsp; {% block title %}{% endblock %}</title>
     
     {{ user_preferences|json_script:"user-prefs-data" }}
@@ -26,23 +27,25 @@
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.rtl.min.css' %}" id="bootstrap-css">
     {% endif %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap-icons.css' %}">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/main.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/main.css' %}?v=20260614a">
     <link rel="stylesheet" href="{% static 'dlux/main/css/navbar.css' %}?v=20260612c">
     <link rel="stylesheet" href="{% static 'dlux/main/css/buttons.css' %}?v=20260612c">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/titlebar.css' %}?v=20260613a">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/titlebar.css' %}?v=20260619a">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/notifications.css' %}?v=20260619a">
     <link rel="stylesheet" href="{% static 'dlux/main/css/tables.css' %}?v=20260612c">
     <link rel="stylesheet" href="{% static 'dlux/main/css/dropdowns.css' %}">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/selectors.css' %}?v=20260612c">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/template_cleanup.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/selectors.css' %}?v=20260619b">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/template_cleanup.css' %}?v=20260615b">
 
     <link rel="stylesheet" href="{% static 'dlux/main/css/pagination.css' %}">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260615a">
     {% for theme in DLUX_THEMES %}
-    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260612c">
+    <link rel="stylesheet" href="{% static theme.css_path %}?v=20260619a">
     {% endfor %}
     <link rel="stylesheet" href="{% static 'dlux/accessibility/css/main.css' %}">
     <link rel="stylesheet" href="{% static 'dlux/language/css/main.css' %}?v=20260516a">
     <link rel="stylesheet" href="{% static 'dlux/helpers/tooltip/css/main.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/helpers/password_rules/css/main.css' %}?v=20260616a">
     <link rel="stylesheet" href="{% static 'dlux/users/css/user_hub.css' %}?v=20260612c">
     <link rel="icon" href="{{ APP_CONFIG.favicon_url|default:'/static/img/base_logo.svg' }}">
     <!-- <link rel="icon" type="image/png" sizes="192x192" href="{% static 'icons/icon-192x192.png' %}">
@@ -61,13 +64,16 @@
     <script src="{% static 'dlux/helpers/prevent_double_submit.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/tooltip/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/titlebar.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/notifications.js' %}?v=20260615e" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/users/js/user_hub.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/users/js/user_report.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/tables.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/selectors.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/system_setup.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/system_setup.js' %}?v=20260616a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/wizard/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/navbar.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/signature.js' %}?v=20260615a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/helpers/password_rules/js/main.js' %}?v=20260616b" nonce="{{ request.csp_nonce }}" defer></script>
 
 </head>
 <body>
@@ -77,7 +83,7 @@
     {% if not hide_titlebar_for_public_index %}
     {% include 'dlux/includes/titlebar.html' %}
     {% endif %}
-    {% if user.is_authenticated %}
+    {% if user.is_authenticated and titlebar.user_hub_style != 'titlebar_actions' %}
     {% include 'dlux/users/user_hub.html' %}
     {% endif %}
     {% endblock %}
@@ -96,15 +102,7 @@
     {% else %}
         <main class="flex-fill w-100 p-4" id="mainContent">
     {% endif %}
-        {% if messages %}
-            <div class="alert-container position-absolute top-0 start-0 w-100">
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} text-center h4 dlux-global-alert">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
+        {% include 'dlux/includes/messages.html' %}
         {% block content %}{% endblock %}
     {% if request.user.is_authenticated %}
                 </div>
@@ -123,12 +121,19 @@
     {% block scripts %}{% endblock %}
     <link rel="stylesheet" href="{% static 'vanillajs-datepicker/datepicker-bs5.min.css' %}">
     <script src="{% static 'vanillajs-datepicker/datepicker.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
-    <script src="{% static 'dlux/main/js/base_runtime.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/base_runtime.js' %}?v=20260615b" nonce="{{ request.csp_nonce }}" defer></script>
 
     {% if request.resolver_match.url_name != 'login' %}
     {% include 'dlux/includes/tutorial.html' %}
     {% endif %}
     {% include 'dlux/helpers/dlux_context_menu.html' %}
     {% include 'dlux/helpers/dynamic_modal.html' %}
+    {% if DLUX_SHOW_INITIAL_USER_SETUP %}
+    {# First-login Initial User Setup: auto-opens the dlux dynamic modal once per user. #}
+    <button type="button" class="d-none" aria-hidden="true"
+            data-dynamic-modal="{% url 'initial_user_setup' %}"
+            data-dlux-auto-open
+            data-modal-title="{{ DLUX_STRINGS.initial_user_setup_title|default:'Welcome — quick setup' }}"></button>
+    {% endif %}
 </body>
 </html>

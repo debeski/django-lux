@@ -1,51 +1,6 @@
-from django.conf import settings
+from dlux.tests.harness import setup_test_environment
 
-if not settings.configured:
-    settings.configure(
-        SECRET_KEY='dlux-test-key',
-        ALLOWED_HOSTS=['testserver', 'localhost'],
-        INSTALLED_APPS=[
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
-            'crispy_forms',
-            'crispy_bootstrap5',
-            'django_filters',
-            'django_tables2',
-            'dlux',
-        ],
-        MIDDLEWARE=[
-            'django.contrib.sessions.middleware.SessionMiddleware',
-            'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'dlux.middleware.DluxMiddleware',
-        ],
-        ROOT_URLCONF='dlux.urls',
-        TEMPLATES=[
-            {
-                'BACKEND': 'django.template.backends.django.DjangoTemplates',
-                'APP_DIRS': True,
-                'OPTIONS': {
-                    'context_processors': [
-                        'django.template.context_processors.request',
-                        'django.contrib.auth.context_processors.auth',
-                        'django.contrib.messages.context_processors.messages',
-                        'dlux.context_processors.dlux_context',
-                    ],
-                },
-            }
-        ],
-        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-        STATIC_URL='/static/',
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-        USE_TZ=True,
-        CRISPY_ALLOWED_TEMPLATE_PACKS='bootstrap5',
-        CRISPY_TEMPLATE_PACK='bootstrap5',
-    )
-
-    import django
-    django.setup()
+setup_test_environment()
 
 from django.test import TestCase, RequestFactory
 from django.contrib.auth import get_user_model
@@ -358,3 +313,225 @@ class SignalTests(TestCase):
                 del _thread_locals.user
             if hasattr(_thread_locals, 'request'):
                 del _thread_locals.request
+
+
+class ActivityLogCategoryTests(TestCase):
+    """Category resolution, config gating, and audit instrumentation."""
+
+    def setUp(self):
+        cache.clear()
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username='catuser', email='cat@example.com', password='catpass123'
+        )
+
+    def _request(self):
+        from dlux.middleware import _thread_locals
+        request = self.factory.get('/')
+        request.user = self.user
+        request.META['HTTP_USER_AGENT'] = 'TestAgent'
+        request.META['REMOTE_ADDR'] = '127.0.0.1'
+        _thread_locals.user = self.user
+        _thread_locals.request = request
+        return request
+
+    def tearDown(self):
+        from dlux.middleware import _thread_locals
+        for attr in ('user', 'request'):
+            if hasattr(_thread_locals, attr):
+                delattr(_thread_locals, attr)
+
+    def test_resolve_log_category(self):
+        from dlux.utils.activity_log import resolve_log_category
+        self.assertEqual(resolve_log_category('LOGIN', model_name='auth'), 'audit')
+        self.assertEqual(resolve_log_category('LOGIN_FAILED'), 'audit')
+        self.assertEqual(resolve_log_category('UPDATE', model_key='dlux.profile'), 'system')
+        self.assertEqual(resolve_log_category('UPDATE', model_key='documents.decree'), 'user')
+        self.assertEqual(resolve_log_category('CREATE', explicit='audit'), 'audit')
+
+    def test_category_default_is_user(self):
+        log = UserActivityLog.objects.create(action='CREATE', model_name='Thing')
+        self.assertEqual(log.category, 'user')
+
+    def test_is_model_logging_enabled_floor_and_actions(self):
+        from dlux.utils.activity_log import is_model_logging_enabled
+        from dlux.system_settings_defaults import default_log_config
+        cfg = default_log_config()
+        # correctness floor always wins
+        self.assertFalse(is_model_logging_enabled('system', 'sessions.session', 'update', cfg))
+        # seeded high-churn exclude
+        self.assertFalse(is_model_logging_enabled('system', 'dlux.trusteddevice', 'create', cfg))
+        # audit bypasses per-model gating
+        self.assertTrue(is_model_logging_enabled('audit', 'anything.model', 'create', cfg))
+        # per-action override
+        cfg['user']['models']['app.thing'] = {'enabled': True, 'actions': {'update': False}}
+        self.assertTrue(is_model_logging_enabled('user', 'app.thing', 'create', cfg))
+        self.assertFalse(is_model_logging_enabled('user', 'app.thing', 'update', cfg))
+
+    def test_login_logged_as_audit(self):
+        from dlux.signals import log_login
+        request = self._request()
+        log_login(sender=User, request=request, user=self.user)
+        log = UserActivityLog.objects.filter(created_by=self.user, action='LOGIN').first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.category, 'audit')
+
+    def test_audit_event_respects_flag(self):
+        from dlux.utils.activity_log import log_audit_event
+        from dlux.models import SystemSettings
+        request = self._request()
+        # enabled by default -> row created
+        log_audit_event(request, 'login_failed', 'LOGIN_FAILED', model_name='auth', number='someuser')
+        self.assertTrue(UserActivityLog.objects.filter(action='LOGIN_FAILED', category='audit').exists())
+        UserActivityLog.objects.all().delete()
+        # disable the event -> no row
+        settings_obj = SystemSettings.load()
+        log_config = settings_obj.log_config
+        log_config['audit']['events']['login_failed'] = False
+        settings_obj.log_config = log_config
+        settings_obj.save()
+        cache.delete('SystemSettings')
+        log_audit_event(request, 'login_failed', 'LOGIN_FAILED', model_name='auth', number='someuser')
+        self.assertFalse(UserActivityLog.objects.filter(action='LOGIN_FAILED').exists())
+
+
+class ActivityLogImmutabilityAndPruneTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username='audituser', email='audit@example.com', password='auditpass123'
+        )
+
+    def test_audit_row_is_append_only(self):
+        log = UserActivityLog.objects.create(action='LOGIN', model_name='auth', category='audit')
+        log.action = 'TAMPERED'
+        with self.assertRaises(ValueError):
+            log.save()
+        # instance delete is a no-op for audit
+        log.delete()
+        self.assertTrue(UserActivityLog.all_objects.filter(pk=log.pk).exists())
+
+    def test_user_row_remains_mutable(self):
+        log = UserActivityLog.objects.create(action='CREATE', model_name='Thing', category='user')
+        log.number = 'x'
+        log.save()  # no raise
+        log.delete()  # soft-delete via ScopedModel; no raise
+
+    def test_prune_respects_retention_and_skips_audit_by_default(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        from django.core.management import call_command
+        from dlux.models import SystemSettings
+
+        old = timezone.now() - timedelta(days=40)
+        for cat in ('user', 'system', 'audit'):
+            row = UserActivityLog.objects.create(action='X', model_name='m', category=cat)
+            UserActivityLog.all_objects.filter(pk=row.pk).update(created_at=old)
+
+        settings_obj = SystemSettings.load()
+        cfg = settings_obj.log_config
+        cfg['user']['retention_days'] = 30
+        cfg['system']['retention_days'] = 30
+        cfg['audit']['retention_days'] = 0  # keep forever
+        settings_obj.log_config = cfg
+        settings_obj.save()
+        cache.delete('SystemSettings')
+
+        call_command('dlux_prune_activity_log')
+        self.assertFalse(UserActivityLog.all_objects.filter(category='user').exists())
+        self.assertFalse(UserActivityLog.all_objects.filter(category='system').exists())
+        self.assertTrue(UserActivityLog.all_objects.filter(category='audit').exists())
+
+
+class IdentityMergeWindowTests(TestCase):
+    """Rolling-window unification of User + Profile changes (replaces the fragile
+    same-calendar-second merge that double-logged across second boundaries)."""
+
+    def setUp(self):
+        cache.clear()
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
+            username='mergeuser', email='merge@example.com', password='mergepass123'
+        )
+
+    def test_rapid_user_and_profile_saves_unify_to_one_row(self):
+        from dlux.middleware import _thread_locals
+        request = self.factory.get('/')
+        request.user = self.user
+        _thread_locals.user = self.user
+        _thread_locals.request = request
+        try:
+            UserActivityLog.objects.filter(created_by=self.user).delete()
+            # Two identity saves in quick succession (User field, then Profile field).
+            self.user.first_name = 'Merged'
+            self.user.save()
+            profile = self.user.profile
+            profile.phone = '12345'
+            profile.save()
+            # Exactly one unified "User Profile" row, not two.
+            rows = UserActivityLog.objects.filter(
+                created_by=self.user, model_name='User Profile'
+            )
+            self.assertEqual(rows.count(), 1)
+        finally:
+            for attr in ('user', 'request'):
+                if hasattr(_thread_locals, attr):
+                    delattr(_thread_locals, attr)
+
+
+class LogModelCatalogTests(TestCase):
+    """Loggability rules and project/system categorization for the settings grid."""
+
+    def test_is_model_loggable_excludes_framework_churn_and_dummies(self):
+        from dlux.utils.activity_log import is_model_loggable, LOG_IDENTITY_MODEL_KEY
+        # Django framework internals + health-check + test models -> not loggable
+        for key in ('auth.user', 'auth.group', 'auth.permission', 'sessions.session',
+                    'contenttypes.contenttype', 'admin.logentry', 'db.testmodel', 'b.testmodel'):
+            self.assertFalse(is_model_loggable(key), key)
+        # dlux operational churn + identity + self + fieldless Section dummy -> not loggable
+        for key in ('dlux.profile', 'dlux.activitylog', 'dlux.section', 'dlux.trusteddevice',
+                    'dlux.userknowndevice', 'dlux.userpresencesession',
+                    'dlux.dluxnotification', 'dlux.dluxnotificationstate',
+                    'dlux.systembackup', 'dlux.reportbackup'):
+            self.assertFalse(is_model_loggable(key), key)
+        # Meaningful models + the synthetic identity key -> loggable
+        for key in ('dlux.systemsettings', 'documents.decree', LOG_IDENTITY_MODEL_KEY):
+            self.assertTrue(is_model_loggable(key), key)
+
+    def test_catalog_split_project_vs_system(self):
+        from dlux.discovery import build_log_model_catalog
+        from dlux.utils.activity_log import LOG_IDENTITY_MODEL_KEY
+        cat = build_log_model_catalog()
+        user_keys = {i['key'] for i in cat['user']}
+        system_keys = {i['key'] for i in cat['system']}
+        all_keys = user_keys | system_keys
+        # The unified "User accounts" identity toggle is pinned to the system list
+        # (users are a core dlux component).
+        self.assertEqual(cat['system'][0]['key'], LOG_IDENTITY_MODEL_KEY)
+        # dlux config models under system.
+        self.assertIn('dlux.systemsettings', system_keys)
+        # Framework internals, churn, and dummies never appear at all.
+        for key in ('auth.user', 'sessions.session', 'contenttypes.contenttype',
+                    'dlux.profile', 'dlux.dluxnotificationstate', 'dlux.trusteddevice',
+                    'dlux.activitylog', 'dlux.section'):
+            self.assertNotIn(key, all_keys, key)
+
+    def test_custom_action_default_logged_and_toggleable(self):
+        from dlux.utils.activity_log import is_model_logging_enabled
+        from dlux.system_settings_defaults import default_log_config
+        cfg = default_log_config()
+        # An undeclared custom action is logged by default...
+        self.assertTrue(is_model_logging_enabled('user', 'app.doc', 'download', cfg))
+        # ...and can be disabled per-model without affecting CRUD.
+        cfg['user']['models']['app.doc'] = {'enabled': True, 'actions': {'download': False}}
+        self.assertFalse(is_model_logging_enabled('user', 'app.doc', 'download', cfg))
+        self.assertTrue(is_model_logging_enabled('user', 'app.doc', 'create', cfg))
+
+    def test_identity_logging_toggle(self):
+        from dlux.utils.activity_log import is_model_logging_enabled, LOG_IDENTITY_MODEL_KEY
+        from dlux.system_settings_defaults import default_log_config
+        cfg = default_log_config()
+        # Identity is gated under the system section.
+        self.assertTrue(is_model_logging_enabled('system', LOG_IDENTITY_MODEL_KEY, 'update', cfg))
+        cfg['system']['models'][LOG_IDENTITY_MODEL_KEY] = {'enabled': False}
+        self.assertFalse(is_model_logging_enabled('system', LOG_IDENTITY_MODEL_KEY, 'update', cfg))

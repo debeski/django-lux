@@ -266,8 +266,8 @@ document.addEventListener("DOMContentLoaded", function () {
         document.head.appendChild(style);
     }
 
-    const startTourBtn = document.getElementById('start-tour');
-    if (startTourBtn) {
+    const startTourButtons = Array.from(document.querySelectorAll('#start-tour, [data-dlux-start-tour]'));
+    startTourButtons.forEach((startTourBtn) => {
         startTourBtn.addEventListener('click', function(e) {
             e.preventDefault();
             
@@ -364,5 +364,5 @@ document.addEventListener("DOMContentLoaded", function () {
             
             driverObj.drive();
         });
-    }
+    });
 });

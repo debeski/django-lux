@@ -67,6 +67,30 @@ authorization decision.
   follow the translation-first policy, utilizing the Dlux translation
   framework for all user-facing copy and challenge messages.
 
+## Rate Limiting & Session Controls
+
+All brute-force and timeout controls are dependency-free (Django cache + session)
+and resolve their thresholds from settings, defaulting to secure values.
+
+- **Failed-login lockout.** Repeated failed password attempts are throttled per
+  client IP and per attempted username via the cache (`login_throttle.py`). After
+  `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` failures (default 5) the identifier is locked
+  for `DLUX_LOGIN_LOCKOUT_SECONDS` (default 900s); a successful login clears the
+  counters. The locked POST is rejected with HTTP 429 before authentication runs.
+  Gated by the `login_lockout_enabled` SystemSettings toggle (default on).
+- **2FA completion window.** The pre-2FA challenge carries a server timestamp and
+  is abandoned after `DLUX_2FA_CHALLENGE_WINDOW_SECONDS` (default 300s), so a
+  half-finished challenge cannot persist for the whole session lifetime. This is
+  in addition to the existing 5-minute email-code expiry, 3-attempt per-code
+  lockout, per-IP 2FA send/verify limits, and resend cooldowns.
+- **Idle + absolute session timeouts.** `DluxMiddleware` enforces optional
+  sliding-idle (`DLUX_SESSION_IDLE_TIMEOUT_SECONDS`) and hard absolute
+  (`DLUX_SESSION_ABSOLUTE_TIMEOUT_SECONDS`) windows beyond Django's
+  `SESSION_COOKIE_AGE`; both default to `0` (disabled — opt-in per deployment
+  policy). On expiry the user is logged out and routed to the session-ended
+  interstitial with an `idle_timeout` / `session_timeout` reason. Timestamps are
+  middleware-managed on the session; the idle clock write is throttled to ~30s.
+
 ## Public Registration Boundary
 
 Public registration creates local Dlux users only. It does not add

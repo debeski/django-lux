@@ -160,7 +160,7 @@ The setup wizard runs in eight steps:
 4. Login Page: login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message.
 5. Sidebar: sidebar builder and sidebar behavior controls.
 6. Nav Bar: optional authenticated nav bar mode, override policy, and hierarchy tree.
-7. UI and Layout: titlebar controls (logo/home visibility, treatment, shape, alignment, height, surface).
+7. UI and Layout: titlebar controls (logo/home visibility, treatment, button shape, user-hub layout style, action order, alignment, height, surface).
 8. Appearance and Typography: theme availability, default theme, theme override policy, fonts, and table-density defaults.
 
 When the form is saved:

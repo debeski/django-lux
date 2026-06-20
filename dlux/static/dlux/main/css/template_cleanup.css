@@ -1,14 +1,250 @@
+.dlux-flash-container,
 .dlux-page-alert-container {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    width: min(560px, calc(100vw - 2rem)) !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.dlux-flash-container {
+    top: calc(var(--header-height, 60px) + 0.75rem) !important;
+    z-index: 1090;
+}
+
+.dlux-page-alert-container {
+    top: 0.75rem !important;
     z-index: 2000;
 }
 
-.dlux-page-alert {
-    opacity: 0.95;
+.dlux-flash-container[data-dlux-flash-position="top_start"],
+.dlux-page-alert-container[data-dlux-flash-position="top_start"] {
+    left: auto !important;
+    right: auto !important;
+    inset-inline-start: 1rem !important;
+    transform: none;
 }
 
-.dlux-global-alert {
-    opacity: 0.95;
-    z-index: 1090;
+.dlux-flash-container[data-dlux-flash-position="top_end"],
+.dlux-page-alert-container[data-dlux-flash-position="top_end"],
+.dlux-flash-container[data-dlux-flash-position="titlebar_end"],
+.dlux-page-alert-container[data-dlux-flash-position="titlebar_end"] {
+    left: auto !important;
+    right: auto !important;
+    inset-inline-end: 1rem !important;
+    transform: none;
+}
+
+.dlux-flash-container[data-dlux-flash-position="bottom_start"],
+.dlux-page-alert-container[data-dlux-flash-position="bottom_start"] {
+    top: auto !important;
+    bottom: 1rem !important;
+    left: auto !important;
+    right: auto !important;
+    inset-inline-start: 1rem !important;
+    transform: none;
+}
+
+.dlux-flash-container[data-dlux-flash-position="bottom_end"],
+.dlux-page-alert-container[data-dlux-flash-position="bottom_end"] {
+    top: auto !important;
+    bottom: 1rem !important;
+    left: auto !important;
+    right: auto !important;
+    inset-inline-end: 1rem !important;
+    transform: none;
+}
+
+.dlux-flash-container[data-dlux-flash-size="compact"],
+.dlux-page-alert-container[data-dlux-flash-size="compact"] {
+    width: min(420px, calc(100vw - 2rem)) !important;
+}
+
+.dlux-flash-container[data-dlux-flash-size="prominent"],
+.dlux-page-alert-container[data-dlux-flash-size="prominent"] {
+    width: min(720px, calc(100vw - 2rem)) !important;
+}
+
+.dlux-global-alert,
+.dlux-page-alert {
+    --dlux-alert-accent: var(--primal);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-inline-start: 4px solid var(--dlux-alert-accent);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+    color: var(--title);
+    font-size: 0.95rem !important;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: start !important;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+[data-dlux-flash-size="compact"] .dlux-global-alert,
+[data-dlux-flash-size="compact"] .dlux-page-alert {
+    padding: 0.55rem 0.7rem;
+}
+
+[data-dlux-flash-size="prominent"] .dlux-global-alert,
+[data-dlux-flash-size="prominent"] .dlux-page-alert {
+    padding: 0.95rem 1rem;
+}
+
+[data-dlux-flash-text-size="sm"] .dlux-global-alert,
+[data-dlux-flash-text-size="sm"] .dlux-page-alert {
+    font-size: 0.84rem !important;
+}
+
+[data-dlux-flash-text-size="lg"] .dlux-global-alert,
+[data-dlux-flash-text-size="lg"] .dlux-page-alert {
+    font-size: 1.05rem !important;
+}
+
+.dlux-global-alert.alert-success,
+.dlux-page-alert.alert-success {
+    --dlux-alert-accent: #16a34a;
+    background: rgba(240, 253, 244, 0.97);
+    color: #14532d;
+}
+
+.dlux-global-alert.alert-info,
+.dlux-page-alert.alert-info {
+    --dlux-alert-accent: #0284c7;
+    background: rgba(240, 249, 255, 0.97);
+    color: #0c4a6e;
+}
+
+.dlux-global-alert.alert-warning,
+.dlux-page-alert.alert-warning {
+    --dlux-alert-accent: #d97706;
+    background: rgba(255, 251, 235, 0.98);
+    color: #78350f;
+}
+
+.dlux-global-alert.alert-danger,
+.dlux-page-alert.alert-danger {
+    --dlux-alert-accent: #dc2626;
+    background: rgba(254, 242, 242, 0.98);
+    color: #7f1d1d;
+}
+
+.dlux-alert__icon {
+    color: var(--dlux-alert-accent);
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.dlux-alert__message {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.dlux-alert__close {
+    width: 0.75rem;
+    height: 0.75rem;
+    padding: 0.35rem;
+    margin: 0;
+    box-sizing: content-box;
+}
+
+.dlux-alert--closing {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(-6px);
+}
+
+.dlux-alert--closing * {
+    pointer-events: none !important;
+}
+
+@media (max-width: 575.98px) {
+    .dlux-flash-container,
+    .dlux-page-alert-container {
+        width: calc(100vw - 1rem) !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dlux-global-alert,
+    .dlux-page-alert {
+        transition: none;
+    }
+}
+
+.dlux-signature-pop {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 2147482999;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    max-width: min(360px, calc(100vw - 2rem));
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(255, 64, 85, 0.26);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.2);
+    color: #172127;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.dlux-signature-pop--visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.dlux-signature-pop__mark {
+    color: #ff4055;
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+.dlux-signature-pop__body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.05rem;
+    font-size: 0.86rem;
+    line-height: 1.25;
+}
+
+.dlux-signature-pop__body strong {
+    font-size: 0.92rem;
+}
+
+.dlux-signature-pop__body span {
+    color: #64748b;
+}
+
+@media (max-width: 575.98px) {
+    .dlux-signature-pop {
+        right: 0.5rem;
+        bottom: 0.5rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dlux-signature-pop {
+        transition: none;
+    }
 }
 
 .dlux-register-main {

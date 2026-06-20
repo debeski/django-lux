@@ -1,5 +1,6 @@
 
 import threading
+import time
 from django.conf import settings
 from django.contrib.auth import logout
 from django.core.exceptions import SuspiciousOperation
@@ -194,6 +195,113 @@ class DluxMiddleware:
         clear_session_revoked_flag(raw_session_key)
         return redirect(f'{ended_path}?reason={reason}')
 
+    def _session_timeout_response(self, request):
+        """Enforce idle + absolute session timeouts beyond Django's SESSION_COOKIE_AGE.
+
+        Both windows are opt-in via settings (0 = disabled):
+        - DLUX_SESSION_IDLE_TIMEOUT_SECONDS      (sliding inactivity window)
+        - DLUX_SESSION_ABSOLUTE_TIMEOUT_SECONDS  (hard cap from first authed request)
+
+        Timestamps are middleware-managed on the session, so no login-view changes
+        are needed. On expiry we log out and route to the session-ended interstitial.
+        """
+        user = getattr(request, 'user', None)
+        if not (user and getattr(user, 'is_authenticated', False)):
+            return None
+        session = getattr(request, 'session', None)
+        if session is None:
+            return None
+
+        # Don't trip the timeout on asset requests that happen to carry the cookie.
+        for prefix in (getattr(settings, 'STATIC_URL', None), getattr(settings, 'MEDIA_URL', None)):
+            prefix = str(prefix or '').strip()
+            if prefix and prefix != '/' and request.path.startswith(prefix):
+                return None
+
+        try:
+            idle = int(getattr(settings, 'DLUX_SESSION_IDLE_TIMEOUT_SECONDS', 0) or 0)
+            absolute = int(getattr(settings, 'DLUX_SESSION_ABSOLUTE_TIMEOUT_SECONDS', 0) or 0)
+        except (TypeError, ValueError):
+            return None
+        if idle <= 0 and absolute <= 0:
+            return None
+
+        now = time.time()
+        started = session.get('dlux_session_started_at')
+        if not started:
+            # First authenticated request under an active policy — anchor the clocks.
+            session['dlux_session_started_at'] = now
+            session['dlux_last_activity'] = now
+            return None
+        last = session.get('dlux_last_activity', now)
+
+        reason = None
+        try:
+            if absolute > 0 and (now - float(started)) > absolute:
+                reason = 'session_timeout'
+            elif idle > 0 and (now - float(last)) > idle:
+                reason = 'idle_timeout'
+        except (TypeError, ValueError):
+            reason = None
+
+        if reason:
+            logout(request)
+            try:
+                ended_path = reverse('session_ended')
+            except Exception:
+                ended_path = '/accounts/session-ended/'
+            return redirect(f'{ended_path}?reason={reason}')
+
+        # Refresh the idle clock, throttled to ~once per 30s to avoid a write per request.
+        try:
+            if now - float(last or 0) > 30:
+                session['dlux_last_activity'] = now
+        except (TypeError, ValueError):
+            session['dlux_last_activity'] = now
+        return None
+
+    def _force_password_change_response(self, request):
+        user = getattr(request, 'user', None)
+        if not (user and getattr(user, 'is_authenticated', False)):
+            return None
+
+        for prefix in (getattr(settings, 'STATIC_URL', None), getattr(settings, 'MEDIA_URL', None)):
+            prefix = str(prefix or '').strip()
+            if prefix and prefix != '/' and request.path.startswith(prefix):
+                return None
+
+        profile = getattr(user, 'profile', None)
+        preferences = getattr(profile, 'preferences', {}) if profile is not None else {}
+        if not (isinstance(preferences, dict) and preferences.get('force_password_change')):
+            return None
+
+        try:
+            profile_path = reverse('user_profile')
+            logout_path = reverse('logout')
+            session_ended_path = reverse('session_ended')
+        except Exception:
+            profile_path = '/accounts/profile/'
+            logout_path = '/accounts/logout/'
+            session_ended_path = '/accounts/session-ended/'
+
+        if request.path in {profile_path, logout_path, session_ended_path}:
+            return None
+
+        redirect_url = f'{profile_path}?force_password_change=1'
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            try:
+                from dlux.translations import get_strings
+                message = get_strings().get('force_password_change_required', 'You must change your password before continuing.')
+            except Exception:
+                message = 'You must change your password before continuing.'
+            return JsonResponse({
+                'success': False,
+                'error': message,
+                'redirect': redirect_url,
+                'redirect_url': redirect_url,
+            }, status=403)
+        return redirect(redirect_url)
+
     def _sync_auth_redirects(self):
         """
         Dynamically update LOGIN_REDIRECT_URL and LOGOUT_REDIRECT_URL
@@ -232,11 +340,21 @@ class DluxMiddleware:
             if signed_out_redirect is not None:
                 return signed_out_redirect
 
+            timeout_redirect = self._session_timeout_response(request)
+            if timeout_redirect is not None:
+                return timeout_redirect
+
             setup_redirect = self._setup_redirect_response(request)
             if setup_redirect is not None:
                 from .session_history import attach_presence_cookie
 
                 return attach_presence_cookie(setup_redirect, request)
+
+            force_password_redirect = self._force_password_change_response(request)
+            if force_password_redirect is not None:
+                from .session_history import attach_presence_cookie
+
+                return attach_presence_cookie(force_password_redirect, request)
 
             try:
                 response = self.get_response(request)

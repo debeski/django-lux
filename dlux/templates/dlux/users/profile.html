@@ -21,11 +21,27 @@
                 <i class="bi bi-person-circle me-2"></i> {{ DLUX_STRINGS.profile }}
             </h1>
 
+            {% if force_password_change_required %}
+            <div class="alert alert-warning d-flex flex-column flex-sm-row align-items-sm-center gap-3 mb-4" role="alert" data-autoclose="false">
+                <div class="d-flex align-items-center gap-2 flex-grow-1">
+                    <i class="bi bi-shield-lock-fill fs-4"></i>
+                    <div>
+                        <div class="fw-bold">{{ DLUX_STRINGS.force_password_change_required }}</div>
+                        <div class="small">{{ DLUX_STRINGS.force_password_change_required_detail }}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-danger rounded-pill flex-shrink-0" data-bs-toggle="modal" data-bs-target="#resetPasswordModal">
+                    <i class="bi bi-key me-1"></i>{{ DLUX_STRINGS.btn_change_password }}
+                </button>
+            </div>
+            {% endif %}
+
             <div class="row align-items-start">
                 <!-- Info Section -->
                 <div class="col-md-8 pe-md-4">
                     
                     <!-- Completeness -->
+                    {% if profile_show_completion %}
                     <div class="completeness-container">
                         <div class="completeness-label">
                             <span>{{ DLUX_STRINGS.profile_completeness }}</span>
@@ -35,6 +51,7 @@
                             <div class="progress-bar bg-success" role="progressbar" data-inline-width="{{ stats.completeness }}%" aria-valuenow="{{ stats.completeness }}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                     </div>
+                    {% endif %}
 
                     <!-- Info Grid -->
                     <div class="row g-3 mb-4">
@@ -111,7 +128,8 @@
                         {% endif %}
                     </div>
                     
-                    <!-- Account Health -->
+                    <!-- Account Health (security nudge) -->
+                    {% if profile_security_nudges != 'off' %}
                     <div class="mt-4 p-3 rounded bg-light border">
                         <small class="text-muted d-block mb-1">{{ DLUX_STRINGS.account_health }}</small>
                         {% if stats.health == 'good' %}
@@ -124,6 +142,7 @@
                             </div>
                         {% endif %}
                     </div>
+                    {% endif %}
                 </div>
 
                     <!-- 2FA Section -->
@@ -259,6 +278,7 @@
                         </div>
                     </div>
 
+                    {% if profile_show_devices %}
                     <!-- Signed-in Devices -->
                     <div class="glass-card mb-4 p-3">
                         <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2 mb-3">
@@ -353,6 +373,8 @@
                         </div>
                     </div>
 
+                    {% endif %}
+
                     <!-- Stats Cards -->
                     <div class="row g-3 mb-4">
                         <div class="col-6 col-lg-3">
@@ -397,6 +419,7 @@
     
                     </div>
 
+                    {% if profile_show_activity %}
                     <!-- Timelines -->
                     <div class="row g-4">
                         <!-- Recent Activity -->
@@ -467,6 +490,8 @@
                             {% endif %}
                         </div>
                     </div>
+
+                    {% endif %}
 
                     <!-- Actions (Removed - Moved to 2FA Card) -->
                 </div>
@@ -605,7 +630,7 @@
 </div>
 
 <!-- Change Password Modal -->
-<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel" aria-hidden="true">
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel" aria-hidden="true"{% if password_form.errors %} data-dlux-open-on-load="true"{% endif %}>
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content glass-card border-0">
             <div class="modal-header border-0">
@@ -658,5 +683,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{% static 'dlux/users/js/profile_2fa.js' %}?v=20260524a" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% static 'dlux/users/js/profile_2fa.js' %}?v=20260619a" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

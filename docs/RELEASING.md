@@ -128,12 +128,16 @@ PyPI pending publisher for project `django-lux-sso` bound to workflow
 
 ---
 
-## Known follow-up: test suite consolidation
+## CI test suite
 
 The CI workflow ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs
-only the **self-contained** test modules. Three modules (`test_m2m`,
-`test_scaffold`, `verify_detailed_logs`) require an external project's
-`DJANGO_SETTINGS_MODULE`, and `test_defaults_and_urls` has a known harness issue.
-Until those are made standalone (or moved behind a proper Django test settings
-module), CI is informational — don't mark it a *required* check in branch
-protection yet.
+the curated package Django suite through
+[`dlux/tests/test_all.py`](../dlux/tests/test_all.py). That runner uses
+`dlux.tests.settings` as the shared package-local test settings module and
+includes `test_defaults_and_urls`, scaffold checks, backup/report coverage,
+notifications, permissions, middleware, and utility tests.
+
+Keep external/manual probes such as `test_m2m.py` and `verify_detailed_logs.py`
+out of `TEST_LABELS` unless they are converted to the shared package harness.
+Once CI is green on `main`, it can be treated as the required branch-protection
+gate for package changes.

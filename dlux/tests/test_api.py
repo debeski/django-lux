@@ -1,51 +1,6 @@
-from django.conf import settings
+from dlux.tests.harness import setup_test_environment
 
-if not settings.configured:
-    settings.configure(
-        SECRET_KEY='dlux-test-key',
-        ALLOWED_HOSTS=['testserver', 'localhost'],
-        INSTALLED_APPS=[
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
-            'crispy_forms',
-            'crispy_bootstrap5',
-            'django_filters',
-            'django_tables2',
-            'dlux',
-        ],
-        MIDDLEWARE=[
-            'django.contrib.sessions.middleware.SessionMiddleware',
-            'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'dlux.middleware.DluxMiddleware',
-        ],
-        ROOT_URLCONF='dlux.urls',
-        TEMPLATES=[
-            {
-                'BACKEND': 'django.template.backends.django.DjangoTemplates',
-                'APP_DIRS': True,
-                'OPTIONS': {
-                    'context_processors': [
-                        'django.template.context_processors.request',
-                        'django.contrib.auth.context_processors.auth',
-                        'django.contrib.messages.context_processors.messages',
-                        'dlux.context_processors.dlux_context',
-                    ],
-                },
-            }
-        ],
-        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-        STATIC_URL='/static/',
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-        USE_TZ=True,
-        CRISPY_ALLOWED_TEMPLATE_PACKS='bootstrap5',
-        CRISPY_TEMPLATE_PACK='bootstrap5',
-    )
-
-    import django
-    django.setup()
+setup_test_environment()
 
 from django.core.exceptions import FieldDoesNotExist
 from django.test import TestCase, Client
@@ -178,6 +133,9 @@ class APIHelperSecurityTests(TestCase):
 class APIEndpointsTests(TestCase):
     def setUp(self):
         cache.clear()
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save(update_fields=['is_configured'])
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',

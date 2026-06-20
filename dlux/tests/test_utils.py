@@ -1,55 +1,10 @@
 from django.apps import apps
-from django.conf import settings
 from types import SimpleNamespace
 from unittest.mock import mock_open, patch
 
-if not settings.configured:
-    settings.configure(
-        SECRET_KEY='dlux-test-key',
-        ALLOWED_HOSTS=['testserver', 'localhost'],
-        INSTALLED_APPS=[
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
-            'crispy_forms',
-            'crispy_bootstrap5',
-            'django_filters',
-            'django_tables2',
-            'dlux',
-        ],
-        MIDDLEWARE=[
-            'django.contrib.sessions.middleware.SessionMiddleware',
-            'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'dlux.middleware.DluxMiddleware',
-        ],
-        ROOT_URLCONF='dlux.urls',
-        TEMPLATES=[
-            {
-                'BACKEND': 'django.template.backends.django.DjangoTemplates',
-                'APP_DIRS': True,
-                'OPTIONS': {
-                    'context_processors': [
-                        'django.template.context_processors.request',
-                        'django.contrib.auth.context_processors.auth',
-                        'django.contrib.messages.context_processors.messages',
-                        'dlux.context_processors.dlux_context',
-                    ],
-                },
-            }
-        ],
-        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-        STATIC_URL='/static/',
-        MEDIA_URL='/media/',
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-        USE_TZ=True,
-        CRISPY_ALLOWED_TEMPLATE_PACKS='bootstrap5',
-        CRISPY_TEMPLATE_PACK='bootstrap5',
-    )
+from dlux.tests.harness import setup_test_environment
 
-    import django
-    django.setup()
+setup_test_environment()
 
 from django.test import TestCase, RequestFactory, override_settings
 from django.contrib.auth import get_user_model
@@ -329,6 +284,103 @@ class UtilsTests(TestCase):
             self.assertEqual(config['default_language'], 'ar')
             self.assertEqual(config['default_theme'], 'dark')
             self.assertEqual(config['default_table_density'], 'roomy')
+
+    def test_get_system_config_accepts_nested_config_aliases(self):
+        from dlux.models import SystemSettings
+
+        SystemSettings.objects.all().delete()
+        cache.clear()
+        with override_settings(DLUX_CONFIG={
+            'default_theme': 'dark',
+            'auth_config': {
+                'email_2fa': True,
+                'prevent_multiple_active_sessions': True,
+                'login_lockout_enabled': False,
+            },
+            'registration_config': {
+                'public_registration_enabled': True,
+                'registration_activation_mode': 'verified_pending_approval',
+                'registration_throttle_enabled': False,
+            },
+            'public_root_config': {
+                'public_root': True,
+                'public_root_split_enabled': True,
+                'public_root_url': '/public/',
+            },
+            'layout_config': {'default_table_density': 'dense'},
+            'language_config': {
+                'translations_override': {'en': {'custom_key': 'Custom'}},
+                'allow_user_language_override': False,
+            },
+            'theme_config': {
+                'allowed_themes': ['dark'],
+                'allow_user_theme_override': False,
+            },
+            'typography_config': {
+                'allowed_fonts': ['cairo'],
+                'default_fonts': {'en': 'cairo'},
+                'allow_user_font_override': False,
+            },
+            'extra_config': {'host_flag': True},
+        }):
+            config = get_system_config()
+
+        self.assertTrue(config['email_2fa'])
+        self.assertTrue(config['prevent_multiple_active_sessions'])
+        self.assertFalse(config['login_lockout_enabled'])
+        self.assertTrue(config['public_registration_enabled'])
+        self.assertEqual(config['registration_activation_mode'], 'verified_pending_approval')
+        self.assertFalse(config['registration_throttle_enabled'])
+        self.assertTrue(config['public_root'])
+        self.assertTrue(config['public_root_split_enabled'])
+        self.assertEqual(config['public_root_url'], '/public/')
+        self.assertEqual(config['default_table_density'], 'dense')
+        self.assertEqual(config['allowed_themes'], ['dark'])
+        self.assertFalse(config['allow_user_theme_override'])
+        self.assertIn('cairo', config['allowed_fonts'])
+        self.assertEqual(config['default_fonts'], {'en': 'cairo'})
+        self.assertFalse(config['allow_user_font_override'])
+        self.assertFalse(config['allow_user_language_override'])
+        self.assertEqual(config['extra_config'], {'host_flag': True})
+        self.assertEqual(config['language_config']['translations_override'], {'en': {'custom_key': 'Custom'}})
+        self.assertNotIn('app_dlux', config['language_config']['translations_override']['en'])
+        self.assertEqual(config['translations']['en']['custom_key'], 'Custom')
+
+    def test_get_system_config_reads_grouped_database_values(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.auth_config = {
+            'email_2fa': True,
+            'prevent_multiple_active_sessions': True,
+            'login_lockout_enabled': False,
+        }
+        settings_obj.public_root_config = {
+            'public_root': True,
+            'public_root_split_enabled': True,
+            'public_root_url': '/anonymous/',
+        }
+        settings_obj.layout_config = {'default_table_density': 'roomy'}
+        settings_obj.language_config = {
+            'languages': {},
+            'translations_override': {'en': {'db_key': 'DB'}},
+            'allow_user_language_override': False,
+        }
+        settings_obj.save()
+
+        config = get_system_config()
+
+        self.assertTrue(config['email_2fa'])
+        self.assertTrue(config['prevent_multiple_active_sessions'])
+        self.assertFalse(config['login_lockout_enabled'])
+        self.assertTrue(config['public_root'])
+        self.assertTrue(config['public_root_split_enabled'])
+        self.assertEqual(config['public_root_url'], '/anonymous/')
+        self.assertEqual(config['default_table_density'], 'roomy')
+        self.assertFalse(config['allow_user_language_override'])
+        self.assertEqual(config['language_config']['translations_override'], {'en': {'db_key': 'DB'}})
+        self.assertEqual(config['translations']['en']['db_key'], 'DB')
 
     def test_get_system_config_rejects_unknown_default_theme(self):
         fake_settings = type('FakeSettings', (), {

@@ -1218,20 +1218,16 @@
 }
 
 /* 24. Titlebar Home Button */
-:root.theme-retro .titlebar .dlux-titlebar-home,
-:root.theme-retro .titlebar .dlux-login-round {
+:root.theme-retro .titlebar .dlux-titlebar-btn {
     color: var(--retro-amber) !important;
     background: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(184, 115, 51, 0.18) !important;
     box-shadow: none !important;
 }
 
-:root.theme-retro .titlebar .dlux-titlebar-home:hover,
-:root.theme-retro .titlebar .dlux-login-round:hover,
-:root.theme-retro .titlebar .dlux-titlebar-home:focus,
-:root.theme-retro .titlebar .dlux-login-round:focus,
-:root.theme-retro .titlebar .dlux-titlebar-home:focus-visible,
-:root.theme-retro .titlebar .dlux-login-round:focus-visible {
+:root.theme-retro .titlebar .dlux-titlebar-btn:hover,
+:root.theme-retro .titlebar .dlux-titlebar-btn:focus,
+:root.theme-retro .titlebar .dlux-titlebar-btn:focus-visible {
     color: #f5ebe0 !important;
     background: rgba(212, 165, 116, 0.14) !important;
     border-color: rgba(212, 165, 116, 0.3) !important;

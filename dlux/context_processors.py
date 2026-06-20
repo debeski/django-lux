@@ -1,6 +1,11 @@
 from urllib.parse import urlsplit
 
-from .constants import DEFAULT_TABLE_DENSITY, TABLE_DENSITY_CHOICES, TABLE_DENSITY_VALUES
+from . import __version__
+from .constants import (
+    DEFAULT_TABLE_DENSITY,
+    TABLE_DENSITY_CHOICES,
+    TABLE_DENSITY_VALUES,
+)
 from .navbar import resolve_navbar_mode, strip_navbar_mode_preference
 from .utils import (
     get_effective_allowed_themes,
@@ -9,6 +14,7 @@ from .utils import (
     is_scope_enabled,
     normalize_navbar_config,
     normalize_sidebar_behavior,
+    normalize_titlebar_actions_order,
     resolve_sidebar_collapsed_preference,
     resolve_sidebar_density_preference,
     resolve_user_theme_preference,
@@ -56,6 +62,118 @@ def _should_hide_titlebar_for_public_index(request, final_config, titlebar_confi
     if target_path:
         public_paths.add(target_path)
     return current_path in public_paths
+
+
+def _reverse_or_empty(url_name):
+    try:
+        return reverse(url_name)
+    except NoReverseMatch:
+        return ''
+
+
+def _build_titlebar_actions(request, context, final_config, dlux_strings):
+    titlebar_config = context.get('titlebar') or {}
+    action_order = normalize_titlebar_actions_order(titlebar_config.get('actions_order'))
+    user = getattr(request, 'user', None)
+    resolver_match = getattr(request, 'resolver_match', None)
+    current_url_name = getattr(resolver_match, 'url_name', '')
+    available_actions = {}
+
+    if user and getattr(user, 'is_authenticated', False):
+        if context.get('dlux_notifications_enabled'):
+            available_actions['notifications'] = {
+                'key': 'notifications',
+                'kind': 'notifications',
+                'label': dlux_strings.get('notifications', 'Notifications'),
+                'icon': 'bi-bell-fill',
+            }
+        if titlebar_config.get('show_home_button', True):
+            available_actions['home'] = {
+                'key': 'home',
+                'kind': 'link',
+                'label': dlux_strings.get('btn_home', 'Home'),
+                'icon': 'bi-house-fill',
+                'url': final_config.get('home_url') or '/',
+            }
+
+        profile_url = _reverse_or_empty('user_profile')
+        if profile_url:
+            available_actions['profile'] = {
+                'key': 'profile',
+                'kind': 'link',
+                'label': dlux_strings.get('profile', 'Profile'),
+                'icon': 'bi-person-bounding-box',
+                'url': profile_url,
+            }
+
+        available_actions['help'] = {
+            'key': 'help',
+            'kind': 'help',
+            'label': dlux_strings.get('help', 'Help'),
+            'icon': 'bi-question-circle-fill',
+        }
+
+        users_url = _reverse_or_empty('manage_users')
+        if context.get('can_view_user_directory') and users_url:
+            available_actions['users'] = {
+                'key': 'users',
+                'kind': 'link',
+                'label': dlux_strings.get('manage_users', 'Manage users'),
+                'icon': 'bi-people-fill',
+                'url': users_url,
+            }
+
+        activity_url = _reverse_or_empty('user_activity_log')
+        if context.get('can_view_activity_log') and activity_url:
+            available_actions['activity'] = {
+                'key': 'activity',
+                'kind': 'link',
+                'label': dlux_strings.get('activity_log', 'Activity log'),
+                'icon': 'bi-clock-history',
+                'url': activity_url,
+            }
+
+        reports_url = _reverse_or_empty('reports_overview')
+        if context.get('can_view_reports') and reports_url:
+            available_actions['reports'] = {
+                'key': 'reports',
+                'kind': 'link',
+                'label': dlux_strings.get('reports_title', 'Reports'),
+                'icon': 'bi-bar-chart-fill',
+                'url': reports_url,
+            }
+
+        settings_url = _reverse_or_empty('options_view')
+        if settings_url:
+            available_actions['settings'] = {
+                'key': 'settings',
+                'kind': 'link',
+                'label': dlux_strings.get('options_title', 'Options'),
+                'icon': 'bi-gear-fill',
+                'url': settings_url,
+            }
+
+        logout_url = _reverse_or_empty('logout')
+        if logout_url:
+            available_actions['auth'] = {
+                'key': 'auth',
+                'kind': 'logout',
+                'label': dlux_strings.get('logout', 'Logout'),
+                'icon': 'bi-box-arrow-right',
+                'url': logout_url,
+            }
+    elif current_url_name != 'login':
+        login_url = _reverse_or_empty('login')
+        if login_url:
+            available_actions['auth'] = {
+                'key': 'auth',
+                'kind': 'link',
+                'label': dlux_strings.get('login', 'Login'),
+                'icon': 'bi-person-lock',
+                'url': login_url,
+            }
+
+    return [available_actions[key] for key in action_order if key in available_actions]
 
 # Helper functions for Sidebar - KEPT PRIVATE
 def _get_config_hash(config):
@@ -228,6 +346,7 @@ def dlux_context(request):
     final_config.update(build_config_groups(final_config, current_lang))
 
     context['APP_CONFIG'] = final_config
+    context['DLUX_VERSION'] = __version__
 
 
     # 2. Scope Settings
@@ -283,6 +402,25 @@ def dlux_context(request):
     )
     context['SYSTEM_SETUP_REQUIRED'] = system_setup_required
     context['SYSTEM_SETUP_URL'] = reverse('system_setup')
+
+    # Initial User Setup (first-login onboarding modal): a non-superuser who hasn't completed
+    # it yet, when onboarding is enabled and we're not mid system-setup. Superusers own the
+    # system (and run the system-setup wizard), so they are excluded from this user-facing nudge.
+    profile_config = final_config.get('profile_config') or {}
+    profile_obj = getattr(request.user, 'profile', None) if request.user.is_authenticated else None
+    profile_preferences = getattr(profile_obj, 'preferences', {}) if profile_obj is not None else {}
+    force_password_change_required = bool(
+        isinstance(profile_preferences, dict)
+        and profile_preferences.get('force_password_change')
+    )
+    context['DLUX_SHOW_INITIAL_USER_SETUP'] = bool(
+        profile_obj is not None
+        and not getattr(request.user, 'is_superuser', False)
+        and not getattr(profile_obj, 'is_configured', False)
+        and not force_password_change_required
+        and profile_config.get('onboarding_enabled', True)
+        and not system_setup_required
+    )
 
     # 6. Sidebar Context (single tree model shared with setup builder)
     sidebar_tree_pref = user_prefs.get('sidebar_tree', {})
@@ -352,6 +490,24 @@ def dlux_context(request):
         'extra_groups': context['sidebar_extra_groups'],
     }
     context['titlebar'] = final_config.get('appearance', {}).get('titlebar', final_config.get('titlebar', {}))
+    try:
+        from .notifications import get_flash_notifications, get_notification_context
+
+        notification_context = get_notification_context(request)
+        context['dlux_notification_config'] = notification_context.get('config', final_config.get('notifications', {}))
+        context['dlux_notifications'] = notification_context.get('items', [])
+        context['dlux_notifications_enabled'] = notification_context.get('enabled', False)
+        context['dlux_unread_notifications_count'] = notification_context.get('unread_count', 0)
+        context['dlux_unread_notifications_level'] = notification_context.get('unread_level', '')
+        context['dlux_flash_notifications'] = get_flash_notifications(request)
+    except Exception:
+        context['dlux_notification_config'] = final_config.get('notifications', {})
+        context['dlux_notifications'] = []
+        context['dlux_notifications_enabled'] = False
+        context['dlux_unread_notifications_count'] = 0
+        context['dlux_unread_notifications_level'] = ''
+        context['dlux_flash_notifications'] = []
+    context['titlebar_actions'] = _build_titlebar_actions(request, context, final_config, dlux_strings)
     context['hide_titlebar_for_public_index'] = _should_hide_titlebar_for_public_index(
         request,
         final_config,

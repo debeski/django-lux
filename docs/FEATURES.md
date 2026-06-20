@@ -1,6 +1,6 @@
 # DjangoLux Complete Feature Reference
 
-**Version:** 2.1.9
+**Version:** 1.0.4
 **Package:** `django-lux` — A multilingual Django framework layer for internal systems
 
 ---
@@ -22,6 +22,7 @@
 13. [Template Tags & Filters](#13-template-tags--filters)
 14. [Middleware & Request Handling](#14-middleware--request-handling)
 15. [Discovery System](#15-discovery-system)
+16. [Notifications](#16-notifications)
 
 ---
 
@@ -31,31 +32,21 @@
 - **Database-backed singleton** for runtime system configuration
 - **Caching layer** (24h TTL) for performance
 - **Seeding from `DLUX_CONFIG`** — seed defaults in code, refine in UI
-- **Fields include:**
-  - System names (JSON dict keyed by language code, e.g. `{"en": "System", "ar": "النظام"}`)
-  - Logo & favicon upload with image optimization
-  - Default language & theme
-  - Allowed themes list with user-override permissions
-  - Default table density (dense/balanced/roomy)
-  - Home URL configuration
-  - Public root access toggle
-  - Optional split between authenticated Home URL and anonymous public-root URL
-  - Email 2FA enable/disable
-  - Public registration enable/disable, activation mode, and throttle toggle
-  - JSON language definitions
-  - Translation overrides
-  - Sidebar configuration
-  - Titlebar configuration
-  - Login page configuration (`login_config`): layout style, show-logo toggle, logo treatment + shape, banner colour, and per-language Markdown hero message
-  - Client IP resolution mode (auto-detect, direct, header-based, proxy-aware)
-  - Trusted proxy hops and custom resolution headers
+- **Stable storage layout** keeps only identity columns standalone (`system_names`, logo/favicon, default language/theme, home URL, configured flag) and stores future-changing settings in JSON groups:
+  - `auth_config`, `email_config`, `registration_config`, `public_root_config`, `client_ip_config`, `notification_config`
+  - `layout_config`, `language_config`, `theme_config`, `typography_config`
+  - `login_config`, `titlebar_config`, `sidebar_config`, `navbar_config`, and reserved `extra_config`
+- **Backward-compatible runtime contract:** `get_system_config()`, `DLUX_CONFIG`, setup import/export, templates, and host callers still use flat keys such as `allowed_themes`, `public_root`, `translations_override`, and `default_table_density`.
+- **Override-only translations:** `language_config.translations_override` stores only admin/dev overrides, never the merged discovered translation catalog.
 
 ### First-Launch Setup Wizard
 - **8-step wizard:** Identity → Localization → Access and security → Login Page → Sidebar → Nav Bar → UI and Layout → Appearance and Typography
 - **Step 3 routing controls** for the main Home URL plus optional anonymous public-root split when public root access is enabled
 - **Step 4 Login Page** controls login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message
+- **Step 7 Titlebar** includes titlebar button-shape controls, Dropdown vs Titlebar Actions user-hub layout, and orderable titlebar actions
+- **Step 8 Notifications** is a dedicated step (notifications were split out of the Titlebar step) with a top-level `notifications_enabled` master toggle — like the sidebar/nav-bar enablement switches — gating flash/drawer/badge/bridge/email and automatic CRUD controls; when off, the whole notification subsystem (including `notify(...)`) is suppressed
 - **Setup import/export path** for reusing System Settings payloads across environments
-- **Live preview** for theme, language, sidebar, and titlebar changes
+- **Live preview** for theme, language, sidebar, titlebar, and notification drawer/flash presentation changes
 - **Unsaved preview state** with session-based language switching
 - **Dynamic sidebar builder** with drag-and-drop cross-pane support
 - **Theme allowlist matrix** with visual selector cards: preview circle sets the default theme, the rest of the card and checkbox toggle whether that theme is allowed
@@ -73,6 +64,7 @@
 - Draggable card layout with browser-persisted ordering
 - Double-width System Info card inside the shared Options card grid
 - Standalone Autofill and Reset Defaults cards using shared external CSS/JS assets
+- Titlebar notification icon with unread badge, drawer list, detail view, dismiss, mark-all-read, and clear-read actions
 
 ### Utilities & Helpers
 - `dlux_settings(globals())` — one-line settings integration
@@ -81,6 +73,7 @@
 - `get_secret()` — env-driven secret retrieval for Docker/decrypter flows
 - `require_current_password(request)` — reusable backend guard for destructive profile/security actions
 - `set_profile_totp_state(profile, raw_secret=..., enabled=...)` — direct TOTP persistence helper
+- `from dlux.notifications import notify` — one-line user-facing notification API with `notify.success(...)`, `notify.warning(...)`, and `notify.error(...)` helpers
 - `build_archive_file_field('field_name', css_class='...')` — explicit Dlux custom file widget bridge
 - `build_settings_toggle_field(form, 'field_name', css_class='...')` — shared setup/System Settings toggle-card renderer
 - Settings auto-injection: apps, middleware, context processors, Crispy defaults, message tags, i18n/tz defaults
@@ -147,12 +140,18 @@
 - **2FA state fields:** email, phone, TOTP, backup codes
 - `is_2fa_enabled` property
 - **Trusted Device tracking**: 30-day browser trust persistence for verified 2FA logins
-- **Signed-in device/session list** on the profile page with POST-only revocation and trust-status indicators
+- **Signed-in device/session list** on the profile page with POST-only revocation, trust-status indicators, and profile activity feeds capped to the latest five project entries plus latest five system interactions
 
 ### Scope & ScopeSettings Models
 - Scope isolation for multi-tenant scenarios
 - Toggle for scope system enable/disable
 - Auto-create scope per user option
+
+### Notification Models
+- `DluxNotification(ScopedModel)` stores durable user-facing events with level, category, source/action, model/object metadata, target URL, audience type, metadata, and expiry.
+- `DluxNotificationState` stores per-user read, dismiss, and email state.
+- `DluxNotificationRule(ScopedModel)` stores admin-configured JSON match/delivery routing rules.
+- `DluxNotificationWatch(ScopedModel)` stores model-level watches per user/scope; object-level watches are deferred.
 
 ---
 
@@ -180,7 +179,7 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - Backup code verification with usage tracking
 - Destructive profile security actions such as 2FA disable, backup-code regeneration, and session revocation require current-password confirmation
 - Trusted device status is managed per-session from the profile page with immediate revocation support
-- Optional single active trusted-session enforcement can force out every other active session when a new trusted session connects
+- Optional single active-session enforcement can force out every other active session when a new login or completed 2FA login connects; trusted-device records remain, but older sessions are evicted and see the session-ended page on their next request
 
 ### Public Registration Playground
 - Disabled by default and SMTP-gated in setup/System Settings
@@ -230,6 +229,7 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - User detail page with recent activity
 - User detail modal
 - Create/Edit/Permissions modals
+- Optional create-user checkbox to require a first-login password change; the flag is stored in profile preferences, enforced by middleware, and cleared after the user changes their password to a value different from the current password
 
 ### Profile Management
 - Edit profile modal
@@ -301,11 +301,13 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - `show_home_button` — home button visibility
 - `logo_treatment` — none, plate, halo, contrast
 - `logo_treatment_shape` — soft, pill, square for plate treatment
-- `home_shape` — circle, square, rounded, pill
+- `buttons_shape` — titlebar action button shape (`circle`, `square`, `squircle`); legacy `home_shape` remains accepted as an alias
+- `user_hub_style` — `dropdown` preserves the user hub menu; `titlebar_actions` moves shortcuts into the right-side titlebar rail
+- `actions_order` — order for `notifications`, `home`, `profile`, `help`, `users`, `activity`, `reports`, `settings`, and `auth`
 - `title_align` — start, center, end
 - `title_size` — sm, md, lg
-- `height` — compact, balanced, tall
-- `surface` — default, glass, gradient, solid
+- `height` — dense, balanced, roomy
+- `surface` — default, muted, glass
 
 ### Shared Form Surface
 - `dlux/form_base.html` — full-page forms
@@ -387,23 +389,47 @@ class Meta:
 
 ## 9. Activity Logging & Audit
 
-### UserActivityLog Model
+### ActivityLog Model (single source of truth)
+`ActivityLog` (renamed from `UserActivityLog`, which stays importable as an alias) stores
+every log with a `category`:
+- `user` — project/dev work · `system` — dlux-internal · `audit` — security events
 - `action` — create/update/delete/export/login/etc.
-- `model_name`, `object_id` — related object reference
+- `model_name`/`model_key`, `object_id` — related object reference
 - `number` — document/record identifier
 - `ip_address`, `user_agent` — request metadata
 - `details` — JSON diff of changes
 - `created_by`, `created_at` — inherited from ScopedModel
 
+### Configurable logging (`log_config`, setup Step 10)
+- Master switch plus per-section (`user`/`system`) enable, default create/update/delete
+  toggles, retention days, and a per-model + per-action include/exclude grid.
+- Replaces the old hardcoded exclusion list with config-driven gating over a non-toggleable
+  correctness floor (Session and other non-integer-PK tables).
+
+### Audit category (security trail)
+- Captures failed logins, lockouts, 2FA enable/disable/failure, password changes,
+  session & trusted-device revokes, and permission-denied events, each gated by a
+  per-event flag.
+- **Append-only**: audit rows cannot be edited or deleted in-app, and are never auto-pruned
+  by default. The `dlux_prune_activity_log` command enforces per-category retention and
+  skips audit unless an audit retention window is set.
+
+### Zero-boilerplate dev logging
+```python
+from dlux import log_activity
+log_activity("APPROVE", obj)
+```
+Resolves model/scope/actor/IP from the current request; honours `log_config` gating.
+
 ### Safe Logging
 ```python
-UserActivityLog.safe_log(
-    user, action, model_name, object_id, 
-    number, details, ip_address, user_agent, scope
+ActivityLog.safe_log(
+    user, action, model_name, object_id,
+    number, details, ip_address, user_agent, scope, category
 )
 ```
-- 2-second deduplication
-- Auto-scope from user profile
+- 2-second deduplication; rolling-window User/Profile unification
+- Auto-scope from user profile; category derived via `resolve_log_category`
 
 ### Diff Capture
 - Field-level change tracking
@@ -411,7 +437,8 @@ UserActivityLog.safe_log(
 - Related object auto-resolution for detail modal
 
 ### Log Views
-- Activity log list (staff/superuser scoped)
+- Activity log list with user/system/audit category tabs (audit restricted to
+  superusers/global staff); staff/superuser scoped
 - Detail modal with structured field cards
 - Profile timeline (compact format)
 - User Report modal with print/PDF browser flow and XLSX export for authorized staff
@@ -422,6 +449,14 @@ UserActivityLog.safe_log(
 - `UserKnownDevice` groups browser/device observations through a signed first-party device cookie stored only as a hash.
 - `UserPresenceSession` tracks session-level presence estimates while Django sessions remain authoritative for authentication.
 - `TrustedDevice` remains the 2FA trust source and can be linked to known devices for reporting context.
+
+### Backup & Restore Operations
+- Permission-gated report ZIP exports for activity/report data.
+- Superuser-only system backup and restore surface at `/sys/backup/`.
+- Encrypted `.dlb` full-system backups with chunked Fernet payloads, manifest metadata, migration-state comparison, and optional one-off passphrase protection.
+- Cursor-safe export streaming uses primary-key pagination and a backup-local JSON serializer, avoiding PostgreSQL server-side named cursors for both model rows and many-to-many fields.
+- Full system backups exclude environment/run-bookkeeping models such as sessions, content types, permissions, admin logs, report backup rows, system backup rows, and restore rows.
+- Superuser password hashes are omitted from `.dlb` payloads and preserved from the target database during restore.
 
 ---
 
@@ -612,6 +647,46 @@ Provides to all templates:
 - `home_url_discovered` dropdown in setup
 - Automatic list of valid named URLs
 - Default home URL fallback
+
+---
+
+## 16. Notifications
+
+### Zero-Boilerplate API
+```python
+from dlux.notifications import notify
+
+notify("Invoice approved.")
+notify.success("Saved.")
+notify.error("Could not delete record.", obj=record)
+notify.success(message_key="msg_password_changed")
+```
+
+Optional richer usage can target watches/email/rules without becoming mandatory boilerplate:
+
+```python
+notify("Payroll batch exported.", obj=batch, action="export", category="reports", to="watchers", email=True)
+```
+
+### Automatic Pipeline
+- `ScopedModel` create/update/delete events emit notification events by default.
+- Create/delete/errors flash for the actor by default; updates persist as quiet summaries.
+- Update summaries reuse activity-log diff details and existing sensitive-field masking.
+- Generic modal and context-menu CRUD annotate events with route/surface metadata.
+- Dlux-owned backend feedback uses `notify(...)`; legacy Django messages are only drained when the compatibility bridge is enabled.
+- Built-in notices can carry `message_key`/`title_key` metadata so flash notices, the titlebar drawer, and notification API responses resolve text in the current request language instead of freezing the first emitted string. Legacy rows without metadata also rerender when their stored text exactly matches a known translation value.
+
+### Settings And UI
+- `SystemSettings.notification_config` has a top-level `enabled` master gate (edited from the dedicated Notifications settings step) that turns the whole subsystem off, plus flash position, size, text size, timeout, max-visible count, drawer/badge enablement, Django-message bridge, email defaults, retention, and automatic CRUD defaults.
+- Notification email toggles are disabled and server-coerced off until Dlux email delivery is configured.
+- Automatic CRUD has one master switch plus per-action create/delete gates and an update mode (`off`, `summary`, `full`).
+- Authenticated titlebars show a notification icon with colored unread badge, drawer list, detail view, dismiss, mark-all-read, and clear-read controls.
+- Public/login pages keep flash behavior without rendering the authenticated drawer.
+- Email delivery is available through existing Dlux email configuration but remains off by default.
+
+### Routing Models
+- `DluxNotificationRule` matches level/category/source/action/model/scope and can decide persist, flash, badge, email, recipients, expiry, and stop-processing.
+- `DluxNotificationWatch` supports model-level watches per user/scope; object-level watches are intentionally deferred.
 
 ---
 

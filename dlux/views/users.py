@@ -3,7 +3,6 @@ import logging
 
 from django.apps import apps
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -25,6 +24,7 @@ from django.views.generic.detail import DetailView
 # Project imports
 from ..constants import DEFAULT_HOME_URL
 from ..forms import DluxAuthenticationForm
+from ..notifications import notify
 from ..utils import (
     can_manage_target_user,
     exclude_global_staff_users,
@@ -53,10 +53,38 @@ class CustomLoginView(LoginView):
     redirect_authenticated_user = True  # Automatically redirect logged-in users
     authentication_form = DluxAuthenticationForm
 
+    def post(self, request, *args, **kwargs):
+        """Reject the attempt up front if this IP/username is currently locked out."""
+        from ..login_throttle import login_lockout_remaining
+        remaining = login_lockout_remaining(request, request.POST.get('username', ''))
+        if remaining > 0:
+            s = get_strings()
+            minutes = max(1, (remaining + 59) // 60)
+            template = s.get(
+                'login_locked_out',
+                'Too many failed login attempts. Please try again in about {minutes} minute(s).',
+            )
+            try:
+                message = template.format(minutes=minutes)
+            except Exception:
+                message = template
+            notify.error(message, request=request, action='login_locked_out', category='security', persist=False)
+            form = self.get_form_class()(request)
+            return self.render_to_response(self.get_context_data(form=form), status=429)
+        return super().post(request, *args, **kwargs)
+
+    def form_invalid(self, form):
+        """Count the failed password attempt toward the lockout threshold."""
+        from ..login_throttle import register_failed_login
+        register_failed_login(self.request, self.request.POST.get('username', ''))
+        return super().form_invalid(form)
+
     def form_valid(self, form):
         """
         Intercept login. If 2FA enabled, redirect to OTP verification.
         """
+        from ..login_throttle import clear_failed_logins
+        clear_failed_logins(self.request, self.request.POST.get('username', ''))
         user = form.get_user()
         
         # Check if 2FA is enabled for this user's profile
@@ -140,13 +168,22 @@ class CustomLoginView(LoginView):
             return url
             
         # 2. Check System Config for home_url
-        from dlux.utils import get_system_config
+        from dlux.utils import get_system_config, resolve_user_home_url
+        from django.shortcuts import resolve_url
         config_dict = get_system_config()
         if self.request.user.is_superuser and not config_dict.get('is_configured', False):
-            from django.shortcuts import resolve_url
             return resolve_url('system_setup')
+
+        # 3. Per-user landing page (user_home_url) — only when the admin allows it.
+        user_home_url = resolve_user_home_url(self.request.user, config_dict)
+        if user_home_url:
+            try:
+                return resolve_url(user_home_url)
+            except Exception:
+                return user_home_url
+
         home_url = config_dict.get('home_url')
-            
+
         if home_url:
             from django.shortcuts import resolve_url
             try:
@@ -289,20 +326,21 @@ from django.contrib.auth.decorators import permission_required
 @permission_required('auth.delete_user', raise_exception=True)
 def delete_user(request, pk):
     user = get_object_or_404(User, pk=pk)
+    s = get_strings()
 
     # Explicitly prevent self-deletion just in case
     if user == request.user:
-        messages.error(request, "لا يمكنك حذف حسابك الخاص!")
+        notify.error(s.get('err_cannot_delete_self'), request=request, action='user_delete_self_denied', category='users', metadata={'message_key': 'err_cannot_delete_self'})
         return redirect('manage_users')
 
     # Prevent deletion of any superuser by a non-superuser
     if user.is_superuser and not request.user.is_superuser:
-        messages.error(request, "ليس لديك صلاحية لحذف المشرفين!")
+        notify.error(s.get('err_cannot_delete_superuser'), request=request, action='user_delete_superuser_denied', category='users', metadata={'message_key': 'err_cannot_delete_superuser'})
         return redirect('manage_users')
 
     # Prevent deletion of the final superuser
     if user.is_superuser and User.objects.filter(is_superuser=True, is_active=True).count() <= 1:
-        messages.error(request, "لا يمكن حذف المشرف الرئيسي الأخير للنظام!")
+        notify.error(s.get('err_cannot_delete_last_superuser'), request=request, action='user_delete_last_superuser_denied', category='users', metadata={'message_key': 'err_cannot_delete_last_superuser'})
         return redirect('manage_users')
 
     # Restrict to same scope
@@ -310,8 +348,8 @@ def delete_user(request, pk):
         user_scope = get_user_scope(user)
         requester_scope = get_user_scope(request.user)
         if requester_scope and user_scope != requester_scope:
-             messages.error(request, "ليس لديك صلاحية لحذف هذا المستخدم!")
-             return redirect('manage_users')
+            notify.error(s.get('err_no_delete_permission_user'), request=request, action='user_delete_scope_denied', category='users', metadata={'message_key': 'err_no_delete_permission_user'})
+            return redirect('manage_users')
 
     if request.method == "POST":
         # Capture original username for logging
@@ -358,7 +396,8 @@ def reset_password(request, pk):
     ResetPasswordForm = import_string('dlux.forms.ResetPasswordForm')
 
     if not can_manage_target_user(request.user, user):
-        messages.error(request, "ليس لديك صلاحية لتعديل هذا المستخدم!", fail_silently=True)
+        s = get_strings()
+        notify.error(s.get('err_no_edit_permission_user_reset'), request=request, action='user_change_denied', category='users', metadata={'message_key': 'err_no_edit_permission_user_reset'})
         return redirect('manage_users')
 
     if request.method == "POST":
@@ -393,7 +432,7 @@ class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         can_view_activity_logs = user_can_view_activity_log(self.request.user)
         recent_logs = []
         if can_view_activity_logs:
-            UserActivityLog = apps.get_model('dlux', 'UserActivityLog')
+            UserActivityLog = apps.get_model('dlux', 'ActivityLog')
             recent_logs = (
                 UserActivityLog._default_manager
                 .filter(created_by=user)

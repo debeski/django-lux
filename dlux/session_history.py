@@ -287,6 +287,7 @@ def remember_request_presence(request, *, trusted_device=None, force=False):
             user=user,
             session_key_hash=session_hash,
             defaults={
+                'session_key': session_key,
                 'known_device': known_device,
                 'device_label': label,
                 'first_seen_at': now,
@@ -297,6 +298,7 @@ def remember_request_presence(request, *, trusted_device=None, force=False):
         if presence_session.last_seen_at:
             delta = max(0, int((now - presence_session.last_seen_at).total_seconds()))
         presence_session.known_device = known_device
+        presence_session.session_key = session_key
         presence_session.device_label = label or presence_session.device_label
         presence_session.last_seen_at = now
         presence_session.ended_at = None
@@ -309,6 +311,7 @@ def remember_request_presence(request, *, trusted_device=None, force=False):
             presence_session.estimated_seconds = int(presence_session.estimated_seconds or 0) + min(delta, PRESENCE_MAX_DELTA_SECONDS)
         presence_session.save(update_fields=[
             'known_device',
+            'session_key',
             'device_label',
             'ip_addresses',
             'user_agents',

@@ -1,0 +1,70 @@
+{% load i18n %}
+{% comment %}
+Initial User Setup — first-login onboarding fragment loaded into the dlux dynamic modal.
+Save submits the form (dynamic-modal JS → POST → {success} → reload). Skip is handled by
+system_setup-agnostic JS (data-dlux-skip-setup) which POSTs `skip=1`.
+{% endcomment %}
+<div class="dlux-initial-user-setup p-1">
+  <p class="text-muted">{{ DLUX_STRINGS.initial_user_setup_intro|default:"Pick your preferences to get started — you can change these any time in Options." }}</p>
+
+  <form action="{% url 'initial_user_setup' %}" method="post" class="dlux-initial-user-setup-form">
+    {% csrf_token %}
+
+    {% if allow_theme %}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="dlux-onboard-theme">{{ DLUX_STRINGS.options_theme|default:"Theme" }}</label>
+      <select class="form-select" id="dlux-onboard-theme" name="theme">
+        {% for t in theme_options %}
+        <option value="{{ t.slug }}" {% if t.slug == current_theme %}selected{% endif %}>{{ t.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    {% if allow_language %}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="dlux-onboard-lang">{{ DLUX_STRINGS.options_language|default:"Language" }}</label>
+      <select class="form-select" id="dlux-onboard-lang" name="language">
+        {% for code, meta in language_options.items %}
+        <option value="{{ code }}" {% if code == current_language %}selected{% endif %}>{{ meta.name|default:code }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    {% if allow_fonts %}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="dlux-onboard-font">{{ DLUX_STRINGS.options_font|default:"Font" }}</label>
+      <select class="form-select" id="dlux-onboard-font" name="font">
+        <option value="">{{ DLUX_STRINGS.font_default|default:"Default" }}</option>
+        {% for f in font_options %}
+        <option value="{{ f.slug }}" {% if f.slug == current_font %}selected{% endif %}>{{ f.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    {% if allow_home %}
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="dlux-onboard-home">{{ DLUX_STRINGS.initial_user_setup_home|default:"Preferred landing page" }}</label>
+      <select class="form-select" id="dlux-onboard-home" name="user_home_url">
+        <option value="">{{ DLUX_STRINGS.options_landing_page_default|default:"System default" }}</option>
+        {% for opt in home_url_options %}
+        <option value="{{ opt.value }}" {% if opt.value == current_home %}selected{% endif %}>{{ opt.label }}</option>
+        {% endfor %}
+      </select>
+      <div class="form-text">{{ DLUX_STRINGS.initial_user_setup_home_help|default:"Where you land after signing in." }}</div>
+    </div>
+    {% endif %}
+
+    <div class="dlux-modal-form-actions d-flex justify-content-end gap-2 mt-4">
+      <button type="button" class="btn btn-outline-secondary rounded-pill px-4"
+              data-dlux-skip-setup data-url="{% url 'initial_user_setup' %}">
+        {{ DLUX_STRINGS.initial_user_setup_skip|default:"Skip for now" }}
+      </button>
+      <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold dlux-btn-submit">
+        {{ DLUX_STRINGS.initial_user_setup_save|default:"Save & continue" }}
+      </button>
+    </div>
+  </form>
+</div>

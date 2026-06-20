@@ -14,6 +14,10 @@
                 {{ DLUX_STRINGS.session_ended_elsewhere }}
             {% elif reason == 'signed_out_remotely' %}
                 {{ DLUX_STRINGS.session_ended_remote }}
+            {% elif reason == 'idle_timeout' %}
+                {{ DLUX_STRINGS.session_ended_idle_timeout }}
+            {% elif reason == 'session_timeout' %}
+                {{ DLUX_STRINGS.session_ended_session_timeout }}
             {% else %}
                 {{ DLUX_STRINGS.session_ended_generic }}
             {% endif %}

@@ -905,20 +905,16 @@
     background-color: transparent !important;
 }
 
-:root.theme-neon .titlebar .dlux-titlebar-home,
-:root.theme-neon .titlebar .dlux-login-round {
+:root.theme-neon .titlebar .dlux-titlebar-btn {
     color: var(--neon-cyan) !important;
     background: rgba(0, 255, 255, 0.08) !important;
     border-color: rgba(0, 255, 255, 0.25) !important;
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.1) !important;
 }
 
-:root.theme-neon .titlebar .dlux-titlebar-home:hover,
-:root.theme-neon .titlebar .dlux-login-round:hover,
-:root.theme-neon .titlebar .dlux-titlebar-home:focus,
-:root.theme-neon .titlebar .dlux-login-round:focus,
-:root.theme-neon .titlebar .dlux-titlebar-home:focus-visible,
-:root.theme-neon .titlebar .dlux-login-round:focus-visible {
+:root.theme-neon .titlebar .dlux-titlebar-btn:hover,
+:root.theme-neon .titlebar .dlux-titlebar-btn:focus,
+:root.theme-neon .titlebar .dlux-titlebar-btn:focus-visible {
     color: var(--neon-pink) !important;
     background: rgba(255, 0, 255, 0.15) !important;
     border-color: rgba(255, 0, 255, 0.4) !important;

@@ -12,7 +12,7 @@
 {% block layout %}
 {% with lc=login_config|default:APP_CONFIG.login %}
 {% with ls=lc.style|default:"split" lt=lc.logo_treatment|default:"none" lts=lc.logo_treatment_shape|default:"soft" lbc=lc.banner_color|default:"" sl=lc.show_logo %}
-{% if messages %}<div class="alert-container position-absolute top-0 start-0 w-100 dlux-page-alert-container">{% for message in messages %}<div class="alert alert-{{ message.tags }} text-center h4 dlux-page-alert">{{ message }}</div>{% endfor %}</div>{% endif %}
+{% include 'dlux/includes/messages.html' with dlux_flash_mode='page' %}
 {% if form.non_field_errors %}<div class="dlux-login-error-float shake-trigger">{% for error in form.non_field_errors %}<div class="alert alert-danger d-flex align-items-center gap-2 m-0 h4"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span></div>{% endfor %}</div>{% endif %}
 <div class="page dlux-login--{{ ls }}{% if public_registration_enabled %} dlux-login-has-register{% endif %}">
     {% if language_picker_enabled %}

@@ -39,7 +39,7 @@ The wizard currently runs in eight steps:
    This step manages the optional authenticated Nav Bar, including hierarchy/history mode, user override policy, and the static hierarchy tree. During first-launch setup, enabling an empty Nav Bar tree can seed it from the configured sidebar accordions.
 
 7. UI and Layout
-   This step manages titlebar controls (logo/home visibility, logo treatment, home shape, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
+   This step manages titlebar controls (logo/home visibility, logo treatment, action-button shape, Dropdown vs Titlebar Actions user-hub layout, action ordering, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
 
 8. Appearance and Typography
    This step manages theme availability, default theme, theme override policy, and the Dynamic Font Management system.
@@ -74,7 +74,9 @@ When the wizard is saved:
 - the chosen home URL becomes the global titlebar Home destination
 - the sidebar reorder and toolbar flags become part of the runtime sidebar behavior
 
-Superusers can export the current setup from the Options System Settings card. The downloaded filename uses `dlux-{project-slug}-{YYYY-MM-DD}.json`, where the project slug comes from the deployed project `BASE_DIR` folder name (generic container work-dir names such as `app`, `src`, or `code` are skipped), falling back to the configured English System Settings name when one is set, and finally to `project`. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, optional anonymous public-root URL/split toggle, Client IP resolution config, sidebar, Nav Bar, titlebar, security toggles, themes, fonts, and density defaults. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
+Superusers can export the current setup from the Options System Settings card. The downloaded filename uses `dlux-{project-slug}-{YYYY-MM-DD}.json`, where the project slug comes from the deployed project `BASE_DIR` folder name (generic container work-dir names such as `app`, `src`, or `code` are skipped), falling back to the configured English System Settings name when one is set, and finally to `project`. The exported JSON is intended for development and staging workflows where the same setup needs to be reused repeatedly. It includes DB-backed operational settings such as names, language catalog, translation overrides, home URL, optional anonymous public-root URL/split toggle, Client IP resolution config, notifications, login page, sidebar, Nav Bar, titlebar, security toggles, themes, fonts, density defaults, and reserved `extra_config` host data. Logo and favicon are exported as stored file names only; the binary media files are not embedded.
+
+The database stores most of those values in grouped `SystemSettings` JSON fields (`auth_config`, `registration_config`, `public_root_config`, `language_config`, `theme_config`, `typography_config`, `layout_config`, and related UI configs), but exports remain flat and imports accept both flat keys and grouped aliases. Translation exports include only `translations_override` edits, not the full merged translation catalog.
 
 On a fresh, unconfigured project, Dlux also checks `BASE_DIR/config.json` when `/sys/setup/` is opened by a superuser. A valid exported payload or direct settings dict is applied once, marks setup complete, and redirects to the configured home URL. Invalid JSON is ignored with a setup warning, and already configured systems never treat `config.json` as a live settings layer.
 
@@ -254,6 +256,7 @@ Other admin-facing runtime behaviors to expect:
 - email 2FA supports background auto-sending on login and enforces a 120s resend cooldown
 - destructive profile security actions now ask for the current password before the backend mutation is allowed to proceed
 - sessions can be marked as "Trusted" for 30 days during 2FA verification to skip subsequent challenges on the same browser
+- when single active session enforcement is enabled, every successful login or completed 2FA login evicts the user's other active sessions, including cache/Redis-backed sessions once Dlux has recorded their presence; older browsers see the session-ended page on their next request
 
 ## Activity Logs in Daily Use
 
@@ -344,6 +347,8 @@ DjangoLux distinguishes three staff authorization tiers for user management:
 | **Global Staff** | None (NULL) | `is_staff=True` + `dlux.manage_scopes` permission | Create/manage scopes, assign users to any scope, view and edit ALL users (scoped and scopeless) |
 | **Central Staff** | None (NULL) | `is_staff=True` (NO `manage_scopes`) | Create/manage scopeless (NULL scope) users ONLY — completely blind to scoped users and their data |
 | **Scoped Staff** | Assigned scope | `is_staff=True` + scope assignment | Create/manage users within their assigned scope only |
+
+The Add User form also includes **Require password change on first login**. It is off by default; when selected, Dlux stores `force_password_change` in the new user's profile preferences and middleware redirects that account to the profile password-change form until the password is changed. If Initial User Setup is also enabled for the account, Dlux defers that onboarding modal until after the password requirement is cleared. Profile password changes and staff reset-password submissions are rejected when the new password is identical to the account's current password.
 
 ### Creating Global Staff
 

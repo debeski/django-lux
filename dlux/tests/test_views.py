@@ -1,53 +1,9 @@
 from django import forms
 from django.apps import apps
-from django.conf import settings
 
-if not settings.configured:
-    settings.configure(
-        SECRET_KEY='dlux-test-key',
-        ALLOWED_HOSTS=['testserver', 'localhost'],
-        INSTALLED_APPS=[
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
-            'crispy_forms',
-            'crispy_bootstrap5',
-            'django_filters',
-            'django_tables2',
-            'dlux',
-        ],
-        MIDDLEWARE=[
-            'django.contrib.sessions.middleware.SessionMiddleware',
-            'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'dlux.middleware.DluxMiddleware',
-        ],
-        ROOT_URLCONF='dlux.urls',
-        TEMPLATES=[
-            {
-                'BACKEND': 'django.template.backends.django.DjangoTemplates',
-                'APP_DIRS': True,
-                'OPTIONS': {
-                    'context_processors': [
-                        'django.template.context_processors.request',
-                        'django.contrib.auth.context_processors.auth',
-                        'django.contrib.messages.context_processors.messages',
-                        'dlux.context_processors.dlux_context',
-                    ],
-                },
-            }
-        ],
-        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-        STATIC_URL='/static/',
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-        USE_TZ=True,
-        CRISPY_ALLOWED_TEMPLATE_PACKS='bootstrap5',
-        CRISPY_TEMPLATE_PACK='bootstrap5',
-    )
+from dlux.tests.harness import setup_test_environment
 
-    import django
-    django.setup()
+setup_test_environment()
 
 from django.test import TestCase, Client, RequestFactory, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -152,7 +108,7 @@ class GeneralViewsTests(TestCase):
 
     def test_options_email_diagnostics_only_render_when_email_features_enabled(self):
         settings_obj = SystemSettings.load()
-        settings_obj.email_2fa = False
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "email_2fa": False}
         settings_obj.public_registration_enabled = False
         settings_obj.save()
 
@@ -162,7 +118,7 @@ class GeneralViewsTests(TestCase):
         self.assertIsNone(response.context.get('email_service'))
         self.assertNotContains(response, '<th>Email:</th>', html=True)
 
-        settings_obj.email_2fa = True
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "email_2fa": True}
         settings_obj.save()
         response = self.client.get(reverse('options_view'))
 
@@ -319,7 +275,7 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, 'dlux-density-options')
         self.assertContains(response, 'data-font="cairo"')
         self.assertContains(response, 'data-font="alexandria"')
-        self.assertContains(response, 'dlux/main/js/options.js?v=20260522b')
+        self.assertContains(response, 'dlux/main/js/options.js?v=')
         self.assertNotContains(response, 'dlux-font-preview-card')
 
     def test_options_view_uses_real_font_family_for_underscore_slug(self):
@@ -683,7 +639,7 @@ class ProfileViewsTests(TestCase):
         cache.clear()
         settings_obj = SystemSettings.load()
         settings_obj.is_configured = True
-        settings_obj.email_2fa = True
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "email_2fa": True}
         settings_obj.save()
         self.user = User.objects.create_user(
             username='testuser',
@@ -723,6 +679,23 @@ class ProfileViewsTests(TestCase):
             'new_password2': 'newpass123',
         })
         self.assertEqual(response.status_code, 302)  # Redirect on success
+
+    def test_user_profile_rejects_password_change_to_current_password(self):
+        original_password_hash = self.user.password
+        response = self.client.post(reverse('user_profile'), {
+            'old_password': 'testpass123',
+            'new_password1': 'testpass123',
+            'new_password2': 'testpass123',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['password_form'].errors.as_data()['new_password2'][0].code, 'password_unchanged')
+        self.assertContains(response, 'id="resetPasswordModal"')
+        self.assertContains(response, 'data-dlux-open-on-load="true"')
+        self.assertEqual(response.context.get('dlux_flash_notifications'), [])
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.password, original_password_hash)
+        self.assertTrue(self.user.check_password('testpass123'))
 
     def test_user_profile_stats_calculation(self):
         """Test that profile stats are calculated correctly."""
@@ -822,6 +795,34 @@ class ProfileViewsTests(TestCase):
         self.assertNotIn(section_log, response.context['system_interactions'])
         self.assertIn(system_log, response.context['system_interactions'])
 
+    def test_user_profile_limits_activity_feeds_to_latest_five_each(self):
+        from dlux.models import UserActivityLog
+
+        base_time = timezone.now() - timedelta(hours=1)
+        recent_logs = []
+        system_logs = []
+        for index in range(8):
+            recent_log = UserActivityLog.objects.create(
+                created_by=self.user,
+                action='CREATE',
+                model_name='Mounted App Entry',
+            )
+            system_log = UserActivityLog.objects.create(
+                created_by=self.user,
+                action='LOGIN',
+                model_name='Mounted App Entry',
+            )
+            UserActivityLog.objects.filter(pk=recent_log.pk).update(created_at=base_time + timedelta(minutes=index))
+            UserActivityLog.objects.filter(pk=system_log.pk).update(created_at=base_time + timedelta(minutes=index, seconds=30))
+            recent_logs.append(recent_log.pk)
+            system_logs.append(system_log.pk)
+
+        response = self.client.get(reverse('user_profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([log.pk for log in response.context['recent_activity']], list(reversed(recent_logs[-5:])))
+        self.assertEqual([log.pk for log in response.context['system_interactions']], list(reversed(system_logs[-5:])))
+
 
 class ScopeViewsTests(TestCase):
     def setUp(self):
@@ -895,7 +896,7 @@ class ActivityLogViewsTests(TestCase):
         self.client = Client()
         self.client.login(username='testuser', password='testpass123')
         content_type = ContentType.objects.get_for_model(
-            apps.get_model('dlux', 'UserActivityLog'),
+            apps.get_model('dlux', 'ActivityLog'),
             for_concrete_model=False,
         )
         self.view_activitylog_permission = Permission.objects.get(
@@ -1208,6 +1209,94 @@ class SecurityHardeningViewTests(TestCase):
         self.assertIn('dlux-btn-prev d-none', payload['html'])
         self.assertIn('dlux-btn-next', payload['html'])
         self.assertIn('dlux-btn-submit d-none', payload['html'])
+        self.assertIn('name="force_password_change"', payload['html'])
+
+    def test_user_create_modal_can_require_first_login_password_change(self):
+        self.client.login(username='root', password='rootpass123')
+
+        response = self.client.post(
+            reverse('modal_user'),
+            {
+                'username': 'mustchange',
+                'password1': 'Initialpass123!',
+                'password2': 'Initialpass123!',
+                'first_name': 'Must',
+                'last_name': 'Change',
+                'email': 'mustchange@example.com',
+                'is_active': 'on',
+                'force_password_change': 'on',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(json.loads(response.content)['success'])
+        user = User.objects.get(username='mustchange')
+        self.assertTrue(user.profile.preferences.get('force_password_change'))
+
+    def test_forced_password_change_redirects_until_profile_password_update(self):
+        forced_user = User.objects.create_user(
+            username='forceduser',
+            email='forced@example.com',
+            password='Initialpass123!',
+        )
+        forced_user.profile.preferences = {'force_password_change': True}
+        forced_user.profile.save(update_fields=['preferences'])
+        self.client.login(username='forceduser', password='Initialpass123!')
+
+        blocked = self.client.get(reverse('manage_users'))
+        self.assertEqual(blocked.status_code, 302)
+        self.assertTrue(blocked['Location'].endswith(f"{reverse('user_profile')}?force_password_change=1"))
+
+        profile_response = self.client.get(reverse('user_profile'))
+        self.assertEqual(profile_response.status_code, 200)
+        self.assertTrue(profile_response.context['force_password_change_required'])
+
+        changed = self.client.post(
+            reverse('user_profile'),
+            {
+                'old_password': 'Initialpass123!',
+                'new_password1': 'Changedpass123!',
+                'new_password2': 'Changedpass123!',
+            },
+        )
+
+        self.assertEqual(changed.status_code, 302)
+        forced_user.profile.refresh_from_db()
+        self.assertNotIn('force_password_change', forced_user.profile.preferences)
+
+        after_change = self.client.get(reverse('manage_users'))
+        self.assertFalse(
+            after_change.status_code == 302
+            and after_change['Location'].endswith(f"{reverse('user_profile')}?force_password_change=1")
+        )
+
+    def test_forced_password_change_rejects_current_password_reuse(self):
+        forced_user = User.objects.create_user(
+            username='forcedsame',
+            email='forcedsame@example.com',
+            password='Initialpass123!',
+        )
+        original_password_hash = forced_user.password
+        forced_user.profile.preferences = {'force_password_change': True}
+        forced_user.profile.save(update_fields=['preferences'])
+        self.client.login(username='forcedsame', password='Initialpass123!')
+
+        response = self.client.post(
+            reverse('user_profile'),
+            {
+                'old_password': 'Initialpass123!',
+                'new_password1': 'Initialpass123!',
+                'new_password2': 'Initialpass123!',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['password_form'].errors.as_data()['new_password2'][0].code, 'password_unchanged')
+        forced_user.refresh_from_db()
+        self.assertEqual(forced_user.password, original_password_hash)
+        forced_user.profile.refresh_from_db()
+        self.assertTrue(forced_user.profile.preferences.get('force_password_change'))
 
     def test_manage_users_requires_view_user_permission_for_staff(self):
         self.client.login(username='staffer', password='staffpass123')
@@ -1427,6 +1516,23 @@ class SecurityHardeningViewTests(TestCase):
         self.assertEqual(response.url, reverse('manage_users'))
         self.other_user.refresh_from_db()
         self.assertFalse(self.other_user.check_password('ResetPass456!'))
+
+    def test_reset_password_rejects_current_password_reuse(self):
+        self.client.login(username='root', password='rootpass123')
+        original_password_hash = self.regular_user.password
+
+        response = self.client.post(
+            reverse('reset_password', args=[self.regular_user.pk]),
+            {
+                'reset_password-new_password1': 'regularpass123',
+                'reset_password-new_password2': 'regularpass123',
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.regular_user.refresh_from_db()
+        self.assertEqual(self.regular_user.password, original_password_hash)
+        self.assertTrue(self.regular_user.check_password('regularpass123'))
 
     def test_manage_sections_requires_sections_view_permission(self):
         self.client.login(username='regular', password='regularpass123')
@@ -2094,7 +2200,7 @@ class TwoFactorSecurityViewTests(TestCase):
 
     def test_trusted_two_factor_login_evicts_other_sessions_when_enabled(self):
         settings_obj = SystemSettings.load()
-        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "prevent_multiple_active_sessions": True}
         settings_obj.is_configured = True
         settings_obj.save()
         other_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
@@ -2335,7 +2441,7 @@ class ProfileSessionDeviceTests(TestCase):
 
     def test_profile_trust_current_device_evicts_other_sessions_when_enabled(self):
         settings_obj = SystemSettings.load()
-        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "prevent_multiple_active_sessions": True}
         settings_obj.save()
         first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
         second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
@@ -2393,7 +2499,7 @@ class ProfileSessionDeviceTests(TestCase):
 
     def test_standard_login_evicts_other_sessions_when_single_session_enabled(self):
         settings_obj = SystemSettings.load()
-        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "prevent_multiple_active_sessions": True}
         settings_obj.save()
         first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
         second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
@@ -2414,9 +2520,40 @@ class ProfileSessionDeviceTests(TestCase):
         trusted_device.refresh_from_db()
         self.assertIsNone(trusted_device.revoked_at)
 
+    @override_settings(SESSION_ENGINE='django.contrib.sessions.backends.cache')
+    def test_standard_login_evicts_cache_backed_sessions_when_single_session_enabled(self):
+        from django.conf import settings
+
+        cache.clear()
+        settings_obj = SystemSettings.load()
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "prevent_multiple_active_sessions": True}
+        settings_obj.is_configured = True
+        settings_obj.save()
+        first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+
+        first_response = first_client.post(reverse('login'), {
+            'username': 'devices',
+            'password': 'devicespass123',
+        })
+        self.assertEqual(first_response.status_code, 302)
+        first_session_key = first_client.cookies[settings.SESSION_COOKIE_NAME].value
+        PresenceSession = apps.get_model('dlux', 'UserPresenceSession')
+        self.assertTrue(PresenceSession.objects.filter(user=self.user, session_key=first_session_key).exists())
+
+        second_response = second_client.post(reverse('login'), {
+            'username': 'devices',
+            'password': 'devicespass123',
+        })
+        self.assertEqual(second_response.status_code, 302)
+
+        bounced = first_client.get(reverse('user_profile'))
+        self.assertEqual(bounced.status_code, 302)
+        self.assertIn(reverse('session_ended'), bounced.url)
+
     def test_standard_login_keeps_other_sessions_when_single_session_disabled(self):
         settings_obj = SystemSettings.load()
-        settings_obj.prevent_multiple_active_sessions = False
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "prevent_multiple_active_sessions": False}
         settings_obj.save()
         first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
         second_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
@@ -2435,7 +2572,7 @@ class ProfileSessionDeviceTests(TestCase):
         from types import SimpleNamespace
         from dlux.trust import enforce_single_active_session
         settings_obj = SystemSettings.load()
-        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "prevent_multiple_active_sessions": True}
         settings_obj.save()
         other = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
         other.login(username='devices', password='devicespass123')
@@ -2450,7 +2587,7 @@ class ProfileSessionDeviceTests(TestCase):
         from django.core.cache import cache
         cache.clear()
         settings_obj = SystemSettings.load()
-        settings_obj.prevent_multiple_active_sessions = True
+        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "prevent_multiple_active_sessions": True}
         settings_obj.is_configured = True
         settings_obj.save()
         first_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
@@ -2533,7 +2670,7 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertIsNotNone(presence.revoked_at)
 
     def test_user_report_modal_and_xlsx_require_report_permission(self):
-        ActivityLog = apps.get_model('dlux', 'UserActivityLog')
+        ActivityLog = apps.get_model('dlux', 'ActivityLog')
         ActivityLog.objects.create(
             created_by=self.user,
             action='VIEW',
@@ -2591,7 +2728,7 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertGreater(len(xlsx.content), 1000)
 
     def test_user_report_filters_operational_activity_and_exports_selected_window(self):
-        ActivityLog = apps.get_model('dlux', 'UserActivityLog')
+        ActivityLog = apps.get_model('dlux', 'ActivityLog')
         project_log = ActivityLog.objects.create(
             created_by=self.user,
             action='CREATE',
@@ -2642,7 +2779,7 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertTrue(project_log.pk)
 
     def test_reports_overview_requires_permission_and_renders_staff_entry_data(self):
-        ActivityLog = apps.get_model('dlux', 'UserActivityLog')
+        ActivityLog = apps.get_model('dlux', 'ActivityLog')
         ActivityLog.objects.create(
             created_by=self.user,
             action='CREATE',
@@ -2716,7 +2853,7 @@ class ProfileSessionDeviceTests(TestCase):
         )
         from dlux.user_reports import build_user_report
 
-        ActivityLog = apps.get_model('dlux', 'UserActivityLog')
+        ActivityLog = apps.get_model('dlux', 'ActivityLog')
         arabic_label = 'قرار'  # "decree" — a host-model verbose name in Arabic
 
         # The label normalizes to '' yet must remain eligible (it is not a known
@@ -2743,7 +2880,7 @@ class ProfileSessionDeviceTests(TestCase):
         stay excluded via their key even when the displayed label differs."""
         from dlux.reports import build_reports_overview
 
-        ActivityLog = apps.get_model('dlux', 'UserActivityLog')
+        ActivityLog = apps.get_model('dlux', 'ActivityLog')
         # Same logical host model, logged under two languages → identical stable key.
         ActivityLog.objects.create(
             created_by=self.user, action='CREATE',
@@ -2768,3 +2905,159 @@ class ProfileSessionDeviceTests(TestCase):
             'dlux.systemsettings',
             {m['key'] for m in overview['models']},
         )
+
+
+class ProfileConfigAndOnboardingTests(TestCase):
+    """profile_config normalization, the Initial User Setup modal, and the first-login flag."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        from dlux.models import SystemSettings
+        s = SystemSettings.load()
+        s.is_configured = True
+        s.save()
+        self.User = get_user_model()
+
+    def test_normalize_profile_config(self):
+        from dlux.utils.config import normalize_profile_config, default_profile_config
+        d = default_profile_config()
+        self.assertEqual(normalize_profile_config(d), normalize_profile_config(normalize_profile_config(d)))
+        p = normalize_profile_config({'security_nudges': 'bogus', 'show_activity_feed': False,
+                                      'onboarding_options': {'fonts': False}})
+        self.assertEqual(p['security_nudges'], 'subtle')  # invalid falls back
+        self.assertFalse(p['show_activity_feed'])
+        self.assertFalse(p['onboarding_options']['fonts'])
+
+    def test_onboarding_save_sets_prefs_and_flag(self):
+        from dlux.models import Profile
+        u = self.User.objects.create_user('onbsave', 'os@e.com', 'pw12345678')
+        c = Client(); c.force_login(u)
+        g = c.get(reverse('initial_user_setup'))
+        self.assertEqual(g.status_code, 200)
+        self.assertIn(b'dlux-initial-user-setup-form', g.content)
+        r = c.post(reverse('initial_user_setup'), {'theme': 'dark', 'language': 'en'})
+        self.assertTrue(r.json()['success'])
+        prof = Profile.all_objects.get(user=u)
+        self.assertTrue(prof.is_configured)
+        self.assertEqual(prof.preferences.get('theme'), 'dark')
+        # Onboarding is the user's own choice — no notification or activity-log entry.
+        from dlux.models import DluxNotification, UserActivityLog
+        self.assertEqual(DluxNotification.objects.count(), 0)
+        self.assertEqual(UserActivityLog.objects.filter(created_by=u).count(), 0)
+
+    def test_onboarding_skip_sets_flag_without_prefs(self):
+        from dlux.models import Profile
+        u = self.User.objects.create_user('onbskip', 'ok@e.com', 'pw12345678')
+        c = Client(); c.force_login(u)
+        r = c.post(reverse('initial_user_setup'), {'skip': '1'})
+        self.assertTrue(r.json()['success'])
+        prof = Profile.all_objects.get(user=u)
+        self.assertTrue(prof.is_configured)
+        self.assertFalse(prof.preferences)
+
+    def test_landing_page_options_are_discovered_and_permission_filtered(self):
+        from dlux.discovery import build_user_home_url_options
+        su = self.User.objects.create_superuser('suopt', 'so@e.com', 'pw12345678')
+        reg = self.User.objects.create_user('regopt', 'ro@e.com', 'pw12345678')
+        su_values = {o['value'] for o in build_user_home_url_options(su)}
+        reg_values = {o['value'] for o in build_user_home_url_options(reg)}
+        # Superuser sees at least as many pages as a permission-limited regular user.
+        self.assertTrue(reg_values.issubset(su_values))
+        self.assertGreater(len(su_values), len(reg_values))
+
+    def test_landing_page_rejects_unauthorized_url(self):
+        from dlux.models import SystemSettings, Profile
+        from dlux.utils.config import normalize_profile_config
+        from django.core.cache import cache
+        s = SystemSettings.load()
+        s.profile_config = normalize_profile_config({'allow_user_home_url': True}); s.save(); cache.delete('SystemSettings')
+        u = self.User.objects.create_user('rejuser', 'rj@e.com', 'pw12345678')
+        c = Client(); c.force_login(u)
+        c.post(reverse('update_preferences'), {'user_home_url': '/evil/path/'})
+        self.assertIsNone(Profile.all_objects.get(user=u).preferences.get('user_home_url'))
+
+    def test_options_landing_page_save_is_gated(self):
+        from dlux.models import SystemSettings, Profile
+        from dlux.utils.config import normalize_profile_config
+        from django.core.cache import cache
+        s = SystemSettings.load()
+        s.profile_config = normalize_profile_config({'allow_user_home_url': True}); s.save(); cache.delete('SystemSettings')
+        u = self.User.objects.create_user('lpuser', 'lp@e.com', 'pw12345678')
+        c = Client(); c.force_login(u)
+        # Options renders the landing-page control when allowed.
+        self.assertIn(b'data-user-home-url', c.get(reverse('options_view')).content)
+        c.post(reverse('update_preferences'), {'user_home_url': '/sys/options/'})
+        self.assertEqual(Profile.all_objects.get(user=u).preferences.get('user_home_url'), '/sys/options/')
+        # When the admin disallows it, the API refuses (and clears) the value.
+        s.profile_config = normalize_profile_config({'allow_user_home_url': False}); s.save(); cache.delete('SystemSettings')
+        self.assertNotIn(b'data-user-home-url', c.get(reverse('options_view')).content)
+        c.post(reverse('update_preferences'), {'user_home_url': '/elsewhere/'})
+        self.assertIsNone(Profile.all_objects.get(user=u).preferences.get('user_home_url'))
+
+    def test_superuser_excluded_from_initial_user_setup(self):
+        reg = self.User.objects.create_user('reguser', 'rg@e.com', 'pw12345678')
+        c = Client(); c.force_login(reg)
+        self.assertTrue(c.get(reverse('user_profile')).context['DLUX_SHOW_INITIAL_USER_SETUP'])
+        su = self.User.objects.create_superuser('suuser', 'su@e.com', 'pw12345678')
+        c2 = Client(); c2.force_login(su)
+        self.assertFalse(c2.get(reverse('user_profile')).context['DLUX_SHOW_INITIAL_USER_SETUP'])
+
+    def test_onboarding_modal_ajax_returns_json_html(self):
+        u = self.User.objects.create_user('ajaxu', 'aj@e.com', 'pw12345678')
+        c = Client(); c.force_login(u)
+        g = c.get(reverse('initial_user_setup'), HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(g['Content-Type'], 'application/json')
+        self.assertIn('dlux-initial-user-setup-form', g.json()['html'])
+
+    def test_login_redirect_honors_user_home_url(self):
+        from dlux.models import SystemSettings
+        from dlux.utils.config import normalize_profile_config
+        from django.core.cache import cache
+        s = SystemSettings.load(); s.home_url = '/accounts/profile/'
+        s.profile_config = normalize_profile_config({'allow_user_home_url': True}); s.save(); cache.delete('SystemSettings')
+        u = self.User.objects.create_user('homeuser', 'hu@e.com', 'pw12345678')
+        u.profile.is_configured = True
+        u.profile.preferences = {'user_home_url': '/sys/options/'}
+        u.profile.save()
+        c = Client()
+        resp = c.post(reverse('login'), {'username': 'homeuser', 'password': 'pw12345678'})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp['Location'], '/sys/options/')
+        # When the admin disallows it, fall back to the system home.
+        s.profile_config = normalize_profile_config({'allow_user_home_url': False}); s.save(); cache.delete('SystemSettings')
+        c2 = Client()
+        resp2 = c2.post(reverse('login'), {'username': 'homeuser', 'password': 'pw12345678'})
+        self.assertEqual(resp2['Location'], '/accounts/profile/')
+
+    def test_context_flag_shows_only_until_configured(self):
+        u = self.User.objects.create_user('onbflag', 'of@e.com', 'pw12345678')
+        c = Client(); c.force_login(u)
+        page = c.get(reverse('user_profile'))
+        self.assertTrue(page.context['DLUX_SHOW_INITIAL_USER_SETUP'])
+        u.profile.is_configured = True
+        u.profile.save()
+        page2 = c.get(reverse('user_profile'))
+        self.assertFalse(page2.context['DLUX_SHOW_INITIAL_USER_SETUP'])
+
+    def test_onboarding_is_deferred_until_forced_password_change_is_cleared(self):
+        u = self.User.objects.create_user('forceonb', 'fo@e.com', 'pw12345678')
+        u.profile.preferences = {'force_password_change': True}
+        u.profile.save(update_fields=['preferences'])
+        c = Client(); c.force_login(u)
+
+        page = c.get(reverse('user_profile'))
+        self.assertEqual(page.status_code, 200)
+        self.assertTrue(page.context['force_password_change_required'])
+        self.assertFalse(page.context['DLUX_SHOW_INITIAL_USER_SETUP'])
+
+        welcome = c.get(reverse('initial_user_setup'), HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(welcome.status_code, 403)
+        payload = welcome.json()
+        self.assertFalse(payload['success'])
+        self.assertEqual(payload['redirect_url'], f"{reverse('user_profile')}?force_password_change=1")
+
+        u.profile.preferences = {}
+        u.profile.save(update_fields=['preferences'])
+        page_after_clear = c.get(reverse('user_profile'))
+        self.assertTrue(page_after_clear.context['DLUX_SHOW_INITIAL_USER_SETUP'])

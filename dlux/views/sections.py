@@ -6,7 +6,6 @@ import logging
 from django import forms
 from django.apps import apps
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -22,6 +21,7 @@ from crispy_forms.layout import Submit
 from django_tables2 import RequestConfig
 
 # Project imports
+from ..notifications import notify
 from ..utils import (
     is_scope_enabled,
     discover_section_models,
@@ -51,6 +51,17 @@ def _section_permission_denied(*, json_response=False):
     if json_response:
         return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
     raise PermissionDenied
+
+
+def _notify_section_error(request, key, action):
+    s = get_strings()
+    notify.error(
+        s.get(key),
+        request=request,
+        action=action,
+        category='sections',
+        metadata={'message_key': key},
+    )
 
 
 def _normalize_section_model_token(value):
@@ -369,6 +380,9 @@ def core_models_view(request):
     if request.method == 'POST':
         if form.is_valid():
             saved_instance = form.save(commit=False)
+            saved_instance._dlux_notify_source = 'generic_crud'
+            saved_instance._dlux_notify_surface = 'sections'
+            saved_instance._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
             saved_instance.save()
             if hasattr(form, 'save_m2m'):
                 form.save_m2m()
@@ -514,8 +528,8 @@ def add_subsection(request):
     parent_field = request.GET.get('parent_field')
     
     if not child_model_name:
-         messages.error(request, "معرف القسم الفرعي مفقود.")
-         return redirect('manage_sections')
+        _notify_section_error(request, 'err_subsection_id_missing', 'subsection_model_missing')
+        return redirect('manage_sections')
 
     # Resolve child model class
     subsection_definition = _resolve_allowed_subsection_definition(
@@ -526,7 +540,7 @@ def add_subsection(request):
     if not subsection_definition:
         if is_ajax:
             return JsonResponse({'success': False, 'error': 'Subsection not found'}, status=404)
-        messages.error(request, "القسم الفرعي غير موجود.")
+        _notify_section_error(request, 'err_subsection_not_found', 'subsection_not_found')
         return redirect('manage_sections')
     model = subsection_definition['model']
         
@@ -537,6 +551,10 @@ def add_subsection(request):
         form = form_class(request.POST)
         if form.is_valid():
             instance = form.save(commit=False)
+            instance._dlux_notify_source = 'generic_crud'
+            instance._dlux_notify_surface = 'subsection_modal'
+            instance._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
+            instance._dlux_notify_flash = False
             # created_by/updated_by auto-populated by ScopedModel.save()
             instance.save()
 
@@ -562,11 +580,11 @@ def add_subsection(request):
             if is_ajax:
                 return JsonResponse({'success': True, 'id': instance.pk, 'name': str(instance)})
                 
-                messages.success(request, f"تم إضافة {model._meta.verbose_name}: {instance}")
+            notify.success(f"تم إضافة {model._meta.verbose_name}: {instance}", request=request, obj=instance, action='subsection_create', category='sections', persist=False)
         else:
             if is_ajax:
                 return JsonResponse({'success': False, 'error': form.errors.as_text()})
-            messages.error(request, f"خطأ في إضافة {model._meta.verbose_name}.")
+            notify.error(f"خطأ في إضافة {model._meta.verbose_name}.", request=request, action='subsection_create_invalid', category='sections')
     
     # Redirect back to parent tab
     redirect_url = reverse('manage_sections')
@@ -594,13 +612,13 @@ def edit_subsection(request, pk):
         parent_model_name=parent_model_name,
     )
     if not subsection_definition:
-        messages.error(request, "القسم الفرعي غير موجود.")
+        _notify_section_error(request, 'err_subsection_not_found', 'subsection_not_found')
         return redirect('manage_sections')
     model = subsection_definition['model']
     try:
         instance = model._default_manager.get(pk=pk)
     except model.DoesNotExist:
-        messages.error(request, "القسم الفرعي غير موجود.")
+        _notify_section_error(request, 'err_subsection_not_found', 'subsection_not_found')
         return redirect('manage_sections')
     
     # Resolve Form Class (consistent with discovery logic)
@@ -610,17 +628,21 @@ def edit_subsection(request, pk):
         form = form_class(request.POST, instance=instance)
         if form.is_valid():
             saved = form.save(commit=False)
+            saved._dlux_notify_source = 'generic_crud'
+            saved._dlux_notify_surface = 'subsection_modal'
+            saved._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
+            saved._dlux_notify_flash = False
             # created_by/updated_by auto-populated by ScopedModel.save()
             saved.save()
             
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': True, 'id': saved.pk, 'name': str(saved)})
                 
-            messages.success(request, f"تم تعديل {model._meta.verbose_name}: {saved}")
+            notify.success(f"تم تعديل {model._meta.verbose_name}: {saved}", request=request, obj=saved, action='subsection_update', category='sections', persist=False)
         else:
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'success': False, 'error': form.errors.as_text()})
-            messages.error(request, f"خطأ في تعديل {model._meta.verbose_name}.")
+            notify.error(f"خطأ في تعديل {model._meta.verbose_name}.", request=request, action='subsection_update_invalid', category='sections')
     
     redirect_url = reverse('manage_sections')
     if parent_model_name:
@@ -646,23 +668,35 @@ def delete_subsection(request, pk):
         parent_model_name=parent_model_name,
     )
     if not subsection_definition:
-        messages.error(request, "القسم الفرعي غير موجود.")
+        _notify_section_error(request, 'err_subsection_not_found', 'subsection_not_found')
         return redirect('manage_sections')
     model = subsection_definition['model']
     try:
         instance = model._default_manager.get(pk=pk)
     except model.DoesNotExist:
-        messages.error(request, "القسم الفرعي غير موجود.")
+        _notify_section_error(request, 'err_subsection_not_found', 'subsection_not_found')
         return redirect('manage_sections')
     
     if request.method == 'POST':
         # Check if locked (has related records)
         if has_related_records(instance, ignore_relations=['affiliates', 'affiliatedepartment_set']):
-            messages.error(request, "لا يمكن حذف هذا العنصر لارتباطه بسجلات أخرى.")
+            s = get_strings()
+            notify.error(
+                s.get('err_cannot_delete_related'),
+                request=request,
+                obj=instance,
+                action='subsection_delete_blocked',
+                category='sections',
+                metadata={'message_key': 'err_cannot_delete_related'},
+            )
         else:
             name = str(instance)
+            instance._dlux_notify_source = 'generic_crud'
+            instance._dlux_notify_surface = 'subsection_modal'
+            instance._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
+            instance._dlux_notify_flash = False
             instance.delete()
-            messages.success(request, f"تم حذف {model._meta.verbose_name}: {name}")
+            notify.success(f"تم حذف {model._meta.verbose_name}: {name}", request=request, action='subsection_delete', category='sections', persist=False)
     
     redirect_url = reverse('manage_sections')
     if parent_model_name:
@@ -716,6 +750,9 @@ def delete_section(request):
     
     name = str(instance)
     try:
+        instance._dlux_notify_source = 'context_menu'
+        instance._dlux_notify_surface = 'section_delete'
+        instance._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
         instance.delete()
     except ProtectedError:
         logger.exception("Protected delete blocked for section %s pk=%s", model_name, pk)
@@ -948,7 +985,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             return None
 
-        if 0 <= step <= 7:
+        if 0 <= step <= 8:
             return step
         return None
 
@@ -1052,6 +1089,9 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
                 obj = form.save(commit=True)
             else:
                 obj = form.save(commit=False)
+                obj._dlux_notify_source = 'generic_crud'
+                obj._dlux_notify_surface = 'dynamic_modal'
+                obj._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
                 # created_by/updated_by auto-populated by ScopedModel.save()
                 
                 # Scope forced for non-superusers
@@ -1142,6 +1182,9 @@ class DynamicModalDeleteView(LoginRequiredMixin, View):
             })
             
         name = str(instance)
+        instance._dlux_notify_source = 'generic_crud'
+        instance._dlux_notify_surface = 'dynamic_modal_delete'
+        instance._dlux_notify_route = request.resolver_match.url_name if request.resolver_match else ''
         instance.delete()
         
         return JsonResponse({'success': True, 'message': f"Deleted {name}"})

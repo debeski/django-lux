@@ -54,7 +54,7 @@ def _distinct_values(queryset, field_name):
 def build_user_report(target_user, actor=None, window='week'):
     s = get_strings()
     window = normalize_report_window(window)
-    ActivityLog = apps.get_model('dlux', 'UserActivityLog')
+    ActivityLog = apps.get_model('dlux', 'ActivityLog')
     TrustedDevice = apps.get_model('dlux', 'TrustedDevice')
     KnownDevice = apps.get_model('dlux', 'UserKnownDevice')
     PresenceSession = apps.get_model('dlux', 'UserPresenceSession')

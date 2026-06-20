@@ -533,4 +533,35 @@ document.addEventListener('DOMContentLoaded', function() {
         clearModalState();
     }
 
+    // First-login Initial User Setup: auto-open its dynamic modal once (unless another
+    // modal is being restored from saved state).
+    try {
+        const autoTrigger = document.querySelector('[data-dynamic-modal][data-dlux-auto-open]');
+        let hasSavedModal = false;
+        try {
+            const st = JSON.parse(sessionStorage.getItem(MODAL_STATE_KEY) || 'null');
+            hasSavedModal = !!(st && st.url);
+        } catch (e) { hasSavedModal = false; }
+        if (autoTrigger && !hasSavedModal) {
+            autoTrigger.click();
+        }
+    } catch (e) { /* no-op */ }
+
+    // Initial User Setup "Skip for now": POST skip=1 to mark the profile configured, then reload.
+    document.body.addEventListener('click', function(e) {
+        const skipBtn = e.target.closest('[data-dlux-skip-setup]');
+        if (!skipBtn) return;
+        e.preventDefault();
+        const url = skipBtn.getAttribute('data-url');
+        const form = skipBtn.closest('form');
+        const csrf = form ? form.querySelector('[name=csrfmiddlewaretoken]') : null;
+        const body = new FormData();
+        body.append('skip', '1');
+        if (csrf) body.append('csrfmiddlewaretoken', csrf.value);
+        skipBtn.disabled = true;
+        fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
+            .then(function () { window.location.reload(); })
+            .catch(function () { window.location.reload(); });
+    });
+
 });

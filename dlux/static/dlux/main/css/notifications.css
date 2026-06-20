@@ -1,0 +1,244 @@
+.dlux-notifications {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-inline-start: 0.5rem;
+}
+
+.dlux-notifications__trigger {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--title);
+    line-height: 1;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dlux-notifications__trigger:hover,
+.dlux-notifications__trigger:focus-visible {
+    background: rgba(255, 255, 255, 0.94);
+    border-color: rgba(64, 94, 115, 0.36);
+    outline: none;
+}
+
+.dlux-notifications__badge {
+    position: absolute;
+    inset-block-start: -0.2rem;
+    inset-inline-end: -0.2rem;
+    min-width: 1rem;
+    height: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.25rem;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: #0284c7;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.dlux-notifications__badge--success { background: #16a34a; }
+.dlux-notifications__badge--warning { background: #d97706; }
+.dlux-notifications__badge--error { background: #dc2626; }
+
+.dlux-notifications__panel {
+    position: absolute;
+    inset-block-start: calc(100% + 0.6rem);
+    inset-inline-end: 0;
+    z-index: 2060;
+    width: min(360px, calc(100vw - 1rem));
+    max-height: min(520px, calc(100vh - 5rem));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 8px;
+    background: var(--table-row, #fff);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.2);
+    color: var(--title);
+    text-align: start;
+}
+
+.dlux-notifications__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.dlux-notifications__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.dlux-notifications__icon-btn {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: color-mix(in srgb, var(--title) 70%, transparent);
+    line-height: 1;
+}
+
+.dlux-notifications__icon-btn:hover,
+.dlux-notifications__icon-btn:focus-visible {
+    background: rgba(var(--primal-rgb, 64, 94, 115), 0.12);
+    color: var(--title);
+    outline: none;
+}
+
+.dlux-notifications__icon-btn--danger {
+    color: #b91c1c;
+}
+
+.dlux-notifications__icon-btn--danger:hover,
+.dlux-notifications__icon-btn--danger:focus-visible {
+    background: rgba(220, 38, 38, 0.08);
+    color: #991b1b;
+}
+
+.dlux-notifications__list {
+    overflow: auto;
+    padding: 0.35rem;
+}
+
+.dlux-notifications__item {
+    width: 100%;
+    min-height: 3.75rem;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.65rem;
+    align-items: start;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    padding: 0.65rem;
+    color: inherit;
+    text-align: start;
+}
+
+.dlux-notifications__item:hover,
+.dlux-notifications__item:focus-visible {
+    background: rgba(var(--primal-rgb, 64, 94, 115), 0.12);
+    outline: none;
+}
+
+.dlux-notifications__item--unread {
+    background: rgba(2, 132, 199, 0.14);
+}
+
+.dlux-notifications__dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    margin-block-start: 0.28rem;
+    border-radius: 999px;
+    background: #0284c7;
+}
+
+.dlux-notifications__dot--success { background: #16a34a; }
+.dlux-notifications__dot--warning { background: #d97706; }
+.dlux-notifications__dot--error { background: #dc2626; }
+
+.dlux-notifications__item-body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.dlux-notifications__item-title {
+    overflow: hidden;
+    color: var(--title);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dlux-notifications__item-meta {
+    overflow: hidden;
+    color: color-mix(in srgb, var(--title) 62%, transparent);
+    font-size: 0.76rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dlux-notifications__empty {
+    padding: 1.2rem 0.85rem;
+    color: color-mix(in srgb, var(--title) 62%, transparent);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.dlux-notifications__detail {
+    overflow: auto;
+    padding: 0.75rem 0.85rem 0.9rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.dlux-notifications__detail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.65rem;
+}
+
+.dlux-notifications__detail-title {
+    margin: 0 0 0.45rem;
+    font-size: 0.98rem;
+    font-weight: 800;
+}
+
+.dlux-notifications__detail-message {
+    margin: 0;
+    color: var(--title);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.dlux-notifications__detail-origin {
+    margin: 0.65rem 0 0;
+    color: color-mix(in srgb, var(--title) 62%, transparent);
+    font-size: 0.78rem;
+}
+
+.dlux-notifications__detail-link {
+    display: inline-flex;
+    margin-top: 0.75rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+@media (max-width: 575.98px) {
+    .dlux-notifications {
+        position: static;
+    }
+
+    .dlux-notifications__panel {
+        position: fixed;
+        inset-block-start: calc(var(--header-height, 60px) + 0.5rem);
+        inset-inline: 0.5rem;
+        width: auto;
+    }
+}

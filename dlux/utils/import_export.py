@@ -57,7 +57,21 @@ except ImportError:
 
 # ── intra-package imports (shared + feature deps) ──
 from .common import _coerce_import_bool
-from .config import normalize_allowed_fonts, normalize_client_ip_config, normalize_default_fonts, normalize_email_config, normalize_login_config, normalize_system_names, normalize_titlebar_config
+from .config import (
+    expand_system_config_groups,
+    normalize_allowed_fonts,
+    normalize_auth_config,
+    normalize_client_ip_config,
+    normalize_default_fonts,
+    normalize_email_config,
+    normalize_extra_config,
+    normalize_log_config,
+    normalize_login_config,
+    normalize_profile_config,
+    normalize_notification_config,
+    normalize_system_names,
+    normalize_titlebar_config,
+)
 from .localization import _normalize_language_code, normalize_language_catalog
 from .navigation import normalize_navbar_config, normalize_sidebar_behavior
 
@@ -81,6 +95,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'default_table_density',
     'email_2fa',
     'prevent_multiple_active_sessions',
+    'login_lockout_enabled',
     'client_ip_config',
     'public_root',
     'public_root_split_enabled',
@@ -93,8 +108,12 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'translations_override',
     'sidebar_config',
     'navbar_config',
+    'log_config',
+    'profile_config',
     'titlebar_config',
+    'notification_config',
     'login_config',
+    'extra_config',
 )
 
 # System Import Export - Helper extracts portable names from file fields.
@@ -113,8 +132,14 @@ def export_system_settings_payload(instance=None):
     from dlux import __version__
 
     data = {}
+    auth_export = normalize_auth_config(getattr(instance, 'auth_config', None) or {})
     for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
-        value = getattr(instance, field_name, None)
+        if field_name in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled'):
+            # These toggles are stored in the consolidated auth_config JSON field;
+            # keep exporting them as flat keys for backward-compatible import files.
+            value = auth_export.get(field_name)
+        else:
+            value = getattr(instance, field_name, None)
         if field_name in {'logo', 'favicon'}:
             data[field_name] = _field_file_name(value)
         elif field_name == 'languages':
@@ -125,12 +150,18 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_sidebar_behavior(value)
         elif field_name == 'navbar_config':
             data[field_name] = normalize_navbar_config(value)
+        elif field_name == 'log_config':
+            data[field_name] = normalize_log_config(value)
+        elif field_name == 'profile_config':
+            data[field_name] = normalize_profile_config(value)
         elif field_name == 'email_config':
             data[field_name] = normalize_email_config(value, redact_secret=True)
         elif field_name == 'client_ip_config':
             data[field_name] = normalize_client_ip_config(value)
         elif field_name == 'titlebar_config':
             data[field_name] = normalize_titlebar_config(value)
+        elif field_name == 'notification_config':
+            data[field_name] = normalize_notification_config(value)
         elif field_name == 'login_config':
             data[field_name] = normalize_login_config(value)
         elif field_name == 'allowed_themes':
@@ -158,6 +189,7 @@ def normalize_system_settings_import_payload(payload):
     raw_settings = payload.get('settings') if payload.get('format') == SYSTEM_SETTINGS_EXPORT_FORMAT else payload
     if not isinstance(raw_settings, dict):
         raise ValueError("Setup import is missing a valid settings object.")
+    raw_settings = expand_system_config_groups(raw_settings)
 
     normalized = {}
     for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
@@ -168,7 +200,10 @@ def normalize_system_settings_import_payload(payload):
         'sidebar': 'sidebar_config',
         'navbar': 'navbar_config',
         'titlebar': 'titlebar_config',
+        'notifications': 'notification_config',
         'login': 'login_config',
+        'log': 'log_config',
+        'profile': 'profile_config',
     }
     for source_name, target_name in import_aliases.items():
         if target_name not in normalized and source_name in raw_settings:
@@ -184,14 +219,22 @@ def normalize_system_settings_import_payload(payload):
         normalized['sidebar_config'] = normalize_sidebar_behavior(normalized['sidebar_config'])
     if 'navbar_config' in normalized:
         normalized['navbar_config'] = normalize_navbar_config(normalized['navbar_config'])
+    if 'log_config' in normalized:
+        normalized['log_config'] = normalize_log_config(normalized['log_config'])
+    if 'profile_config' in normalized:
+        normalized['profile_config'] = normalize_profile_config(normalized['profile_config'])
     if 'email_config' in normalized:
         normalized['email_config'] = normalize_email_config(normalized['email_config'], redact_secret=True)
     if 'client_ip_config' in normalized:
         normalized['client_ip_config'] = normalize_client_ip_config(normalized['client_ip_config'])
     if 'titlebar_config' in normalized:
         normalized['titlebar_config'] = normalize_titlebar_config(normalized['titlebar_config'])
+    if 'notification_config' in normalized:
+        normalized['notification_config'] = normalize_notification_config(normalized['notification_config'])
     if 'login_config' in normalized:
         normalized['login_config'] = normalize_login_config(normalized['login_config'])
+    if 'extra_config' in normalized:
+        normalized['extra_config'] = normalize_extra_config(normalized['extra_config'])
     if 'allowed_themes' in normalized:
         normalized['allowed_themes'] = list(normalize_allowed_themes(normalized['allowed_themes']))
     if 'allowed_fonts' in normalized:
@@ -222,6 +265,7 @@ def normalize_system_settings_import_payload(payload):
         'allow_user_language_override',
         'email_2fa',
         'prevent_multiple_active_sessions',
+        'login_lockout_enabled',
         'public_root',
         'public_root_split_enabled',
         'public_registration_enabled',
@@ -267,6 +311,15 @@ def apply_system_settings_import(
                 value,
                 allowed_fonts=normalized.get('allowed_fonts', getattr(instance, 'allowed_fonts', None)),
             )
+        elif field_name in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled'):
+            # Flat auth toggles route into the consolidated auth_config JSON field.
+            auth = dict(getattr(instance, 'auth_config', None) or {})
+            auth[field_name] = _coerce_import_bool(value)
+            instance.auth_config = normalize_auth_config(auth)
+        elif field_name == 'auth_config' and isinstance(value, dict):
+            instance.auth_config = normalize_auth_config(value)
+        elif field_name == 'notification_config' and isinstance(value, dict):
+            instance.notification_config = normalize_notification_config(value)
         elif hasattr(instance, field_name):
             setattr(instance, field_name, value)
 

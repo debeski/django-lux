@@ -1,25 +1,9 @@
-import os
-import django
-import sys
 import time
 
-sys.path.append('/home/debeski/xPy/dlux-pkg')
-sys.path.append('/home/debeski/xPy/dlux-pkg')
+from dlux.tests.harness import setup_test_environment
 
-from django.conf import settings
-if not settings.configured:
-    settings.configure(
-        SECRET_KEY='secret',
-        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-        INSTALLED_APPS=[
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'dlux',
-        ],
-        USE_TZ=True,
-    )
-django.setup()
+setup_test_environment()
+
 from django.core.management import call_command
 call_command('migrate', verbosity=0)
 

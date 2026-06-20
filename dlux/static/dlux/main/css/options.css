@@ -591,7 +591,6 @@
         margin-inline-start: 0.7rem;
     }
 
-    .dlux-options-switch-row,
     .dlux-options-toggle-shell,
     .dlux-options-reset-action-shell {
         flex-direction: column;

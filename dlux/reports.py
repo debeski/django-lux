@@ -11,7 +11,7 @@ from io import BytesIO
 from django.apps import apps
 from django.conf import settings
 from django.core.cache import cache
-from django.core import serializers
+from django.core.serializers.json import Serializer as JsonSerializer
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.db import models
@@ -220,7 +220,7 @@ def get_previous_week_bounds(*, now=None):
 
 
 def _base_activity_queryset():
-    ActivityLog = apps.get_model("dlux", "UserActivityLog")
+    ActivityLog = apps.get_model("dlux", "ActivityLog")
     manager = getattr(ActivityLog, "all_objects", ActivityLog._default_manager)
     qs = manager.filter(deleted_at__isnull=True) if hasattr(ActivityLog, "deleted_at") else manager.all()
     return qs.select_related("created_by", "created_by__profile__scope", "scope")
@@ -696,6 +696,47 @@ def _backup_model_queryset(model, actor, window):
     return qs
 
 
+def _iter_queryset_by_pk(qs, chunk_size=200):
+    """Yield model rows in bounded primary-key pages without server-side cursors."""
+    try:
+        chunk_size = int(chunk_size)
+    except (TypeError, ValueError):
+        chunk_size = 200
+    chunk_size = max(1, chunk_size)
+    pk_attname = qs.model._meta.pk.attname
+    ordered = qs.order_by(pk_attname)
+    last_pk = None
+    while True:
+        page = ordered
+        if last_pk is not None:
+            page = page.filter(**{f"{pk_attname}__gt": last_pk})
+        batch = list(page[:chunk_size])
+        if not batch:
+            break
+        for obj in batch:
+            yield obj
+        last_pk = getattr(batch[-1], pk_attname)
+
+
+class _CursorlessJSONSerializer(JsonSerializer):
+    """Backup serializer variant that avoids QuerySet.iterator() entirely."""
+
+    def handle_m2m_field(self, obj, field):
+        if not field.remote_field.through._meta.auto_created:
+            return
+        related = getattr(obj, field.name)
+        if self.use_natural_foreign_keys and hasattr(
+            field.remote_field.model, "natural_key"
+        ):
+            self._current[field.name] = [value.natural_key() for value in related.all()]
+            return
+        related_qs = related.select_related(None).only("pk")
+        self._current[field.name] = [
+            self._value_from_field(value, value._meta.pk)
+            for value in related_qs
+        ]
+
+
 def stream_model_into_zip(zf, model, qs, manifest, *, serialize_kwargs=None, object_transform=None):
     """Stream one model's records (JSON) and its file-field contents into an
     open backup ZipFile, recording everything in ``manifest``.
@@ -708,13 +749,13 @@ def stream_model_into_zip(zf, model, qs, manifest, *, serialize_kwargs=None, obj
     model_key = meta.label_lower
     manifest["models"].append({"model": model_key, "count": qs.count()})
     def serialized_objects():
-        for obj in qs.iterator(chunk_size=200):
+        for obj in _iter_queryset_by_pk(qs, chunk_size=200):
             yield object_transform(obj) if object_transform else obj
 
     with zf.open(f"data/{meta.app_label}/{meta.model_name}.json", mode="w") as raw_stream:
         text_stream = io.TextIOWrapper(raw_stream, encoding="utf-8")
-        serializers.serialize(
-            "json",
+        serializer = _CursorlessJSONSerializer()
+        serializer.serialize(
             serialized_objects(),
             stream=text_stream,
             **(serialize_kwargs or {}),
@@ -727,7 +768,7 @@ def stream_model_into_zip(zf, model, qs, manifest, *, serialize_kwargs=None, obj
     ]
     if not file_fields:
         return
-    for record in qs.iterator(chunk_size=100):
+    for record in _iter_queryset_by_pk(qs, chunk_size=100):
         for field in file_fields:
             file_value = getattr(record, field.name, None)
             if not file_value or not getattr(file_value, "name", ""):
@@ -882,7 +923,7 @@ def run_report_backup(backup_pk):
         backup.completed_at = timezone.now()
         backup.error = ""
         backup.save()
-        UserActivityLog = apps.get_model("dlux", "UserActivityLog")
+        UserActivityLog = apps.get_model("dlux", "ActivityLog")
         UserActivityLog.safe_log(
             user=backup.user,
             action="EXPORT",

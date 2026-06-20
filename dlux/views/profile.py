@@ -2,7 +2,6 @@
 import logging
 
 from django.apps import apps
-from django.contrib import messages
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -15,6 +14,7 @@ from django.views.decorators.http import require_POST
 # Project imports
 from django.utils.module_loading import import_string
 from ..guards import require_current_password
+from ..notifications import notify
 from ..trust import (
     current_session_trusted_device,
     enforce_single_active_session,
@@ -30,7 +30,7 @@ from ..reports import (
     is_report_eligible_activity_model_name,
     log_report_key,
 )
-from ..utils import get_user_management_tier_state_for_user, log_user_action, normalize_activity_log_model_key
+from ..utils import get_user_management_tier_state_for_user, log_audit_event, log_user_action, normalize_activity_log_model_key
 from ..translations import get_strings
 from .twofa import get_2fa_config
 
@@ -38,7 +38,7 @@ logger = logging.getLogger('dlux')
 
 _PROFILE_SYSTEM_ACTIONS = {"login", "logout"}
 _PROFILE_RECENT_ACTIVITY_LIMIT = 5
-_PROFILE_SYSTEM_INTERACTION_LIMIT = 10
+_PROFILE_SYSTEM_INTERACTION_LIMIT = 5
 
 
 def _is_profile_system_interaction(log_entry):
@@ -216,26 +216,29 @@ def user_profile(request):
         password_form = CustomPasswordChangeForm(user, request.POST)
         if password_form.is_valid():
             password_form.save()
-            log_user_action(request, "UPDATE", instance=user, model_name="password")
+            profile = getattr(user, 'profile', None)
+            preferences = getattr(profile, 'preferences', {}) if profile is not None else {}
+            if isinstance(preferences, dict) and preferences.get('force_password_change'):
+                updated_preferences = dict(preferences)
+                updated_preferences.pop('force_password_change', None)
+                profile.preferences = updated_preferences
+                profile.save(update_fields=['preferences'])
+            log_audit_event(request, 'password_change', "PASSWORD_CHANGE", instance=user, model_name="password")
             update_session_auth_hash(request, password_form.user)
             s = get_strings()
-            messages.success(
-                request,
+            notify.success(
                 s.get('msg_password_changed', 'Password changed successfully!'),
-                fail_silently=True,
+                request=request,
+                action='password_changed',
+                category='security',
+                metadata={'message_key': 'msg_password_changed'},
             )
             return redirect('user_profile')
         else:
-            s = get_strings()
-            messages.error(
-                request,
-                s.get('msg_form_error', "There was an error with the submitted data"),
-                fail_silently=True,
-            )
             logger.warning("Password change validation failed for user pk=%s", user.pk)
 
     # --- Profile Stats & Activity ---
-    UserActivityLog = apps.get_model('dlux', 'UserActivityLog')
+    UserActivityLog = apps.get_model('dlux', 'ActivityLog')
     # Drop operational tracking noise (presence/device churn) up front so it never
     # surfaces in either Recent Activity or System Interactions.
     user_activity_qs = exclude_log_noise(UserActivityLog.objects.filter(created_by=user))
@@ -315,11 +318,24 @@ def user_profile(request):
     }
 
     _session_device_metadata_from_request(request)
+    profile_preferences = getattr(profile, 'preferences', {}) if profile is not None else {}
+
+    from ..utils import get_system_config
+    profile_config = get_system_config().get('profile_config') or {}
 
     context = {
+        'profile_config': profile_config,
+        'profile_show_completion': profile_config.get('show_completion_widget', True),
+        'profile_show_devices': profile_config.get('show_session_device_cards', True),
+        'profile_show_activity': profile_config.get('show_activity_feed', True),
+        'profile_security_nudges': profile_config.get('security_nudges', 'subtle'),
         'user': request.user, # Ensure user is passed if template uses it directly
         'profile': profile,
         'password_form': password_form,
+        'force_password_change_required': bool(
+            isinstance(profile_preferences, dict)
+            and profile_preferences.get('force_password_change')
+        ),
         'stats': stats,
         'recent_activity': recent_activity,
         'system_interactions': system_interactions,
@@ -357,7 +373,13 @@ def revoke_profile_session(request, session_key):
         message = get_strings().get('session_revoke_denied', 'That session does not belong to your account.')
         if is_ajax:
             return JsonResponse({'status': 'error', 'message': message}, status=403)
-        messages.error(request, message, fail_silently=True)
+        notify.error(
+            message,
+            request=request,
+            action='session_revoke_denied',
+            category='security',
+            metadata={'message_key': 'session_revoke_denied'},
+        )
         return redirect('user_profile')
 
     is_current_session = session_key == request.session.session_key
@@ -368,7 +390,13 @@ def revoke_profile_session(request, session_key):
         message = get_strings().get('session_revoke_trusted_denied')
         if is_ajax:
             return JsonResponse({'status': 'error', 'message': message}, status=403)
-        messages.error(request, message, fail_silently=True)
+        notify.error(
+            message,
+            request=request,
+            action='session_revoke_trusted_denied',
+            category='security',
+            metadata={'message_key': 'session_revoke_trusted_denied'},
+        )
         return redirect('user_profile')
 
     target_session.delete()
@@ -383,7 +411,7 @@ def revoke_profile_session(request, session_key):
         except (TypeError, ValueError):
             pass
     revoke_linked_session_trust(request.user, [session_key], trusted_device_ids=trusted_device_ids)
-    log_user_action(request, "DELETE", instance=request.user, model_name="session", number=session_key[:8])
+    log_audit_event(request, 'session_revoke', "SESSION_REVOKE", instance=request.user, model_name="session", number=session_key[:8])
 
     success_message = get_strings().get('session_revoked_success', 'Session signed out.')
     if is_ajax:
@@ -396,7 +424,13 @@ def revoke_profile_session(request, session_key):
             'redirect_url': reverse(redirect_name),
         })
 
-    messages.success(request, success_message, fail_silently=True)
+    notify.success(
+        success_message,
+        request=request,
+        action='session_revoked',
+        category='security',
+        metadata={'message_key': 'session_revoked_success'},
+    )
     if is_current_session:
         logout(request)
         return redirect('login')
@@ -420,14 +454,107 @@ def trust_current_device(request):
             'redirect_url': reverse('user_profile'),
         })
     else:
-        messages.success(request, success_message, fail_silently=True)
+        notify.success(
+            success_message,
+            request=request,
+            action='trusted_device_added',
+            category='security',
+            metadata={'message_key': 'trusted_device_added_success'},
+        )
         response = redirect('user_profile')
 
     if trusted_device is None:
         trusted_device = issue_trusted_device(request, response, request.user)
-        log_user_action(request, "CREATE", instance=request.user, model_name="trusted device")
+        log_audit_event(request, 'trusted_device_change', "TRUSTED_DEVICE", instance=request.user, model_name="trusted device")
     else:
         sync_session_device_metadata(request, trusted_device=trusted_device)
         enforce_single_active_session(request, request.user)
 
     return response
+
+
+@login_required
+def initial_user_setup(request):
+    """First-login *Initial User Setup* modal (dlux dynamic modal).
+
+    Lets the user pick theme / language / fonts (and an optional home override) up front —
+    writing to ``Profile.preferences`` — instead of digging into Options later, then marks the
+    profile configured. GET returns the modal fragment; POST saves + returns ``{success: True}``
+    so the dynamic-modal JS closes and refreshes. A ``skip`` field just marks it configured.
+    Which fields appear is governed by the admin's ``profile_config.onboarding_options`` and the
+    matching ``allow_user_*_override`` flags.
+    """
+    from ..utils import get_system_config, get_effective_allowed_themes
+    from ..themes import get_theme_options
+    from ..fonts import get_builtin_fonts
+    from ..discovery import build_user_home_url_options
+
+    Profile = apps.get_model('dlux', 'Profile')
+    profile, _ = Profile.all_objects.get_or_create(user=request.user)
+    config = get_system_config()
+    profile_config = config.get('profile_config') or {}
+    onboarding_options = profile_config.get('onboarding_options') or {}
+    s = get_strings()
+
+    allow_theme = bool(onboarding_options.get('theme') and config.get('allow_user_theme_override', True))
+    allow_language = bool(onboarding_options.get('language') and config.get('allow_user_language_override', True))
+    allow_fonts = bool(onboarding_options.get('fonts') and config.get('allow_user_font_override', True))
+    allow_home = bool(profile_config.get('allow_user_home_url'))
+
+    if request.method == 'POST':
+        if not request.POST.get('skip'):
+            prefs = dict(profile.preferences if isinstance(profile.preferences, dict) else {})
+            if allow_theme:
+                theme = request.POST.get('theme')
+                if theme in set(get_effective_allowed_themes(config)):
+                    prefs['theme'] = theme
+            if allow_language:
+                lang = request.POST.get('language')
+                if lang in (config.get('languages') or {}):
+                    prefs['language'] = lang
+            if allow_fonts:
+                font = request.POST.get('font')
+                allowed_font_slugs = set(config.get('allowed_fonts') or [f['slug'] for f in get_builtin_fonts()])
+                if font in allowed_font_slugs:
+                    prefs['font'] = font
+            if allow_home:
+                home = (request.POST.get('user_home_url') or '').strip()
+                valid_home = {o['value'] for o in build_user_home_url_options(request.user)}
+                if home and home in valid_home:
+                    prefs['user_home_url'] = home
+                else:
+                    prefs.pop('user_home_url', None)
+            profile.preferences = prefs
+        profile.is_configured = True
+        # Onboarding is the user's own preference selection — don't log it or fire a
+        # "profile updated" notification (the preferences-only skip in signals doesn't catch
+        # this two-field save).
+        profile.skip_signal_logging = True
+        profile.save(update_fields=['preferences', 'is_configured'])
+        # refresh_parent makes the dynamic modal reload the page (dismissing the modal and
+        # applying the new theme/language immediately) instead of re-opening itself.
+        return JsonResponse({'success': True, 'refresh_parent': True})
+
+    prefs = profile.preferences if isinstance(profile.preferences, dict) else {}
+    allowed_font_slugs = set(config.get('allowed_fonts') or [])
+    context = {
+        'allow_theme': allow_theme,
+        'allow_language': allow_language,
+        'allow_fonts': allow_fonts,
+        'allow_home': allow_home,
+        'theme_options': get_theme_options(s, config.get('allowed_themes')),
+        'language_options': config.get('languages') or {},
+        'font_options': [f for f in get_builtin_fonts() if not allowed_font_slugs or f['slug'] in allowed_font_slugs],
+        'current_theme': prefs.get('theme') or config.get('default_theme'),
+        'current_language': prefs.get('language') or config.get('default_language'),
+        'current_font': prefs.get('font') or '',
+        'current_home': prefs.get('user_home_url') or '',
+        'home_url_options': build_user_home_url_options(request.user) if allow_home else [],
+        'DLUX_STRINGS': s,
+    }
+    # The dlux dynamic modal fetches via AJAX and expects {html: ...}; a direct browser GET
+    # gets the rendered fragment.
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        from django.template.loader import render_to_string
+        return JsonResponse({'html': render_to_string('dlux/includes/initial_user_setup.html', context, request=request)})
+    return render(request, 'dlux/includes/initial_user_setup.html', context)

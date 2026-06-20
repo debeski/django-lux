@@ -18,7 +18,6 @@ except ImportError:
     qrcode = None
 
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password, identify_hasher, make_password
@@ -37,6 +36,7 @@ from django.views.decorators.http import require_POST
 # Project imports
 from ..constants import DEFAULT_HOME_URL
 from ..guards import require_current_password
+from ..notifications import notify
 from ..translations import get_strings
 from ..trust import (
     TRUSTED_DEVICE_COOKIE_NAME,
@@ -49,7 +49,7 @@ from ..trust import (
     trusted_device_model,
     trusted_device_token_hash,
 )
-from ..utils import get_client_ip, get_profile_totp_secret, get_system_config, send_dlux_mail, set_profile_totp_state
+from ..utils import get_client_ip, get_profile_totp_secret, get_system_config, log_audit_event, send_dlux_mail, set_profile_totp_state
 
 User = get_user_model()
 logger = logging.getLogger('dlux')
@@ -66,6 +66,12 @@ PRE_2FA_EMAIL_SENT_SESSION_KEY = 'pre_2fa_email_sent'
 PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY = 'pre_2fa_email_auto_sent'
 PRE_2FA_NEXT_URL_SESSION_KEY = 'pre_2fa_next_url'
 PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY = 'pre_2fa_default_redirect'
+PRE_2FA_STARTED_AT_SESSION_KEY = 'pre_2fa_started_at'
+
+# Hard window to complete 2FA after the password step succeeds. The pre-2FA
+# session state is abandoned once this elapses, so a half-finished challenge
+# cannot linger for the whole session lifetime. 0 disables the window.
+LOGIN_2FA_CHALLENGE_WINDOW_SECONDS = int(getattr(settings, 'DLUX_2FA_CHALLENGE_WINDOW_SECONDS', 300))
 
 
 def _generate_backup_code_values():
@@ -136,6 +142,15 @@ def _resolve_safe_login_redirect(request):
         next_url = str(session.get(PRE_2FA_NEXT_URL_SESSION_KEY) or '').strip()
         if next_url:
             return next_url
+    # Per-user landing page (user_home_url) wins over the system default, not an explicit next.
+    try:
+        from ..utils import resolve_user_home_url
+        user_home_url = resolve_user_home_url(getattr(request, 'user', None))
+    except Exception:
+        user_home_url = ''
+    if user_home_url:
+        return user_home_url
+    if session is not None:
         default_redirect = str(session.get(PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY) or '').strip()
         if default_redirect:
             return default_redirect
@@ -312,8 +327,22 @@ def _clear_pre_2fa_session_state(request):
         PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY,
         PRE_2FA_NEXT_URL_SESSION_KEY,
         PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY,
+        PRE_2FA_STARTED_AT_SESSION_KEY,
     ):
         session.pop(key, None)
+
+
+def _login_challenge_expired(request):
+    """True when the pre-2FA challenge has exceeded the completion window."""
+    if LOGIN_2FA_CHALLENGE_WINDOW_SECONDS <= 0:
+        return False
+    started = getattr(request, 'session', {}).get(PRE_2FA_STARTED_AT_SESSION_KEY)
+    if not started:
+        return False
+    try:
+        return (time.time() - float(started)) > LOGIN_2FA_CHALLENGE_WINDOW_SECONDS
+    except (TypeError, ValueError):
+        return False
 
 
 def get_trusted_device_for_login(request, user):
@@ -331,6 +360,7 @@ def prepare_login_2fa_challenge(request, user, *, next_url='', default_redirect=
     session[PRE_2FA_EMAIL_AUTO_SENT_SESSION_KEY] = False
     session[PRE_2FA_NEXT_URL_SESSION_KEY] = str(next_url or '').strip()
     session[PRE_2FA_DEFAULT_REDIRECT_SESSION_KEY] = str(default_redirect or '').strip()
+    session[PRE_2FA_STARTED_AT_SESSION_KEY] = time.time()
 
     auto_sent = False
     if primary_methods == ['email'] and str(user.email or '').strip():
@@ -486,6 +516,16 @@ def verify_otp_view(request, intent='login'):
         except User.DoesNotExist:
             _clear_pre_2fa_session_state(request)
             return redirect('login')
+        if _login_challenge_expired(request):
+            _clear_pre_2fa_session_state(request)
+            expired_msg = s.get('2fa_challenge_expired')
+            if is_ajax:
+                return JsonResponse(
+                    {'status': 'error', 'message': expired_msg, 'redirect_url': reverse('login')},
+                    status=440,
+                )
+            notify.error(expired_msg, request=request, action='2fa_challenge_expired', category='security')
+            return redirect('login')
     else:
         if not request.user.is_authenticated:
             if is_ajax:
@@ -587,12 +627,15 @@ def verify_otp_view(request, intent='login'):
                 user.profile.save(update_fields=['backup_codes'])
                 response_data['backup_codes'] = raw_codes
 
+            log_audit_event(request, '2fa_change', '2FA_ENABLE', model_name='2fa')
+
             if is_ajax:
                 return JsonResponse(response_data)
 
-            messages.success(request, s.get('2fa_enabled_msg'))
+            notify.success(s.get('2fa_enabled_msg'), request=request, action='2fa_enabled', category='security')
             return redirect('user_profile')
 
+        log_audit_event(request, '2fa_failed', '2FA_FAILED', model_name='2fa')
         error_msg = s.get(error_key)
         _record_twofa_ip_event('verify', request, intent)
         if is_ajax:
@@ -719,16 +762,18 @@ def disable_2fa(request):
     else:
         if is_ajax:
             return JsonResponse({'status': 'error', 'message': s.get('err_invalid_method')}, status=400)
-        messages.error(request, s.get('err_invalid_method'))
+        notify.error(s.get('err_invalid_method'), request=request, action='2fa_invalid_method', category='security')
         return redirect('user_profile')
 
     if update_fields:
         profile.save(update_fields=update_fields)
 
+    log_audit_event(request, '2fa_change', '2FA_DISABLE', model_name='2fa')
+
     if is_ajax:
         return JsonResponse({'status': 'success'})
 
-    messages.success(request, s.get('2fa_disabled_msg'))
+    notify.success(s.get('2fa_disabled_msg'), request=request, action='2fa_disabled', category='security')
     return redirect('user_profile')
 
 
@@ -764,7 +809,7 @@ def resend_otp(request, intent='login'):
                     'message': s.get('err_unable_send_code'),
                     'cooldown_seconds': cooldown_seconds,
                 }, status=400)
-            messages.error(request, s.get('err_unable_send_code'))
+            notify.error(s.get('err_unable_send_code'), request=request, action='2fa_resend_blocked', category='security')
             return redirect('verify_otp_login')
 
     if can_send and send_otp(request, user, intent=intent):
@@ -781,7 +826,7 @@ def resend_otp(request, intent='login'):
                 'cooldown_seconds': cooldown_seconds,
                 'resent_method': 'email',
             })
-        messages.success(request, s.get('msg_code_sent'))
+        notify.success(s.get('msg_code_sent'), request=request, action='2fa_code_sent', category='security')
     else:
         cooldown_seconds = _otp_cooldown_remaining(user, intent, str(user.email or '').strip() if user else None) if user else 0
         if is_ajax:
@@ -790,7 +835,7 @@ def resend_otp(request, intent='login'):
                 'message': s.get('err_unable_send_code'),
                 'cooldown_seconds': cooldown_seconds,
             }, status=400)
-        messages.error(request, s.get('err_unable_send_code'))
+        notify.error(s.get('err_unable_send_code'), request=request, action='2fa_code_send_failed', category='security')
 
     if intent == 'login':
         return redirect('verify_otp_login')

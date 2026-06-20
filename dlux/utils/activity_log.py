@@ -127,10 +127,205 @@ def is_sensitive_activity_field_name(field_name):
         return True
     return False
 
-# Activity Log - Function creates normalized audit entries for user actions.
-def log_user_action(request, action, instance=None, model_name=None, details=None, number=None, object_id=None, model_key=None):
+LOG_CATEGORY_USER = 'user'
+LOG_CATEGORY_SYSTEM = 'system'
+LOG_CATEGORY_AUDIT = 'audit'
+_LOG_CATEGORY_VALUES = {LOG_CATEGORY_USER, LOG_CATEGORY_SYSTEM, LOG_CATEGORY_AUDIT}
+
+# Action strings that are always security/audit events, regardless of model.
+AUDIT_ACTIONS = {
+    'LOGIN', 'LOGOUT', 'LOGIN_FAILED', 'LOCKOUT',
+    '2FA_ENABLE', '2FA_DISABLE', '2FA_FAILED',
+    'PASSWORD_CHANGE', 'PASSWORD_RESET', 'SESSION_REVOKE',
+    'TRUSTED_DEVICE', 'TRUSTED_DEVICE_REVOKE', 'PERMISSION_DENIED',
+    'REGISTER_VERIFY', 'APPROVE', 'REJECT',
+}
+
+# Locale-display labels (model_key is NULL for these) that denote dlux-internal/system
+# events. NOTE: "User Profile" is intentionally NOT here — the merged user-identity entry
+# is self-service work and resolves to 'user'.
+_SYSTEM_MODEL_NAMES = {
+    'session',
+    'dlux system backup',
+    'dlux reports backup',
+}
+
+
+# Correctness floor: models that must NEVER be logged regardless of config. object_id is an
+# IntegerField, so models with non-integer/string PKs would break; plus the log model itself.
+LOG_FORCED_EXCLUDED_MODEL_KEYS = {
+    'sessions.session',
+    'dlux.activitylog',
+    'contenttypes.contenttype',
+    'admin.logentry',
+    'auth.permission',
+}
+
+# Synthetic config/catalog key for the unified user identity (User + Profile changes). The
+# real auth.user / dlux.profile models are never gated directly; this key drives whether the
+# "User Profile" identity entry is logged, and surfaces as a "User accounts" grid toggle.
+LOG_IDENTITY_MODEL_KEY = 'dlux.useridentity'
+
+# Django framework apps (plus health-check's `db` app) whose models are internal bookkeeping,
+# never project/system activity. Their models are not logged and never appear in the grid.
+LOG_NEVER_LOGGED_APP_LABELS = frozenset({'admin', 'auth', 'contenttypes', 'sessions', 'db'})
+
+# Model names that are always noise regardless of app (e.g. django-health-check's TestModel).
+LOG_NEVER_LOGGED_MODEL_NAMES = frozenset({'testmodel'})
+
+# dlux models that produce no meaningful activity log: the unified identity Profile, the log
+# model itself, the fieldless Section permission placeholder, high-churn device/presence/
+# notification state, and backup-run rows. Never logged and never offered as toggles.
+LOG_NEVER_LOGGED_MODEL_KEYS = LOG_FORCED_EXCLUDED_MODEL_KEYS | {
+    'dlux.profile',
+    'dlux.section',
+    'dlux.trusteddevice',
+    'dlux.userknowndevice',
+    'dlux.userpresencesession',
+    'dlux.dluxnotification',
+    'dlux.dluxnotificationstate',
+    'dlux.dluxnotificationrule',
+    'dlux.dluxnotificationwatch',
+    'dlux.reportbackup',
+    'dlux.systembackup',
+    'dlux.systemrestore',
+}
+
+
+# Activity Log - Function: is this model eligible to be logged / shown in the settings grid?
+def is_model_loggable(model_key, app_label=None):
+    """False for the correctness floor, dlux operational/identity/self/dummy models, Django
+    framework apps, and health-check/test models — i.e. anything that never produces
+    meaningful, user-relevant activity. The synthetic identity key is always loggable."""
+    key = str(model_key or '').strip().lower()
+    if not key:
+        return False
+    if key == LOG_IDENTITY_MODEL_KEY:
+        return True
+    if key in LOG_NEVER_LOGGED_MODEL_KEYS:
+        return False
+    label = (app_label or (key.split('.', 1)[0] if '.' in key else '')).strip().lower()
+    if label in LOG_NEVER_LOGGED_APP_LABELS:
+        return False
+    if key.rsplit('.', 1)[-1] in LOG_NEVER_LOGGED_MODEL_NAMES:
+        return False
+    return True
+
+
+# Activity Log - Function decides whether a model CRUD event should be logged per log_config.
+def is_model_logging_enabled(category, model_key, action, log_config):
+    """Consult log_config for a model CRUD event. Audit bypasses per-model gating (it is
+    governed by its event flags elsewhere). Non-loggable models always return False."""
+    key = str(model_key or '').strip().lower()
+    if not is_model_loggable(key):
+        return False
+    if not isinstance(log_config, dict):
+        return True
+    if not log_config.get('enabled', True):
+        return False
+    if category == LOG_CATEGORY_AUDIT:
+        return True
+    section = log_config.get(category)
+    if not isinstance(section, dict):
+        return True
+    if not section.get('enabled', True):
+        return False
+    act = str(action or '').strip().lower()
+    models = section.get('models') if isinstance(section.get('models'), dict) else {}
+    override = models.get(key) if key else None
+    if isinstance(override, dict):
+        if not override.get('enabled', True):
+            return False
+        actions = override.get('actions') if isinstance(override.get('actions'), dict) else {}
+        if act in actions:
+            return bool(actions[act])
+    default_actions = section.get('default_actions') if isinstance(section.get('default_actions'), dict) else {}
+    if act in default_actions:
+        return bool(default_actions[act])
+    return True
+
+
+# Activity Log - Function returns the active normalized log_config from system settings.
+def get_active_log_config():
+    """Resolve the effective log_config for signal gating.
+
+    Reads the cached SystemSettings singleton (falling back to a non-creating query).
+    Critically it must NOT create the singleton: this runs inside save/delete signals, and
+    a get_or_create here would recreate the row mid-mutation (e.g. during settings reset).
     """
-    Centralized activity logging. All manual UserActivityLog creation should go through here.
+    from ..system_settings_defaults import default_log_config
+    try:
+        from django.apps import apps
+        from django.core.cache import cache
+        instance = cache.get('SystemSettings')
+        if instance is None:
+            SystemSettings = apps.get_model('dlux', 'SystemSettings')
+            instance = SystemSettings.objects.filter(pk=1).first()
+        if instance is not None and hasattr(instance, 'log_config'):
+            from .config import normalize_log_config
+            return normalize_log_config(getattr(instance, 'log_config', None))
+    except Exception:
+        pass
+    return default_log_config()
+
+
+# Activity Log - Function classifies a log row into user/system/audit.
+def resolve_log_category(action, model=None, model_key=None, model_name=None, explicit=None):
+    """Resolve the log category for an entry. Precedence:
+    1. explicit argument, 2. model.dlux_log_category attribute,
+    3. security action -> audit, 4. app_label == 'dlux' -> system, 5. default 'user'.
+    """
+    if explicit in _LOG_CATEGORY_VALUES:
+        return explicit
+
+    if model is not None:
+        declared = getattr(model, 'dlux_log_category', None)
+        if declared in _LOG_CATEGORY_VALUES:
+            return declared
+
+    act = str(action or '').strip().upper()
+    if act in AUDIT_ACTIONS:
+        return LOG_CATEGORY_AUDIT
+
+    app_label = None
+    if model is not None:
+        app_label = getattr(getattr(model, '_meta', None), 'app_label', None)
+    if not app_label and model_key and '.' in str(model_key):
+        app_label = str(model_key).split('.', 1)[0].strip().lower()
+    if app_label == 'dlux':
+        return LOG_CATEGORY_SYSTEM
+
+    if not model_key and model_name and str(model_name).strip().lower() in _SYSTEM_MODEL_NAMES:
+        return LOG_CATEGORY_SYSTEM
+
+    return LOG_CATEGORY_USER
+
+
+# Activity Log - Function records a security/audit event if enabled in log_config.
+def log_audit_event(request, event_key, action, *, instance=None, model_name=None,
+                    details=None, number=None, object_id=None, model_key=None):
+    """Record a security event under the privileged 'audit' category, gated by
+    ``log_config['audit']['events'][event_key]``. Returns None when audit logging or the
+    specific event is disabled. The actor may be anonymous (e.g. failed login)."""
+    log_config = get_active_log_config()
+    audit = log_config.get('audit') if isinstance(log_config, dict) else None
+    if not isinstance(audit, dict) or not audit.get('enabled', True):
+        return None
+    events = audit.get('events') if isinstance(audit.get('events'), dict) else {}
+    if event_key in events and not events.get(event_key):
+        return None
+    return log_user_action(
+        request, action,
+        instance=instance, model_name=model_name, details=details,
+        number=number, object_id=object_id, model_key=model_key,
+        category=LOG_CATEGORY_AUDIT,
+    )
+
+
+# Activity Log - Function creates normalized audit entries for user actions.
+def log_user_action(request, action, instance=None, model_name=None, details=None, number=None, object_id=None, model_key=None, category=None):
+    """
+    Centralized activity logging. All manual ActivityLog creation should go through here.
 
     Args:
         request:    Django request object
@@ -140,8 +335,9 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         model_key:  Optional override for the stable "app_label.model_name" key
         details:    Optional dict of extra details to attach to log
         number:     Optional override for the document number field
+        category:   Optional 'user'/'system'/'audit' override; derived when omitted.
     """
-    UserActivityLog = apps.get_model('dlux', 'UserActivityLog')
+    ActivityLog = apps.get_model('dlux', 'ActivityLog')
     user = getattr(request, 'user', None) if request else None
     if not user or not getattr(user, 'is_authenticated', False):
         try:
@@ -160,7 +356,7 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         resolved_name = instance._meta.verbose_name if instance else None
         resolved_key = model_key or (instance._meta.label_lower if instance else None)
 
-    UserActivityLog.safe_log(
+    return ActivityLog.safe_log(
         user=user,
         action=action,
         model_name=resolved_name,
@@ -170,4 +366,5 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         details=details,
         ip_address=get_client_ip(request),
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        category=category,
     )

@@ -1,6 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-labelledby="title desc">
   <title id="title">DjangoLux logo mark</title>
   <desc id="desc">A sharp graphite shield containing a D and crimson L monogram.</desc>
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:RDF><rdf:Description>
+      <dc:title>DjangoLux</dc:title>
+      <dc:creator>DeBeski (micro)</dc:creator>
+      <dc:source>https://github.com/debeski/django-lux</dc:source>
+      <dc:rights>MIT License · (c) 2026 DeBeski (micro)</dc:rights>
+    </rdf:Description></rdf:RDF>
+  </metadata>
   <defs>
     <linearGradient id="graphite" x1="144" y1="92" x2="496" y2="548" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#334049"/>

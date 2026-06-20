@@ -709,6 +709,58 @@
         }
     }
 
+    const TITLEBAR_ACTIONS_DEFAULT_ORDER = [
+        'notifications',
+        'home',
+        'profile',
+        'help',
+        'users',
+        'activity',
+        'reports',
+        'settings',
+        'auth',
+    ];
+
+    const TITLEBAR_ACTIONS_KNOWN = new Set(TITLEBAR_ACTIONS_DEFAULT_ORDER);
+
+    function normalizeTitlebarActionsOrder(value) {
+        let rawValue = value;
+        if (typeof rawValue === 'string') {
+            rawValue = parseJson(rawValue, []);
+        }
+        if (!Array.isArray(rawValue)) {
+            rawValue = [];
+        }
+        const seen = new Set();
+        const normalized = [];
+        rawValue.forEach((item) => {
+            const key = String(item || '').trim();
+            if (TITLEBAR_ACTIONS_KNOWN.has(key) && !seen.has(key)) {
+                normalized.push(key);
+                seen.add(key);
+            }
+        });
+        TITLEBAR_ACTIONS_DEFAULT_ORDER.forEach((key) => {
+            if (!seen.has(key)) {
+                normalized.push(key);
+            }
+        });
+        return normalized;
+    }
+
+    function readTitlebarActionsOrder(form) {
+        return normalizeTitlebarActionsOrder(getNamedFieldValue(form, 'titlebar_actions_order'));
+    }
+
+    function writeTitlebarActionsOrder(form, order) {
+        const field = getNamedFieldInputs(form, 'titlebar_actions_order')[0];
+        if (!field) {
+            return;
+        }
+        field.value = JSON.stringify(normalizeTitlebarActionsOrder(order));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
     function resolveSetupStateSurface(form) {
         const action = form && form.getAttribute ? (form.getAttribute('action') || '') : '';
         try {
@@ -1441,6 +1493,25 @@
         renderAll();
     }
 
+    function applyTitlebarActionOrderPreview(titlebar, order) {
+        const normalizedOrder = normalizeTitlebarActionsOrder(order);
+        titlebar.querySelectorAll('[data-titlebar-actions]').forEach((container) => {
+            const nodesByKey = new Map();
+            Array.from(container.children).forEach((node) => {
+                const key = node.getAttribute('data-titlebar-action-key') || node.querySelector('[data-titlebar-action-key]')?.getAttribute('data-titlebar-action-key');
+                if (key && !nodesByKey.has(key)) {
+                    nodesByKey.set(key, node);
+                }
+            });
+            normalizedOrder.forEach((key) => {
+                const node = nodesByKey.get(key);
+                if (node) {
+                    container.appendChild(node);
+                }
+            });
+        });
+    }
+
     function applyTitlebarPreview(form) {
         const titlebar = document.querySelector('.titlebar');
         if (!titlebar) {
@@ -1456,7 +1527,9 @@
         const surface = getNamedFieldValue(form, 'titlebar_surface') || 'default';
         const logoTreatment = getNamedFieldValue(form, 'titlebar_logo_treatment') || 'none';
         const logoTreatmentShape = getNamedFieldValue(form, 'titlebar_logo_treatment_shape') || 'soft';
-        const homeShape = getNamedFieldValue(form, 'titlebar_home_shape') || 'circle';
+        const buttonsShape = getNamedFieldValue(form, 'titlebar_home_shape') || 'circle';
+        const userHubStyle = getNamedFieldValue(form, 'titlebar_user_hub_style') || 'dropdown';
+        const actionOrder = readTitlebarActionsOrder(form);
         const homeUrl = readTrimmedValue(form, '#id_home_url', titlebar.querySelector('[data-titlebar-home]')?.getAttribute('href') || '/');
         const scopeName = String(titlebar.dataset.titlebarScopeName || '').trim();
         const htmlLang = (document.documentElement.getAttribute('lang') || (window.USER_PREFS && window.USER_PREFS._lang) || 'en').split('-')[0];
@@ -1476,20 +1549,76 @@
         titlebar.dataset.titlebarSurface = surface;
         titlebar.dataset.titlebarLogoTreatment = logoTreatment;
         titlebar.dataset.titlebarLogoTreatmentShape = logoTreatmentShape;
-        titlebar.dataset.titlebarHomeShape = homeShape;
+        titlebar.dataset.titlebarButtonsShape = buttonsShape;
+        titlebar.dataset.titlebarHomeShape = buttonsShape;
+        titlebar.dataset.titlebarUserHubStyle = userHubStyle === 'titlebar_actions' ? 'titlebar_actions' : 'dropdown';
         titlebar.dataset.titlebarShowTitle = showTitle ? 'true' : 'false';
         titlebar.dataset.titlebarShowLogo = showLogo ? 'true' : 'false';
         titlebar.dataset.titlebarShowHome = showHome ? 'true' : 'false';
+        applyTitlebarActionOrderPreview(titlebar, actionOrder);
 
-        const homeButton = titlebar.querySelector('[data-titlebar-home]');
-        if (homeButton && homeUrl) {
-            homeButton.setAttribute('href', homeUrl);
+        titlebar.querySelectorAll('[data-titlebar-home]').forEach((homeButton) => {
+            if (homeUrl) {
+                homeButton.setAttribute('href', homeUrl);
+            }
+        });
+
+        document.querySelectorAll('#dlux-user-dropdown-card').forEach((card) => {
+            const hideDropdown = userHubStyle === 'titlebar_actions';
+            card.classList.toggle('d-none', hideDropdown);
+            card.setAttribute('aria-hidden', hideDropdown ? 'true' : 'false');
+        });
+
+        const dropdownHelp = document.querySelector('#dlux-user-dropdown-card [data-dlux-start-tour]');
+        const titlebarHelp = titlebar.querySelector('.titlebar__actions--titlebar [data-dlux-start-tour]');
+        if (dropdownHelp && titlebarHelp) {
+            if (userHubStyle === 'titlebar_actions') {
+                dropdownHelp.removeAttribute('id');
+                titlebarHelp.setAttribute('id', 'start-tour');
+            } else {
+                titlebarHelp.removeAttribute('id');
+                dropdownHelp.setAttribute('id', 'start-tour');
+            }
         }
 
         const titleTarget = titlebar.querySelector('[data-titlebar-title-text]');
         if (titleTarget) {
             titleTarget.textContent = resolvedTitle;
         }
+    }
+
+    function applyNotificationPreview(form) {
+        const notificationsEnabled = readBooleanField(form, '#id_notifications_enabled', true);
+        const flashEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_flash_enabled', true);
+        const flashPosition = getNamedFieldValue(form, 'notification_flash_position') || 'top_center';
+        const flashSize = getNamedFieldValue(form, 'notification_flash_size') || 'balanced';
+        const flashTextSize = getNamedFieldValue(form, 'notification_flash_text_size') || 'md';
+        const flashTimeout = readTrimmedValue(form, '#id_notification_flash_timeout_ms', '3200') || '3200';
+        const flashMaxVisible = readTrimmedValue(form, '#id_notification_flash_max_visible', '3') || '3';
+        document.querySelectorAll('.dlux-flash-container, .dlux-page-alert-container').forEach((container) => {
+            container.dataset.dluxFlashPosition = flashPosition;
+            container.dataset.dluxFlashSize = flashSize;
+            container.dataset.dluxFlashTextSize = flashTextSize;
+            container.dataset.dluxFlashTimeout = flashTimeout;
+            container.dataset.dluxFlashMaxVisible = flashMaxVisible;
+            setPreviewVisibility(container, flashEnabled);
+        });
+
+        const notificationRoots = Array.from(document.querySelectorAll('[data-dlux-notifications]'));
+        if (!notificationRoots.length) {
+            return;
+        }
+        const drawerEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_drawer_enabled', true);
+        const badgeEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_badge_enabled', true);
+        notificationRoots.forEach((notifications) => {
+            notifications.dataset.dluxNotificationsEnabled = drawerEnabled ? 'true' : 'false';
+            notifications.dataset.badgeEnabled = badgeEnabled ? 'true' : 'false';
+            setPreviewVisibility(notifications, drawerEnabled);
+            notifications.querySelectorAll('[data-dlux-notifications-badge]').forEach((badge) => {
+                const hasCount = String(badge.textContent || '').trim().length > 0;
+                badge.classList.toggle('d-none', !badgeEnabled || !hasCount);
+            });
+        });
     }
 
     function applyBrandingFilePreviews(form) {
@@ -1617,6 +1746,7 @@
             return;
         }
         applyTitlebarPreview(form);
+        applyNotificationPreview(form);
         applyBrandingFilePreviews(form);
         applySidebarPreview(form);
         applyTableDensityPreview(form);
@@ -3609,7 +3739,9 @@
                 'titlebar_hide_on_public_unauthenticated_index',
                 titlebar.hide_on_public_unauthenticated_index === true
             );
-            setNamedFieldValue(form, 'titlebar_home_shape', titlebar.home_shape || 'circle');
+            setNamedFieldValue(form, 'titlebar_home_shape', titlebar.buttons_shape || titlebar.home_shape || 'circle');
+            setNamedFieldValue(form, 'titlebar_user_hub_style', titlebar.user_hub_style === 'titlebar_actions' ? 'titlebar_actions' : 'dropdown');
+            writeTitlebarActionsOrder(form, titlebar.actions_order || TITLEBAR_ACTIONS_DEFAULT_ORDER);
             setNamedFieldValue(form, 'titlebar_title_align', titlebar.title_align || 'start');
             setNamedFieldValue(form, 'titlebar_title_size', titlebar.title_size || 'md');
             setNamedFieldValue(form, 'titlebar_height', titlebar.height || 'balanced');
@@ -4406,6 +4538,78 @@
         });
     }
 
+    function renderTitlebarActionsOrderBuilder(builder, form) {
+        const list = builder.querySelector('[data-titlebar-actions-order-list]');
+        if (!list) {
+            return;
+        }
+        const items = Array.from(list.querySelectorAll('[data-titlebar-action-order-item]'));
+        const order = items.map((item) => item.getAttribute('data-action-key')).filter(Boolean);
+        writeTitlebarActionsOrder(form, order);
+        items.forEach((item, index) => {
+            const upButton = item.querySelector('[data-titlebar-action-move="-1"]');
+            const downButton = item.querySelector('[data-titlebar-action-move="1"]');
+            if (upButton) {
+                upButton.disabled = index === 0;
+            }
+            if (downButton) {
+                downButton.disabled = index === items.length - 1;
+            }
+        });
+    }
+
+    function syncTitlebarActionsBuilderVisibility(form) {
+        const style = getNamedFieldValue(form, 'titlebar_user_hub_style') || 'dropdown';
+        form.querySelectorAll('[data-titlebar-actions-order-builder]').forEach((builder) => {
+            const visible = style === 'titlebar_actions';
+            builder.classList.toggle('d-none', !visible);
+            builder.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        });
+    }
+
+    function initTitlebarActionsOrderBuilder(form) {
+        const builder = form.querySelector('[data-titlebar-actions-order-builder]');
+        if (!builder || builder.dataset.titlebarActionsOrderBound === 'true') {
+            return;
+        }
+        builder.dataset.titlebarActionsOrderBound = 'true';
+        const list = builder.querySelector('[data-titlebar-actions-order-list]');
+        if (!list) {
+            return;
+        }
+
+        const hiddenOrder = readTitlebarActionsOrder(form);
+        hiddenOrder.forEach((key) => {
+            const item = list.querySelector(`[data-titlebar-action-order-item][data-action-key="${key}"]`);
+            if (item) {
+                list.appendChild(item);
+            }
+        });
+
+        builder.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-titlebar-action-move]');
+            if (!button) {
+                return;
+            }
+            const item = button.closest('[data-titlebar-action-order-item]');
+            const direction = Number(button.getAttribute('data-titlebar-action-move')) || 0;
+            if (!item || !direction) {
+                return;
+            }
+            if (direction < 0 && item.previousElementSibling) {
+                list.insertBefore(item, item.previousElementSibling);
+            } else if (direction > 0 && item.nextElementSibling) {
+                list.insertBefore(item.nextElementSibling, item);
+            }
+            renderTitlebarActionsOrderBuilder(builder, form);
+            applyImmediateSystemSettingsPreview(form);
+            persistSetupFormState(form);
+        });
+
+        renderTitlebarActionsOrderBuilder(builder, form);
+        syncTitlebarActionsBuilderVisibility(form);
+    }
+
     function initTitlebarBehaviorOptions(root) {
         root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.titlebarBehaviorBound === 'true') {
@@ -4420,11 +4624,13 @@
             }
 
             form.dataset.titlebarBehaviorBound = 'true';
+            initTitlebarActionsOrderBuilder(form);
 
             function syncTitlebarDependencies() {
                 const logoTreatment = getNamedFieldValue(form, 'titlebar_logo_treatment') || 'none';
                 const showLogo = showLogoToggle.checked;
                 const showPlateShape = showLogo && logoTreatment === 'plate';
+                const titlebarUserHubStyle = getNamedFieldValue(form, 'titlebar_user_hub_style') || 'dropdown';
                 setNamedFieldReadonly(form, 'titlebar_title_align', !showTitleToggle.checked);
                 setNamedFieldReadonly(form, 'titlebar_title_size', !showTitleToggle.checked);
                 setNamedFieldReadonly(form, 'titlebar_logo_treatment', !showLogo);
@@ -4441,6 +4647,8 @@
                     node.setAttribute('aria-hidden', showPlateShape ? 'false' : 'true');
                 });
                 setNamedFieldReadonly(form, 'titlebar_home_shape', !showHomeButtonToggle.checked);
+                setNamedFieldReadonly(form, 'titlebar_actions_order', titlebarUserHubStyle !== 'titlebar_actions');
+                syncTitlebarActionsBuilderVisibility(form);
                 applyImmediateSystemSettingsPreview(form);
             }
 
@@ -4450,13 +4658,234 @@
             form.querySelectorAll('[name="titlebar_logo_treatment"]').forEach((input) => {
                 input.addEventListener('change', syncTitlebarDependencies);
             });
+            form.querySelectorAll('[name="titlebar_user_hub_style"]').forEach((input) => {
+                input.addEventListener('change', syncTitlebarDependencies);
+            });
             syncTitlebarDependencies();
+        });
+    }
+
+    function initNotificationBehaviorOptions(root) {
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
+            if (form.dataset.notificationBehaviorBound === 'true') {
+                return;
+            }
+
+            const masterToggle = form.querySelector('#id_notifications_enabled');
+            const dependentSection = form.querySelector('[data-notifications-dependent]');
+            const flashToggle = form.querySelector('#id_notification_flash_enabled');
+            const drawerToggle = form.querySelector('#id_notification_drawer_enabled');
+            const autoCrudToggle = form.querySelector('#id_notification_auto_crud_enabled');
+            const emailToggle = form.querySelector('#id_notification_email_enabled');
+            if (!masterToggle && !flashToggle && !drawerToggle && !autoCrudToggle && !emailToggle) {
+                return;
+            }
+
+            form.dataset.notificationBehaviorBound = 'true';
+
+            function syncNotificationAvailability() {
+                if (!masterToggle || !dependentSection) {
+                    return;
+                }
+                dependentSection.classList.toggle('d-none', !masterToggle.checked);
+                dependentSection.setAttribute('aria-hidden', masterToggle.checked ? 'false' : 'true');
+            }
+
+            function syncNotificationDependencies() {
+                const flashEnabled = !flashToggle || flashToggle.checked;
+                const drawerEnabled = !drawerToggle || drawerToggle.checked;
+                const autoCrudEnabled = !autoCrudToggle || autoCrudToggle.checked;
+                const emailAvailable = emailToggle && !emailToggle.disabled;
+                const emailEnabled = Boolean(emailAvailable && emailToggle.checked);
+
+                [
+                    'notification_flash_position',
+                    'notification_flash_size',
+                    'notification_flash_text_size',
+                    'notification_flash_timeout_ms',
+                    'notification_flash_max_visible',
+                ].forEach((name) => setNamedFieldReadonly(form, name, !flashEnabled));
+                setNamedFieldReadonly(form, 'notification_badge_enabled', !drawerEnabled);
+                [
+                    'notification_auto_create',
+                    'notification_auto_update',
+                    'notification_auto_delete',
+                ].forEach((name) => setNamedFieldReadonly(form, name, !autoCrudEnabled));
+                setNamedFieldDisabled(form, 'notification_email_default', !emailEnabled);
+                applyImmediateSystemSettingsPreview(form);
+            }
+
+            form.addEventListener('change', (event) => {
+                const name = event.target && event.target.name;
+                if (name === 'notifications_enabled') {
+                    syncNotificationAvailability();
+                    syncNotificationDependencies();
+                } else if (name && name.startsWith('notification_')) {
+                    syncNotificationDependencies();
+                }
+            });
+            syncNotificationAvailability();
+            syncNotificationDependencies();
+        });
+    }
+
+    function initLogBuilder(root) {
+        (root.querySelectorAll ? Array.from(root.querySelectorAll('[data-dlux-log-root]')) : []).forEach(function (rootEl) {
+            if (rootEl.dataset.dluxLogInit === '1') { return; }
+            rootEl.dataset.dluxLogInit = '1';
+            var config;
+            try { config = JSON.parse(rootEl.getAttribute('data-config') || '{}'); } catch (e) { config = {}; }
+            config = (config && typeof config === 'object') ? config : {};
+            config.user = config.user || {};
+            config.system = config.system || {};
+            config.audit = config.audit || {};
+            var form = rootEl.closest('form');
+            var hidden = form ? form.querySelector('[name="log_config"]') : null;
+
+            function serialize() { if (hidden) { hidden.value = JSON.stringify(config); } }
+            function sectionConf(key) {
+                config[key] = config[key] || {};
+                config[key].default_actions = config[key].default_actions || {};
+                config[key].models = config[key].models || {};
+                return config[key];
+            }
+
+            var master = rootEl.querySelector('[data-log-master]');
+            var dependent = rootEl.querySelector('[data-log-dependent]');
+            if (master) {
+                master.checked = config.enabled !== false;
+                if (dependent) { dependent.classList.toggle('d-none', !master.checked); }
+                master.addEventListener('change', function () {
+                    config.enabled = master.checked;
+                    if (dependent) { dependent.classList.toggle('d-none', !master.checked); }
+                    serialize();
+                });
+            }
+
+            rootEl.querySelectorAll('[data-log-section]').forEach(function (sectionEl) {
+                var key = sectionEl.getAttribute('data-log-section');
+                var conf = sectionConf(key);
+                var enabledInput = sectionEl.querySelector('[data-log-section-enabled]');
+                var depEl = sectionEl.querySelector('[data-log-section-dependent]');
+                if (enabledInput) {
+                    enabledInput.checked = conf.enabled !== false;
+                    if (depEl) { depEl.classList.toggle('d-none', !enabledInput.checked); }
+                    enabledInput.addEventListener('change', function () {
+                        conf.enabled = enabledInput.checked;
+                        if (depEl) { depEl.classList.toggle('d-none', !enabledInput.checked); }
+                        serialize();
+                    });
+                }
+                sectionEl.querySelectorAll('[data-log-default-action]').forEach(function (inp) {
+                    var act = inp.getAttribute('data-log-default-action');
+                    inp.checked = conf.default_actions[act] !== false;
+                    inp.addEventListener('change', function () { conf.default_actions[act] = inp.checked; serialize(); });
+                });
+                var ret = sectionEl.querySelector('[data-log-retention]');
+                if (ret) {
+                    ret.value = conf.retention_days || 0;
+                    ret.addEventListener('input', function () { conf.retention_days = Math.max(0, parseInt(ret.value, 10) || 0); serialize(); });
+                }
+                sectionEl.querySelectorAll('[data-log-model]').forEach(function (row) {
+                    var mkey = row.getAttribute('data-log-model');
+                    var override = conf.models[mkey] || {};
+                    var enabledCb = row.querySelector('[data-log-model-enabled]');
+                    if (enabledCb) {
+                        enabledCb.checked = override.enabled !== false;
+                        enabledCb.addEventListener('change', function () {
+                            conf.models[mkey] = conf.models[mkey] || {};
+                            conf.models[mkey].enabled = enabledCb.checked;
+                            serialize();
+                        });
+                    }
+                    row.querySelectorAll('[data-log-action]').forEach(function (acb) {
+                        var act = acb.getAttribute('data-log-action');
+                        var actions = override.actions || {};
+                        acb.checked = (act in actions) ? (actions[act] !== false) : (conf.default_actions[act] !== false);
+                        acb.addEventListener('change', function () {
+                            conf.models[mkey] = conf.models[mkey] || {};
+                            conf.models[mkey].actions = conf.models[mkey].actions || {};
+                            conf.models[mkey].actions[act] = acb.checked;
+                            serialize();
+                        });
+                    });
+                });
+                var search = sectionEl.querySelector('[data-log-model-search]');
+                if (search) {
+                    search.addEventListener('input', function () {
+                        var q = (search.value || '').toLowerCase().trim();
+                        sectionEl.querySelectorAll('[data-log-model]').forEach(function (row) {
+                            var label = row.getAttribute('data-log-model-label') || '';
+                            var mk = (row.getAttribute('data-log-model') || '').toLowerCase();
+                            var match = !q || label.indexOf(q) !== -1 || mk.indexOf(q) !== -1;
+                            row.classList.toggle('dlux-log-row-hidden', !match);
+                        });
+                    });
+                }
+            });
+
+            config.audit.events = config.audit.events || {};
+            rootEl.querySelectorAll('[data-log-audit-event]').forEach(function (inp) {
+                var ev = inp.getAttribute('data-log-audit-event');
+                inp.checked = config.audit.events[ev] !== false;
+                inp.addEventListener('change', function () { config.audit.events[ev] = inp.checked; serialize(); });
+            });
+            var auditRet = rootEl.querySelector('[data-log-audit-retention]');
+            if (auditRet) {
+                auditRet.value = config.audit.retention_days || 0;
+                auditRet.addEventListener('input', function () { config.audit.retention_days = Math.max(0, parseInt(auditRet.value, 10) || 0); serialize(); });
+            }
+            serialize();
+        });
+    }
+
+    function initProfileBuilder(root) {
+        (root.querySelectorAll ? Array.from(root.querySelectorAll('[data-dlux-profile-root]')) : []).forEach(function (rootEl) {
+            if (rootEl.dataset.dluxProfileInit === '1') { return; }
+            rootEl.dataset.dluxProfileInit = '1';
+            var config;
+            try { config = JSON.parse(rootEl.getAttribute('data-config') || '{}'); } catch (e) { config = {}; }
+            config = (config && typeof config === 'object') ? config : {};
+            config.onboarding_options = config.onboarding_options || {};
+            var form = rootEl.closest('form');
+            var hidden = form ? form.querySelector('[name="profile_config"]') : null;
+            function serialize() { if (hidden) { hidden.value = JSON.stringify(config); } }
+
+            rootEl.querySelectorAll('[data-profile-key]').forEach(function (inp) {
+                var key = inp.getAttribute('data-profile-key');
+                inp.checked = config[key] !== false;
+                inp.addEventListener('change', function () { config[key] = inp.checked; serialize(); });
+            });
+            var nudges = rootEl.querySelector('[data-profile-nudges]');
+            if (nudges) {
+                nudges.value = config.security_nudges || 'subtle';
+                nudges.addEventListener('change', function () { config.security_nudges = nudges.value; serialize(); });
+            }
+            var onbEnabled = rootEl.querySelector('[data-profile-onboarding-enabled]');
+            var onbDep = rootEl.querySelector('[data-profile-onboarding-dependent]');
+            if (onbEnabled) {
+                onbEnabled.checked = config.onboarding_enabled !== false;
+                if (onbDep) { onbDep.classList.toggle('d-none', !onbEnabled.checked); }
+                onbEnabled.addEventListener('change', function () {
+                    config.onboarding_enabled = onbEnabled.checked;
+                    if (onbDep) { onbDep.classList.toggle('d-none', !onbEnabled.checked); }
+                    serialize();
+                });
+            }
+            rootEl.querySelectorAll('[data-profile-onboard-key]').forEach(function (inp) {
+                var key = inp.getAttribute('data-profile-onboard-key');
+                inp.checked = config.onboarding_options[key] !== false;
+                inp.addEventListener('change', function () { config.onboarding_options[key] = inp.checked; serialize(); });
+            });
+            serialize();
         });
     }
 
     function scan(root) {
         restoreSetupFormState(root);
         initSetupHomeFields(root);
+        initLogBuilder(root);
+        initProfileBuilder(root);
         root.querySelectorAll('.dlux-setup-builder').forEach(initBuilder);
         root.querySelectorAll('[data-navbar-builder]').forEach(initNavbarBuilder);
         initLanguageCatalogEditor(root);
@@ -4479,6 +4908,7 @@
         initClientIpOptions(root);
         initLoginPageOptions(root);
         initTitlebarBehaviorOptions(root);
+        initNotificationBehaviorOptions(root);
         initImmediateSystemSettingsPreview(root);
     }
 

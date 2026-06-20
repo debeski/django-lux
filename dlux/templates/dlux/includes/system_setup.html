@@ -6,7 +6,7 @@
 
 {% block extra_head %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260615a">
 {% endblock %}
 
 {% block layout %}
@@ -72,7 +72,25 @@
                                     type="button"
                                     data-dlux-wizard-step-target="7">
                                 <span class="dlux-setup-step-nav__bullet">8</span>
+                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_notifications }}</span>
+                            </button>
+                            <button class="dlux-setup-step-nav__item"
+                                    type="button"
+                                    data-dlux-wizard-step-target="8">
+                                <span class="dlux-setup-step-nav__bullet">9</span>
                                 <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_appearance }}</span>
+                            </button>
+                            <button class="dlux-setup-step-nav__item"
+                                    type="button"
+                                    data-dlux-wizard-step-target="9">
+                                <span class="dlux-setup-step-nav__bullet">10</span>
+                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_logging|default:"Logging" }}</span>
+                            </button>
+                            <button class="dlux-setup-step-nav__item"
+                                    type="button"
+                                    data-dlux-wizard-step-target="10">
+                                <span class="dlux-setup-step-nav__bullet">11</span>
+                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_profile|default:"Profile Page" }}</span>
                             </button>
                         </nav>
                         {% crispy form %}

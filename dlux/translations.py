@@ -71,6 +71,8 @@ DLUX_STRINGS = {
         'system_settings_navbar_desc': 'تفعيل شريط التنقل ونمطه وشجرة التسلسل.',
         'system_settings_ui_layout': 'شريط العنوان',
         'system_settings_ui_layout_desc': 'أزرار وشعار وعنوان الشريط العلوي وسلوكه.',
+        'system_settings_notifications': 'الإشعارات',
+        'system_settings_notifications_desc': 'مفتاح عام للإشعارات: التنبيهات المنبثقة ودرج الإشعارات والبريد والإشعارات التلقائية.',
         'system_settings_appearance': 'المظهر والخط',
         'system_settings_appearance_desc': 'السمات والخطوط وكثافة الجداول الافتراضية.',
         'system_settings_export_desc': 'تنزيل ملف JSON لإعادة استخدام إعدادات النظام.',
@@ -86,7 +88,57 @@ DLUX_STRINGS = {
         'system_setup_step5': 'الخطوة 5: الشريط الجانبي',
         'system_setup_step6': 'الخطوة 6: شريط التنقل',
         'system_setup_step7': 'الخطوة 7: شريط العنوان',
-        'system_setup_step8': 'الخطوة 8: المظهر والخط',
+        'system_setup_step8': 'الخطوة 8: الإشعارات',
+        'system_setup_step9': 'الخطوة 9: المظهر والخط',
+        'system_setup_step10': 'الخطوة 10: السجلّات',
+        'system_settings_logging': 'السجلّات',
+        'system_settings_logging_desc': 'التحكم في سجلّات النشاط والنظام والتدقيق.',
+        'system_settings_profile': 'صفحة الملف الشخصي',
+        'system_settings_profile_desc': 'مكوّنات صفحة الملف الشخصي وتجربة الإعداد الأولي للمستخدم.',
+        'system_setup_step11': 'الخطوة 11: صفحة الملف الشخصي',
+        'profile_settings_title': 'صفحة الملف الشخصي والإعداد الأولي',
+        'form_sys_profile': 'إعدادات صفحة الملف الشخصي',
+        'profile_page_section': 'صفحة الملف الشخصي',
+        'profile_show_completion': 'إظهار أداة اكتمال الملف الشخصي',
+        'profile_show_devices': 'إظهار بطاقات الجلسات/الأجهزة',
+        'profile_show_activity': 'إظهار سجل النشاط',
+        'profile_allow_user_home_url': 'السماح للمستخدمين بتعيين صفحة الهبوط',
+        'profile_security_nudges': 'تنبيهات الأمان',
+        'nudge_off': 'إيقاف',
+        'nudge_subtle': 'خفيف',
+        'nudge_persistent': 'دائم',
+        'initial_user_setup_section': 'الإعداد الأولي للمستخدم (أول تسجيل دخول)',
+        'profile_onboarding_enabled': 'إظهار نافذة الإعداد عند أول تسجيل دخول',
+        'profile_onboarding_help': 'يختار المستخدمون الجدد تفضيلاتهم عند أول دخول بدلاً من الخيارات.',
+        'profile_onboarding_offers': 'التفضيلات التي تعرضها النافذة:',
+        'initial_user_setup_title': 'مرحباً — إعداد سريع',
+        'initial_user_setup_intro': 'اختر تفضيلاتك للبدء — يمكنك تغييرها لاحقاً من الخيارات.',
+        'initial_user_setup_home': 'الصفحة الافتراضية المفضّلة',
+        'initial_user_setup_home_help': 'إلى أين تذهب بعد تسجيل الدخول.',
+        'initial_user_setup_skip': 'تخطٍّ الآن',
+        'initial_user_setup_save': 'حفظ ومتابعة',
+        'options_landing_page': 'صفحة الهبوط',
+        'options_landing_page_desc': 'إلى أين تذهب بعد تسجيل الدخول. اتركها فارغة لاستخدام الافتراضي.',
+        'options_landing_page_saved': 'تم حفظ صفحة الهبوط.',
+        'options_landing_page_default': 'الافتراضي للنظام',
+        'font_default': 'الافتراضي',
+        'log_settings_title': 'سجلّ النشاط',
+        'form_sys_log': 'إعدادات السجلّات',
+        'form_sys_log_enabled': 'تفعيل تسجيل النشاط',
+        'form_sys_log_user': 'نشاط المستخدم (المشروع)',
+        'form_sys_log_system': 'نشاط النظام (dlux)',
+        'form_sys_log_default_actions': 'الإجراءات الافتراضية',
+        'form_sys_log_retention_days': 'مدة الحفظ (أيام، 0 = للأبد)',
+        'form_sys_log_search_models': 'ابحث عن النماذج…',
+        'form_sys_log_no_models': 'لا توجد نماذج مكتشفة.',
+        'form_sys_log_audit_title': 'التدقيق (أحداث الأمان)',
+        'form_sys_log_audit_locked': 'مفعّل دائماً',
+        'help_sys_log_audit': 'سجلّات التدقيق للإلحاق فقط ولا تُحذف تلقائياً افتراضياً.',
+        'form_sys_log_audit_retention': 'مدة حفظ التدقيق (أيام، 0 = للأبد)',
+        'log_tab_user': 'المستخدم',
+        'log_tab_system': 'النظام',
+        'log_tab_audit': 'التدقيق',
+        'log_model_user_accounts': 'حسابات المستخدمين',
         'apply_language': 'تطبيق اللغة',
         'system_settings_login_page': 'صفحة الدخول',
         'system_settings_login_page_desc': 'أسلوب عرض صفحة الدخول وألوان اللافتة ومعالجة الشعار.',
@@ -245,7 +297,7 @@ DLUX_STRINGS = {
         'help_sys_titlebar_show_logo': 'إظهار شعار الهوية بجانب العنوان.',
         'form_sys_titlebar_show_home_button': 'إظهار زر الرئيسية في الشريط',
         'help_sys_titlebar_show_home_button': 'إظهار زر اختصار الرئيسية في شريط العنوان.',
-        'form_sys_titlebar_home_shape': 'شكل زر الرئيسية',
+        'form_sys_titlebar_home_shape': 'شكل أزرار شريط العنوان',
         'form_sys_titlebar_title_align': 'محاذاة العنوان',
         'form_sys_titlebar_title_size': 'حجم العنوان',
         'form_sys_titlebar_height': 'ارتفاع شريط العنوان',
@@ -255,6 +307,54 @@ DLUX_STRINGS = {
         'help_sys_titlebar_logo_treatment': 'اختر طريقة مساعدة بصرية للشعار على أسطح الثيمات المختلفة.',
         'help_sys_titlebar_logo_treatment_shape': 'اختر شكل اللوحة عند استخدام معالجة اللوحة.',
         'titlebar_settings_title': 'إعدادات شريط العنوان',
+        'notifications': 'الإشعارات',
+        'notifications_empty': 'لا توجد إشعارات',
+        'mark_all_read': 'تعيين الكل كمقروء',
+        'clear_all_notifications': 'مسح الإشعارات المقروءة',
+        'dismiss': 'إخفاء',
+        'open': 'فتح',
+        'btn_back': 'رجوع',
+        'notification_settings_title': 'الإشعارات',
+        'form_sys_notification_config': 'إعدادات الإشعارات',
+        'form_sys_notifications_enabled': 'تفعيل الإشعارات',
+        'help_sys_notifications_enabled': 'مفتاح رئيسي لنظام الإشعارات بالكامل. عند إيقافه تُعطَّل التنبيهات السريعة ودرج الإشعارات والشارة والبريد والإشعارات التلقائية ودالة notify().',
+        'form_sys_notification_flash_enabled': 'إظهار التنبيهات السريعة',
+        'help_sys_notification_flash_enabled': 'إظهار تنبيهات قصيرة للأحداث الموجهة للمستخدم.',
+        'form_sys_notification_flash_position': 'موضع التنبيه',
+        'form_sys_notification_flash_size': 'حجم التنبيه',
+        'form_sys_notification_flash_text_size': 'حجم نص التنبيه',
+        'form_sys_notification_flash_timeout': 'مدة ظهور التنبيه (ms)',
+        'form_sys_notification_flash_max_visible': 'الحد الأقصى للتنبيهات الظاهرة',
+        'form_sys_notification_drawer_enabled': 'تفعيل درج الإشعارات في شريط العنوان',
+        'help_sys_notification_drawer_enabled': 'حفظ إشعارات المستخدمين تحت أيقونة شريط العنوان للمستخدمين المسجلين.',
+        'form_sys_notification_badge_enabled': 'إظهار شارة غير المقروء',
+        'form_sys_notification_bridge_enabled': 'استيراد رسائل Django القديمة',
+        'help_sys_notification_bridge_enabled': 'تحويل رسائل مشاريع Django القديمة إلى تنبيهات Dlux عند التفعيل.',
+        'form_sys_notification_email_enabled': 'تفعيل قناة بريد الإشعارات',
+        'help_sys_notification_email_enabled': 'المفتاح الرئيسي لبريد الإشعارات. يتطلب إعداد بريد Dlux؛ عند إيقافه لا تستطيع القواعد أو notify(..., email=True) إرسال البريد.',
+        'form_sys_notification_email_default': 'الإرسال بالبريد افتراضياً',
+        'help_sys_notification_email_default': 'بعد السماح بقناة البريد، أرسل الإشعارات المحفوظة المؤهلة بالبريد ما لم تغيّر قاعدة أو استدعاء notify(...) ذلك.',
+        'help_sys_notification_email_unavailable': 'معطل إلى أن يتم إعداد بريد Dlux.',
+        'form_sys_notification_auto_crud': 'تفعيل إشعارات نماذج ScopedModel التلقائية',
+        'help_sys_notification_auto_crud': 'المفتاح الرئيسي للإشعارات التلقائية الناتجة عن إنشاء وتعديل وحذف نماذج ScopedModel.',
+        'form_sys_notification_auto_create': 'إشعارات الإنشاء التلقائية',
+        'help_sys_notification_auto_create': 'عند تفعيل إشعارات CRUD التلقائية، أرسل إشعارات للسجلات الجديدة من ScopedModel.',
+        'form_sys_notification_auto_update': 'وضع إشعارات التعديل التلقائية',
+        'help_sys_notification_auto_update': 'إيقاف يمنع إشعارات التعديل؛ ملخص يرسل ملخصاً هادئاً للحقول المتغيرة؛ كامل يرسل إشعارات تعديل مع بيانات وصفية كاملة.',
+        'form_sys_notification_auto_delete': 'إشعارات الحذف التلقائية',
+        'help_sys_notification_auto_delete': 'عند تفعيل إشعارات CRUD التلقائية، أرسل إشعارات للسجلات المحذوفة من ScopedModel.',
+        'notification_position_top_center': 'أعلى الوسط',
+        'notification_position_top_start': 'أعلى البداية',
+        'notification_position_top_end': 'أعلى النهاية',
+        'notification_position_titlebar_end': 'نهاية شريط العنوان',
+        'notification_position_bottom_start': 'أسفل البداية',
+        'notification_position_bottom_end': 'أسفل النهاية',
+        'notification_size_compact': 'مضغوط',
+        'notification_size_balanced': 'متوازن',
+        'notification_size_prominent': 'بارز',
+        'notification_update_off': 'إيقاف',
+        'notification_update_summary': 'ملخص',
+        'notification_update_full': 'كامل',
         'titlebar_home_shape_circle': 'دائري',
         'titlebar_home_shape_circle_desc': 'حواف دائرية بالكامل.',
         'titlebar_home_shape_square': 'مربع',
@@ -303,6 +403,12 @@ DLUX_STRINGS = {
         'help_sys_email_2fa': 'السماح للمستخدمين بتفعيل التحقق الثنائي عبر البريد الإلكتروني. يتطلب جاهزية إعدادات توصيل البريد في Dlux.',
         'form_sys_prevent_multiple_active_sessions': 'منع تعدد الجلسات النشطة',
         'help_sys_prevent_multiple_active_sessions': 'عند التفعيل، تصبح الجلسة الموثوقة الجديدة هي الجلسة النشطة الوحيدة لهذا المستخدم. تسجيل الدخول غير الموثوق يبقى مسموحاً لكنه لا يطرد الجلسات الموثوقة.',
+        'form_sys_login_lockout': 'تفعيل قفل تسجيل الدخول',
+        'help_sys_login_lockout': 'حظر تسجيل الدخول مؤقتاً بعد محاولات فاشلة متكررة من نفس عنوان IP أو اسم المستخدم.',
+        'login_locked_out': 'محاولات تسجيل دخول فاشلة كثيرة. حاول مرة أخرى بعد حوالي {minutes} دقيقة.',
+        '2fa_challenge_expired': 'انتهت صلاحية جلسة تسجيل الدخول قبل التحقق بخطوتين. يرجى تسجيل الدخول مرة أخرى.',
+        'session_ended_idle_timeout': 'انتهت جلستك بسبب عدم النشاط. يرجى تسجيل الدخول مرة أخرى.',
+        'session_ended_session_timeout': 'انتهت مدة جلستك. يرجى تسجيل الدخول مرة أخرى.',
         'form_sys_client_ip_mode': 'مصدر عنوان IP للعميل',
         'help_sys_client_ip_mode': 'اختر رأس الطلب الذي يجب أن يثق به Dlux عند تسجيل عناوين IP الخاصة بتسجيل الدخول والجلسات والأمان.',
         'client_ip_mode_x_forwarded_for': 'X-Forwarded-For',
@@ -556,6 +662,7 @@ DLUX_STRINGS = {
         'model_subsection': 'الأقسام الفرعية',
         'model_profile': 'ملف المستخدم',
         'model_useractivitylog': 'سجل النشاط',
+        'model_activitylog': 'سجل النشاط',
         'model_password': 'كلمة المرور',
         'model_user profile': 'بيانات المستخدم',
         'model_auth': 'المصادقة',
@@ -592,8 +699,19 @@ DLUX_STRINGS = {
         'form_permissions': 'الصلاحيات',
         'form_is_staff': 'تفعيل صلاحيات المستخدم الإداري',
         'form_is_active': 'تفعيل الحساب',
+        'form_force_password_change': 'طلب تغيير كلمة المرور عند أول تسجيل دخول',
         'form_profile_pic': 'الصورة الشخصية',
         'form_new_password': 'كلمة المرور الجديدة',
+        'form_sys_enforce_strong_passwords': 'فرض كلمات مرور قوية',
+        'help_sys_enforce_strong_passwords': 'اشتراط أن تكون كلمات المرور الجديدة 12 حرفاً على الأقل وتحتوي على أحرف كبيرة وصغيرة ورقم ورمز.',
+        'password_rules_error': 'كلمة المرور لا تستوفي المتطلبات:',
+        'password_rules_help': '12 حرفاً على الأقل مع أحرف كبيرة وصغيرة ورقم ورمز.',
+        'password_rule_length': '12 حرفاً على الأقل',
+        'password_rule_upper': 'حرف كبير (A-Z)',
+        'password_rule_lower': 'حرف صغير (a-z)',
+        'password_rule_digit': 'رقم (0-9)',
+        'password_rule_symbol': 'رمز',
+        'password_rule_match': 'مطابقة لكلمة المرور',
         'form_confirm_new_password': 'تأكيد كلمة المرور الجديدة',
         'form_old_password': 'كلمة المرور القديمة',
         'form_scope_name': 'اسم النطاق',
@@ -609,6 +727,7 @@ DLUX_STRINGS = {
         """,
         'help_password_match': 'أدخل نفس كلمة المرور مجددا للتحقق.',
         'help_is_active': 'يحدد ما إذا كان يجب اعتبار هذا الحساب نشطًا. قم بإلغاء تحديد هذا الخيار بدلاً من الحذف.',
+        'help_force_password_change': 'يجب على المستخدم الجديد تغيير كلمة المرور هذه قبل استخدام النظام.',
         'help_is_staff': 'يُفعّل صلاحيات المستخدم الإداري. الدرجة النهائية تعتمد على النطاق والصلاحيات المحددة.',
         'help_is_staff_no_perm': 'ليس لديك صلاحية لتعيين هذا المستخدم كمسؤول.',
         'help_scope_self': 'لا يمكنك تغيير نطاقك الخاص لمنع تجريد نفسك من صلاحيات المدير العام.',
@@ -736,6 +855,9 @@ DLUX_STRINGS = {
         
         # Messages
         'msg_password_changed': 'تم تغيير كلمة المرور بنجاح!',
+        'force_password_change_required': 'يجب تغيير كلمة المرور قبل المتابعة.',
+        'force_password_change_required_detail': 'تم تفعيل هذا المتطلب عند إنشاء حسابك.',
+        'err_password_unchanged': 'يجب أن تكون كلمة المرور الجديدة مختلفة عن كلمة المرور الحالية.',
         'msg_form_error': 'هناك خطأ في البيانات المدخلة',
         'search': 'بحث',
         'btn_apply': 'تطبيق',
@@ -1094,6 +1216,10 @@ DLUX_STRINGS = {
         'err_no_edit_permission_account': 'ليس لديك صلاحية لتعديل هذا الحساب!',
         'err_no_edit_permission_user': 'ليس لديك صلاحية لتعديل هذا المستخدم!',
         'err_cannot_edit_global_staff': 'لا يمكن للمسؤول المركزي تعديل المستخدمين ذوي الصلاحيات العامة.',
+        'err_download_empty_records': 'لا توجد سجلات للتحميل.',
+        'err_download_no_valid_files': 'لا توجد ملفات صالحة للتحميل في السجلات المختارة.',
+        'err_export_empty_data': 'لا توجد بيانات للتصدير.',
+        'err_export_model_unknown': 'تعذر تحديد نموذج البيانات.',
         'err_cannot_delete_self': 'لا يمكنك حذف حسابك الخاص!',
         'err_cannot_delete_superuser': 'ليس لديك صلاحية لحذف المشرفين!',
         'err_cannot_delete_last_superuser': 'لا يمكن حذف المشرف الرئيسي الأخير للنظام!',
@@ -1190,6 +1316,8 @@ DLUX_STRINGS = {
         'system_settings_navbar_desc': 'Nav Bar enablement, style, user override, and hierarchy tree.',
         'system_settings_ui_layout': 'Titlebar',
         'system_settings_ui_layout_desc': 'Top bar logo, title, home button, alignment, and surface.',
+        'system_settings_notifications': 'Notifications',
+        'system_settings_notifications_desc': 'Master switch for notifications: flash notices, titlebar drawer/badge, email, and automatic CRUD events.',
         'system_settings_appearance': 'Themes & Typography',
         'system_settings_appearance_desc': 'Allowed themes, font defaults, and table density.',
         'system_settings_export_desc': 'Download reusable JSON for this system setup.',
@@ -1205,7 +1333,57 @@ DLUX_STRINGS = {
         'system_setup_step5': 'Step 5: Sidebar',
         'system_setup_step6': 'Step 6: Nav Bar',
         'system_setup_step7': 'Step 7: Titlebar',
-        'system_setup_step8': 'Step 8: Themes & Typography',
+        'system_setup_step8': 'Step 8: Notifications',
+        'system_setup_step9': 'Step 9: Themes & Typography',
+        'system_setup_step10': 'Step 10: Logging',
+        'system_settings_logging': 'Logging',
+        'system_settings_logging_desc': 'Control activity, system, and audit logging.',
+        'system_settings_profile': 'Profile Page',
+        'system_settings_profile_desc': 'Profile-page composition and the first-launch Initial User Setup.',
+        'system_setup_step11': 'Step 11: Profile Page',
+        'profile_settings_title': 'Profile Page & Onboarding',
+        'form_sys_profile': 'Profile page configuration',
+        'profile_page_section': 'Profile page',
+        'profile_show_completion': 'Show profile completion widget',
+        'profile_show_devices': 'Show session/device cards',
+        'profile_show_activity': 'Show activity feed',
+        'profile_allow_user_home_url': 'Allow users to set their landing page',
+        'profile_security_nudges': 'Security nudges',
+        'nudge_off': 'Off',
+        'nudge_subtle': 'Subtle',
+        'nudge_persistent': 'Persistent',
+        'initial_user_setup_section': 'Initial User Setup (first login)',
+        'profile_onboarding_enabled': 'Show the first-login setup modal',
+        'profile_onboarding_help': 'New users pick their preferences on first login instead of digging into Options.',
+        'profile_onboarding_offers': 'Preferences the modal offers:',
+        'initial_user_setup_title': 'Welcome — quick setup',
+        'initial_user_setup_intro': 'Pick your preferences to get started — you can change these any time in Options.',
+        'initial_user_setup_home': 'Preferred landing page',
+        'initial_user_setup_home_help': 'Where you land after signing in.',
+        'initial_user_setup_skip': 'Skip for now',
+        'initial_user_setup_save': 'Save & continue',
+        'options_landing_page': 'Landing page',
+        'options_landing_page_desc': 'Where you land after signing in. Leave blank to use the system default.',
+        'options_landing_page_saved': 'Landing page saved.',
+        'options_landing_page_default': 'System default',
+        'font_default': 'Default',
+        'log_settings_title': 'Activity Logging',
+        'form_sys_log': 'Logging configuration',
+        'form_sys_log_enabled': 'Enable activity logging',
+        'form_sys_log_user': 'User activity (project)',
+        'form_sys_log_system': 'System activity (dlux)',
+        'form_sys_log_default_actions': 'Default actions',
+        'form_sys_log_retention_days': 'Retention (days, 0 = keep)',
+        'form_sys_log_search_models': 'Search models…',
+        'form_sys_log_no_models': 'No models discovered.',
+        'form_sys_log_audit_title': 'Audit (security events)',
+        'form_sys_log_audit_locked': 'Always on',
+        'help_sys_log_audit': 'Audit logs are append-only and never auto-pruned by default.',
+        'form_sys_log_audit_retention': 'Audit retention (days, 0 = keep forever)',
+        'log_tab_user': 'User',
+        'log_tab_system': 'System',
+        'log_tab_audit': 'Audit',
+        'log_model_user_accounts': 'User accounts',
         'apply_language': 'Apply language',
         'system_settings_login_page': 'Login Page',
         'system_settings_login_page_desc': 'Login page layout style, banner colour, and logo treatment.',
@@ -1366,7 +1544,7 @@ DLUX_STRINGS = {
         'help_sys_titlebar_show_logo': 'Show the configured branding logo beside the title.',
         'form_sys_titlebar_show_home_button': 'Show Titlebar Home Button',
         'help_sys_titlebar_show_home_button': 'Show the quick Home button in the titlebar.',
-        'form_sys_titlebar_home_shape': 'Home Button Shape',
+        'form_sys_titlebar_home_shape': 'Titlebar Buttons Shape',
         'form_sys_titlebar_title_align': 'Title Alignment',
         'form_sys_titlebar_title_size': 'Title Size',
         'form_sys_titlebar_height': 'Titlebar Height',
@@ -1376,6 +1554,54 @@ DLUX_STRINGS = {
         'help_sys_titlebar_logo_treatment': 'Choose how Dlux visually assists the logo on mixed theme surfaces.',
         'help_sys_titlebar_logo_treatment_shape': 'Choose the plate silhouette when the Plate treatment is active.',
         'titlebar_settings_title': 'Titlebar Settings',
+        'notifications': 'Notifications',
+        'notifications_empty': 'No notifications',
+        'mark_all_read': 'Mark all read',
+        'clear_all_notifications': 'Clear read notifications',
+        'dismiss': 'Dismiss',
+        'open': 'Open',
+        'btn_back': 'Back',
+        'notification_settings_title': 'Notifications',
+        'form_sys_notification_config': 'Notification configuration',
+        'form_sys_notifications_enabled': 'Enable notifications',
+        'help_sys_notifications_enabled': 'Master switch for the entire notification subsystem. When off, flash notices, the titlebar drawer/badge, emails, automatic CRUD notifications, and notify(...) are all suppressed.',
+        'form_sys_notification_flash_enabled': 'Show flash notices',
+        'help_sys_notification_flash_enabled': 'Show short-lived notices for user-facing events.',
+        'form_sys_notification_flash_position': 'Flash position',
+        'form_sys_notification_flash_size': 'Flash size',
+        'form_sys_notification_flash_text_size': 'Flash text size',
+        'form_sys_notification_flash_timeout': 'Flash timeout (ms)',
+        'form_sys_notification_flash_max_visible': 'Max visible flash notices',
+        'form_sys_notification_drawer_enabled': 'Enable titlebar notification drawer',
+        'help_sys_notification_drawer_enabled': 'Store user-facing notifications under the titlebar icon for authenticated users.',
+        'form_sys_notification_badge_enabled': 'Show unread badge',
+        'form_sys_notification_bridge_enabled': 'Import legacy Django messages',
+        'help_sys_notification_bridge_enabled': 'Drain host-project Django messages into Dlux flash notices when enabled.',
+        'form_sys_notification_email_enabled': 'Enable notification email channel',
+        'help_sys_notification_email_enabled': 'Master gate for notification emails. Requires configured Dlux email delivery; when off, rules and notify(..., email=True) cannot send mail.',
+        'form_sys_notification_email_default': 'Email by default',
+        'help_sys_notification_email_default': 'After the email channel is allowed, send eligible persisted notifications by email unless a rule or notify(...) call overrides delivery.',
+        'help_sys_notification_email_unavailable': 'Disabled until Dlux email delivery is configured.',
+        'form_sys_notification_auto_crud': 'Enable automatic ScopedModel CRUD notifications',
+        'help_sys_notification_auto_crud': 'Master switch for automatic notifications emitted by ScopedModel create, update, and delete events.',
+        'form_sys_notification_auto_create': 'Automatic create notifications',
+        'help_sys_notification_auto_create': 'When automatic CRUD notifications are enabled, emit notifications for new ScopedModel records.',
+        'form_sys_notification_auto_update': 'Automatic update mode',
+        'help_sys_notification_auto_update': 'Off suppresses update notifications; Summary emits quiet changed-field summaries; Full emits update notifications with full metadata.',
+        'form_sys_notification_auto_delete': 'Automatic delete notifications',
+        'help_sys_notification_auto_delete': 'When automatic CRUD notifications are enabled, emit notifications for deleted ScopedModel records.',
+        'notification_position_top_center': 'Top center',
+        'notification_position_top_start': 'Top start',
+        'notification_position_top_end': 'Top end',
+        'notification_position_titlebar_end': 'Titlebar end',
+        'notification_position_bottom_start': 'Bottom start',
+        'notification_position_bottom_end': 'Bottom end',
+        'notification_size_compact': 'Compact',
+        'notification_size_balanced': 'Balanced',
+        'notification_size_prominent': 'Prominent',
+        'notification_update_off': 'Off',
+        'notification_update_summary': 'Summary',
+        'notification_update_full': 'Full',
         'titlebar_home_shape_circle': 'Circle',
         'titlebar_home_shape_circle_desc': 'Fully rounded button silhouette.',
         'titlebar_home_shape_square': 'Square',
@@ -1424,6 +1650,12 @@ DLUX_STRINGS = {
         'help_sys_email_2fa': 'Allow users to enable two-factor authentication via email. Requires Dlux email delivery to be ready.',
         'form_sys_prevent_multiple_active_sessions': 'Prevent multiple active sessions',
         'help_sys_prevent_multiple_active_sessions': 'When enabled, a newly trusted session becomes this user’s only active session. Untrusted logins remain allowed but cannot force out trusted sessions.',
+        'form_sys_login_lockout': 'Enable login lockout',
+        'help_sys_login_lockout': 'Temporarily block sign-in after repeated failed password attempts from the same IP or username.',
+        'login_locked_out': 'Too many failed login attempts. Please try again in about {minutes} minute(s).',
+        '2fa_challenge_expired': 'Your sign-in session expired before two-factor verification. Please log in again.',
+        'session_ended_idle_timeout': 'Your session ended due to inactivity. Please sign in again.',
+        'session_ended_session_timeout': 'Your session has reached its time limit. Please sign in again.',
         'form_sys_client_ip_mode': 'Client IP Source',
         'help_sys_client_ip_mode': 'Choose which request header Dlux should trust when recording login, session, and security IP addresses.',
         'client_ip_mode_x_forwarded_for': 'X-Forwarded-For',
@@ -1674,6 +1906,7 @@ DLUX_STRINGS = {
         'model_subsection': 'Subsections',
         'model_profile': 'User Profile',
         'model_useractivitylog': 'Activity Log',
+        'model_activitylog': 'Activity Log',
         'model_password': 'Password',
         'model_user profile': 'User Data',
         'model_auth': 'Authentication',
@@ -1710,8 +1943,19 @@ DLUX_STRINGS = {
         'form_permissions': 'Permissions',
         'form_is_staff': 'Enable Staff Access',
         'form_is_active': 'Active Account',
+        'form_force_password_change': 'Require password change on first login',
         'form_profile_pic': 'Profile Picture',
         'form_new_password': 'New Password',
+        'form_sys_enforce_strong_passwords': 'Enforce strong passwords',
+        'help_sys_enforce_strong_passwords': 'Require new passwords to be at least 12 characters with upper and lower case letters, a digit, and a symbol.',
+        'password_rules_error': 'Password does not meet the requirements:',
+        'password_rules_help': 'At least 12 characters with upper and lower case letters, a digit, and a symbol.',
+        'password_rule_length': 'At least 12 characters',
+        'password_rule_upper': 'An uppercase letter (A-Z)',
+        'password_rule_lower': 'A lowercase letter (a-z)',
+        'password_rule_digit': 'A digit (0-9)',
+        'password_rule_symbol': 'A symbol',
+        'password_rule_match': 'Matches the password',
         'form_confirm_new_password': 'Confirm New Password',
         'form_old_password': 'Current Password',
         'form_scope_name': 'Scope Name',
@@ -1727,6 +1971,7 @@ DLUX_STRINGS = {
         """,
         'help_password_match': 'Enter the same password again, for verification.',
         'help_is_active': 'Designates whether this user should be treated as active. Unselect this instead of deleting accounts.',
+        'help_force_password_change': 'The new user must change this password before using the system.',
         'help_is_staff': 'Enables staff access. The final tier depends on scope and selected permissions.',
         'help_is_staff_no_perm': 'You do not have permission to assign this user as staff.',
         'help_scope_self': 'You cannot change your own scope to prevent removing yourself from admin privileges.',
@@ -1854,6 +2099,9 @@ DLUX_STRINGS = {
         
         # Messages
         'msg_password_changed': 'Password changed successfully!',
+        'force_password_change_required': 'You must change your password before continuing.',
+        'force_password_change_required_detail': 'This requirement was enabled when your account was created.',
+        'err_password_unchanged': 'New password must be different from the current password.',
         'msg_form_error': 'There was an error with the submitted data',
         'search': 'Search',
         'btn_apply': 'Apply',
@@ -2209,6 +2457,10 @@ DLUX_STRINGS = {
         'err_no_edit_permission_account': 'You do not have permission to edit this account!',
         'err_no_edit_permission_user': 'You do not have permission to edit this user!',
         'err_cannot_edit_global_staff': 'Central Staff cannot edit Global Staff users.',
+        'err_download_empty_records': 'No records are available to download.',
+        'err_download_no_valid_files': 'No valid files are available for the selected records.',
+        'err_export_empty_data': 'No data is available to export.',
+        'err_export_model_unknown': 'Unable to determine the data model.',
         'err_cannot_delete_self': 'You cannot delete your own account!',
         'err_cannot_delete_superuser': 'You do not have permission to delete superusers!',
         'err_cannot_delete_last_superuser': 'Cannot delete the last system superuser!',
@@ -2295,6 +2547,54 @@ def _discover_and_merge_translations():
             continue
             
     return merged_strings
+
+
+def _normalize_translation_lookup_text(value):
+    return str(value or '').strip()
+
+
+@lru_cache(maxsize=1)
+def _translation_reverse_index():
+    index = {}
+    for _lang, strings in _discover_and_merge_translations().items():
+        if not isinstance(strings, dict):
+            continue
+        for key, value in strings.items():
+            text = _normalize_translation_lookup_text(value)
+            if text:
+                index.setdefault(text, str(key))
+    return index
+
+
+def resolve_translation_key_for_text(text, overrides=None):
+    """
+    Return the DLUX_STRINGS key for an exact translated value, when known.
+
+    This lets persisted UI text such as old notification rows render in the
+    current request language after a user switches languages. Free-form or
+    interpolated messages intentionally fall back to their stored text.
+    """
+    needle = _normalize_translation_lookup_text(text)
+    if not needle:
+        return ''
+
+    if overrides is None and apps.ready:
+        try:
+            from dlux.utils import get_system_config
+
+            overrides = get_system_config().get('translations', {})
+        except Exception:
+            overrides = None
+
+    if isinstance(overrides, dict):
+        for _lang, strings in overrides.items():
+            if not isinstance(strings, dict):
+                continue
+            for key, value in strings.items():
+                if _normalize_translation_lookup_text(value) == needle:
+                    return str(key)
+
+    return _translation_reverse_index().get(needle, '')
 
 
 @lru_cache(maxsize=1)
@@ -2546,19 +2846,32 @@ def get_strings(lang_code=None, overrides=None):
     If lang_code is not provided, dynamically resolves it using get_current_language_code().
     Merges project-level overrides on top of the base strings automatically.
     """
-    try:
-        from dlux.utils import get_system_config
-        sys_config = get_system_config()
-        default_sys_lang = sys_config.get('default_language', 'en')
-        if overrides is None:
-            overrides = sys_config.get('translations', {})
-    except Exception:
-        default_sys_lang = 'en'
+    from django.apps import apps
+    apps_ready = apps.ready
+
+    default_sys_lang = 'en'
+    if apps_ready:
+        try:
+            from dlux.utils import get_system_config
+            sys_config = get_system_config()
+            default_sys_lang = sys_config.get('default_language', 'en')
+            if overrides is None:
+                overrides = sys_config.get('translations', {})
+        except Exception:
+            overrides = overrides or {}
+    else:
+        # During app initialization Django runs AppConfig.ready() and resolves lazy
+        # translations before `apps.ready` is set. The dlux gettext patch routes those
+        # through here, so touching the DB now triggers Django 6.0's "database access
+        # during app initialization" warning — and opening a connection at init is
+        # genuinely risky (pre-migrate boots, forking/pre-loaded WSGI servers). Serve
+        # the in-memory catalog with safe defaults; the DB override + active-language
+        # layer resumes automatically once apps are ready.
         overrides = overrides or {}
-        
+
     lang = lang_code
     if not lang:
-        lang = get_current_language_code()
+        lang = get_current_language_code() if apps_ready else default_sys_lang
     else:
         lang = lang.split('-')[0]
     

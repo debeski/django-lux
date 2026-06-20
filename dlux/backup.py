@@ -378,7 +378,7 @@ def run_system_backup(backup_pk, passphrase=None):
 
 def _log_system_action(username, action, details):
     try:
-        UserActivityLog = apps.get_model("dlux", "UserActivityLog")
+        UserActivityLog = apps.get_model("dlux", "ActivityLog")
         User = apps.get_model(settings.AUTH_USER_MODEL)
         user = User._default_manager.filter(username=username).first()
         UserActivityLog.safe_log(

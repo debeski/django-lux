@@ -56,7 +56,7 @@ class UserActivityLogFilter(django_filters.FilterSet):
         required=False
     )
     class Meta:
-        model = apps.get_model('dlux', 'UserActivityLog')
+        model = apps.get_model('dlux', 'ActivityLog')
         fields = {
             'created_at': ['gte', 'lte'],
         }

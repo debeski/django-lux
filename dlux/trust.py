@@ -1,8 +1,10 @@
 import hashlib
 import secrets
 from datetime import timedelta
+from importlib import import_module
 
 from django.apps import apps
+from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.core.signing import BadSignature
 from django.db.models import Q
@@ -154,18 +156,42 @@ def terminate_other_user_sessions(user, keep_session_key=None):
     now = timezone.now()
     user_id = str(user.pk)
     target_keys = []
-    for session in Session.objects.filter(expire_date__gt=now):
-        if keep_session_key and session.session_key == keep_session_key:
-            continue
-        try:
-            data = session.get_decoded()
-        except Exception:
-            continue
-        if str(data.get('_auth_user_id') or '') != user_id:
-            continue
-        target_keys.append(session.session_key)
+    try:
+        for session in Session.objects.filter(expire_date__gt=now):
+            if keep_session_key and session.session_key == keep_session_key:
+                continue
+            try:
+                data = session.get_decoded()
+            except Exception:
+                continue
+            if str(data.get('_auth_user_id') or '') != user_id:
+                continue
+            target_keys.append(session.session_key)
+    except Exception:
+        pass
+
+    try:
+        PresenceSession = apps.get_model('dlux', 'UserPresenceSession')
+        presence_keys = PresenceSession.objects.filter(
+            user=user,
+            ended_at__isnull=True,
+            revoked_at__isnull=True,
+        ).exclude(session_key='').values_list('session_key', flat=True)
+        for session_key in presence_keys:
+            if keep_session_key and session_key == keep_session_key:
+                continue
+            target_keys.append(session_key)
+    except Exception:
+        pass
+
+    target_keys = list(dict.fromkeys(key for key in target_keys if key and key != keep_session_key))
     if target_keys:
-        Session.objects.filter(session_key__in=target_keys).delete()
+        try:
+            session_engine = import_module(getattr(settings, 'SESSION_ENGINE', 'django.contrib.sessions.backends.db'))
+            for session_key in target_keys:
+                session_engine.SessionStore(session_key=session_key).delete()
+        except Exception:
+            Session.objects.filter(session_key__in=target_keys).delete()
         mark_presence_sessions_ended(target_keys, revoked=True)
         flag_sessions_revoked(target_keys, reason='signed_in_elsewhere')
     return len(target_keys)

@@ -3,54 +3,9 @@ import json
 import zipfile
 from datetime import timedelta
 
-from django.conf import settings
+from dlux.tests.harness import setup_test_environment
 
-if not settings.configured:
-    settings.configure(
-        SECRET_KEY='dlux-test-key',
-        ALLOWED_HOSTS=['testserver', 'localhost'],
-        INSTALLED_APPS=[
-            'django.contrib.auth',
-            'django.contrib.contenttypes',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
-            'crispy_forms',
-            'crispy_bootstrap5',
-            'django_filters',
-            'django_tables2',
-            'dlux',
-        ],
-        MIDDLEWARE=[
-            'django.contrib.sessions.middleware.SessionMiddleware',
-            'django.contrib.auth.middleware.AuthenticationMiddleware',
-            'dlux.middleware.DluxMiddleware',
-        ],
-        ROOT_URLCONF='dlux.urls',
-        TEMPLATES=[
-            {
-                'BACKEND': 'django.template.backends.django.DjangoTemplates',
-                'APP_DIRS': True,
-                'OPTIONS': {
-                    'context_processors': [
-                        'django.template.context_processors.request',
-                        'django.contrib.auth.context_processors.auth',
-                        'django.contrib.messages.context_processors.messages',
-                        'dlux.context_processors.dlux_context',
-                    ],
-                },
-            }
-        ],
-        DATABASES={'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}},
-        STATIC_URL='/static/',
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-        USE_TZ=True,
-        CRISPY_ALLOWED_TEMPLATE_PACKS='bootstrap5',
-        CRISPY_TEMPLATE_PACK='bootstrap5',
-    )
-
-    import django
-    django.setup()
+setup_test_environment()
 
 import tempfile
 
@@ -67,13 +22,13 @@ from dlux.reports import run_report_backup, write_backup_zip
 User = get_user_model()
 
 ACTIVITY_BACKUP_CONFIG = {
-    'reports': {'include_models': ['dlux.useractivitylog']},
+    'reports': {'include_models': ['dlux.activitylog']},
 }
 
 
 def _make_logs():
     """One activity row inside the current week, one ~60 days old."""
-    ActivityLog = apps.get_model('dlux', 'UserActivityLog')
+    ActivityLog = apps.get_model('dlux', 'ActivityLog')
     recent = ActivityLog.objects.create(action='CREATE', model_name='Project Entry')
     old = ActivityLog.objects.create(action='CREATE', model_name='Project Entry')
     ActivityLog.objects.filter(pk=old.pk).update(
@@ -84,7 +39,7 @@ def _make_logs():
 
 def _zip_activity_rows(zip_bytes):
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-        payload = json.loads(zf.read('data/dlux/useractivitylog.json'))
+        payload = json.loads(zf.read('data/dlux/activitylog.json'))
         manifest = json.loads(zf.read('manifest.json'))
     return payload, manifest
 
@@ -131,7 +86,7 @@ class WriteBackupZipWindowTests(TestCase):
         self.assertEqual({row['pk'] for row in rows}, {recent.pk})
         self.assertEqual(zip_manifest['window'], 'week')
         model_counts = {item['model']: item['count'] for item in manifest['models']}
-        self.assertEqual(model_counts.get('dlux.useractivitylog'), 1)
+        self.assertEqual(model_counts.get('dlux.activitylog'), 1)
 
     def test_invalid_window_defaults_to_all(self):
         recent, old = _make_logs()
@@ -144,6 +99,9 @@ class WriteBackupZipWindowTests(TestCase):
 @override_settings(DLUX_CONFIG=ACTIVITY_BACKUP_CONFIG)
 class BackupViewTests(TestCase):
     def setUp(self):
+        settings_obj = apps.get_model('dlux', 'SystemSettings').load()
+        settings_obj.is_configured = True
+        settings_obj.save(update_fields=['is_configured'])
         self.user = _make_backup_user()
         self.client = Client()
         self.client.login(username='backup-user', password='backuppass123')

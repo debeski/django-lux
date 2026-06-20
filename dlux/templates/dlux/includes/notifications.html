@@ -1,0 +1,103 @@
+{% if user.is_authenticated %}
+<div
+    class="dlux-notifications no-print{% if not dlux_notifications_enabled %} d-none{% endif %}"
+    data-dlux-notifications
+    data-dlux-notifications-enabled="{% if dlux_notifications_enabled %}true{% else %}false{% endif %}"
+    data-list-url="{% url 'notifications_list' %}"
+    data-read-all-url="{% url 'notifications_read_all' %}"
+    data-clear-all-url="{% url 'notifications_clear_all' %}"
+    data-empty-text="{{ DLUX_STRINGS.notifications_empty|default:'No notifications' }}"
+    data-badge-enabled="{% if dlux_notification_config.drawer.badge_enabled %}true{% else %}false{% endif %}"
+>
+    <button
+        type="button"
+        class="dlux-titlebar-btn dlux-notifications__trigger"
+        aria-label="{{ DLUX_STRINGS.notifications|default:'Notifications' }}"
+        aria-expanded="false"
+        data-dlux-notifications-toggle
+        data-dlux-tooltip="{{ DLUX_STRINGS.notifications|default:'Notifications' }}"
+    >
+        <i class="bi bi-bell-fill" aria-hidden="true"></i>
+        {% if dlux_notification_config.drawer.badge_enabled and dlux_unread_notifications_count %}
+        <span class="dlux-notifications__badge dlux-notifications__badge--{{ dlux_unread_notifications_level|default:'info' }}" data-dlux-notifications-badge>
+            {{ dlux_unread_notifications_count }}
+        </span>
+        {% else %}
+        <span class="dlux-notifications__badge d-none" data-dlux-notifications-badge></span>
+        {% endif %}
+    </button>
+    <div class="dlux-notifications__panel" data-dlux-notifications-panel hidden>
+        <div class="dlux-notifications__header">
+            <strong>{{ DLUX_STRINGS.notifications|default:'Notifications' }}</strong>
+            <div class="dlux-notifications__actions">
+                <button
+                    type="button"
+                    class="dlux-notifications__icon-btn"
+                    data-dlux-notifications-read-all
+                    title="{{ DLUX_STRINGS.mark_all_read|default:'Mark all read' }}"
+                    aria-label="{{ DLUX_STRINGS.mark_all_read|default:'Mark all read' }}"
+                >
+                    <i class="bi bi-envelope-open" aria-hidden="true"></i>
+                </button>
+                <button
+                    type="button"
+                    class="dlux-notifications__icon-btn dlux-notifications__icon-btn--danger"
+                    data-dlux-notifications-clear-all
+                    title="{{ DLUX_STRINGS.clear_all_notifications|default:'Clear read notifications' }}"
+                    aria-label="{{ DLUX_STRINGS.clear_all_notifications|default:'Clear read notifications' }}"
+                >
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+        <div class="dlux-notifications__list" data-dlux-notifications-list>
+            {% for item in dlux_notifications %}
+            <button
+                type="button"
+                class="dlux-notifications__item{% if not item.read %} dlux-notifications__item--unread{% endif %}"
+                data-dlux-notification-item
+                data-id="{{ item.id }}"
+                data-read-url="{% url 'notification_mark_read' item.id %}"
+                data-dismiss-url="{% url 'notification_dismiss' item.id %}"
+                data-title="{{ item.title|default:'' }}"
+                data-message="{{ item.message }}"
+                data-level="{{ item.level }}"
+                data-source="{{ item.source }}"
+                data-action="{{ item.action }}"
+                data-origin="{{ item.source_model|default:item.source_label }}"
+                data-target-url="{{ item.target_url }}"
+            >
+                <span class="dlux-notifications__dot dlux-notifications__dot--{{ item.level }}"></span>
+                <span class="dlux-notifications__item-body">
+                    <span class="dlux-notifications__item-title">{{ item.title|default:item.message }}</span>
+                    <span class="dlux-notifications__item-meta">
+                        {{ item.source_model|default:item.category }}{% if item.action %} · {{ item.action }}{% endif %}
+                    </span>
+                </span>
+            </button>
+            {% empty %}
+            <div class="dlux-notifications__empty" data-dlux-notifications-empty>
+                {{ DLUX_STRINGS.notifications_empty|default:'No notifications' }}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="dlux-notifications__detail" data-dlux-notifications-detail hidden>
+            <div class="dlux-notifications__detail-head">
+                <button type="button" class="btn btn-sm btn-link" data-dlux-notifications-back>
+                    <i class="bi bi-arrow-left-short" aria-hidden="true"></i>
+                    <span>{{ DLUX_STRINGS.btn_back|default:'Back' }}</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-link text-danger" data-dlux-notifications-dismiss>
+                    {{ DLUX_STRINGS.dismiss|default:'Dismiss' }}
+                </button>
+            </div>
+            <h6 class="dlux-notifications__detail-title" data-dlux-notifications-detail-title></h6>
+            <p class="dlux-notifications__detail-message" data-dlux-notifications-detail-message></p>
+            <p class="dlux-notifications__detail-origin" data-dlux-notifications-detail-origin></p>
+            <a class="dlux-notifications__detail-link" data-dlux-notifications-detail-link href="#" hidden>
+                {{ DLUX_STRINGS.open|default:'Open' }}
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}

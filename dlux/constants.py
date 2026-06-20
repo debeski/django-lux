@@ -1,4 +1,14 @@
 DEFAULT_HOME_URL = '/accounts/profile/'
+
+# Profile page security-nudge intensity (missing 2FA / weak account health prompts).
+DEFAULT_SECURITY_NUDGE = 'subtle'
+SECURITY_NUDGE_CHOICES = (
+    ('off', 'Off'),
+    ('subtle', 'Subtle'),
+    ('persistent', 'Persistent'),
+)
+SECURITY_NUDGE_VALUES = {value for value, _label in SECURITY_NUDGE_CHOICES}
+
 DEFAULT_TABLE_DENSITY = 'balanced'
 DEFAULT_TABLE_PAGE_SIZE = 20
 TABLE_PAGE_SIZE_OPTIONS = (10, 20, 50, 100)
@@ -68,6 +78,25 @@ TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES = (
     ('square', 'Square'),
 )
 TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES = {value for value, _label in TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES}
+TITLEBAR_USER_HUB_STYLE_DROPDOWN = 'dropdown'
+TITLEBAR_USER_HUB_STYLE_ACTIONS = 'titlebar_actions'
+TITLEBAR_USER_HUB_STYLE_CHOICES = (
+    (TITLEBAR_USER_HUB_STYLE_DROPDOWN, 'Dropdown'),
+    (TITLEBAR_USER_HUB_STYLE_ACTIONS, 'Titlebar Actions'),
+)
+TITLEBAR_USER_HUB_STYLE_VALUES = {value for value, _label in TITLEBAR_USER_HUB_STYLE_CHOICES}
+TITLEBAR_ACTIONS_ORDER = (
+    'notifications',
+    'home',
+    'profile',
+    'help',
+    'users',
+    'activity',
+    'reports',
+    'settings',
+    'auth',
+)
+TITLEBAR_ACTIONS_ORDER_VALUES = set(TITLEBAR_ACTIONS_ORDER)
 
 REGISTRATION_ACTIVATION_AUTO_LOGIN = 'auto_login_after_verify'
 REGISTRATION_ACTIVATION_PENDING_APPROVAL = 'verified_pending_approval'

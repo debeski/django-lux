@@ -1,4 +1,9 @@
-/* Themes System refactored to sidebar app */
+/*!
+ * DjangoLux — design system stylesheet
+ * "Let there be light."  MIT License · (c) 2026 DeBeski (micro)
+ * https://github.com/debeski/django-lux
+ * Themes System refactored to sidebar app
+ */
 
 * {
     box-sizing: border-box;
@@ -6,6 +11,7 @@
 }
 
 :root {
+    --dlux-credit: "DjangoLux · MIT · github.com/debeski/django-lux";
     --granour: #169c72;
     --redanator: #d33708d3;
     --header-height: 60px;

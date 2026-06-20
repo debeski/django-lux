@@ -1,5 +1,3 @@
-from django.contrib import messages
-from django.contrib.messages.api import MessageFailure
 from django.contrib.auth import login
 from django.contrib.auth.decorators import user_passes_test
 from django.http import Http404
@@ -12,6 +10,7 @@ from ..constants import (
 )
 from ..forms import PublicRegistrationForm
 from ..models import PublicRegistration
+from ..notifications import notify
 from ..registration import (
     create_inactive_registration_user,
     existing_registration_email,
@@ -131,15 +130,15 @@ def _superuser_required(user):
 
 def _safe_success_message(request, message):
     try:
-        messages.success(request, message)
-    except MessageFailure:
+        notify.success(message, request=request, action='registration_notice', category='registration')
+    except Exception:
         pass
 
 
 def _safe_error_message(request, message):
     try:
-        messages.error(request, message)
-    except MessageFailure:
+        notify.error(message, request=request, action='registration_error', category='registration')
+    except Exception:
         pass
 
 

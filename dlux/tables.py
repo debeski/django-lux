@@ -211,7 +211,7 @@ class UserActivityLogTable(DluxTable):
     model_name = tables.Column(verbose_name="Model")
 
     class Meta(DluxTable.Meta):
-        model = apps.get_model('dlux', 'UserActivityLog')
+        model = apps.get_model('dlux', 'ActivityLog')
         fields = ("timestamp", "created_by", "full_name", "model_name", "action", "object_id", "number", "scope")
         exclude = ("id", "ip_address", "user_agent", "created_at", "updated_at", "updated_by", "deleted_at", "deleted_by")
         row_attrs = {

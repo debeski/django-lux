@@ -61,13 +61,29 @@
 
         window.initDluxDatepickers(document);
 
-        document.querySelectorAll(".alert:not([data-autoclose='false'])").forEach(function (message) {
+        function closeAlert(message) {
+            if (!message || !message.isConnected) {
+                return;
+            }
+            message.classList.add('dlux-alert--closing');
+            message.setAttribute('aria-hidden', 'true');
             setTimeout(function () {
-                message.style.opacity = '0';
-                setTimeout(function () {
+                if (message.isConnected) {
                     message.remove();
-                }, 3000);
-            }, 3000);
+                }
+            }, 260);
+        }
+
+        document.querySelectorAll(".alert:not([data-autoclose='false'])").forEach(function (message) {
+            const container = message.closest('[data-dlux-flash-timeout]');
+            const configuredTimeout = container ? parseInt(container.dataset.dluxFlashTimeout || '', 10) : NaN;
+            const timeout = Number.isFinite(configuredTimeout) ? configuredTimeout : 3200;
+            if (timeout <= 0) {
+                return;
+            }
+            setTimeout(function () {
+                closeAlert(message);
+            }, timeout);
         });
     });
 })();

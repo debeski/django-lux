@@ -8,6 +8,15 @@
   --dlux-choice-shadow: var(--dlux-setup-item-shadow, 0 10px 26px rgba(15, 23, 42, 0.08));
   --dlux-choice-text: var(--dlux-setup-text, var(--title, #1f2937));
   --dlux-choice-muted: var(--dlux-setup-muted, #64748b);
+  --dlux-choice-toggle-surface:
+    radial-gradient(circle at 50% 0%, rgba(var(--primal-rgb, 35, 99, 195), 0.04), transparent 68%),
+    linear-gradient(180deg, var(--dlux-choice-surface), var(--dlux-choice-surface));
+  --dlux-choice-toggle-surface-hover:
+    radial-gradient(circle at 50% 0%, rgba(var(--primal-rgb, 35, 99, 195), 0.08), transparent 68%),
+    linear-gradient(180deg, var(--dlux-choice-surface-hover), var(--dlux-choice-surface-hover));
+  --dlux-choice-toggle-surface-active:
+    radial-gradient(circle at 50% 0%, rgba(var(--bs-primary-rgb, var(--primal-rgb, 35, 99, 195)), 0.18), transparent 72%),
+    linear-gradient(180deg, var(--dlux-choice-surface-active), var(--dlux-choice-surface-active));
 }
 
 .dlux-choice-selector-field--toggle {
@@ -230,9 +239,7 @@
   padding: 0.75rem;
   border-radius: 1rem;
   border: 2px solid transparent;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(var(--primal-rgb, 35, 99, 195), 0.04), transparent 68%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 249, 250, 0.95));
+  background: var(--dlux-choice-toggle-surface);
   color: var(--dlux-choice-text);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   gap: 0;
@@ -306,18 +313,14 @@
 .dlux-choice-option--toggle:hover .dlux-choice-option__surface--toggle {
   transform: translateY(-2px);
   border-color: rgba(var(--primal-rgb, 35, 99, 195), 0.3);
-  background:
-    radial-gradient(circle at 50% 0%, rgba(var(--primal-rgb, 35, 99, 195), 0.08), transparent 68%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 249, 250, 0.97));
+  background: var(--dlux-choice-toggle-surface-hover);
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .dlux-choice-option--toggle .dlux-choice-option__input:checked + .dlux-choice-toggle .dlux-choice-option__surface--toggle,
 .dlux-choice-option--toggle .dlux-choice-option__surface--toggle.lang-active {
   border-color: var(--bs-primary, var(--primal, #2363c3)) !important;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(var(--bs-primary-rgb, var(--primal-rgb, 35, 99, 195)), 0.18), transparent 72%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(var(--bs-primary-rgb, var(--primal-rgb, 35, 99, 195)), 0.09));
+  background: var(--dlux-choice-toggle-surface-active);
   color: var(--bs-primary, var(--primal, #2363c3));
   box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb, var(--primal-rgb, 35, 99, 195)), 0.2), 0 4px 14px rgba(var(--bs-primary-rgb, var(--primal-rgb, 35, 99, 195)), 0.12) !important;
 }

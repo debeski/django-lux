@@ -9,13 +9,17 @@ from django_tables2 import SingleTableView
 from django_filters.views import FilterView
 
 # Project imports
-from ..utils import get_user_scope, is_scope_enabled, translate_activity_log_model_name, user_can_view_activity_log
+from ..utils import get_user_scope, is_global_staff, is_scope_enabled, translate_activity_log_model_name, user_can_view_activity_log
 from ..translations import get_strings
+
+# The three log categories surfaced as tabs. 'audit' is privileged and only shown to
+# superusers / global staff.
+LOG_CATEGORY_TABS = ('user', 'system', 'audit')
 
 
 # Activity Log View — Paginated, filterable list of user activity with scope support
 class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTableView):
-    model = apps.get_model('dlux', 'UserActivityLog')
+    model = apps.get_model('dlux', 'ActivityLog')
     table_class = import_string('dlux.tables.UserActivityLogTable')
     filterset_class = import_string('dlux.filters.UserActivityLogFilter')
     template_name = "dlux/activitylog/activity_log.html"
@@ -29,32 +33,43 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
 
     def test_func(self):
         return user_can_view_activity_log(self.request.user)
-    
-    def get_queryset(self):
-        # Order by timestamp descending by default
-        # Using .all() ensures we use the ScopedManager which handles scope filtering automatically.
-        # exclude_log_noise() drops historical presence/device tracking rows (these models are no
-        # longer logged at all — see signals.EXCLUDED_MODELS — but old rows may still exist).
+
+    def _can_view_audit(self):
+        user = self.request.user
+        return bool(getattr(user, 'is_superuser', False) or is_global_staff(user))
+
+    def _visible_categories(self):
+        return [c for c in LOG_CATEGORY_TABS if c != 'audit' or self._can_view_audit()]
+
+    def _active_category(self):
+        requested = (self.request.GET.get('category') or 'user').strip().lower()
+        visible = self._visible_categories()
+        return requested if requested in visible else 'user'
+
+    def _base_queryset(self):
+        """Scope/permission-filtered queryset before category narrowing (for tab counts)."""
         from ..reports import exclude_log_noise
         qs = exclude_log_noise(
             super().get_queryset()
             .select_related('created_by__profile__scope')
         ).order_by('-created_at')
-        
-        # When scopes are disabled, defer the scope column to avoid loading unused data
         if not is_scope_enabled():
             try:
                 self.model._meta.get_field('scope')
                 qs = qs.defer('scope')
             except FieldDoesNotExist:
                 pass
-                
         if not self.request.user.is_superuser:
-            # Still exclude superuser actions if non-superuser, 
+            # Still exclude superuser actions if non-superuser,
             # as these are often sensitive system-level configurations.
             qs = qs.exclude(created_by__is_superuser=True)
-            
+        # Never leak audit rows to users who can't view the audit tab.
+        if not self._can_view_audit():
+            qs = qs.exclude(category='audit')
         return qs
+
+    def get_queryset(self):
+        return self._base_queryset().filter(category=self._active_category())
 
     def get_table(self, **kwargs):
         table = super().get_table(**kwargs)
@@ -78,13 +93,30 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
         setup_filter_helper(activity_filter, self.request)
 
         context['filter'] = activity_filter
+
+        # Category tabs (user/system/audit) with per-category counts.
+        from django.db.models import Count
+        s = get_strings()
+        base = self._base_queryset()
+        counts = {row['category']: row['n'] for row in base.values('category').annotate(n=Count('id'))}
+        active = self._active_category()
+        labels = {
+            'user': s.get('log_tab_user', 'User'),
+            'system': s.get('log_tab_system', 'System'),
+            'audit': s.get('log_tab_audit', 'Audit'),
+        }
+        context['log_category_tabs'] = [
+            {'key': c, 'label': labels.get(c, c.title()), 'count': counts.get(c, 0), 'active': c == active}
+            for c in self._visible_categories()
+        ]
+        context['active_log_category'] = active
         return context
 
 
 
 # Activity Log View — Detail modal for a single activity log entry
 class ActivityLogDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
-    model = apps.get_model('dlux', 'UserActivityLog')
+    model = apps.get_model('dlux', 'ActivityLog')
     context_object_name = 'log'
     template_name = 'dlux/activitylog/activity_log_detail_modal.html'
 
