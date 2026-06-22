@@ -6,6 +6,11 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.2.1
+
+- **Mirrored System Setup Header**: Flipped the first-launch setup header composition on both the language gate and full wizard so title/description occupy the logical start edge and the logo sits opposite. The markup order and `text-align: start` remain direction-aware, producing text-left/logo-right in LTR and text-right/logo-left in RTL; `system_setup.css` is cache-busted as `?v=20260621a`.
+- **English First-Launch Setup Language Selection**: Fixed the setup-language gate appearing to reload without entering the wizard when English was selected. The global `prevent_double_submit.js` helper disabled the form's first submit button during the native `submit` event; because English is the first named button, `setup_language=en` was removed from form serialization, while Arabic continued to work. The helper now uses `event.submitter`, blocks repeat submits with form state, and defers disabling the clicked button until after native serialization; `base.html` cache-busts the helper as `?v=20260621a`, and both English and Arabic setup paths have regression coverage.
+
 ## v1.2.0
 
 - **Dlux Permission Descriptions**: Added localized helper text for Dlux-owned assignable permissions that previously rendered without descriptions in the grouped staff/user permission cards: reports, backup downloads, section viewing/management, and activity-log viewing. The grouped permission widget now sources Dlux permission descriptions from a codename-to-translation-key map while keeping permission definitions and migrations unchanged.

@@ -2,10 +2,10 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Package version source: `dlux/VERSION` = `1.2.0`; `dist/` is absent in this checkout.
+- Package version source: `dlux/VERSION` = `1.2.1`; `dist/` is absent in this checkout.
 - DjangoLux is a Django UX/application framework: `dlux_settings()`, `SystemSettings`, setup wizard, scoped models, user/security, navigation, reports, backup, scaffolding, optional SSO.
 - Core resolver flow: `dlux.system` defaults/schema/registry -> `DLUX_CONFIG` -> DB `SystemSettings` -> normalized request/user/runtime context -> backend-enforced views/helpers.
-- Active release standard: tag-driven GitHub Actions per `docs/RELEASING.md`; current unreleased work is logged under `CHANGELOG.md` `## v1.2.0`.
+- Active release standard: tag-driven GitHub Actions per `docs/RELEASING.md`; post-v1.2.0 work is now tracked under unreleased `v1.2.1` with matching `dlux/VERSION`.
 
 ### Current Project Adopted Standards:
 - Settings integration: `from dlux.utils import dlux_settings`; `dlux_settings(globals())`; mount `dlux.urls` at root for `/accounts/` and `/sys/`.
@@ -16,7 +16,7 @@
 
 ### Adopted Standards' rules and policies:
 - Maintain `tracker.md` as the brief live source of state, <=100 lines total, and update it after state/docs/tests changes.
-- Changelog uses newest `## vX.Y.Z` sections and flat bold-title bullets; current checkout appends to `## v1.2.0`.
+- Changelog uses newest `## vX.Y.Z` sections and flat bold-title bullets; released/tagged sections are immutable.
 - Preserve user changes and avoid destructive git commands unless explicitly requested.
 
 ### Cross-Cutting Audits if any:
@@ -32,6 +32,8 @@
 - **Priority 2 (deferred from ActivityLog plan):**
   - [ ] Optional: full request-scoped `transaction.on_commit` aggregator with nested-by-relation details + dev-satellite folding (deferred — `on_commit` doesn't fire under the TestCase suite; satellite scan was order-fragile and over-broad. Rolling-window fix shipped instead).
 - **Completed Recently:**
+  - [x] Mirrored first-launch setup headers on the language gate and wizard: title/description now occupy logical start and logo sits opposite (LTR text-left/logo-right; RTL text-right/logo-left); `system_setup.css` `?v=20260621a`; changelog/tests updated.
+  - [x] Fixed English first-launch setup gate no-op: global `prevent_double_submit.js` disabled the first named submitter during serialization and stripped `setup_language=en`; helper now uses `event.submitter`, form-state repeat blocking, deferred disabling, and `?v=20260621a`; EN/AR tests/docs/changelog updated.
   - [x] Added localized descriptions for Dlux-owned assignable permissions without help text (reports, backup downloads, sections, activity log) in grouped user/staff permission cards; widget now uses a Dlux codename-to-translation map; docs/changelog/tests updated.
   - [x] Corrected setup language gate semantics: `/sys/setup/` language choice now controls setup UI language/direction only; `default_language` remains editable/save-only in Localization, bound POST rerenders preserve the chosen default radio, and `system_setup.js` is `?v=20260620l`; docs/changelog/tests updated.
   - [x] Fixed titlebar surface selector no-op: theme CSS `.titlebar { background: ... !important; }` rules overrode `titlebar.css` muted/glass styles; added post-theme `titlebar_surfaces.css` with higher-specificity `muted`/`glass` overrides, loaded after the theme loop (`?v=20260620a`); Chrome computed-style probe verified distinct default/muted/glass backgrounds for light/dark/neon; changelog/tests updated.
@@ -51,15 +53,15 @@
   - [x] ActivityLog redesign COMPLETE (plan `.claude/plans/set-up-the-robust-plan-twinkling-kettle.md`): Phases 1/2/5 (rename+category+`log_config`+gating) plus Phase 4 audit hooks (`log_audit_event` for login/lockout/2FA/password/session/trusted-device/permission, gated by `audit.events`), Phase 6 audit append-only `save()/delete()` + `dlux_prune_activity_log` (skips audit), Phase 5b `dlux.log_activity` dev helper, consumers (log-view user/system/audit tabs `?category=` gated to superuser/global-staff + admin `category`), and Phase 3 rolling-window User/Profile merge (fixes second-boundary double-log). 525 green.
 
 ### One-line info about last verified Tests:
+- 2026-06-21: Mirrored setup header passed focused wizard/language-gate template and render tests (5), `django check`, `makemigrations --check --dry-run`, and `git diff --check`.
+- 2026-06-21: English setup-language submit fix passed focused gate/helper tests (5), full `test_all.py` (567), `django check`, `makemigrations --check --dry-run`, and `git diff --check`; live Browser verification unavailable because the in-app browser connection failed before opening the page.
 - 2026-06-21: Dlux permission descriptions passed focused `dlux.tests.test_permissions_ui` (7), `django check`, `makemigrations --check --dry-run`, and `git diff --check`.
 - 2026-06-20: Titlebar surface fix passed Chrome computed-style probe (light/dark/neon default/muted/glass all distinct), focused titlebar/base-template tests (2), `django check`, and `git diff --check`.
 - 2026-06-20: Choice selector focus-scroll fix passed headless Chrome selector probe, focused selector/template tests (2), setup view+JS/CSS tests (3), `django check`, and `git diff --check`.
-- 2026-06-20: Constants relocation/`dlux.constants` shim + scaffold pagination cleanup passed full `dlux/tests/test_all.py --verbosity=1` (560 tests), `makemigrations --check --dry-run`, `django check`, and `git diff --check`.
-- 2026-06-20: Settings registry Phase A/B passed focused registry/form/export tests, full `dlux/tests/test_all.py --verbosity=1` (560 tests), `makemigrations --check --dry-run`, and `django check`; published migrations unchanged.
 
 ### One-line info about last time edited Docs:
-- 2026-06-21: Updated `CHANGELOG.md`, `docs/FEATURES.md`, and `docs/admin-guide.md` for localized Dlux-owned permission descriptions in assignment cards.
-- 2026-06-20: Updated `CHANGELOG.md`, `docs/reference.md`, `docs/FEATURES.md`, and `docs/admin-guide.md` for `dlux.system` registry/constants ownership and migration wrapper invariants.
+- 2026-06-22: Created unreleased `CHANGELOG.md` v1.2.1, moved post-tag setup fixes into it, and restored tagged v1.2.0 text.
+- 2026-06-21: Updated `CHANGELOG.md`, `docs/FEATURES.md`, and `docs/admin-guide.md` for working English/Arabic first-launch setup language selection and named-submitter preservation.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

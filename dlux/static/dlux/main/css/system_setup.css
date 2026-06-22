@@ -1198,7 +1198,7 @@
         var(--dlux-setup-shell-bg);
 }
 
-/* Logo at the start, title/desc on the opposite side (RTL-aware via logical
+/* Title/desc at the start, logo on the opposite side (RTL-aware via logical
    properties); this row is the top of the scroll body and scrolls out of view
    above the sticky nav. */
 .dlux-setup-intro {
@@ -1217,7 +1217,7 @@
 .dlux-setup-intro__text {
     flex: 1 1 auto;
     min-width: 0;
-    text-align: end;
+    text-align: start;
 }
 
 .dlux-setup-intro__title {

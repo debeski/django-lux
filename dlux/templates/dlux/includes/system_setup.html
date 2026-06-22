@@ -6,7 +6,7 @@
 
 {% block extra_head %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260620k">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260621a">
 {% endblock %}
 
 {% block layout %}
@@ -16,11 +16,11 @@
             {% csrf_token %}
             <div class="dlux-setup-scroll" data-dlux-setup-scroll>
                 <div class="dlux-setup-intro">
-                    <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="Logo" class="dlux-setup-page-logo">
                     <div class="dlux-setup-intro__text">
                         <h2 class="dlux-setup-intro__title">{{ DLUX_STRINGS.system_setup_title|default:"System Setup" }}</h2>
                         <p class="dlux-setup-intro__desc">{{ DLUX_STRINGS.system_setup_page_desc|default:"Complete the initial branding, languages, and sidebar structure for Dlux." }}</p>
                     </div>
+                    <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="Logo" class="dlux-setup-page-logo">
                 </div>
             <nav class="dlux-setup-step-nav"
                              aria-label="{{ DLUX_STRINGS.system_setup_step_nav_aria }}"

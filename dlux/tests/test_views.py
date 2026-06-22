@@ -579,6 +579,25 @@ class GeneralViewsTests(TestCase):
         self.assertNotContains(response, 'data-default-language-locked')
         self.assertNotContains(response, 'disabled aria-disabled="true"')
 
+    def test_system_setup_english_language_choice_unlocks_wizard(self):
+        from dlux.models import SystemSettings
+        settings = SystemSettings.load()
+        settings.is_configured = False
+        settings.save()
+
+        response = self.client.post(reverse('system_setup'), {'setup_language': 'en'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], reverse('system_setup'))
+
+        session = self.client.session
+        self.assertEqual(session['dlux_initial_setup_language'], 'en')
+        self.assertEqual(session['lang'], 'en')
+
+        response = self.client.get(reverse('system_setup'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-dlux-wizard-step-nav')
+        self.assertNotContains(response, 'name="setup_language"')
+
     def test_system_setup_redirects_if_configured(self):
         """Test that system_setup redirects if system is already configured."""
         from dlux.models import SystemSettings

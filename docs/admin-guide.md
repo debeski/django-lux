@@ -14,7 +14,7 @@ User-specific preferences live separately in `Profile.preferences`. That is wher
 
 ## First-Launch Setup Wizard
 
-The setup wizard lives at `/sys/setup/` and is only intended for the initial system configuration pass. It is the canonical place to establish the project-wide defaults that later users inherit. On an unconfigured system, `/sys/setup/` first asks for the setup language; that choice controls only the first-launch setup UI language and direction. The actual app default language is still chosen separately in the Localization step.
+The setup wizard lives at `/sys/setup/` and is only intended for the initial system configuration pass. It is the canonical place to establish the project-wide defaults that later users inherit. On an unconfigured system, `/sys/setup/` first asks for the setup language; choosing either English or Arabic immediately opens the wizard in that language and direction. This choice controls only the first-launch setup UI. The actual app default language is still chosen separately in the Localization step.
 
 ![Setup wizard capture slot](assets/setup-wizard.webp)
 

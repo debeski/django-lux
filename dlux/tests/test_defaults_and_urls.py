@@ -2214,7 +2214,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         _assert_versioned_static_asset(self, contents, "dlux/main/css/main.css")
         self.assertIn("dlux/main/css/system_setup.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/system_setup.css")
-        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260620k", contents)
+        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260621a", contents)
         self.assertIn("dlux/main/css/titlebar_surfaces.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/titlebar_surfaces.css")
         self.assertLess(
@@ -2224,6 +2224,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("dlux/main/js/system_setup.js", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/js/system_setup.js")
         self.assertIn("dlux/main/js/system_setup.js' %}?v=20260620l", contents)
+        self.assertIn("dlux/helpers/prevent_double_submit.js' %}?v=20260621a", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/helpers/prevent_double_submit.js")
         self.assertIn("dlux/helpers/wizard/js/main.js", contents)
         self.assertLess(
             contents.index("dlux/main/js/system_setup.js"),
@@ -2250,7 +2252,24 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('and not hide_sidebar_toggle', titlebar_contents)
         self.assertIn('id="sidebarToggle"', titlebar_contents)
         self.assertIn("'hide_sidebar_toggle': True,", view_contents)
-        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260620k", setup_contents)
+        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260621a", setup_contents)
+        self.assertLess(
+            setup_contents.index('dlux-setup-intro__text'),
+            setup_contents.index('dlux-setup-page-logo'),
+        )
+
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
+        stylesheet_contents = stylesheet.read_text(encoding='utf-8')
+        self.assertIn('text-align: start;', stylesheet_contents)
+
+    def test_double_submit_helper_preserves_named_submitter_values(self):
+        script_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'prevent_double_submit.js'
+        contents = script_path.read_text(encoding='utf-8')
+
+        self.assertIn('const submitBtn = event.submitter ||', contents)
+        self.assertIn("form.dataset.dluxSubmitting === 'true'", contents)
+        self.assertIn('window.setTimeout(() => {', contents)
+        self.assertLess(contents.index('window.setTimeout(() => {'), contents.index('submitBtn.disabled = true'))
 
     def test_system_setup_language_gate_template_uses_setup_language_choices(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'system_setup_language.html'
@@ -2259,7 +2278,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('name="setup_language"', contents)
         self.assertIn('data-setup-language-start="{{ code }}"', contents)
         self.assertIn('dlux-setup-language-choice', contents)
-        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260620k", contents)
+        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260621a", contents)
+        self.assertLess(
+            contents.index('dlux-setup-intro__text'),
+            contents.index('dlux-setup-page-logo'),
+        )
 
     def test_setup_language_does_not_force_saved_default_language(self):
         request = RequestFactory().get('/sys/setup/')

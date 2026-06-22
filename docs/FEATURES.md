@@ -47,7 +47,7 @@
 - **Step 7 Titlebar** includes titlebar button-shape controls, Dropdown vs Titlebar Actions user-hub layout, and orderable titlebar actions
 - **Step 8 Notifications** is a dedicated step (notifications were split out of the Titlebar step) with a top-level `notifications_enabled` master toggle — like the sidebar/nav-bar enablement switches — gating flash/drawer/badge/bridge/email and automatic CRUD controls; when off, the whole notification subsystem (including `notify(...)`) is suppressed
 - **Setup import/export path** for reusing System Settings payloads across environments
-- **Setup language gate** on first launch chooses only the setup UI language/direction before the wizard renders; the persisted system default language remains an editable Localization setting and may be different
+- **Setup language gate** on first launch accepts either built-in English or Arabic and chooses only the setup UI language/direction before the wizard renders; the persisted system default language remains an editable Localization setting and may be different
 - **Live preview** for theme, sidebar, titlebar, and notification drawer/flash presentation changes
 - **Save-only default language** in setup/System Settings so language changes no longer trigger preview reloads or discard unsaved wizard values
 - **Full-width first-launch setup shell** that hides the runtime sidebar toggle because the setup page does not render the runtime sidebar

@@ -38,7 +38,7 @@
     <link rel="stylesheet" href="{% static 'dlux/main/css/template_cleanup.css' %}?v=20260615b">
 
     <link rel="stylesheet" href="{% static 'dlux/main/css/pagination.css' %}">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260620k">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260621a">
     {% for theme in DLUX_THEMES %}
     <link rel="stylesheet" href="{% static theme.css_path %}?v=20260619a">
     {% endfor %}
@@ -62,7 +62,7 @@
     <script src="{% static 'dlux/language/js/main.js' %}?v=20260514a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/language/js/translations.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/autofill/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/helpers/prevent_double_submit.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/helpers/prevent_double_submit.js' %}?v=20260621a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/tooltip/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/titlebar.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/notifications.js' %}?v=20260615e" nonce="{{ request.csp_nonce }}" defer></script>

@@ -2,29 +2,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const forms = document.querySelectorAll('form');
     
     forms.forEach(form => {
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', function(event) {
             // Check if form is valid (if using browser validation)
             if (!form.checkValidity()) {
                 return;
             }
 
-            // Find submit button
-            const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
-            if (submitBtn) {
-                // Add loading spinner or text if desired, or just disable
-                const originalText = submitBtn.innerHTML;
-                submitBtn.disabled = true;
-                submitBtn.classList.add('disabled');
-                
-                // Optional: Change text to indicate processing
-                // submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+            if (form.dataset.dluxSubmitting === 'true') {
+                event.preventDefault();
+                return;
+            }
+            form.dataset.dluxSubmitting = 'true';
 
-                // Re-enable after a timeout (fallback in case of error/no navigation)
-                setTimeout(() => {
+            // Preserve which named action triggered a multi-button form.
+            const submitBtn = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                // Disabling a named submitter inside the submit event removes its
+                // name/value from native form serialization. Defer that mutation.
+                window.setTimeout(() => {
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('disabled');
+                }, 0);
+                
+                window.setTimeout(() => {
                     submitBtn.disabled = false;
                     submitBtn.classList.remove('disabled');
-                    // submitBtn.innerHTML = originalText;
-                }, 5000); // 5 seconds timeout
+                    delete form.dataset.dluxSubmitting;
+                }, 5000);
+            } else {
+                window.setTimeout(() => {
+                    delete form.dataset.dluxSubmitting;
+                }, 5000);
             }
         });
     });
