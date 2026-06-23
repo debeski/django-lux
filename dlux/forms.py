@@ -1680,6 +1680,17 @@ class SystemSettingsForm(forms.ModelForm):
             ('env', 'Environment / secrets'),
         ),
     )
+    email_config_provider_preset = forms.ChoiceField(
+        required=False,
+        choices=(
+            ('custom', 'Custom / manual'),
+            ('gmail', 'Gmail'),
+            ('outlook', 'Outlook / Office 365'),
+            ('ses', 'Amazon SES'),
+            ('mailgun', 'Mailgun'),
+            ('relay', 'Internal relay'),
+        ),
+    )
     email_config_host = forms.CharField(required=False, max_length=255)
     email_config_port = forms.IntegerField(required=False, min_value=1, max_value=65535)
     email_config_use_tls = forms.BooleanField(required=False, initial=True)
@@ -1690,6 +1701,11 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.PasswordInput(render_value=False),
     )
     email_config_default_from_email = forms.EmailField(required=False)
+    email_config_failure_recipients = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 2}),
+    )
+    email_config_test_recipient = forms.EmailField(required=False)
     sidebar_config = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -2599,14 +2615,38 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['email_config_username'].label = s.get('form_sys_email_username', 'Provider SMTP username')
         self.fields['email_config_password'].label = s.get('form_sys_email_password', 'Provider SMTP password')
         self.fields['email_config_default_from_email'].label = s.get('form_sys_email_default_from', 'Default from email')
+        self.fields['email_config_provider_preset'].label = s.get('form_sys_email_provider_preset', 'Provider preset')
+        self.fields['email_config_provider_preset'].help_text = s.get(
+            'help_sys_email_provider_preset',
+            'Prefills SMTP host/port/encryption for common providers. Choose Custom to enter values manually.',
+        )
+        self.fields['email_config_failure_recipients'].label = s.get(
+            'form_sys_email_failure_recipients', 'Failure alert recipients'
+        )
+        self.fields['email_config_failure_recipients'].help_text = s.get(
+            'help_sys_email_failure_recipients',
+            'Comma or newline separated emails warned in-app when transactional mail fails to send. Requires notifications enabled.',
+        )
+        self.fields['email_config_test_recipient'].label = s.get('form_sys_email_test_recipient', 'Send a test email to')
+        self.fields['email_config_test_recipient'].help_text = s.get(
+            'help_sys_email_test_recipient',
+            'Sends a one-off message using the saved configuration. Save the form before testing.',
+        )
         for field_name in (
             'email_config_host',
             'email_config_username',
             'email_config_password',
             'email_config_default_from_email',
+            'email_config_failure_recipients',
+            'email_config_test_recipient',
         ):
             self.fields[field_name].widget.attrs.update({'class': 'form-control glass-input'})
         self.fields['email_config_port'].widget.attrs.update({'class': 'form-control glass-input'})
+        self.fields['email_config_provider_preset'].widget.attrs.update({
+            'class': 'form-select glass-input',
+            'data-email-provider-preset': '',
+        })
+        self.fields['email_config_test_recipient'].widget.attrs.update({'data-email-test-recipient': ''})
         self.fields['public_root'].label = s.get('form_sys_public_root', 'Public Root Access')
         self.fields['public_root'].help_text = s.get(
             'help_sys_public_root',
@@ -3086,12 +3126,16 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['email_config'] = _json_dump(normalize_email_config(initial_email_config, redact_secret=True), ensure_ascii=False)
         self.initial['email_config_transport'] = initial_email_config.get('transport', 'direct')
         self.initial['email_config_secret_storage'] = initial_email_config.get('secret_storage', 'env')
+        self.initial['email_config_provider_preset'] = initial_email_config.get('provider_preset', 'custom')
         self.initial['email_config_host'] = initial_email_config.get('host', '')
         self.initial['email_config_port'] = initial_email_config.get('port', 587)
         self.initial['email_config_use_tls'] = bool(initial_email_config.get('use_tls', True))
         self.initial['email_config_use_ssl'] = bool(initial_email_config.get('use_ssl', False))
         self.initial['email_config_username'] = initial_email_config.get('username', '')
         self.initial['email_config_default_from_email'] = initial_email_config.get('default_from_email', '')
+        self.initial['email_config_failure_recipients'] = '\n'.join(
+            initial_email_config.get('failure_notification_recipients', []) or []
+        )
         if not self.initial.get('sidebar_config'):
             sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}), allow_system_items=True)
             if not isinstance(sidebar_config, dict):
@@ -3540,9 +3584,10 @@ class SystemSettingsForm(forms.ModelForm):
                     f"</p>"
                 ),
                 Row(
-                    Div(Field('email_config_transport'), css_class='col-lg-4'),
-                    Div(Field('email_config_secret_storage'), css_class='col-lg-4'),
-                    Div(Field('email_config_default_from_email'), css_class='col-lg-4'),
+                    Div(Field('email_config_transport'), css_class='col-lg-3'),
+                    Div(Field('email_config_provider_preset'), css_class='col-lg-3'),
+                    Div(Field('email_config_secret_storage'), css_class='col-lg-3'),
+                    Div(Field('email_config_default_from_email'), css_class='col-lg-3'),
                 ),
                 Row(
                     Div(Field('email_config_host'), css_class='col-lg-4'),
@@ -3554,12 +3599,29 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(Field('email_config_password'), css_class=email_password_field_class),
                 ),
+                Row(
+                    Div(Field('email_config_failure_recipients'), css_class='col-lg-12'),
+                ),
                 Field('email_config'),
                 HTML(
                     f"<div class='alert alert-info small' data-autoclose='false'>"
                     f"Email service: {get_email_service_status().get('reason', 'unknown')}."
                     f"</div>"
                 ),
+                Row(
+                    Div(Field('email_config_test_recipient'), css_class='col-lg-8'),
+                    Div(
+                        HTML(
+                            "<button type='button' class='btn btn-outline-primary w-100' "
+                            "data-email-send-test "
+                            f"data-email-send-test-url='{reverse('email_send_test')}'>"
+                            f"{s.get('email_send_test_button', 'Send test email')}</button>"
+                        ),
+                        css_class='col-lg-4 d-flex align-items-end',
+                    ),
+                    css_class='align-items-end',
+                ),
+                HTML("<div class='small mt-2' data-email-send-test-result aria-live='polite'></div>"),
                 HTML("</div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('access_security_settings_title', s.get('system_settings_security', 'Access & Security'))}</h6>"),
                 Row(
@@ -4302,12 +4364,14 @@ class SystemSettingsForm(forms.ModelForm):
         config = normalize_email_config({
             'transport': transport,
             'secret_storage': secret_storage,
+            'provider_preset': self.cleaned_data.get('email_config_provider_preset') or existing.get('provider_preset', 'custom'),
             'host': self.cleaned_data.get('email_config_host') or '',
             'port': self.cleaned_data.get('email_config_port') or 587,
             'use_tls': self.cleaned_data.get('email_config_use_tls'),
             'use_ssl': self.cleaned_data.get('email_config_use_ssl'),
             'username': self.cleaned_data.get('email_config_username') or '',
             'default_from_email': self.cleaned_data.get('email_config_default_from_email') or '',
+            'failure_notification_recipients': self.cleaned_data.get('email_config_failure_recipients') or '',
         })
         if config.get('secret_storage') == 'encrypted_db':
             raw_password = self.cleaned_data.get('email_config_password') or ''
@@ -4377,12 +4441,16 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['email_config'] = email_config
             cleaned['email_config_transport'] = email_config.get('transport', 'direct')
             cleaned['email_config_secret_storage'] = email_config.get('secret_storage', 'env')
+            cleaned['email_config_provider_preset'] = email_config.get('provider_preset', 'custom')
             cleaned['email_config_host'] = email_config.get('host', '')
             cleaned['email_config_port'] = email_config.get('port', 587)
             cleaned['email_config_use_tls'] = bool(email_config.get('use_tls', True))
             cleaned['email_config_use_ssl'] = bool(email_config.get('use_ssl', False))
             cleaned['email_config_username'] = email_config.get('username', '')
             cleaned['email_config_default_from_email'] = email_config.get('default_from_email', '')
+            cleaned['email_config_failure_recipients'] = '\n'.join(
+                email_config.get('failure_notification_recipients', []) or []
+            )
             cleaned['email_config_password'] = ''
 
         client_ip_config = imported.get('client_ip_config')
@@ -4556,6 +4624,8 @@ class SystemSettingsForm(forms.ModelForm):
                 'email_config_username',
                 'email_config_password',
                 'email_config_default_from_email',
+                'email_config_provider_preset',
+                'email_config_failure_recipients',
             )
         )
         imported_email_config = cleaned.get('email_config') if isinstance(cleaned.get('email_config'), dict) else {}
@@ -4572,12 +4642,14 @@ class SystemSettingsForm(forms.ModelForm):
             email_config = normalize_email_config({
                 'transport': email_transport,
                 'secret_storage': email_secret_storage,
+                'provider_preset': cleaned.get('email_config_provider_preset') or existing_email_config.get('provider_preset', 'custom'),
                 'host': cleaned.get('email_config_host') or '',
                 'port': cleaned.get('email_config_port') or 587,
                 'use_tls': cleaned.get('email_config_use_tls'),
                 'use_ssl': cleaned.get('email_config_use_ssl'),
                 'username': cleaned.get('email_config_username') or '',
                 'default_from_email': cleaned.get('email_config_default_from_email') or '',
+                'failure_notification_recipients': cleaned.get('email_config_failure_recipients') or '',
             })
             if email_config.get('secret_storage') == 'encrypted_db':
                 raw_password = cleaned.get('email_config_password') or ''

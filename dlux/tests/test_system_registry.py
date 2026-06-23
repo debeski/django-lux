@@ -64,6 +64,41 @@ NORMALIZER_NAMES = (
 )
 
 
+class EmailConfigNormalizerTests(SimpleTestCase):
+    def test_provider_preset_defaults_to_custom_and_rejects_unknown(self):
+        self.assertEqual(system_normalizers.normalize_email_config({})['provider_preset'], 'custom')
+        self.assertEqual(
+            system_normalizers.normalize_email_config({'provider_preset': 'GMAIL'})['provider_preset'],
+            'gmail',
+        )
+        self.assertEqual(
+            system_normalizers.normalize_email_config({'provider_preset': 'bogus'})['provider_preset'],
+            'custom',
+        )
+
+    def test_failure_recipients_clean_dedupe_and_cap(self):
+        normalized = system_normalizers.normalize_email_config({
+            'failure_notification_recipients': 'ops@example.com, ops@example.com\nbad-address; lead@example.com',
+        })
+        self.assertEqual(
+            normalized['failure_notification_recipients'],
+            ['ops@example.com', 'lead@example.com'],
+        )
+
+        many = ','.join(f'user{i}@example.com' for i in range(20))
+        capped = system_normalizers.normalize_email_config({'failure_notification_recipients': many})
+        self.assertEqual(len(capped['failure_notification_recipients']), 10)
+
+    def test_redact_secret_keeps_new_keys(self):
+        normalized = system_normalizers.normalize_email_config(
+            {'provider_preset': 'gmail', 'failure_notification_recipients': ['ops@example.com']},
+            redact_secret=True,
+        )
+        self.assertNotIn('encrypted_password', normalized)
+        self.assertEqual(normalized['provider_preset'], 'gmail')
+        self.assertEqual(normalized['failure_notification_recipients'], ['ops@example.com'])
+
+
 class SystemSettingsRegistryTests(SimpleTestCase):
     def test_registry_covers_every_system_settings_config_json_field(self):
         model_config_fields = {

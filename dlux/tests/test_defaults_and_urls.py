@@ -2237,7 +2237,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
         self.assertIn("dlux/main/js/system_setup.js", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/js/system_setup.js")
-        self.assertIn("dlux/main/js/system_setup.js' %}?v=20260620l", contents)
+        self.assertIn("dlux/main/js/system_setup.js' %}?v=20260623a", contents)
         self.assertIn("dlux/helpers/prevent_double_submit.js' %}?v=20260621a", contents)
         _assert_versioned_static_asset(self, contents, "dlux/helpers/prevent_double_submit.js")
         self.assertIn("dlux/helpers/wizard/js/main.js", contents)

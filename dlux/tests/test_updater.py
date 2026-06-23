@@ -39,6 +39,24 @@ from dlux.updater.release_check import _changed_migrations, validate_inline_migr
 from dlux.updater.service import UpdateService, _sanitize, queue_run
 
 
+def _newer_version(base=__version__):
+    """Return a version string strictly greater than ``base`` (patch +1).
+
+    Lets version-sensitive updater tests model a volume release that is newer
+    than the baked ``__version__`` without hardcoding a literal that collides
+    with the package version on each release bump.
+    """
+    parts = base.split(".")
+    try:
+        parts[-1] = str(int(parts[-1]) + 1)
+    except (ValueError, IndexError):
+        return f"{base}.1"
+    return ".".join(parts)
+
+
+NEWER_VERSION = _newer_version()
+
+
 class FakeResponse:
     def __init__(self, payload, url="https://files.pythonhosted.org/package.whl", headers=None):
         self.payload = payload
@@ -140,7 +158,12 @@ class ManifestTests(TestCase):
             }}]}
             return FakeResponse(json.dumps(provenance).encode(), "https://pypi.org/integrity/x")
 
-        self.assertTrue(verify_pypi_attestation(candidate, runner=runner, opener=opener))
+        present = mock.patch(
+            "dlux.updater.manifest.importlib.util.find_spec",
+            return_value=SimpleNamespace(),
+        )
+        with present:
+            self.assertTrue(verify_pypi_attestation(candidate, runner=runner, opener=opener))
         command = runner.call_args.args[0]
         self.assertEqual(command[:3], [sys.executable, "-m", "pypi_attestations"])
 
@@ -150,7 +173,7 @@ class ManifestTests(TestCase):
             }}]}
             return FakeResponse(json.dumps(provenance).encode(), "https://pypi.org/integrity/x")
 
-        with self.assertRaises(UpdaterError):
+        with present, self.assertRaises(UpdaterError):
             verify_pypi_attestation(candidate, runner=runner, opener=wrong_opener)
 
         with mock.patch("dlux.updater.manifest.importlib.util.find_spec", return_value=None):
@@ -486,16 +509,19 @@ class UpdaterApiTests(TestCase):
 
     @mock.patch("dlux.updater.service.download_wheel", side_effect=UpdaterError("PyPI unavailable"))
     def test_empty_volume_reconstruction_failure_stays_degraded_and_preserves_record(self, _download):
+        # Active version must be strictly newer than the baked __version__ so the
+        # empty-volume path tries (and fails) to reconstruct from the wheel rather
+        # than falling back to the baked image.
         state = DluxUpdateState.load()
-        state.active_version = "1.2.3"
-        state.active_wheel_url = "https://files.pythonhosted.org/django_lux-1.2.3-py3-none-any.whl"
+        state.active_version = NEWER_VERSION
+        state.active_wheel_url = f"https://files.pythonhosted.org/django_lux-{NEWER_VERSION}-py3-none-any.whl"
         state.active_wheel_sha256 = "a" * 64
         state.save()
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
             reconciled = UpdateService(store=store).reconcile()
             self.assertTrue(reconciled.degraded)
-            self.assertEqual(reconciled.active_version, "1.2.3")
+            self.assertEqual(reconciled.active_version, NEWER_VERSION)
             self.assertTrue(store.degraded_file.exists())
             with mock.patch.dict(os.environ, {"DLUX_UPDATE_RUNTIME_ROOT": temp_dir}):
                 from dlux.updater.health import main as updater_health
@@ -505,10 +531,10 @@ class UpdaterApiTests(TestCase):
     def _apply_with_mocks(self, temp_dir, *, health_effect=None, manage_effect=None):
         state = DluxUpdateState.load()
         candidate = ReleaseCandidate(
-            "1.2.3", "django_lux-1.2.3-py3-none-any.whl",
-            "https://files.pythonhosted.org/django_lux-1.2.3-py3-none-any.whl", "a" * 64,
+            NEWER_VERSION, f"django_lux-{NEWER_VERSION}-py3-none-any.whl",
+            f"https://files.pythonhosted.org/django_lux-{NEWER_VERSION}-py3-none-any.whl", "a" * 64,
         )
-        manifest = release_manifest()
+        manifest = release_manifest(version=NEWER_VERSION)
         state.latest_version = candidate.version
         state.latest_wheel_url = candidate.url
         state.latest_wheel_sha256 = candidate.sha256
@@ -543,9 +569,9 @@ class UpdaterApiTests(TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             run, state, store = self._apply_with_mocks(temp_dir)
             self.assertEqual(run.status, run.STATUS_COMPLETED)
-            self.assertEqual(state.active_version, "1.2.3")
+            self.assertEqual(state.active_version, NEWER_VERSION)
             self.assertEqual(state.previous_version, __version__)
-            self.assertEqual(store.read_active(__version__)["version"], "1.2.3")
+            self.assertEqual(store.read_active(__version__)["version"], NEWER_VERSION)
             self.assertFalse(store.maintenance_file.exists())
 
     def test_post_switch_health_failure_automatically_restores_previous(self):
@@ -557,7 +583,7 @@ class UpdaterApiTests(TestCase):
             self.assertEqual(run.status, run.STATUS_ROLLED_BACK)
             self.assertEqual(state.active_version, __version__)
             self.assertEqual(store.read_active(__version__)["version"], __version__)
-            self.assertTrue(store.release_path("1.2.3").is_dir())
+            self.assertTrue(store.release_path(NEWER_VERSION).is_dir())
 
     def test_failed_preflight_never_switches_active_release(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -592,12 +618,12 @@ class UpdaterApiTests(TestCase):
     def test_interrupted_post_switch_apply_restores_source_pointer(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
-            store.release_path("1.2.3").mkdir()
-            store.write_active("1.2.3", source="volume", generation=1)
+            store.release_path(NEWER_VERSION).mkdir()
+            store.write_active(NEWER_VERSION, source="volume", generation=1)
             store.set_generation(1)
             store.set_maintenance(True, token="interrupted")
             state = DluxUpdateState.load()
-            state.active_version = "1.2.3"
+            state.active_version = NEWER_VERSION
             state.active_wheel_url = "https://files.pythonhosted.org/new.whl"
             state.active_wheel_sha256 = "a" * 64
             state.active_manifest = release_manifest()
@@ -608,7 +634,7 @@ class UpdaterApiTests(TestCase):
                 action=DluxUpdateRun.ACTION_APPLY,
                 status=DluxUpdateRun.STATUS_VERIFYING_HEALTH,
                 source_version=__version__,
-                target_version="1.2.3",
+                target_version=NEWER_VERSION,
                 report={"pointer_switched": True},
             )
             state.active_run_token = run.token
@@ -621,7 +647,7 @@ class UpdaterApiTests(TestCase):
             self.assertEqual(recovered.status, run.STATUS_ROLLED_BACK)
             self.assertTrue(recovered.report["pointer_recovered"])
             self.assertEqual(state.active_version, __version__)
-            self.assertEqual(state.previous_version, "1.2.3")
+            self.assertEqual(state.previous_version, NEWER_VERSION)
             self.assertEqual(store.read_active(__version__)["source"], "image")
             self.assertFalse(store.maintenance_file.exists())
             self.assertTrue(service.restart_worker)
@@ -634,7 +660,7 @@ class UpdaterApiTests(TestCase):
                 action=DluxUpdateRun.ACTION_APPLY,
                 status=DluxUpdateRun.STATUS_MIGRATING,
                 source_version=__version__,
-                target_version="1.2.3",
+                target_version=NEWER_VERSION,
             )
             state = DluxUpdateState.load()
             state.active_run_token = run.token
@@ -657,10 +683,13 @@ class UpdaterApiTests(TestCase):
     def test_manual_rollback_swaps_active_and_previous_without_reversing_migrations(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
-            store.release_path("1.2.3").mkdir()
-            store.write_active("1.2.3", source="volume", generation=0)
+            # The volume-resident active version must differ from (be newer than) the
+            # baked __version__ we roll back to, so the rollback target resolves to the
+            # baked "image" source.
+            store.release_path(NEWER_VERSION).mkdir()
+            store.write_active(NEWER_VERSION, source="volume", generation=0)
             state = DluxUpdateState.load()
-            state.active_version = "1.2.3"
+            state.active_version = NEWER_VERSION
             state.active_wheel_url = "https://files.pythonhosted.org/new.whl"
             state.active_wheel_sha256 = "a" * 64
             state.active_manifest = release_manifest()
@@ -676,16 +705,16 @@ class UpdaterApiTests(TestCase):
             state.refresh_from_db()
             self.assertEqual(run.status, run.STATUS_COMPLETED)
             self.assertEqual(state.active_version, __version__)
-            self.assertEqual(state.previous_version, "1.2.3")
+            self.assertEqual(state.previous_version, NEWER_VERSION)
             self.assertEqual(store.read_active(__version__)["source"], "image")
 
     def test_manual_rollback_recovery_failure_marks_runtime_degraded(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
-            store.release_path("1.2.3").mkdir()
-            store.write_active("1.2.3", source="volume", generation=0)
+            store.release_path(NEWER_VERSION).mkdir()
+            store.write_active(NEWER_VERSION, source="volume", generation=0)
             state = DluxUpdateState.load()
-            state.active_version = "1.2.3"
+            state.active_version = NEWER_VERSION
             state.active_wheel_url = "https://files.pythonhosted.org/new.whl"
             state.active_wheel_sha256 = "a" * 64
             state.active_manifest = release_manifest()
@@ -717,10 +746,10 @@ class UpdaterApiTests(TestCase):
     def test_manual_rollback_target_failure_with_successful_recovery_is_not_degraded(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
-            store.release_path("1.2.3").mkdir()
-            store.write_active("1.2.3", source="volume", generation=0)
+            store.release_path(NEWER_VERSION).mkdir()
+            store.write_active(NEWER_VERSION, source="volume", generation=0)
             state = DluxUpdateState.load()
-            state.active_version = "1.2.3"
+            state.active_version = NEWER_VERSION
             state.active_wheel_url = "https://files.pythonhosted.org/new.whl"
             state.active_wheel_sha256 = "a" * 64
             state.active_manifest = release_manifest()
@@ -740,7 +769,7 @@ class UpdaterApiTests(TestCase):
             state.refresh_from_db()
             self.assertEqual(run.status, run.STATUS_FAILED)
             self.assertTrue(run.report["pointer_recovered"])
-            self.assertEqual(state.active_version, "1.2.3")
+            self.assertEqual(state.active_version, NEWER_VERSION)
             self.assertFalse(state.degraded)
             self.assertFalse(store.maintenance_file.exists())
 

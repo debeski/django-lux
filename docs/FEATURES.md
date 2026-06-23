@@ -55,7 +55,7 @@
 - **Dynamic sidebar builder** with drag-and-drop cross-pane support
 - **Theme allowlist matrix** with visual selector cards: preview circle sets the default theme, the rest of the card and checkbox toggle whether that theme is allowed
 - **Translation matrix editor** plus explicit language-catalog management
-- **Dlux email delivery controls** for delivery path (`direct` vs `relay`) and secret storage (`env` vs `encrypted_db`)
+- **Dlux email delivery controls** for delivery path (`direct` vs `relay`), secret storage (`env` vs `encrypted_db`), provider presets (Gmail/Outlook/SES/Mailgun/relay/custom) that prefill SMTP host/port/encryption, a superuser **send-test** button that mails a one-off message with the saved config, and **failure alert recipients** that warn operators in-app (plus an `audit` log row) when transactional mail fails
 - **Centralized IP resolution setup** for configuring how the system identifies client IPs for logs and security throttles
 
 ### Options View (`/sys/options/`)

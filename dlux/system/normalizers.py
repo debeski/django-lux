@@ -16,6 +16,8 @@ from .constants import (
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
+    EMAIL_CONFIG_MAX_FAILURE_RECIPIENTS,
+    EMAIL_CONFIG_PROVIDER_PRESET_VALUES,
     EMAIL_CONFIG_SECRET_STORAGES,
     EMAIL_CONFIG_TRANSPORTS,
     LOGIN_STYLE_VALUES,
@@ -207,6 +209,9 @@ def normalize_email_config(value, *, redact_secret=False):
         normalized['transport'] = transport
     if secret_storage in EMAIL_CONFIG_SECRET_STORAGES:
         normalized['secret_storage'] = secret_storage
+    provider_preset = str(config.get('provider_preset') or '').strip().lower()
+    if provider_preset in EMAIL_CONFIG_PROVIDER_PRESET_VALUES:
+        normalized['provider_preset'] = provider_preset
     normalized['host'] = str(config.get('host') or '').strip()
     try:
         normalized['port'] = int(config.get('port') or normalized['port'])
@@ -221,9 +226,40 @@ def normalize_email_config(value, *, redact_secret=False):
     encrypted_password = str(config.get('encrypted_password') or '').strip()
     normalized['encrypted_password'] = encrypted_password
     normalized['password_configured'] = bool(encrypted_password or config.get('password_configured'))
+    normalized['failure_notification_recipients'] = _normalize_email_list(
+        config.get('failure_notification_recipients'),
+        limit=EMAIL_CONFIG_MAX_FAILURE_RECIPIENTS,
+    )
     if redact_secret:
         normalized.pop('encrypted_password', None)
     return normalized
+
+
+_EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+
+def _normalize_email_list(value, *, limit):
+    """Coerce a list/comma/newline-separated value into deduped valid emails."""
+    if isinstance(value, str):
+        candidates = re.split(r'[,\n;]+', value)
+    elif isinstance(value, (list, tuple, set)):
+        candidates = list(value)
+    else:
+        candidates = []
+    cleaned = []
+    seen = set()
+    for item in candidates:
+        email = str(item or '').strip()
+        if not email or not _EMAIL_RE.match(email):
+            continue
+        key = email.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(email)
+        if len(cleaned) >= limit:
+            break
+    return cleaned
 
 
 def normalize_auth_config(value):

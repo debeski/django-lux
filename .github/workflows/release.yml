@@ -4,6 +4,7 @@ name: Release
 #   git tag -a v2.4.1 -m "v2.4.1" && git push --tags
 #
 # Pipeline:
+#   test           -> run the package Django test suite (publish gate)
 #   build-dist     -> verify tag == dlux/VERSION, build sdist + wheel
 #   publish-pypi   -> publish to PyPI via Trusted Publishing (OIDC, no token)
 #   build-viewer   -> cross-compile the dlb-viewer binaries (make all)
@@ -20,7 +21,30 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package + dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run package Django test suite
+        run: python dlux/tests/test_all.py
+
   build-dist:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

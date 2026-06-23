@@ -32,6 +32,7 @@ autorun.ini
 /scratch/
 .claude/
 .pytest*/
+.ruff_cache/
 
 # Ignore celery-related files
 celerybeat-*

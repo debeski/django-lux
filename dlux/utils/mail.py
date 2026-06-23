@@ -264,39 +264,93 @@ def get_email_service_status():
         'reason': 'custom_backend_configured' if configured else 'missing_default_from_email',
     }
 
+# Email Runtime - Function warns configured operators in-app when transactional mail fails.
+def _alert_email_delivery_failure(subject, recipient_list, error):
+    """Notify the configured failure recipients in-app (never by email — that path is broken).
+
+    Routed through the notification subsystem so it inherits the global enable flag; a
+    matching audit row records the outage. Best-effort: never raises into the caller.
+    """
+    try:
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        stored_config = normalize_email_config(getattr(SystemSettings.load(), 'email_config', {}))
+    except Exception:
+        return
+    recipients = stored_config.get('failure_notification_recipients') or []
+    if not recipients:
+        return
+    try:
+        from django.contrib.auth import get_user_model
+        from ..notifications import notify
+
+        User = get_user_model()
+        users = list(User._default_manager.filter(email__in=recipients, is_active=True))
+        attempted = ', '.join(list(recipient_list or [])[:3]) or '—'
+        message = (
+            f"Transactional email failed to send (subject: {subject or '—'}; "
+            f"to: {attempted}). Error: {str(error)[:200]}"
+        )
+        if users:
+            notify.error(
+                message,
+                recipients=users,
+                persist=True,
+                flash=False,
+                email=False,  # do not re-enter the broken mail path
+                source='email_delivery_failure',
+                title_key='email_delivery_failure_title',
+            )
+        from .. import log_activity
+
+        log_activity('email_delivery_failed', details={'subject': subject or '', 'error': str(error)[:200]}, category='audit')
+    except Exception:
+        # Alerting must never mask or replace the original delivery error.
+        return
+
+
 # Email Runtime - Function sends Dlux transactional mail through direct or relay transport.
-def send_dlux_mail(subject, message, recipient_list, *, from_email=None, fail_silently=False):
-    """Send Dlux-owned transactional email through the selected delivery path."""
+def send_dlux_mail(subject, message, recipient_list, *, from_email=None, fail_silently=False, alert_on_failure=True):
+    """Send Dlux-owned transactional email through the selected delivery path.
+
+    ``alert_on_failure`` routes send failures to the configured in-app failure
+    recipients. Callers on the alert path itself (or the test sender) pass
+    ``False`` to avoid recursion / noise.
+    """
     email_config = get_dlux_email_config(include_secret=True)
     effective_from = from_email or email_config.get('from_email') or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
 
     backend = email_config.get('backend') or getattr(settings, 'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
-    if backend != 'django.core.mail.backends.smtp.EmailBackend':
-        return send_mail(subject, message, effective_from, recipient_list, fail_silently=fail_silently)
-
-    # Without a timeout a slow/unreachable SMTP host blocks the calling request
-    # (e.g. login-time OTP emails) until the OS socket timeout, which can take
-    # minutes. Cap it so mail failures surface quickly instead of hanging auth.
     try:
-        smtp_timeout = int(email_config.get('timeout') or 0) or 10
-    except (TypeError, ValueError):
-        smtp_timeout = 10
-    connection = get_connection(
-        backend=backend,
-        host=email_config.get('host') or None,
-        port=email_config.get('port') or None,
-        username=email_config.get('username') or None,
-        password=email_config.get('password') or None,
-        use_tls=bool(email_config.get('use_tls')),
-        use_ssl=bool(email_config.get('use_ssl')),
-        timeout=smtp_timeout,
-        fail_silently=fail_silently,
-    )
-    email = EmailMessage(
-        subject=subject,
-        body=message,
-        from_email=effective_from,
-        to=list(recipient_list or []),
-        connection=connection,
-    )
-    return email.send(fail_silently=fail_silently)
+        if backend != 'django.core.mail.backends.smtp.EmailBackend':
+            return send_mail(subject, message, effective_from, recipient_list, fail_silently=fail_silently)
+
+        # Without a timeout a slow/unreachable SMTP host blocks the calling request
+        # (e.g. login-time OTP emails) until the OS socket timeout, which can take
+        # minutes. Cap it so mail failures surface quickly instead of hanging auth.
+        try:
+            smtp_timeout = int(email_config.get('timeout') or 0) or 10
+        except (TypeError, ValueError):
+            smtp_timeout = 10
+        connection = get_connection(
+            backend=backend,
+            host=email_config.get('host') or None,
+            port=email_config.get('port') or None,
+            username=email_config.get('username') or None,
+            password=email_config.get('password') or None,
+            use_tls=bool(email_config.get('use_tls')),
+            use_ssl=bool(email_config.get('use_ssl')),
+            timeout=smtp_timeout,
+            fail_silently=fail_silently,
+        )
+        email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=effective_from,
+            to=list(recipient_list or []),
+            connection=connection,
+        )
+        return email.send(fail_silently=fail_silently)
+    except Exception as exc:
+        if alert_on_failure:
+            _alert_email_delivery_failure(subject, recipient_list, exc)
+        raise

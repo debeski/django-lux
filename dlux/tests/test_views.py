@@ -126,6 +126,40 @@ class GeneralViewsTests(TestCase):
         self.assertIsNotNone(response.context.get('email_service'))
         self.assertContains(response, '<th>Email:</th>', html=True)
 
+    def test_email_send_test_requires_superuser_and_post(self):
+        # GET is rejected (POST-only).
+        self.assertEqual(self.client.get(reverse('email_send_test')).status_code, 405)
+
+        # Non-superuser is forbidden.
+        User.objects.create_user(username='staffer', email='s@example.com', password='pw12345678')
+        self.client.logout()
+        self.client.login(username='staffer', password='pw12345678')
+        response = self.client.post(reverse('email_send_test'), {'recipient': 'to@example.com'})
+        self.assertEqual(response.status_code, 403)
+
+    def test_email_send_test_validates_recipient_and_configuration(self):
+        # Invalid recipient is rejected before any send attempt.
+        response = self.client.post(reverse('email_send_test'), {'recipient': 'not-an-email'})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['ok'])
+
+        # Valid recipient but email service not configured -> 409, no send.
+        with patch('dlux.views.general.get_email_service_status', return_value={'available': False}):
+            with patch('dlux.views.general.send_dlux_mail') as mocked:
+                response = self.client.post(reverse('email_send_test'), {'recipient': 'to@example.com'})
+        self.assertEqual(response.status_code, 409)
+        mocked.assert_not_called()
+
+    def test_email_send_test_sends_when_configured(self):
+        with patch('dlux.views.general.get_email_service_status', return_value={'available': True}):
+            with patch('dlux.views.general.send_dlux_mail', return_value=1) as mocked:
+                response = self.client.post(reverse('email_send_test'), {'recipient': 'to@example.com'})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        mocked.assert_called_once()
+        # Test sends must not re-enter the failure-alert path.
+        self.assertFalse(mocked.call_args.kwargs.get('alert_on_failure', True))
+
     def test_options_view_hides_runtime_diagnostics_for_non_staff_users(self):
         regular_user = User.objects.create_user(
             username='viewer',

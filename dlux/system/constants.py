@@ -129,6 +129,20 @@ DEFAULT_LANGUAGE_CATALOG = {
 EMAIL_CONFIG_TRANSPORTS = {'direct', 'relay'}
 EMAIL_CONFIG_SECRET_STORAGES = {'env', 'encrypted_db'}
 
+# Provider presets prefill host/port/TLS/SSL in the UI; 'custom' leaves the
+# entered values untouched. Stored on email_config so the picker survives reloads.
+EMAIL_CONFIG_PROVIDER_PRESETS = {
+    'custom': {'host': '', 'port': 587, 'use_tls': True, 'use_ssl': False},
+    'gmail': {'host': 'smtp.gmail.com', 'port': 587, 'use_tls': True, 'use_ssl': False},
+    'outlook': {'host': 'smtp.office365.com', 'port': 587, 'use_tls': True, 'use_ssl': False},
+    'ses': {'host': 'email-smtp.us-east-1.amazonaws.com', 'port': 587, 'use_tls': True, 'use_ssl': False},
+    'mailgun': {'host': 'smtp.mailgun.org', 'port': 587, 'use_tls': True, 'use_ssl': False},
+    'relay': {'host': '', 'port': 1025, 'use_tls': False, 'use_ssl': False},
+}
+EMAIL_CONFIG_PROVIDER_PRESET_VALUES = set(EMAIL_CONFIG_PROVIDER_PRESETS)
+# Cap stored failure-alert recipients to keep the JSON config bounded.
+EMAIL_CONFIG_MAX_FAILURE_RECIPIENTS = 10
+
 CLIENT_IP_MODE_REMOTE_ADDR = 'remote_addr'
 CLIENT_IP_MODE_X_FORWARDED_FOR = 'x_forwarded_for'
 CLIENT_IP_MODE_X_REAL_IP = 'x_real_ip'

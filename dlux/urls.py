@@ -28,6 +28,7 @@ urlpatterns = [
     # path('sys/', views.dashboard, name='sys_dashboard'),
     path('sys/setup/', views.system_setup_view, name='system_setup'),
     path('sys/settings/export/', views.export_system_settings_view, name='system_settings_export'),
+    path('sys/settings/email/send-test/', views.email_send_test_view, name='email_send_test'),
     path('sys/users/', views.UserListView.as_view(), name='manage_users'),
     path('sys/registrations/', views.pending_registrations_view, name='pending_registrations'),
     path('sys/registrations/<int:pk>/approve/', views.approve_registration_view, name='approve_registration'),

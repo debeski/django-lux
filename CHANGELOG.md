@@ -6,6 +6,14 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.2.3
+
+- **Email Provider Presets**: Added a `provider_preset` selector (Gmail, Outlook/Office 365, Amazon SES, Mailgun, internal relay, custom) to `email_config`, surfaced in the Step 3 email-delivery panel. Selecting a preset prefills SMTP host/port/STARTTLS/SSL client-side via `EMAIL_CONFIG_PROVIDER_PRESETS` (mirrored in `system_setup.js`); values remain editable and the choice persists on `SystemSettings.email_config`.
+- **Test Email Sender**: Added a superuser-only, POST-only `email_send_test_view` (`sys/settings/email/send-test/`) that validates the recipient, checks `get_email_service_status()`, and sends a one-off message through `send_dlux_mail(..., alert_on_failure=False)`, returning JSON status. Wired into the email panel as a "Send test email" button with a transient recipient field and live result line.
+- **Email Failure Alerts**: Added `failure_notification_recipients` to `email_config`. On transactional send failure, `send_dlux_mail` now routes an in-app `notify.error(..., recipients=<users>, email=False)` to the configured operators (never re-entering the broken mail path) and records an `audit`-category `email_delivery_failed` activity-log row. Guarded by the global notification enable flag and best-effort (never masks the original delivery error).
+- **Release Test Gate**: Added a matrixed `test` job to `release.yml` and made `build-dist` (and therefore `publish-pypi`) depend on it, so a failing suite now blocks PyPI publish — previously the tag pipeline published with no test dependency.
+- **Attestation Test Hardening**: Fixed `test_attestation_requires_official_repository_and_workflow` to mock `manifest.importlib.util.find_spec` on its success path so the unit test no longer requires `pypi_attestations` to be pip-installed in CI.
+
 ## v1.2.2
 
 - **Interrupted Update Run Recovery**: Added updater-worker startup recovery for durable runs left active by forced container termination or host restart. Pre-switch interruptions now recollect the currently selected static assets before clearing maintenance; post-switch apply interruptions atomically restore the recorded source pointer, swap `DluxUpdateState` active/previous metadata back, recollect source assets, increment `state/generation`, archive staging, and restart on the source interpreter. Recovery failures persist `recovery_failed`, degraded state, and nginx maintenance instead of leaving an ambiguous active run or exposing partially collected assets.

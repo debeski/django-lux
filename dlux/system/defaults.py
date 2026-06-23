@@ -29,6 +29,7 @@ def default_email_config():
     return {
         'transport': 'direct',
         'secret_storage': 'env',
+        'provider_preset': 'custom',
         'host': '',
         'port': 587,
         'use_tls': True,
@@ -37,6 +38,7 @@ def default_email_config():
         'default_from_email': '',
         'encrypted_password': '',
         'password_configured': False,
+        'failure_notification_recipients': [],
     }
 
 

@@ -12,12 +12,14 @@ from pathlib import Path
 import django
 from django.apps import apps
 from django.conf import settings
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.cache import caches
+from django.core.validators import validate_email
 from django.contrib.auth.decorators import login_required
 from django.db import connection
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.module_loading import import_string
@@ -32,6 +34,7 @@ from dlux.utils import (
     export_system_settings_payload,
     get_email_service_status,
     get_system_config,
+    send_dlux_mail,
     is_global_staff,
     load_system_settings_config_json,
     normalize_language_catalog,
@@ -660,3 +663,45 @@ def export_system_settings_view(request):
     response = HttpResponse(content, content_type='application/json; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="{_system_settings_export_filename(instance)}"'
     return response
+
+
+@require_POST
+def email_send_test_view(request):
+    """Send a one-off test email using the saved Dlux email configuration."""
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    strings = get_strings(get_current_language_code(request))
+    recipient = str(request.POST.get('recipient') or '').strip()
+    try:
+        validate_email(recipient)
+    except ValidationError:
+        return JsonResponse(
+            {'ok': False, 'message': strings.get('email_test_invalid_recipient', 'Enter a valid recipient email address.')},
+            status=400,
+        )
+
+    status = get_email_service_status()
+    if not status.get('available'):
+        return JsonResponse(
+            {'ok': False, 'message': strings.get('email_test_not_configured', 'Email delivery is not configured yet. Save a working configuration first.')},
+            status=409,
+        )
+
+    subject = strings.get('email_test_subject', 'DjangoLux test email')
+    body = strings.get('email_test_body', 'This is a test email confirming your DjangoLux email configuration works.')
+    try:
+        sent = send_dlux_mail(subject, body, [recipient], fail_silently=False, alert_on_failure=False)
+    except Exception as exc:  # noqa: BLE001 — surface any backend/SMTP error to the operator
+        logger.warning("Dlux test email to %s failed: %s", recipient, exc)
+        return JsonResponse(
+            {'ok': False, 'message': strings.get('email_test_failed', 'Sending failed. Check the SMTP host, credentials, and from address.')},
+            status=502,
+        )
+
+    if not sent:
+        return JsonResponse(
+            {'ok': False, 'message': strings.get('email_test_failed', 'Sending failed. Check the SMTP host, credentials, and from address.')},
+            status=502,
+        )
+    return JsonResponse({'ok': True, 'message': strings.get('email_test_sent', 'Test email sent. Check the recipient inbox.')})

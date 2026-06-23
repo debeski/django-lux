@@ -4393,6 +4393,16 @@
 
             form.dataset.emailDeliveryBound = 'true';
 
+            // Mirrors EMAIL_CONFIG_PROVIDER_PRESETS in dlux/system/constants.py.
+            const PROVIDER_PRESETS = {
+                gmail: { host: 'smtp.gmail.com', port: 587, use_tls: true, use_ssl: false },
+                outlook: { host: 'smtp.office365.com', port: 587, use_tls: true, use_ssl: false },
+                ses: { host: 'email-smtp.us-east-1.amazonaws.com', port: 587, use_tls: true, use_ssl: false },
+                mailgun: { host: 'smtp.mailgun.org', port: 587, use_tls: true, use_ssl: false },
+                relay: { host: '', port: 1025, use_tls: false, use_ssl: false },
+            };
+            const presetInput = form.querySelector('[data-email-provider-preset]');
+
             function syncEmailConfigVisibility() {
                 const enabled = Boolean(
                     (publicRegistrationToggle && publicRegistrationToggle.checked) ||
@@ -4403,6 +4413,7 @@
                 section.setAttribute('aria-hidden', enabled ? 'false' : 'true');
                 [
                     'email_config_transport',
+                    'email_config_provider_preset',
                     'email_config_secret_storage',
                     'email_config_host',
                     'email_config_port',
@@ -4410,6 +4421,8 @@
                     'email_config_use_ssl',
                     'email_config_username',
                     'email_config_default_from_email',
+                    'email_config_failure_recipients',
+                    'email_config_test_recipient',
                 ].forEach((name) => setNamedFieldDisabled(form, name, !enabled));
                 setNamedFieldDisabled(form, 'email_config_password', !encryptedDbSecret);
                 if (passwordField) {
@@ -4419,12 +4432,86 @@
                 restoreImportedEmailPasswordNotice(form);
             }
 
+            function applyProviderPreset() {
+                const preset = presetInput && PROVIDER_PRESETS[presetInput.value];
+                if (!preset) {
+                    return;
+                }
+                if (preset.host) {
+                    setNamedFieldValue(form, 'email_config_host', preset.host);
+                }
+                setNamedFieldValue(form, 'email_config_port', String(preset.port));
+                setCheckboxField(form, 'email_config_use_tls', preset.use_tls);
+                setCheckboxField(form, 'email_config_use_ssl', preset.use_ssl);
+            }
+
             [publicRegistrationToggle, email2faToggle, secretStorageInput].forEach((field) => {
                 if (field) {
                     field.addEventListener('change', syncEmailConfigVisibility);
                 }
             });
+            if (presetInput) {
+                presetInput.addEventListener('change', applyProviderPreset);
+            }
+            initEmailSendTest(form);
             syncEmailConfigVisibility();
+        });
+    }
+
+    function initEmailSendTest(form) {
+        const button = form.querySelector('[data-email-send-test]');
+        const result = form.querySelector('[data-email-send-test-result]');
+        if (!button || button.dataset.bound === 'true') {
+            return;
+        }
+        button.dataset.bound = 'true';
+
+        button.addEventListener('click', () => {
+            const recipientInput = form.querySelector('[data-email-test-recipient]');
+            const recipient = String(recipientInput && recipientInput.value ? recipientInput.value : '').trim();
+            const url = button.getAttribute('data-email-send-test-url');
+            const csrfInput = form.querySelector('[name="csrfmiddlewaretoken"]');
+            if (!url || !csrfInput) {
+                return;
+            }
+
+            function showResult(ok, message) {
+                if (!result) return;
+                result.textContent = message || '';
+                result.classList.toggle('text-success', ok);
+                result.classList.toggle('text-danger', !ok);
+            }
+
+            if (!recipient) {
+                showResult(false, t('email_test_invalid_recipient', 'Enter a valid recipient email address.'));
+                return;
+            }
+
+            const body = new URLSearchParams();
+            body.append('recipient', recipient);
+            button.disabled = true;
+            showResult(true, t('email_test_sending', 'Sending…'));
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfInput.value,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                credentials: 'same-origin',
+                body: body.toString(),
+            })
+                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    showResult(Boolean(ok && data && data.ok), (data && data.message) || '');
+                })
+                .catch(() => {
+                    showResult(false, t('email_test_failed', 'Sending failed. Check the SMTP host, credentials, and from address.'));
+                })
+                .finally(() => {
+                    button.disabled = false;
+                });
         });
     }
 
