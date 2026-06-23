@@ -62,6 +62,7 @@ from .config import (
     expand_system_config_groups,
     normalize_allowed_fonts,
     normalize_auth_config,
+    normalize_backup_config,
     normalize_client_ip_config,
     normalize_default_fonts,
     normalize_email_config,
@@ -125,6 +126,8 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_log_config(value)
         elif field_name == 'profile_config':
             data[field_name] = normalize_profile_config(value)
+        elif field_name == 'backup_config':
+            data[field_name] = normalize_backup_config(value)
         elif field_name == 'email_config':
             data[field_name] = normalize_email_config(value, redact_secret=True)
         elif field_name == 'client_ip_config':
@@ -184,6 +187,8 @@ def normalize_system_settings_import_payload(payload):
         normalized['log_config'] = normalize_log_config(normalized['log_config'])
     if 'profile_config' in normalized:
         normalized['profile_config'] = normalize_profile_config(normalized['profile_config'])
+    if 'backup_config' in normalized:
+        normalized['backup_config'] = normalize_backup_config(normalized['backup_config'])
     if 'email_config' in normalized:
         normalized['email_config'] = normalize_email_config(normalized['email_config'], redact_secret=True)
     if 'client_ip_config' in normalized:

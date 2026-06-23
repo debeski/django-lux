@@ -1,6 +1,6 @@
 # DjangoLux Conceptual Codebase Report
 
-Verified on 2026-06-23 against the unreleased `1.2.4` source tree.
+Verified on 2026-06-23 against the unreleased `1.2.5` source tree.
 
 This report explains the codebase as a set of concepts, algorithms, and runtime
 systems. It avoids line-by-line implementation commentary and instead focuses on
@@ -669,6 +669,14 @@ System backup includes every concrete managed model except environment-owned
 and bookkeeping models such as sessions, content types, permissions, admin log
 entries, and backup/restore run rows. Models are dependency-sorted so referenced
 rows load before referrers. Superuser password hashes are omitted from backups.
+
+`SystemSettings.backup_config` owns the operational policy: scheduling is
+disabled by default, a Celery-beat task checks every 15 minutes when enabled,
+the interval defaults to 24 hours, and `auto_export_target` selects a validated
+relative folder in Django default storage. Age and count retention limits use
+zero as unlimited and run only after successful backups. `SystemBackup.trigger`
+distinguishes manual, scheduled, and inline-update snapshots. Update/rollback
+snapshots are mandatory pre-maintenance prerequisites, not optional reminders.
 
 Restore is full replacement:
 

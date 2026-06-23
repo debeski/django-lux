@@ -23,6 +23,7 @@ from .system.constants import (
 from .managers import ScopedManager
 from .system.defaults import (
     default_auth_config as _default_auth_config,
+    default_backup_config as _default_backup_config,
     default_client_ip_config as _default_client_ip_config,
     default_email_config as _default_email_config,
     default_extra_config as _default_extra_config,
@@ -68,6 +69,10 @@ def default_navbar_config():
 def default_auth_config():
     """Authentication & session-security policy, consolidated into one JSON field."""
     return _default_auth_config()
+
+
+def default_backup_config():
+    return _default_backup_config()
 
 
 def default_email_config():
@@ -264,6 +269,10 @@ class SingletonModel(models.Model):
                     notifications = config.get('notifications', config.get('notification_config', None))
                     if isinstance(notifications, dict):
                         obj.notification_config = notifications
+                if hasattr(obj, 'backup_config'):
+                    backup = config.get('backup_config', config.get('backup'))
+                    if isinstance(backup, dict):
+                        obj.backup_config = backup
                 if hasattr(obj, 'auth_config'):
                     auth = dict(obj.auth_config or {})
                     for auth_key in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled', 'enforce_strong_passwords'):
@@ -362,6 +371,7 @@ class SystemSettings(SingletonModel):
     navbar_config = models.JSONField(default=default_navbar_config, blank=True, verbose_name="Nav Bar Configuration")
     log_config = models.JSONField(default=default_log_config, blank=True, verbose_name="Logging Configuration")
     profile_config = models.JSONField(default=default_profile_config, blank=True, verbose_name="Profile Page Configuration")
+    backup_config = models.JSONField(default=default_backup_config, blank=True, verbose_name="Backup Configuration")
     extra_config = models.JSONField(default=default_extra_config, blank=True, verbose_name="Extra Configuration")
 
     class Meta:
@@ -921,6 +931,14 @@ class SystemBackup(models.Model):
         (STATUS_COMPLETED, 'Completed'),
         (STATUS_FAILED, 'Failed'),
     ]
+    TRIGGER_MANUAL = 'manual'
+    TRIGGER_SCHEDULED = 'scheduled'
+    TRIGGER_UPDATE = 'update'
+    TRIGGER_CHOICES = [
+        (TRIGGER_MANUAL, 'Manual'),
+        (TRIGGER_SCHEDULED, 'Scheduled'),
+        (TRIGGER_UPDATE, 'DjangoLux update'),
+    ]
 
     token = models.CharField(
         max_length=64,
@@ -930,6 +948,13 @@ class SystemBackup(models.Model):
         verbose_name="Token",
     )
     requested_by_username = models.CharField(max_length=150, blank=True, verbose_name="Requested By")
+    trigger = models.CharField(
+        max_length=12,
+        choices=TRIGGER_CHOICES,
+        default=TRIGGER_MANUAL,
+        db_index=True,
+        verbose_name="Trigger",
+    )
     status = models.CharField(
         max_length=12,
         choices=STATUS_CHOICES,

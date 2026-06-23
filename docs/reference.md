@@ -387,6 +387,22 @@ gated by the `DLUX_SHOW_INITIAL_USER_SETUP` context flag, and is suppressed whil
 `Profile.preferences["force_password_change"]` is active so a first-login password change
 always happens before optional onboarding preferences.
 
+### Full-system backup policy (`backup_config`)
+
+`backup_config` (Step 12) is the DB-backed policy consumed by the full `.dlb`
+backup subsystem:
+
+- `scheduled_enabled` — opt in to Celery-beat scheduling (off by default).
+- `schedule_interval_hours` — due interval, from 1 through 8760 hours; beat polls every 15 minutes.
+- `retention_days` — remove completed backups older than this age; `0` keeps indefinitely.
+- `max_backups_to_keep` — retain the newest completed rows/files; `0` disables the count limit.
+- `auto_export_target` — validated relative folder inside Django `default_storage`.
+- `use_celery` and `exclude_models` — normalized code-owned compatibility keys retained from `DLUX_CONFIG['backup']`.
+
+Each `SystemBackup` stores a `manual`, `scheduled`, or `update` trigger. Inline
+apply/rollback always creates and verifies an update-triggered backup before
+maintenance, aborts if it fails, and protects the new backup while retention runs.
+
 Common preference keys:
 
 - `theme`
@@ -422,7 +438,7 @@ The model keeps only identity fields as standalone columns (`system_names`,
 `client_ip_config`, `notification_config`, `layout_config`,
 `language_config`, `theme_config`, `typography_config`, `login_config`,
 `titlebar_config`, `sidebar_config`, `navbar_config`, `log_config`,
-`profile_config`, and `extra_config`.
+`profile_config`, `backup_config`, and `extra_config`.
 
 The canonical source for those grouped settings is `dlux.system`: `constants.py`
 owns settings choices/constants, `defaults.py` owns `default_*_config()`
@@ -431,7 +447,7 @@ describe groups, legacy flat keys, runtime aliases, and export/import coverage.
 New Dlux internals should import from `dlux.system`. Root `dlux.constants`
 exists only as a compatibility re-export, and the old defaults modules are not
 canonical APIs. Important migration invariant:
-published migrations `0001` and `0002` serialize default callable paths under
+published migrations `0001`, `0002`, and additive `0004` serialize default callable paths under
 `dlux.models.default_*_config`, so those wrappers must remain importable
 indefinitely. Keep the wrappers as thin delegates; do not move canonical
 settings logic back into `dlux.models`.

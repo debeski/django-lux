@@ -728,7 +728,10 @@ class UpdateService:
         from dlux.backup import run_system_backup
 
         SystemBackup = apps.get_model("dlux", "SystemBackup")
-        backup = SystemBackup.objects.create(requested_by_username=run.requested_by_username)
+        backup = SystemBackup.objects.create(
+            requested_by_username=run.requested_by_username,
+            trigger=SystemBackup.TRIGGER_UPDATE,
+        )
         run_system_backup(backup.pk)
         backup.refresh_from_db()
         if backup.status != SystemBackup.STATUS_COMPLETED:

@@ -21,7 +21,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from dlux import __version__
-from dlux.models import ActivityLog, DluxUpdateRun, DluxUpdateState, SystemSettings
+from dlux.models import ActivityLog, DluxUpdateRun, DluxUpdateState, SystemBackup, SystemSettings
 from dlux.scaffold import ScaffoldError, enable_updater
 from dlux.updater import UpdaterError
 from dlux.updater.manifest import (
@@ -535,6 +535,8 @@ class UpdaterApiTests(TestCase):
         self.assertIn("pollReadOnlyState", contents)
         self.assertIn("const PROGRESS", contents)
         self.assertIn("showProgress(run)", contents)
+        self.assertIn("run.token === trackedRunToken", contents)
+        self.assertIn("setRootStatus(message, 5000)", contents)
         self.assertNotIn("modal.hide()", contents)
 
     @mock.patch("dlux.updater.service.assess_wheel")
@@ -650,6 +652,22 @@ class UpdaterApiTests(TestCase):
             self.assertEqual(state.active_version, __version__)
             self.assertEqual(store.read_active(__version__)["version"], __version__)
             self.assertTrue(store.release_path(NEWER_VERSION).is_dir())
+
+    def test_required_update_backup_is_marked_as_update_trigger(self):
+        run = DluxUpdateRun.objects.create(
+            action=DluxUpdateRun.ACTION_APPLY,
+            requested_by_username=self.user.username,
+        )
+        service = UpdateService(store=RuntimeStore(tempfile.mkdtemp()).ensure())
+
+        def complete_backup(pk):
+            SystemBackup.objects.filter(pk=pk).update(status=SystemBackup.STATUS_COMPLETED)
+
+        with mock.patch('dlux.backup.run_system_backup', side_effect=complete_backup):
+            backup = service._create_backup(run)
+
+        self.assertEqual(backup.trigger, SystemBackup.TRIGGER_UPDATE)
+        self.assertEqual(backup.requested_by_username, self.user.username)
 
     def test_failed_preflight_never_switches_active_release(self):
         with tempfile.TemporaryDirectory() as temp_dir:

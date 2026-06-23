@@ -189,6 +189,7 @@ SYSTEM_SETTINGS_CONFIG_FIELDS = (
     'navbar_config',
     'log_config',
     'profile_config',
+    'backup_config',
     'extra_config',
 )
 
@@ -224,6 +225,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'navbar_config',
     'log_config',
     'profile_config',
+    'backup_config',
     'titlebar_config',
     'notification_config',
     'login_config',

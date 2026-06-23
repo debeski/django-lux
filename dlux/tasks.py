@@ -31,7 +31,13 @@ if shared_task is not None:
     def restore_system_backup_task(restore_pk, passphrase=''):
         from .backup import run_system_restore
         run_system_restore(restore_pk, passphrase=passphrase)
+
+    @shared_task(name='dlux.tasks.run_scheduled_system_backup', ignore_result=True)
+    def run_scheduled_system_backup_task():
+        from .backup import run_scheduled_system_backup
+        run_scheduled_system_backup()
 else:  # pragma: no cover - celery not installed
     build_report_backup_task = None
     build_system_backup_task = None
     restore_system_backup_task = None
+    run_scheduled_system_backup_task = None

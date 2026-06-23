@@ -48,6 +48,7 @@ class SystemSettingsTests(TestCase):
             'navbar_config',
             'log_config',
             'profile_config',
+            'backup_config',
             'extra_config',
         ])
 
@@ -71,6 +72,9 @@ class SystemSettingsTests(TestCase):
         self.assertTrue(instance.allow_user_language_override)
         self.assertEqual(instance.default_table_density, DEFAULT_TABLE_DENSITY)
         self.assertFalse(instance.is_configured)
+        self.assertFalse(instance.backup_config['scheduled_enabled'])
+        self.assertEqual(instance.backup_config['retention_days'], 0)
+        self.assertEqual(instance.backup_config['max_backups_to_keep'], 0)
 
     def test_system_settings_flat_properties_write_grouped_json(self):
         instance = SystemSettings.load()

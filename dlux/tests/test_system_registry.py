@@ -25,6 +25,7 @@ from dlux.utils.import_export import SYSTEM_SETTINGS_EXPORT_FIELDS
 
 DEFAULT_CALLABLE_NAMES = (
     'default_auth_config',
+    'default_backup_config',
     'default_client_ip_config',
     'default_email_config',
     'default_extra_config',
@@ -45,6 +46,7 @@ DEFAULT_CALLABLE_NAMES = (
 
 NORMALIZER_NAMES = (
     'normalize_auth_config',
+    'normalize_backup_config',
     'normalize_client_ip_config',
     'normalize_email_config',
     'normalize_extra_config',
@@ -129,6 +131,7 @@ class SystemSettingsRegistryTests(SimpleTestCase):
         self.assertEqual(aliases['log'], 'log_config')
         self.assertEqual(aliases['logging'], 'log_config')
         self.assertEqual(aliases['profile'], 'profile_config')
+        self.assertEqual(aliases['backup'], 'backup_config')
         self.assertEqual(aliases['client_ip'], 'client_ip_config')
 
     def test_import_aliases_avoid_flat_field_collisions(self):
@@ -165,12 +168,15 @@ class SystemSettingsRegistryTests(SimpleTestCase):
             'notifications': {'enabled': False},
             'log': {'enabled': False},
             'profile': {'allow_user_home_url': True},
+            'backup': {'scheduled_enabled': True, 'max_backups_to_keep': 7},
             'enforce_strong_passwords': True,
         })
 
         self.assertFalse(expanded['notification_config']['enabled'])
         self.assertFalse(expanded['log_config']['enabled'])
         self.assertTrue(expanded['profile_config']['allow_user_home_url'])
+        self.assertTrue(expanded['backup_config']['scheduled_enabled'])
+        self.assertEqual(expanded['backup_config']['max_backups_to_keep'], 7)
         self.assertTrue(expanded['auth_config']['enforce_strong_passwords'])
 
     def test_registry_default_config_contains_current_runtime_groups(self):

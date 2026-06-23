@@ -28,6 +28,7 @@ import secrets
 import struct
 import tempfile
 import zipfile
+from datetime import timedelta
 
 from django.apps import apps
 from django.conf import settings
@@ -39,7 +40,9 @@ from django.db import connection, transaction
 from django.db.migrations.recorder import MigrationRecorder
 from django.utils import timezone
 
-from .reports import get_backup_storage_prefix, stream_model_into_zip
+from .reports import stream_model_into_zip
+from .system.defaults import default_backup_config
+from .system.normalizers import normalize_backup_config
 
 logger = logging.getLogger("dlux")
 
@@ -68,8 +71,18 @@ _SUPERUSER_PASSWORD_OMITTED = "!dlux-superuser-password-omitted"
 
 
 def _backup_config():
-    config = getattr(settings, "DLUX_CONFIG", {}).get("backup", {})
-    return config if isinstance(config, dict) else {}
+    try:
+        from .utils import get_system_config
+
+        config = get_system_config().get("backup_config", {})
+    except Exception:
+        config = getattr(settings, "DLUX_CONFIG", {}).get("backup", {})
+    return normalize_backup_config(config)
+
+
+def get_system_backup_storage_prefix():
+    """Return the safe folder used for full-system backups in default_storage."""
+    return _backup_config().get("auto_export_target") or default_backup_config()["auto_export_target"]
 
 
 def _config_excluded_keys():
@@ -349,7 +362,7 @@ def run_system_backup(backup_pk, passphrase=None):
             size = tmp.tell()
             tmp.seek(0)
             saved_path = default_storage.save(
-                f"{get_backup_storage_prefix()}/system-{backup.token}.dlb",
+                f"{get_system_backup_storage_prefix()}/system-{backup.token}.dlb",
                 File(tmp),
             )
         backup.file_path = saved_path
@@ -365,10 +378,12 @@ def run_system_backup(backup_pk, passphrase=None):
         backup.save()
         _log_system_action(backup.requested_by_username, "EXPORT", {
             "kind": "system_backup",
+            "trigger": backup.trigger,
             "models": backup.model_count,
             "rows": backup.row_count,
             "files": backup.file_count,
         })
+        apply_backup_retention(protected_pk=backup.pk)
     except Exception as exc:
         logger.exception("System backup pk=%s failed", backup_pk)
         backup.status = SystemBackup.STATUS_FAILED
@@ -376,6 +391,73 @@ def run_system_backup(backup_pk, passphrase=None):
         backup.error = str(exc)[:1000]
         backup.save(update_fields=["status", "completed_at", "error"])
     return backup
+
+
+def apply_backup_retention(*, protected_pk=None, now=None):
+    """Apply configured age/count rotation to completed system backups.
+
+    File removal and row removal are deliberately best-effort per item; a
+    storage outage must not turn an otherwise valid new backup into a failure.
+    """
+    SystemBackup = apps.get_model("dlux", "SystemBackup")
+    config = _backup_config()
+    retention_days = config["retention_days"]
+    max_to_keep = config["max_backups_to_keep"]
+    now = now or timezone.now()
+    candidates = SystemBackup.objects.filter(status=SystemBackup.STATUS_COMPLETED).order_by("-created_at")
+    delete_pks = set()
+    if retention_days:
+        cutoff = now - timedelta(days=retention_days)
+        delete_pks.update(candidates.filter(created_at__lt=cutoff).values_list("pk", flat=True))
+    if max_to_keep:
+        delete_pks.update(candidates.values_list("pk", flat=True)[max_to_keep:])
+    if protected_pk is not None:
+        delete_pks.discard(protected_pk)
+
+    removed = 0
+    for old_backup in SystemBackup.objects.filter(pk__in=delete_pks):
+        try:
+            if old_backup.file_path:
+                default_storage.delete(old_backup.file_path)
+            old_backup.delete()
+            removed += 1
+        except Exception:
+            logger.exception("Could not rotate system backup pk=%s", old_backup.pk)
+    return removed
+
+
+def run_scheduled_system_backup(*, now=None):
+    """Create one due scheduled backup; safe for frequent Celery-beat polling."""
+    config = _backup_config()
+    if not config["scheduled_enabled"]:
+        return None
+    now = now or timezone.now()
+    SystemSettings = apps.get_model("dlux", "SystemSettings")
+    SystemBackup = apps.get_model("dlux", "SystemBackup")
+    interval_start = now - timedelta(hours=config["schedule_interval_hours"])
+    with transaction.atomic():
+        SystemSettings.objects.get_or_create(pk=1)
+        SystemSettings.objects.select_for_update().get(pk=1)
+        active = SystemBackup.objects.filter(
+            trigger=SystemBackup.TRIGGER_SCHEDULED,
+            status__in=(SystemBackup.STATUS_PENDING, SystemBackup.STATUS_RUNNING),
+        ).first()
+        if active is not None:
+            stale_before = now - timedelta(hours=max(24, config["schedule_interval_hours"]))
+            if active.created_at >= stale_before:
+                return active
+            active.status = SystemBackup.STATUS_FAILED
+            active.completed_at = now
+            active.error = "Scheduled backup did not complete before the stale-run timeout."
+            active.save(update_fields=["status", "completed_at", "error"])
+        latest = SystemBackup.objects.filter(trigger=SystemBackup.TRIGGER_SCHEDULED).order_by("-created_at").first()
+        if latest is not None and latest.created_at >= interval_start:
+            return latest
+        backup = SystemBackup.objects.create(
+            requested_by_username="system",
+            trigger=SystemBackup.TRIGGER_SCHEDULED,
+        )
+    return run_system_backup(backup.pk)
 
 
 def _log_system_action(username, action, details):

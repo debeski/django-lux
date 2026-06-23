@@ -670,6 +670,15 @@
                         <span class="dlux-system-settings-tile-icon"><i class="bi bi-person-badge"></i></span>
                         <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}</span>
                     </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=11"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_backups_desc|default:'Scheduled backup, storage, and retention policy.' }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}. {{ DLUX_STRINGS.system_settings_backups_desc|default:'Scheduled backup, storage, and retention policy.' }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-safe2-fill"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}</span>
+                    </button>
                     <a class="dlux-system-settings-action dlux-system-settings-tile dlux-system-settings-action--secondary"
                        href="{% url 'system_settings_export' %}"
                        data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_export_desc }}"
@@ -694,6 +703,7 @@
                 <div data-dlux-update-form role="group">
                     <div class="modal-body">
                         <div data-dlux-update-review-panel>
+                            <div class="alert alert-info">{{ DLUX_STRINGS.dlux_update_backup_guarantee|default:'A full encrypted system backup is created and verified before maintenance. The operation stops if the backup fails.' }}</div>
                             <div class="alert alert-warning" data-dlux-update-maintenance>{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}</div>
                             <dl class="row mb-3">
                                 <dt class="col-4">{{ DLUX_STRINGS.dlux_update_target|default:'Target version' }}</dt>
@@ -732,5 +742,5 @@
 {% block scripts %}
     {{ block.super }}
     <script src="{% static 'dlux/main/js/options.js' %}?v=20260618a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/updater.js' %}?v=20260623a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/updater.js' %}?v=20260623b" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

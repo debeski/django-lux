@@ -1,6 +1,6 @@
 # DjangoLux Complete Feature Reference
 
-**Version:** 1.2.4 (unreleased)
+**Version:** 1.2.5 (unreleased)
 **Package:** `django-lux` — A multilingual Django framework layer for internal systems
 
 ---
@@ -36,13 +36,13 @@
 - **Stable storage layout** keeps only identity columns standalone (`system_names`, logo/favicon, default language/theme, home URL, configured flag) and stores future-changing settings in JSON groups:
   - `auth_config`, `email_config`, `registration_config`, `public_root_config`, `client_ip_config`, `notification_config`
   - `layout_config`, `language_config`, `theme_config`, `typography_config`
-  - `login_config`, `titlebar_config`, `sidebar_config`, `navbar_config`, `log_config`, `profile_config`, and reserved `extra_config`
-- **Canonical settings registry:** `dlux.system` owns settings constants, default factories, normalizers, schema metadata, registry helpers, legacy flat-key mappings, runtime aliases, setup import/export field coverage, and the low-risk scalar System Settings form packing path. `dlux.models.default_*_config` wrappers are permanent migration-history shims for published migrations `0001`/`0002`.
+  - `login_config`, `titlebar_config`, `sidebar_config`, `navbar_config`, `log_config`, `profile_config`, `backup_config`, and reserved `extra_config`
+- **Canonical settings registry:** `dlux.system` owns settings constants, default factories, normalizers, schema metadata, registry helpers, legacy flat-key mappings, runtime aliases, setup import/export field coverage, and the low-risk scalar System Settings form packing path. `dlux.models.default_*_config` wrappers are permanent migration-history shims for published migrations `0001`/`0002` and additive migration `0004`.
 - **Backward-compatible runtime contract:** `get_system_config()`, `DLUX_CONFIG`, setup import/export, templates, and host callers still use flat keys such as `allowed_themes`, `public_root`, `translations_override`, and `default_table_density`.
 - **Override-only translations:** `language_config.translations_override` stores only admin/dev overrides, never the merged discovered translation catalog.
 
 ### First-Launch Setup Wizard
-- **11-step wizard:** Identity → Localization → Access and security → Login Page → Sidebar → Nav Bar → UI and Layout → Notifications → Appearance and Typography → Logging → Profile Page
+- **12-step wizard:** Identity → Localization → Access and security → Login Page → Sidebar → Nav Bar → UI and Layout → Notifications → Appearance and Typography → Logging → Profile Page → Backups
 - **Step 3 routing controls** for the main Home URL plus optional anonymous public-root split when public root access is enabled
 - **Step 4 Login Page** controls login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message
 - **Step 7 Titlebar** includes titlebar button-shape controls, Dropdown vs Titlebar Actions user-hub layout, and orderable titlebar actions
@@ -61,7 +61,7 @@
 ### Options View (`/sys/options/`)
 - Split System Settings modal entrypoints (Branding, Languages, Access & Security,
   Login Page, Sidebar, Nav Bar, UI & Layout, Notifications, Appearance, Logging,
-  and Profile Page)
+  Profile Page, and Backups)
 - Theme picker with live preview
 - Language picker (when enabled)
 - Table density picker
@@ -474,6 +474,9 @@ ActivityLog.safe_log(
 - Permission-gated report ZIP exports for activity/report data.
 - Superuser-only system backup and restore surface at `/sys/backup/`.
 - Encrypted `.dlb` full-system backups with chunked Fernet payloads, manifest metadata, migration-state comparison, and optional one-off passphrase protection.
+- `backup_config` controls optional scheduled backups, interval hours, a safe folder inside Django default storage, and age/count rotation; scheduling is disabled and retention is unlimited by default.
+- Generated Celery workers run a 15-minute beat check and create at most one due scheduled backup per configured interval; manual, scheduled, and inline-update backups retain distinct trigger metadata.
+- Inline apply and rollback always create and verify an update-triggered `.dlb` backup before maintenance; failure aborts the operation, and rotation never removes the backup currently being created.
 - Cursor-safe export streaming uses primary-key pagination and a backup-local JSON serializer, avoiding PostgreSQL server-side named cursors for both model rows and many-to-many fields.
 - Full system backups exclude environment/run-bookkeeping models such as sessions, content types, permissions, admin logs, report backup rows, system backup rows, and restore rows.
 - Superuser password hashes are omitted from `.dlb` payloads and preserved from the target database during restore.
@@ -804,4 +807,4 @@ Auto-handles:
 
 ---
 
-*Verified against the unreleased DjangoLux 1.2.4 source tree on 2026-06-23.*
+*Verified against the unreleased DjangoLux 1.2.5 source tree on 2026-06-23.*

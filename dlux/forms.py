@@ -2,6 +2,7 @@
 ######################################################
 import os
 import json
+import re
 from types import MethodType, SimpleNamespace
 
 from django import forms
@@ -71,6 +72,7 @@ from .utils import (
     CLIENT_IP_MODE_X_REAL_IP,
     default_client_ip_config,
     default_auth_config,
+    default_backup_config,
     default_log_config,
     default_profile_config,
     default_login_config,
@@ -92,6 +94,7 @@ from .utils import (
     normalize_language_catalog,
     LOGIN_STYLE_VALUES,
     normalize_auth_config,
+    normalize_backup_config,
     normalize_log_config,
     normalize_profile_config,
     normalize_login_config,
@@ -1594,6 +1597,7 @@ class SystemSettingsForm(forms.ModelForm):
         'public_root_config',
         'layout_config',
         'client_ip_config',
+        'backup_config',
     )
 
     home_url_discovered = forms.ChoiceField(
@@ -1722,6 +1726,12 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.HiddenInput(),
         required=False,
     )
+    backup_config = forms.CharField(widget=forms.HiddenInput(), required=False)
+    backup_scheduled_enabled = forms.BooleanField(required=False, initial=False)
+    backup_schedule_interval_hours = forms.IntegerField(required=False, min_value=1, max_value=8760, initial=24)
+    backup_retention_days = forms.IntegerField(required=False, min_value=0, max_value=3650, initial=0)
+    backup_max_backups_to_keep = forms.IntegerField(required=False, min_value=0, max_value=10000, initial=0)
+    backup_auto_export_target = forms.CharField(required=False, max_length=180, initial='dlux_backups')
     sidebar_enabled = forms.BooleanField(
         required=False,
         initial=True,
@@ -2052,6 +2062,7 @@ class SystemSettingsForm(forms.ModelForm):
             'navbar_config',
             'log_config',
             'profile_config',
+            'backup_config',
             'titlebar_config',
             'notification_config',
             'login_config',
@@ -2096,7 +2107,7 @@ class SystemSettingsForm(forms.ModelForm):
                 parsed_step = int(raw_step)
             except (TypeError, ValueError):
                 parsed_step = None
-            if parsed_step in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
+            if parsed_step in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
         if self.mode != 'setup' and self.single_step_mode:
@@ -2270,6 +2281,17 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['navbar_config'].label = s.get('form_sys_navbar', '')
         self.fields['log_config'].label = s.get('form_sys_log', 'Logging Configuration')
         self.fields['profile_config'].label = s.get('form_sys_profile', 'Profile Page Configuration')
+        self.fields['backup_config'].label = s.get('form_sys_backup', 'Backup Configuration')
+        self.fields['backup_scheduled_enabled'].label = s.get('form_sys_backup_scheduled_enabled', 'Enable scheduled backups')
+        self.fields['backup_scheduled_enabled'].help_text = s.get('help_sys_backup_scheduled_enabled', 'Create full encrypted system backups automatically through Celery beat.')
+        self.fields['backup_schedule_interval_hours'].label = s.get('form_sys_backup_schedule_interval_hours', 'Backup interval (hours)')
+        self.fields['backup_schedule_interval_hours'].help_text = s.get('help_sys_backup_schedule_interval_hours', 'How often a scheduled backup becomes due. The scheduler checks every 15 minutes.')
+        self.fields['backup_retention_days'].label = s.get('form_sys_backup_retention_days', 'Retention age (days)')
+        self.fields['backup_retention_days'].help_text = s.get('help_sys_backup_retention_days', 'Delete completed backups older than this many days. Use 0 to keep them indefinitely.')
+        self.fields['backup_max_backups_to_keep'].label = s.get('form_sys_backup_max_backups_to_keep', 'Maximum backups to keep')
+        self.fields['backup_max_backups_to_keep'].help_text = s.get('help_sys_backup_max_backups_to_keep', 'Keep only the newest completed backups after each successful backup. Use 0 for no count limit.')
+        self.fields['backup_auto_export_target'].label = s.get('form_sys_backup_auto_export_target', 'Automatic export target')
+        self.fields['backup_auto_export_target'].help_text = s.get('help_sys_backup_auto_export_target', 'Storage-relative folder in Django default storage, for example dlux_backups or protected/dlux.')
         self.fields['navbar_enabled'].label = s.get('form_sys_navbar_enabled', '')
         self.fields['navbar_enabled'].help_text = s.get('help_sys_navbar_enabled', '')
         self.fields['navbar_default_mode'].label = s.get('form_sys_navbar_default_mode', '')
@@ -3033,6 +3055,10 @@ class SystemSettingsForm(forms.ModelForm):
         )
         self.initial['profile_config'] = _json_dump(initial_profile_config, ensure_ascii=False)
         self._initial_profile_config = initial_profile_config
+        self._apply_schema_group_initials(
+            'backup_config',
+            getattr(self.instance, 'backup_config', None) or config.get('backup_config') or config.get('backup') or {},
+        )
         initial_titlebar_config = normalize_titlebar_config(
             (
                 config.get('titlebar', {})
@@ -3993,6 +4019,21 @@ class SystemSettingsForm(forms.ModelForm):
                 Field('profile_config'),
                 css_class=_step_css_class(10),
             ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step12', 'Step 12: Backups')}</span></div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('backup_settings_title', 'System Backup Policy')}</h6>"),
+                HTML(f"<div class='alert alert-info'>{s.get('backup_settings_update_notice', 'Inline updates and rollbacks always create and verify a full system backup before maintenance. An update is stopped if that backup fails.')}</div>"),
+                build_settings_toggle_field(self, 'backup_scheduled_enabled', css_class='col-12'),
+                Row(
+                    Div(Field('backup_schedule_interval_hours', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    Div(Field('backup_retention_days', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    Div(Field('backup_max_backups_to_keep', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    css_class='g-3',
+                ),
+                Field('backup_auto_export_target', css_class='form-control font-monospace', dir='ltr'),
+                Field('backup_config'),
+                css_class=_step_css_class(11),
+            ),
             FormActions(
                 HTML(
                     f"<div class='d-flex flex-wrap justify-content-end align-items-center gap-2 mt-4 dlux-setup-wizard-actions' dir='{_get_ui_direction()}'>"
@@ -4343,6 +4384,30 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Profile configuration must be a valid JSON object.")
         return normalize_profile_config(parsed)
 
+    def clean_backup_config(self):
+        data = self.cleaned_data.get('backup_config')
+        if not data:
+            return normalize_backup_config(getattr(self.instance, 'backup_config', None) or default_backup_config())
+        if isinstance(data, dict):
+            return normalize_backup_config(data)
+        try:
+            parsed = json.loads(data)
+        except json.JSONDecodeError:
+            raise ValidationError("Invalid backup JSON format.")
+        if not isinstance(parsed, dict):
+            raise ValidationError("Backup configuration must be a valid JSON object.")
+        return normalize_backup_config(parsed)
+
+    def clean_backup_auto_export_target(self):
+        target = str(self.cleaned_data.get('backup_auto_export_target') or '').strip().strip('/')
+        if not target:
+            existing = normalize_backup_config(getattr(self.instance, 'backup_config', None) or {})
+            return existing['auto_export_target']
+        parts = target.split('/') if target else []
+        if not parts or any(part in {'', '.', '..'} or not re.fullmatch(r'[A-Za-z0-9._-]+', part) for part in parts):
+            raise ValidationError("Use a relative storage folder containing only letters, numbers, dots, underscores, hyphens, and slashes.")
+        return target
+
     def clean_notification_config(self):
         data = self.cleaned_data.get('notification_config')
         if not data:
@@ -4431,6 +4496,7 @@ class SystemSettingsForm(forms.ModelForm):
             'registration_throttle_enabled',
             'email_config',
             'notification_config',
+            'backup_config',
         )
         for field_name in direct_fields:
             if field_name in imported:
@@ -4487,6 +4553,16 @@ class SystemSettingsForm(forms.ModelForm):
         profile = imported.get('profile_config')
         if isinstance(profile, dict):
             cleaned['profile_config'] = normalize_profile_config(profile)
+
+        backup = imported.get('backup_config')
+        if isinstance(backup, dict):
+            backup = normalize_backup_config(backup)
+            cleaned['backup_config'] = backup
+            cleaned['backup_scheduled_enabled'] = backup['scheduled_enabled']
+            cleaned['backup_schedule_interval_hours'] = backup['schedule_interval_hours']
+            cleaned['backup_retention_days'] = backup['retention_days']
+            cleaned['backup_max_backups_to_keep'] = backup['max_backups_to_keep']
+            cleaned['backup_auto_export_target'] = backup['auto_export_target']
 
         titlebar = imported.get('titlebar_config')
         if isinstance(titlebar, dict):
@@ -4610,6 +4686,27 @@ class SystemSettingsForm(forms.ModelForm):
         profile = cleaned.get('profile_config')
         if isinstance(profile, dict):
             cleaned['profile_config'] = normalize_profile_config(profile)
+        backup_fields_posted = any(name in self.data for name in (
+            'backup_scheduled_enabled',
+            'backup_schedule_interval_hours',
+            'backup_retention_days',
+            'backup_max_backups_to_keep',
+            'backup_auto_export_target',
+        ))
+        existing_backup = normalize_backup_config(getattr(self.instance, 'backup_config', None) or {})
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and self.single_step_index != 11 and not backup_fields_posted:
+            cleaned['backup_config'] = existing_backup
+        else:
+            submitted_backup = cleaned.get('backup_config')
+            backup_base = normalize_backup_config(submitted_backup) if isinstance(submitted_backup, dict) else existing_backup
+            cleaned['backup_config'] = normalize_backup_config({
+                **backup_base,
+                'scheduled_enabled': bool(cleaned.get('backup_scheduled_enabled', False)),
+                'schedule_interval_hours': cleaned.get('backup_schedule_interval_hours'),
+                'retention_days': cleaned.get('backup_retention_days'),
+                'max_backups_to_keep': cleaned.get('backup_max_backups_to_keep'),
+                'auto_export_target': cleaned.get('backup_auto_export_target'),
+            })
         existing_email_config = normalize_email_config(getattr(self.instance, 'email_config', {}))
         email_features_enabled = bool(cleaned.get('public_registration_enabled') or cleaned.get('email_2fa'))
         email_fields_posted = any(
@@ -4862,6 +4959,7 @@ class SystemSettingsForm(forms.ModelForm):
             'navbar_config': self.cleaned_data.get('navbar_config', default_navbar_config()),
             'log_config': self.cleaned_data.get('log_config', default_log_config()),
             'profile_config': self.cleaned_data.get('profile_config', default_profile_config()),
+            'backup_config': self.cleaned_data.get('backup_config', default_backup_config()),
             'titlebar_config': self.cleaned_data.get('titlebar_config', default_titlebar_config()),
             'notification_config': self.cleaned_data.get('notification_config', default_notification_config()),
             'login_config': self.cleaned_data.get('login_config', default_login_config()),

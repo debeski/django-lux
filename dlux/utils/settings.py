@@ -198,6 +198,16 @@ def dlux_settings(scope):
         "DLUX_UPDATE_RUNTIME_ROOT",
         os.getenv("DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime"),
     )
+    beat_schedule = scope.get("CELERY_BEAT_SCHEDULE")
+    beat_schedule = dict(beat_schedule) if isinstance(beat_schedule, dict) else {}
+    beat_schedule.setdefault(
+        "dlux-scheduled-system-backup-check",
+        {
+            "task": "dlux.tasks.run_scheduled_system_backup",
+            "schedule": 900.0,
+        },
+    )
+    scope["CELERY_BEAT_SCHEDULE"] = beat_schedule
 
     message_tags = scope.get("MESSAGE_TAGS")
     if not isinstance(message_tags, dict):

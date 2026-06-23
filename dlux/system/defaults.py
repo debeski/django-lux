@@ -227,6 +227,23 @@ def default_log_config():
     }
 
 
+def default_backup_config():
+    """System-backup scheduling, storage, and rotation policy.
+
+    Zero-valued retention limits intentionally mean "keep indefinitely" so
+    enabling this settings group never removes an existing backup by default.
+    """
+    return {
+        'scheduled_enabled': False,
+        'schedule_interval_hours': 24,
+        'retention_days': 0,
+        'max_backups_to_keep': 0,
+        'auto_export_target': 'dlux_backups',
+        'use_celery': True,
+        'exclude_models': [],
+    }
+
+
 def default_profile_config():
     return {
         'show_completion_widget': True,
@@ -249,6 +266,7 @@ def default_extra_config():
 
 __all__ = [
     'default_auth_config',
+    'default_backup_config',
     'default_client_ip_config',
     'default_email_config',
     'default_extra_config',

@@ -13,6 +13,7 @@ from .constants import (
 )
 from .defaults import (
     default_auth_config,
+    default_backup_config,
     default_client_ip_config,
     default_email_config,
     default_extra_config,
@@ -127,6 +128,9 @@ def get_import_aliases():
         'profile': 'profile_config',
         'profile_page': 'profile_config',
         'onboarding': 'profile_config',
+        'backup': 'backup_config',
+        'backups': 'backup_config',
+        'system_backup': 'backup_config',
         'extra': 'extra_config',
         'custom': 'extra_config',
     }
@@ -177,6 +181,7 @@ def build_default_system_config():
         'navbar_config': default_navbar_config(),
         'log_config': default_log_config(),
         'profile_config': default_profile_config(),
+        'backup_config': default_backup_config(),
         'extra_config': default_extra_config(),
         'client_ip': default_client_ip_config(),
         'login': default_login_config(),

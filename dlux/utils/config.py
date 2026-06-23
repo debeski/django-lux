@@ -67,6 +67,7 @@ from ..system.constants import (
 )
 from ..system.defaults import (
     default_auth_config as _default_auth_config,
+    default_backup_config as _default_backup_config,
     default_client_ip_config as _default_client_ip_config,
     default_email_config as _default_email_config,
     default_extra_config as _default_extra_config,
@@ -87,6 +88,7 @@ from ..system.normalizers import (
     _normalize_client_ip_header_name as _system_normalize_client_ip_header_name,
     normalize_allowed_fonts as _system_normalize_allowed_fonts,
     normalize_auth_config as _system_normalize_auth_config,
+    normalize_backup_config as _system_normalize_backup_config,
     normalize_client_ip_config as _system_normalize_client_ip_config,
     normalize_default_fonts as _system_normalize_default_fonts,
     normalize_email_config as _system_normalize_email_config,
@@ -466,6 +468,10 @@ def default_auth_config():
     return _default_auth_config()
 
 
+def default_backup_config():
+    return _default_backup_config()
+
+
 # Auth Config - Function coerces the consolidated auth/session toggles to booleans.
 def normalize_auth_config(value):
     cfg = value if isinstance(value, dict) else {}
@@ -777,6 +783,7 @@ def expand_system_config_groups(config):
         'sidebar_config',
         'log_config',
         'profile_config',
+        'backup_config',
         'extra_config',
     ):
         if group_name in expanded:
@@ -790,6 +797,7 @@ def expand_system_config_groups(config):
         'sidebar_config': 'sidebar',
         'log_config': 'log',
         'profile_config': 'profile',
+        'backup_config': 'backup',
     }
     for canonical, alias in canonical_aliases.items():
         if alias not in expanded and canonical in expanded:
@@ -843,6 +851,7 @@ def normalize_default_fonts(value=None, *, allowed_fonts=None):
 _normalize_client_ip_header_name = _system_normalize_client_ip_header_name
 normalize_allowed_fonts = _system_normalize_allowed_fonts
 normalize_auth_config = _system_normalize_auth_config
+normalize_backup_config = _system_normalize_backup_config
 normalize_client_ip_config = _system_normalize_client_ip_config
 normalize_default_fonts = _system_normalize_default_fonts
 normalize_email_config = _system_normalize_email_config
@@ -992,6 +1001,11 @@ def get_system_config():
             if _should_apply_db_override(profile_config, default_config['profile_config']):
                 db_config['profile_config'] = profile_config
                 db_config['profile'] = profile_config
+        if hasattr(sys_settings, 'backup_config'):
+            backup_config = normalize_backup_config(getattr(sys_settings, 'backup_config', None) or {})
+            if _should_apply_db_override(backup_config, default_config['backup_config']):
+                db_config['backup_config'] = backup_config
+                db_config['backup'] = backup_config
         if system_is_configured:
             db_config['is_configured'] = True
         # Authentication/session toggles live in the consolidated auth_config JSON
@@ -1198,6 +1212,8 @@ def get_system_config():
                 merged_notifications[key] = value
     final_config['notifications'] = normalize_notification_config(merged_notifications)
     final_config['notification_config'] = deepcopy(final_config['notifications'])
+    final_config['backup_config'] = normalize_backup_config(final_config.get('backup_config', {}))
+    final_config['backup'] = deepcopy(final_config['backup_config'])
     merged_client_ip = deepcopy(default_config['client_ip'])
     if isinstance(user_client_ip, dict):
         merged_client_ip.update(user_client_ip)

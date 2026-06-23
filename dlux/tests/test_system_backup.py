@@ -16,14 +16,20 @@ from django.core.files.storage import default_storage
 from django.db.models.query import QuerySet
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from dlux.backup import (
+    apply_backup_retention,
     decrypt_dlb_to_tempfile,
+    get_system_backup_storage_prefix,
     read_dlb_metadata,
+    run_scheduled_system_backup,
     run_system_backup,
     run_system_restore,
     write_system_backup,
 )
+from dlux.system.defaults import default_backup_config
+from dlux.system.normalizers import normalize_backup_config
 
 User = get_user_model()
 
@@ -34,6 +40,60 @@ def _tiny_png():
     stream = io.BytesIO()
     Image.new('RGB', (1, 1), 'red').save(stream, format='PNG')
     return stream.getvalue()
+
+
+class SystemBackupPolicyTests(TestCase):
+    def setUp(self):
+        self.SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        self.SystemBackup = apps.get_model('dlux', 'SystemBackup')
+        self.settings_obj = self.SystemSettings.load()
+        self.settings_obj.is_configured = True
+
+    def _save_config(self, **overrides):
+        self.settings_obj.backup_config = normalize_backup_config({
+            **default_backup_config(),
+            **overrides,
+        })
+        self.settings_obj.save(update_fields=['backup_config', 'is_configured'])
+
+    def test_policy_normalization_is_conservative_and_sanitizes_target(self):
+        defaults = normalize_backup_config({})
+        self.assertFalse(defaults['scheduled_enabled'])
+        self.assertEqual(defaults['retention_days'], 0)
+        self.assertEqual(defaults['max_backups_to_keep'], 0)
+        self.assertEqual(normalize_backup_config({'auto_export_target': '../escape'})['auto_export_target'], 'dlux_backups')
+        self._save_config(auto_export_target='protected/dlux')
+        self.assertEqual(get_system_backup_storage_prefix(), 'protected/dlux')
+
+    def test_count_retention_keeps_newest_completed_backups(self):
+        self._save_config(max_backups_to_keep=2)
+        backups = [
+            self.SystemBackup.objects.create(
+                requested_by_username='system',
+                status=self.SystemBackup.STATUS_COMPLETED,
+                trigger=self.SystemBackup.TRIGGER_SCHEDULED,
+                completed_at=timezone.now(),
+            )
+            for _ in range(3)
+        ]
+        removed = apply_backup_retention(protected_pk=backups[-1].pk)
+        self.assertEqual(removed, 1)
+        self.assertEqual(self.SystemBackup.objects.filter(status=self.SystemBackup.STATUS_COMPLETED).count(), 2)
+        self.assertFalse(self.SystemBackup.objects.filter(pk=backups[0].pk).exists())
+
+    def test_scheduler_is_disabled_by_default_and_deduplicates_interval(self):
+        self._save_config(scheduled_enabled=False)
+        self.assertIsNone(run_scheduled_system_backup())
+        self.assertEqual(self.SystemBackup.objects.count(), 0)
+
+        self._save_config(scheduled_enabled=True, schedule_interval_hours=24)
+        with mock.patch('dlux.backup.run_system_backup', side_effect=lambda pk: self.SystemBackup.objects.get(pk=pk)) as runner:
+            first = run_scheduled_system_backup()
+            second = run_scheduled_system_backup()
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(first.trigger, self.SystemBackup.TRIGGER_SCHEDULED)
+        self.assertEqual(first.requested_by_username, 'system')
+        runner.assert_called_once_with(first.pk)
 
 
 class DlbContainerTests(TestCase):

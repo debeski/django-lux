@@ -6,6 +6,11 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.2.5
+
+- **Scheduled Backup Policy And Update Safety**: Added migration `0004_system_backup_policy` with defaulted `SystemSettings.backup_config` and `SystemBackup.trigger` fields, a twelfth Backups setup/System Settings surface, Celery-beat due checks, configurable storage-relative `auto_export_target`, age/count retention rotation, and trigger-aware backup history. Inline apply/rollback backups are explicitly tagged, created and verified before maintenance, protected while rotation runs, and described as a blocking safety prerequisite in the review modal; the additive defaulted migration remains inline-safe.
+- **Idle Updater Status Reset**: Stopped the Options card from permanently rendering “Update operation completed” for the latest historical check on every page load or manual refresh. The frontend now tracks runs queued by the current page (or discovered while genuinely active), shows successful completion for five seconds, retains actionable failures, and returns an idle up-to-date card to just its installed/latest/check information; `updater.js` is cache-busted as `?v=20260623b`.
+
 ## v1.2.4
 
 - **Canonical Wheel Staging Paths**: Fixed every v1.2.2/v1.2.3 inline apply failing before preflight because `RuntimeStore.wheel_path()` saved the verified artifact as `<sha256>-django_lux-X.Y.Z-py3-none-any.whl`; pip parses wheel compatibility from the basename and rejected the digest-prefixed name as an invalid version. Downloads now use `downloads/<sha256>/<canonical-wheel-filename>`, preserving digest isolation without changing the filename pip validates, and bounded/redacted pip diagnostics are persisted on staging failure.

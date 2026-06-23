@@ -41,6 +41,20 @@
         <div>{{ DLUX_STRINGS.sysbackup_notice }}</div>
     </div>
 
+    <div class="alert alert-info d-flex flex-wrap align-items-center gap-3" data-autoclose="false">
+        <i class="bi bi-calendar2-check"></i>
+        <strong>{{ DLUX_STRINGS.sysbackup_policy|default:'Backup policy' }}:</strong>
+        <span>
+            {% if backup_config.scheduled_enabled %}
+                {{ DLUX_STRINGS.sysbackup_schedule_every|default:'Scheduled every' }} {{ backup_config.schedule_interval_hours }} {{ DLUX_STRINGS.sysbackup_hours|default:'hours' }}
+            {% else %}
+                {{ DLUX_STRINGS.sysbackup_schedule_off|default:'Scheduling is off' }}
+            {% endif %}
+        </span>
+        <span>{{ DLUX_STRINGS.sysbackup_target|default:'Target' }}: <code>{{ backup_config.auto_export_target }}</code></span>
+        <span>{{ DLUX_STRINGS.sysbackup_rotation|default:'Rotation' }}: {{ backup_config.retention_days }} {{ DLUX_STRINGS.sysbackup_days|default:'days' }} / {{ backup_config.max_backups_to_keep }} {{ DLUX_STRINGS.sysbackup_files_label|default:'files' }} (0 = {{ DLUX_STRINGS.sysbackup_unlimited|default:'unlimited' }})</span>
+    </div>
+
     <div class="row g-4">
         <div class="col-12">
             <section class="p-3 border rounded bg-light">
@@ -51,6 +65,7 @@
                             <tr>
                                 <th>{{ DLUX_STRINGS.user_report_timestamp }}</th>
                                 <th>{{ DLUX_STRINGS.sysbackup_requested_by }}</th>
+                                <th>{{ DLUX_STRINGS.sysbackup_trigger|default:'Trigger' }}</th>
                                 <th>{{ DLUX_STRINGS.sysbackup_status }}</th>
                                 <th>{{ DLUX_STRINGS.sysbackup_rows }}</th>
                                 <th>{{ DLUX_STRINGS.sysbackup_files }}</th>
@@ -63,6 +78,7 @@
                                 <tr>
                                     <td>{{ backup.created_at|date:'Y-m-d H:i' }}</td>
                                     <td>{{ backup.requested_by_username|default:'-' }}</td>
+                                    <td>{{ backup.get_trigger_display }}</td>
                                     <td>
                                         {% if backup.status == 'completed' %}<span class="badge bg-success">{{ backup.get_status_display }}</span>
                                         {% elif backup.status == 'failed' %}<span class="badge bg-danger" title="{{ backup.error }}">{{ backup.get_status_display }}</span>
@@ -96,7 +112,7 @@
                                     </td>
                                 </tr>
                             {% empty %}
-                                <tr><td colspan="7" class="text-muted text-center py-4">{{ DLUX_STRINGS.sysbackup_empty }}</td></tr>
+                                <tr><td colspan="8" class="text-muted text-center py-4">{{ DLUX_STRINGS.sysbackup_empty }}</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>

@@ -2,11 +2,11 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- `dlux/release-manifest.json` is the version source: unreleased v1.2.4, `inline_safe=false`; latest tag is v1.2.3.
+- `dlux/release-manifest.json` is the version source: unreleased inline-safe v1.2.5 with backup-policy migration `0004`; latest tag is v1.2.4.
 - v1.2.4 is a mandatory one-rebuild updater-bootstrap repair for v1.2.2/v1.2.3 generated Compose deployments.
 - DjangoLux supplies settings/setup, scoped models, auth/security, navigation, reports, backup, scaffolding, SSO hooks, and the Compose updater.
 - Updater state uses `DluxUpdateState`/`DluxUpdateRun` plus `dlux_runtime` releases, atomic pointer, generation, maintenance, heartbeat, and degraded markers.
-- `switch_pos` remains healthy on baked v1.2.2; failed v1.2.3 applies never switched code or entered maintenance/degraded state.
+- `switch_pos` is healthy and idle on baked/active v1.2.4; latest check is completed, active-run token is empty, and degraded state is false.
 
 ### Current Project Adopted Standards:
 - Integrate settings with `from dlux.utils import dlux_settings`; call `dlux_settings(globals())`; mount `dlux.urls` at root.
@@ -36,19 +36,22 @@
 - **Priority 2:**
   - [ ] Optional request-scoped `transaction.on_commit` activity aggregator; deferred due TestCase/order fragility.
 - **Completed Recently:**
+  - [x] Added DB-backed `backup_config`, scheduled `.dlb` runs, default-storage targeting, successful-backup rotation, trigger history, and mandatory updater-backup messaging.
   - [x] Diagnosed live v1.2.2→v1.2.3 staging: pip rejected the digest-prefixed wheel basename.
   - [x] v1.2.4 stores `downloads/<sha>/<canonical-wheel-name>`, persists bounded/redacted pip diagnostics, and safely reconciles rebuilt-image state.
   - [x] Added persistent apply/rollback modal phase meter and durable log; removed native password form submission/save prompting.
+  - [x] v1.2.5 limits “Update operation completed” to a five-second current-session result instead of permanently rendering the latest historical check.
   - [x] Added v1.2.3 email presets, send-test endpoint, delivery-failure alerts, and a blocking release test gate.
   - [x] Completed updater integrity/recovery audit and current documentation reconciliation.
 
 ### One-line info about last verified Tests:
-- 2026-06-23: v1.2.4 passed full `test_all.py` (609), focused updater tests (35), Django/migration/Ruff/compile/pip/diff/release gates, and JavaScript syntax validation.
+- 2026-06-24: Official `test_all.py` passed 613; focused backup/updater 62 and forms 123 passed; migration/gate/Ruff/diff clean; isolated wheel/sdist passed `twine` and packaged `0004`/manifest.
+- 2026-06-23: v1.2.5 idle-status fix passed full `test_all.py` (609), focused updater tests (35), Ruff/diff/release gates, and JavaScript syntax validation.
 - 2026-06-23: Final wheel/sdist passed `twine check`, artifact hygiene, exact canonical `pip --target` staging, packaged progress UI, and new-scaffold production/dev Compose parsing.
 - 2026-06-23: Live v1.2.3 wheel succeeded after canonical renaming plus `check`, `dlux_check`, and `migrate --plan` inside `switch_pos`.
 
 ### One-line info about last time edited Docs:
-- 2026-06-23: Documented v1.2.4 mandatory rebuild, corrected staging, persistent progress/error UX, and the post-repair inline baseline.
+- 2026-06-24: Documented `backup_config`, scheduling/rotation/storage policy, Step 12, trigger history, and updater backup guarantees across admin/reference/updater/feature/scaffold docs.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

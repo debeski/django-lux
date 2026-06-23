@@ -140,6 +140,8 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
   `django-lux-sso` and `django-lux-sso-client` live as separate optional packages for OIDC provider/client deployments without changing core Dlux runtime behavior.
 - Standalone backup viewer:
   `tools/dlb-viewer/` is a dependency-free, cross-platform binary for inspecting encrypted `.dlb` system backups offline — browse models, rows, and stored files without a running instance. Prebuilt binaries ship with each release.
+- Full-system backup policy:
+  superusers can configure scheduled encrypted backups, storage-relative export targets, and age/count rotation from System Settings; inline updates and rollbacks require a verified pre-maintenance backup.
 - Framework-level automation:
   translation patches, scoped-model auto-injection, actor tracking, soft-delete, and config layering across defaults, project settings, and runtime UI.
 - Verified generated-Compose updates:

@@ -76,9 +76,9 @@ python -m dlux enable-updater --apply  # guarded apply
 
 The command accepts only recognized generated layouts. It refuses ambiguous/custom Compose structures, makes timestamped copies of every modified file under `.xpose/dlux-updater-bootstrap/`, applies idempotent marked changes, updates the exact `django-lux` requirements pin to the repaired bootstrap version, and runs `docker compose config`. It prints the single image rebuild/redeploy command required to activate the infrastructure. Re-running the command is safe.
 
-The repaired bootstrap itself is installed by that rebuild. The next
-manifest-approved release after v1.2.4 is the first release that can be applied
-inline through the corrected staging path.
+The repaired bootstrap itself is installed by that rebuild. Version v1.2.5 is
+the first manifest-approved release that can be applied inline through the
+corrected staging path.
 
 ## Admin Operation
 
@@ -98,7 +98,9 @@ disables dismissal while the run is active and keeps terminal failure details
 visible. Run progress is stored in `DluxUpdateRun`, so closing the browser or
 losing the connection during a restart does not lose the result; reopening the
 page reconnects to an active apply/rollback run. A successful update exposes
-**Roll back to previous version**.
+**Roll back to previous version**. Successful completion is a transient status;
+an idle card does not repeat the latest historical check as an active/completed
+operation, while actionable failure details remain visible.
 
 ## Release Verification Contract
 
@@ -119,10 +121,10 @@ Any failed gate displays **Project image rebuild required** and does not expose 
 
 ## Apply and Rollback
 
-Apply re-fetches and re-verifies the wheel, installs it to isolated staging with `pip --target --no-deps`, completes a full Dlux system backup, enables maintenance, runs candidate migrations and `collectstatic`, atomically switches the pointer, increments the generation, and verifies `/health/`, the active Dlux version in web, and the version reported by a live Celery worker.
+Apply re-fetches and re-verifies the wheel, installs it to isolated staging with `pip --target --no-deps`, completes and verifies a full Dlux system backup tagged with the `update` trigger, enables maintenance, runs candidate migrations and `collectstatic`, atomically switches the pointer, increments the generation, and verifies `/health/`, the active Dlux version in web, and the version reported by a live Celery worker. The review modal states this blocking backup guarantee; backup failure aborts before maintenance rather than merely warning the operator to create one manually.
 
 Before the pointer switch, failure leaves the existing release active and clears maintenance. After the switch, failure restores the previous code pointer, recollects its static assets, increments the generation again, and verifies health. If the updater container or host stops after claiming a run, the next worker terminalizes that interrupted run: it recollects current static assets before clearing pre-switch maintenance, or restores the recorded source pointer/static assets and increments generation after a post-switch apply interruption. Failed interruption recovery persists degraded state and leaves nginx maintenance enabled. Old downloads, releases, failed staging trees, backups, and bounded run logs are retained.
 
-Rollback uses the same password, backup, preflight, maintenance, static, pointer, restart, and health pipeline. It does not reverse migrations and the updater never automatically restores the database. Inline-safe migrations must remain compatible with the immediately previous release; the pre-operation `.dlb` backup is retained for manual disaster recovery.
+Rollback uses the same password, backup, preflight, maintenance, static, pointer, restart, and health pipeline. It does not reverse migrations and the updater never automatically restores the database. Inline-safe migrations must remain compatible with the immediately previous release; the pre-operation `.dlb` backup remains available for manual disaster recovery under the configured `backup_config` retention policy. Rotation runs only after the new backup completes and explicitly protects that new row/file during the pass.
 
 Updater pointer/run rows are deployment bookkeeping and are excluded from `.dlb` payloads. Restoring application data into another environment therefore starts from that environment's baked Dlux release instead of importing a stale runtime-volume pointer.

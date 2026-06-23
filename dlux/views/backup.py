@@ -14,13 +14,14 @@ from ..backup import (
     dispatch_system_backup,
     dispatch_system_restore,
     read_dlb_metadata,
+    get_system_backup_storage_prefix,
     run_system_backup,
     run_system_restore,
 )
 from ..guards import require_current_password
 from ..notifications import notify
-from ..reports import get_backup_storage_prefix
 from ..translations import get_strings
+from ..utils import get_system_config
 
 logger = logging.getLogger('dlux')
 
@@ -48,7 +49,7 @@ def _posted_passphrase(request):
 def _orphan_dlb_files():
     """.dlb files present under the backup prefix but unknown to SystemBackup rows
     (manually copied or uploaded files a restore can still consume)."""
-    prefix = get_backup_storage_prefix()
+    prefix = get_system_backup_storage_prefix()
     try:
         _dirs, files = default_storage.listdir(prefix)
     except Exception:
@@ -81,6 +82,7 @@ def system_backup_page(request):
         'backups': SystemBackup.objects.all()[:20],
         'restores': SystemRestore.objects.all()[:10],
         'orphan_files': _orphan_dlb_files(),
+        'backup_config': get_system_config().get('backup_config', {}),
     })
 
 
@@ -192,7 +194,7 @@ def system_backup_upload_view(request):
         notify.error(s.get('sysbackup_upload_invalid'), request=request, action='backup_upload_invalid', category='backup')
         return redirect('system_backup_page')
     stamp = timezone.now().strftime('%Y%m%d-%H%M%S')
-    default_storage.save(f'{get_backup_storage_prefix()}/uploaded-{stamp}.dlb', uploaded)
+    default_storage.save(f'{get_system_backup_storage_prefix()}/uploaded-{stamp}.dlb', uploaded)
     notify.success(s.get('sysbackup_upload_done'), request=request, action='backup_upload_done', category='backup')
     return redirect('system_backup_page')
 
@@ -209,7 +211,7 @@ def _resolve_restore_source(request):
     # The filename must be a bare name inside the backup prefix — no path traversal.
     if not filename or '/' in filename or '\\' in filename or not filename.lower().endswith('.dlb'):
         return None
-    path = f'{get_backup_storage_prefix()}/{filename}'
+    path = f'{get_system_backup_storage_prefix()}/{filename}'
     return path if default_storage.exists(path) else None
 
 

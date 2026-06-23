@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "1.2.4",
-  "inline_safe": false,
+  "version": "1.2.5",
+  "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Repairs updater wheel staging and adds persistent in-modal progress and failure logs. This bootstrap repair requires one project-image rebuild.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.4"
+  "summary": "Adds scheduled backup, retention, storage-target, and update-safety controls, and clears stale historical completion text from the idle updater card.",
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.5"
 }

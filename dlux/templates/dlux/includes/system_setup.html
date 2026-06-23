@@ -91,6 +91,12 @@
                                 <span class="dlux-setup-step-nav__bullet">11</span>
                                 <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_profile|default:"Profile Page" }}</span>
                             </button>
+                            <button class="dlux-setup-step-nav__item"
+                                    type="button"
+                                    data-dlux-wizard-step-target="11">
+                                <span class="dlux-setup-step-nav__bullet">12</span>
+                                <span class="dlux-setup-step-nav__label">{{ DLUX_STRINGS.system_settings_backups|default:"Backups" }}</span>
+                            </button>
             </nav>
                 {% crispy form %}
             </div>

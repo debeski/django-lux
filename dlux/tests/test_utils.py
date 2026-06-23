@@ -131,6 +131,10 @@ class UtilsTests(TestCase):
         )
         self.assertEqual(scope['MESSAGE_TAGS'][messages.ERROR], 'danger')
         self.assertEqual(scope['MESSAGE_TAGS'][messages.INFO], 'info-custom')
+        self.assertEqual(
+            scope['CELERY_BEAT_SCHEDULE']['dlux-scheduled-system-backup-check'],
+            {'task': 'dlux.tasks.run_scheduled_system_backup', 'schedule': 900.0},
+        )
 
     def test_dlux_settings_preserves_existing_scalar_defaults(self):
         scope = {
@@ -141,6 +145,9 @@ class UtilsTests(TestCase):
             'USE_TZ': False,
             'DEFAULT_CHARSET': 'latin-1',
             'FORMAT_MODULE_PATH': ['project.formats'],
+            'CELERY_BEAT_SCHEDULE': {
+                'project-task': {'task': 'project.tasks.run', 'schedule': 60.0},
+            },
         }
 
         dlux_settings(scope)
@@ -149,6 +156,8 @@ class UtilsTests(TestCase):
         self.assertFalse(scope['USE_TZ'])
         self.assertEqual(scope['DEFAULT_CHARSET'], 'latin-1')
         self.assertEqual(scope['FORMAT_MODULE_PATH'], ['project.formats', 'dlux.formats'])
+        self.assertIn('project-task', scope['CELERY_BEAT_SCHEDULE'])
+        self.assertIn('dlux-scheduled-system-backup-check', scope['CELERY_BEAT_SCHEDULE'])
 
     def test_get_secret_reads_docker_secret_first(self):
         with patch('builtins.open', mock_open(read_data='super-secret\n')):

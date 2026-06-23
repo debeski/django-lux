@@ -69,11 +69,17 @@
         let pollTimer = null;
         let statePollTimer = null;
         let lastTerminalNotice = '';
+        let trackedRunToken = '';
+        let rootStatusTimer = null;
 
-        function setRootStatus(message) {
+        function setRootStatus(message, clearAfter = 0) {
             if (!rootRunStatus) return;
+            window.clearTimeout(rootStatusTimer);
             rootRunStatus.textContent = message || '';
             rootRunStatus.hidden = !message;
+            if (message && clearAfter > 0) {
+                rootStatusTimer = window.setTimeout(() => setRootStatus(''), clearAfter);
+            }
         }
 
         function showError(message, notify = true) {
@@ -141,20 +147,21 @@
             if (reviewButton) reviewButton.disabled = running;
             if (rollbackButton) rollbackButton.disabled = running;
             if (running) setRootStatus(root.dataset.labelRunning || 'Update operation in progress');
+            const tracked = Boolean(run?.token && run.token === trackedRunToken);
             if (run && ['apply', 'rollback'].includes(run.action) && (run.active || !progressPanel?.hidden)) {
                 showProgress(run);
             }
             if (run?.status === 'failed') {
                 const message = run.error || root.dataset.labelFailed;
                 showError(message, false);
-                if (lastTerminalNotice !== run.token && window.showToast) {
+                if (tracked && lastTerminalNotice !== run.token && window.showToast) {
                     lastTerminalNotice = run.token;
                     window.showToast(message, 'error');
                 }
             }
-            if (run?.status === 'completed' || run?.status === 'rolled_back') {
+            if (tracked && (run?.status === 'completed' || run?.status === 'rolled_back')) {
                 const message = root.dataset.labelCompleted || 'Completed';
-                setRootStatus(message);
+                setRootStatus(message, 5000);
                 if (lastTerminalNotice !== run.token && window.showToast) {
                     lastTerminalNotice = run.token;
                     window.showToast(message);
@@ -165,6 +172,9 @@
         async function refreshState() {
             window.clearTimeout(statePollTimer);
             const payload = await jsonRequest(root.dataset.stateUrl, { method: 'GET' });
+            if (payload.run?.active && payload.run.token) {
+                trackedRunToken = payload.run.token;
+            }
             render(payload.state, payload.run);
             if (payload.run?.active && payload.run.token) {
                 if (payload.state?.can_manage) {
@@ -208,6 +218,7 @@
         async function queue(url, body) {
             showError('');
             const payload = await jsonRequest(url, { method: 'POST', body });
+            if (payload.run?.token) trackedRunToken = payload.run.token;
             render(payload.state, payload.run);
             if (payload.run_url) {
                 runUrl = payload.run_url;

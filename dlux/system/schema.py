@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 from .defaults import (
     default_auth_config,
+    default_backup_config,
     default_client_ip_config,
     default_email_config,
     default_extra_config,
@@ -24,6 +25,7 @@ from .defaults import (
 )
 from .normalizers import (
     normalize_auth_config,
+    normalize_backup_config,
     normalize_client_ip_config,
     normalize_email_config,
     normalize_extra_config,
@@ -307,6 +309,23 @@ SYSTEM_SETTING_GROUPS = (
         label_key='settings_profile_page',
         setup_step='profile',
         admin_section='profile',
+    ),
+    SettingGroup(
+        key='backup',
+        storage_field='backup_config',
+        aliases=('backup', 'backups', 'system_backup'),
+        default_factory=default_backup_config,
+        normalizer=normalize_backup_config,
+        label_key='settings_backups',
+        setup_step='backups',
+        admin_section='backups',
+        fields=(
+            _field('backup', 'scheduled_enabled', form_name='backup_scheduled_enabled', field_type='bool', default=False, widget='switch'),
+            _field('backup', 'schedule_interval_hours', form_name='backup_schedule_interval_hours', field_type='int', default=24),
+            _field('backup', 'retention_days', form_name='backup_retention_days', field_type='int', default=0),
+            _field('backup', 'max_backups_to_keep', form_name='backup_max_backups_to_keep', field_type='int', default=0),
+            _field('backup', 'auto_export_target', form_name='backup_auto_export_target', default='dlux_backups'),
+        ),
     ),
     SettingGroup(
         key='extra',

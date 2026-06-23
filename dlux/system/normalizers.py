@@ -45,6 +45,7 @@ from .constants import (
 )
 from .defaults import (
     default_auth_config,
+    default_backup_config,
     default_client_ip_config,
     default_email_config,
     default_extra_config,
@@ -62,6 +63,9 @@ from .defaults import (
     default_titlebar_config,
     default_typography_config,
 )
+
+
+_BACKUP_TARGET_SEGMENT_RE = re.compile(r'^[A-Za-z0-9._-]+$')
 
 
 def _coerce_import_bool(value):
@@ -600,6 +604,55 @@ def normalize_log_config(value):
     return normalized
 
 
+def normalize_backup_config(value):
+    config = value if isinstance(value, dict) else {}
+    defaults = default_backup_config()
+    raw_target = str(config.get('auto_export_target') or defaults['auto_export_target']).strip().strip('/')
+    target_parts = raw_target.split('/') if raw_target else []
+    if (
+        not target_parts
+        or len(raw_target) > 180
+        or any(part in {'', '.', '..'} or not _BACKUP_TARGET_SEGMENT_RE.fullmatch(part) for part in target_parts)
+    ):
+        raw_target = defaults['auto_export_target']
+
+    excluded = config.get('exclude_models', defaults['exclude_models'])
+    if isinstance(excluded, str):
+        excluded = [excluded]
+    if not isinstance(excluded, (list, tuple, set)):
+        excluded = []
+    normalized_excluded = []
+    for value in excluded:
+        model_key = str(value or '').strip().lower()
+        if model_key and model_key not in normalized_excluded:
+            normalized_excluded.append(model_key)
+
+    return {
+        'scheduled_enabled': _to_bool(config.get('scheduled_enabled'), defaults['scheduled_enabled']),
+        'schedule_interval_hours': _to_int(
+            config.get('schedule_interval_hours'),
+            defaults['schedule_interval_hours'],
+            min_value=1,
+            max_value=8760,
+        ),
+        'retention_days': _to_int(
+            config.get('retention_days'),
+            defaults['retention_days'],
+            min_value=0,
+            max_value=3650,
+        ),
+        'max_backups_to_keep': _to_int(
+            config.get('max_backups_to_keep'),
+            defaults['max_backups_to_keep'],
+            min_value=0,
+            max_value=10000,
+        ),
+        'auto_export_target': raw_target,
+        'use_celery': _to_bool(config.get('use_celery'), defaults['use_celery']),
+        'exclude_models': normalized_excluded,
+    }
+
+
 def normalize_profile_config(value):
     config = value if isinstance(value, dict) else {}
     defaults = default_profile_config()
@@ -701,6 +754,7 @@ __all__ = [
     '_normalize_navbar_nodes',
     'normalize_allowed_fonts',
     'normalize_auth_config',
+    'normalize_backup_config',
     'normalize_client_ip_config',
     'normalize_default_fonts',
     'normalize_email_config',
