@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Package version source: unreleased `dlux/VERSION` = `1.2.3` (v1.2.2 already tagged/published); `dist/` is absent in this checkout.
+- Package version source: `version` field in `dlux/release-manifest.json` = `1.2.3` (single source of truth; `dlux/VERSION` retired to `.xpose/`; v1.2.2 already tagged/published).
 - DjangoLux is a Django UX/application framework: `dlux_settings()`, `SystemSettings`, setup wizard, scoped models, user/security, navigation, reports, backup, scaffolding, optional SSO.
 - Core resolver flow: `dlux.system` defaults/schema/registry -> `DLUX_CONFIG` -> DB `SystemSettings` -> normalized request/user/runtime context -> backend-enforced views/helpers.
 - v1.2.1 published successfully on 2026-06-22; PyPI briefly served stale v1.2.0 project/Simple gzip cache data while version-specific files and the fresh Simple JSON variant already exposed v1.2.1.
@@ -34,6 +34,7 @@
 - **Priority 2 (deferred from ActivityLog plan):**
   - [ ] Optional: full request-scoped `transaction.on_commit` aggregator with nested-by-relation details + dev-satellite folding (deferred — `on_commit` doesn't fire under the TestCase suite; satellite scan was order-fragile and over-broad. Rolling-window fix shipped instead).
 - **Completed Recently:**
+  - [x] Collapsed version sourcing to one place: `dlux/release-manifest.json` `version` is now the single source of truth (`dlux.__version__`, pyproject dynamic attr, `get_baked_version`, `validate_local_release_manifest`, and `release.yml` tag check all read it); `dlux/VERSION` retired to `.xpose/`, package-data + RELEASING/report docs + version test updated. Verified: editable reinstall resolves 1.2.3, `python -m build` + `twine check` pass, release_check OK, 606 tests green.
   - [x] v1.2.3 `email_config` additions: provider presets (`EMAIL_CONFIG_PROVIDER_PRESETS` + JS prefill), superuser POST-only send-test endpoint/button, and in-app failure-alert recipients (`notify.error(recipients=…, email=False)` + `audit` `email_delivery_failed` log, no mail recursion). Wired through defaults/normalizer/form/clean/import-export/layout/translations(EN+AR)/docs/tests.
   - [x] Hardened the release pipeline: added a `test` gate job to `release.yml` so publish depends on a green suite; fixed `test_updater` attestation test to mock `find_spec` (no longer needs `pypi_attestations` in CI).
   - [x] Completed the v1.2.2 inline-updater release audit and fixed artifact junk, PyPI workflow identity, interpreter-bound attestations, baked/active version separation, rebuild precedence, liveness/health handoff, log redaction, rollback/degraded handling, dirty migration gating, Global Staff polling, and forced-restart recovery.

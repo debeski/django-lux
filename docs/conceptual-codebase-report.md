@@ -1086,11 +1086,13 @@ profile fields, maps portable roles to staff/groups, and never turns provider
 
 ## 47. Release And Packaging
 
-The main package version source is `dlux/VERSION`, read by `dlux.__version__`
-and consumed by `pyproject.toml`.
+The main package version source is the `version` field in
+`dlux/release-manifest.json`, read by `dlux.__version__` and consumed by
+`pyproject.toml`. (The manifest already ships in the wheel for the updater, so it
+doubles as the version source — there is no separate `VERSION` file.)
 
 Releases are tag-driven. The GitHub workflow checks that the pushed tag matches
-`dlux/VERSION`, builds the distribution, publishes to PyPI through Trusted
+the manifest version, builds the distribution, publishes to PyPI through Trusted
 Publishing, builds `dlb-viewer` binaries, and attaches artifacts to GitHub
 Release notes extracted from `CHANGELOG.md`.
 

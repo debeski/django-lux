@@ -4,10 +4,15 @@ This project uses **tag-driven releases**. The git tag *is* the release; PyPI
 and the GitHub Release page are produced automatically from it by
 [`.github/workflows/release.yml`](../.github/workflows/release.yml).
 
-There is **one source of truth for the version**: [`dlux/VERSION`](../dlux/VERSION).
-`dlux/__init__.py` reads it into `__version__`, and `pyproject.toml` derives
-the package version from that attribute. Bump that one file and everything else
-follows. The release workflow refuses to run if the pushed tag doesn't match it.
+There is **one source of truth for the version**: the `version` field in
+[`dlux/release-manifest.json`](../dlux/release-manifest.json). `dlux/__init__.py`
+reads it into `__version__`, and `pyproject.toml` derives the package version from
+that attribute. The manifest already ships inside the wheel (remote updaters read
+it to verify a downloaded release), so the package version, the updater's
+compatibility checks, and the release tag all follow from this one field. Bump it
+(and the manifest's `release_url`/`summary`/`migration_policy` for the release) and
+everything else follows. The release workflow refuses to run if the pushed tag
+doesn't match the manifest version.
 
 ---
 
@@ -46,8 +51,9 @@ pauses for your approval before the PyPI upload.) The name must match the
 # 0. main is green and your working tree is clean
 git switch main && git pull
 
-# 1. bump the single version source (patch=fix, minor=feature, major=breaking)
-printf '%s\n' 'X.Y.Z' > dlux/VERSION
+# 1. bump the single version source (patch=fix, minor=feature, major=breaking):
+#    set "version" (and "release_url" v-tag, summary, migration_policy) in the manifest
+$EDITOR dlux/release-manifest.json
 
 # 2. add a CHANGELOG section for it (newest at top): "## vX.Y.Z"
 $EDITOR CHANGELOG.md
@@ -63,7 +69,7 @@ git add -A && git commit -m "release: vX.Y.Z" && git tag -a vX.Y.Z -m "vX.Y.Z" &
 
 Pushing the tag triggers the pipeline:
 
-1. **build-dist** — checks `tag == dlux/VERSION`, validates the packaged release
+1. **build-dist** — checks `tag == dlux/release-manifest.json` version, validates the packaged release
    manifest and inline-safe migration policy, builds the sdist + wheel, and
    `twine check`s them.
 2. **publish-pypi** — uploads to PyPI via Trusted Publishing.
@@ -109,8 +115,8 @@ API value after cryptographic attestation verification.
 
 ## Rules that keep it from getting chaotic again
 
-- **Never edit a version twice.** Only `dlux/VERSION`. Two places drift; one
-  can't.
+- **Never edit a version twice.** Only the `version` field in
+  `dlux/release-manifest.json`. Two places drift; one can't.
 - **A published version is frozen.** PyPI rejects re-uploads of an existing
   version, and a tag is immutable. So any change after a release = a new version.
   (This replaces the old "check `dist/` before editing the changelog" workaround

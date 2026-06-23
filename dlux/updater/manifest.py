@@ -347,7 +347,10 @@ def assess_wheel(candidate, wheel_path):
 
 
 def validate_local_release_manifest(package_root=None):
+    # The release manifest is the single source of truth for the version (the
+    # package version derives from it), so validate it against its own version.
+    # This still enforces schema, types, and that release_url matches the version.
     package_root = Path(package_root or Path(__file__).resolve().parents[1])
-    version = (package_root / "VERSION").read_text(encoding="utf-8").strip()
     manifest = json.loads((package_root / "release-manifest.json").read_text(encoding="utf-8"))
+    version = str(manifest.get("version") or "").strip()
     return validate_release_manifest(manifest, version)

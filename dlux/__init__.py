@@ -1,11 +1,16 @@
+import json
 from pathlib import Path
 
 
-_VERSION_FILE = Path(__file__).with_name("VERSION")
+# Single source of truth for the DjangoLux version: the release manifest. The
+# manifest already ships inside the wheel (remote updaters read it to verify a
+# downloaded release), so sourcing the version from it keeps the package version,
+# the updater's compatibility checks, and the release tag in lockstep from one file.
+_MANIFEST_FILE = Path(__file__).with_name("release-manifest.json")
 
 
 def get_version():
-    return _VERSION_FILE.read_text(encoding="utf-8").strip()
+    return str(json.loads(_MANIFEST_FILE.read_text(encoding="utf-8"))["version"]).strip()
 
 
 __version__ = get_version()

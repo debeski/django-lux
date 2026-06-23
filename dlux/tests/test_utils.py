@@ -168,10 +168,15 @@ class UtilsTests(TestCase):
 
         self.assertIsNone(secret)
 
-    def test_version_helpers_read_from_version_file(self):
+    def test_version_helpers_read_from_release_manifest(self):
+        import json
         from pathlib import Path
 
-        expected = Path(__file__).resolve().parents[1].joinpath('VERSION').read_text(encoding='utf-8').strip()
+        manifest = json.loads(
+            Path(__file__).resolve().parents[1]
+            .joinpath('release-manifest.json').read_text(encoding='utf-8')
+        )
+        expected = str(manifest['version']).strip()
 
         self.assertEqual(get_version(), expected)
         self.assertEqual(__version__, expected)

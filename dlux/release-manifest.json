@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "1.2.2",
+  "version": "1.2.3",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Introduces the isolated, plugin-style DjangoLux updater runtime for generated Docker Compose projects.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.2"
+  "summary": "Adds email provider presets, a superuser send-test endpoint, and in-app transactional-mail failure alerts; hardens the release test gate.",
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.3"
 }

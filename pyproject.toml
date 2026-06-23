@@ -63,7 +63,6 @@ version = { attr = "dlux.__version__" }
 
 [tool.setuptools.package-data]
 dlux = [
-    "VERSION",
     "release-manifest.json",
     "scaffold_templates/*.tmpl",
     "scaffold_templates/*/*.tmpl",
