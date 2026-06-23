@@ -16,6 +16,8 @@ Use this page when adding `django-lux` to a host Django project for the first ti
 - `pyotp`
 - `qrcode`
 - `cryptography`
+- `openpyxl`
+- `packaging`
 
 ## Install the Package
 
@@ -42,7 +44,16 @@ python -m dlux startapp billing
 python -m dlux startapp billing --register
 ```
 
-The generated project already includes a Docker baseline, a `config/celery.py` entrypoint, a `celery` compose service, a `/health/` endpoint, a generated `.secrets/.env` file with the bootstrap secret values, and a baseline `django-cors-headers` / `django-csp` setup in `config/settings.py`.
+The generated project already includes a Docker baseline, a `config/celery.py`
+entrypoint, `celery` and `dlux-updater` services, a persistent `dlux_runtime`
+volume, nginx maintenance fallback, a `/health/` endpoint, a generated
+`.secrets/.env` file with the bootstrap secret values, and baseline
+`django-cors-headers` / `django-csp` setup in `config/settings.py`.
+
+The scaffold pins `django-lux[updater]` and enables verified inline updates.
+Hand-wired and non-Compose projects remain updater-disabled by default. Existing
+generated projects can adopt the infrastructure once with
+`python -m dlux enable-updater`; see the [Verified Inline Updater](inline-updater.md).
 
 ## Minimum Django Configuration
 
@@ -189,3 +200,4 @@ After setup, the same configuration stays editable from the superuser System Set
 - [Admin Guide](admin-guide.md) for operating the setup wizard, Options view, and runtime preferences.
 - [Developer Guide](developer-guide.md) for the system mental model and integration patterns.
 - [Customization Guide](customization-guide.md) for translations, sections, dynamic modals, and template overrides.
+- [Verified Inline Updater](inline-updater.md) for generated-Compose deployment, guarded bootstrap, updates, and rollback.

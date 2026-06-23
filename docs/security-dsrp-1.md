@@ -66,6 +66,33 @@ authorization decision.
 - All new security surfaces (2FA, Trusted Devices, IP resolution) strictly
   follow the translation-first policy, utilizing the Dlux translation
   framework for all user-facing copy and challenge messages.
+- Inline updater state is readable only to superusers/Global Staff; check/apply/
+  rollback mutations are superuser-only CSRF-protected POSTs, and apply/rollback
+  also require the existing current-password guard and emit audit events.
+
+## Inline Updater Boundary
+
+- Inline updates default off outside recognized generated Compose deployments.
+- The updater has no Docker socket and publishes no ports. Only its dedicated
+  egress bridge can reach PyPI; database/Redis access stays on the internal
+  network. Web, Celery, and nginx mount `dlux_runtime` read-only.
+- Discovery and redirects are allowlisted to official PyPI hosts. A wheel is
+  accepted only after SHA-256 and PyPI attestation verification for
+  `debeski/django-lux` plus `.github/workflows/release.yml`; the integrity API's
+  canonical workflow field is the basename `release.yml`.
+- The active pointer is an atomic JSON file; version strings and release paths
+  are normalized and constrained below the persistent runtime root.
+- The direct web version probe is authenticated with an HMAC derived from the
+  deployment `SECRET_KEY`; external requests without the updater probe fail as
+  not found.
+- Wheels install only into isolated version directories using `--no-deps`; the
+  baked Python environment is never mutated. Candidate subprocesses execute
+  before maintenance and pointer switching.
+- Release summaries render as escaped text. Updater logs are bounded, NUL-free,
+  and redact password/secret/token/authorization-shaped values.
+- Automatic recovery restores code/static state only. It never automatically
+  restores the database; inline-safe migrations must stay backward compatible,
+  and the completed pre-operation `.dlb` backup remains a manual recovery tool.
 
 ## Rate Limiting & Session Controls
 

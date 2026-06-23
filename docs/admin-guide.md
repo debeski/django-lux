@@ -111,9 +111,9 @@ Operationally, that means you can keep a carefully curated default navigation wh
 
 ## Optional Nav Bar
 
-Step 5 owns the optional authenticated Nav Bar. When enabled, it appears above page content beside the sidebar and uses the same translated UI layer as the rest of Dlux.
+Step 6 owns the optional authenticated Nav Bar. When enabled, it appears above page content beside the sidebar and uses the same translated UI layer as the rest of Dlux.
 
-- **Hierarchy** uses the visual Step 5 tree editor. Discovered routes provide translated labels, and manual grouping nodes can add non-clickable labels or URL-backed shared ancestors.
+- **Hierarchy** uses the visual Step 6 tree editor. Discovered routes provide translated labels, and manual grouping nodes can add non-clickable labels or URL-backed shared ancestors.
 - **History** keeps one six-entry recent trail in the current browser session, deduplicates repeated paths without treating filters, sorting, or pagination query strings as new pages, and resolves known route labels in the active interface language.
 - **User override** is available in Options only when the developer allows it. Otherwise the developer-selected default style stays authoritative.
 - Dlux-owned system views are not manually placed from the hierarchy builder; they are automatically grouped under an unclickable `System` crumb when accessible.
@@ -143,6 +143,12 @@ The current official order is:
 - `gothic`
 - `retro`
 - `neon`
+- `prism`
+- `aether`
+
+The Aether theme uses a reduced-motion-aware drifting light field. Its sheen reverses
+at each endpoint so the background animation remains continuous without a lighting
+jump when the cycle repeats.
 
 ## Typography and Font Management
 
@@ -182,9 +188,12 @@ The Options screen currently provides:
 - table-density switching for the current user
 - autofill enable or disable
 - reset-to-defaults for user preferences
-- a superuser-only System Settings button that opens focused Branding, Languages, Access & Security, Login Page, Sidebar, Nav Bar, UI & Layout, and Appearance modals
+- a superuser-only System Settings card that opens focused Branding, Languages,
+  Access & Security, Login Page, Sidebar, Nav Bar, UI & Layout, Notifications,
+  Appearance, Logging, and Profile Page modals
 - a superuser-only setup export action for reusing System Settings across development environments
 - a superuser-only Backup & Restore card that summarizes the latest full backup, completed/protected backup counts, and latest restore before opening `/sys/backup/`
+- generated Compose deployments also show installed/latest verified DjangoLux versions and the last update check in System Info; Global Staff see read-only state, while superusers can check, review/apply, and roll back manifest-approved releases
 
 Options layout note:
 
@@ -196,6 +205,15 @@ Security note:
 
 - the diagnostics card is now staff/superuser-only
 - ordinary authenticated users still keep their personal preference controls in Options
+- inline apply/rollback controls are superuser-only, CSRF-protected, and require the current password; no update is installed by the daily background check
+
+Inline update note:
+
+- `v1.2.2` is the activation release and requires one normal project-image rebuild
+- after that activation, only releases that pass the official PyPI hash, attestation, dependency, Python, manifest, migration, and candidate-preflight gates show **Review and update**
+- apply briefly enables the nginx maintenance page, creates a full-system backup, and persists progress across browser disconnects
+- **Roll back to previous version** switches code and static assets without reversing migrations or automatically restoring the database
+- see [Verified Inline Updater](inline-updater.md) for deployment/bootstrap and recovery details
 
 Operational note:
 
@@ -209,10 +227,12 @@ That means the setup wizard is for initial onboarding, while the Options view is
 
 Admins can configure how DjangoLux identifies the client IP address in Step 3 (Access and Security). This is critical for accurate activity logging and security tracking.
 
-- **Auto-detect** (recommended default): Tries sources in priority order — `X-Forwarded-For` (leftmost) → `X-Real-IP` → `CF-Connecting-IP` → `REMOTE_ADDR` — and uses the first non-empty value. Sensible for most deployments without manual tuning.
-- **Direct**: Use `REMOTE_ADDR` directly. This is the correct choice if the web server is facing the internet directly without a proxy.
-- **Proxy-Aware (X-Forwarded-For)**: Parses the `HTTP_X_FORWARDED_FOR` header. Use this if the application is behind a standard reverse proxy (like Nginx or HAProxy). You can specify the number of **Trusted Proxy Hops** to ignore from the right.
-- **Custom Header**: Use a specific header provided by your infrastructure (e.g., `HTTP_CF_CONNECTING_IP` for Cloudflare).
+- **Auto-detect**: Tries `X-Forwarded-For` (leftmost) → `X-Real-IP` → `CF-Connecting-IP` → `REMOTE_ADDR` and uses the first non-empty value.
+- **Proxy-Aware (X-Forwarded-For)**: The default mode. It selects the client from the right of the proxy chain after ignoring the configured **Trusted Proxy Hops** (default 1, bounded to 0–8). Match that number to infrastructure you control.
+- **Direct (`REMOTE_ADDR`)**: Correct when the web server faces the client directly without a proxy.
+- **X-Real-IP**: Reads the standard single-value reverse-proxy header.
+- **Cloudflare**: Reads `CF-Connecting-IP` explicitly.
+- **Custom Header**: Reads a deployment-specific header. Names such as `CF-Connecting-IP` are normalized to Django's `HTTP_CF_CONNECTING_IP` form automatically.
 
 All modes share a hardened fallback: if the configured source returns nothing, DjangoLux still tries `X-Forwarded-For` (leftmost) → `X-Real-IP` → `REMOTE_ADDR` before giving up, so a misconfigured header no longer yields an empty client IP.
 

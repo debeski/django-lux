@@ -25,6 +25,7 @@ TEST_LABELS = [
     'dlux.tests.test_tables',
     'dlux.tests.test_utils',
     'dlux.tests.test_utils_discovery',
+    'dlux.tests.test_updater',
 ]
 
 

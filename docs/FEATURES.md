@@ -1,6 +1,6 @@
 # DjangoLux Complete Feature Reference
 
-**Version:** 1.2.0
+**Version:** 1.2.2 (unreleased)
 **Package:** `django-lux` — A multilingual Django framework layer for internal systems
 
 ---
@@ -23,6 +23,7 @@
 14. [Middleware & Request Handling](#14-middleware--request-handling)
 15. [Discovery System](#15-discovery-system)
 16. [Notifications](#16-notifications)
+17. [Verified Inline Updater](#17-verified-inline-updater)
 
 ---
 
@@ -58,7 +59,9 @@
 - **Centralized IP resolution setup** for configuring how the system identifies client IPs for logs and security throttles
 
 ### Options View (`/sys/options/`)
-- Split System Settings modal entrypoints (Branding, Languages, Access & Security, Login Page, Sidebar, Nav Bar, Titlebar, Appearance)
+- Split System Settings modal entrypoints (Branding, Languages, Access & Security,
+  Login Page, Sidebar, Nav Bar, UI & Layout, Notifications, Appearance, Logging,
+  and Profile Page)
 - Theme picker with live preview
 - Language picker (when enabled)
 - Table density picker
@@ -66,6 +69,7 @@
 - User preferences panel
 - Draggable card layout with browser-persisted ordering
 - Double-width System Info card inside the shared Options card grid
+- Generated-Compose DjangoLux updater state with Global Staff read-only visibility and superuser-only verified check/apply/rollback controls
 - Standalone Autofill and Reset Defaults cards using shared external CSS/JS assets
 - Titlebar notification icon with unread badge, drawer list, detail view, dismiss, mark-all-read, and clear-read actions
 
@@ -91,23 +95,25 @@
 | `python -m dlux startproject <name>` | Create new DjangoLux-ready Django project |
 | `python -m dlux startapp <name>` | Create DjangoLux-native app skeleton |
 | `python -m dlux startapp <name> --register` | Create app + auto-register in settings/URLs |
+| `python -m dlux enable-updater [--apply]` | Dry-run/apply the guarded one-time inline-updater bootstrap for an existing generated Compose project |
 
 ### Generated Project Structure
 - **Config package** (`config/` instead of project name reuse)
 - **Docker baseline:** `.dockerignore`, `Dockerfile`, `compose.yml`, `compose.dev.yml`
 - **Nginx config:** `.nginx/nginx.conf`
 - **Entry scripts:** `entrypoint.sh`, `start.sh`, `start.ps1` (Windows path translation)
-- **Secrets:** `.secrets/.env` with 6 bootstrap values
+- **Secrets:** `.secrets/.env` with Django, database, pgAdmin, admin, sender, and SMTP-relay bootstrap values
 - **Celery worker:** `config/celery.py` with Redis broker
 - **Health check:** `/health/` endpoint via `django-health-check`
 - **Security headers:** `django-cors-headers` + `django-csp` pre-wired
+- **Inline updater:** persistent versioned release volume, isolated update worker, restart supervisor, nginx maintenance page, and baked-package fallback
 
 ### Generated App Structure
 - `models.py` — with `ScopedModel` base import
-- [forms.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/forms.py:0:0-0:0), [tables.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/tables.py:0:0-0:0), `filters.py` — with Dlux imports
+- [`forms.py`](../dlux/scaffold_templates/app/forms.py.tmpl), [`tables.py`](../dlux/scaffold_templates/app/tables.py.tmpl), and [`filters.py`](../dlux/scaffold_templates/app/filters.py.tmpl) — with Dlux imports
 - `views.py` — with list/create/update/delete views
-- [urls.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/urls.py:0:0-0:0) — with namespace routing
-- [translations.py](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/translations.py:0:0-0:0) — DLUX_STRINGS dictionary
+- [`urls.py`](../dlux/scaffold_templates/app/urls.py.tmpl) — with namespace routing
+- [`translations.py`](../dlux/scaffold_templates/app/translations.py.tmpl) — `DLUX_STRINGS` dictionary
 - Templates: list and form HTML templates
 - Tests: app-specific test scaffold
 
@@ -155,6 +161,13 @@
 - `DluxNotificationState` stores per-user read, dismiss, and email state.
 - `DluxNotificationRule(ScopedModel)` stores admin-configured JSON match/delivery routing rules.
 - `DluxNotificationWatch(ScopedModel)` stores model-level watches per user/scope; object-level watches are deferred.
+
+### Operational Models
+- `ActivityLog(ScopedModel)` is the current user/system/audit log model; `UserActivityLog` is a compatibility import alias only.
+- `ReportBackup`, `SystemBackup`, and `SystemRestore` persist report/full-system backup and restore runs.
+- `TrustedDevice`, `UserKnownDevice`, and `UserPresenceSession` separate 2FA trust, durable device observations, and active-session presence.
+- `PublicRegistration` stores hashed-token, email-verified local signup state.
+- `DluxUpdateState` and `DluxUpdateRun` serialize updater state and bounded operation history for generated Compose deployments.
 
 ---
 
@@ -253,7 +266,7 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 
 ## 6. UI Infrastructure
 
-### Theme System (10 Built-in Themes)
+### Theme System (12 Built-in Themes)
 | Theme | Description |
 |-------|-------------|
 | `light` | Clean light default |
@@ -266,6 +279,8 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 | `gothic` | Dark purple/cyberpunk |
 | `retro` | Sepia/amber vintage |
 | `neon` | Cyan glow cyber theme |
+| `prism` | Layered neutral glass and spectral edges |
+| `aether` | Animated dark liquid-metal glass with a seamless drifting light field |
 
 **Theme Features:**
 - Runtime theme switching
@@ -355,10 +370,11 @@ class Meta:
 - Permission-filtered actions
 - Double-click to view
 - Event-based dispatch (`dlux:record:view|edit|delete`)
-- Custom action injection via [get_dlux_row_actions()](cci:1://file:///home/debeski/depy/projects/dlux-pkg/dlux/tables.py:85:4-86:27)
+- Custom action injection via [`get_dlux_row_actions()`](../dlux/tables.py)
 
 ### Table Features
-- **Density precedence:** Meta override → request `per_page` → user preference → system default → 20
+- **Density precedence:** `Meta.dlux_density` → user preference → system default → `balanced`
+- **Page-size precedence:** `Meta.dlux_per_page` → request `per_page` → user preference → `20`
 - **Page size preference persistence** per user
 - **RTL-aware** sort chevrons
 - **Theme-aware** density cards
@@ -449,7 +465,7 @@ ActivityLog.safe_log(
 - Durable known-device and presence-session history for forward-looking device, IP, browser, OS, request, and estimated-time reporting
 
 ### User Report Data Sources
-- `UserActivityLog` remains the action/audit source.
+- `ActivityLog` remains the action/audit source (`UserActivityLog` is an import alias only).
 - `UserKnownDevice` groups browser/device observations through a signed first-party device cookie stored only as a hash.
 - `UserPresenceSession` tracks session-level presence estimates while Django sessions remain authoritative for authentication.
 - `TrustedDevice` remains the 2FA trust source and can be linked to known devices for reporting context.
@@ -544,16 +560,16 @@ ActivityLog.safe_log(
 ### JavaScript Helpers
 | File | Purpose |
 |------|---------|
-| [prevent_double_submit.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/prevent_double_submit.js:0:0-0:0) | Disable submit button on form submit (5s timeout) |
-| [dynamic_modal/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/dynamic_modal/js/main.js:0:0-0:0) | AJAX modal CRUD with fetch |
-| [context_menu/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/context_menu/js/main.js:0:0-0:0) | Row-level context menu events |
-| [context_menu/js/section_manager.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/context_menu/js/section_manager.js:0:0-0:0) | Section tree interactions |
-| [wizard/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/wizard/js/main.js:0:0-0:0) | Multi-step form controller |
-| [autofill/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/autofill/js/main.js:0:0-0:0) | Sticky form autofill |
-| [scan_link/js/main.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/scan_link/js/main.js:0:0-0:0) | QR/barcode scanning |
-| [scan_link/js/scan_button.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/helpers/scan_link/js/scan_button.js:0:0-0:0) | Scan button widget |
-| [main/js/options.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/js/options.js:0:0-0:0) | Options card reordering, reset/defaults, and shared page behavior |
-| [users/js/profile_2fa.js](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/users/js/profile_2fa.js:0:0-0:0) | POST-backed profile 2FA flows and current-password-confirmed destructive actions |
+| [`prevent_double_submit.js`](../dlux/static/dlux/helpers/prevent_double_submit.js) | Preserve the named submitter, block repeat submits, and re-enable after 5s |
+| [`dynamic_modal/js/main.js`](../dlux/static/dlux/helpers/dynamic_modal/js/main.js) | AJAX modal CRUD with fetch |
+| [`context_menu/js/main.js`](../dlux/static/dlux/helpers/context_menu/js/main.js) | Row-level context menu events |
+| [`context_menu/js/section_manager.js`](../dlux/static/dlux/helpers/context_menu/js/section_manager.js) | Section tree interactions |
+| [`wizard/js/main.js`](../dlux/static/dlux/helpers/wizard/js/main.js) | Multi-step form controller |
+| [`autofill/js/main.js`](../dlux/static/dlux/helpers/autofill/js/main.js) | Sticky form autofill |
+| [`scan_link/js/main.js`](../dlux/static/dlux/helpers/scan_link/js/main.js) | QR/barcode scanning |
+| [`scan_link/js/scan_button.js`](../dlux/static/dlux/helpers/scan_link/js/scan_button.js) | Scan button widget |
+| [`main/js/options.js`](../dlux/static/dlux/main/js/options.js) | Options card reordering, reset/defaults, and shared page behavior |
+| [`users/js/profile_2fa.js`](../dlux/static/dlux/users/js/profile_2fa.js) | POST-backed profile 2FA flows and current-password-confirmed destructive actions |
 
 ### CSS Structure
 | Directory | Contents |
@@ -561,21 +577,21 @@ ActivityLog.safe_log(
 | `main/css/` | Core styles (buttons, tables, forms, titlebar) |
 | `sidebar/css/` | Sidebar-specific styles |
 | `forms/css/` | Form widgets and fields |
-| `themes/css/` | 10 theme files |
+| `themes/css/` | 12 registered theme files plus the shared loader |
 | `users/css/` | Login, profile, permissions |
 | `helpers/context_menu/css/` | Context menu styling |
 | `language/css/` | Language picker styles |
 | `tutorial/css/` | Tutorial overlay styles |
 
 ### Key CSS Files
-- [main.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/main.css:0:0-0:0) — Core layout and variables
-- [tables.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/tables.css:0:0-0:0) — Table platform with density tokens
-- [buttons.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/buttons.css:0:0-0:0) — Button variants
-- [titlebar.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/titlebar.css:0:0-0:0) — Titlebar layout
-- [options.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/options.css:0:0-0:0) — Shared Options card system and drag layout
-- [system_setup.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/system_setup.css:0:0-0:0) — Setup wizard styling
-- [selectors.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/selectors.css:0:0-0:0) — Choice selector widgets
-- [template_cleanup.css](cci:7://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/main/css/template_cleanup.css:0:0-0:0) — Shared CSS replacements for previously inline template styling
+- [`main.css`](../dlux/static/dlux/main/css/main.css) — Core layout and variables
+- [`tables.css`](../dlux/static/dlux/main/css/tables.css) — Table platform with density tokens
+- [`buttons.css`](../dlux/static/dlux/main/css/buttons.css) — Button variants
+- [`titlebar.css`](../dlux/static/dlux/main/css/titlebar.css) — Titlebar layout
+- [`options.css`](../dlux/static/dlux/main/css/options.css) — Shared Options card system and drag layout
+- [`system_setup.css`](../dlux/static/dlux/main/css/system_setup.css) — Setup wizard styling
+- [`selectors.css`](../dlux/static/dlux/main/css/selectors.css) — Choice selector widgets
+- [`template_cleanup.css`](../dlux/static/dlux/main/css/template_cleanup.css) — Shared CSS replacements for previously inline template styling
 
 ---
 
@@ -617,14 +633,14 @@ ActivityLog.safe_log(
 4. **RequestConfig patch** — page size resolution with preferences
 5. **Global translation patches** — gettext/pgettext/model meta
 
-### Context Processor ([dlux_context](cci:1://file:///home/debeski/depy/projects/dlux-pkg/dlux/context_processors.py:135:0-309:18))
+### Context Processor ([`dlux_context`](../dlux/context_processors.py))
 Provides to all templates:
 - `APP_CONFIG` — system branding
 - `CURRENT_LANG`, `CURRENT_DIR` — language state
 - `DLUX_STRINGS` — translation dictionary
 - `DLUX_THEMES` — available themes
 - `user_preferences` — user prefs JSON
-- [sidebar](cci:9://file:///home/debeski/depy/projects/dlux-pkg/dlux/static/dlux/sidebar:0:0-0:0) — navigation tree
+- `sidebar` — resolved navigation tree
 - `sidebar_*` — toolbar visibility flags
 - `scope_settings`, `can_view_*` — permission booleans
 
@@ -694,6 +710,35 @@ notify("Payroll batch exported.", obj=batch, action="export", category="reports"
 
 ---
 
+## 17. Verified Inline Updater
+
+- New generated Compose projects pin `django-lux[updater]`, enable inline updates,
+  and run `web`, `celery`, and `dlux-updater` from the same project image.
+- The persistent `dlux_runtime` volume stores versioned releases, the atomic
+  active pointer, generation counter, maintenance marker, wheels, staging data,
+  and logs. Web, Celery, and nginx mount it read-only; only the updater mounts it
+  read/write.
+- Stable non-yanked releases come from official PyPI Simple JSON. Candidates
+  must pass wheel SHA-256, PyPI attestation repository/workflow, manifest schema,
+  Python, platform, installed-dependency, and migration-policy checks.
+- `DluxUpdateState` is the locked singleton control row. `DluxUpdateRun` records
+  serialized check/apply/rollback transitions with bounded sanitized logs.
+- Apply stages the wheel with `pip --target --no-deps`, runs candidate checks,
+  completes a full-system backup, enables maintenance, migrates/collects static,
+  atomically switches the release pointer, restarts by generation, and verifies
+  web version plus Celery before clearing maintenance.
+- Pre-switch failures leave the current release active. Post-switch failures
+  restore the previous code pointer and static assets; database restore is never
+  automatic because inline-safe migrations must remain backward compatible.
+- Global Staff can read System Info update state. Only superusers can check,
+  apply, or roll back; apply/rollback require current-password confirmation.
+- Existing recognized generated projects use `python -m dlux enable-updater`
+  (dry-run) and `--apply` once, then rebuild/redeploy the activation release.
+
+See [Verified Inline Updater](inline-updater.md) for the deployment and release contract.
+
+---
+
 ## Management Commands
 
 | Command | Purpose |
@@ -701,6 +746,10 @@ notify("Payroll batch exported.", obj=batch, action="export", category="reports"
 | `dlux_setup` | Create migrations, apply migrations, run checks |
 | `dlux_check` | Validate settings, apps, middleware, URLs, Crispy |
 | `dlux_settings` | Inspect, unconfigure, reset, delete, export, and import the System Settings singleton |
+| `dlux_prune_activity_log [--dry-run]` | Apply configured per-category retention windows |
+| `dlux_migrate_from_microsys [--yes]` | Preview/apply the supported Microsys 2.4.1 database relabel |
+| `dlux_update_worker` | Internal generated-Compose update queue/check worker |
+| `migrator` | Internal generated-project migration/static/superuser bootstrap |
 
 ---
 
@@ -736,6 +785,8 @@ Auto-handles:
 - django-tables2
 - django-filter
 - Pillow
+- openpyxl
+- packaging
 
 **Required for shipped features:**
 - babel — translations
@@ -749,8 +800,8 @@ Auto-handles:
 - django-cors-headers — CORS
 - django-csp — Content Security Policy
 - django-health-check — health endpoint
+- `pypi-attestations` — installed by the `django-lux[updater]` extra in generated Compose projects
 
 ---
-```markdown
-*Generated from codebase analysis — reflects package version 2.1.9*
-```
+
+*Verified against the unreleased DjangoLux 1.2.2 source tree on 2026-06-23.*

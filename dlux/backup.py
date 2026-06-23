@@ -60,6 +60,8 @@ _SYSTEM_BACKUP_EXCLUDED = {
     "dlux.reportbackup",
     "dlux.systembackup",
     "dlux.systemrestore",
+    "dlux.dluxupdatestate",
+    "dlux.dluxupdaterun",
 }
 
 _SUPERUSER_PASSWORD_OMITTED = "!dlux-superuser-password-omitted"

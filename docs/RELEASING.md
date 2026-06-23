@@ -46,34 +46,64 @@ pauses for your approval before the PyPI upload.) The name must match the
 # 0. main is green and your working tree is clean
 git switch main && git pull
 
-# 1. bump the single version source
-#    e.g. 1.0.0 -> 1.0.1   (patch=fix, minor=feature, major=breaking)
-echo "1.0.1" > dlux/VERSION
+# 1. bump the single version source (patch=fix, minor=feature, major=breaking)
+printf '%s\n' 'X.Y.Z' > dlux/VERSION
 
-# 2. add a CHANGELOG section for it (newest at top): "## v1.0.1"
+# 2. add a CHANGELOG section for it (newest at top): "## vX.Y.Z"
 $EDITOR CHANGELOG.md
 
 # 3. commit, tag, push
-git commit -am "release: v1.0.1"
-git tag -a v1.0.1 -m "v1.0.1"
+git commit -am "release: vX.Y.Z"
+git tag -a vX.Y.Z -m "vX.Y.Z"
 git push && git push --tags
 
 # or just use a one line command like this:
-git add -A && git commit -m "release: v1.0.1" && git tag -a v1.0.1 -m "v1.0.1" && git push origin --follow-tags
+git add -A && git commit -m "release: vX.Y.Z" && git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin --follow-tags
 ```
 
 Pushing the tag triggers the pipeline:
 
-1. **build-dist** — checks `tag == dlux/VERSION`, builds the sdist + wheel,
+1. **build-dist** — checks `tag == dlux/VERSION`, validates the packaged release
+   manifest and inline-safe migration policy, builds the sdist + wheel, and
    `twine check`s them.
 2. **publish-pypi** — uploads to PyPI via Trusted Publishing.
 3. **build-viewer** — runs `make all` in `tools/dlb-viewer/`, producing the 5
    platform binaries.
-4. **github-release** — extracts the `## v1.0.1` section from `CHANGELOG.md` as
+4. **github-release** — extracts the matching `## vX.Y.Z` section from `CHANGELOG.md` as
    the release notes and publishes a GitHub Release with the wheel/sdist **and**
    the viewer binaries attached.
 
 Watch it under the repo's **Actions** tab.
+
+### Inline-safe release declaration
+
+Every core wheel includes `dlux/release-manifest.json`. Before tagging, update
+its version, summary, release URL, updater schema, and migration policy. Set
+`inline_safe` to `true` only when all of these hold:
+
+- the dependency metadata is unchanged from the activation/current release;
+- supported Python versions are unchanged;
+- Dlux migration changes use only `CreateModel`, `AddIndex`, or nullable/defaulted
+  `AddField` operations;
+- the release remains compatible with the immediately previous code during a
+  manual or automatic pointer rollback.
+
+`v1.2.2` is the infrastructure activation release and is installed through a
+normal image rebuild. The unchanged-dependency rule governs subsequent releases
+that can actually be selected by an already-active inline updater.
+
+`python -m dlux.updater.release_check --base-tag vX.Y.Z` runs the same manifest
+and changed-migration gate locally. The tag workflow determines the prior `v*`
+tag automatically. Use `inline_safe: false` and `migration_policy:
+image_rebuild` for dependency changes, unsupported updater/Python baselines, or
+any destructive/renaming/data migration. The deployed UI then reports
+**Project image rebuild required** instead of offering an Update button.
+
+PyPI must continue publishing through repository `debeski/django-lux`, workflow
+`.github/workflows/release.yml`, and environment `pypi`; deployed updaters verify
+that exact attested publisher identity. PyPI's integrity response represents the
+workflow field as the basename `release.yml`; the updater checks that canonical
+API value after cryptographic attestation verification.
 
 ---
 
@@ -85,7 +115,7 @@ Watch it under the repo's **Actions** tab.
   version, and a tag is immutable. So any change after a release = a new version.
   (This replaces the old "check `dist/` before editing the changelog" workaround
   — the tooling now enforces it.)
-- **Tag from `main` only**, after CI is green. `git checkout v1.0.1` will always
+- **Tag from `main` only**, after CI is green. `git checkout vX.Y.Z` will always
   show exactly what shipped.
 - **If a release run fails before PyPI upload**, fix forward: bump to the next
   patch and re-tag. Don't try to reuse a tag.

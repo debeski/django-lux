@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from .scaffold import ScaffoldError, create_app, create_project
+from .scaffold import ScaffoldError, create_app, create_project, enable_updater
 
 
 def main(argv=None):
@@ -29,6 +29,16 @@ def main(argv=None):
         help="Also register the new app in the current project settings and urls",
     )
 
+    updater_parser = subparsers.add_parser(
+        "enable-updater",
+        help="Bootstrap verified inline updates in a generated Compose project",
+    )
+    updater_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply the guarded changes (the default is a dry run)",
+    )
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -48,6 +58,14 @@ def main(argv=None):
                 register=args.register,
             )
             print(f"Created app scaffold at {app_root}")
+        elif args.command == "enable-updater":
+            result = enable_updater(apply=args.apply)
+            mode = "Applied" if result["applied"] else "Dry run"
+            files = ", ".join(result["files"]) if result["files"] else "no changes"
+            print(f"{mode}: {files}")
+            if result.get("backup_root"):
+                print(f"Backups: {result['backup_root']}")
+            print(f"Rebuild and redeploy once: {result['command']}")
         return 0
     except ScaffoldError as exc:
         print(f"Error: {exc}", file=sys.stderr)

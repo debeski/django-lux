@@ -118,6 +118,13 @@ urlpatterns = [
     path('sys/api/notifications/clear-all/', api.notifications_clear_all, name='notifications_clear_all'),
     path('sys/api/notifications/<int:pk>/read/', api.notification_mark_read, name='notification_mark_read'),
     path('sys/api/notifications/<int:pk>/dismiss/', api.notification_dismiss, name='notification_dismiss'),
+    # Generated-Compose DjangoLux updater
+    path('sys/api/dlux-update/runtime-health/', views.dlux_update_runtime_health, name='dlux_update_runtime_health'),
+    path('sys/api/dlux-update/state/', views.dlux_update_state_view, name='dlux_update_state'),
+    path('sys/api/dlux-update/check/', views.dlux_update_check_view, name='dlux_update_check'),
+    path('sys/api/dlux-update/apply/', views.dlux_update_apply_view, name='dlux_update_apply'),
+    path('sys/api/dlux-update/rollback/', views.dlux_update_rollback_view, name='dlux_update_rollback'),
+    path('sys/api/dlux-update/runs/<str:token>/', views.dlux_update_run_view, name='dlux_update_run'),
     # Dynamic Modal CRUD
     path('sys/modals/manager/<str:app_label>/<str:model_name>/<str:pk>/', views.DynamicModalManagerView.as_view(), name='modal_manager'),
     path('sys/modals/delete/<str:app_label>/<str:model_name>/<int:pk>/', views.DynamicModalDeleteView.as_view(), name='modal_delete'),

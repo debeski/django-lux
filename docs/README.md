@@ -21,6 +21,7 @@ Use the sections below based on what you are trying to do.
 - [DSRP-1 Security Standard](security-dsrp-1.md) for the active backend authorization and security-flow policy.
 - [Public Registration Playground](registration.md) for the disabled-by-default email-verified local signup path.
 - [Optional SSO Packages](sso.md) for the separate OIDC provider plugin and client SDK.
+- [Verified Inline Updater](inline-updater.md) for generated-Compose deployment, bootstrap, release verification, maintenance, and rollback behavior.
 
 ## I am Integrating DjangoLux into a Django Project
 
@@ -31,6 +32,7 @@ Use the sections below based on what you are trying to do.
 
 - [Features](FEATURES.md) — complete feature inventory covering every capability from scaffolding to security, tables, themes, and UI infrastructure.
 - [Reference](reference.md) for management commands, endpoints, template tags, helper utilities, and codebase entry points.
+- [Verified Inline Updater](inline-updater.md) for updater settings, volume state, safety gates, and operator recovery.
 - [Conceptual Codebase Report](conceptual-codebase-report.md) for a concept-first map of the runtime algorithms, state layers, and subsystem relationships.
 - [DSRP-1 Security Standard](security-dsrp-1.md) for the core backend authorization contract and the no-inline runtime asset policy.
 - [Customization Guide](customization-guide.md#universal-fetcher-and-excel-export) for download/export helpers.
@@ -51,3 +53,4 @@ Use the sections below based on what you are trying to do.
 - Data-movement helpers such as the universal fetcher, Excel export, sticky autofill, recursive foreign-key autofill, and downloadable file handling.
 - Framework-level automation for translations, scope injection, actor tracking, soft-delete, UI preference persistence, and CSP-friendly external asset usage across shipped templates and modal helpers.
 - Tutorial and design infrastructure including view-aware walkthroughs, theme-aware surfaces, and extension hooks for head/scripts injection.
+- A verified generated-Compose updater with official-PyPI provenance checks, persistent versioned releases, superuser-approved maintenance, process restarts, and compatible rollback while the baked package remains the fallback.

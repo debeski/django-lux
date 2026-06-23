@@ -50,7 +50,12 @@ in place, without data loss.
    `django_content_type` (permissions follow automatically), creates any Dlux
    `0001_initial` tables missing from the source Microsys schema, records dlux's
    `0001_initial` as applied while dropping the old `microsys` migration history,
-   and rewrites `UserActivityLog.model_key` values (`microsys.*` → `dlux.*`).
+   and rewrites activity-log `model_key` values (`microsys.*` → `dlux.*`).
+
+   The migration command retains the historical `UserActivityLog` wording in
+   some console output for compatibility with the Microsys source schema. In
+   current DjangoLux code the model is `ActivityLog`; `UserActivityLog` is only
+   an import alias.
 
 6. **Confirm and finish:**
    ```bash

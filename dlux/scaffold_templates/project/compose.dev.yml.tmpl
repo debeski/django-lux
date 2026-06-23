@@ -8,6 +8,16 @@ services:
     build: .
     image: !reset null
 
+  dlux-updater:
+    build: .
+    image: !reset null
+    volumes: !override
+      - ./:/app:rw
+      - dlux_runtime:/opt/dlux-runtime:rw
+      - static:/app/staticfiles:rw
+      - ./media/:/app/media/:rw
+      - ./logs/:/app/logs:rw
+
   nginx:
     ports: !override
       - target: 80
@@ -23,6 +33,7 @@ services:
       - ./media/:/app/media/:rw
       - ./logs/:/app/logs:rw
       - ./imports/:/app/imports:ro
+      - dlux_runtime:/opt/dlux-runtime:ro
     environment:
       BASE_URL: "http://localhost:90"
       DEBUG_STATUS: "True"
@@ -36,3 +47,4 @@ services:
       - static:/app/staticfiles:rw
       - ./media/:/app/media/:rw
       - ./logs/:/app/logs:rw
+      - dlux_runtime:/opt/dlux-runtime:ro

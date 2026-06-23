@@ -167,7 +167,8 @@
     opacity: 0.72;
     pointer-events: none;
     z-index: 9998;
-    animation: aetherSheen 12s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    /* Reverse from each endpoint so the light field never jumps back to its start. */
+    animation: aetherSheen 12s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
 }
 
 @keyframes aetherFacetDrift {

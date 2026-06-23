@@ -139,6 +139,7 @@ AUDIT_ACTIONS = {
     'PASSWORD_CHANGE', 'PASSWORD_RESET', 'SESSION_REVOKE',
     'TRUSTED_DEVICE', 'TRUSTED_DEVICE_REVOKE', 'PERMISSION_DENIED',
     'REGISTER_VERIFY', 'APPROVE', 'REJECT',
+    'DLUX_UPDATE_CHECK', 'DLUX_UPDATE_APPLY', 'DLUX_UPDATE_ROLLBACK',
 }
 
 # Locale-display labels (model_key is NULL for these) that denote dlux-internal/system
@@ -175,7 +176,7 @@ LOG_NEVER_LOGGED_MODEL_NAMES = frozenset({'testmodel'})
 
 # dlux models that produce no meaningful activity log: the unified identity Profile, the log
 # model itself, the fieldless Section permission placeholder, high-churn device/presence/
-# notification state, and backup-run rows. Never logged and never offered as toggles.
+# notification state, backup-run rows, and updater bookkeeping. Never logged and never offered as toggles.
 LOG_NEVER_LOGGED_MODEL_KEYS = LOG_FORCED_EXCLUDED_MODEL_KEYS | {
     'dlux.profile',
     'dlux.section',
@@ -189,6 +190,8 @@ LOG_NEVER_LOGGED_MODEL_KEYS = LOG_FORCED_EXCLUDED_MODEL_KEYS | {
     'dlux.reportbackup',
     'dlux.systembackup',
     'dlux.systemrestore',
+    'dlux.dluxupdatestate',
+    'dlux.dluxupdaterun',
 }
 
 

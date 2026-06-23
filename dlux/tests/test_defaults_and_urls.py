@@ -737,7 +737,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
 
         self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
-        self.assertIn('data-setup-theme-preview-url="/static/dlux/themes/css/light.css?v=', form.theme_picker_html)
+        self.assertIn(
+            'data-setup-theme-preview-url="/static/dlux/themes/css/light.css?v=20260622a"',
+            form.theme_picker_html,
+        )
         self.assertIn('data-setup-theme-allow-toggle="light"', form.theme_picker_html)
         self.assertIn('dlux-theme-settings-option__preview', form.theme_picker_html)
         self.assertIn('aria-pressed="true"', form.theme_picker_html)
@@ -2046,6 +2049,17 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('.option-section:not(.dlux-options-panel),', contents)
         self.assertIn('.option-section:not(.dlux-options-panel) > *,', contents)
 
+    def test_aether_sheen_reverses_at_endpoints_without_a_loop_jump(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'themes' / 'css' / 'aether.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn(
+            'animation: aetherSheen 12s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;',
+            contents,
+        )
+        self.assertIn('0%, 18% {\n        background-position: -160% 0, 0 -20%;', contents)
+        self.assertIn('100% {\n        background-position: 180% 0, 0 120%;', contents)
+
     def test_selector_css_adds_vertical_padding_for_toggle_card_grids(self):
         stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'selectors.css'
         contents = stylesheet.read_text(encoding='utf-8')
@@ -2236,7 +2250,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         _assert_versioned_static_asset(self, contents, "dlux/main/js/navbar.js")
         self.assertIn("dlux/main/css/navbar.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/navbar.css")
-        self.assertIn("{% static theme.css_path %}?v=", contents)
+        self.assertIn("{% static theme.css_path %}?v=20260622a", contents)
         self.assertIn("dlux/main/css/template_cleanup.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/template_cleanup.css")
 

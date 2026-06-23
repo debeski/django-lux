@@ -23,6 +23,12 @@ If your change touches optional SSO behavior, install the optional dependency se
 python -m pip install -e ".[sso]"
 ```
 
+Updater/provenance work also needs the updater extra:
+
+```bash
+python -m pip install -e ".[updater]"
+```
+
 ## Development Guidelines
 
 - Prefer existing Dlux helpers, templates, settings patterns, and translation systems over one-off implementations.
@@ -38,8 +44,8 @@ python -m pip install -e ".[sso]"
 Run the narrowest relevant checks first, then broaden based on the change:
 
 ```bash
-python manage.py check
-python -m pytest
+DJANGO_SETTINGS_MODULE=dlux.tests.settings python -m django check
+python dlux/tests/test_all.py
 ```
 
 For generated-project changes, also verify the scaffold commands:
@@ -47,6 +53,14 @@ For generated-project changes, also verify the scaffold commands:
 ```bash
 python -m dlux startproject myproject
 python -m dlux startapp billing --register
+```
+
+For inline-updater or release-contract changes, also run the focused updater/
+scaffold tests and the release gate with the previous core tag:
+
+```bash
+DJANGO_SETTINGS_MODULE=dlux.tests.settings python -m django test dlux.tests.test_updater dlux.tests.test_scaffold
+python -m dlux.updater.release_check --base-tag vX.Y.Z
 ```
 
 Some repository workflows may run inside a host Django project or container. Include the exact commands you ran in the pull request description.

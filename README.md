@@ -33,7 +33,8 @@ Think of it as a cohesive foundation rather than a themed admin shell — instea
 - Universal data helpers such as `fetch_file`, `fetch_excel`, sticky-form autofill, tutorial overlays, and persistent UI preferences.
 
 ## Requirements
-`note: all the requirements will be installed automatically when you install django-lux.`
+
+The runtime dependencies below are installed automatically with `django-lux`.
 
 - Python 3.11+
 - Django 5.1+
@@ -47,6 +48,12 @@ Think of it as a cohesive foundation rather than a themed admin shell — instea
 - `pyotp` "for TOTP 2FA"
 - `qrcode` "for TOTP 2FA QR codes"
 - `cryptography` "for encrypted TOTP and SMTP secret storage"
+- `openpyxl` "for XLSX exports"
+- `packaging` "for version and requirement validation"
+
+Generated Compose projects install the optional `django-lux[updater]` extra for
+PyPI provenance verification. Manual and non-Compose installs do not need that
+extra unless they deliberately adopt the generated updater architecture.
 
 ## Installation
 
@@ -66,9 +73,14 @@ python -m dlux startapp billing --register
 
 `python -m dlux startproject` creates a new Django project already wired for DjangoLux. `python -m dlux startapp` creates a DjangoLux-native app skeleton with models, forms, filters, tables, translations, templates, tests, and optional project registration.
 
-Generated projects also include a baseline Docker stack with `compose.yml`, `compose.dev.yml`, a `config/celery.py` worker entrypoint, and a `/health/` endpoint via `django-health-check`.
+Generated projects also include a baseline Docker stack with `compose.yml`, `compose.dev.yml`, a `config/celery.py` worker entrypoint, a `/health/` endpoint via `django-health-check`, and the verified `dlux-updater` service with its persistent runtime volume and nginx maintenance fallback.
 They also generate `.secrets/.env` with the bootstrap secrets used by the standard decrypter/startup flow.
 The scaffolded settings baseline now also includes `django-cors-headers` and `django-csp` with their apps, middleware, and starter CORS/CSP policy settings.
+
+Inline updates are enabled only by the recognized generated Compose baseline.
+Other installations keep `DLUX_INLINE_UPDATES_ENABLED=False` unless they are
+explicitly migrated with the guarded bootstrap described in the
+[Verified Inline Updater guide](docs/inline-updater.md).
 
 ## Minimal Quick Start
 
@@ -130,6 +142,8 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
   `tools/dlb-viewer/` is a dependency-free, cross-platform binary for inspecting encrypted `.dlb` system backups offline — browse models, rows, and stored files without a running instance. Prebuilt binaries ship with each release.
 - Framework-level automation:
   translation patches, scoped-model auto-injection, actor tracking, soft-delete, and config layering across defaults, project settings, and runtime UI.
+- Verified generated-Compose updates:
+  daily stable-release checks, superuser-approved staged updates, maintenance/backup handling, process generation restarts, and compatible code/static rollback without rebuilding the project image.
 
 ## Documentation
 
@@ -145,6 +159,7 @@ For a fuller setup path, prefix-mount guidance, and first-launch expectations, u
 - [DSRP-1 Security Standard](docs/security-dsrp-1.md)
 - [Optional SSO Packages](docs/sso.md)
 - [Standalone .dlb Backup Viewer](tools/dlb-viewer/README.md)
+- [Verified Inline Updater](docs/inline-updater.md)
 - [Releasing](docs/RELEASING.md) — tag-driven PyPI + GitHub release flow
 - [Migrating from django-microsys](docs/migrating-from-microsys.md) — in-place upgrade for existing deployments
 - [Features](docs/FEATURES.md) — complete feature inventory

@@ -106,6 +106,8 @@ class DlbContainerTests(TestCase):
         self.assertLess(index['auth.user'], index['dlux.profile'])
         self.assertLess(index['auth.group'], index['auth.user'])
         self.assertLess(index['dlux.scope'], index['dlux.profile'])
+        self.assertNotIn('dlux.dluxupdatestate', index)
+        self.assertNotIn('dlux.dluxupdaterun', index)
 
     def test_system_backup_does_not_require_queryset_iterator(self):
         """Regression: PostgreSQL server-side cursors can disappear in pooled deployments."""

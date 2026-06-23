@@ -47,6 +47,7 @@ class DluxMiddleware:
                 reverse('login'),
                 reverse('logout'),
                 reverse('session_ended'),
+                reverse('dlux_update_runtime_health'),
             })
             allowed_prefixes.extend([
                 reverse('system_setup'),
@@ -57,6 +58,7 @@ class DluxMiddleware:
             allowed_exact_paths.update({
                 '/accounts/login/',
                 '/accounts/logout/',
+                '/sys/api/dlux-update/runtime-health/',
             })
             allowed_prefixes.extend([
                 '/sys/setup/',

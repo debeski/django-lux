@@ -1,6 +1,6 @@
 # DjangoLux Conceptual Codebase Report
 
-Generated on 2026-06-13 from the repository state in `pkg-django-lux`.
+Verified on 2026-06-23 against the unreleased `1.2.2` source tree.
 
 This report explains the codebase as a set of concepts, algorithms, and runtime
 systems. It avoids line-by-line implementation commentary and instead focuses on
@@ -12,8 +12,8 @@ and how the major pieces depend on one another.
 DjangoLux is a Django application framework layer that turns an ordinary Django
 project into a configurable internal application platform: it owns setup,
 branding, language, theme, navigation, permissions, scoped data, user operations,
-audit trails, tables, modal CRUD, reporting, backups, scaffolding, and optional
-SSO integration.
+notifications, audit trails, tables, modal CRUD, reporting, backups, scaffolding,
+verified generated-Compose updates, and optional SSO integration.
 
 It is not only a UI skin. Its central idea is that application behavior is
 computed from layered configuration, current request state, current user state,
@@ -41,7 +41,7 @@ many optional inputs, then collapses them into deterministic runtime state.
 
 ## 3. Primary State Layers
 
-The runtime state comes from four layers.
+The runtime state comes from five layers.
 
 **Static package defaults:** constants, built-in themes, built-in fonts,
 default language catalog, default routes, default settings, and fallback assets.
@@ -52,12 +52,18 @@ Celery availability, cache backend, storage backend, and optional report/backup
 configuration.
 
 **Database state:** `SystemSettings`, scopes, profiles, trusted devices, known
-devices, presence sessions, public registrations, activity logs, report backup
-runs, full system backup runs, and restore runs.
+devices, presence sessions, public registrations, notifications, activity logs,
+report/full-system backup and restore runs, `DluxUpdateState`, and
+`DluxUpdateRun`.
 
 **Request/user state:** current request thread-local, authenticated user,
 session keys, signed device cookies, user profile preferences, current path,
 current language, current permissions, and URL resolver match.
+
+**Generated deployment state:** the baked Dlux package plus `dlux_runtime`
+version directories, atomic active pointer, generation counter, maintenance
+marker, and retained updater artifacts. This layer exists only in the recognized
+generated Compose architecture; ordinary installations use the baked package.
 
 The package repeatedly asks: "Given all of these layers, what should this
 request see or be allowed to do?"
@@ -98,9 +104,9 @@ the host project to know the entire desired final settings layout.
 `get_system_config()` is the major configuration reducer.
 
 It starts with hard-coded defaults for identity, assets, home URL, language,
-theme, fonts, table density, email 2FA, single-session behavior, client IP
-resolution, login page layout, public root behavior, public registration,
-email delivery, languages, translations, sidebar, navbar, titlebar, and setup
+theme, fonts, table density, authentication, email delivery, registration,
+public-root behavior, client IP resolution, notifications, login page layout,
+sidebar, navbar, titlebar, logging, profile/onboarding behavior, and setup
 completion.
 
 It then reads `settings.DLUX_CONFIG`. Finally, it reads `SystemSettings.load()`
@@ -125,7 +131,8 @@ runtime consumers receive a predictable structure.
 
 ## 7. The SystemSettings Singleton
 
-`SystemSettings` is the database-backed control plane. It stores:
+`SystemSettings` is the database-backed control plane. It keeps identity fields
+as columns and mutable subsystem policy in normalized JSON groups. It stores:
 
 - System names per language.
 - Logo and favicon.
@@ -134,15 +141,11 @@ runtime consumers receive a predictable structure.
 - Font allowlist, default fonts, and per-user font override flag.
 - Home URL.
 - Setup completion.
-- Email 2FA switch.
-- Client IP resolution policy.
-- Public root behavior.
-- Public registration behavior.
-- Dlux email delivery config.
+- Authentication, email delivery, registration, public-root, and Client IP policy.
 - Language catalog.
 - Translation overrides.
-- Sidebar, navbar, titlebar, and login config.
-- Single active session enforcement.
+- Notifications, login, titlebar, sidebar, navbar, logging, profile/onboarding,
+  and reserved extra config.
 
 The singleton always saves as primary key `1`. It is cached for performance and
 clears sidebar caches when refreshed. Its `delete()` method is intentionally
@@ -165,19 +168,26 @@ from `BASE_DIR`, and renders `SystemSettingsForm` in setup mode. When saved, the
 form writes normalized data through the same import/export pathway used by
 portable setup JSON.
 
-The wizard's eight conceptual stages are:
+Fresh systems first choose the setup UI language; that session-only choice does
+not set the saved application default language. The wizard then has eleven
+stages:
 
-1. Identity: system names, logo, favicon, home URL.
+1. Identity: language-keyed system names, logo, favicon, and setup import.
 2. Localization: enabled languages, default language, translation matrix.
 3. Access and security: public root, registration, email 2FA, client IP,
-   single-session behavior, email delivery.
+   single-session behavior, email delivery, and global home URL.
 4. Login page: layout, logo visibility/treatment, banner color, hero message.
 5. Sidebar: selected routes, groups, toolbar, reordering, icons, density,
    collapse behavior.
 6. Navbar: hierarchy/history mode and hierarchy nodes.
 7. Titlebar: logo/title/home controls, sizing, alignment, surface, logo
    treatment.
-8. Appearance and typography: themes, theme allowlist, fonts, table density.
+8. Notifications: flash, drawer/badge, message bridge, email, retention, and
+   automatic CRUD behavior.
+9. Appearance and typography: themes, theme allowlist, fonts, table density.
+10. Logging: user/system/audit policy, model/action gates, and retention.
+11. Profile page: profile modules, security nudge, landing-page policy, and
+    first-login onboarding.
 
 Single-step modal edits reuse the same form but preserve omitted fields from
 other steps. That prevents a partial settings modal from clearing unrelated
@@ -984,8 +994,10 @@ The `dlux` CLI creates two kinds of artifacts.
 - gunicorn config
 - entry/start scripts
 - SMTP relay helper
+- `dlux-updater` service and `dlux_runtime` volume
+- project-owned runtime supervisor and nginx maintenance page
 - docs and tests
-- requirements pinned to current Dlux version
+- requirements pinned to the current `django-lux[updater]` version
 
 `dlux startapp` creates a Dlux-native app skeleton with:
 
@@ -1004,6 +1016,28 @@ With `--register`, it patches `INSTALLED_APPS` and root URLs between Dlux-owned
 markers. The scaffold refuses to overwrite existing files or non-empty project
 directories.
 
+### Generated Compose runtime and inline updates
+
+Dlux remains an in-process Django app. Generated projects add a deployment
+loader around it: the same project image supplies web, Celery, and updater
+containers, while the persistent `dlux_runtime` volume can select a verified
+versioned package directory ahead of the baked environment on `PYTHONPATH`.
+
+The updater discovers stable non-yanked releases from official PyPI, verifies
+the wheel hash and repository/workflow attestation, evaluates the packaged
+release manifest, and rejects Python, dependency, platform, updater-schema, or
+migration-policy incompatibility as an image-rebuild requirement. A compatible
+apply is serialized in the database, staged with `pip --target --no-deps`,
+preflighted in a fresh subprocess, backed up, migrated and collected under
+maintenance, switched atomically, restarted through the generation counter,
+and verified against web/Celery before maintenance clears.
+
+The updater never receives the Docker socket or a published port. Web, Celery,
+and nginx mount the runtime volume read-only. Failed work before the pointer
+switch leaves the active release unchanged; failed health after switching
+restores the previous code/static selection but never automatically restores
+the database. See [Verified Inline Updater](inline-updater.md).
+
 ## 45. Management Commands
 
 `dlux_setup` appends the recommended settings helper if missing, optionally runs
@@ -1016,11 +1050,16 @@ snippets for missing pieces.
 `dlux_settings` manages the singleton: status, configure/unconfigure, delete,
 reset, export, and import.
 
+`dlux_prune_activity_log` enforces configured user/system/audit retention and
+supports a non-mutating `--dry-run`.
+
 `dlux_migrate_from_microsys` migrates a fully migrated `django-microsys` 2.4.1
 database by renaming tables, updating content types, rewriting migration
 history, and rewriting activity log model keys. It is dry-run by default.
 
-`seed_activity_log` and `migrator` exist as operational helpers.
+`dlux_update_worker` is the generated-Compose queue/check worker. `migrator`
+owns generated-project migration/static/superuser bootstrap, and
+`seed_activity_log` is a development data helper.
 
 ## 46. Optional SSO Packages
 
@@ -1055,6 +1094,11 @@ Releases are tag-driven. The GitHub workflow checks that the pushed tag matches
 Publishing, builds `dlb-viewer` binaries, and attaches artifacts to GitHub
 Release notes extracted from `CHANGELOG.md`.
 
+Every core wheel packages `dlux/release-manifest.json`. An inline-safe release
+must pass the release workflow's manifest/version, migration-operation, wheel,
+dependency, and updater compatibility gates before publication; the runtime
+updater independently re-verifies the official PyPI artifact and attestation.
+
 Companion SSO packages have their own version files, tag prefixes, and release
 workflows.
 
@@ -1079,6 +1123,8 @@ The test suite is broad and concept-driven. It covers:
 - report overview and backups
 - full `.dlb` backup/restore
 - scaffolding
+- updater manifest/discovery/verification/state transitions and bootstrap CLI
+- runtime supervisor switching, signal forwarding, and Compose/nginx wiring
 - SSO provider/client helpers
 - static/template CSP and no-inline regressions
 
@@ -1099,22 +1145,19 @@ These invariants appear across the codebase:
 - Keep UI strings translatable through Dlux catalogs.
 - Use stable model keys for reports and audit identity.
 - Keep operational tracking out of activity logs.
+- Keep active Dlux releases immutable and switch only the atomic pointer.
+- Treat dependency or unsafe-migration changes as image rebuilds, not inline updates.
 - Avoid inline runtime behavior in templates.
 - Let host apps follow conventions; fill missing pieces by discovery.
 - Keep optional SSO and backup viewer separate from core package imports.
 
-## 50. Known Gaps And Risks Observed From Local State
+## 50. Current Follow-ups And Operational Risks
 
-The local tracker and docs identify several outstanding issues or follow-ups:
+The current source and tracker identify these follow-ups:
 
 - External/manual probes such as `test_m2m.py` and `verify_detailed_logs.py`
   remain outside the curated package CI labels until they are converted to the
   shared harness.
-- The release docs say tag-driven publishing replaces older local `dist/`
-  changelog checks, while the local agent instructions still mention checking
-  `dist/`; the current repo has no `dist/` directory.
-- `docs/FEATURES.md` still carries an older version header despite current
-  package version `1.0.3`.
 - The fallback download/export helper has historically been noted as an area to
   harden around referer handling. In current source `_safe_referer()` uses
   `url_has_allowed_host_and_scheme()`, which is safer than raw referer trust,
@@ -1123,6 +1166,10 @@ The local tracker and docs identify several outstanding issues or follow-ups:
   coupling point in the codebase. Most runtime config flows converge there, so
   regressions in field preservation or hidden JSON controls can have broad
   effects.
+- The inline updater deliberately supports only recognized generated Compose
+  layouts and the core `django-lux` package. Companion SSO packages, custom
+  indexes, bare-metal installs, dependency-changing releases, and zero-downtime
+  rollout remain rebuild/manual deployment concerns.
 
 ## 51. Simplest Mental Model For Future Work
 
@@ -1159,6 +1206,8 @@ At the largest level, it provides an operating model for internal Django apps:
 - security-sensitive flows require explicit backend checks;
 - the full system can be snapshotted and restored;
 - projects can be scaffolded into the expected shape;
+- generated Compose projects can activate compatible verified Dlux releases
+  without rebuilding the project image;
 - optional SSO can be added without changing core runtime assumptions.
 
 The main architectural bet is that a Django project becomes easier to operate

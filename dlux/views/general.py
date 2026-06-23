@@ -478,6 +478,13 @@ def options_view(request):
         )
     if request.user.is_superuser:
         context['system_backup_summary'] = _get_system_backup_summary()
+    if show_system_diagnostics:
+        from dlux.updater.service import get_ui_state
+
+        context['dlux_update_state'] = get_ui_state()
+        context['can_manage_dlux_updates'] = bool(
+            request.user.is_superuser and context['dlux_update_state']['enabled']
+        )
     context.update(diagnostic_context)
     return render(request, 'dlux/includes/options.html', context)
 

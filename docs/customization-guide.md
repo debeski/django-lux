@@ -72,7 +72,7 @@ Those defaults are then layered with runtime System Settings edits in the normal
 
 ## Nav Bar Hierarchy and Runtime Crumbs
 
-The optional Nav Bar is controlled from Step 5 in setup/System Settings. The developer enables it, picks the default `hierarchy` or `history` mode, chooses whether Options may expose a personal style override, and builds static hierarchy nodes from the discovered route catalog. During first-launch setup, an enabled empty Nav Bar hierarchy can be seeded from the configured sidebar accordion structure.
+The optional Nav Bar is controlled from Step 6 in setup/System Settings. The developer enables it, picks the default `hierarchy` or `history` mode, chooses whether Options may expose a personal style override, and builds static hierarchy nodes from the discovered route catalog. During first-launch setup, an enabled empty Nav Bar hierarchy can be seeded from the configured sidebar accordion structure.
 
 The stored `navbar` block is normalized to this shape:
 
@@ -480,8 +480,9 @@ Automatic logging currently covers:
 
 Important implementation details:
 
-- `UserActivityLog` inherits from `ScopedModel`, so logs carry audit fields and can participate in scope-aware filtering
-- `UserActivityLog.safe_log()` debounces duplicates within a short time window
+- `ActivityLog` inherits from `ScopedModel`, so logs carry audit fields and can participate in scope-aware filtering
+- `ActivityLog.safe_log()` debounces duplicates within a short time window
+- `UserActivityLog` remains importable only as a compatibility alias; new code should use `ActivityLog`
 - middleware stores the current request and user in thread-local state so saves and signals can still know the actor
 - durable user-presence reporting is split from the action log: `UserKnownDevice` groups a browser/device through a signed `dlux_device_id` cookie stored only as a hash, and `UserPresenceSession` records session-level first/last seen, request count, estimated seconds, IPs, browsers, and operating systems
 - all IP observations for activity/security/reporting should use `dlux.utils.get_client_ip(request)` so System Settings proxy/header rules stay authoritative

@@ -9,14 +9,17 @@ This page is the fast lookup sheet for common DjangoLux commands, routes, templa
 | `python -m dlux startproject myproject` | Create a new DjangoLux-ready Django project. |
 | `python -m dlux startapp billing` | Create a new DjangoLux-native app in the current project. |
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
+| `python -m dlux enable-updater` | Dry-run the guarded inline-updater bootstrap for an existing generated Compose project. |
+| `python -m dlux enable-updater --apply` | Preserve changed originals under `.xpose/`, apply idempotent updater wiring, validate with `docker compose config`, and print the one-time rebuild command. |
 
 Generated project baseline:
 - `.secrets/.env` with scaffolded bootstrap secret values
 - `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
-- a generated Docker baseline with `web`, `celery`, `db`, `redis`, `nginx`, `pgadmin`, `migrator`, and internal `smtp-relay` services
-- `req.txt` pinned to the generated stable `django-lux` release
+- a generated Docker baseline with `web`, `celery`, `dlux-updater`, `db`, `redis`, `nginx`, `pgadmin`, database backup, and internal `smtp-relay` services
+- `requirements.txt` pinned to the generated stable `django-lux` release
+- a persistent `dlux_runtime` volume, project-owned process supervisor, and static nginx maintenance page
 
 Generated app scaffold baseline:
 - discovery-friendly `models.py`, `forms.py`, `filters.py`, `tables.py`, `views.py`, `urls.py`, `translations.py`, templates, and tests
@@ -30,13 +33,21 @@ Generated app scaffold baseline:
 | `python manage.py dlux_setup` | Create migrations, apply migrations, and run the config check. |
 | `python manage.py dlux_setup --skip-check` | Skip the validation pass after setup. |
 | `python manage.py dlux_setup --no-migrate` | Skip `makemigrations` and `migrate`. |
+| `python manage.py dlux_setup --skip-configure` | Do not append the `dlux_settings(globals())` helper to the active settings module. |
 | `python manage.py dlux_check` | Validate apps, middleware, context processors, URLs, and Crispy settings. |
 | `python manage.py dlux_settings status` | Inspect the `SystemSettings` singleton without creating it. |
+| `python manage.py dlux_settings configure` | Mark the singleton configured without replacing its values. |
 | `python manage.py dlux_settings unconfigure` | Preserve settings but mark setup incomplete so `/sys/setup/` opens again. |
 | `python manage.py dlux_settings delete --yes` | Delete the singleton row; the next load recreates it. |
 | `python manage.py dlux_settings reset --yes` | Recreate the singleton from model defaults and mark it unconfigured. |
 | `python manage.py dlux_settings export --output config.json` | Export portable System Settings JSON. |
 | `python manage.py dlux_settings import --input config.json` | Import portable System Settings JSON and mark setup configured. |
+| `python manage.py dlux_prune_activity_log --dry-run` | Preview log rows outside configured category retention windows. |
+| `python manage.py dlux_prune_activity_log` | Delete rows outside configured category retention windows. |
+| `python manage.py dlux_migrate_from_microsys` | Dry-run the supported Microsys 2.4.1 database relabel. |
+| `python manage.py dlux_migrate_from_microsys --yes` | Apply the database relabel after an external backup. |
+| `python manage.py dlux_update_worker` | Internal generated-Compose update worker; normally started only by `dlux-updater`. |
+| `python manage.py migrator` | Internal generated-project migration/static/bootstrap command used by Compose startup. |
 
 ## Optional SSO Packages
 
@@ -106,6 +117,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/backup/restore/` | Start a system restore from an uploaded or existing `.dlb` |
 | `/sys/scopes/manage/` | Scope management |
 | `/sys/sections/` | Section management |
+| `/sys/api/dlux-update/runtime-health/` | HMAC-authenticated internal-process version health response used directly by the update worker |
 
 Section security contract:
 
@@ -122,7 +134,7 @@ Section security contract:
 Backup export contract:
 
 - report ZIP and full system `.dlb` exports use primary-key pagination plus a backup-local JSON serializer, so PostgreSQL deployments do not need Django server-side named cursors for export streaming
-- system backup rows, report backup rows, system restore rows, sessions, content types, permissions, and admin log entries remain excluded from full `.dlb` payloads
+- system backup rows, report backup rows, system restore rows, updater runtime state/run rows, sessions, content types, permissions, and admin log entries remain excluded from full `.dlb` payloads
 - `.dlb` payloads are encrypted in chunked Fernet frames and include a manifest with Dlux version, migration state, model counts, file counts, and omitted-superuser-password policy
 - superuser password hashes are omitted from system backups and preserved from the target database during restore
 
@@ -181,6 +193,23 @@ Autofill security contract:
 | `/sys/api/notifications/<pk>/dismiss/` | `POST` | Mark one notification state dismissed for the current user |
 | `/sys/api/notifications/read-all/` | `POST` | Mark all current-user notification states as read |
 | `/sys/api/notifications/clear-all/` | `POST` | Dismiss read current-user notification states from the drawer |
+
+### Verified Inline Updater
+
+| Route | Method | Access/Purpose |
+| --- | --- | --- |
+| `/sys/api/dlux-update/state/` | `GET` | Superuser/Global Staff read-only updater state and latest run |
+| `/sys/api/dlux-update/runs/<token>/` | `GET` | Superuser durable run status and bounded progress log |
+| `/sys/api/dlux-update/check/` | `POST` | Superuser-only CSRF-protected official PyPI check |
+| `/sys/api/dlux-update/apply/` | `POST` | Superuser + current-password verified apply request |
+| `/sys/api/dlux-update/rollback/` | `POST` | Superuser + current-password verified rollback request |
+| `/sys/api/dlux-update/runtime-health/` | signed `GET` | Internal updater-to-web active-version probe; unauthenticated external requests return 404 |
+
+Generated projects set `DLUX_INLINE_UPDATES_ENABLED=True`,
+`DLUX_UPDATE_CHECK_INTERVAL=86400`, and
+`DLUX_UPDATE_RUNTIME_ROOT=/opt/dlux-runtime`. Other deployments default to
+disabled. The update index is fixed to official PyPI and is not configurable in
+v1. See [Verified Inline Updater](inline-updater.md).
 
 Dlux Notifications replace Dlux-owned uses of Django message storage with a durable, inferred event pipeline. Public API:
 
@@ -340,8 +369,10 @@ theme/typography/layout/language configs) and **not** per-user prefs (those live
 - `allow_user_home_url` — let users pick their own landing page (stored as
   `Profile.preferences['user_home_url']`; honoured at login after an explicit `?next` and
   before the system `home_url` via `resolve_user_home_url()`).
-- `onboarding_enabled` + `onboarding_options` (`theme`/`language`/`fonts`/`user_home_url`) —
+- `onboarding_enabled` + `onboarding_options` (`theme`/`language`/`fonts`) —
   whether the first-login modal runs and which preferences it offers.
+  `allow_user_home_url` independently controls whether the same modal and the
+  Options page expose the permission-filtered landing-page selector.
 
 The three landing-page values share the `*_url` family: `home_url` (system default,
 public `DLUX_CONFIG` key), `public_root_url` (anonymous public landing, in
@@ -428,7 +459,9 @@ Common runtime feature flags in `get_system_config()`:
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
 - `registration_throttle_enabled` — Enable cache throttles for public signup.
-- `client_ip_config` — Centralized Client IP resolution configuration. Supports `mode` (`direct`, `header`, `proxy`), `header_name`, and `trusted_proxies` (hop count).
+- `client_ip_config` — Centralized Client IP resolution configuration. Supports
+  `mode` (`auto`, `x_forwarded_for`, `remote_addr`, `x_real_ip`, `cloudflare`,
+  or `custom`), `trusted_proxy_hops` (0–8), and `custom_header` for custom mode.
 - `default_table_density` — System default table density (`balanced`, `dense`, or `roomy`)
 
 Theme/runtime UI notes:
@@ -653,14 +686,19 @@ Sidebar items are only visible to users who have the required view permission. T
 4. **URL pattern inference**: for function-based views without a model, the app label comes from the URL namespace (or callback module) and the model name from the URL name prefix (e.g., `documents:outgoing_list` → `documents.view_outgoing`).
 5. **No inference**: if none of the above produce a permission, the item is hidden from non-superusers.
 
-Internal tokens are resolved by `user_matches_permission_token()` in `dlux/utils.py`.
+Internal tokens are resolved by `user_matches_permission_token()` in
+`dlux/utils/authorization.py` and re-exported from `dlux.utils`.
 
 ## Codebase Entry Points
 
 When you need to trace behavior in the code, these files are the usual first stops:
 
-- `dlux/models.py` for `SystemSettings`, `ScopedModel`, `Profile`, and scope-related models
+- `dlux/models.py` for `SystemSettings`, `ScopedModel`, `Profile`, notifications,
+  backup/restore records, and updater state/run models
 - `dlux/forms.py` for the setup wizard form, user wizard, and runtime configuration form logic
 - `dlux/views/sections.py` for sections and dynamic modal flows
+- `dlux/views/updater.py` and `dlux/updater/` for updater HTTP boundaries,
+  verification, persistent runtime storage, and orchestration
 - `dlux/translations.py` for built-in translation keys and language-resolution logic
-- `dlux/utils.py` for discovery helpers, configuration merging, filtering helpers, and UI utilities
+- `dlux/utils/` for authorization, configuration merging, filtering/CRUD helpers,
+  import/export, navigation, settings integration, and UI utilities

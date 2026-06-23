@@ -48,6 +48,10 @@ class DluxConfig(AppConfig):
         # Patch models and signals
         import dlux.signals
         import dlux.discovery
+        try:
+            import dlux.updater.celery_control
+        except ImportError:
+            pass
 
         # Auto-inject scope handling into ModelForm / FilterSet / Table
         from dlux.patches import apply_scoped_patches, apply_global_translation_patches

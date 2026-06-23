@@ -4,7 +4,7 @@ This page explains how DjangoLux fits into a Django project and how to think abo
 
 ## The Core Mental Model
 
-DjangoLux is a Django app that combines six layers:
+DjangoLux is a Django app that combines seven layers:
 
 1. runtime configuration
 2. generic discovery and generation
@@ -12,6 +12,7 @@ DjangoLux is a Django app that combines six layers:
 4. reusable templates, views, and JavaScript for internal system workflows
 5. audit and governance infrastructure
 6. data-movement and productivity utilities
+7. generated-Compose deployment and verified package activation
 
 If you keep those layers in mind, the package becomes much easier to extend without fighting it.
 
@@ -34,7 +35,9 @@ Practical implications:
 The main system-level models are:
 
 - `SystemSettings`
-  Stores branding, theme, language, home URL, translations override, and sidebar configuration.
+  Stores branding plus grouped runtime policy for language, themes, typography,
+  authentication, email, registration, notifications, navigation, logging, and
+  the profile/onboarding surface.
 
 - `Scope` and `ScopeSettings`
   Represent the optional scope-isolation system and whether scoping is globally enabled. `ScopeSettings.auto_create_user_scope` enables automatic creation of a dedicated `Scope` for every newly registered user, providing automatic user isolation without manual assignment.
@@ -44,6 +47,14 @@ The main system-level models are:
 
 - `Profile`
   Extends the user model with phone, profile picture, preferences, and 2FA state. Profiles are created automatically.
+
+- `ActivityLog`, `DluxNotification*`, and backup/restore run models
+  Persist the audit, user-delivery, report, and recovery control planes.
+
+- `DluxUpdateState` and `DluxUpdateRun`
+  Persist the active/baked/previous release state and serialized check/apply/
+  rollback history for generated Compose deployments. They do not make Dlux an
+  out-of-process Django app; the active release is still imported in-process.
 
 ## Working with ScopedModel
 
@@ -265,8 +276,8 @@ Filter pages also have a clearer contract now:
 
 For the full contract and more examples, use:
 
-- [Reference](docs/reference.md)
-- [Customization Guide](docs/customization-guide.md)
+- [Reference](reference.md)
+- [Customization Guide](customization-guide.md)
 
 ## Where to Go Next
 

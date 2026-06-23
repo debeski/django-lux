@@ -65,6 +65,13 @@ def _coerce_list_setting(scope, key):
     scope[key] = value
     return value
 
+
+def _env_positive_int(key, default, *, minimum=1):
+    try:
+        return max(minimum, int(os.getenv(key, str(default)) or default))
+    except (TypeError, ValueError):
+        return default
+
 # Settings Bootstrap - Helper inserts middleware once at a requested position.
 def _insert_middleware_once(middleware, middleware_path, *, after=None, before=None):
     if middleware_path in middleware:
@@ -178,6 +185,19 @@ def dlux_settings(scope):
     scope.setdefault("USE_I18N", True)
     scope.setdefault("USE_TZ", True)
     scope.setdefault("DEFAULT_CHARSET", "utf-8")
+    scope.setdefault(
+        "DLUX_INLINE_UPDATES_ENABLED",
+        str(os.getenv("DLUX_INLINE_UPDATES_ENABLED", "False")).strip().lower()
+        in {"1", "true", "yes", "on"},
+    )
+    scope.setdefault(
+        "DLUX_UPDATE_CHECK_INTERVAL",
+        _env_positive_int("DLUX_UPDATE_CHECK_INTERVAL", 86400, minimum=300),
+    )
+    scope.setdefault(
+        "DLUX_UPDATE_RUNTIME_ROOT",
+        os.getenv("DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime"),
+    )
 
     message_tags = scope.get("MESSAGE_TAGS")
     if not isinstance(message_tags, dict):

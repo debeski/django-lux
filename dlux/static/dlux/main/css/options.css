@@ -613,3 +613,21 @@
         min-height: 3.65rem;
     }
 }
+.dlux-updater-versions,
+.dlux-updater-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.dlux-updater [data-dlux-update-reason]:empty,
+.dlux-updater [hidden] {
+    display: none !important;
+}
+
+.dlux-updater.is-running .dlux-updater-actions button {
+    pointer-events: none;
+    opacity: 0.65;
+}

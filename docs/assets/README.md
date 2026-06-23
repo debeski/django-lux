@@ -1,11 +1,10 @@
 # Documentation Assets
 
-This directory is intentionally small.
+This directory is intentionally small and contains the admin-guide captures:
 
-It currently contains three stable image targets for the admin-facing docs:
+- `setup-wizard.webp` — first-launch wizard shell
+- `sidebar-builder.webp` — navigation builder
+- `options-view.webp` — runtime Options dashboard
 
-- `setup-wizard.svg`
-- `sidebar-builder.svg`
-- `options-view.svg`
-
-These are lightweight placeholders that reserve the filenames and image links for future real UI captures from a seeded local project. The written guides are complete without them, and the placeholders make it easy to swap in real screenshots later without rewriting the Markdown.
+Keep these stable filenames when refreshing screenshots so the admin guide does
+not need link changes. The written guide remains usable without the images.

@@ -217,6 +217,9 @@ def default_log_config():
                 'session_revoke': True,
                 'trusted_device_change': True,
                 'permission_denied': True,
+                'dlux_update_check': True,
+                'dlux_update_apply': True,
+                'dlux_update_rollback': True,
             },
         },
     }

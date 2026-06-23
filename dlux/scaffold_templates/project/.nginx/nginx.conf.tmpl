@@ -12,6 +12,12 @@ server {
     listen 80;
     server_name _;
     client_max_body_size 5M;
+    error_page 502 503 504 =503 /dlux-maintenance.html;
+
+    location = /dlux-maintenance.html {
+        root /usr/share/nginx/html;
+        internal;
+    }
 
     location /static/ {
         alias /app/staticfiles/;
@@ -24,6 +30,7 @@ server {
     }
 
     location / {
+        if (-f /opt/dlux-runtime/state/maintenance) { return 503; }
         proxy_pass http://web:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -45,6 +52,7 @@ server {
     }
 
     location /health {
+        if (-f /opt/dlux-runtime/state/maintenance) { return 503; }
         proxy_pass http://web:8000/health/;
         access_log off;
     }

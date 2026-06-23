@@ -10,6 +10,8 @@
 - Use `{{ config_package }}/celery.py` as the shared Celery entrypoint and keep app tasks in app-local `tasks.py`
 - Use `/health/` as the project health endpoint when checking container readiness
 - Keep secret bootstrap values in `.secrets/.env`; the generated compose file itself stays in the standard inline-env pattern
+- Keep `dlux_runtime` mounted read-only in web/Celery/nginx and read/write only in `dlux-updater`; do not add a Docker socket or published updater port
+- Operate Dlux updates from the superuser System Info card; checks may run daily, but apply and rollback are always explicit
 
 ## Suggested App Pattern
 
@@ -24,5 +26,6 @@
 - `python manage.py dlux_setup`
 - `python -m dlux startapp app_name`
 - `python -m dlux startapp app_name --register`
+- `python -m dlux enable-updater` (existing generated projects only; dry-run by default)
 - `docker compose -f compose.yml -f compose.dev.yml up`
 - `./start.sh -d`

@@ -98,3 +98,13 @@ from .registration import (
     register_view,
     reject_registration_view,
 )
+
+# Inline DjangoLux updater
+from .updater import (
+    dlux_update_apply_view,
+    dlux_update_check_view,
+    dlux_update_rollback_view,
+    dlux_update_run_view,
+    dlux_update_runtime_health,
+    dlux_update_state_view,
+)

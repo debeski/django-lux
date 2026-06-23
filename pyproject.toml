@@ -32,6 +32,7 @@ dependencies = [
     "babel>=2.1",
     "cryptography>=42.0",
     "openpyxl>=3.1",
+    "packaging>=24.0",
 ]
 
 # Classifiers
@@ -63,6 +64,7 @@ version = { attr = "dlux.__version__" }
 [tool.setuptools.package-data]
 dlux = [
     "VERSION",
+    "release-manifest.json",
     "scaffold_templates/*.tmpl",
     "scaffold_templates/*/*.tmpl",
     "scaffold_templates/*/*/*.tmpl",
@@ -76,6 +78,9 @@ Homepage = "https://github.com/debeski/django-lux"
 dlux = "dlux.cli:main"
 
 [project.optional-dependencies]
+updater = [
+    "pypi-attestations>=0.0.29",
+]
 sso = [
     "django-lux-sso>=0.1.0",
 ]
