@@ -254,6 +254,39 @@ class ManifestTests(TestCase):
 
 
 class RuntimeStoreTests(TestCase):
+    def test_wheel_download_path_preserves_the_canonical_pip_filename(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            filename = f"django_lux-{NEWER_VERSION}-py3-none-any.whl"
+            candidate = ReleaseCandidate(
+                NEWER_VERSION,
+                filename,
+                f"https://files.pythonhosted.org/{filename}",
+                "a" * 64,
+            )
+            wheel = store.wheel_path(candidate)
+            self.assertEqual(wheel.name, filename)
+            self.assertEqual(wheel.parent.name, "a" * 64)
+            self.assertEqual(wheel.parent.parent, store.downloads)
+
+            runner = mock.Mock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
+            RuntimeStore.install_wheel(wheel, Path(temp_dir) / "target", runner=runner)
+            install_command = runner.call_args.args[0]
+            self.assertEqual(Path(install_command[-1]).name, filename)
+
+    def test_wheel_staging_failure_keeps_bounded_redacted_pip_detail(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            wheel = Path(temp_dir) / f"django_lux-{NEWER_VERSION}-py3-none-any.whl"
+            runner = mock.Mock(return_value=SimpleNamespace(
+                returncode=1,
+                stdout="",
+                stderr="Looking in indexes: https://user:password@example.test/simple\n"
+                       "ERROR: Invalid wheel filename\n",
+            ))
+            with self.assertRaisesMessage(UpdaterError, "ERROR: Invalid wheel filename") as raised:
+                RuntimeStore.install_wheel(wheel, Path(temp_dir) / "target", runner=runner)
+            self.assertNotIn("user:password", str(raised.exception))
+
     def test_baked_fallback_atomic_switch_corrupt_state_and_rollback(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
@@ -365,6 +398,34 @@ class RuntimeStoreTests(TestCase):
             self.assertEqual(reconciled.latest_version, "")
             self.assertTrue(service.restart_worker)
 
+    def test_newer_rebuilt_image_supersedes_stale_baked_database_state(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            state = DluxUpdateState.load()
+            state.baked_version = "1.2.2"
+            state.active_version = "1.2.2"
+            state.latest_version = "1.2.3"
+            state.latest_wheel_url = "https://files.pythonhosted.org/old.whl"
+            state.latest_wheel_sha256 = "a" * 64
+            state.latest_manifest = release_manifest()
+            state.latest_compatible = True
+            state.save()
+            service = UpdateService(store=store)
+            with mock.patch(
+                "dlux.updater.service.get_baked_version",
+                return_value="1.2.4",
+            ), mock.patch("dlux.updater.service.download_wheel") as download:
+                reconciled = service.reconcile()
+            active = store.read_active("1.2.4")
+            self.assertEqual(active["source"], "image")
+            self.assertEqual(active["version"], "1.2.4")
+            self.assertEqual(reconciled.baked_version, "1.2.4")
+            self.assertEqual(reconciled.active_version, "1.2.4")
+            self.assertEqual(reconciled.previous_version, "")
+            self.assertEqual(reconciled.latest_version, "")
+            self.assertFalse(reconciled.degraded)
+            download.assert_not_called()
+
 
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
 class UpdaterApiTests(TestCase):
@@ -447,6 +508,8 @@ class UpdaterApiTests(TestCase):
         self.assertContains(response, "data-dlux-updater")
         self.assertContains(response, "data-dlux-update-check>")
         self.assertContains(response, "dluxUpdateReviewModal")
+        self.assertContains(response, "data-dlux-update-progress-panel")
+        self.assertContains(response, 'name="current_password" autocomplete="off"')
 
         global_staff = get_user_model().objects.create_user(
             username="global-updater-reader",
@@ -470,6 +533,9 @@ class UpdaterApiTests(TestCase):
         contents = script.read_text(encoding="utf-8")
         self.assertIn("if (payload.state?.can_manage)", contents)
         self.assertIn("pollReadOnlyState", contents)
+        self.assertIn("const PROGRESS", contents)
+        self.assertIn("showProgress(run)", contents)
+        self.assertNotIn("modal.hide()", contents)
 
     @mock.patch("dlux.updater.service.assess_wheel")
     @mock.patch("dlux.updater.service.verify_pypi_attestation")

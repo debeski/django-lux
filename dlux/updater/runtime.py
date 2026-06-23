@@ -57,7 +57,16 @@ class RuntimeStore:
         return self.staging / safe
 
     def wheel_path(self, candidate):
-        return self.downloads / f"{candidate.sha256}-{candidate.filename}"
+        digest = str(candidate.sha256 or "").lower()
+        filename = str(candidate.filename or "")
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise UpdaterError("The verified wheel digest is invalid.")
+        if Path(filename).name != filename or not filename.endswith(".whl"):
+            raise UpdaterError("The verified wheel filename is invalid.")
+        # Pip parses compatibility metadata from the wheel basename. Prefixing
+        # that basename with the digest makes an otherwise valid wheel invalid,
+        # so isolate each immutable artifact in a digest directory instead.
+        return self.downloads / digest / filename
 
     def read_active(self, baked_version):
         fallback = {
@@ -212,7 +221,16 @@ class RuntimeStore:
             timeout=300,
         )
         if completed.returncode != 0:
-            raise UpdaterError("The verified DjangoLux wheel could not be staged.")
+            output = str(completed.stderr or completed.stdout or "").replace("\x00", "")
+            output = re.sub(r"(?i)(https?://)[^/@\s]+:[^@\s]+@", r"\1<redacted>@", output)
+            output = re.sub(
+                r"(?i)((?:password|secret|token|authorization)\s*[:=]\s*)\S+",
+                r"\1<redacted>",
+                output,
+            )
+            detail = " ".join(line.strip() for line in output.splitlines()[-3:] if line.strip())
+            suffix = f" Pip reported: {detail[-1000:]}" if detail else ""
+            raise UpdaterError(f"The verified DjangoLux wheel could not be staged.{suffix}")
         return target
 
     @staticmethod

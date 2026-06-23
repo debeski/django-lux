@@ -1,6 +1,6 @@
 # DjangoLux Complete Feature Reference
 
-**Version:** 1.2.2 (unreleased)
+**Version:** 1.2.4 (unreleased)
 **Package:** `django-lux` — A multilingual Django framework layer for internal systems
 
 ---
@@ -733,7 +733,7 @@ notify("Payroll batch exported.", obj=batch, action="export", category="reports"
 - Global Staff can read System Info update state. Only superusers can check,
   apply, or roll back; apply/rollback require current-password confirmation.
 - Existing recognized generated projects use `python -m dlux enable-updater`
-  (dry-run) and `--apply` once, then rebuild/redeploy the activation release.
+  (dry-run) and `--apply` once, then rebuild/redeploy the repaired v1.2.4 bootstrap baseline.
 
 See [Verified Inline Updater](inline-updater.md) for the deployment and release contract.
 
@@ -804,4 +804,4 @@ Auto-handles:
 
 ---
 
-*Verified against the unreleased DjangoLux 1.2.2 source tree on 2026-06-23.*
+*Verified against the unreleased DjangoLux 1.2.4 source tree on 2026-06-23.*

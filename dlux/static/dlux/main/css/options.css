@@ -631,3 +631,25 @@
     pointer-events: none;
     opacity: 0.65;
 }
+
+.dlux-updater-run-status {
+    color: var(--primal);
+}
+
+.dlux-updater-progress-log {
+    max-height: 15rem;
+    overflow: auto;
+    padding: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--title) 16%, transparent);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--table-row) 88%, #000 12%);
+    color: var(--title);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.dlux-updater-progress-bar {
+    width: 0;
+}

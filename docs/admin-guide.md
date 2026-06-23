@@ -211,8 +211,8 @@ Security note:
 
 Inline update note:
 
-- `v1.2.2` is the activation release and requires one normal project-image rebuild
-- after that activation, only releases that pass the official PyPI hash, attestation, dependency, Python, manifest, migration, and candidate-preflight gates show **Review and update**
+- `v1.2.4` is the repaired updater baseline and requires one normal project-image rebuild
+- after that rebuild, only releases that pass the official PyPI hash, attestation, dependency, Python, manifest, migration, and candidate-preflight gates show **Review and update**
 - apply briefly enables the nginx maintenance page, creates a full-system backup, and persists progress across browser disconnects
 - **Roll back to previous version** switches code and static assets without reversing migrations or automatically restoring the database
 - see [Verified Inline Updater](inline-updater.md) for deployment/bootstrap and recovery details

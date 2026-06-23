@@ -1,6 +1,6 @@
 # DjangoLux Conceptual Codebase Report
 
-Verified on 2026-06-23 against the unreleased `1.2.2` source tree.
+Verified on 2026-06-23 against the unreleased `1.2.4` source tree.
 
 This report explains the codebase as a set of concepts, algorithms, and runtime
 systems. It avoids line-by-line implementation commentary and instead focuses on

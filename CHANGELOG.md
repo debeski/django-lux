@@ -6,6 +6,14 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.2.4
+
+- **Canonical Wheel Staging Paths**: Fixed every v1.2.2/v1.2.3 inline apply failing before preflight because `RuntimeStore.wheel_path()` saved the verified artifact as `<sha256>-django_lux-X.Y.Z-py3-none-any.whl`; pip parses wheel compatibility from the basename and rejected the digest-prefixed name as an invalid version. Downloads now use `downloads/<sha256>/<canonical-wheel-filename>`, preserving digest isolation without changing the filename pip validates, and bounded/redacted pip diagnostics are persisted on staging failure.
+- **Visible Inline-Update Progress**: Kept the review modal open after password confirmation and added a status meter plus durable `DluxUpdateRun.progress_log` output across download, verification, staging, preflight, backup, maintenance, migration, static collection, switching, restart, and health verification. Active apply/rollback runs reopen the progress modal after page reload, terminal errors remain visible instead of silently returning the button to enabled state, and modal dismissal is disabled only while a run is active.
+- **Updater Password-Manager Suppression**: Removed the confirmation control from native HTML form submission, queue only the `current_password` field through explicit fetch handling, mark the input as a non-credential storage target, clear it after the queue accepts it, and removed the successful-submit modal dismissal that caused browsers to offer saving the confirmation password as a site login.
+- **Repaired-Image State Reconciliation**: Taught updater bootstrap to recognize a newer baked image when the runtime still has no explicit `active.json` and the database records the replaced baked version. Reconciliation now activates the new image and clears stale candidate/rollback metadata instead of attempting to reconstruct the old image as a missing volume release and incorrectly entering degraded mode.
+- **Bootstrap Repair Release**: Marked v1.2.4 `inline_safe=false` because the broken staging implementation lives in the already-baked v1.2.2/v1.2.3 updater and cannot repair itself from a candidate wheel. Existing generated deployments must rebuild/redeploy once with `django-lux[updater]==1.2.4`; releases after that repaired bootstrap can resume manifest-approved inline updates.
+
 ## v1.2.3
 
 - **Email Provider Presets**: Added a `provider_preset` selector (Gmail, Outlook/Office 365, Amazon SES, Mailgun, internal relay, custom) to `email_config`, surfaced in the Step 3 email-delivery panel. Selecting a preset prefills SMTP host/port/STARTTLS/SSL client-side via `EMAIL_CONFIG_PROVIDER_PRESETS` (mirrored in `system_setup.js`); values remain editable and the choice persists on `SystemSettings.email_config`.

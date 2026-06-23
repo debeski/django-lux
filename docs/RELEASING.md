@@ -94,15 +94,16 @@ its version, summary, release URL, updater schema, and migration policy. Set
 - the release remains compatible with the immediately previous code during a
   manual or automatic pointer rollback.
 
-`v1.2.2` is the infrastructure activation release and is installed through a
+`v1.2.4` is the repaired updater bootstrap baseline and is installed through a
 normal image rebuild. The unchanged-dependency rule governs subsequent releases
 that can actually be selected by an already-active inline updater.
 
 `python -m dlux.updater.release_check --base-tag vX.Y.Z` runs the same manifest
 and changed-migration gate locally. The tag workflow determines the prior `v*`
 tag automatically. Use `inline_safe: false` and `migration_policy:
-image_rebuild` for dependency changes, unsupported updater/Python baselines, or
-any destructive/renaming/data migration. The deployed UI then reports
+image_rebuild` for destructive/renaming/data migrations. Dependency changes or
+unsupported updater/Python baselines also require `inline_safe: false` even when
+their migration policy remains backward-compatible. The deployed UI then reports
 **Project image rebuild required** instead of offering an Update button.
 
 PyPI must continue publishing through repository `debeski/django-lux`, workflow

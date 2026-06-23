@@ -5,7 +5,7 @@
 
 {% block extra_head %}
     {% include "dlux/forms/assets_head.html" %}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260622b">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260623a">
 {% endblock %}
 
 {% block content %}
@@ -258,6 +258,7 @@
                                     {{ DLUX_STRINGS.dlux_update_last_check|default:'Last check' }}:
                                     <time data-dlux-update-checked>{{ dlux_update_state.last_checked_at|default:'—' }}</time>
                                 </div>
+                                <div class="small mt-1 dlux-updater-run-status" data-dlux-update-run-status hidden aria-live="polite"></div>
                                 {% if not dlux_update_state.enabled %}
                                 <div class="small text-muted mt-1">{{ DLUX_STRINGS.dlux_update_disabled|default:'Inline updates are not enabled for this deployment.' }}</div>
                                 {% endif %}
@@ -690,26 +691,38 @@
                     <h5 class="modal-title" data-dlux-update-modal-title>{{ DLUX_STRINGS.dlux_update_review_title|default:'Review DjangoLux update' }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
                 </div>
-                <form data-dlux-update-form>
+                <div data-dlux-update-form role="group">
                     <div class="modal-body">
-                        <div class="alert alert-warning" data-dlux-update-maintenance>{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}</div>
-                        <dl class="row mb-3">
-                            <dt class="col-4">{{ DLUX_STRINGS.dlux_update_target|default:'Target version' }}</dt>
-                            <dd class="col-8 font-monospace" data-dlux-update-target></dd>
-                            <dt class="col-4">{{ DLUX_STRINGS.dlux_update_summary|default:'Release summary' }}</dt>
-                            <dd class="col-8" data-dlux-update-summary></dd>
-                            <dt class="col-4">{{ DLUX_STRINGS.dlux_update_compatibility|default:'Compatibility' }}</dt>
-                            <dd class="col-8" data-dlux-update-compatibility></dd>
-                        </dl>
-                        <label class="form-label" for="dluxUpdateCurrentPassword">{{ DLUX_STRINGS.current_password|default:'Current password' }}</label>
-                        <input type="password" class="form-control" id="dluxUpdateCurrentPassword" name="current_password" autocomplete="current-password" required>
+                        <div data-dlux-update-review-panel>
+                            <div class="alert alert-warning" data-dlux-update-maintenance>{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}</div>
+                            <dl class="row mb-3">
+                                <dt class="col-4">{{ DLUX_STRINGS.dlux_update_target|default:'Target version' }}</dt>
+                                <dd class="col-8 font-monospace" data-dlux-update-target></dd>
+                                <dt class="col-4">{{ DLUX_STRINGS.dlux_update_summary|default:'Release summary' }}</dt>
+                                <dd class="col-8" data-dlux-update-summary></dd>
+                                <dt class="col-4">{{ DLUX_STRINGS.dlux_update_compatibility|default:'Compatibility' }}</dt>
+                                <dd class="col-8" data-dlux-update-compatibility></dd>
+                            </dl>
+                            <label class="form-label" for="dluxUpdateCurrentPassword">{{ DLUX_STRINGS.current_password|default:'Current password' }}</label>
+                            <input type="password" class="form-control" id="dluxUpdateCurrentPassword" name="current_password" autocomplete="off" data-1p-ignore data-lpignore="true" required>
+                        </div>
+                        <div data-dlux-update-progress-panel hidden aria-live="polite">
+                            <div class="d-flex justify-content-between gap-3 mb-2">
+                                <strong>{{ DLUX_STRINGS.dlux_update_running|default:'Update operation in progress' }}</strong>
+                                <span data-dlux-update-progress-status></span>
+                            </div>
+                            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-dlux-update-progress>
+                                <div class="progress-bar progress-bar-striped progress-bar-animated dlux-updater-progress-bar" data-dlux-update-progress-bar></div>
+                            </div>
+                            <pre class="dlux-updater-progress-log mt-3 mb-0" data-dlux-update-progress-log></pre>
+                        </div>
                         <div class="text-danger small mt-2" data-dlux-update-error hidden></div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ DLUX_STRINGS.btn_cancel|default:'Cancel' }}</button>
-                        <button type="submit" class="btn btn-primary" data-dlux-update-submit>{{ DLUX_STRINGS.dlux_update_confirm|default:'Apply update' }}</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-dlux-update-dismiss>{{ DLUX_STRINGS.btn_cancel|default:'Cancel' }}</button>
+                        <button type="button" class="btn btn-primary" data-dlux-update-submit>{{ DLUX_STRINGS.dlux_update_confirm|default:'Apply update' }}</button>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     </div>
@@ -719,5 +732,5 @@
 {% block scripts %}
     {{ block.super }}
     <script src="{% static 'dlux/main/js/options.js' %}?v=20260618a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/updater.js' %}?v=20260622a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/updater.js' %}?v=20260623a" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

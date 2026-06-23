@@ -2,6 +2,24 @@
     'use strict';
 
     const TERMINAL = new Set(['completed', 'failed', 'rolled_back']);
+    const PROGRESS = {
+        queued: 3,
+        checking: 8,
+        downloading: 12,
+        verifying: 22,
+        staging: 32,
+        preflight: 42,
+        backing_up: 52,
+        maintenance: 60,
+        migrating: 68,
+        collecting_static: 78,
+        switching: 86,
+        restarting: 92,
+        verifying_health: 96,
+        completed: 100,
+        failed: 100,
+        rolled_back: 100,
+    };
 
     function csrfToken() {
         return document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -32,25 +50,74 @@
         const checkButton = root.querySelector('[data-dlux-update-check]');
         const reviewButton = root.querySelector('[data-dlux-update-review]');
         const rollbackButton = root.querySelector('[data-dlux-update-rollback]');
+        const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
         const modalElement = document.getElementById('dluxUpdateReviewModal');
         const modal = modalElement && window.bootstrap ? new window.bootstrap.Modal(modalElement) : null;
-        const form = modalElement?.querySelector('[data-dlux-update-form]');
         const error = modalElement?.querySelector('[data-dlux-update-error]');
         const password = modalElement?.querySelector('[name="current_password"]');
+        const reviewPanel = modalElement?.querySelector('[data-dlux-update-review-panel]');
+        const progressPanel = modalElement?.querySelector('[data-dlux-update-progress-panel]');
+        const progress = modalElement?.querySelector('[data-dlux-update-progress]');
+        const progressBar = modalElement?.querySelector('[data-dlux-update-progress-bar]');
+        const progressStatus = modalElement?.querySelector('[data-dlux-update-progress-status]');
+        const progressLog = modalElement?.querySelector('[data-dlux-update-progress-log]');
+        const submit = modalElement?.querySelector('[data-dlux-update-submit]');
+        const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
         let state = null;
         let currentAction = 'apply';
         let runUrl = '';
         let pollTimer = null;
         let statePollTimer = null;
+        let lastTerminalNotice = '';
 
-        function showError(message) {
+        function setRootStatus(message) {
+            if (!rootRunStatus) return;
+            rootRunStatus.textContent = message || '';
+            rootRunStatus.hidden = !message;
+        }
+
+        function showError(message, notify = true) {
             if (error) {
                 error.textContent = message || '';
                 error.hidden = !message;
             }
-            if (message && window.showToast) {
+            setRootStatus(message);
+            if (notify && message && window.showToast) {
                 window.showToast(message, 'error');
             }
+        }
+
+        function showProgress(run) {
+            if (!modal || !run || !['apply', 'rollback'].includes(run.action)) return;
+            const terminal = TERMINAL.has(run.status);
+            const percent = PROGRESS[run.status] ?? 5;
+            reviewPanel.hidden = true;
+            progressPanel.hidden = false;
+            submit.hidden = true;
+            password.disabled = true;
+            dismissButtons.forEach((button) => { button.disabled = !terminal; });
+            if (progress) {
+                progress.setAttribute('aria-valuenow', String(percent));
+                progress.setAttribute('aria-valuetext', run.status.replaceAll('_', ' '));
+            }
+            if (progressBar) {
+                progressBar.style.width = `${percent}%`;
+                progressBar.classList.toggle('progress-bar-animated', !terminal);
+                progressBar.classList.toggle('bg-danger', run.status === 'failed');
+                progressBar.classList.toggle('bg-warning', run.status === 'rolled_back');
+                progressBar.classList.toggle('bg-success', run.status === 'completed');
+            }
+            if (progressStatus) {
+                const label = run.status === 'failed'
+                    ? root.dataset.labelFailed
+                    : (terminal ? root.dataset.labelCompleted : root.dataset.labelRunning);
+                progressStatus.textContent = `${label || run.status} · ${percent}%`;
+            }
+            if (progressLog && typeof run.progress_log === 'string') {
+                progressLog.textContent = run.progress_log;
+                progressLog.scrollTop = progressLog.scrollHeight;
+            }
+            modal.show();
         }
 
         function render(nextState, run) {
@@ -73,9 +140,25 @@
             if (checkButton) checkButton.disabled = running;
             if (reviewButton) reviewButton.disabled = running;
             if (rollbackButton) rollbackButton.disabled = running;
-            if (run?.status === 'failed') showError(run.error || root.dataset.labelFailed);
+            if (running) setRootStatus(root.dataset.labelRunning || 'Update operation in progress');
+            if (run && ['apply', 'rollback'].includes(run.action) && (run.active || !progressPanel?.hidden)) {
+                showProgress(run);
+            }
+            if (run?.status === 'failed') {
+                const message = run.error || root.dataset.labelFailed;
+                showError(message, false);
+                if (lastTerminalNotice !== run.token && window.showToast) {
+                    lastTerminalNotice = run.token;
+                    window.showToast(message, 'error');
+                }
+            }
             if (run?.status === 'completed' || run?.status === 'rolled_back') {
-                if (window.showToast) window.showToast(root.dataset.labelCompleted || 'Completed');
+                const message = root.dataset.labelCompleted || 'Completed';
+                setRootStatus(message);
+                if (lastTerminalNotice !== run.token && window.showToast) {
+                    lastTerminalNotice = run.token;
+                    window.showToast(message);
+                }
             }
         }
 
@@ -158,6 +241,12 @@
             modalElement.querySelector('[data-dlux-update-compatibility]').textContent = isRollback
                 ? (state.previous_version ? root.dataset.labelLocalVerified : '—')
                 : (state.latest_reason || root.dataset.labelReady);
+            reviewPanel.hidden = false;
+            progressPanel.hidden = true;
+            submit.hidden = false;
+            submit.disabled = false;
+            password.disabled = false;
+            dismissButtons.forEach((button) => { button.disabled = false; });
             password.value = '';
             showError('');
             modal.show();
@@ -166,19 +255,31 @@
         reviewButton?.addEventListener('click', () => openReview('apply'));
         rollbackButton?.addEventListener('click', () => openReview('rollback'));
 
-        form?.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const submit = form.querySelector('[type="submit"]');
+        async function submitAction() {
+            if (!password.value) {
+                password.reportValidity();
+                return;
+            }
             submit.disabled = true;
             try {
                 const url = currentAction === 'rollback' ? root.dataset.rollbackUrl : root.dataset.applyUrl;
-                await queue(url, new FormData(form));
-                modal.hide();
+                const body = new FormData();
+                body.append('current_password', password.value);
+                await queue(url, body);
+                password.value = '';
             } catch (requestError) {
                 showError(requestError.message);
-            } finally {
                 submit.disabled = false;
+            } finally {
+                if (!runUrl) submit.disabled = false;
             }
+        }
+
+        submit?.addEventListener('click', submitAction);
+        password?.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            submitAction();
         });
 
         refreshState().catch((requestError) => showError(requestError.message));

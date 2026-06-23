@@ -44,16 +44,41 @@ Generated requirements use `django-lux[updater]` so PyPI attestation tooling is 
 
 ## Existing Generated Projects
 
-Version `1.2.2` is the activation release. Install it through one normal image rebuild, then run the bootstrap from the generated project root:
+Version `1.2.2` introduced the updater infrastructure, but its wheel-download
+cache prefixed the SHA-256 digest to the wheel basename. Pip rejects that renamed
+file before staging, so neither v1.2.3 nor another candidate can repair a
+v1.2.2/v1.2.3 image inline. Version `1.2.4` is the repaired bootstrap baseline
+and deliberately declares `inline_safe=false`. Existing deployments must update
+their exact requirement pin and perform one normal rebuild/redeploy:
+
+```text
+django-lux[updater]==1.2.4
+```
+
+```sh
+# Production/default Compose image
+docker build -t "${WEB_IMAGE:-your-project:latest}" .
+docker compose up -d --force-recreate dlux-updater web celery smtp-relay nginx
+
+# Or, when running the generated development override
+docker compose -f compose.yml -f compose.dev.yml build
+docker compose -f compose.yml -f compose.dev.yml up -d --force-recreate dlux-updater web celery smtp-relay nginx
+```
+
+Projects that have not enabled the Compose infrastructure yet should install the
+repaired baseline through that rebuild, then run the bootstrap from the generated
+project root:
 
 ```sh
 python -m dlux enable-updater          # dry run
 python -m dlux enable-updater --apply  # guarded apply
 ```
 
-The command accepts only recognized generated layouts. It refuses ambiguous/custom Compose structures, makes timestamped copies of every modified file under `.xpose/dlux-updater-bootstrap/`, applies idempotent marked changes, updates the exact `django-lux` requirements pin to the activation version, and runs `docker compose config`. It prints the single image rebuild/redeploy command required to activate the infrastructure. Re-running the command is safe.
+The command accepts only recognized generated layouts. It refuses ambiguous/custom Compose structures, makes timestamped copies of every modified file under `.xpose/dlux-updater-bootstrap/`, applies idempotent marked changes, updates the exact `django-lux` requirements pin to the repaired bootstrap version, and runs `docker compose config`. It prints the single image rebuild/redeploy command required to activate the infrastructure. Re-running the command is safe.
 
-The activation release itself is installed by that rebuild. The next manifest-approved release is the first release that can be applied inline.
+The repaired bootstrap itself is installed by that rebuild. The next
+manifest-approved release after v1.2.4 is the first release that can be applied
+inline through the corrected staging path.
 
 ## Admin Operation
 
@@ -66,7 +91,14 @@ The worker checks daily after startup jitter. Nothing is installed automatically
 3. Review the escaped release summary, compatibility result, target version, and maintenance notice.
 4. Confirm with the current password.
 
-Apply and rollback are CSRF-protected POST operations and create audit events. Run progress is stored in `DluxUpdateRun`, so closing the browser or losing the connection during a restart does not lose the result. A successful update exposes **Roll back to previous version**.
+Apply and rollback are CSRF-protected POST operations and create audit events.
+After password confirmation, the review modal remains open as a progress view
+with the current phase, percentage meter, and bounded durable run log. It
+disables dismissal while the run is active and keeps terminal failure details
+visible. Run progress is stored in `DluxUpdateRun`, so closing the browser or
+losing the connection during a restart does not lose the result; reopening the
+page reconnects to an active apply/rollback run. A successful update exposes
+**Roll back to previous version**.
 
 ## Release Verification Contract
 

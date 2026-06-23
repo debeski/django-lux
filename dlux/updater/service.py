@@ -235,6 +235,40 @@ class UpdateService:
             self.store.clear_degraded()
             active = self.store.read_active(baked_version)
             self.restart_worker = True
+        elif active and active["source"] == "image" and (
+            not state.active_version
+            or self._version_is_newer(baked_version, state.active_version)
+        ):
+            # A normal project-image rebuild replaces the old baked package.
+            # Treat that as an intentional activation, not as a missing volume
+            # release that should be reconstructed from stale database metadata.
+            generation = self.store.read_generation()
+            self.store.write_active(baked_version, source="image", generation=generation)
+            reset_fields = {
+                "active_version": baked_version,
+                "active_wheel_url": "",
+                "active_wheel_sha256": "",
+                "active_manifest": {},
+                "previous_version": "",
+                "previous_wheel_url": "",
+                "previous_wheel_sha256": "",
+                "previous_manifest": {},
+                "latest_version": "",
+                "latest_wheel_url": "",
+                "latest_wheel_sha256": "",
+                "latest_manifest": {},
+                "latest_compatible": False,
+                "latest_reason": "A newer project-image DjangoLux release was activated.",
+                "generation": generation,
+                "degraded": False,
+                "degraded_reason": "",
+            }
+            for field, value in reset_fields.items():
+                if getattr(state, field) != value:
+                    setattr(state, field, value)
+                    changed.append(field)
+            self.store.clear_degraded()
+            active = self.store.read_active(baked_version)
         if active is None or (
             not self.store.active_file.exists()
             and state.active_version
