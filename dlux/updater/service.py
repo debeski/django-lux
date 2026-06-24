@@ -233,6 +233,7 @@ class UpdateService:
                     setattr(state, field, value)
                     changed.append(field)
             self.store.clear_degraded()
+            self.store.set_maintenance(False)
             active = self.store.read_active(baked_version)
             self.restart_worker = True
         elif active and active["source"] == "image" and (
@@ -268,6 +269,7 @@ class UpdateService:
                     setattr(state, field, value)
                     changed.append(field)
             self.store.clear_degraded()
+            self.store.set_maintenance(False)
             active = self.store.read_active(baked_version)
         if active is None or (
             not self.store.active_file.exists()
@@ -818,7 +820,7 @@ class UpdateService:
         return completed
 
     def _verify_health(self, expected_version, env):
-        deadline = time.monotonic() + 90
+        deadline = time.monotonic() + 120
         last_error = None
         health_url = "http://web:8000/health/"
         version_url = "http://web:8000/sys/api/dlux-update/runtime-health/"
@@ -842,39 +844,60 @@ class UpdateService:
         else:
             raise UpdaterError("The updated web service did not become healthy.") from last_error
 
+        last_celery_error = "Celery has not answered a health probe yet."
+        while time.monotonic() < deadline:
+            last_celery_error = self._celery_health_error(expected_version, env)
+            if not last_celery_error:
+                return
+            time.sleep(2)
+        raise UpdaterError(
+            f"The updated Celery service did not become healthy. Last probe: {last_celery_error}"
+        )
+
+    def _celery_health_error(self, expected_version, env):
+        """Return an empty string only when Celery answers and runs the expected release."""
         settings_module = str(os.environ.get("DJANGO_SETTINGS_MODULE") or "config.settings")
         celery_app = settings_module.split(".", 1)[0]
-        completed = self.command_runner(
-            [sys.executable, "-m", "celery", "-A", celery_app, "inspect", "ping", "--timeout", "10"],
-            cwd=str(settings.BASE_DIR),
-            env=env,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        try:
+            completed = self.command_runner(
+                [sys.executable, "-m", "celery", "-A", celery_app, "inspect", "ping", "--timeout", "5"],
+                cwd=str(settings.BASE_DIR),
+                env=env,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+        except Exception as exc:
+            return f"Celery ping failed: {_sanitize(exc)}"
         if completed.returncode != 0 or "pong" not in completed.stdout.lower():
-            raise UpdaterError("The updated Celery service did not become healthy.")
+            diagnostic = _sanitize(f"{completed.stdout}\n{completed.stderr}")[-500:]
+            return f"Celery ping returned no worker response{': ' + diagnostic if diagnostic else '.'}"
 
         version_probe = (
             "import importlib,sys;"
             f"app=importlib.import_module({(celery_app + '.celery')!r}).app;"
-            "replies=app.control.broadcast('dlux_version',reply=True,timeout=10) or [];"
+            "replies=app.control.broadcast('dlux_version',reply=True,timeout=5) or [];"
             "versions=[payload.get('version') for reply in replies "
             "for payload in reply.values() if isinstance(payload,dict)];"
             f"sys.exit(0 if versions and all(v == {str(expected_version)!r} for v in versions) else 1)"
         )
-        completed = self.command_runner(
-            [sys.executable, "-c", version_probe],
-            cwd=str(settings.BASE_DIR),
-            env=env,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        try:
+            completed = self.command_runner(
+                [sys.executable, "-c", version_probe],
+                cwd=str(settings.BASE_DIR),
+                env=env,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+        except Exception as exc:
+            return f"Celery version probe failed: {_sanitize(exc)}"
         if completed.returncode != 0:
-            raise UpdaterError("Celery restarted with an unexpected DjangoLux version.")
+            diagnostic = _sanitize(f"{completed.stdout}\n{completed.stderr}")[-500:]
+            return f"Celery has not reported DjangoLux {expected_version}{': ' + diagnostic if diagnostic else '.'}"
+        return ""
 
     def _handle_failure(self, run, exc):
         report = run.report or {}

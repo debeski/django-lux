@@ -211,10 +211,11 @@ Security note:
 
 Inline update note:
 
-- `v1.2.4` is the repaired updater baseline and requires one normal project-image rebuild
+- `v1.2.7` is the current repaired updater baseline and requires one normal project-image rebuild; it also clears stale degraded/maintenance markers left by the v1.2.4-v1.2.6 Celery-startup race
 - after that rebuild, only releases that pass the official PyPI hash, attestation, dependency, Python, manifest, migration, and candidate-preflight gates show **Review and update**
 - apply creates and verifies a full-system backup before briefly enabling the nginx maintenance page, and persists progress across browser disconnects; a backup failure stops the update
 - **Roll back to previous version** switches code and static assets without reversing migrations or automatically restoring the database
+- candidate and rollback web/Celery health/version probes retry for a bounded 120 seconds, allowing normal process-supervisor startup latency
 - see [Verified Inline Updater](inline-updater.md) for deployment/bootstrap and recovery details
 
 Operational note:

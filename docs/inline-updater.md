@@ -47,12 +47,16 @@ Generated requirements use `django-lux[updater]` so PyPI attestation tooling is 
 Version `1.2.2` introduced the updater infrastructure, but its wheel-download
 cache prefixed the SHA-256 digest to the wheel basename. Pip rejects that renamed
 file before staging, so neither v1.2.3 nor another candidate can repair a
-v1.2.2/v1.2.3 image inline. Version `1.2.4` is the repaired bootstrap baseline
-and deliberately declares `inline_safe=false`. Existing deployments must update
-their exact requirement pin and perform one normal rebuild/redeploy:
+v1.2.2/v1.2.3 image inline. Version `1.2.4` repaired wheel staging, but its
+post-generation health verifier probes Celery only once and can race a normal
+worker restart. That false failure can also race automatic rollback and leave
+maintenance/degraded state behind. Version `1.2.7` is the current repaired
+bootstrap baseline and deliberately declares `inline_safe=false`. Existing
+deployments must update their exact requirement pin and perform one normal
+rebuild/redeploy:
 
 ```text
-django-lux[updater]==1.2.4
+django-lux[updater]==1.2.7
 ```
 
 ```sh
@@ -121,10 +125,15 @@ Any failed gate displays **Project image rebuild required** and does not expose 
 
 ## Apply and Rollback
 
-Apply re-fetches and re-verifies the wheel, installs it to isolated staging with `pip --target --no-deps`, completes and verifies a full Dlux system backup tagged with the `update` trigger, enables maintenance, runs candidate migrations and `collectstatic`, atomically switches the pointer, increments the generation, and verifies `/health/`, the active Dlux version in web, and the version reported by a live Celery worker. The review modal states this blocking backup guarantee; backup failure aborts before maintenance rather than merely warning the operator to create one manually.
+Apply re-fetches and re-verifies the wheel, installs it to isolated staging with `pip --target --no-deps`, completes and verifies a full Dlux system backup tagged with the `update` trigger, enables maintenance, runs candidate migrations and `collectstatic`, atomically switches the pointer, increments the generation, and verifies `/health/`, the active Dlux version in web, and the version reported by a live Celery worker. Web and Celery readiness/version probes retry within one bounded 120-second handshake so supervisor startup latency is not treated as failure. The review modal states this blocking backup guarantee; backup failure aborts before maintenance rather than merely warning the operator to create one manually.
 
 Before the pointer switch, failure leaves the existing release active and clears maintenance. After the switch, failure restores the previous code pointer, recollects its static assets, increments the generation again, and verifies health. If the updater container or host stops after claiming a run, the next worker terminalizes that interrupted run: it recollects current static assets before clearing pre-switch maintenance, or restores the recorded source pointer/static assets and increments generation after a post-switch apply interruption. Failed interruption recovery persists degraded state and leaves nginx maintenance enabled. Old downloads, releases, failed staging trees, backups, and bounded run logs are retained.
 
 Rollback uses the same password, backup, preflight, maintenance, static, pointer, restart, and health pipeline. It does not reverse migrations and the updater never automatically restores the database. Inline-safe migrations must remain compatible with the immediately previous release; the pre-operation `.dlb` backup remains available for manual disaster recovery under the configured `backup_config` retention policy. Rotation runs only after the new backup completes and explicitly protects that new row/file during the pass.
 
 Updater pointer/run rows are deployment bookkeeping and are excluded from `.dlb` payloads. Restoring application data into another environment therefore starts from that environment's baked Dlux release instead of importing a stale runtime-volume pointer.
+
+When a failed pre-v1.2.7 health race already left a deployment degraded with a
+maintenance marker, rebuilding on v1.2.7 is the recovery path: newer-image
+reconciliation selects the baked release and clears both markers before the
+worker becomes ready. No manual database or runtime-volume edit is required.

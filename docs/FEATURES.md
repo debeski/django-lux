@@ -730,13 +730,16 @@ notify("Payroll batch exported.", obj=batch, action="export", category="reports"
   completes a full-system backup, enables maintenance, migrates/collects static,
   atomically switches the release pointer, restarts by generation, and verifies
   web version plus Celery before clearing maintenance.
+- Web and Celery readiness/version checks retry within a bounded 120-second
+  handshake; rebuilt-image activation clears stale degraded and maintenance
+  markers left by a failed older bootstrap.
 - Pre-switch failures leave the current release active. Post-switch failures
   restore the previous code pointer and static assets; database restore is never
   automatic because inline-safe migrations must remain backward compatible.
 - Global Staff can read System Info update state. Only superusers can check,
   apply, or roll back; apply/rollback require current-password confirmation.
 - Existing recognized generated projects use `python -m dlux enable-updater`
-  (dry-run) and `--apply` once, then rebuild/redeploy the repaired v1.2.4 bootstrap baseline.
+  (dry-run) and `--apply` once, then rebuild/redeploy the repaired v1.2.7 bootstrap baseline.
 
 See [Verified Inline Updater](inline-updater.md) for the deployment and release contract.
 

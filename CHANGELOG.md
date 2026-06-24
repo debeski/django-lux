@@ -6,6 +6,13 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.2.7
+
+- **Retrying Celery Health Handshake**: Replaced the updater's single immediate post-restart Celery ping/version checks with bounded retries sharing the 120-second web/Celery health deadline. Candidate activation and automatic pointer rollback now tolerate normal Celery supervisor startup latency instead of falsely failing after web is already healthy, switching back, racing the rollback worker again, and leaving the runtime in degraded maintenance.
+- **Rebuild Recovery Clears Maintenance**: Rebuilt-image reconciliation now clears both the durable degraded marker and stale maintenance marker when a newer baked DjangoLux version intentionally supersedes the failed runtime selection. This lets the required v1.2.7 rebuild recover deployments already trapped behind nginx maintenance without manual volume/database surgery.
+- **Database-Default Release Gate**: Tightened inline migration validation so a NOT NULL `AddField` must declare `db_default`; a Python-only `default` no longer passes because it is normally removed from the database column after backfilling and cannot protect inserts made by previous-release code during rollback.
+- **Bootstrap Repair Release**: Marked v1.2.7 `inline_safe=false` because the faulty health orchestration executes from the already-baked updater while applying a candidate wheel; a candidate cannot repair the process evaluating its own activation. Generated deployments on v1.2.4-v1.2.6 must rebuild/redeploy once with `django-lux[updater]==1.2.7`; later manifest-approved releases can use inline updates again.
+
 ## v1.2.6
 
 - **Yanked v1.2.5 (bad migration) — superseded by this release**: v1.2.5 shipped migration `0004` with `SystemBackup.trigger` as NOT NULL but only a Python `default`, which Django drops from the column after backfilling. Once `0004` applied, the updater's pre-update backup — created by the *previous* release's code, which has no `trigger` field (e.g. after a health-check rollback) — hit `null value in column "trigger" of relation "dlux_systembackup" violates not-null constraint`, leaving the inline update unretryable. v1.2.5 has been yanked; install v1.2.6 instead.

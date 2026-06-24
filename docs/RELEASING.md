@@ -97,9 +97,11 @@ its version, summary, release URL, updater schema, and migration policy. Set
 - the release remains compatible with the immediately previous code during a
   manual or automatic pointer rollback.
 
-`v1.2.4` is the repaired updater bootstrap baseline and is installed through a
-normal image rebuild. The unchanged-dependency rule governs subsequent releases
-that can actually be selected by an already-active inline updater.
+`v1.2.7` is the current repaired updater bootstrap baseline and is installed
+through a normal image rebuild. It supersedes v1.2.4-v1.2.6 because the health
+orchestration that races Celery startup runs from the baked updater and cannot
+repair itself from a candidate wheel. The unchanged-dependency rule governs
+subsequent releases that can actually be selected by the repaired inline updater.
 
 `python -m dlux.updater.release_check --base-tag vX.Y.Z` runs the same manifest
 and changed-migration gate locally. The tag workflow determines the prior `v*`

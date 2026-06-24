@@ -238,6 +238,32 @@ class ManifestTests(TestCase):
                 with self.assertRaises(RuntimeError):
                     validate_inline_migrations("v1.2.2")
 
+    def test_release_gate_requires_database_default_for_not_null_add_field(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            python_default = Path(temp_dir) / "0004_python_default.py"
+            python_default.write_text(
+                "from django.db import migrations, models\n"
+                "class Migration(migrations.Migration):\n"
+                "    operations = [migrations.AddField("
+                "model_name='thing', name='kind', field=models.CharField(default='manual', max_length=12))]\n",
+                encoding="utf-8",
+            )
+            with mock.patch("dlux.updater.release_check._changed_migrations", return_value=[python_default]):
+                with self.assertRaisesRegex(RuntimeError, "db_default"):
+                    validate_inline_migrations("v1.2.6")
+
+            database_default = Path(temp_dir) / "0004_database_default.py"
+            database_default.write_text(
+                "from django.db import migrations, models\n"
+                "class Migration(migrations.Migration):\n"
+                "    operations = [migrations.AddField("
+                "model_name='thing', name='kind', field=models.CharField("
+                "default='manual', db_default='manual', max_length=12))]\n",
+                encoding="utf-8",
+            )
+            with mock.patch("dlux.updater.release_check._changed_migrations", return_value=[database_default]):
+                self.assertTrue(validate_inline_migrations("v1.2.6"))
+
     def test_release_gate_includes_worktree_and_untracked_migrations(self):
         results = [
             SimpleNamespace(stdout="dlux/migrations/0004_tracked.py\n"),
@@ -410,6 +436,11 @@ class RuntimeStoreTests(TestCase):
             state.latest_manifest = release_manifest()
             state.latest_compatible = True
             state.save()
+            store.set_maintenance(True, token="failed-update")
+            store.set_degraded("failed health check")
+            state.degraded = True
+            state.degraded_reason = "failed health check"
+            state.save(update_fields=["degraded", "degraded_reason"])
             service = UpdateService(store=store)
             with mock.patch(
                 "dlux.updater.service.get_baked_version",
@@ -424,6 +455,8 @@ class RuntimeStoreTests(TestCase):
             self.assertEqual(reconciled.previous_version, "")
             self.assertEqual(reconciled.latest_version, "")
             self.assertFalse(reconciled.degraded)
+            self.assertFalse(store.maintenance_file.exists())
+            self.assertFalse(store.degraded_file.exists())
             download.assert_not_called()
 
 
@@ -451,6 +484,24 @@ class UpdaterApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["version"], __version__)
+
+    def test_health_verification_retries_until_celery_worker_and_version_are_ready(self):
+        service = UpdateService(command_runner=mock.Mock(side_effect=[
+            SimpleNamespace(returncode=1, stdout="", stderr="No nodes replied"),
+            SimpleNamespace(returncode=0, stdout="celery@worker: OK\n    pong", stderr=""),
+            SimpleNamespace(returncode=1, stdout="", stderr="old version"),
+            SimpleNamespace(returncode=0, stdout="celery@worker: OK\n    pong", stderr=""),
+            SimpleNamespace(returncode=0, stdout="", stderr=""),
+        ]))
+        url_responses = [
+            FakeResponse(b"ok", url="http://web:8000/health/"),
+            FakeResponse(json.dumps({"version": NEWER_VERSION}).encode("utf-8"), url="http://web:8000/sys/api/dlux-update/runtime-health/"),
+        ]
+        with mock.patch("dlux.updater.service.urllib.request.urlopen", side_effect=url_responses), \
+             mock.patch("dlux.updater.service.time.sleep"):
+            service._verify_health(NEWER_VERSION, os.environ.copy())
+
+        self.assertEqual(service.command_runner.call_count, 5)
 
     def test_mutations_are_superuser_only_and_csrf_protected(self):
         regular = get_user_model().objects.create_user(username="regular", password="regular-pass-123")

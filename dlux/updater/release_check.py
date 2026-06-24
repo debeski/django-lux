@@ -77,7 +77,11 @@ def _add_field_is_safe(call):
         return False
     keywords = {keyword.arg: keyword.value for keyword in field.keywords}
     nullable = isinstance(keywords.get("null"), ast.Constant) and keywords["null"].value is True
-    return nullable or "default" in keywords
+    # A Python ``default`` only backfills existing rows during migration; Django
+    # normally drops it from the database column afterwards. The previous release
+    # can still INSERT without the new field during rollback, so a NOT NULL field
+    # is inline-safe only with a persistent database default.
+    return nullable or "db_default" in keywords
 
 
 def validate_inline_migrations(base_tag):
@@ -90,7 +94,7 @@ def validate_inline_migrations(base_tag):
             if name not in ALLOWED_MIGRATION_OPERATIONS:
                 errors.append(f"{path}: migration operation {name or '<dynamic>'} is not inline-safe")
             elif name == "AddField" and not _add_field_is_safe(operation):
-                errors.append(f"{path}: AddField must be nullable or define a default")
+                errors.append(f"{path}: AddField must be nullable or define db_default")
     if errors:
         raise RuntimeError("\n".join(errors))
     return True
