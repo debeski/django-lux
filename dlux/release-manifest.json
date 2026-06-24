@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "1.2.5",
+  "version": "1.2.6",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds scheduled backup, retention, storage-target, and update-safety controls, and clears stale historical completion text from the idle updater card.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.5"
+  "summary": "Fixes the 1.2.5 inline update failure: SystemBackup.trigger now has a database-level default so the pre-update backup no longer violates a NOT NULL constraint after a rollback.",
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.6"
 }

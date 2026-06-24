@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- `dlux/release-manifest.json` is the version source: unreleased inline-safe v1.2.5 with backup-policy migration `0004`; latest tag is v1.2.4.
+- `dlux/release-manifest.json` is the version source: unreleased inline-safe v1.2.6 (migration `0005` repairs the 1.2.5 backup-trigger NOT NULL bug); latest published tag is v1.2.5.
 - v1.2.4 is a mandatory one-rebuild updater-bootstrap repair for v1.2.2/v1.2.3 generated Compose deployments.
 - DjangoLux supplies settings/setup, scoped models, auth/security, navigation, reports, backup, scaffolding, SSO hooks, and the Compose updater.
 - Updater state uses `DluxUpdateState`/`DluxUpdateRun` plus `dlux_runtime` releases, atomic pointer, generation, maintenance, heartbeat, and degraded markers.
@@ -27,6 +27,8 @@
 - 2026-06-23: Updater audit covered artifacts, attestation, dependency/migration gates, supervisor/runtime state, recovery, UI/API, scaffold, nginx, and Compose.
 
 ### Current Project's Unsolved Known Bugs:
+- v1.2.5 yanked (bad migration): `SystemBackup.trigger` was NOT NULL with no DB default, so the updater's pre-update backup (run by the previous release's code after a rollback) hit a NOT NULL violation. v1.2.6 corrects `0004` in place to give `trigger` a `db_default='manual'`. Any DB that already applied the broken `0004` (e.g. the test deployment) is not re-migrated and needs a one-time `ALTER TABLE dlux_systembackup ALTER COLUMN trigger SET DEFAULT 'manual';`.
+- Follow-up (not done): `release_check` inline gate still treats a plain Python `default` as safe (the gap that let v1.2.5 through). Tightening it to require `db_default` for NOT NULL AddField also flags `backup_config` (a singleton JSONField never inserted by old code) as a false positive — needs a smarter gate before enforcing.
 - Fallback file/download redirects remain a high-risk-deployment review point; `_safe_referer()` currently enforces allowed hosts.
 - Mounted test Compose uses Redis sessions; never use live `cache.clear()` probes because they delete browser sessions.
 

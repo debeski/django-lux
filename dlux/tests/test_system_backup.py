@@ -81,6 +81,29 @@ class SystemBackupPolicyTests(TestCase):
         self.assertEqual(self.SystemBackup.objects.filter(status=self.SystemBackup.STATUS_COMPLETED).count(), 2)
         self.assertFalse(self.SystemBackup.objects.filter(pk=backups[0].pk).exists())
 
+    def test_trigger_has_database_default_for_previous_release_inserts(self):
+        # Regression for the 1.2.5 inline-update crash: the updater's pre-update
+        # backup is created by the *previous* release's code, which has no `trigger`
+        # field. An INSERT that omits the column must still succeed, relying on the
+        # column's database-level default rather than a (dropped) Python default.
+        field = self.SystemBackup._meta.get_field('trigger')
+        self.assertEqual(field.db_default, self.SystemBackup.TRIGGER_MANUAL)
+
+        from django.db import connection
+
+        table = self.SystemBackup._meta.db_table
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"INSERT INTO {table} "
+                "(token, requested_by_username, status, file_path, file_size, "
+                " model_count, row_count, file_count, missing_file_count, "
+                " passphrase_required, error, created_at) "
+                "VALUES ('oldcode-token', 'admin', 'pending', '', 0, 0, 0, 0, 0, 0, '', %s)",
+                [timezone.now()],
+            )
+        row = self.SystemBackup.objects.get(token='oldcode-token')
+        self.assertEqual(row.trigger, self.SystemBackup.TRIGGER_MANUAL)
+
     def test_scheduler_is_disabled_by_default_and_deduplicates_interval(self):
         self._save_config(scheduled_enabled=False)
         self.assertIsNone(run_scheduled_system_backup())

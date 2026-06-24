@@ -6,6 +6,11 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.2.6
+
+- **Yanked v1.2.5 (bad migration) — superseded by this release**: v1.2.5 shipped migration `0004` with `SystemBackup.trigger` as NOT NULL but only a Python `default`, which Django drops from the column after backfilling. Once `0004` applied, the updater's pre-update backup — created by the *previous* release's code, which has no `trigger` field (e.g. after a health-check rollback) — hit `null value in column "trigger" of relation "dlux_systembackup" violates not-null constraint`, leaving the inline update unretryable. v1.2.5 has been yanked; install v1.2.6 instead.
+- **Backup Trigger Database Default**: `SystemBackup.trigger` now declares `db_default='manual'`, and migration `0004` was corrected to create the column with that persistent database-level default, so any release's code can insert a backup row whether or not it sets `trigger`. (Databases that already applied the broken `0004` from yanked v1.2.5 must run `ALTER TABLE dlux_systembackup ALTER COLUMN trigger SET DEFAULT 'manual';` once, since an already-applied migration is not re-run.)
+
 ## v1.2.5
 
 - **Scheduled Backup Policy And Update Safety**: Added migration `0004_system_backup_policy` with defaulted `SystemSettings.backup_config` and `SystemBackup.trigger` fields, a twelfth Backups setup/System Settings surface, Celery-beat due checks, configurable storage-relative `auto_export_target`, age/count retention rotation, and trigger-aware backup history. Inline apply/rollback backups are explicitly tagged, created and verified before maintenance, protected while rotation runs, and described as a blocking safety prerequisite in the review modal; the additive defaulted migration remains inline-safe.

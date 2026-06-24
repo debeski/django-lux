@@ -89,8 +89,11 @@ its version, summary, release URL, updater schema, and migration policy. Set
 
 - the dependency metadata is unchanged from the activation/current release;
 - supported Python versions are unchanged;
-- Dlux migration changes use only `CreateModel`, `AddIndex`, or nullable/defaulted
-  `AddField` operations;
+- Dlux migration changes use only `CreateModel`, `AddIndex`, or `AddField`
+  operations that are insertable by the *previous* release's code — i.e. the new
+  column is `null=True` **or** carries a `db_default` (a plain Python `default` is
+  **not** enough: Django backfills existing rows but drops the column default, so
+  old code inserting a row after the migration would hit a NOT NULL violation);
 - the release remains compatible with the immediately previous code during a
   manual or automatic pointer rollback.
 

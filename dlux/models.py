@@ -952,6 +952,13 @@ class SystemBackup(models.Model):
         max_length=12,
         choices=TRIGGER_CHOICES,
         default=TRIGGER_MANUAL,
+        # db_default keeps a persistent database-level default so a *previous*
+        # release's code (which has no `trigger` field) can still INSERT a
+        # SystemBackup row after this migration is applied — e.g. the updater's
+        # pre-update backup step running under the old code after a rollback.
+        # A plain Python `default` alone is dropped from the column by Django and
+        # would make those inserts violate the NOT NULL constraint.
+        db_default=TRIGGER_MANUAL,
         db_index=True,
         verbose_name="Trigger",
     )
