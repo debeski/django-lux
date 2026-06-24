@@ -703,7 +703,7 @@
                 <div data-dlux-update-form role="group">
                     <div class="modal-body">
                         <div data-dlux-update-review-panel>
-                            <div class="alert alert-info">{{ DLUX_STRINGS.dlux_update_backup_guarantee|default:'A full encrypted system backup is created and verified before maintenance. The operation stops if the backup fails.' }}</div>
+                            <div class="alert alert-info">{{ DLUX_STRINGS.dlux_update_backup_guarantee|default:'A pre-update backup is created and verified before maintenance (unless you skip it below). If a backup is requested and fails, the operation stops.' }}</div>
                             <div class="alert alert-warning" data-dlux-update-maintenance>{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}</div>
                             <dl class="row mb-3">
                                 <dt class="col-4">{{ DLUX_STRINGS.dlux_update_target|default:'Target version' }}</dt>
@@ -713,6 +713,12 @@
                                 <dt class="col-4">{{ DLUX_STRINGS.dlux_update_compatibility|default:'Compatibility' }}</dt>
                                 <dd class="col-8" data-dlux-update-compatibility></dd>
                             </dl>
+                            <label class="form-label" for="dluxUpdateBackupMode">{{ DLUX_STRINGS.dlux_update_backup_mode|default:'Pre-update backup' }}</label>
+                            <select class="form-select mb-3" id="dluxUpdateBackupMode" name="backup_mode" data-dlux-update-backup-mode>
+                                <option value="data" selected>{{ DLUX_STRINGS.dlux_update_backup_data|default:'Quick — data only (recommended, fast)' }}</option>
+                                <option value="full">{{ DLUX_STRINGS.dlux_update_backup_full|default:'Full — database + media (slower)' }}</option>
+                                <option value="skip">{{ DLUX_STRINGS.dlux_update_backup_skip|default:'Skip — no backup (fastest, not recommended)' }}</option>
+                            </select>
                             <label class="form-label" for="dluxUpdateCurrentPassword">{{ DLUX_STRINGS.current_password|default:'Current password' }}</label>
                             <input type="password" class="form-control" id="dluxUpdateCurrentPassword" name="current_password" autocomplete="off" data-1p-ignore data-lpignore="true" required>
                         </div>
@@ -742,5 +748,5 @@
 {% block scripts %}
     {{ block.super }}
     <script src="{% static 'dlux/main/js/options.js' %}?v=20260618a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/updater.js' %}?v=20260623b" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/updater.js' %}?v=20260624b" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

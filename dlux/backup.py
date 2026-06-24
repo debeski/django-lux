@@ -322,13 +322,19 @@ def decrypt_dlb_to_tempfile(fileobj, *, passphrase=None):
 # ── Full backup build ────────────────────────────────────────────────────────
 
 
-def write_system_backup(dest, *, passphrase=None, progress_callback=None):
-    """Build the complete encrypted system backup into ``dest``. Returns metadata."""
+def write_system_backup(dest, *, passphrase=None, progress_callback=None, include_media=True):
+    """Build the complete encrypted system backup into ``dest``. Returns metadata.
+
+    ``include_media=False`` writes a data-only backup (database rows + migration
+    state, no media blobs) — much faster, used for the inline updater's pre-update
+    safety snapshot since an inline code/schema update never alters media on disk.
+    """
     manifest = {
         "kind": "dlux-system-backup",
         "generated_at": timezone.now().isoformat(),
         "dlux_version": _dlux_version(),
         "migration_state": get_current_migration_state(),
+        "media_included": bool(include_media),
         "superuser_policy": {
             "users": "included",
             "password_hashes": "omitted",
@@ -357,6 +363,7 @@ def write_system_backup(dest, *, passphrase=None, progress_callback=None):
                     zf, model, qs, manifest,
                     serialize_kwargs={"use_natural_foreign_keys": True},
                     object_transform=_scrub_superuser_password,
+                    include_files=include_media,
                 )
                 if progress_callback:
                     progress_callback(
@@ -378,17 +385,26 @@ def write_system_backup(dest, *, passphrase=None, progress_callback=None):
             "models": len(manifest["models"]),
             "rows": sum(item["count"] for item in manifest["models"]),
             "files": len(manifest["files"]),
+            "media_included": bool(include_media),
             "passphrase_required": bool(_clean_passphrase(passphrase)),
         }, passphrase=passphrase)
     return metadata, manifest
 
 
 def run_system_backup(backup_pk, passphrase=None):
-    """Celery-or-inline runner that builds the .dlb for a SystemBackup row."""
+    """Celery-or-inline runner that builds the .dlb for a SystemBackup row.
+
+    Whether media blobs are included is read from ``backup.media_included`` (set by
+    the caller when the row is created), so the choice survives a Celery handoff —
+    the task only receives the pk. ``media_included=False`` yields a faster data-only
+    snapshot (database + migration state), used by the inline updater's pre-update
+    backup and by manual "quick" backups.
+    """
     SystemBackup = apps.get_model("dlux", "SystemBackup")
     backup = SystemBackup.objects.filter(pk=backup_pk).first()
     if backup is None or backup.status != SystemBackup.STATUS_PENDING:
         return backup
+    include_media = bool(backup.media_included)
     backup.status = SystemBackup.STATUS_RUNNING
     backup.started_at = timezone.now()
     backup.save(update_fields=["status", "started_at"])
@@ -402,6 +418,7 @@ def run_system_backup(backup_pk, passphrase=None):
                 tmp,
                 passphrase=passphrase,
                 progress_callback=lambda percent, message: set_backup_progress(backup, percent, message),
+                include_media=include_media,
             )
             size = tmp.tell()
             tmp.seek(0)

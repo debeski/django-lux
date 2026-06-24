@@ -981,6 +981,11 @@ class SystemBackup(models.Model):
         db_index=True,
         verbose_name="Status",
     )
+    # Whether this snapshot includes uploaded media blobs. False = a fast data-only
+    # backup (database + migration state only). The runner reads this off the row so
+    # the choice survives a Celery handoff (the task only receives the pk). db_default
+    # keeps it insert-safe for any code that doesn't set it.
+    media_included = models.BooleanField(default=True, db_default=True, verbose_name="Media Included")
     file_path = models.CharField(max_length=512, blank=True, verbose_name="File Path")
     file_size = models.BigIntegerField(default=0, verbose_name="File Size")
     model_count = models.PositiveIntegerField(default=0, verbose_name="Model Count")
@@ -1128,6 +1133,15 @@ class DluxUpdateRun(models.Model):
         (ACTION_ROLLBACK, 'Rollback'),
     ]
 
+    BACKUP_FULL = 'full'
+    BACKUP_DATA = 'data'
+    BACKUP_SKIP = 'skip'
+    BACKUP_MODE_CHOICES = [
+        (BACKUP_FULL, 'Full (database + media)'),
+        (BACKUP_DATA, 'Quick (data only)'),
+        (BACKUP_SKIP, 'Skip backup'),
+    ]
+
     STATUS_QUEUED = 'queued'
     STATUS_CHECKING = 'checking'
     STATUS_DOWNLOADING = 'downloading'
@@ -1185,6 +1199,15 @@ class DluxUpdateRun(models.Model):
     manifest = models.JSONField(default=dict, blank=True, verbose_name="Verified Manifest")
     wheel_url = models.TextField(blank=True, verbose_name="Wheel URL")
     wheel_sha256 = models.CharField(max_length=64, blank=True, verbose_name="Wheel SHA256")
+    # Operator's pre-update backup choice, read by the worker off the row (the run is
+    # processed asynchronously). db_default keeps it insert-safe for older code.
+    backup_mode = models.CharField(
+        max_length=8,
+        choices=BACKUP_MODE_CHOICES,
+        default=BACKUP_DATA,
+        db_default=BACKUP_DATA,
+        verbose_name="Backup Mode",
+    )
     backup_token = models.CharField(max_length=64, blank=True, verbose_name="Backup Token")
     progress_log = models.TextField(blank=True, verbose_name="Progress Log")
     report = models.JSONField(default=dict, blank=True, verbose_name="Report")

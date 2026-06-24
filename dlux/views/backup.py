@@ -134,10 +134,13 @@ def system_backup_create_view(request):
             'ok': False,
             'error': s.get('sysbackup_passphrase_mismatch'),
         }, status=400)
+    # Admin chooses scope: "data" = fast data-only (no media blobs); anything else = full.
+    include_media = str(request.POST.get('backup_scope') or 'full').strip().lower() != 'data'
     SystemBackup = _system_backup_model()
     backup = SystemBackup.objects.create(
         requested_by_username=request.user.get_username(),
         passphrase_required=bool(passphrase),
+        media_included=include_media,
     )
     if dispatch_system_backup(backup, passphrase=passphrase):
         queued = True

@@ -559,9 +559,22 @@ document.addEventListener('DOMContentLoaded', function() {
         body.append('skip', '1');
         if (csrf) body.append('csrfmiddlewaretoken', csrf.value);
         skipBtn.disabled = true;
-        fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: body })
-            .then(function () { window.location.reload(); })
-            .catch(function () { window.location.reload(); });
+        fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, body: body })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Skip request failed (HTTP ' + response.status + ').');
+                }
+                // The profile is now marked configured server-side. Clear any persisted
+                // modal state so the reloaded page does not re-open onboarding.
+                clearModalState();
+                window.location.reload();
+            })
+            .catch(function () {
+                // Never blindly reload on failure: the profile was not marked configured,
+                // so a reload would re-open this modal in a loop. Re-enable the button so
+                // the user can retry (or use Save) instead.
+                skipBtn.disabled = false;
+            });
     });
 
 });

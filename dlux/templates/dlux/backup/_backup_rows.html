@@ -2,7 +2,12 @@
     <tr data-system-backup-row data-backup-token="{{ backup.token }}" data-backup-status="{{ backup.status }}">
         <td>{{ backup.created_at|date:'Y-m-d H:i' }}</td>
         <td>{{ backup.requested_by_username|default:'-' }}</td>
-        <td>{{ backup.get_trigger_display }}</td>
+        <td>
+            {{ backup.get_trigger_display }}
+            {% if not backup.media_included %}
+                <span class="badge bg-info text-dark" title="{{ DLUX_STRINGS.sysbackup_data_only_hint|default:'Database only — uploaded media was not included' }}">{{ DLUX_STRINGS.sysbackup_data_only_badge|default:'Data only' }}</span>
+            {% endif %}
+        </td>
         <td>
             {% if backup.status == 'completed' %}<span class="badge bg-success">{{ backup.get_status_display }}</span>
             {% elif backup.status == 'failed' %}<span class="badge bg-danger" title="{{ backup.error }}">{{ backup.get_status_display }}</span>

@@ -486,7 +486,9 @@ class UpdaterApiTests(TestCase):
         self.assertEqual(response.json()["version"], __version__)
 
     def test_health_verification_retries_until_celery_worker_and_version_are_ready(self):
-        service = UpdateService(command_runner=mock.Mock(side_effect=[
+        # Pass an explicit temp store (like every other updater test) so construction
+        # never depends on the default /opt/dlux-runtime path existing/being writable.
+        service = UpdateService(store=RuntimeStore(tempfile.mkdtemp()).ensure(), command_runner=mock.Mock(side_effect=[
             SimpleNamespace(returncode=1, stdout="", stderr="No nodes replied"),
             SimpleNamespace(returncode=0, stdout="celery@worker: OK\n    pong", stderr=""),
             SimpleNamespace(returncode=1, stdout="", stderr="old version"),
@@ -719,6 +721,45 @@ class UpdaterApiTests(TestCase):
 
         self.assertEqual(backup.trigger, SystemBackup.TRIGGER_UPDATE)
         self.assertEqual(backup.requested_by_username, self.user.username)
+        # Default mode is quick/data-only (no media copy) so a quick update is fast;
+        # the runner reads this off the row, so it survives a Celery handoff.
+        self.assertFalse(backup.media_included)
+
+    def test_create_backup_honors_backup_mode_skip_quick_full(self):
+        service = UpdateService(store=RuntimeStore(tempfile.mkdtemp()).ensure())
+
+        def complete_backup(pk):
+            SystemBackup.objects.filter(pk=pk).update(status=SystemBackup.STATUS_COMPLETED)
+
+        with mock.patch('dlux.backup.run_system_backup', side_effect=complete_backup):
+            skip_run = DluxUpdateRun.objects.create(
+                action=DluxUpdateRun.ACTION_APPLY, backup_mode=DluxUpdateRun.BACKUP_SKIP,
+            )
+            self.assertIsNone(service._create_backup(skip_run))
+            self.assertFalse(SystemBackup.objects.exists())
+
+            quick_run = DluxUpdateRun.objects.create(
+                action=DluxUpdateRun.ACTION_APPLY, backup_mode=DluxUpdateRun.BACKUP_DATA,
+            )
+            quick = service._create_backup(quick_run)
+            self.assertFalse(quick.media_included)
+
+            full_run = DluxUpdateRun.objects.create(
+                action=DluxUpdateRun.ACTION_APPLY, backup_mode=DluxUpdateRun.BACKUP_FULL,
+            )
+            full = service._create_backup(full_run)
+            self.assertTrue(full.media_included)
+
+    def test_apply_view_persists_backup_mode_choice(self):
+        state = DluxUpdateState.load()
+        state.latest_version = NEWER_VERSION
+        state.latest_compatible = True
+        state.save()
+        with mock.patch('dlux.views.updater.require_current_password', return_value=None):
+            response = self.client.post(reverse('dlux_update_apply'), {'backup_mode': 'skip'})
+        self.assertEqual(response.status_code, 200)
+        run = DluxUpdateRun.objects.get(token=response.json()['run']['token'])
+        self.assertEqual(run.backup_mode, DluxUpdateRun.BACKUP_SKIP)
 
     def test_failed_preflight_never_switches_active_release(self):
         with tempfile.TemporaryDirectory() as temp_dir:

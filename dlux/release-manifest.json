@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "1.2.9",
+  "version": "1.2.10",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds persistent progress bars and locked live drawer notifications for report/full-system backups, human-readable non-PK report archive folders, durable report download handoff, and fully windowed user-report activity detail. Migration 0005 adds database-defaulted progress fields only; inline-safe.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.9"
+  "summary": "Faster, configurable backups: the confirm-update modal lets admins pick Skip / Quick (data-only) / Full for the pre-update backup, manual backups offer Full vs Quick, and the inline updater defaults to fast data-only snapshots. Migration 0006 adds database-defaulted media_included (SystemBackup) and backup_mode (DluxUpdateRun) fields; inline-safe.",
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.10"
 }

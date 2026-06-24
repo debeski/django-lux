@@ -26,6 +26,13 @@
                     <label class="form-label small mb-1" for="sysbackup-passphrase-confirm">{{ DLUX_STRINGS.sysbackup_passphrase_confirm }}</label>
                     <input type="password" id="sysbackup-passphrase-confirm" name="backup_passphrase_confirm" class="form-control form-control-sm" autocomplete="new-password">
                 </div>
+                <div>
+                    <label class="form-label small mb-1" for="sysbackup-scope">{{ DLUX_STRINGS.sysbackup_scope_label|default:'Scope' }}</label>
+                    <select id="sysbackup-scope" name="backup_scope" class="form-select form-select-sm">
+                        <option value="full">{{ DLUX_STRINGS.sysbackup_scope_full|default:'Full (database + media)' }}</option>
+                        <option value="data">{{ DLUX_STRINGS.sysbackup_scope_data|default:'Quick — data only (no media)' }}</option>
+                    </select>
+                </div>
                 <button type="submit"
                         id="sysbackup-create-btn"
                         class="btn btn-primary rounded-pill text-nowrap">

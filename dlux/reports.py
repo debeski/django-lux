@@ -797,6 +797,7 @@ def stream_model_into_zip(
     serialize_kwargs=None,
     object_transform=None,
     human_record_folders=False,
+    include_files=True,
 ):
     """Stream one model's records (JSON) and its file-field contents into an
     open backup ZipFile, recording everything in ``manifest``.
@@ -804,6 +805,13 @@ def stream_model_into_zip(
     Shared by the reports backup and the full system backup: the serializer
     writes straight into the zip entry and storage files are chunk-copied, so
     peak memory stays flat no matter how many records/PDFs are covered.
+
+    ``include_files=False`` produces a data-only export: record JSON is still
+    written (FileField *names* are preserved in the data), but the referenced
+    media blobs are not copied into the archive. A restore then leaves existing
+    media on disk untouched (``_restore_files`` only touches files the manifest
+    lists). This is what the inline updater's pre-update backup uses so a quick
+    code/schema update is not gated on copying gigabytes of unchanged uploads.
     """
     meta = model._meta
     model_key = meta.label_lower
@@ -822,6 +830,8 @@ def stream_model_into_zip(
         )
         text_stream.flush()
         text_stream.detach()
+    if not include_files:
+        return
     file_fields = [
         field for field in meta.get_fields()
         if isinstance(field, (models.FileField, models.ImageField))

@@ -126,12 +126,13 @@ def get_ui_state():
     return serialize_state(state)
 
 
-def queue_run(action, username=""):
+def queue_run(action, username="", backup_mode=None):
     if not updates_enabled():
         raise UpdaterError("Inline DjangoLux updates are disabled for this project.")
     Run = _run_model()
     if action not in {Run.ACTION_CHECK, Run.ACTION_APPLY, Run.ACTION_ROLLBACK}:
         raise UpdaterError("The requested updater action is invalid.")
+    backup_mode = backup_mode if backup_mode in dict(Run.BACKUP_MODE_CHOICES) else Run.BACKUP_DATA
     State = _state_model()
     State.load()
     with transaction.atomic():
@@ -159,6 +160,7 @@ def queue_run(action, username=""):
             source_version=source,
             target_version=target,
             requested_by_username=str(username or "")[:150],
+            backup_mode=backup_mode,
         )
         state.active_run_token = run.token
         state.save(update_fields=["active_run_token", "updated_at"])
@@ -579,10 +581,11 @@ class UpdateService:
         self._run_manage(["dlux_check"], candidate_env, run)
         self._run_manage(["migrate", "--plan"], candidate_env, run)
 
-        self._transition(run, run.STATUS_BACKING_UP, "Creating a full pre-update DjangoLux backup.")
+        self._transition(run, run.STATUS_BACKING_UP, self._backup_phase_message(run, "pre-update"))
         backup = self._create_backup(run)
-        run.backup_token = backup.token
-        run.save(update_fields=["backup_token"])
+        if backup is not None:
+            run.backup_token = backup.token
+            run.save(update_fields=["backup_token"])
 
         switched = False
         maintenance_started = False
@@ -654,10 +657,11 @@ class UpdateService:
         self._transition(run, run.STATUS_PREFLIGHT, f"Checking rollback target DjangoLux {target}.")
         self._run_manage(["check"], env, run)
         self._run_manage(["dlux_check"], env, run)
-        self._transition(run, run.STATUS_BACKING_UP, "Creating a full pre-rollback DjangoLux backup.")
+        self._transition(run, run.STATUS_BACKING_UP, self._backup_phase_message(run, "pre-rollback"))
         backup = self._create_backup(run)
-        run.backup_token = backup.token
-        run.save(update_fields=["backup_token"])
+        if backup is not None:
+            run.backup_token = backup.token
+            run.save(update_fields=["backup_token"])
         current_payload = self.store.read_active(state.baked_version)
         current_env = (
             self.store.python_env_for(current_payload["path"])
@@ -726,13 +730,34 @@ class UpdateService:
         self._complete(run, report={"active_version": target, "manual": True})
         self.restart_worker = True
 
+    @staticmethod
+    def _backup_phase_message(run, phase):
+        Run = _run_model()
+        mode = getattr(run, "backup_mode", Run.BACKUP_DATA) or Run.BACKUP_DATA
+        if mode == Run.BACKUP_SKIP:
+            return f"Skipping the {phase} backup (operator choice)."
+        scope = "full" if mode == Run.BACKUP_FULL else "data-only"
+        return f"Creating a {scope} {phase} DjangoLux backup."
+
     def _create_backup(self, run):
+        """Create the pre-update/-rollback backup per the run's backup_mode.
+
+        Returns the SystemBackup, or None when the operator chose to skip it.
+        Quick (data-only) is the default; an inline update never touches media on
+        disk, so copying unchanged uploads would only slow a quick update. The
+        runner reads media_included off the row so the choice is Celery-safe.
+        """
         from dlux.backup import run_system_backup
 
+        Run = _run_model()
+        mode = getattr(run, "backup_mode", Run.BACKUP_DATA) or Run.BACKUP_DATA
+        if mode == Run.BACKUP_SKIP:
+            return None
         SystemBackup = apps.get_model("dlux", "SystemBackup")
         backup = SystemBackup.objects.create(
             requested_by_username=run.requested_by_username,
             trigger=SystemBackup.TRIGGER_UPDATE,
+            media_included=(mode == Run.BACKUP_FULL),
         )
         run_system_backup(backup.pk)
         backup.refresh_from_db()

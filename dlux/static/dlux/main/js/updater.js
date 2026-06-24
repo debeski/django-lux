@@ -276,6 +276,10 @@
                 const url = currentAction === 'rollback' ? root.dataset.rollbackUrl : root.dataset.applyUrl;
                 const body = new FormData();
                 body.append('current_password', password.value);
+                const backupMode = modalElement?.querySelector('[data-dlux-update-backup-mode]');
+                if (backupMode && currentAction === 'apply') {
+                    body.append('backup_mode', backupMode.value);
+                }
                 await queue(url, body);
                 password.value = '';
             } catch (requestError) {

@@ -89,10 +89,13 @@ def dlux_update_check_view(request):
         return JsonResponse({"ok": False, "error": "Inline DjangoLux updates are disabled."}, status=409)
     State = apps.get_model("dlux", "DluxUpdateState")
     state = State.load()
+    # Short anti-spam debounce: a manual check queues a real PyPI index fetch, so
+    # collapse rapid repeat clicks onto the most recent result. Kept brief (10s) so
+    # an operator who just published a release can re-check almost immediately.
     if (
         not state.active_run_token
         and state.last_checked_at
-        and timezone.now() - state.last_checked_at < timedelta(seconds=60)
+        and timezone.now() - state.last_checked_at < timedelta(seconds=10)
     ):
         return _queue_response(None, cached=True)
     try:
@@ -121,8 +124,9 @@ def dlux_update_apply_view(request):
     _require_superuser(request)
     if failure := _password_guard(request):
         return failure
+    backup_mode = str(request.POST.get("backup_mode") or "").strip().lower()
     try:
-        run = queue_run(_run_model().ACTION_APPLY, request.user.get_username())
+        run = queue_run(_run_model().ACTION_APPLY, request.user.get_username(), backup_mode=backup_mode)
     except UpdaterError as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=409)
     log_audit_event(
@@ -130,7 +134,7 @@ def dlux_update_apply_view(request):
         "dlux_update_apply",
         "DLUX_UPDATE_APPLY",
         model_name="DjangoLux updater",
-        details={"run_token": run.token, "target_version": run.target_version},
+        details={"run_token": run.token, "target_version": run.target_version, "backup_mode": run.backup_mode},
     )
     return _queue_response(run)
 

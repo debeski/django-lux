@@ -106,6 +106,23 @@ class SystemBackupPolicyTests(TestCase):
         row = self.SystemBackup.objects.get(token='oldcode-token')
         self.assertEqual(row.trigger, self.SystemBackup.TRIGGER_MANUAL)
 
+    def test_run_system_backup_reads_media_choice_from_row(self):
+        # The runner must derive include_media from the row (not an argument) so the
+        # choice survives a Celery handoff, where the task only receives the pk.
+        captured = {}
+
+        def fake_write(dest, *, passphrase=None, progress_callback=None, include_media=True):
+            captured['include_media'] = include_media
+            return (
+                {'models': 0, 'rows': 0, 'files': 0, 'media_included': include_media, 'passphrase_required': False},
+                {'missing_files': []},
+            )
+
+        backup = self.SystemBackup.objects.create(requested_by_username='boss', media_included=False)
+        with mock.patch('dlux.backup.write_system_backup', side_effect=fake_write):
+            run_system_backup(backup.pk)
+        self.assertFalse(captured['include_media'])
+
     def test_scheduler_is_disabled_by_default_and_deduplicates_interval(self):
         self._save_config(scheduled_enabled=False)
         self.assertIsNone(run_scheduled_system_backup())
@@ -122,6 +139,29 @@ class SystemBackupPolicyTests(TestCase):
 
 
 class DlbContainerTests(TestCase):
+    def test_data_only_backup_excludes_media_blobs(self):
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            admin = User.objects.create_superuser('media-admin', 'm@example.com', 'pass12345')
+            admin.profile.profile_picture.save('avatar.png', ContentFile(_tiny_png()), save=True)
+
+            full = io.BytesIO()
+            _meta, full_manifest = write_system_backup(full, include_media=True)
+            self.assertTrue(full_manifest['media_included'])
+            self.assertTrue(
+                any(entry['field'] == 'profile_picture' for entry in full_manifest['files']),
+                "full backup should archive the profile picture blob",
+            )
+
+            data_only = io.BytesIO()
+            meta, data_manifest = write_system_backup(data_only, include_media=False)
+            self.assertFalse(data_manifest['media_included'])
+            self.assertEqual(data_manifest['files'], [])
+            self.assertEqual(meta['files'], 0)
+            self.assertFalse(meta['media_included'])
+            # The record JSON (including the file-field name) is still present, so the
+            # row is fully restorable; only the blob copy is skipped.
+            self.assertGreater(meta['rows'], 0)
+
     def test_container_round_trip(self):
         admin = User.objects.create_superuser('dlb-admin', 'a@example.com', 'pass12345')
         original_hash = admin.password
@@ -331,6 +371,20 @@ class SystemBackupViewTests(TestCase):
         self.assertContains(response, reverse('system_backup_list_status'))
         self.assertContains(response, 'id="sysbackup-table-body"')
         self.assertContains(response, 'data-autoclose="false"')
+
+    def test_manual_backup_scope_choice_sets_media_included_flag(self):
+        SystemBackup = apps.get_model('dlux', 'SystemBackup')
+        client = Client()
+        client.login(username='boss', password='bosspass123')
+        # Mock the runners so we only assert the row the view creates from the choice.
+        with mock.patch('dlux.views.backup.dispatch_system_backup', return_value=False), \
+                mock.patch('dlux.views.backup.run_system_backup'):
+            client.post(reverse('system_backup_create'), {'backup_scope': 'data'})
+            client.post(reverse('system_backup_create'), {'backup_scope': 'full'})
+            client.post(reverse('system_backup_create'))  # default = full
+
+        rows = list(SystemBackup.objects.order_by('pk'))
+        self.assertEqual([r.media_included for r in rows], [False, True, True])
 
     def test_live_backup_list_reports_completed_size_and_download_action(self):
         SystemBackup = apps.get_model('dlux', 'SystemBackup')
