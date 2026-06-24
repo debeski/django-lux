@@ -1,8 +1,10 @@
 import io
 import json
 import logging
+import re
 import shutil
 import tempfile
+import unicodedata
 import zipfile
 from collections import Counter, defaultdict
 from datetime import datetime, time, timedelta
@@ -649,6 +651,16 @@ def _scope_model_queryset(model, actor):
 
 
 _BACKUP_TIMESTAMP_CANDIDATES = ("created_at", "created", "created_on", "date_created", "timestamp")
+_BACKUP_LABEL_FIELD_CANDIDATES = (
+    "number",
+    "document_number",
+    "reference_number",
+    "registration_number",
+    "serial_number",
+    "code",
+    "name",
+    "title",
+)
 
 
 def get_backup_storage_prefix():
@@ -661,6 +673,45 @@ def get_backup_storage_prefix():
     """
     prefix = str(_reports_config().get("backup_storage_prefix") or "dlux_backups").strip("/")
     return prefix or "dlux_backups"
+
+
+def _backup_label_field(model):
+    configured = _reports_config().get("backup_label_fields", {})
+    field_name = ""
+    if isinstance(configured, dict):
+        field_name = str(configured.get(model._meta.label_lower) or "").strip()
+    candidates = (field_name,) if field_name else _BACKUP_LABEL_FIELD_CANDIDATES
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            field = model._meta.get_field(candidate)
+        except Exception:
+            continue
+        if getattr(field, "concrete", False) and not getattr(field, "is_relation", False):
+            return field.name
+    return ""
+
+
+def _safe_archive_segment(value, *, max_length=80):
+    value = unicodedata.normalize("NFKC", str(value or "")).strip()
+    value = re.sub(r"[\\/\x00-\x1f\x7f]+", "-", value)
+    value = re.sub(r"\s+", "-", value)
+    value = re.sub(r"-+", "-", value).strip(" .-")
+    return value[:max_length].rstrip(" .-")
+
+
+def backup_record_folder(record, *, label_field=None):
+    """Human-readable base folder for one report-backup record."""
+    field_name = _backup_label_field(record.__class__) if label_field is None else label_field
+    label = _safe_archive_segment(getattr(record, field_name, "")) if field_name else ""
+    if label:
+        field_label = _safe_archive_segment(field_name.replace("_", "-"), max_length=30)
+        return f"{field_label}-{label}"
+    object_label = _safe_archive_segment(str(record))
+    if object_label and object_label != _safe_archive_segment(record.pk, max_length=80):
+        return f"record-{object_label}"
+    return "record"
 
 
 def _backup_timestamp_field(model):
@@ -737,7 +788,16 @@ class _CursorlessJSONSerializer(JsonSerializer):
         ]
 
 
-def stream_model_into_zip(zf, model, qs, manifest, *, serialize_kwargs=None, object_transform=None):
+def stream_model_into_zip(
+    zf,
+    model,
+    qs,
+    manifest,
+    *,
+    serialize_kwargs=None,
+    object_transform=None,
+    human_record_folders=False,
+):
     """Stream one model's records (JSON) and its file-field contents into an
     open backup ZipFile, recording everything in ``manifest``.
 
@@ -768,12 +828,21 @@ def stream_model_into_zip(zf, model, qs, manifest, *, serialize_kwargs=None, obj
     ]
     if not file_fields:
         return
+    record_label_field = _backup_label_field(model) if human_record_folders else ""
+    folder_counts = {}
     for record in _iter_queryset_by_pk(qs, chunk_size=100):
+        if human_record_folders:
+            base_folder = backup_record_folder(record, label_field=record_label_field)
+            folder_counts[base_folder] = folder_counts.get(base_folder, 0) + 1
+            occurrence = folder_counts[base_folder]
+            record_folder = base_folder if occurrence == 1 else f"{base_folder}--{occurrence}"
+        else:
+            record_folder = str(record.pk)
         for field in file_fields:
             file_value = getattr(record, field.name, None)
             if not file_value or not getattr(file_value, "name", ""):
                 continue
-            archive_name = f"files/{meta.app_label}/{meta.model_name}/{record.pk}/{field.name}/{file_value.name.split('/')[-1]}"
+            archive_name = f"files/{meta.app_label}/{meta.model_name}/{record_folder}/{field.name}/{file_value.name.split('/')[-1]}"
             try:
                 with default_storage.open(file_value.name, "rb") as fh, \
                         zf.open(archive_name, mode="w") as dest:
@@ -781,6 +850,8 @@ def stream_model_into_zip(zf, model, qs, manifest, *, serialize_kwargs=None, obj
                 manifest["files"].append({
                     "model": model_key,
                     "pk": record.pk,
+                    "record_folder": record_folder,
+                    "record_label_field": record_label_field,
                     "field": field.name,
                     "path": archive_name,
                     # Original storage name — what a restore writes the file back as.
@@ -795,7 +866,7 @@ def stream_model_into_zip(zf, model, qs, manifest, *, serialize_kwargs=None, obj
                 })
 
 
-def write_backup_zip(actor, fileobj, *, window="all"):
+def write_backup_zip(actor, fileobj, *, window="all", progress_callback=None):
     """Stream a scope-aware, window-filtered backup zip into ``fileobj``."""
     window = normalize_backup_window(window)
     manifest = {
@@ -805,10 +876,33 @@ def write_backup_zip(actor, fileobj, *, window="all"):
         "files": [],
         "missing_files": [],
     }
+    models_to_export = get_report_eligible_models()
+    total_models = max(len(models_to_export), 1)
+    strings = get_strings()
     with zipfile.ZipFile(fileobj, "w", zipfile.ZIP_DEFLATED) as zf:
-        for model in get_report_eligible_models():
+        for index, model in enumerate(models_to_export):
+            if progress_callback:
+                progress_callback(
+                    5 + int((index / total_models) * 85),
+                    strings.get("backup_progress_model", "Backing up {model}...").format(
+                        model=str(model._meta.verbose_name),
+                    ),
+                )
             qs = _backup_model_queryset(model, actor, window)
-            stream_model_into_zip(zf, model, qs, manifest)
+            stream_model_into_zip(
+                zf,
+                model,
+                qs,
+                manifest,
+                human_record_folders=True,
+            )
+            if progress_callback:
+                progress_callback(
+                    5 + int(((index + 1) / total_models) * 85),
+                    strings.get("backup_progress_model_done", "Backed up {model}.").format(
+                        model=str(model._meta.verbose_name),
+                    ),
+                )
         zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
     return manifest
 
@@ -902,14 +996,30 @@ def run_report_backup(backup_pk):
     backup = ReportBackup.objects.filter(pk=backup_pk).first()
     if backup is None or backup.status not in (ReportBackup.STATUS_PENDING,):
         return backup
+    logger.info(
+        "Starting report backup pk=%s token=%s window=%s user_id=%s",
+        backup.pk,
+        backup.token,
+        backup.window,
+        backup.user_id,
+    )
     backup.status = ReportBackup.STATUS_RUNNING
     backup.started_at = timezone.now()
     backup.save(update_fields=["status", "started_at"])
+    from .backup_progress import finish_backup_progress, set_backup_progress, start_backup_progress
+    start_backup_progress(backup)
+    set_backup_progress(backup, 2, get_strings().get("backup_progress_preparing", "Preparing backup..."))
     try:
         with tempfile.TemporaryFile() as tmp:
-            manifest = write_backup_zip(backup.user, tmp, window=backup.window)
+            manifest = write_backup_zip(
+                backup.user,
+                tmp,
+                window=backup.window,
+                progress_callback=lambda percent, message: set_backup_progress(backup, percent, message),
+            )
             size = tmp.tell()
             tmp.seek(0)
+            set_backup_progress(backup, 95, get_strings().get("backup_progress_storing", "Storing backup artifact..."))
             saved_path = default_storage.save(
                 f"{get_backup_storage_prefix()}/{backup.token}.zip",
                 File(tmp),
@@ -923,6 +1033,16 @@ def run_report_backup(backup_pk):
         backup.completed_at = timezone.now()
         backup.error = ""
         backup.save()
+        finish_backup_progress(backup, success=True)
+        logger.info(
+            "Completed report backup pk=%s token=%s size=%s models=%s files=%s missing=%s",
+            backup.pk,
+            backup.token,
+            backup.file_size,
+            backup.model_count,
+            backup.file_count,
+            backup.missing_file_count,
+        )
         UserActivityLog = apps.get_model("dlux", "ActivityLog")
         UserActivityLog.safe_log(
             user=backup.user,
@@ -941,4 +1061,5 @@ def run_report_backup(backup_pk):
         backup.completed_at = timezone.now()
         backup.error = str(exc)[:1000]
         backup.save(update_fields=["status", "completed_at", "error"])
+        finish_backup_progress(backup, success=False, error=backup.error)
     return backup

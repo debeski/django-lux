@@ -33,7 +33,7 @@
         <div class="col-md-6 col-xl-3">
             <div class="dlux-user-report-tile">
                 <span>{{ DLUX_STRINGS.user_report_total_actions }}</span>
-                <strong>{{ report.summary.activity_count }}</strong>
+                <strong data-dlux-user-report-total-actions>{{ report.summary.activity_count }}</strong>
             </div>
         </div>
         <div class="col-md-6 col-xl-3">
@@ -105,30 +105,30 @@
                     <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>{{ DLUX_STRINGS.user_report_activity_breakdown }}</h5>
                     <ul class="nav nav-tabs dlux-user-report-tabs border-0" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dlux-report-window-week" type="button" role="tab" data-dlux-user-report-window="week">
+                            <button class="nav-link{% if report.selected_window == 'week' %} active{% endif %}" data-bs-toggle="tab" data-bs-target="#dlux-report-window-week" type="button" role="tab" aria-selected="{% if report.selected_window == 'week' %}true{% else %}false{% endif %}" data-dlux-user-report-window="week" data-dlux-user-report-activity-count="{{ report.windows.week.activity_count }}">
                                 {{ DLUX_STRINGS.user_report_window_week }}
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dlux-report-window-month" type="button" role="tab" data-dlux-user-report-window="month">
+                            <button class="nav-link{% if report.selected_window == 'month' %} active{% endif %}" data-bs-toggle="tab" data-bs-target="#dlux-report-window-month" type="button" role="tab" aria-selected="{% if report.selected_window == 'month' %}true{% else %}false{% endif %}" data-dlux-user-report-window="month" data-dlux-user-report-activity-count="{{ report.windows.month.activity_count }}">
                                 {{ DLUX_STRINGS.user_report_window_month }}
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dlux-report-window-all" type="button" role="tab" data-dlux-user-report-window="all">
+                            <button class="nav-link{% if report.selected_window == 'all' %} active{% endif %}" data-bs-toggle="tab" data-bs-target="#dlux-report-window-all" type="button" role="tab" aria-selected="{% if report.selected_window == 'all' %}true{% else %}false{% endif %}" data-dlux-user-report-window="all" data-dlux-user-report-activity-count="{{ report.windows.all.activity_count }}">
                                 {{ DLUX_STRINGS.user_report_window_all }}
                             </button>
                         </li>
                     </ul>
                 </div>
                 <div class="tab-content">
-                    <div class="tab-pane fade show active" id="dlux-report-window-week" role="tabpanel">
+                    <div class="tab-pane fade{% if report.selected_window == 'week' %} show active{% endif %}" id="dlux-report-window-week" role="tabpanel">
                         {% include "dlux/users/_user_report_window.html" with window=report.windows.week %}
                     </div>
-                    <div class="tab-pane fade" id="dlux-report-window-month" role="tabpanel">
+                    <div class="tab-pane fade{% if report.selected_window == 'month' %} show active{% endif %}" id="dlux-report-window-month" role="tabpanel">
                         {% include "dlux/users/_user_report_window.html" with window=report.windows.month %}
                     </div>
-                    <div class="tab-pane fade" id="dlux-report-window-all" role="tabpanel">
+                    <div class="tab-pane fade{% if report.selected_window == 'all' %} show active{% endif %}" id="dlux-report-window-all" role="tabpanel">
                         {% include "dlux/users/_user_report_window.html" with window=report.windows.all %}
                     </div>
                 </div>
@@ -178,30 +178,15 @@
         <div class="col-12">
             <section class="dlux-user-report-card">
                 <h5><i class="bi bi-clock-history me-2"></i>{{ DLUX_STRINGS.stats_recent_activity }}</h5>
-                <div class="dlux-user-report-timeline" data-dlux-user-report-activity data-dlux-user-report-page-size="8">
-                    {% for log in report.recent_activity %}
-                        <div class="dlux-user-report-log{% if forloop.counter0 >= 8 %} d-none{% endif %}" data-dlux-user-report-activity-item>
-                            <span class="badge dlux-user-report-badge">{{ log.action|translate_log:'action' }}</span>
-                            <strong>{{ log.model_name|translate_log:'model' }}</strong>
-                            <small>{{ log.created_at|date:"Y-m-d H:i" }}</small>
-                        </div>
-                    {% empty %}
-                        <p class="text-muted mb-0">{{ DLUX_STRINGS.user_report_empty_activity }}</p>
-                    {% endfor %}
+                <div data-dlux-user-report-recent-window="week"{% if report.selected_window != 'week' %} class="d-none"{% endif %}>
+                    {% include "dlux/users/_user_report_activity.html" with logs=report.recent_activity_windows.week %}
                 </div>
-                {% if report.recent_activity|length > 8 %}
-                    <div class="dlux-user-report-pagination" data-dlux-user-report-activity-pagination>
-                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dlux-user-report-page-prev>
-                            <i class="bi bi-chevron-left me-1"></i>{{ DLUX_STRINGS.btn_prev }}
-                        </button>
-                        <span class="small" data-dlux-user-report-page-state
-                              data-page-label="{{ DLUX_STRINGS.table_page_label }}"
-                              data-of-label="{{ DLUX_STRINGS.table_of_label }}"></span>
-                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dlux-user-report-page-next>
-                            {{ DLUX_STRINGS.btn_next }}<i class="bi bi-chevron-right ms-1"></i>
-                        </button>
-                    </div>
-                {% endif %}
+                <div data-dlux-user-report-recent-window="month"{% if report.selected_window != 'month' %} class="d-none"{% endif %}>
+                    {% include "dlux/users/_user_report_activity.html" with logs=report.recent_activity_windows.month %}
+                </div>
+                <div data-dlux-user-report-recent-window="all"{% if report.selected_window != 'all' %} class="d-none"{% endif %}>
+                    {% include "dlux/users/_user_report_activity.html" with logs=report.recent_activity_windows.all %}
+                </div>
             </section>
         </div>
     </div>

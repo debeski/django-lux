@@ -53,6 +53,7 @@
     }
 
     function createItem(root, item) {
+        const metadata = item.metadata || {};
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'dlux-notifications__item' + (item.read ? '' : ' dlux-notifications__item--unread');
@@ -67,6 +68,10 @@
         button.dataset.action = item.action || '';
         button.dataset.origin = item.source_model || item.source_label || item.category || '';
         button.dataset.targetUrl = item.target_url || '';
+        button.dataset.locked = metadata.locked ? 'true' : 'false';
+        button.dataset.progress = String(metadata.progress || 0);
+        button.dataset.progressMessage = metadata.progress_message || '';
+        button.dataset.backupProgress = metadata.backup_progress ? 'true' : 'false';
 
         const dot = document.createElement('span');
         dot.className = 'dlux-notifications__dot dlux-notifications__dot--' + (item.level || 'info');
@@ -82,6 +87,17 @@
         meta.textContent = itemMeta(item);
         body.appendChild(title);
         body.appendChild(meta);
+        if (metadata.backup_progress) {
+            const progress = document.createElement('progress');
+            progress.className = 'dlux-notifications__progress';
+            progress.max = 100;
+            progress.value = Math.max(0, Math.min(Number(metadata.progress) || 0, 100));
+            const label = document.createElement('small');
+            label.className = 'dlux-notifications__progress-label';
+            label.textContent = (metadata.progress || 0) + '%';
+            body.appendChild(progress);
+            body.appendChild(label);
+        }
         button.appendChild(body);
         return button;
     }
@@ -115,6 +131,7 @@
             return Promise.resolve();
         }
         return fetch(url, {
+            cache: 'no-store',
             credentials: 'same-origin',
             headers: {'X-Requested-With': 'XMLHttpRequest'},
         }).then(function (response) {
@@ -125,7 +142,8 @@
         }).then(function (payload) {
             renderList(root, payload.items || []);
             updateBadge(root, payload.unread_count || 0, payload.unread_level || 'info');
-        }).catch(function () {});
+            return payload;
+        }).catch(function () { return null; });
     }
 
     function setOpen(root, open) {
@@ -167,6 +185,8 @@
         const message = detail.querySelector('[data-dlux-notifications-detail-message]');
         const origin = detail.querySelector('[data-dlux-notifications-detail-origin]');
         const link = detail.querySelector('[data-dlux-notifications-detail-link]');
+        const dismiss = detail.querySelector('[data-dlux-notifications-dismiss]');
+        const progress = detail.querySelector('[data-dlux-notifications-detail-progress]');
         if (title) {
             title.textContent = item.dataset.title || item.querySelector('.dlux-notifications__item-title')?.textContent || '';
         }
@@ -185,6 +205,17 @@
                 link.removeAttribute('href');
             }
         }
+        if (dismiss) {
+            dismiss.hidden = item.dataset.locked === 'true';
+        }
+        if (progress) {
+            const value = Math.max(0, Math.min(parseInt(item.dataset.progress || '0', 10) || 0, 100));
+            progress.hidden = item.dataset.backupProgress !== 'true';
+            const bar = progress.querySelector('[data-dlux-notifications-detail-progress-bar]');
+            const label = progress.querySelector('[data-dlux-notifications-detail-progress-label]');
+            if (bar) bar.value = value;
+            if (label) label.textContent = (item.dataset.progressMessage || '') + (item.dataset.progressMessage ? ' · ' : '') + value + '%';
+        }
 
         if (item.dataset.readUrl && item.classList.contains('dlux-notifications__item--unread')) {
             postJSON(item.dataset.readUrl).then(function () {
@@ -196,6 +227,19 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         const roots = Array.from(document.querySelectorAll('[data-dlux-notifications]'));
+        const refreshTimers = new WeakMap();
+        function scheduleRefresh(root, delay) {
+            const current = refreshTimers.get(root);
+            if (current) window.clearTimeout(current);
+            refreshTimers.set(root, window.setTimeout(function () {
+                refresh(root).then(function (payload) {
+                    const active = Boolean(payload && (payload.items || []).some(function (item) {
+                        return item.metadata && item.metadata.backup_progress && item.metadata.locked;
+                    }));
+                    scheduleRefresh(root, active ? 3000 : 15000);
+                });
+            }, delay));
+        }
         roots.forEach(function (root) {
             const trigger = root.querySelector('[data-dlux-notifications-toggle]');
             const readAll = root.querySelector('[data-dlux-notifications-read-all]');
@@ -264,6 +308,12 @@
                     }).catch(function () {});
                 });
             }
+            refresh(root).then(function (payload) {
+                const active = Boolean(payload && (payload.items || []).some(function (item) {
+                    return item.metadata && item.metadata.backup_progress && item.metadata.locked;
+                }));
+                scheduleRefresh(root, active ? 3000 : 15000);
+            });
         });
 
         document.addEventListener('click', function () {

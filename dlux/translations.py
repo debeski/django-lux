@@ -1015,6 +1015,15 @@ DLUX_STRINGS = {
         'reports_backup_preparing': 'جاري تجهيز النسخة الاحتياطية في الخلفية...',
         'reports_backup_ready': 'النسخة الاحتياطية جاهزة، جاري بدء التحميل.',
         'reports_backup_failed': 'فشل إنشاء النسخة الاحتياطية. حاول مرة أخرى.',
+        'reports_backup_download_ready': 'تنزيل أحدث نسخة احتياطية مكتملة',
+        'backup_progress': 'التقدم',
+        'backup_progress_preparing': 'جاري تجهيز النسخة الاحتياطية...',
+        'backup_progress_model': 'جاري نسخ {model}...',
+        'backup_progress_model_done': 'تم نسخ {model}.',
+        'backup_progress_encrypting': 'جاري تشفير ملف النسخة الاحتياطية...',
+        'backup_progress_storing': 'جاري حفظ ملف النسخة الاحتياطية...',
+        'backup_notification_report_title': 'نسخة تقارير DjangoLux الاحتياطية',
+        'backup_notification_system_title': 'نسخة نظام DjangoLux الاحتياطية',
 
         # System Backup & Restore
         'sysbackup_title': 'النسخ الاحتياطي والاستعادة',
@@ -2332,6 +2341,15 @@ DLUX_STRINGS = {
         'reports_backup_preparing': 'Preparing the backup in the background...',
         'reports_backup_ready': 'Backup is ready, starting download.',
         'reports_backup_failed': 'Backup generation failed. Please try again.',
+        'reports_backup_download_ready': 'Download latest completed backup',
+        'backup_progress': 'Progress',
+        'backup_progress_preparing': 'Preparing backup...',
+        'backup_progress_model': 'Backing up {model}...',
+        'backup_progress_model_done': 'Backed up {model}.',
+        'backup_progress_encrypting': 'Encrypting backup artifact...',
+        'backup_progress_storing': 'Storing backup artifact...',
+        'backup_notification_report_title': 'DjangoLux reports backup',
+        'backup_notification_system_title': 'DjangoLux system backup',
 
         # System Backup & Restore
         'sysbackup_title': 'Backup & Restore',

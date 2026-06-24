@@ -5,9 +5,25 @@
     if (!btn) return;
 
     const note = document.getElementById('reports-backup-status');
+    const latestLink = document.getElementById('reports-backup-latest');
+    const progress = document.getElementById('reports-backup-progress');
     const POLL_INTERVAL_MS = 3000;
-    const POLL_LIMIT = 1200;
     let busy = false;
+
+    function setProgress(value, message, terminalTone) {
+        if (!progress) return;
+        const percent = Math.max(0, Math.min(parseInt(value || '0', 10) || 0, 100));
+        const bar = progress.querySelector('progress');
+        const label = progress.querySelector('[data-reports-backup-progress-label]');
+        progress.classList.remove('d-none');
+        progress.setAttribute('aria-valuenow', String(percent));
+        if (bar) {
+            bar.value = percent;
+            bar.classList.toggle('dlux-backup-progress--error', terminalTone === 'error');
+            bar.classList.toggle('dlux-backup-progress--success', terminalTone === 'success');
+        }
+        if (label) label.textContent = message || (percent + '%');
+    }
 
     function setNote(text, tone) {
         if (!note) return;
@@ -21,26 +37,34 @@
         setNote(message, tone);
     }
 
-    function poll(statusUrl, attempt) {
-        if (attempt >= POLL_LIMIT) {
-            finish(btn.dataset.msgFailed, 'error');
-            return;
-        }
-
-        fetch(statusUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (resp) { return resp.json(); })
+    function poll(statusUrl) {
+        fetch(statusUrl, {
+            cache: 'no-store',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('status failed');
+                return resp.json();
+            })
             .then(function (data) {
                 if (data.status === 'completed' && data.download_url) {
+                    setProgress(100, data.progress_message || btn.dataset.msgReady, 'success');
                     finish(btn.dataset.msgReady);
+                    if (latestLink) {
+                        latestLink.href = data.download_url;
+                        latestLink.classList.remove('d-none');
+                    }
                     window.location.assign(data.download_url);
                 } else if (data.status === 'failed') {
-                    finish(btn.dataset.msgFailed, 'error');
+                    setProgress(data.progress_percent, data.error || data.progress_message, 'error');
+                    finish(data.error || btn.dataset.msgFailed, 'error');
                 } else {
-                    setTimeout(function () { poll(statusUrl, attempt + 1); }, POLL_INTERVAL_MS);
+                    setProgress(data.progress_percent, data.progress_message || btn.dataset.msgPreparing);
+                    setTimeout(function () { poll(statusUrl); }, POLL_INTERVAL_MS);
                 }
             })
             .catch(function () {
-                setTimeout(function () { poll(statusUrl, attempt + 1); }, POLL_INTERVAL_MS);
+                setTimeout(function () { poll(statusUrl); }, POLL_INTERVAL_MS);
             });
     }
 
@@ -50,6 +74,7 @@
         busy = true;
         btn.disabled = true;
         setNote(btn.dataset.msgPreparing);
+        setProgress(0, btn.dataset.msgPreparing);
 
         const windowSelect = document.getElementById('reports-window');
         const selectedWindow = (windowSelect && windowSelect.value) || btn.dataset.window || 'all';
@@ -71,7 +96,7 @@
             })
             .then(function (data) {
                 if (data.async && data.status_url) {
-                    poll(data.status_url, 0);
+                    poll(data.status_url);
                 } else if (data.download_url) {
                     finish('');
                     window.location.assign(data.download_url);
@@ -83,4 +108,12 @@
                 finish(btn.dataset.msgFailed, 'error');
             });
     });
+
+    if (btn.dataset.activeStatusUrl) {
+        busy = true;
+        btn.disabled = true;
+        setNote(btn.dataset.msgPreparing);
+        setProgress(btn.dataset.activeProgress, btn.dataset.activeProgressMessage || btn.dataset.msgPreparing);
+        poll(btn.dataset.activeStatusUrl);
+    }
 })();

@@ -106,6 +106,13 @@ def build_user_report(target_user, actor=None, window='week'):
         return models
 
     windows = build_activity_windows(eligible_activity_qs, strings=s)
+    recent_activity_windows = {
+        window_name: list(
+            apply_report_window(eligible_activity_qs, window_name)
+            .order_by('-created_at')[:25]
+        )
+        for window_name in ('week', 'month', 'all')
+    }
     action_counts = Counter()
     model_counts = Counter()
     for action, row_model_key, row_model_name in selected_activity_qs.values_list('action', 'model_key', 'model_name'):
@@ -170,7 +177,7 @@ def build_user_report(target_user, actor=None, window='week'):
             'is_superuser': bool(target_user.is_superuser),
             'date_joined': target_user.date_joined,
             'last_login': target_user.last_login,
-            'activity_count': eligible_activity_qs.count(),
+            'activity_count': windows[window]['activity_count'],
             'known_device_count': known_devices.count(),
             'presence_session_count': presence_qs.count(),
             'trusted_device_count': trusted_devices.filter(revoked_at__isnull=True, trusted_until__gt=generated_at).count(),
@@ -196,7 +203,8 @@ def build_user_report(target_user, actor=None, window='week'):
         'user_agents': sorted(user_agents),
         'browsers': sorted(browsers),
         'operating_systems': sorted(operating_systems),
-        'recent_activity': list(eligible_activity_qs[:25]),
+        'recent_activity': recent_activity_windows[window],
+        'recent_activity_windows': recent_activity_windows,
         'activity_qs': eligible_activity_qs,
         'selected_activity_qs': selected_activity_qs,
     }

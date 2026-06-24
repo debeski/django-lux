@@ -2807,6 +2807,8 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertGreater(len(xlsx.content), 1000)
 
     def test_user_report_filters_operational_activity_and_exports_selected_window(self):
+        from dlux.user_reports import build_user_report
+
         ActivityLog = apps.get_model('dlux', 'ActivityLog')
         project_log = ActivityLog.objects.create(
             created_by=self.user,
@@ -2840,13 +2842,28 @@ class ProfileSessionDeviceTests(TestCase):
         admin_client = Client()
         admin_client.login(username='report-filter-admin', password='reportpass123')
 
-        response = admin_client.get(reverse('user_report_modal', args=[self.user.pk]))
+        response = admin_client.get(
+            reverse('user_report_modal', args=[self.user.pk]),
+            {'window': 'all'},
+        )
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertIn('Project Entry', payload['html'])
         self.assertNotIn('System Settings', payload['html'])
         self.assertNotIn('auth', payload['html'])
+        self.assertIn('data-dlux-user-report-window="all"', payload['html'])
+        self.assertIn('data-dlux-user-report-total-actions>2</strong>', payload['html'])
+
+        week_report = build_user_report(self.user, actor=admin, window='week')
+        all_report = build_user_report(self.user, actor=admin, window='all')
+        self.assertEqual(week_report['summary']['activity_count'], 1)
+        self.assertEqual(all_report['summary']['activity_count'], 2)
+        self.assertEqual([item.pk for item in week_report['recent_activity']], [project_log.pk])
+        self.assertEqual(
+            {item.pk for item in all_report['recent_activity']},
+            {project_log.pk, old_project_log.pk},
+        )
 
         week_xlsx = admin_client.get(reverse('user_report_xlsx', args=[self.user.pk]), {'window': 'week'})
         all_xlsx = admin_client.get(reverse('user_report_xlsx', args=[self.user.pk]), {'window': 'all'})

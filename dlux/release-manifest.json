@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "1.2.8",
+  "version": "1.2.9",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Fixes a TypeError crash when copying/pickling runtime-translated strings (e.g. Section management ModelForm tabs deepcopying translated field labels) by giving MigrationSafeTranslation a __getnewargs__. Pure-Python fix with no schema change; inline-safe.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.8"
+  "summary": "Adds persistent progress bars and locked live drawer notifications for report/full-system backups, human-readable non-PK report archive folders, durable report download handoff, and fully windowed user-report activity detail. Migration 0005 adds database-defaulted progress fields only; inline-safe.",
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.9"
 }

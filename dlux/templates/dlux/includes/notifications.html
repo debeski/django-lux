@@ -66,6 +66,10 @@
                 data-action="{{ item.action }}"
                 data-origin="{{ item.source_model|default:item.source_label }}"
                 data-target-url="{{ item.target_url }}"
+                data-locked="{{ item.metadata.locked|yesno:'true,false' }}"
+                data-progress="{{ item.metadata.progress|default:0 }}"
+                data-progress-message="{{ item.metadata.progress_message|default:'' }}"
+                data-backup-progress="{{ item.metadata.backup_progress|yesno:'true,false' }}"
             >
                 <span class="dlux-notifications__dot dlux-notifications__dot--{{ item.level }}"></span>
                 <span class="dlux-notifications__item-body">
@@ -73,6 +77,10 @@
                     <span class="dlux-notifications__item-meta">
                         {{ item.source_model|default:item.category }}{% if item.action %} · {{ item.action }}{% endif %}
                     </span>
+                    {% if item.metadata.backup_progress %}
+                        <progress class="dlux-notifications__progress" max="100" value="{{ item.metadata.progress|default:0 }}"></progress>
+                        <small class="dlux-notifications__progress-label">{{ item.metadata.progress|default:0 }}%</small>
+                    {% endif %}
                 </span>
             </button>
             {% empty %}
@@ -93,6 +101,10 @@
             </div>
             <h6 class="dlux-notifications__detail-title" data-dlux-notifications-detail-title></h6>
             <p class="dlux-notifications__detail-message" data-dlux-notifications-detail-message></p>
+            <div class="dlux-notifications__detail-progress" data-dlux-notifications-detail-progress hidden>
+                <progress class="dlux-notifications__progress" max="100" value="0" data-dlux-notifications-detail-progress-bar></progress>
+                <small class="dlux-notifications__progress-label" data-dlux-notifications-detail-progress-label></small>
+            </div>
             <p class="dlux-notifications__detail-origin" data-dlux-notifications-detail-origin></p>
             <a class="dlux-notifications__detail-link" data-dlux-notifications-detail-link href="#" hidden>
                 {{ DLUX_STRINGS.open|default:'Open' }}

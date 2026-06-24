@@ -1,0 +1,27 @@
+{% load dlux_tags %}
+{% load dlux_translation %}
+
+<div class="dlux-user-report-timeline" data-dlux-user-report-activity data-dlux-user-report-page-size="8">
+    {% for log in logs %}
+        <div class="dlux-user-report-log{% if forloop.counter0 >= 8 %} d-none{% endif %}" data-dlux-user-report-activity-item>
+            <span class="badge dlux-user-report-badge">{{ log.action|translate_log:'action' }}</span>
+            <strong>{{ log.model_name|translate_log:'model' }}</strong>
+            <small>{{ log.created_at|date:"Y-m-d H:i" }}</small>
+        </div>
+    {% empty %}
+        <p class="text-muted mb-0">{{ DLUX_STRINGS.user_report_empty_activity }}</p>
+    {% endfor %}
+</div>
+{% if logs|length > 8 %}
+    <div class="dlux-user-report-pagination" data-dlux-user-report-activity-pagination>
+        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dlux-user-report-page-prev>
+            <i class="bi bi-chevron-left me-1"></i>{{ DLUX_STRINGS.btn_prev }}
+        </button>
+        <span class="small" data-dlux-user-report-page-state
+              data-page-label="{{ DLUX_STRINGS.table_page_label }}"
+              data-of-label="{{ DLUX_STRINGS.table_of_label }}"></span>
+        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dlux-user-report-page-next>
+            {{ DLUX_STRINGS.btn_next }}<i class="bi bi-chevron-right ms-1"></i>
+        </button>
+    </div>
+{% endif %}

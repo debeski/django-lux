@@ -12,6 +12,7 @@ from dlux.forms import SystemSettingsForm
 from dlux.models import DluxNotification, DluxNotificationRule, DluxNotificationState, SystemSettings
 from dlux.notifications import (
     FLASH_SESSION_KEY,
+    NotificationLockedError,
     clear_all_notifications,
     dismiss_notification,
     get_flash_notifications,
@@ -154,6 +155,28 @@ class NotificationPipelineTests(TestCase):
 
         self.assertIsNotNone(read_state.read_at)
         self.assertIsNotNone(dismissed_state.dismissed_at)
+
+    def test_active_backup_notification_cannot_be_dismissed_or_cleared(self):
+        request = self._request()
+        notification = notify.info(
+            'Backup running.',
+            request=request,
+            action='backup_progress',
+            category='backup',
+            metadata={'backup_progress': True, 'locked': True, 'progress': 42},
+        )
+        mark_notification_read(self.user, notification.pk)
+
+        with self.assertRaises(NotificationLockedError):
+            dismiss_notification(self.user, notification.pk)
+        self.assertEqual(clear_all_notifications(self.user), 0)
+
+        client = Client()
+        client.force_login(self.user)
+        response = client.post(reverse('notification_dismiss', args=[notification.pk]))
+        self.assertEqual(response.status_code, 409)
+        state = DluxNotificationState.objects.get(user=self.user, notification=notification)
+        self.assertIsNone(state.dismissed_at)
 
     def test_clear_all_notifications_api_dismisses_only_read_drawer_states(self):
         request = self._request()

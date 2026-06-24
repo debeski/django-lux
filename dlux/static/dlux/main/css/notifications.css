@@ -182,6 +182,66 @@
     white-space: nowrap;
 }
 
+.dlux-notifications__progress {
+    --dlux-progress-color: #0284c7;
+    width: 100%;
+    height: 0.35rem;
+    display: block;
+    accent-color: var(--dlux-progress-color);
+}
+
+.dlux-notifications__progress::-webkit-progress-bar,
+.dlux-backup-progress::-webkit-progress-bar {
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.28);
+}
+
+.dlux-notifications__progress::-webkit-progress-value,
+.dlux-backup-progress::-webkit-progress-value {
+    border-radius: 999px;
+    background: var(--dlux-progress-color);
+    transition: width 0.3s ease;
+}
+
+.dlux-notifications__progress::-moz-progress-bar,
+.dlux-backup-progress::-moz-progress-bar {
+    border-radius: 999px;
+    background: var(--dlux-progress-color);
+}
+
+.dlux-backup-progress {
+    --dlux-progress-color: #0284c7;
+    width: 100%;
+    min-width: 8rem;
+    height: 0.5rem;
+    display: block;
+    accent-color: var(--dlux-progress-color);
+}
+
+.dlux-backup-progress-cell {
+    min-width: 9rem;
+}
+
+.dlux-backup-progress--success {
+    --dlux-progress-color: #16a34a;
+}
+
+.dlux-backup-progress--error {
+    --dlux-progress-color: #dc2626;
+}
+
+.dlux-notifications__progress-label {
+    color: color-mix(in srgb, var(--title) 62%, transparent);
+    font-size: 0.72rem;
+}
+
+.dlux-notifications__detail-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.75rem;
+}
+
 .dlux-notifications__empty {
     padding: 1.2rem 0.85rem;
     color: color-mix(in srgb, var(--title) 62%, transparent);

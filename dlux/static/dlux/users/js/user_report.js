@@ -15,15 +15,26 @@ document.addEventListener('DOMContentLoaded', function() {
         // modal is open at a time, so this is unambiguous.
         const exportLink = report?.querySelector('[data-dlux-user-report-export-base]')
             || document.querySelector('[data-dlux-user-report-export-base]');
-        if (!exportLink) return;
-        const baseUrl = exportLink.dataset.dluxUserReportExportBase;
         const windowName = tab.dataset.dluxUserReportWindow || 'week';
-        exportLink.href = `${baseUrl}?window=${encodeURIComponent(windowName)}`;
+        if (exportLink) {
+            const baseUrl = exportLink.dataset.dluxUserReportExportBase;
+            exportLink.href = `${baseUrl}?window=${encodeURIComponent(windowName)}`;
+        }
+        const totalActions = report?.querySelector('[data-dlux-user-report-total-actions]');
+        if (totalActions) {
+            totalActions.textContent = tab.dataset.dluxUserReportActivityCount || '0';
+        }
+        report?.querySelectorAll('[data-dlux-user-report-recent-window]').forEach(container => {
+            container.classList.toggle(
+                'd-none',
+                container.dataset.dluxUserReportRecentWindow !== windowName
+            );
+        });
     });
 
-    function updateUserReportActivityPager(report, requestedPage) {
-        const timeline = report.querySelector('[data-dlux-user-report-activity]');
-        const pager = report.querySelector('[data-dlux-user-report-activity-pagination]');
+    function updateUserReportActivityPager(container, requestedPage) {
+        const timeline = container.querySelector('[data-dlux-user-report-activity]');
+        const pager = container.querySelector('[data-dlux-user-report-activity-pagination]');
         if (!timeline || !pager) {
             return;
         }
@@ -53,12 +64,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function initUserReportActivityPagers(root) {
-        root.querySelectorAll('[data-dlux-user-report]').forEach(report => {
-            if (report.dataset.activityPagerReady === 'true') {
+        root.querySelectorAll('[data-dlux-user-report-recent-window]').forEach(container => {
+            if (container.dataset.activityPagerReady === 'true') {
                 return;
             }
-            report.dataset.activityPagerReady = 'true';
-            updateUserReportActivityPager(report, 1);
+            container.dataset.activityPagerReady = 'true';
+            updateUserReportActivityPager(container, 1);
         });
     }
 
@@ -69,15 +80,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const report = e.target.closest('[data-dlux-user-report]');
-        const timeline = report?.querySelector('[data-dlux-user-report-activity]');
-        if (!report || !timeline) {
+        const container = e.target.closest('[data-dlux-user-report-recent-window]');
+        const timeline = container?.querySelector('[data-dlux-user-report-activity]');
+        if (!container || !timeline) {
             return;
         }
 
         e.preventDefault();
         const currentPage = parseInt(timeline.dataset.currentPage || '1', 10);
-        updateUserReportActivityPager(report, currentPage + (next ? 1 : -1));
+        updateUserReportActivityPager(container, currentPage + (next ? 1 : -1));
     });
 
     initUserReportActivityPagers(document);

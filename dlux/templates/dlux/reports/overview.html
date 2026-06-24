@@ -22,12 +22,24 @@
                             data-start-url="{% url 'reports_backup_start' %}"
                             data-csrf="{{ csrf_token }}"
                             data-window="{{ overview.window }}"
+                            data-active-status-url="{% if active_report_backup %}{% url 'reports_backup_status' active_report_backup.token %}{% endif %}"
+                            data-active-progress="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}"
+                            data-active-progress-message="{% if active_report_backup %}{{ active_report_backup.progress_message }}{% endif %}"
                             data-msg-preparing="{{ DLUX_STRINGS.reports_backup_preparing }}"
                             data-msg-ready="{{ DLUX_STRINGS.reports_backup_ready }}"
                             data-msg-failed="{{ DLUX_STRINGS.reports_backup_failed }}">
                         <i class="bi bi-file-zip-fill me-1"></i>{{ DLUX_STRINGS.reports_backup_zip }}
                     </button>
-                    <small id="reports-backup-status" class="text-muted text-center"></small>
+                    <small id="reports-backup-status" class="text-muted text-center">{% if active_report_backup %}{{ DLUX_STRINGS.reports_backup_preparing }}{% endif %}</small>
+                    <div id="reports-backup-progress" class="{% if not active_report_backup %}d-none {% endif %}mt-1" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}">
+                        <progress class="dlux-backup-progress" max="100" value="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}"></progress>
+                        <small class="d-block text-muted text-center mt-1" data-reports-backup-progress-label>{% if active_report_backup %}{{ active_report_backup.progress_message }}{% endif %}</small>
+                    </div>
+                    <a id="reports-backup-latest"
+                       class="small text-center{% if not latest_completed_report_backup %} d-none{% endif %}"
+                       {% if latest_completed_report_backup %}href="{% url 'reports_backup_download' latest_completed_report_backup.token %}"{% endif %}>
+                        {{ DLUX_STRINGS.reports_backup_download_ready }}
+                    </a>
                 </div>
             {% endif %}
         </div>
@@ -227,5 +239,5 @@
 
 {% block scripts %}
 {{ block.super }}
-<script src="{% static 'dlux/reports/js/overview.js' %}?v=20260616a" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% static 'dlux/reports/js/overview.js' %}?v=20260624a" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

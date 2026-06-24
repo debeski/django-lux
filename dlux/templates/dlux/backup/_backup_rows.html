@@ -1,0 +1,44 @@
+{% for backup in backups %}
+    <tr data-system-backup-row data-backup-token="{{ backup.token }}" data-backup-status="{{ backup.status }}">
+        <td>{{ backup.created_at|date:'Y-m-d H:i' }}</td>
+        <td>{{ backup.requested_by_username|default:'-' }}</td>
+        <td>{{ backup.get_trigger_display }}</td>
+        <td>
+            {% if backup.status == 'completed' %}<span class="badge bg-success">{{ backup.get_status_display }}</span>
+            {% elif backup.status == 'failed' %}<span class="badge bg-danger" title="{{ backup.error }}">{{ backup.get_status_display }}</span>
+            {% else %}<span class="badge bg-secondary">{{ backup.get_status_display }}</span>{% endif %}
+            {% if backup.passphrase_required %}
+                <span class="badge bg-dark">{{ DLUX_STRINGS.sysbackup_passphrase_badge }}</span>
+            {% endif %}
+        </td>
+        <td class="dlux-backup-progress-cell">
+            <progress class="dlux-backup-progress{% if backup.status == 'completed' %} dlux-backup-progress--success{% elif backup.status == 'failed' %} dlux-backup-progress--error{% endif %}" max="100" value="{% if backup.status == 'completed' %}100{% else %}{{ backup.progress_percent }}{% endif %}" aria-label="{{ DLUX_STRINGS.backup_progress }}"></progress>
+            <small class="text-muted">{% if backup.status == 'completed' %}100{% else %}{{ backup.progress_percent }}{% endif %}%{% if backup.progress_message %} · {{ backup.progress_message }}{% endif %}</small>
+        </td>
+        <td>{{ backup.row_count }}</td>
+        <td>{{ backup.file_count }}</td>
+        <td>{{ backup.file_size|filesizeformat }}</td>
+        <td class="text-end">
+            {% if backup.status == 'completed' %}
+                <a class="btn btn-outline-primary btn-sm rounded-pill"
+                   href="{% url 'system_backup_download' backup.token %}">
+                    <i class="bi bi-download me-1"></i>{{ DLUX_STRINGS.sysbackup_download }}
+                </a>
+                <button type="button"
+                        class="btn btn-outline-danger btn-sm rounded-pill sysrestore-open"
+                        data-backup-token="{{ backup.token }}"
+                        data-backup-label="{{ backup.created_at|date:'Y-m-d H:i' }}">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>{{ DLUX_STRINGS.sysrestore_action }}
+                </button>
+            {% endif %}
+            <form method="post" action="{% url 'system_backup_delete' backup.token %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill">
+                    <i class="bi bi-trash me-1"></i>{{ DLUX_STRINGS.sysbackup_delete }}
+                </button>
+            </form>
+        </td>
+    </tr>
+{% empty %}
+    <tr><td colspan="9" class="text-muted text-center py-4">{{ DLUX_STRINGS.sysbackup_empty }}</td></tr>
+{% endfor %}

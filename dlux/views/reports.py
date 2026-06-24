@@ -1,13 +1,17 @@
 import tempfile
+from datetime import timedelta
 
 from django.apps import apps
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from ..reports import (
@@ -36,11 +40,17 @@ def reports_overview_view(request):
             "action": request.GET.get("action"),
         },
     )
+    can_download_backup = user_can_download_backup(request.user)
+    active_backup = latest_completed_backup = None
+    if can_download_backup:
+        active_backup, latest_completed_backup = _report_backup_page_state(request.user)
     return render(request, "dlux/reports/overview.html", {
         "DLUX_STRINGS": get_strings(),
         "overview": overview,
         "window": window,
-        "can_download_backup": user_can_download_backup(request.user),
+        "can_download_backup": can_download_backup,
+        "active_report_backup": active_backup,
+        "latest_completed_report_backup": latest_completed_backup,
     })
 
 
@@ -71,6 +81,41 @@ def reports_overview_xlsx_view(request):
 def _backup_filename(window, when=None):
     stamp = timezone.localdate(when).isoformat()
     return f"dlux-backup-{window}-{stamp}.zip"
+
+
+def _report_backup_page_state(user):
+    """Return the durable active/latest backup state shown on the reports page."""
+    ReportBackup = apps.get_model("dlux", "ReportBackup")
+    active_statuses = (ReportBackup.STATUS_PENDING, ReportBackup.STATUS_RUNNING)
+    stale_cutoff = timezone.now() - timedelta(hours=24)
+    stale_backups = list(ReportBackup.objects.filter(
+        user=user,
+        status__in=active_statuses,
+        created_at__lt=stale_cutoff,
+    ))
+    if stale_backups:
+        error = "Backup did not finish within 24 hours."
+        now = timezone.now()
+        ReportBackup.objects.filter(pk__in=[backup.pk for backup in stale_backups]).update(
+            status=ReportBackup.STATUS_FAILED,
+            completed_at=now,
+            error=error,
+        )
+        from ..backup_progress import finish_backup_progress
+        for backup in stale_backups:
+            backup.status = ReportBackup.STATUS_FAILED
+            backup.completed_at = now
+            backup.error = error
+            finish_backup_progress(backup, success=False, error=error)
+    active = ReportBackup.objects.filter(
+        user=user,
+        status__in=active_statuses,
+    ).order_by("created_at").first()
+    latest_completed = ReportBackup.objects.filter(
+        user=user,
+        status=ReportBackup.STATUS_COMPLETED,
+    ).exclude(file_path="").order_by("-completed_at", "-created_at").first()
+    return active, latest_completed
 
 
 @login_required
@@ -118,7 +163,18 @@ def reports_backup_start_view(request):
         raise PermissionDenied
     window = normalize_backup_window(request.POST.get("window"))
     ReportBackup = apps.get_model("dlux", "ReportBackup")
-    backup = ReportBackup.objects.create(user=request.user, window=window)
+    with transaction.atomic():
+        get_user_model()._default_manager.select_for_update().get(pk=request.user.pk)
+        active, _latest = _report_backup_page_state(request.user)
+        if active is not None:
+            return JsonResponse({
+                "ok": True,
+                "async": True,
+                "reused": True,
+                "token": active.token,
+                "status_url": reverse("reports_backup_status", args=[active.token]),
+            })
+        backup = ReportBackup.objects.create(user=request.user, window=window)
     if dispatch_report_backup(backup):
         return JsonResponse({
             "ok": True,
@@ -145,6 +201,7 @@ def _get_own_backup_or_404(request, token):
 
 
 @login_required
+@never_cache
 def reports_backup_status_view(request, token):
     backup = _get_own_backup_or_404(request, token)
     ReportBackup = type(backup)
@@ -152,6 +209,11 @@ def reports_backup_status_view(request, token):
         "status": backup.status,
         "window": backup.window,
         "file_size": backup.file_size,
+        "model_count": backup.model_count,
+        "file_count": backup.file_count,
+        "missing_file_count": backup.missing_file_count,
+        "progress_percent": backup.progress_percent,
+        "progress_message": backup.progress_message,
         "error": backup.error[:200] if backup.status == ReportBackup.STATUS_FAILED else "",
     }
     if backup.status == ReportBackup.STATUS_COMPLETED:

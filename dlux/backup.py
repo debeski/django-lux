@@ -149,7 +149,20 @@ def get_system_backup_models():
 
 def _system_model_queryset(model):
     manager = getattr(model, "all_objects", model._base_manager)
-    return manager.all()
+    queryset = manager.all()
+    if model._meta.label_lower == "dlux.dluxnotification":
+        queryset = queryset.exclude(
+            category="backup",
+            source="backup",
+            metadata__backup_progress=True,
+        )
+    elif model._meta.label_lower == "dlux.dluxnotificationstate":
+        queryset = queryset.exclude(
+            notification__category="backup",
+            notification__source="backup",
+            notification__metadata__backup_progress=True,
+        )
+    return queryset
 
 
 def _is_user_model(model):
@@ -309,7 +322,7 @@ def decrypt_dlb_to_tempfile(fileobj, *, passphrase=None):
 # ── Full backup build ────────────────────────────────────────────────────────
 
 
-def write_system_backup(dest, *, passphrase=None):
+def write_system_backup(dest, *, passphrase=None, progress_callback=None):
     """Build the complete encrypted system backup into ``dest``. Returns metadata."""
     manifest = {
         "kind": "dlux-system-backup",
@@ -325,17 +338,40 @@ def write_system_backup(dest, *, passphrase=None):
         "files": [],
         "missing_files": [],
     }
+    models_to_export = get_system_backup_models()
+    total_models = max(len(models_to_export), 1)
+    from .translations import get_strings
+    strings = get_strings()
     with tempfile.TemporaryFile() as zip_tmp:
         with zipfile.ZipFile(zip_tmp, "w", zipfile.ZIP_DEFLATED) as zf:
-            for model in get_system_backup_models():
+            for index, model in enumerate(models_to_export):
+                if progress_callback:
+                    progress_callback(
+                        5 + int((index / total_models) * 70),
+                        strings.get("backup_progress_model", "Backing up {model}...").format(
+                            model=str(model._meta.verbose_name),
+                        ),
+                    )
                 qs = _system_model_queryset(model)
                 stream_model_into_zip(
                     zf, model, qs, manifest,
                     serialize_kwargs={"use_natural_foreign_keys": True},
                     object_transform=_scrub_superuser_password,
                 )
+                if progress_callback:
+                    progress_callback(
+                        5 + int(((index + 1) / total_models) * 70),
+                        strings.get("backup_progress_model_done", "Backed up {model}.").format(
+                            model=str(model._meta.verbose_name),
+                        ),
+                    )
             zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
         zip_tmp.seek(0)
+        if progress_callback:
+            progress_callback(
+                82,
+                strings.get("backup_progress_encrypting", "Encrypting backup artifact..."),
+            )
         metadata = write_dlb_container(zip_tmp, dest, {
             "created_at": manifest["generated_at"],
             "dlux_version": manifest["dlux_version"],
@@ -356,11 +392,20 @@ def run_system_backup(backup_pk, passphrase=None):
     backup.status = SystemBackup.STATUS_RUNNING
     backup.started_at = timezone.now()
     backup.save(update_fields=["status", "started_at"])
+    from .backup_progress import finish_backup_progress, set_backup_progress, start_backup_progress
+    from .translations import get_strings
+    start_backup_progress(backup)
+    set_backup_progress(backup, 2, get_strings().get("backup_progress_preparing", "Preparing backup..."))
     try:
         with tempfile.TemporaryFile() as tmp:
-            metadata, manifest = write_system_backup(tmp, passphrase=passphrase)
+            metadata, manifest = write_system_backup(
+                tmp,
+                passphrase=passphrase,
+                progress_callback=lambda percent, message: set_backup_progress(backup, percent, message),
+            )
             size = tmp.tell()
             tmp.seek(0)
+            set_backup_progress(backup, 95, get_strings().get("backup_progress_storing", "Storing backup artifact..."))
             saved_path = default_storage.save(
                 f"{get_system_backup_storage_prefix()}/system-{backup.token}.dlb",
                 File(tmp),
@@ -376,6 +421,7 @@ def run_system_backup(backup_pk, passphrase=None):
         backup.completed_at = timezone.now()
         backup.error = ""
         backup.save()
+        finish_backup_progress(backup, success=True)
         _log_system_action(backup.requested_by_username, "EXPORT", {
             "kind": "system_backup",
             "trigger": backup.trigger,
@@ -390,6 +436,7 @@ def run_system_backup(backup_pk, passphrase=None):
         backup.completed_at = timezone.now()
         backup.error = str(exc)[:1000]
         backup.save(update_fields=["status", "completed_at", "error"])
+        finish_backup_progress(backup, success=False, error=backup.error)
     return backup
 
 
@@ -450,6 +497,8 @@ def run_scheduled_system_backup(*, now=None):
             active.completed_at = now
             active.error = "Scheduled backup did not complete before the stale-run timeout."
             active.save(update_fields=["status", "completed_at", "error"])
+            from .backup_progress import finish_backup_progress
+            finish_backup_progress(active, success=False, error=active.error)
         latest = SystemBackup.objects.filter(trigger=SystemBackup.TRIGGER_SCHEDULED).order_by("-created_at").first()
         if latest is not None and latest.created_at >= interval_start:
             return latest

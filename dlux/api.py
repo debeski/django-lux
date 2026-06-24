@@ -4,6 +4,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 import json
 from datetime import date, datetime
 import logging
@@ -55,6 +56,7 @@ def _visible_queryset(user, model):
 
 
 @login_required
+@never_cache
 def notifications_list(request):
     from .notifications import get_notification_context
 
@@ -87,10 +89,12 @@ def notification_mark_read(request, pk):
 @login_required
 @require_POST
 def notification_dismiss(request, pk):
-    from .notifications import dismiss_notification
+    from .notifications import NotificationLockedError, dismiss_notification
 
     try:
         dismiss_notification(request.user, pk)
+    except NotificationLockedError as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=409)
     except Exception:
         return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
     return JsonResponse({'success': True})

@@ -67,53 +67,17 @@
                                 <th>{{ DLUX_STRINGS.sysbackup_requested_by }}</th>
                                 <th>{{ DLUX_STRINGS.sysbackup_trigger|default:'Trigger' }}</th>
                                 <th>{{ DLUX_STRINGS.sysbackup_status }}</th>
+                                <th>{{ DLUX_STRINGS.backup_progress }}</th>
                                 <th>{{ DLUX_STRINGS.sysbackup_rows }}</th>
                                 <th>{{ DLUX_STRINGS.sysbackup_files }}</th>
                                 <th>{{ DLUX_STRINGS.sysbackup_size }}</th>
                                 <th class="text-end"></th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {% for backup in backups %}
-                                <tr>
-                                    <td>{{ backup.created_at|date:'Y-m-d H:i' }}</td>
-                                    <td>{{ backup.requested_by_username|default:'-' }}</td>
-                                    <td>{{ backup.get_trigger_display }}</td>
-                                    <td>
-                                        {% if backup.status == 'completed' %}<span class="badge bg-success">{{ backup.get_status_display }}</span>
-                                        {% elif backup.status == 'failed' %}<span class="badge bg-danger" title="{{ backup.error }}">{{ backup.get_status_display }}</span>
-                                        {% else %}<span class="badge bg-secondary">{{ backup.get_status_display }}</span>{% endif %}
-                                        {% if backup.passphrase_required %}
-                                            <span class="badge bg-dark">{{ DLUX_STRINGS.sysbackup_passphrase_badge }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ backup.row_count }}</td>
-                                    <td>{{ backup.file_count }}</td>
-                                    <td>{{ backup.file_size|filesizeformat }}</td>
-                                    <td class="text-end">
-                                        {% if backup.status == 'completed' %}
-                                            <a class="btn btn-outline-primary btn-sm rounded-pill"
-                                               href="{% url 'system_backup_download' backup.token %}">
-                                                <i class="bi bi-download me-1"></i>{{ DLUX_STRINGS.sysbackup_download }}
-                                            </a>
-                                            <button type="button"
-                                                    class="btn btn-outline-danger btn-sm rounded-pill sysrestore-open"
-                                                    data-backup-token="{{ backup.token }}"
-                                                    data-backup-label="{{ backup.created_at|date:'Y-m-d H:i' }}">
-                                                <i class="bi bi-arrow-counterclockwise me-1"></i>{{ DLUX_STRINGS.sysrestore_action }}
-                                            </button>
-                                        {% endif %}
-                                        <form method="post" action="{% url 'system_backup_delete' backup.token %}" class="d-inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill">
-                                                <i class="bi bi-trash me-1"></i>{{ DLUX_STRINGS.sysbackup_delete }}
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            {% empty %}
-                                <tr><td colspan="8" class="text-muted text-center py-4">{{ DLUX_STRINGS.sysbackup_empty }}</td></tr>
-                            {% endfor %}
+                        <tbody id="sysbackup-table-body"
+                               data-status-url="{% url 'system_backup_list_status' %}"
+                               data-revision="{{ backup_revision }}">
+                            {% include 'dlux/backup/_backup_rows.html' %}
                         </tbody>
                     </table>
                 </div>
@@ -227,5 +191,5 @@
 
 {% block scripts %}
 {{ block.super }}
-<script src="{% static 'dlux/backup/js/manage.js' %}?v=20260611a" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% static 'dlux/backup/js/manage.js' %}?v=20260624a" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

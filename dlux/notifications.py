@@ -34,6 +34,10 @@ BOOTSTRAP_LEVELS = {
 }
 
 
+class NotificationLockedError(ValueError):
+    """Raised when an active lifecycle notification cannot be dismissed."""
+
+
 @dataclass
 class NotificationEvent:
     message: str
@@ -867,6 +871,8 @@ def dismiss_notification(user, notification_id):
         notification_id=notification_id,
         user=user,
     )
+    if bool((state.notification.metadata or {}).get('locked')):
+        raise NotificationLockedError('Active notification cannot be dismissed.')
     now = timezone.now()
     update_fields = ['dismissed_at', 'updated_at']
     state.dismissed_at = now
@@ -891,11 +897,17 @@ def clear_all_notifications(user):
     """Dismiss read notification states for a user, leaving unread items visible."""
     DluxNotificationState = apps.get_model('dlux', 'DluxNotificationState')
     now = timezone.now()
-    return DluxNotificationState.objects.filter(
+    candidates = DluxNotificationState.objects.select_related('notification').filter(
         user=user,
         dismissed_at__isnull=True,
         read_at__isnull=False,
-    ).update(
+    )
+    dismissible_ids = [
+        state.pk
+        for state in candidates
+        if not bool((state.notification.metadata or {}).get('locked'))
+    ]
+    return DluxNotificationState.objects.filter(pk__in=dismissible_ids).update(
         read_at=now,
         dismissed_at=now,
         updated_at=now,

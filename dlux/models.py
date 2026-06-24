@@ -899,6 +899,18 @@ class ReportBackup(models.Model):
     model_count = models.PositiveIntegerField(default=0, verbose_name="Model Count")
     file_count = models.PositiveIntegerField(default=0, verbose_name="File Count")
     missing_file_count = models.PositiveIntegerField(default=0, verbose_name="Missing File Count")
+    progress_percent = models.PositiveSmallIntegerField(
+        default=0,
+        db_default=0,
+        verbose_name="Progress Percent",
+    )
+    progress_message = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        db_default="",
+        verbose_name="Progress Message",
+    )
     error = models.TextField(blank=True, verbose_name="Error")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     started_at = models.DateTimeField(blank=True, null=True, verbose_name="Started At")
@@ -975,6 +987,18 @@ class SystemBackup(models.Model):
     row_count = models.PositiveIntegerField(default=0, verbose_name="Row Count")
     file_count = models.PositiveIntegerField(default=0, verbose_name="File Count")
     missing_file_count = models.PositiveIntegerField(default=0, verbose_name="Missing File Count")
+    progress_percent = models.PositiveSmallIntegerField(
+        default=0,
+        db_default=0,
+        verbose_name="Progress Percent",
+    )
+    progress_message = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        db_default="",
+        verbose_name="Progress Message",
+    )
     passphrase_required = models.BooleanField(default=False, verbose_name="Passphrase Required")
     error = models.TextField(blank=True, verbose_name="Error")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")

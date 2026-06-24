@@ -88,6 +88,8 @@ class SystemBackupPolicyTests(TestCase):
         # column's database-level default rather than a (dropped) Python default.
         field = self.SystemBackup._meta.get_field('trigger')
         self.assertEqual(field.db_default, self.SystemBackup.TRIGGER_MANUAL)
+        self.assertEqual(self.SystemBackup._meta.get_field('progress_percent').db_default, 0)
+        self.assertEqual(self.SystemBackup._meta.get_field('progress_message').db_default, '')
 
         from django.db import connection
 
@@ -221,6 +223,17 @@ class SystemRestoreRoundTripTests(TestCase):
                 backup.refresh_from_db()
                 self.assertEqual(backup.status, SystemBackup.STATUS_COMPLETED)
                 self.assertTrue(default_storage.exists(backup.file_path))
+                self.assertGreater(backup.file_size, 0)
+                self.assertGreater(backup.row_count, 0)
+                self.assertEqual(backup.progress_percent, 100)
+                self.assertTrue(backup.progress_message)
+
+                DluxNotification = apps.get_model('dlux', 'DluxNotification')
+                self.assertTrue(DluxNotification.objects.filter(
+                    source_model_key='dlux.systembackup',
+                    source_object_id=str(backup.pk),
+                    action='backup_completed',
+                ).exists())
 
                 # Mutate the world after the snapshot.
                 admin.set_password('changed-pass-9')
@@ -305,6 +318,7 @@ class SystemBackupViewTests(TestCase):
         client = Client()
         client.login(username='staffer', password='staffpass123')
         self.assertEqual(client.get(reverse('system_backup_page')).status_code, 403)
+        self.assertEqual(client.get(reverse('system_backup_list_status')).status_code, 403)
         self.assertEqual(client.post(reverse('system_backup_create')).status_code, 403)
         self.assertEqual(client.post(reverse('system_restore_start')).status_code, 403)
 
@@ -314,7 +328,73 @@ class SystemBackupViewTests(TestCase):
         response = client.get(reverse('system_backup_page'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'sysbackup-create-btn')
+        self.assertContains(response, reverse('system_backup_list_status'))
+        self.assertContains(response, 'id="sysbackup-table-body"')
         self.assertContains(response, 'data-autoclose="false"')
+
+    def test_live_backup_list_reports_completed_size_and_download_action(self):
+        SystemBackup = apps.get_model('dlux', 'SystemBackup')
+        pending = SystemBackup.objects.create(requested_by_username='boss')
+        completed = SystemBackup.objects.create(
+            requested_by_username='boss',
+            status=SystemBackup.STATUS_COMPLETED,
+            file_path='protected/dlux/complete.dlb',
+            file_size=4096,
+            row_count=3000,
+            file_count=12,
+            completed_at=timezone.now(),
+        )
+        client = Client()
+        client.login(username='boss', password='bosspass123')
+
+        response = client.get(reverse('system_backup_list_status'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('no-store', response.headers.get('Cache-Control', ''))
+        payload = response.json()
+        self.assertTrue(payload['active'])
+        self.assertTrue(payload['revision'])
+        self.assertEqual(
+            {item['token']: item['status'] for item in payload['items']},
+            {
+                pending.token: SystemBackup.STATUS_PENDING,
+                completed.token: SystemBackup.STATUS_COMPLETED,
+            },
+        )
+        self.assertIn('<td>3000</td>', payload['html'])
+        self.assertIn('4.0\xa0KB', payload['html'])
+        self.assertIn(reverse('system_backup_download', args=[completed.token]), payload['html'])
+
+    def test_individual_backup_status_is_never_cached(self):
+        SystemBackup = apps.get_model('dlux', 'SystemBackup')
+        backup = SystemBackup.objects.create(requested_by_username='boss')
+        client = Client()
+        client.login(username='boss', password='bosspass123')
+
+        response = client.get(reverse('system_backup_status', args=[backup.token]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('no-store', response.headers.get('Cache-Control', ''))
+        self.assertEqual(response.json()['status'], SystemBackup.STATUS_PENDING)
+        self.assertEqual(response.json()['progress_percent'], 0)
+
+    def test_active_artifact_is_not_listed_as_an_external_backup(self):
+        SystemBackup = apps.get_model('dlux', 'SystemBackup')
+        backup = SystemBackup.objects.create(
+            requested_by_username='boss',
+            status=SystemBackup.STATUS_RUNNING,
+        )
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                path = f'dlux_backups/system-{backup.token}.dlb'
+                default_storage.save(path, ContentFile(b'partial-artifact'))
+                client = Client()
+                client.login(username='boss', password='bosspass123')
+
+                response = client.get(reverse('system_backup_page'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, f'system-{backup.token}.dlb')
 
     def test_restore_requires_password_and_confirmation(self):
         with tempfile.TemporaryDirectory() as media_root:

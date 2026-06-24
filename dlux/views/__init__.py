@@ -69,6 +69,7 @@ from .backup import (
     system_backup_create_view,
     system_backup_delete_view,
     system_backup_download_view,
+    system_backup_list_status_view,
     system_backup_page,
     system_backup_status_view,
     system_backup_upload_view,

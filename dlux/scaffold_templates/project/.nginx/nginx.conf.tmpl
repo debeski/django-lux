@@ -25,6 +25,10 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
+    location ^~ /media/dlux_backups/ {
+        return 404;
+    }
+
     location /media/ {
         alias /app/media/;
     }

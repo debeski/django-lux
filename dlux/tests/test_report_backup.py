@@ -8,22 +8,40 @@ from dlux.tests.harness import setup_test_environment
 setup_test_environment()
 
 import tempfile
+from unittest.mock import patch
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.files.storage import default_storage
+from django.db import models
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from dlux.reports import run_report_backup, write_backup_zip
+from dlux.reports import backup_record_folder, run_report_backup, write_backup_zip
 
 User = get_user_model()
 
 ACTIVITY_BACKUP_CONFIG = {
     'reports': {'include_models': ['dlux.activitylog']},
 }
+
+
+class NumberedBackupRecord(models.Model):
+    number = models.CharField(max_length=100)
+
+    class Meta:
+        app_label = 'backup_tests'
+        managed = False
+
+
+class ConfiguredBackupRecord(models.Model):
+    case_reference = models.CharField(max_length=100)
+
+    class Meta:
+        app_label = 'backup_tests'
+        managed = False
 
 
 def _make_logs():
@@ -95,6 +113,29 @@ class WriteBackupZipWindowTests(TestCase):
         self.assertEqual(manifest['window'], 'all')
         self.assertEqual(len(rows), 2)
 
+    def test_record_folder_prefers_business_number_and_keeps_pk(self):
+        record = NumberedBackupRecord(pk=37, number='2000 / A')
+
+        self.assertEqual(
+            backup_record_folder(record),
+            'number-2000-A',
+        )
+
+    @override_settings(DLUX_CONFIG={
+        'reports': {
+            'backup_label_fields': {
+                'backup_tests.configuredbackuprecord': 'case_reference',
+            },
+        },
+    })
+    def test_record_folder_supports_explicit_per_model_label_field(self):
+        record = ConfiguredBackupRecord(pk=8, case_reference='../CASE\\42')
+
+        self.assertEqual(
+            backup_record_folder(record),
+            'case-reference-CASE-42',
+        )
+
 
 @override_settings(DLUX_CONFIG=ACTIVITY_BACKUP_CONFIG)
 class BackupViewTests(TestCase):
@@ -139,6 +180,44 @@ class BackupViewTests(TestCase):
         response = client.post(reverse('reports_backup_start'), {'window': 'all'})
         self.assertEqual(response.status_code, 403)
 
+    def test_start_reuses_active_backup_instead_of_queueing_duplicate(self):
+        ReportBackup = apps.get_model('dlux', 'ReportBackup')
+        active = ReportBackup.objects.create(user=self.user, window='all')
+
+        with patch('dlux.views.reports.dispatch_report_backup') as dispatch:
+            response = self.client.post(reverse('reports_backup_start'), {'window': 'week'})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload['async'])
+        self.assertTrue(payload['reused'])
+        self.assertEqual(payload['token'], active.token)
+        self.assertEqual(ReportBackup.objects.count(), 1)
+        dispatch.assert_not_called()
+
+    def test_overview_resumes_active_backup_and_links_latest_completed(self):
+        ReportBackup = apps.get_model('dlux', 'ReportBackup')
+        completed = ReportBackup.objects.create(
+            user=self.user,
+            window='week',
+            status=ReportBackup.STATUS_COMPLETED,
+            file_path='dlux_backups/completed.zip',
+            completed_at=timezone.now(),
+        )
+        active = ReportBackup.objects.create(user=self.user, window='all')
+
+        response = self.client.get(reverse('reports_overview'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse('reports_backup_status', args=[active.token]),
+        )
+        self.assertContains(
+            response,
+            reverse('reports_backup_download', args=[completed.token]),
+        )
+
     def test_run_status_and_download_flow(self):
         recent, old = _make_logs()
         ReportBackup = apps.get_model('dlux', 'ReportBackup')
@@ -151,6 +230,21 @@ class BackupViewTests(TestCase):
                 self.assertTrue(backup.file_path)
                 self.assertTrue(default_storage.exists(backup.file_path))
                 self.assertGreater(backup.file_size, 0)
+                self.assertEqual(backup.progress_percent, 100)
+                self.assertTrue(backup.progress_message)
+
+                DluxNotification = apps.get_model('dlux', 'DluxNotification')
+                self.assertTrue(DluxNotification.objects.filter(
+                    source_model_key='dlux.reportbackup',
+                    source_object_id=str(backup.pk),
+                    action='backup_progress',
+                    metadata__locked=False,
+                ).exists())
+                self.assertTrue(DluxNotification.objects.filter(
+                    source_model_key='dlux.reportbackup',
+                    source_object_id=str(backup.pk),
+                    action='backup_completed',
+                ).exists())
 
                 status = self.client.get(
                     reverse('reports_backup_status', args=[backup.token])
@@ -158,7 +252,9 @@ class BackupViewTests(TestCase):
                 self.assertEqual(status.status_code, 200)
                 payload = status.json()
                 self.assertEqual(payload['status'], 'completed')
+                self.assertEqual(payload['progress_percent'], 100)
                 self.assertIn('download_url', payload)
+                self.assertIn('no-cache', status['Cache-Control'])
 
                 download = self.client.get(payload['download_url'])
                 self.assertEqual(download.status_code, 200)

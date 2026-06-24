@@ -1,3 +1,4 @@
+import hashlib
 import logging
 
 from django.apps import apps
@@ -6,8 +7,10 @@ from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from ..backup import (
@@ -42,6 +45,30 @@ def _system_restore_model():
     return apps.get_model('dlux', 'SystemRestore')
 
 
+def _recent_system_backups():
+    return list(_system_backup_model().objects.all()[:20])
+
+
+def _system_backup_revision(backups):
+    """Return a stable marker for fields rendered in the live backup table."""
+    rendered_state = '\x1f'.join(
+        ':'.join((
+            backup.token,
+            backup.status,
+            str(backup.file_size),
+            str(backup.row_count),
+            str(backup.file_count),
+            str(backup.missing_file_count),
+            str(backup.progress_percent),
+            backup.progress_message or '',
+            '1' if backup.passphrase_required else '0',
+            backup.error or '',
+        ))
+        for backup in backups
+    )
+    return hashlib.sha256(rendered_state.encode('utf-8')).hexdigest()
+
+
 def _posted_passphrase(request):
     return str(request.POST.get('backup_passphrase') or '').strip()
 
@@ -57,9 +84,17 @@ def _orphan_dlb_files():
     known = set(
         _system_backup_model().objects.exclude(file_path='').values_list('file_path', flat=True)
     )
+    active_prefixes = {
+        f"system-{token}"
+        for token in _system_backup_model().objects.filter(
+            status__in=('pending', 'running'),
+        ).values_list('token', flat=True)
+    }
     orphans = []
     for name in sorted(files):
         if not name.lower().endswith('.dlb'):
+            continue
+        if any(name.startswith(prefix) for prefix in active_prefixes):
             continue
         path = f'{prefix}/{name}'
         if path in known:
@@ -75,11 +110,12 @@ def _orphan_dlb_files():
 @login_required
 def system_backup_page(request):
     _require_superuser(request)
-    SystemBackup = _system_backup_model()
     SystemRestore = _system_restore_model()
+    backups = _recent_system_backups()
     return render(request, 'dlux/backup/manage.html', {
         'DLUX_STRINGS': get_strings(),
-        'backups': SystemBackup.objects.all()[:20],
+        'backups': backups,
+        'backup_revision': _system_backup_revision(backups),
         'restores': SystemRestore.objects.all()[:10],
         'orphan_files': _orphan_dlb_files(),
         'backup_config': get_system_config().get('backup_config', {}),
@@ -128,6 +164,33 @@ def _get_backup_or_404(request, token):
 
 
 @login_required
+@never_cache
+def system_backup_list_status_view(request):
+    """Return the current backup-table fragment for live background updates."""
+    _require_superuser(request)
+    backups = _recent_system_backups()
+    return JsonResponse({
+        'revision': _system_backup_revision(backups),
+        'active': any(backup.status in {'pending', 'running'} for backup in backups),
+        'items': [
+            {
+                'token': backup.token,
+                'status': backup.status,
+                'progress_percent': backup.progress_percent,
+                'progress_message': backup.progress_message,
+            }
+            for backup in backups
+        ],
+        'html': render_to_string(
+            'dlux/backup/_backup_rows.html',
+            {'backups': backups, 'DLUX_STRINGS': get_strings()},
+            request=request,
+        ),
+    })
+
+
+@login_required
+@never_cache
 def system_backup_status_view(request, token):
     backup = _get_backup_or_404(request, token)
     SystemBackup = type(backup)
@@ -136,6 +199,8 @@ def system_backup_status_view(request, token):
         'file_size': backup.file_size,
         'rows': backup.row_count,
         'files': backup.file_count,
+        'progress_percent': backup.progress_percent,
+        'progress_message': backup.progress_message,
         'error': backup.error[:200] if backup.status == SystemBackup.STATUS_FAILED else '',
     }
     if backup.status == SystemBackup.STATUS_COMPLETED:
