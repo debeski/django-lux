@@ -68,6 +68,29 @@ in place, without data loss.
    apply newer `dlux` migrations released after the rebrand baseline, including
    the unified SystemSettings/notifications migration.
 
+7. **Clear the old Django cache after updating (Compose/Redis deployments).**
+
+   The generated Compose configuration uses Redis database `1` for Django's
+   cache-backed sessions. After the package swap and database migrations are
+   complete, clear that database before reopening the deployment to users:
+
+   ```bash
+   docker compose exec redis redis-cli -n 1 FLUSHDB
+   ```
+
+   A successful command prints `OK`. This removes cached objects created by the
+   old package, including potentially incompatible serialized settings, but it
+   also invalidates every active Django session and signs users out. Run it
+   during the migration maintenance window, after `migrate` and before the final
+   web/worker restart.
+
+   Confirm your deployment's Django cache URL before running the command. Use
+   the database number from `REDIS_URL_DB` if it is not `/1`, and do not flush a
+   Redis database shared with another application. Use `FLUSHDB`, not
+   `FLUSHALL`: the latter would also erase unrelated Redis databases such as the
+   generated Celery broker/result databases (`2` and `3`). This operation does
+   not alter PostgreSQL application data.
+
 ## Notes & caveats
 
 - **Older Microsys repair:** if an earlier command version was already run

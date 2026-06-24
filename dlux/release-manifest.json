@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "1.2.7",
-  "inline_safe": false,
+  "version": "1.2.8",
+  "inline_safe": true,
   "minimum_updater_schema": 1,
-  "migration_policy": "image_rebuild",
-  "summary": "Repairs the updater bootstrap health race by retrying Celery readiness/version probes and clearing stale degraded maintenance state after a rebuilt-image activation. One image rebuild is required.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.7"
+  "migration_policy": "backward_compatible",
+  "summary": "Fixes a TypeError crash when copying/pickling runtime-translated strings (e.g. Section management ModelForm tabs deepcopying translated field labels) by giving MigrationSafeTranslation a __getnewargs__. Pure-Python fix with no schema change; inline-safe.",
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.8"
 }

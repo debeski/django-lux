@@ -51,7 +51,7 @@
 - 2026-06-24: Exact scaffold nginx template passed `nginx -t` in `nginx:latest` with generated upstream names supplied.
 
 ### One-line info about last time edited Docs:
-- 2026-06-24: Documented v1.2.7 rebuild baseline, retrying health handshake, and automatic stale degraded/maintenance recovery.
+- 2026-06-24: Added post-Microsys-migration Redis DB cache/session flush guidance and scoped safety warnings.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

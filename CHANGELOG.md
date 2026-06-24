@@ -6,6 +6,10 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.2.8
+
+- **MigrationSafeTranslation Copy/Pickle Fix**: Added `__getnewargs__` to `dlux.translations.MigrationSafeTranslation` returning `(self.key, self.default_val)`. As a `str` subclass it was reconstructed via `str`'s default `__getnewargs__` (only `(str_value,)`), so any `copy.deepcopy`/pickle — notably Django ModelForm field/widget deepcopy of translated labels in Section management (`/sys/sections/`) tabs — called `__new__(cls, value)` and raised `MigrationSafeTranslation.__new__() missing 1 required positional argument: 'default_val'`. Pure-Python fix, no schema change; manifest marked `inline_safe=true`, `migration_policy=backward_compatible`.
+
 ## v1.2.7
 
 - **Retrying Celery Health Handshake**: Replaced the updater's single immediate post-restart Celery ping/version checks with bounded retries sharing the 120-second web/Celery health deadline. Candidate activation and automatic pointer rollback now tolerate normal Celery supervisor startup latency instead of falsely failing after web is already healthy, switching back, racing the rollback worker again, and leaving the runtime in degraded maintenance.

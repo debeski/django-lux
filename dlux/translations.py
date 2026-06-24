@@ -3052,6 +3052,14 @@ class MigrationSafeTranslation(str):
         obj.default_val = default_val
         return obj
 
+    def __getnewargs__(self):
+        # str subclasses are reconstructed via __new__ during copy/pickle.
+        # str's default __getnewargs__ returns only (str_value,), which calls
+        # __new__(cls, value) and raises "missing 'default_val'". Supplying both
+        # constructor args keeps deepcopy/pickle (e.g. Django form/widget
+        # deepcopy of translated labels) working.
+        return (self.key, self.default_val)
+
     def _resolve(self):
         try:
             return get_strings().get(self.key, self.default_val)
