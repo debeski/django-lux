@@ -10,8 +10,8 @@ gzip_types text/plain text/css application/json application/javascript text/xml 
 
 server {
     listen 80;
-    server_name _;
-    client_max_body_size 5M;
+    server_name ${NGINX_SERVER_NAME};
+    client_max_body_size ${NGINX_MAX_SIZE};
     error_page 502 503 504 =503 /dlux-maintenance.html;
 
     location = /dlux-maintenance.html {

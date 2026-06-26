@@ -39,10 +39,10 @@ import (
 )
 
 const (
-	dlbMagic              = "DLB1"
-	defaultKDFIterations  = 390000
-	maxMetadataLen        = 10 * 1024 * 1024
-	fernetVersion    byte = 0x80
+	dlbMagic                  = "DLB1"
+	defaultKDFIterations      = 390000
+	maxMetadataLen            = 10 * 1024 * 1024
+	fernetVersion        byte = 0x80
 )
 
 // ErrBadPassword is returned when the supplied password fails Fernet's HMAC
@@ -61,13 +61,17 @@ type Encryption struct {
 
 // Metadata is the cleartext header of an .dlb file.
 type Metadata struct {
-	Kind               string     `json:"kind"`
-	Format             int        `json:"format"`
-	CreatedAt          string     `json:"created_at"`
-	DluxVersion    string     `json:"dlux_version"`
-	Models             int        `json:"models"`
-	Rows               int        `json:"rows"`
-	Files              int        `json:"files"`
+	Kind        string `json:"kind"`
+	Format      int    `json:"format"`
+	CreatedAt   string `json:"created_at"`
+	DluxVersion string `json:"dlux_version"`
+	Models      int    `json:"models"`
+	Rows        int    `json:"rows"`
+	Files       int    `json:"files"`
+	// MediaIncluded is the v1.2.10+ backup-scope flag (full vs data-only/quick).
+	// A pointer keeps it tri-state: nil means a pre-1.2.10 backup that predates the
+	// flag, so the viewer reports "unknown" rather than mislabeling it as data-only.
+	MediaIncluded      *bool      `json:"media_included"`
 	PassphraseRequired bool       `json:"passphrase_required"`
 	Encryption         Encryption `json:"encryption"`
 }

@@ -30,6 +30,15 @@ authorization decision.
 
 - Dynamic modal manager/delete views enforce backend authorization for model,
   user, and profile surfaces.
+- Table row context-menu actions are permission-filtered server-side
+  (`filter_context_actions`): each action declares its required permission and is
+  omitted from the emitted `data-dlux-actions` JSON when the user lacks it, so the
+  **Delete** entry only appears for holders of `delete_<model>` (matching the
+  delete view's own 403 gate). The `manage_sections` override applies only to
+  actions explicitly flagged `section_action` and never bypasses per-model
+  delete/change permissions on generic data grids. `delete_<model>` permissions
+  are assignable from the grouped permission UI so deletion can be delegated;
+  sensitive `auth`/internal-`dlux` deletes stay non-assignable.
 - Shared modal/runtime helper scripts are shipped as external static assets, and
   the dynamic-modal loader now carries the request CSP nonce so strict
   `script-src` policies do not force a fallback to inline behavior.

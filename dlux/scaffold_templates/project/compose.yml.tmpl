@@ -3,7 +3,8 @@ name: {{ project_slug }}
 x-environment:
   # Database settings
   &de
-  POSTGRES_DB: "{{ project_slug }}_db"
+  WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:latest}"
+  POSTGRES_DB: "${POSTGRES_DB:-{{ project_slug }}_db}"
   POSTGRES_PORT: "5432"
   POSTGRES_HOST: "db"
   # Redis / Celery
@@ -129,8 +130,14 @@ services:
       - target: 80
         published: "${NGINX_PORT:-80}"
         protocol: tcp
+    environment:
+      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-localhost}
+      NGINX_MAX_SIZE: ${NGINX_MAX_SIZE:-10M}
+      # Restrict envsubst to NGINX_*-prefixed vars only, so nginx's own runtime
+      # variables (host, remote_addr, scheme, ...) survive template rendering.
+      NGINX_ENVSUBST_FILTER: "NGINX_"
     volumes:
-      - ./.nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./.nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
       - static:/app/staticfiles:ro
       - ./media/:/app/media:ro
       - dlux_runtime:/opt/dlux-runtime:ro

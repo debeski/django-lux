@@ -31,6 +31,7 @@ from .system.constants import (
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
+    LAYOUT_FOOTER_TEXT_MAX_LENGTH,
     REGISTRATION_ACTIVATION_CHOICES,
     REGISTRATION_ACTIVATION_VALUES,
     NAVBAR_MODE_CHOICES,
@@ -161,8 +162,14 @@ PERMISSION_UI_EXCLUDED_APP_LABELS = [
 
 
 def get_assignable_permissions_queryset():
+    # Delete permissions are intentionally assignable. Admins can grant
+    # `delete_<model>` to trusted users so the row context-menu Delete entry and
+    # the backend delete views (which already enforce `delete_<model>`) become
+    # available to them; without a grant, only superusers can delete. Sensitive
+    # deletes stay excluded by the clauses below: the auth user/group/permission
+    # models, and every non-whitelisted dlux model (e.g. activitylog, scope,
+    # systemsettings) except the section model.
     return Permissions.objects.exclude(
-        Q(codename__regex=r'^(delete_)') |
         Q(content_type__app_label__in=PERMISSION_UI_EXCLUDED_APP_LABELS) |
         (Q(content_type__app_label='dlux') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'view_activitylog', 'view_reports', 'download_backup']) & ~Q(content_type__model='section')) |
         Q(content_type__app_label='auth', content_type__model__in=['group', 'user', 'permission'])
@@ -1658,6 +1665,11 @@ class SystemSettingsForm(forms.ModelForm):
         choices=TABLE_DENSITY_CHOICES,
         widget=forms.HiddenInput(),
     )
+    footer_text = forms.CharField(
+        required=False,
+        max_length=LAYOUT_FOOTER_TEXT_MAX_LENGTH,
+        widget=forms.TextInput(attrs={'class': 'form-control glass-input', 'dir': 'auto'}),
+    )
     languages = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -2047,6 +2059,7 @@ class SystemSettingsForm(forms.ModelForm):
             'default_fonts',
             'allow_user_language_override',
             'default_table_density',
+            'footer_text',
             'auth_config',
             'client_ip_config',
             'public_root',
@@ -2221,6 +2234,15 @@ class SystemSettingsForm(forms.ModelForm):
             ('dense', s.get('table_density_dense', 'Dense')),
             (DEFAULT_TABLE_DENSITY, s.get('table_density_balanced', 'Balanced')),
             ('roomy', s.get('table_density_roomy', 'Roomy')),
+        )
+        self.fields['footer_text'].label = s.get('form_sys_footer_text', "Footer text")
+        self.fields['footer_text'].help_text = s.get(
+            'help_sys_footer_text',
+            'Optional copyright or short note shown in the faint footer at the bottom of every page. Leave blank to show the default "© year · system name" line.',
+        )
+        self.fields['footer_text'].widget.attrs.setdefault(
+            'placeholder',
+            s.get('form_sys_footer_text_placeholder', '© 2026 Your Organization · All rights reserved'),
         )
         self.fields['logo'].label = s.get('form_sys_logo', "System Logo (Logo)")
         self.fields['favicon'].label = s.get('form_sys_favicon', "Site Icon (Favicon)")
@@ -3079,9 +3101,15 @@ class SystemSettingsForm(forms.ModelForm):
             self.initial['allowed_themes'] = list(normalize_allowed_themes(config.get('allowed_themes')))
         if self.initial.get('default_table_density') not in TABLE_DENSITY_VALUES:
             self.initial['default_table_density'] = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
+        _layout_initial_source = {'default_table_density': self.initial.get('default_table_density')}
+        _existing_layout = getattr(self.instance, 'layout_config', None)
+        if isinstance(_existing_layout, dict) and _existing_layout.get('footer_text'):
+            _layout_initial_source['footer_text'] = _existing_layout.get('footer_text')
+        elif config.get('footer_text'):
+            _layout_initial_source['footer_text'] = config.get('footer_text')
         self._apply_schema_group_initials(
             'layout_config',
-            {'default_table_density': self.initial.get('default_table_density')},
+            _layout_initial_source,
             hidden_field=False,
         )
         self._apply_schema_group_initials(
@@ -4003,6 +4031,11 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('default_table_density'), css_class='col'),
                     css_class='mb-3'
                 ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('footer_settings_title', 'Footer')}</h6>"),
+                Row(
+                    Div(Field('footer_text', dir='auto'), css_class='col-12'),
+                    css_class='mb-3'
+                ),
                 css_class=_step_css_class(8),
             ),
             Div(
@@ -4181,6 +4214,18 @@ class SystemSettingsForm(forms.ModelForm):
         if value not in TABLE_DENSITY_VALUES:
             raise ValidationError("Invalid table density choice.")
         return value
+
+    def clean_footer_text(self):
+        # Footer text lives in the Themes & Typography step. A single-step modal
+        # post that does not own that step omits the field — preserve the stored
+        # value instead of clearing it.
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and 'footer_text' not in self.data:
+            value = getattr(self.instance, 'footer_text', None)
+            if value in (None, ''):
+                value = self.initial.get('footer_text', '')
+        else:
+            value = self.cleaned_data.get('footer_text', '')
+        return str(value or '').strip()[:LAYOUT_FOOTER_TEXT_MAX_LENGTH].rstrip()
 
     def _auth_toggle_clean(self, key, default):
         # The auth toggles now live in the auth_config JSON field. In a non-setup
@@ -4942,6 +4987,10 @@ class SystemSettingsForm(forms.ModelForm):
             'default_table_density': layout_config.get(
                 'default_table_density',
                 self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),
+            ),
+            'footer_text': layout_config.get(
+                'footer_text',
+                self.cleaned_data.get('footer_text', ''),
             ),
             'email_2fa': bool(auth_config.get('email_2fa', False)),
             'prevent_multiple_active_sessions': bool(auth_config.get('prevent_multiple_active_sessions', False)),

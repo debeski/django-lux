@@ -97,7 +97,11 @@ def create_project(project_name, destination=None):
         "project/tools/dlux_runtime_supervisor.py.tmpl": target_root / "tools" / "dlux_runtime_supervisor.py",
         "project/gunicorn.py.tmpl": target_root / "gunicorn.py",
         "project/requirements.txt.tmpl": target_root / "requirements.txt",
-        "project/.nginx/nginx.conf.tmpl": target_root / ".nginx" / "nginx.conf",
+        # nginx `envsubst` template: the official nginx image renders any
+        # /etc/nginx/templates/*.template file at startup (substituting
+        # ${NGINX_*} env vars) into /etc/nginx/conf.d/. The source carries both
+        # suffixes — `.template` (nginx) inside `.tmpl` (scaffold).
+        "project/.nginx/default.conf.template.tmpl": target_root / ".nginx" / "default.conf.template",
         "project/.nginx/maintenance.html.tmpl": target_root / ".nginx" / "maintenance.html",
         "project/start.sh.tmpl": target_root / "start.sh",
         "project/start.ps1.tmpl": target_root / "start.ps1",

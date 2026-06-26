@@ -31,6 +31,20 @@ function fileURL(zipPath, download) {
   return "/api/file?" + q.toString();
 }
 
+function baseName(p) {
+  const s = String(p == null ? "" : p);
+  const i = s.lastIndexOf("/");
+  return i >= 0 ? s.slice(i + 1) : s;
+}
+
+// scopeLabel turns the tri-state media_included flag into a display label.
+// true → full backup, false → data-only/quick, null/undefined → legacy (unknown).
+function scopeLabel(mediaIncluded) {
+  if (mediaIncluded === true) return { text: "Full (database + media)", cls: "" };
+  if (mediaIncluded === false) return { text: "Data only — media excluded", cls: "warn" };
+  return null;
+}
+
 function show(id) {
   for (const s of ["screen-open", "screen-unlock", "screen-browse"]) {
     $("#" + s).hidden = s !== id;
@@ -48,6 +62,72 @@ function fmtBytes(n) {
 // ── application state ─────────────────────────────────────────────────────────
 let META = null;
 let SUMMARY = null;
+
+// Lazy index of archived files keyed by `model|pk|field`, built from
+// SUMMARY.files. Lets the data tables turn a record's file-field cell into a
+// direct open/download link without the user hunting the Stored-files table by
+// its random storage name. Rebuilt per backup (cleared in enterBrowse).
+let FILE_INDEX = null;
+function fileKey(model, pk, field) {
+  const pkStr = typeof pk === "object" ? JSON.stringify(pk) : String(pk);
+  return `${String(model).toLowerCase()}|${pkStr}|${field}`;
+}
+function fileIndex() {
+  if (FILE_INDEX) return FILE_INDEX;
+  FILE_INDEX = new Map();
+  for (const f of (SUMMARY && SUMMARY.files) || []) {
+    FILE_INDEX.set(fileKey(f.model, f.pk, f.field), f);
+  }
+  return FILE_INDEX;
+}
+
+// Relation schema (manifest.schema) and the user's "resolve relations" choice.
+let SCHEMA = null;
+let RESOLVE_RELATIONS = localStorage.getItem("dlb-resolve-relations") === "1";
+// Cache of label maps per target model: key -> Promise<{by_pk, by_nk}>.
+const LABEL_CACHE = {};
+
+function schemaFor(key) {
+  return (SCHEMA && SCHEMA[String(key).toLowerCase()]) || null;
+}
+
+function hasRelations() {
+  if (!SCHEMA) return false;
+  return Object.values(SCHEMA).some(
+    (m) => m.relations && Object.keys(m.relations).length,
+  );
+}
+
+async function getLabels(key) {
+  const k = String(key).toLowerCase();
+  if (!LABEL_CACHE[k]) {
+    LABEL_CACHE[k] = api("/api/labels?key=" + encodeURIComponent(k)).catch(
+      () => ({ by_pk: {}, by_nk: {} }),
+    );
+  }
+  return LABEL_CACHE[k];
+}
+
+// Resolve one relation reference to a display label, falling back to the raw
+// reference. `value` is a PK scalar or a natural-key array (e.g. ["alice"]).
+function resolveRef(to, value, maps) {
+  const m = maps[String(to).toLowerCase()] || { by_pk: {}, by_nk: {} };
+  if (Array.isArray(value)) {
+    const nk = (m.by_nk || {})[JSON.stringify(value)];
+    return nk != null ? nk : value.join(" / ");
+  }
+  const pk = (m.by_pk || {})[String(value)];
+  return pk != null ? pk : String(value);
+}
+
+// Resolve a whole relation cell value (m2m is an array of references).
+function resolveRelation(rel, value, maps) {
+  if (rel.kind === "m2m") {
+    if (!Array.isArray(value)) return String(value);
+    return value.map((e) => resolveRef(rel.to, e, maps)).join(", ");
+  }
+  return resolveRef(rel.to, value, maps);
+}
 
 // ── step 1: open ──────────────────────────────────────────────────────────────
 function wireOpen() {
@@ -122,6 +202,8 @@ function renderUnlockMeta() {
   add("Dlux version", META.dlux_version || "—");
   add("Models / rows", `${META.models ?? "—"} / ${META.rows ?? "—"}`);
   add("Stored files", String(META.files ?? "—"));
+  const metaScope = scopeLabel(META.media_included);
+  if (metaScope) add("Backup scope", el("span", { class: "badge " + metaScope.cls, text: metaScope.text }));
   add("Protection", el("span", {
     class: "badge " + (passphrase ? "warn" : ""),
     text: passphrase ? "passphrase" : "project SECRET_KEY",
@@ -169,9 +251,29 @@ function wireUnlock() {
 
 // ── step 3: browse ────────────────────────────────────────────────────────────
 function enterBrowse() {
+  SCHEMA = (SUMMARY && SUMMARY.schema) || null;
+  FILE_INDEX = null;
+  for (const k of Object.keys(LABEL_CACHE)) delete LABEL_CACHE[k];
+  setupRelToggle();
   buildSidebar();
   show("screen-browse");
   selectView("overview");
+}
+
+// Reveal the relation toggle only for backups that carry a relation schema
+// (older .dlb files fall back to raw references with no toggle shown).
+function setupRelToggle() {
+  const wrap = $("#rel-toggle");
+  const input = $("#rel-toggle-input");
+  const available = hasRelations();
+  wrap.hidden = !available;
+  if (!available) return;
+  input.checked = RESOLVE_RELATIONS;
+  input.onchange = () => {
+    RESOLVE_RELATIONS = input.checked;
+    localStorage.setItem("dlb-resolve-relations", RESOLVE_RELATIONS ? "1" : "0");
+    if (MODEL_STATE.key) loadModelPage();
+  };
 }
 
 function buildSidebar() {
@@ -231,6 +333,8 @@ function renderOverview(c) {
   const add = (k, v) => dl.append(el("dt", { text: k }), el("dd", { text: v }));
   add("Generated at", SUMMARY.generated_at || META.created_at || "—");
   add("Dlux version", SUMMARY.dlux_version || META.dlux_version || "—");
+  const ovScope = scopeLabel(SUMMARY.media_included);
+  add("Backup scope", ovScope ? ovScope.text : "Unknown (pre-1.2.10 backup)");
   const enc = META.encryption || {};
   add("Encryption", `${enc.scheme || "fernet-chunked"} · ${enc.kdf || ""} · ${enc.iterations || ""} iters`);
   add("Key source", enc.key_source || "—");
@@ -270,7 +374,13 @@ function renderFiles(c) {
   c.append(el("h2", { text: "Stored files" }));
   const files = (SUMMARY && SUMMARY.files) || [];
   if (!files.length) {
-    c.append(el("p", { class: "muted", text: "This backup contains no stored files." }));
+    const mi = SUMMARY ? SUMMARY.media_included : undefined;
+    const msg = mi === false
+      ? "This is a data-only (Quick) backup — media files were intentionally excluded. The database records are fully present and restorable; only the stored blobs were skipped."
+      : mi === true
+        ? "This is a full backup, but no records had stored files to archive."
+        : "This backup contains no stored files.";
+    c.append(el("p", { class: "muted", text: msg }));
     return;
   }
   const head = el("tr", {}, ["Model", "PK", "Field", "Name", ""].map((h) => el("th", { text: h })));
@@ -310,7 +420,7 @@ async function loadModelPage() {
     });
     const data = await api("/api/model?" + q.toString());
     MODEL_STATE.total = data.total;
-    renderModelTable(c, data);
+    await renderModelTable(c, data);
   } catch (err) {
     c.innerHTML = "";
     c.append(el("h2", { text: MODEL_STATE.key }));
@@ -318,7 +428,7 @@ async function loadModelPage() {
   }
 }
 
-function renderModelTable(c, data) {
+async function renderModelTable(c, data) {
   c.innerHTML = "";
   c.append(el("h2", { text: data.key }));
 
@@ -340,16 +450,68 @@ function renderModelTable(c, data) {
     }
   }
   const cols = ["pk", ...fieldKeys];
-  const head = el("tr", {}, cols.map((c2) => el("th", { text: c2 })));
+
+  // Relation columns for this model, and the label maps they need (loaded only
+  // when the user has opted to resolve relations).
+  const relations = (schemaFor(data.key) || {}).relations || {};
+  let maps = {};
+  if (RESOLVE_RELATIONS) {
+    const targets = [...new Set(
+      cols.filter((col) => relations[col]).map((col) => relations[col].to),
+    )];
+    const loaded = await Promise.all(targets.map(getLabels));
+    targets.forEach((t, i) => { maps[String(t).toLowerCase()] = loaded[i]; });
+  }
+
+  const head = el("tr", {}, cols.map((col) => {
+    const th = el("th", { text: col });
+    if (relations[col]) {
+      th.classList.add("rel-col");
+      th.title = `${relations[col].kind} → ${relations[col].to}`;
+    }
+    return th;
+  }));
 
   const body = recs.map((r) => {
     const cells = cols.map((col) => {
-      let v = col === "pk" ? r.pk : (r.fields || {})[col];
+      const v = col === "pk" ? r.pk : (r.fields || {})[col];
       if (v === null || v === undefined) return el("td", { class: "muted", text: "—" });
+
+      // File-field cell: if this record's (model, pk, field) has an archived
+      // blob, surface it as a direct open-inline link (+ a download caret) using
+      // the readable basename, instead of the raw random storage path. Absent for
+      // data-only/quick backups, where the blob isn't in the container.
+      if (col !== "pk") {
+        const entry = fileIndex().get(fileKey(data.key, r.pk, col));
+        if (entry) {
+          const td = el("td", { class: "filecell" });
+          td.append(el("a", {
+            class: "filelink", href: fileURL(entry.path, false),
+            target: "_blank", rel: "noopener",
+            text: baseName(entry.name) || String(v), title: String(v),
+          }));
+          td.append(document.createTextNode(" "));
+          td.append(el("a", {
+            class: "filelink dl", href: fileURL(entry.path, true),
+            title: "download", text: "↓",
+          }));
+          return td;
+        }
+      }
+
+      const rel = relations[col];
+      if (rel && RESOLVE_RELATIONS) {
+        const name = resolveRelation(rel, v, maps);
+        const raw = typeof v === "object" ? JSON.stringify(v) : String(v);
+        const td = el("td", { class: "rel-name", title: `${rel.kind} → ${rel.to} · ${raw}` });
+        td.append(document.createTextNode(name));
+        if (name !== raw) td.append(el("span", { class: "rel-raw", text: ` (${raw})` }));
+        return td;
+      }
+
       if (typeof v === "object") return el("td", { class: "json", text: JSON.stringify(v) });
       const s = String(v);
-      const td = el("td", { text: s, title: s });
-      return td;
+      return el("td", { text: s, title: s });
     });
     return el("tr", {}, cells);
   });

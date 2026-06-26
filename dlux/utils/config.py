@@ -376,6 +376,7 @@ def build_config_groups(config, current_language=None):
             'default_theme': config.get('default_theme', 'light'),
             'allowed_themes': list(config.get('allowed_themes', [])),
             'default_table_density': config.get('default_table_density', DEFAULT_TABLE_DENSITY),
+            'footer_text': config.get('footer_text', '') or '',
             'titlebar': config.get('titlebar', default_titlebar_config()),
         },
         'personalization': {
@@ -519,13 +520,9 @@ def default_layout_config():
 
 
 def normalize_layout_config(value):
-    cfg = value if isinstance(value, dict) else {}
-    density = cfg.get('default_table_density') or DEFAULT_TABLE_DENSITY
-    if density not in TABLE_DENSITY_VALUES:
-        density = DEFAULT_TABLE_DENSITY
-    return {
-        'default_table_density': density,
-    }
+    # Delegate to the schema normalizer (also rebound below at module load) so
+    # layout fields like footer_text stay in one place.
+    return _system_normalize_layout_config(value)
 
 
 def default_language_config():
@@ -965,6 +962,8 @@ def get_system_config():
             )
         ):
             db_config['default_table_density'] = sys_settings.default_table_density
+        if str(getattr(sys_settings, 'footer_text', '') or '').strip():
+            db_config['footer_text'] = sys_settings.footer_text
         if isinstance(sys_settings.languages, dict) and sys_settings.languages:
             db_config['languages'] = sys_settings.languages
         if isinstance(sys_settings.translations_override, dict) and sys_settings.translations_override:

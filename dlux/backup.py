@@ -40,7 +40,7 @@ from django.db import connection, transaction
 from django.db.migrations.recorder import MigrationRecorder
 from django.utils import timezone
 
-from .reports import stream_model_into_zip
+from .reports import build_relation_schema, stream_model_into_zip
 from .system.defaults import default_backup_config
 from .system.normalizers import normalize_backup_config
 
@@ -345,6 +345,9 @@ def write_system_backup(dest, *, passphrase=None, progress_callback=None, includ
         "missing_files": [],
     }
     models_to_export = get_system_backup_models()
+    # Bake relation/label schema into the manifest so the standalone .dlb viewer
+    # can resolve FK/M2M/O2O references to readable names without this project.
+    manifest["schema"] = build_relation_schema(models_to_export)
     total_models = max(len(models_to_export), 1)
     from .translations import get_strings
     strings = get_strings()

@@ -65,12 +65,20 @@ def filter_context_actions(user, actions, manage_sections_perm=None):
     Each action can have a 'permissions' key (list of strings) or 'permission' (string).
     If user lacks any required permission, the action is excluded.
 
+    The manage_sections permission is a *scoped* override: it only grants actions
+    that explicitly opt in with a truthy 'section_action' flag (the section/
+    subsection management surfaces). It deliberately does NOT bypass per-model
+    permissions on generic data-grid actions — e.g. a manage_sections holder
+    without `app.delete_model` must not be offered the Delete entry. This keeps
+    UI visibility aligned with backend authorization (DSRP-1).
+
     Args:
         user: The user to check permissions for
         actions: List of action dicts, each may contain 'permissions' or 'permission'
+                 and, for section surfaces, 'section_action': True.
         manage_sections_perm: Optional permission string (e.g., 'dlux.manage_sections')
-                             that grants full access to all section-related actions.
-                             Defaults to checking 'dlux.manage_sections' if None.
+                             that grants section-flagged actions. Defaults to
+                             'dlux.manage_sections' if None.
     """
     if not user or not user.is_authenticated:
         return []
@@ -79,7 +87,7 @@ def filter_context_actions(user, actions, manage_sections_perm=None):
     if manage_sections_perm is None:
         manage_sections_perm = 'dlux.manage_sections'
 
-    # Check if user has manage_sections permission (grants full section access)
+    # Check if user has manage_sections permission (grants section-flagged actions)
     has_manage_sections = user.has_perm(manage_sections_perm)
 
     filtered = []
@@ -93,8 +101,9 @@ def filter_context_actions(user, actions, manage_sections_perm=None):
             if user.is_superuser:
                 # Superuser sees all
                 pass
-            elif has_manage_sections:
-                # Users with manage_sections should see all section-related actions
+            elif has_manage_sections and action.get('section_action'):
+                # manage_sections only overrides actions explicitly flagged as
+                # section-management actions — never generic per-model actions.
                 pass
             elif not user.has_perms(required_perms):
                 continue

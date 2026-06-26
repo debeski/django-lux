@@ -1,0 +1,17 @@
+{% load dlux_tags %}
+{# Reusable global footer: a faint, very small copyright/credit strip pinned to #}
+{# the bottom of the viewport (styled in dlux/main/css/footer.css).             #}
+{#                                                                              #}
+{# Content resolution (most specific wins):                                     #}
+{#   1. Override the `footer` block in a page template that extends             #}
+{#      dlux/base.html — change or remove the footer for that page/section.     #}
+{#   2. Drop a `dlux/includes/custom_footer.html` partial in the project to     #}
+{#      replace the default line site-wide (no need to touch dlux templates).   #}
+{#   3. Set the Footer text in System Settings → Themes & Typography (stored as  #}
+{#      layout_config.footer_text, surfaced as APP_CONFIG.appearance.footer_text). #}
+{#   4. Set DLUX_STRINGS.footer_text in code for a translated fallback.          #}
+{#   5. Otherwise a default "© <year> <system name>" line is shown.             #}
+{% include_if_exists 'dlux/includes/custom_footer.html' as custom_footer %}
+<footer class="dlux-footer" role="contentinfo">
+    {% if custom_footer %}{{ custom_footer }}{% elif APP_CONFIG.appearance.footer_text %}<span class="dlux-footer__text">{{ APP_CONFIG.appearance.footer_text }}</span>{% elif DLUX_STRINGS.footer_text %}<span class="dlux-footer__text">{{ DLUX_STRINGS.footer_text }}</span>{% else %}<span class="dlux-footer__text">&copy; {% now "Y" %} {{ APP_CONFIG.identity.display_name|default:"DjangoLux" }}</span>{% endif %}
+</footer>

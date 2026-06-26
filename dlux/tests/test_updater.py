@@ -376,7 +376,21 @@ class RuntimeStoreTests(TestCase):
             launches = [json.loads(line) for line in log.read_text().splitlines()]
             self.assertGreaterEqual(len(launches), 2)
             self.assertTrue(all(str(release) in item["pythonpath"] for item in launches[:2]))
-            self.assertTrue(all(item["baked"] == __version__ for item in launches[:2]))
+            # The supervisor bakes DLUX_BAKED_VERSION from the *installed* package
+            # metadata (importlib.metadata), not from the release manifest that
+            # backs dlux.__version__. The two only coincide on a fresh install, so
+            # comparing against __version__ here would spuriously fail after any
+            # manifest bump that predates a reinstall. Resolve the expected value
+            # exactly the way the supervisor does instead.
+            expected_baked = os.environ.get("DLUX_BAKED_VERSION")
+            if not expected_baked:
+                import importlib.metadata
+
+                try:
+                    expected_baked = importlib.metadata.version("django-lux")
+                except importlib.metadata.PackageNotFoundError:
+                    expected_baked = ""
+            self.assertTrue(all(item["baked"] == expected_baked for item in launches[:2]))
 
     def test_reconcile_preserves_image_baked_version_while_volume_release_is_active(self):
         with tempfile.TemporaryDirectory() as temp_dir:

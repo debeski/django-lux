@@ -1,0 +1,55 @@
+/* DjangoLux global footer — a faint, very small credit/copyright strip pinned
+   to the bottom of the viewport. Theme-aware and semi-transparent so it floats
+   over the page without stealing attention. Override the CSS variables below to
+   restyle, or override the `footer` / `footer_content` template blocks to change
+   what it contains. */
+.dlux-footer {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 1020; /* below Bootstrap modals (1055) and offcanvas so it never covers them */
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem 0.6rem;
+    min-height: 1.35rem;
+    padding: 0.12rem 0.85rem;
+    margin: 0;
+    font-size: 0.68rem;
+    line-height: 1.25;
+    letter-spacing: 0.01em;
+    text-align: center;
+    color: var(--dlux-footer-color, color-mix(in srgb, var(--htitle, #64748b) 72%, transparent));
+    background: var(--dlux-footer-bg, rgba(255, 255, 255, 0.42));
+    -webkit-backdrop-filter: blur(6px) saturate(1.1);
+    backdrop-filter: blur(6px) saturate(1.1);
+    border-top: 1px solid var(--dlux-footer-border, rgba(148, 163, 184, 0.22));
+    /* Let clicks pass through the bar to the content behind it; interactive
+       children (links/buttons) re-enable pointer events below. */
+    pointer-events: none;
+    user-select: none;
+}
+
+.dlux-footer:empty {
+    display: none;
+}
+
+.dlux-footer a,
+.dlux-footer button {
+    pointer-events: auto;
+    user-select: auto;
+    color: inherit;
+    font: inherit;
+}
+
+.dlux-footer a {
+    text-decoration: none;
+    opacity: 0.9;
+}
+
+.dlux-footer a:hover,
+.dlux-footer a:focus-visible {
+    text-decoration: underline;
+    opacity: 1;
+}

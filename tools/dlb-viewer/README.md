@@ -64,12 +64,39 @@ a clear "incorrect password or corrupted backup" message.
 ## What you can browse
 
 - **Overview** — counts, generation time, Dlux version, encryption params,
-  superuser policy.
+  superuser policy, and the **backup scope**: *Full (database + media)* or
+  *Data only — media excluded* (the Quick scope), read from the `media_included`
+  flag in the header/manifest. Pre-1.2.10 backups predate the flag and show
+  *Unknown*. The same scope is shown on the unlock screen before you decrypt.
 - **Models** — each model's serialized rows, paginated, rendered as a table.
   (Superuser password hashes are omitted in the backup itself, by design.)
-- **Stored files** — open or download any file field captured in the backup.
+  Relation columns (foreign keys, one-to-one, many-to-many) are marked with a
+  `↗`. A **"Resolve relations"** toggle in the top bar swaps them between the
+  raw stored reference (a PK or natural key) and a readable name resolved from
+  the related model's rows. This relies on a `schema` block the backup records
+  in `manifest.json`; backups written before that feature shipped have no
+  schema, so the toggle is hidden and references are shown as stored.
+  **File-field cells** (e.g. a profile picture or an uploaded document) link
+  straight to the stored file by its readable name instead of the raw random
+  storage path — the name opens the file inline in a new tab, and a `↓` next to
+  it downloads. In a data-only (Quick) backup the blob isn't in the container,
+  so those cells stay as plain text.
+- **Stored files** — the full table of captured file fields; **open** renders a
+  viewable file (PDF, image, plain text) inline in a new tab, **download** saves
+  it. When a backup has no stored files the view explains why — a data-only
+  (Quick) backup says media was intentionally excluded, versus a full backup
+  that simply had none.
 - **Migration state** — the applied migrations recorded at backup time.
 - **Raw manifest** — the full `manifest.json`.
+
+### Opening files inline
+
+"Open" serves the file with a real `Content-Type` derived from its extension, so
+the browser renders it: **PDF** via the built-in PDF viewer, **images**
+(`png`/`jpg`/`gif`/`webp`/`bmp`) directly, and plain-text/`csv`/`json` as text.
+Unknown types — and active content like HTML/SVG/XML — are forced to download
+instead of rendering, so a malicious `.dlb` can't run script in the viewer's own
+origin. Responses always carry `X-Content-Type-Options: nosniff`.
 
 ## Container format (reference)
 

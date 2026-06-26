@@ -693,6 +693,95 @@ def _backup_label_field(model):
     return ""
 
 
+def _model_natural_key_fields(model):
+    """Best-effort field list composing a model's natural key, or ``[]``.
+
+    System backups serialize foreign keys with ``use_natural_foreign_keys=True``,
+    so an FK to a model that defines ``natural_key()`` is stored as that natural
+    key (e.g. ``["alice"]``) rather than a PK. Only confidently-derivable cases
+    are reported — currently models exposing ``USERNAME_FIELD`` (the auth user) —
+    so the viewer can map such references to a label. When this returns ``[]``
+    the viewer falls back to displaying the raw natural key, which is itself
+    already human-readable.
+    """
+    if not callable(getattr(model, "natural_key", None)):
+        return []
+    username_field = getattr(model, "USERNAME_FIELD", None)
+    if username_field:
+        try:
+            model._meta.get_field(username_field)
+        except Exception:
+            return []
+        return [username_field]
+    return []
+
+
+def build_relation_schema(models_list):
+    """Per-model relation + label metadata baked into the backup manifest.
+
+    Lets the standalone ``.dlb`` viewer resolve FK/O2O/M2M references to readable
+    labels without the originating project. Shape::
+
+        {"app.model": {"label_field": "name",
+                       "natural_key_fields": ["username"],   # omitted when empty
+                       "relations": {"field": {"kind": "fk|o2o|m2m",
+                                               "to": "app.target"}}}}
+
+    Only relations that ``dumpdata`` actually serializes are recorded (concrete
+    FK/O2O fields and M2M fields backed by an auto-created through table), keyed
+    by the same name the serializer uses in each record's ``fields`` map.
+    Defensive: any per-model failure is skipped rather than breaking the backup,
+    since this is a viewer convenience, not restore data.
+    """
+    schema = {}
+    for model in models_list:
+        try:
+            meta = model._meta
+            relations = {}
+            for field in meta.concrete_fields:
+                if not field.is_relation or field.related_model is None:
+                    continue
+                kind = "o2o" if field.one_to_one else "fk" if field.many_to_one else ""
+                if not kind:
+                    continue
+                relations[field.name] = {
+                    "kind": kind,
+                    "to": field.related_model._meta.label_lower,
+                }
+            for field in meta.local_many_to_many:
+                if field.related_model is None:
+                    continue
+                # Only auto-created through tables are serialized by dumpdata.
+                if not field.remote_field.through._meta.auto_created:
+                    continue
+                relations[field.name] = {
+                    "kind": "m2m",
+                    "to": field.related_model._meta.label_lower,
+                }
+            label_field = _backup_label_field(model)
+            if not label_field:
+                # User-like models rarely have a name/title field but read well
+                # by their login identifier (e.g. username).
+                username_field = getattr(model, "USERNAME_FIELD", None)
+                if username_field:
+                    try:
+                        meta.get_field(username_field)
+                        label_field = username_field
+                    except Exception:
+                        pass
+            entry = {
+                "label_field": label_field,
+                "relations": relations,
+            }
+            natural_key_fields = _model_natural_key_fields(model)
+            if natural_key_fields:
+                entry["natural_key_fields"] = natural_key_fields
+            schema[meta.label_lower] = entry
+        except Exception:
+            continue
+    return schema
+
+
 def _safe_archive_segment(value, *, max_length=80):
     value = unicodedata.normalize("NFKC", str(value or "")).strip()
     value = re.sub(r"[\\/\x00-\x1f\x7f]+", "-", value)

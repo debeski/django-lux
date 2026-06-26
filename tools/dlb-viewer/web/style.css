@@ -48,7 +48,22 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .title { font-weight: 600; }
 .source { color: var(--muted); font-family: var(--mono); font-size: 12px; }
 
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.rel-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--muted); cursor: pointer; user-select: none;
+}
+.rel-toggle input { accent-color: var(--accent); cursor: pointer; }
+
+/* Relation columns: header marker + resolved-name cell styling. */
+th.rel-col::after { content: " ↗"; color: var(--accent); font-weight: 400; }
+td.rel-name { color: var(--text); }
+td.rel-name .rel-raw { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+
 #app { padding: 24px; }
+/* The data browser fills the window edge-to-edge; only the small
+   upload/unlock cards (.screen) stay centered and width-clamped. */
+#app:has(> .browse:not([hidden])) { padding: 0; }
 
 .screen { max-width: 720px; margin: 6vh auto; }
 .card {
@@ -185,5 +200,7 @@ pre.raw {
 
 a.filelink { color: var(--accent); text-decoration: none; }
 a.filelink:hover { text-decoration: underline; }
+a.filelink.dl { color: var(--muted); font-weight: 600; }
+.filecell { white-space: nowrap; }
 
 .spinner { color: var(--muted); padding: 30px; }

@@ -13,7 +13,13 @@
       <span class="logo">DLB</span>
       <span class="title">Dlux Backup Viewer</span>
     </div>
-    <div class="source" id="source-label"></div>
+    <div class="topbar-right">
+      <label class="rel-toggle" id="rel-toggle" hidden title="Show readable names for foreign-key, one-to-one and many-to-many columns instead of raw IDs.">
+        <input type="checkbox" id="rel-toggle-input">
+        <span>Resolve relations</span>
+      </label>
+      <div class="source" id="source-label"></div>
+    </div>
   </header>
 
   <main id="app">
@@ -61,7 +67,7 @@
     </section>
 
     <!-- Step 3: browse -->
-    <section id="screen-browse" class="screen browse" hidden>
+    <section id="screen-browse" class="browse" hidden>
       <aside class="sidebar">
         <div class="sidebar-section">
           <button class="navitem" data-view="overview">Overview</button>

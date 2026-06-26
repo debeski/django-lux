@@ -1,3 +1,6 @@
+import atexit
+import shutil
+import tempfile
 from pathlib import Path
 
 
@@ -51,6 +54,14 @@ DATABASES = {
 
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
+# Default ``MEDIA_ROOT`` is the empty string, which resolves ``default_storage``
+# writes (system-backup ``.dlb`` artifacts, profile pictures, etc.) relative to
+# the current working directory — i.e. straight into the tracked working tree.
+# Anchor it at a process-scoped temp dir so no test can persist into the repo,
+# even ones that forget to ``override_settings(MEDIA_ROOT=...)``. Per-test temp
+# overrides still take precedence; this is the backstop.
+MEDIA_ROOT = tempfile.mkdtemp(prefix='dlux-test-media-')
+atexit.register(shutil.rmtree, MEDIA_ROOT, ignore_errors=True)
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 USE_TZ = True
 

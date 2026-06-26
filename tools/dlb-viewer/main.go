@@ -54,13 +54,33 @@ type ManifestFile struct {
 }
 
 type Manifest struct {
-	GeneratedAt     string          `json:"generated_at"`
-	DluxVersion string          `json:"dlux_version"`
-	MigrationState  []string        `json:"migration_state"`
-	Models          []ManifestModel `json:"models"`
-	Files           []ManifestFile  `json:"files"`
-	MissingFiles    []ManifestFile  `json:"missing_files"`
-	SuperuserPolicy json.RawMessage `json:"superuser_policy"`
+	GeneratedAt     string                 `json:"generated_at"`
+	DluxVersion     string                 `json:"dlux_version"`
+	MigrationState  []string               `json:"migration_state"`
+	Models          []ManifestModel        `json:"models"`
+	Files           []ManifestFile         `json:"files"`
+	MissingFiles    []ManifestFile         `json:"missing_files"`
+	SuperuserPolicy json.RawMessage        `json:"superuser_policy"`
+	Schema          map[string]ModelSchema `json:"schema"`
+	// MediaIncluded mirrors the backup-scope flag (see Metadata.MediaIncluded);
+	// nil for pre-1.2.10 backups that predate the full-vs-data-only split.
+	MediaIncluded *bool `json:"media_included"`
+}
+
+// ModelSchema / RelationInfo mirror the per-model relation+label metadata baked
+// into manifest.json (dlux/reports.py build_relation_schema). It lets the viewer
+// resolve FK/O2O/M2M references to readable labels with no originating project.
+// Absent on backups written before this shipped — every consumer falls back to
+// the raw reference in that case.
+type ModelSchema struct {
+	LabelField       string                  `json:"label_field"`
+	NaturalKeyFields []string                `json:"natural_key_fields"`
+	Relations        map[string]RelationInfo `json:"relations"`
+}
+
+type RelationInfo struct {
+	Kind string `json:"kind"` // fk | o2o | m2m
+	To   string `json:"to"`   // target model key, e.g. "auth.user"
 }
 
 // App holds the (single, local) viewer session state.
@@ -107,6 +127,7 @@ func main() {
 	mux.HandleFunc("/api/unlock", app.guard(app.handleUnlock))
 	mux.HandleFunc("/api/manifest", app.guard(app.handleManifest))
 	mux.HandleFunc("/api/model", app.guard(app.handleModel))
+	mux.HandleFunc("/api/labels", app.guard(app.handleLabels))
 	mux.HandleFunc("/api/file", app.guard(app.handleFile))
 
 	srv := &http.Server{Handler: mux}
@@ -384,6 +405,146 @@ func (a *App) handleModel(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleLabels builds a compact {reference -> label} index for one model so the
+// UI can resolve relation columns that point at it. It reads the model's full
+// record stream but emits only the PK and the schema-chosen label field, keeping
+// large field/file data on the server. Returns by_pk (keyed by PK string) and,
+// when the model's natural-key fields are known, by_nk (keyed by the JSON of the
+// natural-key tuple — how an FK is stored when use_natural_foreign_keys applies).
+func (a *App) handleLabels(w http.ResponseWriter, r *http.Request) {
+	key := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("key")))
+	if key == "" || !strings.Contains(key, ".") {
+		writeErr(w, http.StatusBadRequest, "a model key (app.model) is required")
+		return
+	}
+
+	a.mu.Lock()
+	zr := a.zipReader
+	var ms ModelSchema
+	haveSchema := false
+	if a.manifest != nil && a.manifest.Schema != nil {
+		ms, haveSchema = a.manifest.Schema[key]
+	}
+	a.mu.Unlock()
+	if zr == nil {
+		writeErr(w, http.StatusBadRequest, "backup is locked")
+		return
+	}
+
+	byPK := map[string]string{}
+	byNK := map[string]string{}
+
+	if haveSchema {
+		parts := strings.SplitN(key, ".", 2)
+		member := fmt.Sprintf("data/%s/%s.json", parts[0], parts[1])
+		if f, err := zr.Open(member); err == nil {
+			defer f.Close()
+			_ = streamLabels(f, ms, byPK, byNK)
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"key":         key,
+		"label_field": ms.LabelField,
+		"by_pk":       byPK,
+		"by_nk":       byNK,
+	})
+}
+
+// streamLabels decodes a dumpdata record array, filling byPK / byNK with the
+// label derived from the schema's label field (falling back to the PK itself).
+func streamLabels(r io.Reader, ms ModelSchema, byPK, byNK map[string]string) error {
+	dec := json.NewDecoder(r)
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '[' {
+		return errors.New("unexpected data format")
+	}
+	type rec struct {
+		PK     json.RawMessage            `json:"pk"`
+		Fields map[string]json.RawMessage `json:"fields"`
+	}
+	for dec.More() {
+		var rc rec
+		if err := dec.Decode(&rc); err != nil {
+			return err
+		}
+		// Prefer the schema label field; fall back to the natural key (already
+		// human-readable) and finally the PK, so resolving never makes a column
+		// less readable than the raw reference.
+		label := ""
+		if ms.LabelField != "" {
+			if lv, ok := rc.Fields[ms.LabelField]; ok {
+				label = rawScalarString(lv)
+			}
+		}
+		if label == "" && len(ms.NaturalKeyFields) > 0 {
+			parts := make([]string, 0, len(ms.NaturalKeyFields))
+			for _, name := range ms.NaturalKeyFields {
+				parts = append(parts, rawScalarString(rc.Fields[name]))
+			}
+			label = strings.Join(parts, " / ")
+		}
+		if strings.TrimSpace(label) == "" {
+			label = rawScalarString(rc.PK)
+		}
+		if pk := rawScalarString(rc.PK); pk != "" {
+			byPK[pk] = label
+		}
+		if len(ms.NaturalKeyFields) > 0 {
+			if nk := naturalKeyOf(rc.Fields, ms.NaturalKeyFields); nk != "" {
+				byNK[nk] = label
+			}
+		}
+	}
+	return nil
+}
+
+// naturalKeyOf reproduces the JSON array a serializer emits for a natural-key
+// reference, e.g. ["alice"], so it matches how an FK is stored in other rows.
+// Returns "" if any component field is missing.
+func naturalKeyOf(fields map[string]json.RawMessage, nkFields []string) string {
+	parts := make([]json.RawMessage, 0, len(nkFields))
+	for _, name := range nkFields {
+		v, ok := fields[name]
+		if !ok {
+			return ""
+		}
+		parts = append(parts, v)
+	}
+	out, err := json.Marshal(parts)
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
+// rawScalarString renders a JSON scalar as a plain display string; non-scalars
+// (objects/arrays) are returned as their compact JSON.
+func rawScalarString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return string(raw)
+	}
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case bool:
+		return strconv.FormatBool(t)
+	case nil:
+		return ""
+	default:
+		return string(raw)
+	}
+}
+
 // handleFile streams a stored file (or any zip member) out of the backup.
 func (a *App) handleFile(w http.ResponseWriter, r *http.Request) {
 	p := strings.TrimSpace(r.URL.Query().Get("path"))
@@ -404,14 +565,47 @@ func (a *App) handleFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
-	disposition := "inline"
-	if r.URL.Query().Get("download") == "1" {
-		disposition = "attachment"
+	// Render viewable types (PDF, images, plain text) inline so "open" actually
+	// shows the file in the browser instead of downloading it. The previous
+	// hard-coded application/octet-stream + nosniff defeated inline rendering for
+	// every type. Unknown or active-content types still fall back to a download.
+	ctype, inlineable := inlineContentType(p)
+	if inlineable && r.URL.Query().Get("download") != "1" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", path.Base(p)))
+		w.Header().Set("Content-Type", ctype)
+	} else {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", path.Base(p)))
+		w.Header().Set("Content-Type", "application/octet-stream")
 	}
-	w.Header().Set("Content-Disposition", fmt.Sprintf("%s; filename=%q", disposition, path.Base(p)))
-	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	_, _ = io.Copy(w, f)
+}
+
+// inlineContentType maps a stored filename to a MIME type the browser can render
+// inline. It returns ("", false) for anything we'd rather force-download: unknown
+// types, and active content like HTML/SVG/XML that could execute script in the
+// viewer's own origin. Keeping the allowlist narrow means a correct Content-Type
+// is always paired with X-Content-Type-Options: nosniff.
+func inlineContentType(name string) (string, bool) {
+	switch strings.ToLower(path.Ext(name)) {
+	case ".pdf":
+		return "application/pdf", true
+	case ".png":
+		return "image/png", true
+	case ".jpg", ".jpeg":
+		return "image/jpeg", true
+	case ".gif":
+		return "image/gif", true
+	case ".webp":
+		return "image/webp", true
+	case ".bmp":
+		return "image/bmp", true
+	case ".txt", ".log", ".md", ".csv":
+		return "text/plain; charset=utf-8", true
+	case ".json":
+		return "application/json; charset=utf-8", true
+	}
+	return "", false
 }
 
 // ── source / state management ────────────────────────────────────────────────
@@ -454,12 +648,14 @@ func (a *App) manifestSummary() map[string]any {
 	}
 	return map[string]any{
 		"generated_at":     m.GeneratedAt,
-		"dlux_version": m.DluxVersion,
+		"dlux_version":     m.DluxVersion,
 		"migration_state":  m.MigrationState,
 		"models":           m.Models,
 		"files":            m.Files,
 		"missing_files":    m.MissingFiles,
 		"superuser_policy": m.SuperuserPolicy,
+		"schema":           m.Schema,
+		"media_included":   m.MediaIncluded,
 	}
 }
 

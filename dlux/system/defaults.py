@@ -106,6 +106,7 @@ def default_notification_config():
 def default_layout_config():
     return {
         'default_table_density': DEFAULT_TABLE_DENSITY,
+        'footer_text': '',
     }
 
 

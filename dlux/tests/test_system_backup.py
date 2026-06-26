@@ -21,6 +21,7 @@ from django.utils import timezone
 from dlux.backup import (
     apply_backup_retention,
     decrypt_dlb_to_tempfile,
+    get_system_backup_models,
     get_system_backup_storage_prefix,
     read_dlb_metadata,
     run_scheduled_system_backup,
@@ -28,6 +29,7 @@ from dlux.backup import (
     run_system_restore,
     write_system_backup,
 )
+from dlux.reports import build_relation_schema
 from dlux.system.defaults import default_backup_config
 from dlux.system.normalizers import normalize_backup_config
 
@@ -161,6 +163,39 @@ class DlbContainerTests(TestCase):
             # The record JSON (including the file-field name) is still present, so the
             # row is fully restorable; only the blob copy is skipped.
             self.assertGreater(meta['rows'], 0)
+
+    def test_manifest_bakes_relation_schema_for_standalone_viewer(self):
+        buffer = io.BytesIO()
+        _meta, manifest = write_system_backup(buffer)
+        schema = manifest.get('schema')
+        self.assertIsInstance(schema, dict)
+        self.assertTrue(schema)
+
+        # Foreign key recorded on a known dlux model.
+        notif_state = schema.get('dlux.dluxnotificationstate', {})
+        self.assertEqual(
+            notif_state.get('relations', {}).get('notification', {}).get('kind'),
+            'fk',
+        )
+
+        # One-to-one to the user model recorded as o2o pointing at it.
+        profile = schema.get('dlux.profile', {})
+        user_rel = profile.get('relations', {}).get('user', {})
+        self.assertEqual(user_rel.get('kind'), 'o2o')
+        self.assertEqual(user_rel.get('to'), User._meta.label_lower)
+
+        # FKs to the user model serialize as natural keys, so the user model's
+        # natural-key fields are recorded for the viewer to resolve them.
+        user_schema = schema.get(User._meta.label_lower, {})
+        self.assertEqual(user_schema.get('natural_key_fields'), [User.USERNAME_FIELD])
+
+    def test_build_relation_schema_marks_m2m_relations(self):
+        schema = build_relation_schema(get_system_backup_models())
+        groups_rel = (
+            schema.get(User._meta.label_lower, {}).get('relations', {}).get('groups', {})
+        )
+        self.assertEqual(groups_rel.get('kind'), 'm2m')
+        self.assertEqual(groups_rel.get('to'), 'auth.group')
 
     def test_container_round_trip(self):
         admin = User.objects.create_superuser('dlb-admin', 'a@example.com', 'pass12345')

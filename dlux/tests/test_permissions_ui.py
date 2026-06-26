@@ -36,6 +36,60 @@ class PermissionsUiTests(TestCase):
 
         self.assertNotIn(permission.pk, form.fields['permissions'].queryset.values_list('pk', flat=True))
 
+    def test_assignable_permissions_reenable_model_delete_but_keep_sensitive_excluded(self):
+        from dlux.forms import get_assignable_permissions_queryset
+
+        content_type = ContentType.objects.create(app_label='inventory', model='widget')
+        Permission.objects.create(
+            name='Can delete widget',
+            codename='delete_widget',
+            content_type=content_type,
+        )
+
+        assignable = set(
+            get_assignable_permissions_queryset().values_list('codename', flat=True)
+        )
+
+        # Re-enabled: a business-model delete permission can be granted to users.
+        self.assertIn('delete_widget', assignable)
+        # Sensitive auth deletes stay excluded.
+        self.assertNotIn('delete_user', assignable)
+        self.assertNotIn('delete_group', assignable)
+        self.assertNotIn('delete_permission', assignable)
+
+    def test_context_menu_delete_requires_delete_permission(self):
+        from dlux.utils import filter_context_actions
+
+        staff = User.objects.create_user(
+            username='editor', password='editorpass123', is_staff=True,
+        )
+        content_type = ContentType.objects.create(app_label='inventory', model='widget')
+        delete_widget = Permission.objects.create(
+            name='Can delete widget',
+            codename='delete_widget',
+            content_type=content_type,
+        )
+        actions = [
+            {'label': 'view', 'permissions': []},
+            {'label': 'delete', 'permissions': ['inventory.delete_widget']},
+        ]
+
+        def labels_for(user):
+            fresh = User.objects.get(pk=user.pk)  # drop cached permissions
+            return {a['label'] for a in filter_context_actions(fresh, actions)}
+
+        # No delete permission → Delete entry is hidden, View remains.
+        self.assertEqual(labels_for(staff), {'view'})
+
+        # manage_sections must NOT bypass a generic per-model delete.
+        manage_sections = Permission.objects.get(codename='manage_sections')
+        staff.user_permissions.add(manage_sections)
+        self.assertEqual(labels_for(staff), {'view'})
+
+        # Explicit delete grant reveals the Delete entry.
+        staff.user_permissions.add(delete_widget)
+        self.assertEqual(labels_for(staff), {'view', 'delete'})
+
     def test_permissions_widget_skips_orphaned_content_type_permissions(self):
         content_type = ContentType.objects.create(app_label='orphaned_app', model='ghostmodel')
         permission = Permission.objects.create(

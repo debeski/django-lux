@@ -20,6 +20,7 @@ from .constants import (
     EMAIL_CONFIG_PROVIDER_PRESET_VALUES,
     EMAIL_CONFIG_SECRET_STORAGES,
     EMAIL_CONFIG_TRANSPORTS,
+    LAYOUT_FOOTER_TEXT_MAX_LENGTH,
     LOGIN_STYLE_VALUES,
     NAVBAR_MODE_VALUES,
     NOTIFICATION_FLASH_POSITIONS,
@@ -302,8 +303,13 @@ def normalize_layout_config(value):
     density = cfg.get('default_table_density') or DEFAULT_TABLE_DENSITY
     if density not in TABLE_DENSITY_VALUES:
         density = DEFAULT_TABLE_DENSITY
+    footer_text = cfg.get('footer_text')
+    footer_text = '' if footer_text is None else str(footer_text).strip()
+    if len(footer_text) > LAYOUT_FOOTER_TEXT_MAX_LENGTH:
+        footer_text = footer_text[:LAYOUT_FOOTER_TEXT_MAX_LENGTH].rstrip()
     return {
         'default_table_density': density,
+        'footer_text': footer_text,
     }
 
 

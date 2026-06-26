@@ -24,6 +24,8 @@ TABLE_DENSITY_VALUES = {value for value, _label in TABLE_DENSITY_CHOICES}
 DEFAULT_SIDEBAR_DENSITY = DEFAULT_TABLE_DENSITY
 SIDEBAR_DENSITY_CHOICES = TABLE_DENSITY_CHOICES
 SIDEBAR_DENSITY_VALUES = TABLE_DENSITY_VALUES
+# Max length of the optional global footer copyright/credit line (layout_config).
+LAYOUT_FOOTER_TEXT_MAX_LENGTH = 300
 DEFAULT_SIDEBAR_COLLAPSE_MODE = 'icons'
 SIDEBAR_COLLAPSE_MODE_CHOICES = (
     (DEFAULT_SIDEBAR_COLLAPSE_MODE, 'Icons'),
@@ -207,6 +209,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'allow_user_font_override',
     'allow_user_language_override',
     'default_table_density',
+    'footer_text',
     'email_2fa',
     'prevent_multiple_active_sessions',
     'login_lockout_enabled',

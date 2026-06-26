@@ -720,6 +720,37 @@ Use them for global CSS, meta tags, analytics, shared JavaScript, or framework-a
 
 The same helper layer also fits well with fetch/export and context-menu-driven workflows, so forms, tables, downloads, and auditability can all share one system language instead of being implemented as unrelated project-level utilities.
 
+### Global Footer
+
+`dlux/base.html` renders a faint, very small footer pinned to the bottom of the viewport — intended for a copyright notice, a short description, or a credit line. It is theme-aware, semi-transparent (with a backdrop blur), `pointer-events:none` so it never blocks clicks on the content behind it, and sits below Bootstrap modals/offcanvas. When it has no content it collapses (`:empty`).
+
+By default it shows `© <current year> <system display name>`. The content resolves in this order (most specific wins):
+
+1. **Per page/section** — override the `footer` block in any template that extends `dlux/base.html`:
+
+   ```django
+   {% block footer %}{% endblock %}            {# remove the footer on this page #}
+   ```
+
+   ```django
+   {% block footer %}
+     <footer class="dlux-footer">My custom footer for this page</footer>
+   {% endblock %}
+   ```
+
+2. **Site-wide replacement** — drop a `templates/dlux/includes/custom_footer.html` partial. Its rendered content replaces the default line everywhere, no dlux templates touched:
+
+   ```django
+   {# templates/dlux/includes/custom_footer.html #}
+   <span class="dlux-footer__text">&copy; {% now "Y" %} Acme Corp · All rights reserved</span>
+   ```
+
+3. **System Settings (no code, admin-editable)** — set **Footer text** in *System Settings → Themes & Typography → Footer*. It is stored on `SystemSettings.layout_config.footer_text` (a runtime-editable layout option, like Default Table Density) and surfaced to templates as `APP_CONFIG.appearance.footer_text`. This is the recommended place for a per-deployment copyright/description line. It participates in System Settings export/import.
+
+4. **Code fallback** — set `footer_text` in your project `DLUX_STRINGS` for a translated default when no admin value is configured.
+
+To restyle without editing templates, override the CSS variables on `.dlux-footer` (e.g. in `custom_head.html`): `--dlux-footer-color`, `--dlux-footer-bg`, `--dlux-footer-border`.
+
 ### Form Pages
 
 If a page is primarily a form, prefer the dedicated form base instead of loading form-only assets through the global base hooks:
@@ -793,22 +824,15 @@ If a page renders a filter helper but cannot extend `dlux/list_base.html`, inclu
 
 ### Embedded or Modal Forms
 
-If a page hosts an embedded form or modal form but does not itself extend `dlux/form_base.html`, include the shared form assets on the host page:
+The shared form assets (`dlux/forms/assets_head.html` + `dlux/forms/assets_scripts.html`) are now loaded **globally and exactly once** by `dlux/base.html`, because the dynamic modal (`dlux/helpers/dynamic_modal.html`) can render a form on *any* page — not just pages that extend `dlux/form_base.html`. This means forms opened in the dynamic modal from a list or detail page are styled and wired up automatically, with no host-page setup required.
 
-- `dlux/forms/assets_head.html`
-- `dlux/forms/assets_scripts.html`
+You therefore no longer need to manually include the form assets on embedded/modal-form host pages, and you should **not** add them to `templates/dlux/includes/custom_head.html` / `custom_scripts.html` — doing so would emit the same `<link>`/`<script>` tags twice. (`form_base.html` still references them via `{% include_once %}`, which dedupes against the global load.)
 
-Example:
+If you ever need to guarantee an asset partial loads at most once regardless of how many places pull it, use the `include_once` tag:
 
 ```django
-{% block extra_head %}
-    {% include "dlux/forms/assets_head.html" %}
-{% endblock %}
-
-{% block scripts %}
-    {{ block.super }}
-    {% include "dlux/forms/assets_scripts.html" %}
-{% endblock %}
+{% load dlux_tags %}
+{% include_once "dlux/forms/assets_head.html" %}
 ```
 
 ### File Field Template Override

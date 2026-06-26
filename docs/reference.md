@@ -479,6 +479,11 @@ Common runtime feature flags in `get_system_config()`:
   `mode` (`auto`, `x_forwarded_for`, `remote_addr`, `x_real_ip`, `cloudflare`,
   or `custom`), `trusted_proxy_hops` (0–8), and `custom_header` for custom mode.
 - `default_table_density` — System default table density (`balanced`, `dense`, or `roomy`)
+- `footer_text` — Optional copyright/description line for the global page footer
+  (`layout_config.footer_text`, max 300 chars, blank by default). Edited from
+  *System Settings → Themes & Typography → Footer* and exposed to templates as
+  `APP_CONFIG.appearance.footer_text`; the `dlux/includes/footer.html` partial
+  renders it, falling back to `DLUX_STRINGS.footer_text` then `© <year> <system name>`.
 
 Theme/runtime UI notes:
 
@@ -626,6 +631,7 @@ notice.setAttribute('data-autoclose', 'false');
 | --- | --- | --- |
 | `dlux_timesince` | simple tag | Translated relative timestamp output |
 | `include_if_exists` | simple tag | Render a template only if it exists |
+| `include_once` | simple tag | Render a template at most once per request (dedupes shared asset partials) |
 
 ### `dlux_translation`
 

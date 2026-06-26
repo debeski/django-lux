@@ -100,7 +100,7 @@
 ### Generated Project Structure
 - **Config package** (`config/` instead of project name reuse)
 - **Docker baseline:** `.dockerignore`, `Dockerfile`, `compose.yml`, `compose.dev.yml`
-- **Nginx config:** `.nginx/nginx.conf`
+- **Nginx config:** `.nginx/default.conf.template` (nginx `envsubst` template — `${NGINX_SERVER_NAME}` / `${NGINX_MAX_SIZE}` filled at container start)
 - **Entry scripts:** `entrypoint.sh`, `start.sh`, `start.ps1` (Windows path translation)
 - **Secrets:** `.secrets/.env` with Django, database, pgAdmin, admin, sender, and SMTP-relay bootstrap values
 - **Celery worker:** `config/celery.py` with Redis broker

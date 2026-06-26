@@ -38,6 +38,7 @@
     <link rel="stylesheet" href="{% static 'dlux/main/css/template_cleanup.css' %}?v=20260615b">
 
     <link rel="stylesheet" href="{% static 'dlux/main/css/pagination.css' %}">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/footer.css' %}?v=20260625a">
     <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260621a">
     {% for theme in DLUX_THEMES %}
     <link rel="stylesheet" href="{% static theme.css_path %}?v=20260622a">
@@ -55,6 +56,9 @@
     <!-- Driver.js moved to tutorial.html -->
     {% load dlux_tags %}
     {% include_if_exists 'dlux/includes/custom_head.html' %}
+    {# Form-field CSS is loaded globally (once) so forms opened in the dynamic #}
+    {# modal from any page — not just dlux/form_base.html pages — are styled. #}
+    {% include_once 'dlux/forms/assets_head.html' %}
     {% block extra_head %}{% endblock %}
 
     <script src="{% static 'dlux/themes/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
@@ -114,11 +118,22 @@
     {% endif %}
     {% endblock %}
 
+    {# Global footer: faint copyright/credit strip pinned to the bottom of the   #}
+    {# viewport. Override this `footer` block per page, drop a custom_footer.html #}
+    {# partial, or set DLUX_STRINGS.footer_text to customise. See footer.html.    #}
+    {% block footer %}
+    {% include 'dlux/includes/footer.html' %}
+    {% endblock %}
+
     {% include_if_exists 'dlux/includes/custom_scripts.html' %}
     
     <!-- Include Bootstrap JS (Placed before scripts block so dependencies work) -->
     <script src="{% static 'bootstrap/bootstrap.bundle.min.js' %}" nonce="{{ request.csp_nonce }}"></script>
-    
+
+    {# Form-field JS (scan button, file widget) loaded globally (once), after #}
+    {# Bootstrap, so dynamic-modal forms work on any page. Initializers are    #}
+    {# idempotent / MutationObserver-based and no-op when no form is present.   #}
+    {% include_once 'dlux/forms/assets_scripts.html' %}
     {% block scripts %}{% endblock %}
     <link rel="stylesheet" href="{% static 'vanillajs-datepicker/datepicker-bs5.min.css' %}">
     <script src="{% static 'vanillajs-datepicker/datepicker.min.js' %}" nonce="{{ request.csp_nonce }}"></script>

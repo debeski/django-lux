@@ -64,6 +64,32 @@ def include_if_exists(context, template_name):
         return ""
 
 
+@register.simple_tag(takes_context=True)
+def include_once(context, template_name):
+    """
+    Include a template at most once per request, no matter how many places
+    invoke it. Used for shared asset partials (e.g. form CSS/JS) that may be
+    pulled both globally from base.html and again from form_base.html or the
+    dynamic modal — the first render wins, later calls render nothing so the
+    same <link>/<script> tags are never emitted twice on one page.
+    Usage: {% include_once 'path/to/template.html' %}
+    """
+    request = context.get("request")
+    seen = getattr(request, "_dlux_included_once", None) if request is not None else None
+    if seen is None:
+        seen = set()
+        if request is not None:
+            request._dlux_included_once = seen
+    if template_name in seen:
+        return ""
+    seen.add(template_name)
+    try:
+        t = get_template(template_name)
+    except TemplateDoesNotExist:
+        return ""
+    return t.render(context.flatten())
+
+
 @register.inclusion_tag('dlux/includes/navbar.html', takes_context=True)
 def dlux_navbar(context):
     request = context.get('request')
