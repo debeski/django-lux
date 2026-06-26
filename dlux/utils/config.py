@@ -965,10 +965,13 @@ def get_system_config():
             )
         ):
             db_config['default_table_density'] = sys_settings.default_table_density
-        # footer_enabled is a real toggle (False is meaningful), so always
-        # reflect the stored/effective value; legacy rows without the key get the
-        # property default (True), preserving the previous always-on behavior.
-        db_config['footer_enabled'] = bool(getattr(sys_settings, 'footer_enabled', True))
+        # footer_enabled is a real toggle (False is meaningful), but it must use
+        # the same gate as the other layout keys: applying it unconditionally
+        # would materialize a full layout_config group (via expand) that clobbers
+        # a settings-level default_table_density override on unconfigured systems.
+        _footer_enabled = bool(getattr(sys_settings, 'footer_enabled', True))
+        if _should_apply_db_override(_footer_enabled, bool(default_config.get('footer_enabled', True))):
+            db_config['footer_enabled'] = _footer_enabled
         if str(getattr(sys_settings, 'footer_text', '') or '').strip():
             db_config['footer_text'] = sys_settings.footer_text
         if str(getattr(sys_settings, 'footer_link_text', '') or '').strip():

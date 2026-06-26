@@ -50,10 +50,9 @@
   - [x] Older released items (v1.2.4–v1.2.11: dlb-viewer inline/relations/full-width, test isolation, backup scope `0006`, updater hardening, etc.) — see CHANGELOG.
 
 ### One-line info about last verified Tests:
-- 2026-06-26: CI run (633 tests) had ONE failure — `test_startproject_creates_expected_files` asserted `.env` had 12 non-empty lines but it now has 15 (the 3 `NGINX_*` envsubst vars). Fixed: count→15 + added `NGINX_PORT/SERVER_NAME/MAX_SIZE` assertIns. The test died at the count (line 127) BEFORE the new nginx/compose asserts (131+), so those went unvalidated by CI; re-validated all 16 substrings by rendering the templates directly (`{{ }}` string-replace, no Django) — all pass. No local Django env, so re-run the suite in CI to confirm green.
-- 2026-06-24: v1.2.11 — full suite 631 OK; supervisor test now derives baked version from `importlib.metadata` (not `__version__`), verified robust under a simulated manifest/metadata mismatch (manifest 1.2.99 vs installed 1.2.11); `protected/dlux/` empty, no stray `.dlb`.
-- 2026-06-24: v1.2.10 venv full suite passed 631 (added 2 relation-schema backup tests); `makemigrations --check` clean; dlb-viewer `go test ./...` (5 label/handler tests) + `go vet`/`gofmt` clean; live E2E on a real `.dlb` resolved FK names.
-- 2026-06-24: v1.2.9 source-installed full suite passed 624; focused backup 28/notification+backup 40, JS/compile/migration/inline gate/nginx/diff clean; wheel/sdist passed `twine`.
+- 2026-06-26: CI #3 (637 tests, test_dlux_setup ran) failed only on `test_get_system_config_with_settings_override` — `db_config['footer_enabled']` was set UNCONDITIONALLY, so `expand_system_config_groups` materialized a full `layout_config` (default density) that clobbered a settings-level `default_table_density='roomy'` override on unconfigured systems. Fixed: gate footer_enabled behind `_should_apply_db_override` like the other layout keys. Traced all 6 `default_table_density` asserts in test_utils — pass. Earlier CI #2 fixed test_updater 606 (stale `setRootStatus(message,5000)` assertion). Not run locally (no Django).
+- 2026-06-26: CI #1 — `test_startproject_creates_expected_files` `.env` line count 12→15 (NGINX_* vars). Fixed.
+- 2026-06-24: v1.2.11 baseline — full suite 631 OK (supervisor test derives baked version from `importlib.metadata`).
 
 ### One-line info about last time edited Docs:
 - 2026-06-26: `docs/customization-guide.md` — new "Loading Buttons" section (`DluxLoadingButton`: promise API, submit spinner, task-polling JSON contract, custom-event, `data-dlux-loading-*`).
