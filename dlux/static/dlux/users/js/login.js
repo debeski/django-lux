@@ -116,16 +116,8 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    // Submit button "thinking" state
-    const loginForm = document.querySelector('form');
-    const submitBtn = document.getElementById('submit');
-    if (loginForm && submitBtn) {
-        loginForm.addEventListener('submit', function() {
-            if (loginForm.checkValidity()) {
-                const originalText = submitBtn.innerHTML;
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> ${originalText}`;
-            }
-        });
-    }
+    // Submit "thinking" state is now handled by the shared loading-button helper
+    // (dlux/helpers/loading_button/js/main.js): the login and register submit
+    // buttons carry `data-dlux-loading`, so the global helper shows the spinner
+    // on a valid submit. No page-specific spinner code is needed here.
 });

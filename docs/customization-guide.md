@@ -401,6 +401,68 @@ Use `filter_context_actions()` on the backend when actions should disappear for 
 
 For system-managed tables, context-menu integration is part of the normal ecosystem: section tables, user flows, and dynamic modal actions already build on the same model.
 
+## Loading Buttons
+
+DjangoLux ships one reusable spinner-in-button primitive (`window.DluxLoadingButton`, loaded globally from `dlux/base.html`) so you never hand-roll the disable/spinner/restore dance again. It works on `<button>` and any clickable element, sets `aria-busy`, shows a Bootstrap `spinner-border-sm`, and restores the original content when done. By default it preserves the button's layout **in place** — it swaps a leading icon (e.g. dlux's `<i class="bi bi-save …">`) for the spinner and keeps the text, so icon-beside-text buttons don't reflow; pass an explicit `label` (or use task-polling, which streams status text) to switch to content-replace mode instead. Styling lives in `dlux/helpers/loading_button/css/main.css` (busy/done/error states, reduced-motion aware). There are four ways to use it:
+
+**1. Promise API (your own JS).** Wrap any async action; the button shows the spinner for its lifetime and returns to normal on resolve, or flashes the error state on throw:
+
+```javascript
+DluxLoadingButton.run(button, async (handle) => {
+    handle.update(DLUX_STRINGS.loading);          // optional progress label
+    const res = await fetch('/do/something/', { method: 'POST' });
+    if (!res.ok) throw new Error('failed');        // -> error state
+    return { redirect: '/done/' };                 // optional: navigate on success
+});
+```
+
+For full control over completion, use the low-level handle directly:
+
+```javascript
+const handle = DluxLoadingButton.start(button, { label: 'Saving…' });
+handle.update('Step 2 of 3…', 66);   // change label / aria-valuenow
+handle.done();                       // or handle.error('Something broke')
+```
+
+**2. Submit spinner (declarative).** Add `data-dlux-loading` to a submit button and it shows the spinner while its form posts (it cooperates with `prevent_double_submit`; the page navigates, so no restore is needed):
+
+```html
+<button type="submit" data-dlux-loading data-dlux-loading-label="Saving…">Save</button>
+```
+
+**3. Task-polling (declarative).** A button that starts a server task and polls until it finishes — no JavaScript required on your side:
+
+```html
+<button data-dlux-loading
+        data-dlux-loading-start="{% url 'thing_rebuild' thing.pk %}"
+        data-dlux-loading-poll="{% url 'thing_rebuild_status' thing.pk %}"
+        data-dlux-loading-interval="1500"
+        data-dlux-loading-label="Rebuilding…">Rebuild</button>
+```
+
+On click it POSTs `start` (CSRF-aware), then polls `poll` on the interval, reading this JSON contract from your view:
+
+```json
+{ "status": "processing", "progress": 40, "message": "Rebuilding 40%…" }
+```
+
+`status` drives the lifecycle: any of `complete/completed/done/success/finished/ok/ready` finishes the button (and follows an optional `redirect`); `error/failed/cancelled/aborted` puts it in the error state (showing `error` or `message`). `message`/`progress` update the live label. Omit `data-dlux-loading-start` to poll a URL directly without a kickoff POST. Tune with `data-dlux-loading-timeout` (ms) and the optional `data-dlux-loading-done-label` / `data-dlux-loading-done-icon` / `data-dlux-loading-redirect`.
+
+**4. Custom event (declarative).** `data-dlux-loading-event="my:event"` makes the button go busy on click and dispatch your event with the handle attached, so a listener can run arbitrary async work and finish it:
+
+```html
+<button data-dlux-loading data-dlux-loading-event="app:recalculate">Recalculate</button>
+```
+```javascript
+document.addEventListener('app:recalculate', async (e) => {
+    const handle = e.detail.handle;
+    try { await recalc(); handle.done(); }
+    catch (err) { handle.error(err.message); }
+});
+```
+
+Every transition also fires a bubbling DOM event on the button — `dlux:loading:start`, `dlux:loading:poll`, `dlux:loading:done`, `dlux:loading:error` — for cross-cutting hooks (analytics, toasts). Labels fall back to `DLUX_STRINGS.loading` / `loading_failed` / `loading_timeout`, all overridable per button via the `data-dlux-loading-*` attributes.
+
 ## Universal Fetcher and Excel Export
 
 DjangoLux includes shared download and export helpers so projects do not have to rebuild file-serving and spreadsheet-export logic in every app.

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "1.2.11",
+  "version": "1.2.12",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Test-isolation fix: package test settings anchor MEDIA_ROOT at a process-scoped temp dir so system-backup tests can no longer write .dlb artifacts into the tracked working tree. No migrations and no shipped-runtime change; inline-safe.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.11"
+  "summary": "Reusable DluxLoadingButton spinner helper (declarative + promise + task-polling) with login/register and dynamic-modal migration; loading spinner preserves a button's icon/text layout in place. Inline-updater UX fixes: green Finish on success, honest status (no false 'update completed' after a check), spinning Check button, translated up-to-date/ready line. Frontend-only (JS/CSS/templates), no migrations; inline-safe.",
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.12"
 }

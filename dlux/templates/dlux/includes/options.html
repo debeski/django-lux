@@ -246,6 +246,8 @@
                                  data-label-rollback-confirm="{{ DLUX_STRINGS.dlux_update_rollback_confirm|default:'Roll back' }}"
                                  data-label-local-verified="{{ DLUX_STRINGS.dlux_update_local_verified|default:'Verified local release' }}"
                                  data-label-ready="{{ DLUX_STRINGS.dlux_update_ready|default:'Ready for inline update.' }}"
+                                 data-label-uptodate="{{ DLUX_STRINGS.dlux_update_up_to_date|default:'DjangoLux is up to date.' }}"
+                                 data-label-finish="{{ DLUX_STRINGS.dlux_update_finish|default:'Finish' }}"
                                  data-maintenance-note="{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}">
                                 <div class="dlux-updater-versions">
                                     <span>{{ DLUX_STRINGS.dlux_update_installed|default:'Installed' }}:</span>
@@ -748,5 +750,5 @@
 {% block scripts %}
     {{ block.super }}
     <script src="{% static 'dlux/main/js/options.js' %}?v=20260618a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/updater.js' %}?v=20260624b" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/updater.js' %}?v=20260626a" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

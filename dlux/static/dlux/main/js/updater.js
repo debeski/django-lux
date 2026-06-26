@@ -63,6 +63,8 @@
         const progressLog = modalElement?.querySelector('[data-dlux-update-progress-log]');
         const submit = modalElement?.querySelector('[data-dlux-update-submit]');
         const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
+        const dismissAction = modalElement?.querySelector('[data-dlux-update-dismiss]');
+        const dismissActionLabel = dismissAction ? dismissAction.textContent : '';
         let state = null;
         let currentAction = 'apply';
         let runUrl = '';
@@ -71,6 +73,18 @@
         let lastTerminalNotice = '';
         let trackedRunToken = '';
         let rootStatusTimer = null;
+        let checkHandle = null;
+
+        // The "Check for updates" button spins via the shared loading-button
+        // helper while the check is in flight (replacing the old root status line).
+        function startCheckSpinner() {
+            if (checkButton && window.DluxLoadingButton && !checkHandle) {
+                checkHandle = window.DluxLoadingButton.start(checkButton);
+            }
+        }
+        function stopCheckSpinner() {
+            if (checkHandle) { checkHandle.stop(); checkHandle = null; }
+        }
 
         function setRootStatus(message, clearAfter = 0) {
             if (!rootRunStatus) return;
@@ -102,6 +116,14 @@
             submit.hidden = true;
             password.disabled = true;
             dismissButtons.forEach((button) => { button.disabled = !terminal; });
+            // On a successful finish, turn the lone "Cancel" into a clear green
+            // "Finish" so the result reads as success (not a dismissable error).
+            const succeeded = terminal && (run.status === 'completed' || run.status === 'rolled_back');
+            if (dismissAction && succeeded) {
+                dismissAction.textContent = root.dataset.labelFinish || dismissActionLabel;
+                dismissAction.classList.remove('btn-secondary');
+                dismissAction.classList.add('btn-success');
+            }
             if (progress) {
                 progress.setAttribute('aria-valuenow', String(percent));
                 progress.setAttribute('aria-valuetext', run.status.replaceAll('_', ' '));
@@ -131,7 +153,6 @@
             if (!state) return;
             active.textContent = state.active_version ? `v${state.active_version}` : '—';
             latest.textContent = state.latest_version ? `v${state.latest_version}` : '—';
-            reason.textContent = state.last_check_error || state.latest_reason || '';
             checked.textContent = state.last_checked_at
                 ? new Date(state.last_checked_at).toLocaleString()
                 : '—';
@@ -139,14 +160,27 @@
                 state.latest_compatible && state.latest_version &&
                 state.latest_version !== state.active_version
             );
+            // Translated status line (replaces the old "in progress"/"completed"
+            // root status): a check error, else a clear update-ready / up-to-date
+            // message, else whatever reason the backend supplied.
+            if (reason) {
+                if (state.last_check_error) {
+                    reason.textContent = state.last_check_error;
+                } else if (updateAvailable) {
+                    reason.textContent = root.dataset.labelReady || state.latest_reason || '';
+                } else if (state.last_checked_at && (!state.latest_version || state.latest_version === state.active_version)) {
+                    reason.textContent = root.dataset.labelUptodate || state.latest_reason || '';
+                } else {
+                    reason.textContent = state.latest_reason || '';
+                }
+            }
             if (reviewButton) reviewButton.hidden = !updateAvailable;
             if (rollbackButton) rollbackButton.hidden = !state.previous_version;
             const running = Boolean(run?.active || state.active_run_token);
             root.classList.toggle('is-running', running);
-            if (checkButton) checkButton.disabled = running;
+            if (checkButton) checkButton.disabled = running || Boolean(checkHandle);
             if (reviewButton) reviewButton.disabled = running;
             if (rollbackButton) rollbackButton.disabled = running;
-            if (running) setRootStatus(root.dataset.labelRunning || 'Update operation in progress');
             const tracked = Boolean(run?.token && run.token === trackedRunToken);
             if (run && ['apply', 'rollback'].includes(run.action) && (run.active || !progressPanel?.hidden)) {
                 showProgress(run);
@@ -159,12 +193,13 @@
                     window.showToast(message, 'error');
                 }
             }
-            if (tracked && (run?.status === 'completed' || run?.status === 'rolled_back')) {
-                const message = root.dataset.labelCompleted || 'Completed';
-                setRootStatus(message, 5000);
+            // Only a real apply/rollback announces completion — a background
+            // "check" run must never claim that an update finished.
+            if (tracked && ['apply', 'rollback'].includes(run?.action)
+                && (run?.status === 'completed' || run?.status === 'rolled_back')) {
                 if (lastTerminalNotice !== run.token && window.showToast) {
                     lastTerminalNotice = run.token;
-                    window.showToast(message);
+                    window.showToast(root.dataset.labelCompleted || 'Completed');
                 }
             }
         }
@@ -208,6 +243,7 @@
                     schedulePoll();
                 } else {
                     runUrl = '';
+                    stopCheckSpinner(); // no-op unless a check spinner is active
                     await refreshState();
                 }
             } catch (_error) {
@@ -228,10 +264,18 @@
         }
 
         checkButton?.addEventListener('click', async () => {
+            startCheckSpinner();
             try {
                 await queue(root.dataset.checkUrl, new FormData());
-                if (!runUrl) await refreshState();
+                if (!runUrl) {
+                    // Synchronous check: state is refreshed and we're done.
+                    await refreshState();
+                    stopCheckSpinner();
+                }
+                // Async check (run_url present): the spinner is stopped when the
+                // tracked run reaches a terminal status in pollRun().
             } catch (requestError) {
+                stopCheckSpinner();
                 showError(requestError.message);
             }
         });
@@ -258,6 +302,11 @@
             submit.disabled = false;
             password.disabled = false;
             dismissButtons.forEach((button) => { button.disabled = false; });
+            if (dismissAction) {
+                dismissAction.textContent = dismissActionLabel;
+                dismissAction.classList.remove('btn-success');
+                dismissAction.classList.add('btn-secondary');
+            }
             password.value = '';
             showError('');
             modal.show();

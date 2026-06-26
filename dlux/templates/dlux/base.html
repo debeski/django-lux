@@ -48,6 +48,7 @@
     <link rel="stylesheet" href="{% static 'dlux/language/css/main.css' %}?v=20260516a">
     <link rel="stylesheet" href="{% static 'dlux/helpers/tooltip/css/main.css' %}?v=20260612c">
     <link rel="stylesheet" href="{% static 'dlux/helpers/password_rules/css/main.css' %}?v=20260616a">
+    <link rel="stylesheet" href="{% static 'dlux/helpers/loading_button/css/main.css' %}?v=20260626b">
     <link rel="stylesheet" href="{% static 'dlux/users/css/user_hub.css' %}?v=20260612c">
     <link rel="icon" href="{{ APP_CONFIG.favicon_url|default:'/static/img/base_logo.svg' }}">
     <!-- <link rel="icon" type="image/png" sizes="192x192" href="{% static 'icons/icon-192x192.png' %}">
@@ -67,6 +68,7 @@
     <script src="{% static 'dlux/language/js/translations.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/autofill/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/prevent_double_submit.js' %}?v=20260621a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/helpers/loading_button/js/main.js' %}?v=20260626b" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/tooltip/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/titlebar.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/notifications.js' %}?v=20260624a" nonce="{{ request.csp_nonce }}" defer></script>

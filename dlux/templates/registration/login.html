@@ -59,7 +59,7 @@
                     {% endif %}
                 </div>
 
-                <button type="submit" class="w-100 btn btn-lg mt-4" id="submit">{{ DLUX_STRINGS.login_submit }}</button>
+                <button type="submit" class="w-100 btn btn-lg mt-4" id="submit" data-dlux-loading>{{ DLUX_STRINGS.login_submit }}</button>
                 {% if public_registration_enabled %}
                     <div class="login-register-action mt-3">
                         <a href="{% url 'register' %}" class="login-register-link">

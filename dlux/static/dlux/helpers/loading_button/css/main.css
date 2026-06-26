@@ -1,0 +1,46 @@
+/* Dlux Loading Button — shared spinner-in-button states.
+   Pairs with dlux/helpers/loading_button/js/main.js. The spinner itself is a
+   Bootstrap `.spinner-border spinner-border-sm`; this file only handles the
+   busy/done/error affordances and reduced-motion. It deliberately does NOT
+   change the button's `display`/alignment so the host button keeps its own
+   layout (e.g. dlux's icon-beside-text submit buttons) while loading — in
+   in-place mode the JS swaps just the icon for the spinner. */
+
+.dlux-btn--loading {
+    cursor: progress;
+    pointer-events: none; /* covers <a>/<div> triggers that ignore [disabled] */
+}
+
+.dlux-btn__spinner {
+    /* Optical alignment against adjacent text. */
+    vertical-align: -0.125em;
+}
+
+/* Spacing between the spinner/icon and a replaced text label (content-replace
+   and done states). In-place mode keeps the original markup, so no label span
+   exists there and this rule is inert. */
+.dlux-btn__label {
+    margin-inline-start: 0.4rem;
+}
+
+.dlux-btn--done {
+    /* Brief success affordance before the original label is restored. */
+    color: var(--bs-success, #198754);
+}
+
+/* Brief error pulse: reuse the theme danger tone without layout shift. */
+.dlux-btn--error {
+    animation: dlux-btn-error-pulse 0.9s ease-in-out 1;
+}
+
+@keyframes dlux-btn-error-pulse {
+    0%, 100% { box-shadow: none; }
+    30% { box-shadow: 0 0 0 0.18rem rgba(var(--bs-danger-rgb, 220, 53, 69), 0.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dlux-btn--error {
+        animation: none;
+    }
+    /* Bootstrap already slows .spinner-border under reduced motion. */
+}

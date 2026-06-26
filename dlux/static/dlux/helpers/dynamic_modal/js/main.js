@@ -359,7 +359,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // (associated back via the form= attribute), so look there too.
         const submitBtn = form.querySelector('[type="submit"]')
             || (footer && footer.querySelector('[type="submit"]'));
-        if (submitBtn) submitBtn.disabled = true;
+        // Shared loading-button spinner for the lifetime of the POST. Falls back
+        // to a plain disable if the helper somehow isn't loaded.
+        const loadingButton = window.DluxLoadingButton;
+        const submitHandle = (submitBtn && loadingButton)
+            ? loadingButton.start(submitBtn, { keepText: true })
+            : null;
+        if (submitBtn && !submitHandle) submitBtn.disabled = true;
+        const releaseSubmit = () => {
+            if (submitHandle) submitHandle.stop();
+            else if (submitBtn) submitBtn.disabled = false;
+        };
 
         const formData = new FormData(form);
         const actionUrl = form.getAttribute('action') || currentBaseUrl;
@@ -408,16 +418,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Refresh the list and clear the form by reloading the base URL
                 openModalAndLoad(currentBaseUrl);
             } else if (data.html) {
-                // Form validation failed, render new HTML form with errors
+                // Form validation failed: render the new HTML form with errors.
+                // syncModalFooter()/resetModalFooter() rebuild the footer from the
+                // fresh markup, discarding this (busy) button — no restore needed.
                 modalBody.innerHTML = data.html;
                 attachListeners();
             } else {
-                if (submitBtn) submitBtn.disabled = false;
+                releaseSubmit();
                 showError(data.error || 'Failed to save record.');
             }
         })
         .catch(err => {
-            if (submitBtn) submitBtn.disabled = false;
+            releaseSubmit();
             console.error('Error saving form:', err);
             showError('A network error occurred.');
         });
