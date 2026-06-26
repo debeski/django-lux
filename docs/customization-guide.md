@@ -784,7 +784,9 @@ The same helper layer also fits well with fetch/export and context-menu-driven w
 
 ### Global Footer
 
-`dlux/base.html` renders a faint, very small footer pinned to the bottom of the viewport — intended for a copyright notice, a short description, or a credit line. It is theme-aware, semi-transparent (with a backdrop blur), `pointer-events:none` so it never blocks clicks on the content behind it, and sits below Bootstrap modals/offcanvas. When it has no content it collapses (`:empty`).
+`dlux/base.html` renders a faint, very small footer pinned to the bottom of the viewport — intended for a copyright notice, a short description, or a credit line. Its colors derive from the active theme (so it flips correctly on dark themes), it is semi-transparent with a backdrop blur, `pointer-events:none` so it never blocks clicks on the content behind it, and it sits below the sidebar/navbar and Bootstrap modals/offcanvas.
+
+**Turning it off.** Leaving the Footer text blank does *not* hide it — it falls back to the default line. To remove the built-in footer entirely, switch off **Show page footer** in *System Settings → Themes & Typography → Footer* (`layout_config.footer_enabled`). That toggle gates only the built-in footer; a dev `custom_footer.html` partial or a `footer` block override is explicit code and always renders regardless.
 
 By default it shows `© <current year> <system display name>`. The content resolves in this order (most specific wins):
 
@@ -807,9 +809,11 @@ By default it shows `© <current year> <system display name>`. The content resol
    <span class="dlux-footer__text">&copy; {% now "Y" %} Acme Corp · All rights reserved</span>
    ```
 
-3. **System Settings (no code, admin-editable)** — set **Footer text** in *System Settings → Themes & Typography → Footer*. It is stored on `SystemSettings.layout_config.footer_text` (a runtime-editable layout option, like Default Table Density) and surfaced to templates as `APP_CONFIG.appearance.footer_text`. This is the recommended place for a per-deployment copyright/description line. It participates in System Settings export/import.
+3. **System Settings (no code, admin-editable)** — in *System Settings → Themes & Typography → Footer*: **Show page footer** (on/off), **Footer text**, and an optional **Footer link text** + **Footer link URL**. Stored on `SystemSettings.layout_config` (`footer_enabled` / `footer_text` / `footer_link_text` / `footer_link_url`) and surfaced as `APP_CONFIG.appearance.*`; all participate in System Settings export/import. The footer text is HTML-escaped (plain text + Unicode symbols like `©`, not markup). The link URL is scheme-validated server-side — only `http(s)://`, `mailto:`, or a root-relative `/path` is kept; anything else (or a blank URL) renders no link. The link label falls back to the URL when **Footer link text** is blank. This is the recommended place for a per-deployment copyright/credit line and a single link, without touching templates.
 
 4. **Code fallback** — set `footer_text` in your project `DLUX_STRINGS` for a translated default when no admin value is configured.
+
+For a footer with rich HTML — multiple links, Bootstrap icons (`<i class="bi …">`), etc. — use option 1 or 2 (template paths render raw HTML); the admin Footer text/link fields are deliberately escaped/validated for safety.
 
 To restyle without editing templates, override the CSS variables on `.dlux-footer` (e.g. in `custom_head.html`): `--dlux-footer-color`, `--dlux-footer-bg`, `--dlux-footer-border`.
 

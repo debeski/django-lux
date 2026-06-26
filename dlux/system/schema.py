@@ -204,7 +204,10 @@ SYSTEM_SETTING_GROUPS = (
         admin_section='appearance',
         fields=(
             _field('layout', 'default_table_density', default='balanced', widget='choice', legacy_flat=True),
+            _field('layout', 'footer_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('layout', 'footer_text', default='', widget='text', legacy_flat=True),
+            _field('layout', 'footer_link_text', default='', widget='text', legacy_flat=True),
+            _field('layout', 'footer_link_url', default='', widget='text', legacy_flat=True),
         ),
     ),
     SettingGroup(

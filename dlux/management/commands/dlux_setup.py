@@ -3,6 +3,7 @@
 Management command for initial dlux package setup.
 Runs migrations and performs initial configuration.
 """
+import ast
 import importlib
 from pathlib import Path
 
@@ -46,16 +47,48 @@ class Command(BaseCommand):
         module_file = getattr(module, "__file__", None)
         return Path(module_file).resolve() if module_file else None
 
+    @staticmethod
+    def _settings_block_present(contents):
+        """Return True if the dlux settings helper is already wired up.
+
+        Parses the AST and checks whether ``dlux_settings`` is imported from
+        ``dlux.utils`` *and* called, rather than matching a literal import line.
+        This recognizes every valid import style — combined
+        (``from dlux.utils import get_secret, dlux_settings``), reordered,
+        aliased (``... as ds``), or multi-line — so the block is never appended
+        a second time when it is already present (e.g. in a scaffolded project,
+        whose settings.py imports ``get_secret, dlux_settings`` together).
+        """
+        try:
+            tree = ast.parse(contents)
+        except SyntaxError:
+            # Unparseable settings — fall back to a conservative literal check.
+            return "dlux_settings" in contents and "dlux_settings(globals())" in contents
+
+        bound_names = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "dlux.utils":
+                for alias in node.names:
+                    if alias.name == "dlux_settings":
+                        bound_names.add(alias.asname or alias.name)
+        if not bound_names:
+            return False
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in bound_names
+            ):
+                return True
+        return False
+
     def _ensure_settings_block(self):
         settings_file = self._get_settings_file()
         if not settings_file or not settings_file.exists():
             raise RuntimeError("Could not resolve the active Django settings.py file")
 
         contents = settings_file.read_text(encoding="utf-8")
-        if (
-            "from dlux.utils import dlux_settings" in contents
-            and "dlux_settings(globals())" in contents
-        ):
+        if self._settings_block_present(contents):
             return settings_file, False
 
         suffix = "" if contents.endswith("\n") else "\n"

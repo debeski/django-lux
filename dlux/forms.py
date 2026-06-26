@@ -1648,6 +1648,12 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=True,
     )
+    # Stored inside profile_config, but surfaced as a standalone toggle next to
+    # the Home URL field (Step 3) rather than in the profile builder (Step 11).
+    allow_user_home_url = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
     allowed_fonts = forms.MultipleChoiceField(
         required=False,
         choices=FONT_CHOICES,
@@ -1665,10 +1671,24 @@ class SystemSettingsForm(forms.ModelForm):
         choices=TABLE_DENSITY_CHOICES,
         widget=forms.HiddenInput(),
     )
+    footer_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
     footer_text = forms.CharField(
         required=False,
         max_length=LAYOUT_FOOTER_TEXT_MAX_LENGTH,
         widget=forms.TextInput(attrs={'class': 'form-control glass-input', 'dir': 'auto'}),
+    )
+    footer_link_text = forms.CharField(
+        required=False,
+        max_length=LAYOUT_FOOTER_TEXT_MAX_LENGTH,
+        widget=forms.TextInput(attrs={'class': 'form-control glass-input', 'dir': 'auto'}),
+    )
+    footer_link_url = forms.CharField(
+        required=False,
+        max_length=LAYOUT_FOOTER_TEXT_MAX_LENGTH,
+        widget=forms.TextInput(attrs={'class': 'form-control glass-input', 'dir': 'ltr'}),
     )
     languages = forms.CharField(
         widget=forms.HiddenInput(),
@@ -2059,7 +2079,10 @@ class SystemSettingsForm(forms.ModelForm):
             'default_fonts',
             'allow_user_language_override',
             'default_table_density',
+            'footer_enabled',
             'footer_text',
+            'footer_link_text',
+            'footer_link_url',
             'auth_config',
             'client_ip_config',
             'public_root',
@@ -2214,6 +2237,11 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_allow_user_language_override',
             'Allow users to change their display language from Options. When disabled, the system default language is enforced.',
         )
+        self.fields['allow_user_home_url'].label = s.get('profile_allow_user_home_url', 'Allow users to set their landing page')
+        self.fields['allow_user_home_url'].help_text = s.get(
+            'help_sys_allow_user_home_url',
+            'Let each user choose their own landing page (from Options) instead of always using the system Home URL above.',
+        )
         self.fields['allowed_fonts'].label = s.get('form_sys_allowed_fonts', 'Allowed fonts')
         self.fields['allowed_fonts'].help_text = s.get(
             'help_sys_allowed_fonts',
@@ -2243,6 +2271,25 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['footer_text'].widget.attrs.setdefault(
             'placeholder',
             s.get('form_sys_footer_text_placeholder', '© 2026 Your Organization · All rights reserved'),
+        )
+        self.fields['footer_enabled'].label = s.get('form_sys_footer_enabled', 'Show page footer')
+        self.fields['footer_enabled'].help_text = s.get(
+            'help_sys_footer_enabled',
+            'Show the faint footer strip at the bottom of every page. Turn off to remove it entirely.',
+        )
+        self.fields['footer_link_text'].label = s.get('form_sys_footer_link_text', 'Footer link text')
+        self.fields['footer_link_text'].help_text = s.get(
+            'help_sys_footer_link_text',
+            'Optional label for a link shown after the footer text. Falls back to the URL if left blank.',
+        )
+        self.fields['footer_link_url'].label = s.get('form_sys_footer_link_url', 'Footer link URL')
+        self.fields['footer_link_url'].help_text = s.get(
+            'help_sys_footer_link_url',
+            'Optional link beside the footer text (http(s)://, mailto:, or a /relative path). Left blank or invalid — no link is shown.',
+        )
+        self.fields['footer_link_url'].widget.attrs.setdefault(
+            'placeholder',
+            s.get('form_sys_footer_link_url_placeholder', 'https://example.com'),
         )
         self.fields['logo'].label = s.get('form_sys_logo', "System Logo (Logo)")
         self.fields['favicon'].label = s.get('form_sys_favicon', "Site Icon (Favicon)")
@@ -3077,6 +3124,9 @@ class SystemSettingsForm(forms.ModelForm):
         )
         self.initial['profile_config'] = _json_dump(initial_profile_config, ensure_ascii=False)
         self._initial_profile_config = initial_profile_config
+        # allow_user_home_url lives in profile_config but is edited as a Step 3
+        # toggle; seed its checkbox from the stored value.
+        self.initial['allow_user_home_url'] = bool(initial_profile_config.get('allow_user_home_url', False))
         self._apply_schema_group_initials(
             'backup_config',
             getattr(self.instance, 'backup_config', None) or config.get('backup_config') or config.get('backup') or {},
@@ -3101,12 +3151,15 @@ class SystemSettingsForm(forms.ModelForm):
             self.initial['allowed_themes'] = list(normalize_allowed_themes(config.get('allowed_themes')))
         if self.initial.get('default_table_density') not in TABLE_DENSITY_VALUES:
             self.initial['default_table_density'] = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
-        _layout_initial_source = {'default_table_density': self.initial.get('default_table_density')}
+        # Seed every layout field (footer toggle/text/link, density) from the
+        # stored layout_config so the standalone toggles/inputs reflect saved
+        # values; the group normalizer fills defaults for anything missing.
         _existing_layout = getattr(self.instance, 'layout_config', None)
-        if isinstance(_existing_layout, dict) and _existing_layout.get('footer_text'):
-            _layout_initial_source['footer_text'] = _existing_layout.get('footer_text')
-        elif config.get('footer_text'):
-            _layout_initial_source['footer_text'] = config.get('footer_text')
+        _layout_initial_source = dict(_existing_layout) if isinstance(_existing_layout, dict) else {}
+        for _layout_key in ('footer_enabled', 'footer_text', 'footer_link_text', 'footer_link_url'):
+            if _layout_key not in _layout_initial_source and config.get(_layout_key) is not None:
+                _layout_initial_source[_layout_key] = config.get(_layout_key)
+        _layout_initial_source['default_table_density'] = self.initial.get('default_table_density')
         self._apply_schema_group_initials(
             'layout_config',
             _layout_initial_source,
@@ -3535,7 +3588,6 @@ class SystemSettingsForm(forms.ModelForm):
                     {'key': 'show_completion_widget', 'label': s.get('profile_show_completion', 'Show profile completion widget')},
                     {'key': 'show_session_device_cards', 'label': s.get('profile_show_devices', 'Show session/device cards')},
                     {'key': 'show_activity_feed', 'label': s.get('profile_show_activity', 'Show activity feed')},
-                    {'key': 'allow_user_home_url', 'label': s.get('profile_allow_user_home_url', 'Allow users to set their landing page')},
                 ],
                 'nudge_options': [
                     {'key': 'off', 'label': s.get('nudge_off', 'Off')},
@@ -3719,6 +3771,10 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(Field('home_url_discovered'), css_class='col-lg-6'),
                     Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
+                ),
+                Row(
+                    build_settings_toggle_field(self, 'allow_user_home_url', css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
                 ),
                 Row(
                     build_settings_toggle_field(
@@ -4033,7 +4089,16 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('footer_settings_title', 'Footer')}</h6>"),
                 Row(
+                    build_settings_toggle_field(self, 'footer_enabled', css_class='col-12'),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
                     Div(Field('footer_text', dir='auto'), css_class='col-12'),
+                    css_class='mb-3'
+                ),
+                Row(
+                    Div(Field('footer_link_text', dir='auto'), css_class='col-12 col-lg-6'),
+                    Div(Field('footer_link_url', dir='ltr'), css_class='col-12 col-lg-6'),
                     css_class='mb-3'
                 ),
                 css_class=_step_css_class(8),
@@ -4226,6 +4291,49 @@ class SystemSettingsForm(forms.ModelForm):
         else:
             value = self.cleaned_data.get('footer_text', '')
         return str(value or '').strip()[:LAYOUT_FOOTER_TEXT_MAX_LENGTH].rstrip()
+
+    def _clean_preserved_footer_string(self, field_name):
+        # Footer text inputs live in the Themes & Typography step; a single-step
+        # modal save of another step omits them, so keep the stored value.
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and field_name not in self.data:
+            value = getattr(self.instance, field_name, None)
+            if value in (None, ''):
+                value = self.initial.get(field_name, '')
+        else:
+            value = self.cleaned_data.get(field_name, '')
+        return str(value or '').strip()[:LAYOUT_FOOTER_TEXT_MAX_LENGTH].rstrip()
+
+    def clean_footer_link_text(self):
+        return self._clean_preserved_footer_string('footer_link_text')
+
+    def clean_footer_link_url(self):
+        # Scheme validation/sanitizing happens in normalize_layout_config; here we
+        # only preserve the raw value across single-step saves.
+        return self._clean_preserved_footer_string('footer_link_url')
+
+    def clean_footer_enabled(self):
+        # Checkbox in the Themes & Typography step (index 8). An unchecked box and
+        # an omitted-because-other-step box both vanish from POST data, so key off
+        # the active step rather than mere presence.
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != 8
+        ):
+            return bool(getattr(self.instance, 'footer_enabled', True))
+        return bool(self.cleaned_data.get('footer_enabled'))
+
+    def clean_allow_user_home_url(self):
+        # Checkbox in the Security step (index 2). Preserve the stored value when a
+        # single-step save of another step omits it (unchecked == absent for boxes).
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != 2
+        ):
+            stored = getattr(self.instance, 'profile_config', None)
+            if isinstance(stored, dict) and 'allow_user_home_url' in stored:
+                return bool(stored.get('allow_user_home_url'))
+            return bool(self.initial.get('allow_user_home_url', False))
+        return bool(self.cleaned_data.get('allow_user_home_url'))
 
     def _auth_toggle_clean(self, key, default):
         # The auth toggles now live in the auth_config JSON field. In a non-setup
@@ -4730,6 +4838,11 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['log_config'] = normalize_log_config(log)
         profile = cleaned.get('profile_config')
         if isinstance(profile, dict):
+            # allow_user_home_url is edited as a standalone Step 3 toggle (next to
+            # Home URL), not in the Step 11 profile builder — fold it back into
+            # profile_config before normalizing/saving.
+            if 'allow_user_home_url' in self.fields:
+                profile['allow_user_home_url'] = bool(cleaned.get('allow_user_home_url'))
             cleaned['profile_config'] = normalize_profile_config(profile)
         backup_fields_posted = any(name in self.data for name in (
             'backup_scheduled_enabled',
@@ -4988,9 +5101,21 @@ class SystemSettingsForm(forms.ModelForm):
                 'default_table_density',
                 self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),
             ),
+            'footer_enabled': bool(layout_config.get(
+                'footer_enabled',
+                self.cleaned_data.get('footer_enabled', True),
+            )),
             'footer_text': layout_config.get(
                 'footer_text',
                 self.cleaned_data.get('footer_text', ''),
+            ),
+            'footer_link_text': layout_config.get(
+                'footer_link_text',
+                self.cleaned_data.get('footer_link_text', ''),
+            ),
+            'footer_link_url': layout_config.get(
+                'footer_link_url',
+                self.cleaned_data.get('footer_link_url', ''),
             ),
             'email_2fa': bool(auth_config.get('email_2fa', False)),
             'prevent_multiple_active_sessions': bool(auth_config.get('prevent_multiple_active_sessions', False)),

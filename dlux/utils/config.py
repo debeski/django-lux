@@ -376,7 +376,10 @@ def build_config_groups(config, current_language=None):
             'default_theme': config.get('default_theme', 'light'),
             'allowed_themes': list(config.get('allowed_themes', [])),
             'default_table_density': config.get('default_table_density', DEFAULT_TABLE_DENSITY),
+            'footer_enabled': bool(config.get('footer_enabled', True)),
             'footer_text': config.get('footer_text', '') or '',
+            'footer_link_text': config.get('footer_link_text', '') or '',
+            'footer_link_url': config.get('footer_link_url', '') or '',
             'titlebar': config.get('titlebar', default_titlebar_config()),
         },
         'personalization': {
@@ -962,8 +965,16 @@ def get_system_config():
             )
         ):
             db_config['default_table_density'] = sys_settings.default_table_density
+        # footer_enabled is a real toggle (False is meaningful), so always
+        # reflect the stored/effective value; legacy rows without the key get the
+        # property default (True), preserving the previous always-on behavior.
+        db_config['footer_enabled'] = bool(getattr(sys_settings, 'footer_enabled', True))
         if str(getattr(sys_settings, 'footer_text', '') or '').strip():
             db_config['footer_text'] = sys_settings.footer_text
+        if str(getattr(sys_settings, 'footer_link_text', '') or '').strip():
+            db_config['footer_link_text'] = sys_settings.footer_link_text
+        if str(getattr(sys_settings, 'footer_link_url', '') or '').strip():
+            db_config['footer_link_url'] = sys_settings.footer_link_url
         if isinstance(sys_settings.languages, dict) and sys_settings.languages:
             db_config['languages'] = sys_settings.languages
         if isinstance(sys_settings.translations_override, dict) and sys_settings.translations_override:

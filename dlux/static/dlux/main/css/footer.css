@@ -7,7 +7,11 @@
     position: fixed;
     inset-inline: 0;
     bottom: 0;
-    z-index: 1020; /* below Bootstrap modals (1055) and offcanvas so it never covers them */
+    /* Sit behind the page chrome: the footer is a faint background strip, so it
+       must stay BELOW the sidebar (z-index 900, sticky desktop / fixed 1000
+       mobile), the navbar/titlebar, and Bootstrap modals/offcanvas — while still
+       painting above the static page content. */
+    z-index: var(--dlux-footer-z, 850);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -20,11 +24,15 @@
     line-height: 1.25;
     letter-spacing: 0.01em;
     text-align: center;
-    color: var(--dlux-footer-color, color-mix(in srgb, var(--htitle, #64748b) 72%, transparent));
-    background: var(--dlux-footer-bg, rgba(255, 255, 255, 0.42));
-    -webkit-backdrop-filter: blur(6px) saturate(1.1);
-    backdrop-filter: blur(6px) saturate(1.1);
-    border-top: 1px solid var(--dlux-footer-border, rgba(148, 163, 184, 0.22));
+    /* Derive from theme tokens so the strip flips with the active theme
+       (`--hbody` surface tint, `--htitle`/`--title` text) instead of being a
+       fixed white bar that looks wrong on dark-based themes (dark, aether,
+       gothic, neon, prism, retro, mono). */
+    color: var(--dlux-footer-color, color-mix(in srgb, var(--htitle, #64748b) 78%, transparent));
+    background: var(--dlux-footer-bg, color-mix(in srgb, var(--hbody, #f1f5f9) 60%, transparent));
+    -webkit-backdrop-filter: blur(8px) saturate(1.1);
+    backdrop-filter: blur(8px) saturate(1.1);
+    border-top: 1px solid var(--dlux-footer-border, color-mix(in srgb, var(--title, #64748b) 14%, transparent));
     /* Let clicks pass through the bar to the content behind it; interactive
        children (links/buttons) re-enable pointer events below. */
     pointer-events: none;

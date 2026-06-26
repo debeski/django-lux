@@ -4,6 +4,6 @@
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Reusable DluxLoadingButton spinner helper (declarative + promise + task-polling) with login/register and dynamic-modal migration; loading spinner preserves a button's icon/text layout in place. Inline-updater UX fixes: green Finish on success, honest status (no false 'update completed' after a check), spinning Check button, translated up-to-date/ready line. Frontend-only (JS/CSS/templates), no migrations; inline-safe.",
+  "summary": "DluxLoadingButton spinner helper (declarative/promise/polling, layout-preserving) with login + dynamic-modal migration; inline-updater UX (green Finish, honest status, spinning Check); footer theme-aware colors, z-index, enable toggle + optional validated link, and the per-user home-URL toggle moved to Step 3; dlux_setup now AST-detects the settings block (no duplicate append). No migrations; inline-safe.",
   "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.12"
 }

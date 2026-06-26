@@ -298,18 +298,42 @@ def normalize_public_root_config(value):
     }
 
 
+def _normalize_footer_text_value(value):
+    text = '' if value is None else str(value).strip()
+    if len(text) > LAYOUT_FOOTER_TEXT_MAX_LENGTH:
+        text = text[:LAYOUT_FOOTER_TEXT_MAX_LENGTH].rstrip()
+    return text
+
+
+def _normalize_footer_link_url(value):
+    # Only allow safe href schemes; anything else (javascript:, data:, a bare
+    # word, protocol-relative //host, …) is dropped so the link silently
+    # disappears rather than rendering an unsafe/broken anchor.
+    url = '' if value is None else str(value).strip()
+    if not url or len(url) > LAYOUT_FOOTER_TEXT_MAX_LENGTH:
+        url = url[:LAYOUT_FOOTER_TEXT_MAX_LENGTH] if url else ''
+    if not url:
+        return ''
+    lowered = url.lower()
+    if lowered.startswith(('http://', 'https://', 'mailto:')):
+        return url
+    if url.startswith('/') and not url.startswith('//'):
+        return url  # root-relative path
+    return ''
+
+
 def normalize_layout_config(value):
     cfg = value if isinstance(value, dict) else {}
     density = cfg.get('default_table_density') or DEFAULT_TABLE_DENSITY
     if density not in TABLE_DENSITY_VALUES:
         density = DEFAULT_TABLE_DENSITY
-    footer_text = cfg.get('footer_text')
-    footer_text = '' if footer_text is None else str(footer_text).strip()
-    if len(footer_text) > LAYOUT_FOOTER_TEXT_MAX_LENGTH:
-        footer_text = footer_text[:LAYOUT_FOOTER_TEXT_MAX_LENGTH].rstrip()
+    footer_enabled = cfg.get('footer_enabled', True)
     return {
         'default_table_density': density,
-        'footer_text': footer_text,
+        'footer_enabled': bool(footer_enabled),
+        'footer_text': _normalize_footer_text_value(cfg.get('footer_text')),
+        'footer_link_text': _normalize_footer_text_value(cfg.get('footer_link_text')),
+        'footer_link_url': _normalize_footer_link_url(cfg.get('footer_link_url')),
     }
 
 

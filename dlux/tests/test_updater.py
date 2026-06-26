@@ -603,7 +603,12 @@ class UpdaterApiTests(TestCase):
         self.assertIn("const PROGRESS", contents)
         self.assertIn("showProgress(run)", contents)
         self.assertIn("run.token === trackedRunToken", contents)
-        self.assertIn("setRootStatus(message, 5000)", contents)
+        # The Check button spins via the shared loading-button helper and a
+        # successful run shows a green "Finish" affordance (the old misleading
+        # "Update completed" root-status line was removed).
+        self.assertIn("startCheckSpinner()", contents)
+        self.assertIn("root.dataset.labelFinish", contents)
+        self.assertNotIn("setRootStatus(message, 5000)", contents)
         self.assertNotIn("modal.hide()", contents)
 
     @mock.patch("dlux.updater.service.assess_wheel")
