@@ -54,11 +54,10 @@
   - [x] v1.2.5 limits “Update operation completed” to a five-second current-session result instead of permanently rendering the latest historical check.
 
 ### One-line info about last verified Tests:
+- 2026-06-26: CI run (633 tests) had ONE failure — `test_startproject_creates_expected_files` asserted `.env` had 12 non-empty lines but it now has 15 (the 3 `NGINX_*` envsubst vars). Fixed: count→15 + added `NGINX_PORT/SERVER_NAME/MAX_SIZE` assertIns. The test died at the count (line 127) BEFORE the new nginx/compose asserts (131+), so those went unvalidated by CI; re-validated all 16 substrings by rendering the templates directly (`{{ }}` string-replace, no Django) — all pass. No local Django env, so re-run the suite in CI to confirm green.
 - 2026-06-24: v1.2.11 — full suite 631 OK; supervisor test now derives baked version from `importlib.metadata` (not `__version__`), verified robust under a simulated manifest/metadata mismatch (manifest 1.2.99 vs installed 1.2.11); `protected/dlux/` empty, no stray `.dlb`.
 - 2026-06-24: v1.2.10 venv full suite passed 631 (added 2 relation-schema backup tests); `makemigrations --check` clean; dlb-viewer `go test ./...` (5 label/handler tests) + `go vet`/`gofmt` clean; live E2E on a real `.dlb` resolved FK names.
-- 2026-06-24: v1.2.9 source-installed full suite passed 624; focused backup 28/notification+backup 40, JS/compile/migration/inline gate/nginx/diff clean; wheel/sdist passed `twine` and packaged required files.
-- 2026-06-24: v1.2.7 official suite passed 616; migration/compile/diff/release gates clean; wheel/sdist passed `twine` and packaged rebuild-required manifest/service fix.
-- 2026-06-24: Official `test_all.py` passed 613; focused backup/updater 62 and forms 123 passed; migration/gate/Ruff/diff clean; isolated wheel/sdist passed `twine` and packaged `0004`/manifest.
+- 2026-06-24: v1.2.9 source-installed full suite passed 624; focused backup 28/notification+backup 40, JS/compile/migration/inline gate/nginx/diff clean; wheel/sdist passed `twine`.
 
 ### One-line info about last time edited Docs:
 - 2026-06-25: `docs/admin-guide.md` (delete-permission delegation) + `docs/security-dsrp-1.md` (context-menu permission filtering + manage_sections non-bypass).
