@@ -2,7 +2,12 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .system.constants import (
+    DEFAULT_FORM_DENSITY,
+    DEFAULT_MODAL_SIZE,
     DEFAULT_TABLE_DENSITY,
+    FORM_DENSITY_VALUES,
+    MODAL_SIZE_CHOICES,
+    MODAL_SIZE_VALUES,
     TABLE_DENSITY_CHOICES,
     TABLE_DENSITY_VALUES,
 )
@@ -43,12 +48,15 @@ def _normalize_runtime_path(value):
     return path if path == '/' else path.rstrip('/')
 
 
-def _should_hide_titlebar_for_public_index(request, final_config, titlebar_config):
-    user = getattr(request, 'user', None)
-    if not titlebar_config.get('hide_on_public_unauthenticated_index', False):
-        return False
+def _is_public_index(request, final_config):
+    """True when this request is an anonymous visitor on the public root page.
+
+    Centralizes the detection previously embedded in the titlebar-hide check so
+    titlebar, sidebar, public theme, and public SEO overrides all share one rule.
+    """
     if not final_config.get('public_root', False):
         return False
+    user = getattr(request, 'user', None)
     if user and getattr(user, 'is_authenticated', False):
         return False
 
@@ -62,6 +70,13 @@ def _should_hide_titlebar_for_public_index(request, final_config, titlebar_confi
     if target_path:
         public_paths.add(target_path)
     return current_path in public_paths
+
+
+def _should_hide_titlebar_for_public_index(request, final_config):
+    # Titlebar is hidden on the public root unless explicitly shown.
+    if not _is_public_index(request, final_config):
+        return False
+    return not final_config.get('show_titlebar_on_public', False)
 
 
 def _reverse_or_empty(url_name):
@@ -384,7 +399,25 @@ def dlux_context(request):
         default_table_density = DEFAULT_TABLE_DENSITY
     if user_prefs.get('table_density') not in TABLE_DENSITY_VALUES:
         user_prefs = {**user_prefs, 'table_density': default_table_density}
+    # Form density + modal size are per-user overridable (Options), like table
+    # density: resolve to the user's value when valid, else the admin default.
+    default_form_density = final_config.get('default_form_density', DEFAULT_FORM_DENSITY)
+    if default_form_density not in FORM_DENSITY_VALUES:
+        default_form_density = DEFAULT_FORM_DENSITY
+    if user_prefs.get('form_density') not in FORM_DENSITY_VALUES:
+        user_prefs = {**user_prefs, 'form_density': default_form_density}
+    default_modal_size = final_config.get('default_modal_size', DEFAULT_MODAL_SIZE)
+    if default_modal_size not in MODAL_SIZE_VALUES:
+        default_modal_size = DEFAULT_MODAL_SIZE
+    if user_prefs.get('modal_size') not in MODAL_SIZE_VALUES:
+        user_prefs = {**user_prefs, 'modal_size': default_modal_size}
     user_prefs = resolve_sidebar_density_preference(user_prefs, final_config)
+    # Public-root theme override: anonymous visitors on the public root see the
+    # admin-selected fixed theme instead of the system default / their own pref.
+    public_index_theme = _is_public_index(request, final_config)
+    public_root_theme = str(final_config.get('public_root_theme') or '').strip()
+    if public_index_theme and public_root_theme:
+        user_prefs = {**user_prefs, 'theme': public_root_theme}
     context['user_preferences'] = user_prefs # Injected for JS use
 
     lang_config = languages.get(current_lang, {'name': 'English', 'dir': 'ltr', 'flag': '🇬🇧'})
@@ -394,9 +427,14 @@ def dlux_context(request):
     project_overrides = final_config.get('localization', {}).get('translations', final_config.get('translations', None))
     dlux_strings = get_strings(current_lang, overrides=project_overrides)
     allowed_theme_names = list(get_effective_allowed_themes(final_config))
+    # Ensure the public-root theme's stylesheet is emitted even if it is not in
+    # the normally-allowed set, so the forced public theme actually applies.
+    if public_index_theme and public_root_theme and public_root_theme not in allowed_theme_names:
+        allowed_theme_names = [*allowed_theme_names, public_root_theme]
     context['DLUX_THEME_NAMES'] = allowed_theme_names
     context['DLUX_THEMES'] = get_theme_options(dlux_strings, allowed_themes=allowed_theme_names)
     context['DLUX_TABLE_DENSITIES'] = list(TABLE_DENSITY_CHOICES)
+    context['DLUX_MODAL_SIZES'] = list(MODAL_SIZE_CHOICES)
 
     context['CURRENT_LANG'] = current_lang
     context['CURRENT_DIR'] = current_dir
@@ -517,10 +555,22 @@ def dlux_context(request):
         context['dlux_unread_notifications_level'] = ''
         context['dlux_flash_notifications'] = []
     context['titlebar_actions'] = _build_titlebar_actions(request, context, final_config, dlux_strings)
-    context['hide_titlebar_for_public_index'] = _should_hide_titlebar_for_public_index(
-        request,
-        final_config,
-        context['titlebar'],
+    is_public_index = _is_public_index(request, final_config)
+    context['dlux_is_public_index'] = is_public_index
+    context['hide_titlebar_for_public_index'] = bool(
+        is_public_index and not final_config.get('show_titlebar_on_public', False)
+    )
+    # Sidebar visibility: always for authenticated users; for anonymous public-root
+    # visitors only when explicitly enabled. Replaces the old base.html hardcode
+    # that hid the sidebar for every unauthenticated user.
+    _user = getattr(request, 'user', None)
+    _is_authenticated = bool(_user and getattr(_user, 'is_authenticated', False))
+    context['dlux_show_sidebar'] = bool(
+        context.get('sidebar_enabled', True)
+        and (
+            _is_authenticated
+            or (is_public_index and final_config.get('show_sidebar_on_public', False))
+        )
     )
     # 8. Font Resolution
     from .fonts import (

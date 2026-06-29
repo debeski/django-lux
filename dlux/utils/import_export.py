@@ -235,8 +235,13 @@ def normalize_system_settings_import_payload(payload):
         'enforce_strong_passwords',
         'public_root',
         'public_root_split_enabled',
+        'show_titlebar_on_public',
+        'show_sidebar_on_public',
         'public_registration_enabled',
         'registration_throttle_enabled',
+        'honeypot_enabled',
+        'sticky_table_headers',
+        'zebra_striping',
     ):
         if bool_field in normalized:
             normalized[bool_field] = _coerce_import_bool(normalized[bool_field])

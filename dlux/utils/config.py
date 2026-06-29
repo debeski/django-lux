@@ -33,7 +33,10 @@ from ..system.constants import (
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
+    DEFAULT_FORM_DENSITY,
+    DEFAULT_MODAL_SIZE,
     DEFAULT_TABLE_DENSITY,
+    MODAL_SIZE_CLASSES,
     REGISTRATION_ACTIVATION_AUTO_LOGIN,
     REGISTRATION_ACTIVATION_VALUES,
     NAVBAR_MODE_VALUES,
@@ -364,8 +367,14 @@ def build_config_groups(config, current_language=None):
                 REGISTRATION_ACTIVATION_AUTO_LOGIN,
             ),
             'registration_throttle_enabled': bool(config.get('registration_throttle_enabled', True)),
+            'honeypot_enabled': bool(config.get('honeypot_enabled', True)),
             'login_lockout_enabled': bool(config.get('login_lockout_enabled', True)),
             'enforce_strong_passwords': bool(config.get('enforce_strong_passwords', False)),
+            'public_root_theme': config.get('public_root_theme', '') or '',
+            'public_root_title': config.get('public_root_title', '') or '',
+            'public_root_meta_description': config.get('public_root_meta_description', '') or '',
+            'show_titlebar_on_public': bool(config.get('show_titlebar_on_public', False)),
+            'show_sidebar_on_public': bool(config.get('show_sidebar_on_public', False)),
         },
         'navigation': {
             'home_url': config.get('home_url') or DEFAULT_HOME_URL,
@@ -376,6 +385,14 @@ def build_config_groups(config, current_language=None):
             'default_theme': config.get('default_theme', 'light'),
             'allowed_themes': list(config.get('allowed_themes', [])),
             'default_table_density': config.get('default_table_density', DEFAULT_TABLE_DENSITY),
+            'default_form_density': config.get('default_form_density', DEFAULT_FORM_DENSITY),
+            'default_modal_size': config.get('default_modal_size', DEFAULT_MODAL_SIZE),
+            'modal_size_class': MODAL_SIZE_CLASSES.get(
+                config.get('default_modal_size', DEFAULT_MODAL_SIZE),
+                MODAL_SIZE_CLASSES[DEFAULT_MODAL_SIZE],
+            ),
+            'sticky_table_headers': bool(config.get('sticky_table_headers', True)),
+            'zebra_striping': bool(config.get('zebra_striping', True)),
             'footer_enabled': bool(config.get('footer_enabled', True)),
             'footer_text': config.get('footer_text', '') or '',
             'footer_link_text': config.get('footer_link_text', '') or '',
@@ -761,6 +778,20 @@ def expand_system_config_groups(config):
     for alias, canonical in alias_map.items():
         if canonical not in expanded and isinstance(expanded.get(alias), dict):
             expanded[canonical] = deepcopy(expanded[alias])
+    # Legacy migration: titlebar_config.hide_on_public_unauthenticated_index now
+    # maps to public_root_config.show_titlebar_on_public (inverted). Only seed it
+    # when the new key is not already provided, so explicit values always win.
+    _titlebar_group = expanded.get('titlebar_config')
+    if isinstance(_titlebar_group, dict) and 'hide_on_public_unauthenticated_index' in _titlebar_group:
+        _public_root_group = expanded.get('public_root_config')
+        _has_show_titlebar = (
+            (isinstance(_public_root_group, dict) and 'show_titlebar_on_public' in _public_root_group)
+            or 'show_titlebar_on_public' in expanded
+        )
+        if not _has_show_titlebar:
+            expanded['show_titlebar_on_public'] = not bool(
+                _titlebar_group.get('hide_on_public_unauthenticated_index', False)
+            )
     for group_name, flat_keys in _CONFIG_GROUP_FLAT_KEYS.items():
         if group_name not in expanded and not any(flat_key in expanded for flat_key in flat_keys):
             continue
@@ -972,6 +1003,31 @@ def get_system_config():
         _footer_enabled = bool(getattr(sys_settings, 'footer_enabled', True))
         if _should_apply_db_override(_footer_enabled, bool(default_config.get('footer_enabled', True))):
             db_config['footer_enabled'] = _footer_enabled
+        if (
+            getattr(sys_settings, 'default_form_density', None)
+            and _should_apply_db_override(
+                sys_settings.default_form_density,
+                default_config['default_form_density'],
+            )
+        ):
+            db_config['default_form_density'] = sys_settings.default_form_density
+        if (
+            getattr(sys_settings, 'default_modal_size', None)
+            and _should_apply_db_override(
+                sys_settings.default_modal_size,
+                default_config['default_modal_size'],
+            )
+        ):
+            db_config['default_modal_size'] = sys_settings.default_modal_size
+        # sticky_table_headers / zebra_striping default True (False is meaningful);
+        # gate like footer_enabled so toggling them does not clobber a settings-level
+        # layout override on an unconfigured system.
+        _sticky_headers = bool(getattr(sys_settings, 'sticky_table_headers', True))
+        if _should_apply_db_override(_sticky_headers, bool(default_config.get('sticky_table_headers', True))):
+            db_config['sticky_table_headers'] = _sticky_headers
+        _zebra_striping = bool(getattr(sys_settings, 'zebra_striping', True))
+        if _should_apply_db_override(_zebra_striping, bool(default_config.get('zebra_striping', True))):
+            db_config['zebra_striping'] = _zebra_striping
         if str(getattr(sys_settings, 'footer_text', '') or '').strip():
             db_config['footer_text'] = sys_settings.footer_text
         if str(getattr(sys_settings, 'footer_link_text', '') or '').strip():
@@ -1060,6 +1116,36 @@ def get_system_config():
             )
         ):
             db_config['public_root_url'] = str(sys_settings.public_root_url or '').strip()
+        if str(getattr(sys_settings, 'public_root_theme', '') or '').strip():
+            db_config['public_root_theme'] = str(sys_settings.public_root_theme or '').strip()
+        if str(getattr(sys_settings, 'public_root_title', '') or '').strip():
+            db_config['public_root_title'] = str(sys_settings.public_root_title or '').strip()
+        if str(getattr(sys_settings, 'public_root_meta_description', '') or '').strip():
+            db_config['public_root_meta_description'] = str(
+                sys_settings.public_root_meta_description or ''
+            ).strip()
+        # show_titlebar_on_public supersedes the legacy titlebar-owned hide flag.
+        # When the new key is unset on an upgraded install, derive it (inverted)
+        # from titlebar_config.hide_on_public_unauthenticated_index.
+        _pub_cfg = getattr(sys_settings, 'public_root_config', None)
+        _has_show_titlebar = isinstance(_pub_cfg, dict) and 'show_titlebar_on_public' in _pub_cfg
+        if _has_show_titlebar:
+            _show_titlebar = bool(getattr(sys_settings, 'show_titlebar_on_public', False))
+        else:
+            _tb_cfg = getattr(sys_settings, 'titlebar_config', None)
+            _show_titlebar = not bool(
+                (_tb_cfg or {}).get('hide_on_public_unauthenticated_index', False)
+            ) if isinstance(_tb_cfg, dict) else False
+        if _should_apply_db_override(_show_titlebar, default_config['show_titlebar_on_public']):
+            db_config['show_titlebar_on_public'] = _show_titlebar
+        if (
+            hasattr(sys_settings, 'show_sidebar_on_public')
+            and _should_apply_db_override(
+                bool(sys_settings.show_sidebar_on_public),
+                default_config['show_sidebar_on_public'],
+            )
+        ):
+            db_config['show_sidebar_on_public'] = bool(sys_settings.show_sidebar_on_public)
         if (
             hasattr(sys_settings, 'public_registration_enabled')
             and _should_apply_db_override(

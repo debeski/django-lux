@@ -24,8 +24,30 @@ TABLE_DENSITY_VALUES = {value for value, _label in TABLE_DENSITY_CHOICES}
 DEFAULT_SIDEBAR_DENSITY = DEFAULT_TABLE_DENSITY
 SIDEBAR_DENSITY_CHOICES = TABLE_DENSITY_CHOICES
 SIDEBAR_DENSITY_VALUES = TABLE_DENSITY_VALUES
+# Form field spacing density (layout_config) — shares the table density vocabulary
+# but is applied independently to dynamic-modal/page forms.
+DEFAULT_FORM_DENSITY = DEFAULT_TABLE_DENSITY
+FORM_DENSITY_CHOICES = TABLE_DENSITY_CHOICES
+FORM_DENSITY_VALUES = TABLE_DENSITY_VALUES
+# Default width preset for the shared dynamic modal (layout_config).
+DEFAULT_MODAL_SIZE = 'standard'
+MODAL_SIZE_CHOICES = (
+    ('compact', 'Compact'),
+    (DEFAULT_MODAL_SIZE, 'Standard'),
+    ('wide', 'Wide'),
+)
+MODAL_SIZE_VALUES = {value for value, _label in MODAL_SIZE_CHOICES}
+# CSS dialog class applied for each modal-size preset (standard preserves modal-xl).
+MODAL_SIZE_CLASSES = {
+    'compact': 'modal-lg',
+    'standard': 'modal-xl',
+    'wide': 'modal-xl dlux-modal-wide',
+}
 # Max length of the optional global footer copyright/credit line (layout_config).
 LAYOUT_FOOTER_TEXT_MAX_LENGTH = 300
+# Max lengths for the optional public-root SEO overrides (public_root_config).
+PUBLIC_ROOT_TITLE_MAX_LENGTH = 120
+PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH = 300
 DEFAULT_SIDEBAR_COLLAPSE_MODE = 'icons'
 SIDEBAR_COLLAPSE_MODE_CHOICES = (
     (DEFAULT_SIDEBAR_COLLAPSE_MODE, 'Icons'),
@@ -209,6 +231,10 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'allow_user_font_override',
     'allow_user_language_override',
     'default_table_density',
+    'default_form_density',
+    'default_modal_size',
+    'sticky_table_headers',
+    'zebra_striping',
     'footer_enabled',
     'footer_text',
     'footer_link_text',
@@ -221,9 +247,15 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'public_root',
     'public_root_split_enabled',
     'public_root_url',
+    'public_root_theme',
+    'public_root_title',
+    'public_root_meta_description',
+    'show_titlebar_on_public',
+    'show_sidebar_on_public',
     'public_registration_enabled',
     'registration_activation_mode',
     'registration_throttle_enabled',
+    'honeypot_enabled',
     'email_config',
     'languages',
     'translations_override',

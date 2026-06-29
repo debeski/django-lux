@@ -1,0 +1,42 @@
+<div class="dlux-form-density-picker">
+    <div class="dlux-density-options" role="group" aria-label="{{ DLUX_STRINGS.form_density|default:'Form density' }}">
+        {% for value, _choice_label in density_choices %}
+        <button
+            type="button"
+            class="dlux-density-option{% if selected_density == value %} is-active{% endif %}"
+            data-form-density="{{ value }}"
+            aria-pressed="{% if selected_density == value %}true{% else %}false{% endif %}"
+        >
+            <span class="dlux-density-option__icon" aria-hidden="true">
+                {% if value == 'dense' %}
+                <i class="bi bi-text-paragraph"></i>
+                {% elif value == 'roomy' %}
+                <i class="bi bi-distribute-vertical"></i>
+                {% else %}
+                <i class="bi bi-textarea-resize"></i>
+                {% endif %}
+            </span>
+            <span class="dlux-density-option__copy">
+                <strong>
+                    {% if value == 'dense' %}
+                    {{ DLUX_STRINGS.table_density_dense|default:"Dense" }}
+                    {% elif value == 'roomy' %}
+                    {{ DLUX_STRINGS.table_density_roomy|default:"Roomy" }}
+                    {% else %}
+                    {{ DLUX_STRINGS.table_density_balanced|default:"Balanced" }}
+                    {% endif %}
+                </strong>
+                <small>
+                    {% if value == 'dense' %}
+                    {{ DLUX_STRINGS.form_density_dense_desc|default:"Tighter field spacing to fit more on screen." }}
+                    {% elif value == 'roomy' %}
+                    {{ DLUX_STRINGS.form_density_roomy_desc|default:"Larger fields and more breathing room." }}
+                    {% else %}
+                    {{ DLUX_STRINGS.form_density_balanced_desc|default:"Comfortable default spacing for form fields." }}
+                    {% endif %}
+                </small>
+            </span>
+        </button>
+        {% endfor %}
+    </div>
+</div>

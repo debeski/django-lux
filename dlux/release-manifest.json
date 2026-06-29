@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "1.2.12",
+  "version": "1.2.13",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "DluxLoadingButton spinner helper (declarative/promise/polling, layout-preserving) with login + dynamic-modal migration; inline-updater UX (green Finish, honest status, spinning Check); footer theme-aware colors, z-index, enable toggle + optional validated link, and the per-user home-URL toggle moved to Step 3; dlux_setup now AST-detects the settings block (no duplicate append). No migrations; inline-safe.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.12"
+  "summary": "New System Settings appearance/anti-bot toggles (no migrations, inline-safe): layout_config gains sticky-header + zebra-striping toggles, default form density, and default modal size; registration_config gains a honeypot enable toggle gating the existing website bot-trap; public_root_config gains a fixed public-root theme, public-root <title>/meta-description overrides, and centralized show_titlebar_on_public + show_sidebar_on_public toggles (default hidden) that supersede titlebar_config.hide_on_public_unauthenticated_index and replace the hardcoded hide-sidebar-for-anonymous behavior. Also hardens the updater: reconcile reverts an unreconstructable active release to the baked image and self-heals a stuck degraded flag once back on baked, and the scaffold supervisor derives DLUX_BAKED_VERSION from dlux.__version__ so bind-mount dev works.",
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.13"
 }

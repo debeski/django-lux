@@ -102,8 +102,10 @@ Django email behavior to change.
   whether an account exists.
 - Registration uses cache throttles by IP and email when
   `registration_throttle_enabled` is enabled.
-- The form includes a honeypot field; filled honeypots silently get the generic
-  sent response.
+- The form includes a hidden `website` honeypot field; a filled honeypot silently
+  returns the generic sent response. The trap is gated by `registration_config.honeypot_enabled`
+  (default on), toggleable from *System Settings → Security* — disable it (e.g.
+  before adding CAPTCHA) and the bounce is skipped.
 - Publicly registered users are not automatically assigned a generated scope by
   Dlux scope auto-creation.
 - Login accepts username or email only when public registration is enabled.

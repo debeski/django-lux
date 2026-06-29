@@ -359,11 +359,18 @@ class RuntimeStoreTests(TestCase):
                 "time.sleep(30)\n",
                 encoding="utf-8",
             )
+            # Pin DLUX_BAKED_VERSION explicitly so the assertion is deterministic
+            # and independent of the installed-package metadata (importlib.metadata),
+            # which can lag the source/manifest version on a source checkout. The
+            # supervisor's runtime_environment() keeps an already-set value, so this
+            # is exactly what the child should report back as "baked".
+            expected_baked = "9.9.9-supervisor-test"
+            supervisor_env = {**os.environ, "DLUX_BAKED_VERSION": expected_baked}
             process = subprocess.Popen([
                 sys.executable, str(supervisor), "--runtime-root", str(runtime),
                 "--poll-seconds", "0.1", "--grace-seconds", "2", "--",
                 sys.executable, str(child),
-            ])
+            ], env=supervisor_env)
             deadline = time.monotonic() + 5
             while (not log.exists() or len(log.read_text().splitlines()) < 1) and time.monotonic() < deadline:
                 time.sleep(0.05)
@@ -376,20 +383,6 @@ class RuntimeStoreTests(TestCase):
             launches = [json.loads(line) for line in log.read_text().splitlines()]
             self.assertGreaterEqual(len(launches), 2)
             self.assertTrue(all(str(release) in item["pythonpath"] for item in launches[:2]))
-            # The supervisor bakes DLUX_BAKED_VERSION from the *installed* package
-            # metadata (importlib.metadata), not from the release manifest that
-            # backs dlux.__version__. The two only coincide on a fresh install, so
-            # comparing against __version__ here would spuriously fail after any
-            # manifest bump that predates a reinstall. Resolve the expected value
-            # exactly the way the supervisor does instead.
-            expected_baked = os.environ.get("DLUX_BAKED_VERSION")
-            if not expected_baked:
-                import importlib.metadata
-
-                try:
-                    expected_baked = importlib.metadata.version("django-lux")
-                except importlib.metadata.PackageNotFoundError:
-                    expected_baked = ""
             self.assertTrue(all(item["baked"] == expected_baked for item in launches[:2]))
 
     def test_reconcile_preserves_image_baked_version_while_volume_release_is_active(self):
@@ -472,6 +465,67 @@ class RuntimeStoreTests(TestCase):
             self.assertFalse(store.maintenance_file.exists())
             self.assertFalse(store.degraded_file.exists())
             download.assert_not_called()
+
+    def test_unreconstructable_active_reverts_to_baked_instead_of_degrading(self):
+        # active_version is newer than baked but was never a downloadable wheel
+        # (image/mount activation) and no volume release exists on disk — e.g. a
+        # backward image move, or a wiped runtime volume. reconcile must revert to
+        # the baked image and clear degraded instead of chasing a wheel that never
+        # existed and wedging the runtime permanently.
+        state = DluxUpdateState.load()
+        state.active_version = NEWER_VERSION
+        state.active_wheel_url = ""
+        state.active_wheel_sha256 = ""
+        state.degraded = True
+        state.degraded_reason = "previous reconcile failed"
+        state.save()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.set_degraded("previous reconcile failed")
+            with mock.patch("dlux.updater.service.download_wheel") as download:
+                reconciled = UpdateService(store=store).reconcile()
+            download.assert_not_called()
+            active = store.read_active(__version__)
+            self.assertEqual(active["source"], "image")
+            self.assertEqual(active["version"], __version__)
+            self.assertEqual(reconciled.active_version, __version__)
+            self.assertEqual(reconciled.active_wheel_url, "")
+            self.assertFalse(reconciled.degraded)
+            self.assertEqual(reconciled.degraded_reason, "")
+            self.assertFalse(store.degraded_file.exists())
+            self.assertTrue(UpdateService(store=store).restart_worker is False)
+
+    def test_reconcile_clears_stuck_degraded_once_back_on_baked(self):
+        # A transient degrade (e.g. a one-off health-probe failure) must not wedge
+        # the runtime once it is healthily serving the baked image (active == baked).
+        state = DluxUpdateState.load()
+        state.active_version = __version__
+        state.degraded = True
+        state.degraded_reason = "transient health probe failure"
+        state.save()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.set_degraded("transient health probe failure")
+            reconciled = UpdateService(store=store).reconcile()
+            self.assertEqual(reconciled.active_version, __version__)
+            self.assertFalse(reconciled.degraded)
+            self.assertEqual(reconciled.degraded_reason, "")
+            self.assertFalse(store.degraded_file.exists())
+
+    def test_supervisor_bakes_version_from_running_code_manifest(self):
+        # The supervisor must derive DLUX_BAKED_VERSION from dlux.__version__ (the
+        # running code's manifest) so bind-mounted source checkouts — where the
+        # installed-package metadata is absent or stale — bake the correct version.
+        # importlib.metadata remains only as a fallback.
+        from dlux.scaffold import _render_template
+
+        rendered = _render_template("project/tools/dlux_runtime_supervisor.py.tmpl", {})
+        self.assertIn("def baked_version", rendered)
+        self.assertIn("from dlux import __version__", rendered)
+        self.assertLess(
+            rendered.index("from dlux import __version__"),
+            rendered.index('importlib.metadata.version("django-lux")'),
+        )
 
 
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)

@@ -1850,6 +1850,45 @@
         }
     }
 
+    function applyLayoutBodyPreview(form) {
+        // Layout settings that live on the <body> (sticky headers, zebra striping,
+        // form density, modal size) preview live against the page behind the modal
+        // and, for form/modal, against the open settings form/modal itself.
+        if (form.querySelector('[name="sticky_table_headers"]')) {
+            document.body.dataset.dluxStickyHeader = readBooleanField(form, '#id_sticky_table_headers', true) ? 'on' : 'off';
+        }
+        if (form.querySelector('[name="zebra_striping"]')) {
+            document.body.dataset.dluxZebra = readBooleanField(form, '#id_zebra_striping', true) ? 'on' : 'off';
+        }
+        const formDensity = getNamedFieldValue(form, 'default_form_density');
+        if (formDensity) {
+            document.body.dataset.dluxFormDensity = formDensity;
+        }
+        const modalSize = getNamedFieldValue(form, 'default_modal_size');
+        if (modalSize) {
+            document.body.dataset.dluxModalSize = modalSize;
+        }
+    }
+
+    function applyFooterPreview(form) {
+        // Best-effort: the footer element only exists in the DOM when enabled, so
+        // we can hide a shown footer and update its text/link live; enabling a
+        // currently-absent footer only takes effect after save.
+        if (!form.querySelector('[name="footer_enabled"]')) {
+            return;
+        }
+        const enabled = readBooleanField(form, '#id_footer_enabled', true);
+        const footer = document.querySelector('footer.dlux-footer');
+        if (footer) {
+            footer.style.display = enabled ? '' : 'none';
+            const textEl = footer.querySelector('.dlux-footer__text');
+            const text = getNamedFieldValue(form, 'footer_text');
+            if (textEl && text) {
+                textEl.textContent = text;
+            }
+        }
+    }
+
     function applyImmediateSystemSettingsPreview(form) {
         if (!form || !form.classList.contains('dlux-system-setup-form')) {
             return;
@@ -1859,6 +1898,8 @@
         applyBrandingFilePreviews(form);
         applySidebarPreview(form);
         applyTableDensityPreview(form);
+        applyLayoutBodyPreview(form);
+        applyFooterPreview(form);
         window.dispatchEvent(new Event('resize'));
     }
 
@@ -3726,14 +3767,14 @@
                 applyTranslationOverridesToMatrix(form, translationOverrides);
             }
 
-        ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density'].forEach((name) => {
+        ['home_url', 'public_root_url', 'default_language', 'default_theme', 'default_table_density', 'default_form_density', 'default_modal_size', 'public_root_theme', 'public_root_title', 'public_root_meta_description'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setNamedFieldValue(form, name, settings[name]);
                 getNamedFieldInputs(form, name).forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
             }
         });
 
-        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'prevent_multiple_active_sessions', 'public_root', 'public_root_split_enabled', 'public_registration_enabled', 'registration_throttle_enabled'].forEach((name) => {
+        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'prevent_multiple_active_sessions', 'public_root', 'public_root_split_enabled', 'show_titlebar_on_public', 'show_sidebar_on_public', 'public_registration_enabled', 'registration_throttle_enabled', 'honeypot_enabled', 'sticky_table_headers', 'zebra_striping', 'footer_enabled'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setCheckboxField(form, name, settings[name]);
             }
@@ -3807,11 +3848,6 @@
             setCheckboxField(form, 'titlebar_show_title', titlebar.show_title !== false);
             setCheckboxField(form, 'titlebar_show_logo', titlebar.show_logo !== false);
             setCheckboxField(form, 'titlebar_show_home_button', titlebar.show_home_button !== false);
-            setCheckboxField(
-                form,
-                'titlebar_hide_on_public_unauthenticated_index',
-                titlebar.hide_on_public_unauthenticated_index === true
-            );
             setNamedFieldValue(form, 'titlebar_home_shape', titlebar.buttons_shape || titlebar.home_shape || 'circle');
             setNamedFieldValue(form, 'titlebar_user_hub_style', titlebar.user_hub_style === 'titlebar_actions' ? 'titlebar_actions' : 'dropdown');
             writeTitlebarActionsOrder(form, titlebar.actions_order || TITLEBAR_ACTIONS_DEFAULT_ORDER);

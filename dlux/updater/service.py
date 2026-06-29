@@ -205,37 +205,13 @@ class UpdateService:
             active = self.store.read_active(baked_version)
         except UpdaterError:
             active = None
+        _rebuild_reason = "A newer project-image DjangoLux release was activated."
         if active and active["source"] == "volume" and self._version_is_newer(
             baked_version, active["version"]
         ):
             next_generation = self.store.read_generation() + 1
-            self.store.write_active(baked_version, source="image", generation=next_generation)
+            self._reset_to_baked_image(state, baked_version, next_generation, _rebuild_reason, changed)
             self.store.set_generation(next_generation)
-            reset_fields = {
-                "active_version": baked_version,
-                "active_wheel_url": "",
-                "active_wheel_sha256": "",
-                "active_manifest": {},
-                "previous_version": "",
-                "previous_wheel_url": "",
-                "previous_wheel_sha256": "",
-                "previous_manifest": {},
-                "latest_version": "",
-                "latest_wheel_url": "",
-                "latest_wheel_sha256": "",
-                "latest_manifest": {},
-                "latest_compatible": False,
-                "latest_reason": "A newer project-image DjangoLux release was activated.",
-                "generation": next_generation,
-                "degraded": False,
-                "degraded_reason": "",
-            }
-            for field, value in reset_fields.items():
-                if getattr(state, field) != value:
-                    setattr(state, field, value)
-                    changed.append(field)
-            self.store.clear_degraded()
-            self.store.set_maintenance(False)
             active = self.store.read_active(baked_version)
             self.restart_worker = True
         elif active and active["source"] == "image" and (
@@ -246,48 +222,47 @@ class UpdateService:
             # Treat that as an intentional activation, not as a missing volume
             # release that should be reconstructed from stale database metadata.
             generation = self.store.read_generation()
-            self.store.write_active(baked_version, source="image", generation=generation)
-            reset_fields = {
-                "active_version": baked_version,
-                "active_wheel_url": "",
-                "active_wheel_sha256": "",
-                "active_manifest": {},
-                "previous_version": "",
-                "previous_wheel_url": "",
-                "previous_wheel_sha256": "",
-                "previous_manifest": {},
-                "latest_version": "",
-                "latest_wheel_url": "",
-                "latest_wheel_sha256": "",
-                "latest_manifest": {},
-                "latest_compatible": False,
-                "latest_reason": "A newer project-image DjangoLux release was activated.",
-                "generation": generation,
-                "degraded": False,
-                "degraded_reason": "",
-            }
-            for field, value in reset_fields.items():
-                if getattr(state, field) != value:
-                    setattr(state, field, value)
-                    changed.append(field)
-            self.store.clear_degraded()
-            self.store.set_maintenance(False)
+            self._reset_to_baked_image(state, baked_version, generation, _rebuild_reason, changed)
             active = self.store.read_active(baked_version)
         if active is None or (
             not self.store.active_file.exists()
             and state.active_version
             and state.active_version != baked_version
         ):
-            try:
-                self._restore_recorded_active(state)
+            if (
+                state.active_version
+                and state.active_version != baked_version
+                and not self.store.release_path(state.active_version).is_dir()
+                and not (state.active_wheel_url and state.active_wheel_sha256)
+            ):
+                # The recorded active release cannot be served and cannot be
+                # rebuilt: there is no staged volume release on disk and no
+                # downloadable wheel to reconstruct it (an image/mount activation,
+                # or a wiped runtime volume). A backward image move lands here too.
+                # Revert to the baked image — the known-good runtime — instead of
+                # hard-failing into a permanently degraded state by chasing a wheel
+                # that never existed.
+                next_generation = self.store.read_generation() + 1
+                self._reset_to_baked_image(
+                    state, baked_version, next_generation,
+                    "The recorded DjangoLux release could not be served and was reverted to the baked image.",
+                    changed,
+                )
+                self.store.set_generation(next_generation)
                 active = self.store.read_active(baked_version)
                 restoration_succeeded = True
-            except Exception as exc:
-                active = None
-                state.degraded = True
-                state.degraded_reason = _sanitize(exc)
-                self.store.set_degraded(state.degraded_reason)
-                changed.extend(["degraded", "degraded_reason"])
+                self.restart_worker = True
+            else:
+                try:
+                    self._restore_recorded_active(state)
+                    active = self.store.read_active(baked_version)
+                    restoration_succeeded = True
+                except Exception as exc:
+                    active = None
+                    state.degraded = True
+                    state.degraded_reason = _sanitize(exc)
+                    self.store.set_degraded(state.degraded_reason)
+                    changed.extend(["degraded", "degraded_reason"])
         if active:
             if self.store.read_generation() != active["generation"]:
                 self.store.set_generation(active["generation"])
@@ -297,7 +272,19 @@ class UpdateService:
             if state.generation != active["generation"]:
                 state.generation = active["generation"]
                 changed.append("generation")
-            if restoration_succeeded and (state.degraded or state.degraded_reason):
+            # Clear a lingering degraded flag once the runtime has demonstrably
+            # converged onto a healthy release. That means either a successful
+            # restoration just ran, OR the runtime is now serving the baked image
+            # (the known-good fallback). A transient degrade must not wedge the
+            # runtime permanently once it is healthily back on baked. Volume
+            # releases are deliberately excluded: a degrade tied to a failed
+            # volume activation/rollback target stays sticky for operator review.
+            converged_on_baked = (
+                active["version"] == baked_version and active["source"] == "image"
+            )
+            if (restoration_succeeded or converged_on_baked) and (
+                state.degraded or state.degraded_reason
+            ):
                 state.degraded = False
                 state.degraded_reason = ""
                 changed.extend(["degraded", "degraded_reason"])
@@ -313,6 +300,42 @@ class UpdateService:
             return Version(str(candidate)) > Version(str(current))
         except InvalidVersion:
             return False
+
+    def _reset_to_baked_image(self, state, baked_version, generation, reason, changed):
+        """Activate the baked image release and clear all volume-update metadata.
+
+        Shared by every path that converges the runtime back onto the immutable
+        image package: a project-image rebuild, and the recovery fallback when a
+        recorded release can no longer be served. Clears the degraded marker —
+        baked is the known-good runtime — but leaves generation bumping and worker
+        restart to the caller, since those differ per path.
+        """
+        self.store.write_active(baked_version, source="image", generation=generation)
+        reset_fields = {
+            "active_version": baked_version,
+            "active_wheel_url": "",
+            "active_wheel_sha256": "",
+            "active_manifest": {},
+            "previous_version": "",
+            "previous_wheel_url": "",
+            "previous_wheel_sha256": "",
+            "previous_manifest": {},
+            "latest_version": "",
+            "latest_wheel_url": "",
+            "latest_wheel_sha256": "",
+            "latest_manifest": {},
+            "latest_compatible": False,
+            "latest_reason": reason,
+            "generation": generation,
+            "degraded": False,
+            "degraded_reason": "",
+        }
+        for field, value in reset_fields.items():
+            if getattr(state, field) != value:
+                setattr(state, field, value)
+                changed.append(field)
+        self.store.clear_degraded()
+        self.store.set_maintenance(False)
 
     def _restore_recorded_active(self, state):
         baked_version = get_baked_version()

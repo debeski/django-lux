@@ -5,7 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="DjangoLux {{ DLUX_VERSION }}">
+    {% if dlux_is_public_index and APP_CONFIG.security.public_root_meta_description %}<meta name="description" content="{{ APP_CONFIG.security.public_root_meta_description }}">{% endif %}
+    {% if dlux_is_public_index and APP_CONFIG.security.public_root_title %}
+    <title>{{ APP_CONFIG.security.public_root_title }}</title>
+    {% else %}
     <title>{{ APP_CONFIG.identity.display_name|default:"DjangoLux" }} &nbsp;|&nbsp; {% block title %}{% endblock %}</title>
+    {% endif %}
     
     {{ user_preferences|json_script:"user-prefs-data" }}
     {{ DLUX_STRINGS|json_script:"dlux-strings-data" }}
@@ -27,12 +32,12 @@
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap.rtl.min.css' %}" id="bootstrap-css">
     {% endif %}
     <link rel="stylesheet" href="{% static 'bootstrap/bootstrap-icons.css' %}">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/main.css' %}?v=20260614a">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/main.css' %}?v=20260627b">
     <link rel="stylesheet" href="{% static 'dlux/main/css/navbar.css' %}?v=20260612c">
     <link rel="stylesheet" href="{% static 'dlux/main/css/buttons.css' %}?v=20260612c">
     <link rel="stylesheet" href="{% static 'dlux/main/css/titlebar.css' %}?v=20260619a">
     <link rel="stylesheet" href="{% static 'dlux/main/css/notifications.css' %}?v=20260624a">
-    <link rel="stylesheet" href="{% static 'dlux/main/css/tables.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/tables.css' %}?v=20260627d">
     <link rel="stylesheet" href="{% static 'dlux/main/css/dropdowns.css' %}">
     <link rel="stylesheet" href="{% static 'dlux/main/css/selectors.css' %}?v=20260620c">
     <link rel="stylesheet" href="{% static 'dlux/main/css/template_cleanup.css' %}?v=20260615b">
@@ -76,14 +81,14 @@
     <script src="{% static 'dlux/users/js/user_report.js' %}?v=20260624a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/tables.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/selectors.js' %}?v=20260620b" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/system_setup.js' %}?v=20260623a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/system_setup.js' %}?v=20260627b" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/wizard/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/navbar.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/signature.js' %}?v=20260615a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/helpers/password_rules/js/main.js' %}?v=20260616b" nonce="{{ request.csp_nonce }}" defer></script>
 
 </head>
-<body>
+<body data-dlux-sticky-header="{{ APP_CONFIG.appearance.sticky_table_headers|yesno:'on,off' }}" data-dlux-zebra="{{ APP_CONFIG.appearance.zebra_striping|yesno:'on,off' }}" data-dlux-form-density="{{ user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density|default:'balanced' }}" data-dlux-modal-size="{{ user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size|default:'standard' }}">
 
     <!-- Title Bar -->
     {% block titlebar %}
@@ -96,22 +101,24 @@
     {% endblock %}
 
     {% block layout %}
-    {% if request.user.is_authenticated %}
+    {# Use the sidebar+main chrome for authenticated users and for anonymous     #}
+    {# public-root visitors when the sidebar is explicitly shown there.          #}
+    {% if request.user.is_authenticated or dlux_show_sidebar %}
         <div class="col overflow-hidden">
             <div class="row g-0 m-0 d-flex flex-grow-1 flex-nowrap">
                 <!-- Sidebar -->
-                {% if sidebar_enabled %}
+                {% if dlux_show_sidebar %}
                     {% include 'dlux/includes/sidebar_items.html' %}
                 {% endif %}
                 <!-- Main Content -->
                 <div class="col p-3 flex-column flex-fill p-4" id="mainContent">
-                    {% dlux_navbar %}
+                    {% if request.user.is_authenticated %}{% dlux_navbar %}{% endif %}
     {% else %}
         <main class="flex-fill w-100 p-4" id="mainContent">
     {% endif %}
         {% include 'dlux/includes/messages.html' %}
         {% block content %}{% endblock %}
-    {% if request.user.is_authenticated %}
+    {% if request.user.is_authenticated or dlux_show_sidebar %}
                 </div>
             </div>
         </div>

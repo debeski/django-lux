@@ -479,6 +479,26 @@ form label {
     scrollbar-color: rgba(var(--primal-rgb, 35, 99, 195), 0.32) transparent;
 }
 
+/* Dynamic-modal width preset (layout_config.default_modal_size; per-user
+   overridable via Options → Modal Size). Driven by the `data-dlux-modal-size`
+   body attribute so it resolves per-user and can be previewed live. `standard`
+   (~modal-xl) is the default/base; compact ~modal-lg; wide goes beyond modal-xl.
+   `modal-fullscreen-xl-down` still takes over below the xl breakpoint. */
+@media (min-width: 1200px) {
+    #universalDynamicModal .modal-dialog {
+        max-width: 1140px;
+    }
+    body[data-dlux-modal-size="compact"] #universalDynamicModal .modal-dialog {
+        max-width: 800px;
+    }
+    body[data-dlux-modal-size="standard"] #universalDynamicModal .modal-dialog {
+        max-width: 1140px;
+    }
+    body[data-dlux-modal-size="wide"] #universalDynamicModal .modal-dialog {
+        max-width: min(96vw, 1480px);
+    }
+}
+
 #universalDynamicModalBody::-webkit-scrollbar {
     width: 8px;
     height: 8px;

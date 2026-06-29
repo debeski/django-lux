@@ -68,7 +68,7 @@ def register_view(request):
     _ensure_public_registration()
     context = _public_auth_context(request)
     if request.method == 'POST':
-        if request.POST.get('website'):
+        if public_registration_config().get('honeypot_enabled', True) and request.POST.get('website'):
             return redirect('register_sent')
         form = PublicRegistrationForm(request.POST)
         if form.is_valid():

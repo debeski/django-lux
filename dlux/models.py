@@ -285,12 +285,32 @@ class SingletonModel(models.Model):
                     obj.public_root_split_enabled = bool(config.get('public_root_split_enabled'))
                 if hasattr(obj, 'public_root_url') and 'public_root_url' in config:
                     obj.public_root_url = str(config.get('public_root_url') or '').strip()
+                if hasattr(obj, 'public_root_theme') and 'public_root_theme' in config:
+                    obj.public_root_theme = str(config.get('public_root_theme') or '').strip()
+                if hasattr(obj, 'public_root_title') and 'public_root_title' in config:
+                    obj.public_root_title = str(config.get('public_root_title') or '').strip()
+                if hasattr(obj, 'public_root_meta_description') and 'public_root_meta_description' in config:
+                    obj.public_root_meta_description = str(config.get('public_root_meta_description') or '').strip()
+                if hasattr(obj, 'show_titlebar_on_public') and 'show_titlebar_on_public' in config:
+                    obj.show_titlebar_on_public = bool(config.get('show_titlebar_on_public'))
+                if hasattr(obj, 'show_sidebar_on_public') and 'show_sidebar_on_public' in config:
+                    obj.show_sidebar_on_public = bool(config.get('show_sidebar_on_public'))
                 if hasattr(obj, 'public_registration_enabled') and 'public_registration_enabled' in config:
                     obj.public_registration_enabled = bool(config.get('public_registration_enabled'))
                 if hasattr(obj, 'registration_activation_mode') and config.get('registration_activation_mode'):
                     obj.registration_activation_mode = config.get('registration_activation_mode')
                 if hasattr(obj, 'registration_throttle_enabled') and 'registration_throttle_enabled' in config:
                     obj.registration_throttle_enabled = bool(config.get('registration_throttle_enabled'))
+                if hasattr(obj, 'honeypot_enabled') and 'honeypot_enabled' in config:
+                    obj.honeypot_enabled = bool(config.get('honeypot_enabled'))
+                if hasattr(obj, 'default_form_density') and config.get('default_form_density') in TABLE_DENSITY_VALUES:
+                    obj.default_form_density = config.get('default_form_density')
+                if hasattr(obj, 'default_modal_size') and 'default_modal_size' in config:
+                    obj.default_modal_size = config.get('default_modal_size')
+                if hasattr(obj, 'sticky_table_headers') and 'sticky_table_headers' in config:
+                    obj.sticky_table_headers = bool(config.get('sticky_table_headers'))
+                if hasattr(obj, 'zebra_striping') and 'zebra_striping' in config:
+                    obj.zebra_striping = bool(config.get('zebra_striping'))
                 if hasattr(obj, 'allowed_fonts') and isinstance(config.get('allowed_fonts'), (list, tuple, set)):
                     obj.allowed_fonts = list(config.get('allowed_fonts'))
                 if hasattr(obj, 'default_fonts') and isinstance(config.get('default_fonts'), dict):

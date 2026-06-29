@@ -163,21 +163,58 @@
     border-end-end-radius: calc(1.35rem - 2px);
 }
 
+/* Sticky headers (layout option, default on). The data table normally lives
+   inside clipping wrappers (`.dlux-table-shell`/`.dlux-table-card`/`.card-body`
+   are `overflow:hidden`; `.dlux-table-scroll` is `overflow-x:auto`), and ANY
+   non-visible overflow on an ancestor traps `position:sticky` so the header can
+   never pin to the page. When sticky is ON we therefore neutralise those wrappers
+   so the header sticks against the real scroll container (`#mainContent`, which
+   already starts just below the fixed titlebar — so `top:0` pins it there). The
+   rounded-corner look is preserved by the per-cell radii above instead of the
+   wrappers' `overflow:hidden`. Trade-off: wide tables lose the contained
+   horizontal scrollbar and scroll with the content area instead. */
 @media (min-width: 992px) {
-    .dlux-data-table > thead > tr > th {
+    body[data-dlux-sticky-header="on"] .dlux-table-shell,
+    body[data-dlux-sticky-header="on"] .dlux-table-card,
+    body[data-dlux-sticky-header="on"] .dlux-table-card > .card-body,
+    body[data-dlux-sticky-header="on"] .dlux-table-scroll {
+        overflow: visible;
+    }
+
+    body[data-dlux-sticky-header="on"] .dlux-table-shell {
+        clip-path: none;
+    }
+
+    /* `.dlux-data-table.table` (the table always carries both classes) is used so
+       this rule's specificity (0,3,4) beats the dark-family/mono themes' own
+       `:root.theme-X .table thead th { background: … !important }` rule (0,3,2). */
+    body[data-dlux-sticky-header="on"] .dlux-data-table.table > thead > tr > th {
         position: sticky;
-        top: 0;
-        z-index: 2;
+        /* The scroll container `#mainContent` has `p-4` (1.5rem) padding, so
+           `top: 0` would pin the header to the content box — 1.5rem BELOW the
+           scrollport top — leaving a transparent strip (the padding) above it
+           where rows scroll through. Pull the stuck header up by that padding so
+           it pins flush at the top of `#mainContent`, just under the titlebar. */
+        top: -1.5rem;
+        z-index: 3;
+        /* A stuck header has the scrolling rows passing directly behind it, so the
+           glass/semi-transparent header surface lets them bleed through and reads
+           as confusing. Composite the themed header surface over an opaque
+           `--table-row` backdrop so the stuck header is fully solid (kept
+           theme-aware via the gradient on top). `!important` beats the themes'
+           own `!important` header-background rules. */
+        background-color: var(--table-row, #ffffff) !important;
     }
 }
 
-.dlux-data-table > tbody > tr:nth-child(odd) > td,
-.dlux-data-table > tbody > tr:nth-child(odd) > th {
+/* Zebra striping is an admin-toggleable layout option (default on). */
+body[data-dlux-zebra="on"] .dlux-data-table > tbody > tr:nth-child(odd) > td,
+body[data-dlux-zebra="on"] .dlux-data-table > tbody > tr:nth-child(odd) > th {
     background: var(--dlux-table-row-odd);
 }
 
-.dlux-data-table > tbody > tr:nth-child(even) > td,
-.dlux-data-table > tbody > tr:nth-child(even) > th {
+body[data-dlux-zebra="on"] .dlux-data-table > tbody > tr:nth-child(even) > td,
+body[data-dlux-zebra="on"] .dlux-data-table > tbody > tr:nth-child(even) > th {
     background: var(--dlux-table-row-even);
 }
 

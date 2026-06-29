@@ -5,6 +5,8 @@ callables and Django startup remain stable.
 """
 
 from .constants import (
+    DEFAULT_FORM_DENSITY,
+    DEFAULT_MODAL_SIZE,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SECURITY_NUDGE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -47,6 +49,7 @@ def default_registration_config():
         'public_registration_enabled': False,
         'registration_activation_mode': REGISTRATION_ACTIVATION_AUTO_LOGIN,
         'registration_throttle_enabled': True,
+        'honeypot_enabled': True,
     }
 
 
@@ -55,6 +58,11 @@ def default_public_root_config():
         'public_root': False,
         'public_root_split_enabled': False,
         'public_root_url': '',
+        'public_root_theme': '',
+        'public_root_title': '',
+        'public_root_meta_description': '',
+        'show_titlebar_on_public': False,
+        'show_sidebar_on_public': False,
     }
 
 
@@ -106,6 +114,10 @@ def default_notification_config():
 def default_layout_config():
     return {
         'default_table_density': DEFAULT_TABLE_DENSITY,
+        'default_form_density': DEFAULT_FORM_DENSITY,
+        'default_modal_size': DEFAULT_MODAL_SIZE,
+        'sticky_table_headers': True,
+        'zebra_striping': True,
         'footer_enabled': True,
         'footer_text': '',
         'footer_link_text': '',

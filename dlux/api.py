@@ -9,7 +9,7 @@ import json
 from datetime import date, datetime
 import logging
 # Project imports
-from .system.constants import NAVBAR_MODE_VALUES, SIDEBAR_DENSITY_VALUES, TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
+from .system.constants import FORM_DENSITY_VALUES, MODAL_SIZE_VALUES, NAVBAR_MODE_VALUES, SIDEBAR_DENSITY_VALUES, TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
 from .utils import (
     get_effective_allowed_themes,
     get_system_config,
@@ -314,6 +314,14 @@ def update_preferences(request):
                     if key == 'table_density':
                         if value not in TABLE_DENSITY_VALUES:
                             prefs.pop('table_density', None)
+                            continue
+                    if key == 'form_density':
+                        if value not in FORM_DENSITY_VALUES:
+                            prefs.pop('form_density', None)
+                            continue
+                    if key == 'modal_size':
+                        if value not in MODAL_SIZE_VALUES:
+                            prefs.pop('modal_size', None)
                             continue
                     if key == 'sidebar_density':
                         if not sidebar_config.get('allow_user_density', True):

@@ -7,9 +7,40 @@
     --archive-form-muted: color-mix(in srgb, var(--bs-secondary-color, #6c757d) 88%, white);
 }
 
+/* Form density (layout_config.default_form_density, per-user overridable via
+   Options) — applied via the `data-dlux-form-density` body attribute, independent
+   of table density. Balanced is the fallback (no attribute / value="balanced").
+   Density drives row spacing, the gap between rows, label spacing, input height,
+   and input vertical padding so the three levels are clearly distinct. */
+body[data-dlux-form-density="dense"] {
+    --dlux-form-gutter-y: 0.1rem;
+    --dlux-form-row-mb: 0.4rem;
+    --dlux-form-label-mb: 0.15rem;
+    --dlux-form-input-h: 2.3rem;
+    --dlux-form-input-py: 0.25rem;
+    --dlux-form-textarea-h: 5.5rem;
+}
+
+body[data-dlux-form-density="roomy"] {
+    --dlux-form-gutter-y: 0.6rem;
+    --dlux-form-row-mb: 1.5rem;
+    --dlux-form-label-mb: 0.7rem;
+    --dlux-form-input-h: 3.6rem;
+    --dlux-form-input-py: 0.75rem;
+    --dlux-form-textarea-h: 9rem;
+}
+
 .dlux-form .row,
 .archive-document-form .row {
-    --bs-gutter-y: 0.25rem;
+    --bs-gutter-y: var(--dlux-form-gutter-y, 0.25rem);
+}
+
+/* Density-driven bottom margin for stacked form rows/groups. Scoped to dlux forms
+   so it overrides crispy's fixed `mb-3` (1rem) without leaking into other layout. */
+.dlux-form .row.mb-3,
+.dlux-form .mb-3.dlux-form-group,
+.archive-document-form .row.mb-3 {
+    margin-bottom: var(--dlux-form-row-mb, 1rem) !important;
 }
 
 .dlux-filter .form-group,
@@ -42,7 +73,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    margin-bottom: 0.45rem;
+    margin-bottom: var(--dlux-form-label-mb, 0.45rem);
     color: var(--archive-form-muted);
     font-size: 0.78rem;
     font-weight: 700;
@@ -61,7 +92,8 @@
 .archive-document-form input[type="text"],
 .archive-document-form input[type="number"],
 .archive-document-form input[type="date"] {
-    min-height: 3.05rem;
+    min-height: var(--dlux-form-input-h, 3.05rem);
+    padding-block: var(--dlux-form-input-py, 0.5rem);
     border: 1px solid var(--archive-form-border);
     border-radius: 1rem;
     background:
@@ -76,7 +108,7 @@
 
 .dlux-form textarea,
 .archive-document-form textarea {
-    min-height: 7.25rem;
+    min-height: var(--dlux-form-textarea-h, 7.25rem);
     resize: vertical;
 }
 

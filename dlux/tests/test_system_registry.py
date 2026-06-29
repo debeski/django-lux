@@ -187,3 +187,90 @@ class SystemSettingsRegistryTests(SimpleTestCase):
         self.assertIn('notifications', default_config)
         self.assertIn('sidebar', default_config)
         self.assertIn('titlebar', default_config)
+
+
+class NewLayoutAndPublicRootKeysTests(SimpleTestCase):
+    def test_layout_defaults_include_new_keys(self):
+        layout = system_defaults.default_layout_config()
+        self.assertEqual(layout['default_form_density'], 'balanced')
+        self.assertEqual(layout['default_modal_size'], 'standard')
+        self.assertTrue(layout['sticky_table_headers'])
+        self.assertTrue(layout['zebra_striping'])
+
+    def test_normalize_layout_config_validates_choices_and_coerces_toggles(self):
+        normalized = system_normalizers.normalize_layout_config({
+            'default_form_density': 'bogus',
+            'default_modal_size': 'bogus',
+            'sticky_table_headers': 0,
+            'zebra_striping': '',
+        })
+        self.assertEqual(normalized['default_form_density'], 'balanced')
+        self.assertEqual(normalized['default_modal_size'], 'standard')
+        self.assertFalse(normalized['sticky_table_headers'])
+        self.assertFalse(normalized['zebra_striping'])
+
+        valid = system_normalizers.normalize_layout_config({
+            'default_form_density': 'dense',
+            'default_modal_size': 'wide',
+        })
+        self.assertEqual(valid['default_form_density'], 'dense')
+        self.assertEqual(valid['default_modal_size'], 'wide')
+
+    def test_registration_defaults_and_normalizer_include_honeypot(self):
+        self.assertTrue(system_defaults.default_registration_config()['honeypot_enabled'])
+        self.assertFalse(
+            system_normalizers.normalize_registration_config({'honeypot_enabled': False})['honeypot_enabled']
+        )
+
+    def test_public_root_defaults_include_new_keys(self):
+        cfg = system_defaults.default_public_root_config()
+        self.assertEqual(cfg['public_root_theme'], '')
+        self.assertEqual(cfg['public_root_title'], '')
+        self.assertEqual(cfg['public_root_meta_description'], '')
+        self.assertFalse(cfg['show_titlebar_on_public'])
+        self.assertFalse(cfg['show_sidebar_on_public'])
+
+    def test_normalize_public_root_config_bounds_text_and_migrates_legacy_titlebar(self):
+        normalized = system_normalizers.normalize_public_root_config({
+            'public_root_title': '  Welcome  ',
+            'public_root_meta_description': 'x' * 5000,
+            'hide_on_public_unauthenticated_index': True,
+        })
+        self.assertEqual(normalized['public_root_title'], 'Welcome')
+        self.assertEqual(len(normalized['public_root_meta_description']), 300)
+        # Legacy hide=True -> show_titlebar_on_public=False (inverted).
+        self.assertFalse(normalized['show_titlebar_on_public'])
+
+        explicit = system_normalizers.normalize_public_root_config({
+            'show_titlebar_on_public': True,
+            'hide_on_public_unauthenticated_index': True,
+        })
+        self.assertTrue(explicit['show_titlebar_on_public'])
+
+    def test_expand_migrates_titlebar_hide_into_public_root_show(self):
+        expanded = expand_system_config_groups({
+            'titlebar_config': {'hide_on_public_unauthenticated_index': True},
+        })
+        self.assertFalse(expanded['public_root_config']['show_titlebar_on_public'])
+        self.assertFalse(expanded['show_titlebar_on_public'])
+
+        expanded_shown = expand_system_config_groups({
+            'titlebar_config': {'hide_on_public_unauthenticated_index': False},
+        })
+        self.assertTrue(expanded_shown['public_root_config']['show_titlebar_on_public'])
+
+    def test_new_keys_are_exportable(self):
+        export_fields = set(get_exportable_settings())
+        for key in (
+            'default_form_density',
+            'default_modal_size',
+            'sticky_table_headers',
+            'zebra_striping',
+            'public_root_theme',
+            'public_root_title',
+            'public_root_meta_description',
+            'show_titlebar_on_public',
+            'show_sidebar_on_public',
+            'honeypot_enabled',
+        ):
+            self.assertIn(key, export_fields)

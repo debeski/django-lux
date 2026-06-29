@@ -475,10 +475,35 @@ Common runtime feature flags in `get_system_config()`:
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
 - `registration_throttle_enabled` — Enable cache throttles for public signup.
+- `honeypot_enabled` — Enable the hidden `website` bot-trap on the registration
+  form (`registration_config.honeypot_enabled`, default on). When on, a submission
+  that fills the hidden field is silently redirected to `register_sent`. Exposed as
+  `APP_CONFIG.security.honeypot_enabled`.
 - `client_ip_config` — Centralized Client IP resolution configuration. Supports
   `mode` (`auto`, `x_forwarded_for`, `remote_addr`, `x_real_ip`, `cloudflare`,
   or `custom`), `trusted_proxy_hops` (0–8), and `custom_header` for custom mode.
+- `public_root_theme` — Fixed theme applied to anonymous visitors on the public
+  root (`public_root_config.public_root_theme`, blank = inherit the normal theme).
+  Its stylesheet is emitted even if it is not in the normally-allowed theme set.
+- `public_root_title` / `public_root_meta_description` — Optional `<title>` and
+  `<meta name="description">` emitted only for the anonymous public index
+  (`public_root_config.*`, length-bounded). Exposed as `APP_CONFIG.security.*`.
+- `show_titlebar_on_public` / `show_sidebar_on_public` — Centralized public-root
+  chrome toggles (`public_root_config.*`, both default **off** = hidden). They
+  supersede the deprecated `titlebar_config.hide_on_public_unauthenticated_index`
+  (legacy data migrates inverted) and gate `base.html`'s titlebar/sidebar for
+  anonymous public-root visitors via the shared `_is_public_index()` context flag.
 - `default_table_density` — System default table density (`balanced`, `dense`, or `roomy`)
+- `default_form_density` — System default form field spacing (`balanced`, `dense`,
+  or `roomy`), independent of table density. Drives `--dlux-form-*` CSS variables
+  via `body[data-dlux-form-density]`. Exposed as `APP_CONFIG.appearance.default_form_density`.
+- `default_modal_size` — Default width of the shared dynamic modal (`compact` →
+  `modal-lg`, `standard` → `modal-xl`, `wide` → `modal-xl dlux-modal-wide`). The
+  resolved class is `APP_CONFIG.appearance.modal_size_class`.
+- `sticky_table_headers` / `zebra_striping` — Toggle (default on) the sticky table
+  header row and alternating row shading; gated in `tables.css` via
+  `body[data-dlux-sticky-header]` / `body[data-dlux-zebra]` emitted from `base.html`.
+  Exposed as `APP_CONFIG.appearance.*`.
 - `footer_text` — Optional copyright/description line for the global page footer
   (`layout_config.footer_text`, max 300 chars, blank by default). Edited from
   *System Settings → Themes & Typography → Footer* and exposed to templates as

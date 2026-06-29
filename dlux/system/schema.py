@@ -145,6 +145,7 @@ SYSTEM_SETTING_GROUPS = (
             _field('registration', 'public_registration_enabled', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('registration', 'registration_activation_mode', default='auto_login_after_verify', widget='choice', legacy_flat=True),
             _field('registration', 'registration_throttle_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
+            _field('registration', 'honeypot_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
         ),
     ),
     SettingGroup(
@@ -160,6 +161,11 @@ SYSTEM_SETTING_GROUPS = (
             _field('public_root', 'public_root', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('public_root', 'public_root_split_enabled', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('public_root', 'public_root_url', legacy_flat=True),
+            _field('public_root', 'public_root_theme', default='', widget='choice', legacy_flat=True),
+            _field('public_root', 'public_root_title', default='', widget='text', legacy_flat=True),
+            _field('public_root', 'public_root_meta_description', default='', widget='text', legacy_flat=True),
+            _field('public_root', 'show_titlebar_on_public', field_type='bool', default=False, widget='switch', legacy_flat=True),
+            _field('public_root', 'show_sidebar_on_public', field_type='bool', default=False, widget='switch', legacy_flat=True),
         ),
     ),
     SettingGroup(
@@ -204,6 +210,10 @@ SYSTEM_SETTING_GROUPS = (
         admin_section='appearance',
         fields=(
             _field('layout', 'default_table_density', default='balanced', widget='choice', legacy_flat=True),
+            _field('layout', 'default_form_density', default='balanced', widget='choice', legacy_flat=True),
+            _field('layout', 'default_modal_size', default='standard', widget='choice', legacy_flat=True),
+            _field('layout', 'sticky_table_headers', field_type='bool', default=True, widget='switch', legacy_flat=True),
+            _field('layout', 'zebra_striping', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('layout', 'footer_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('layout', 'footer_text', default='', widget='text', legacy_flat=True),
             _field('layout', 'footer_link_text', default='', widget='text', legacy_flat=True),

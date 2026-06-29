@@ -16,13 +16,34 @@ The `dlux-updater` service uses the same `WEB_IMAGE` as `web` and `celery`. It m
 
 The project-owned `tools/dlux_runtime_supervisor.py` uses only the Python
 standard library. Before prepending a selected release directory to the child
-`PYTHONPATH`, it records the image-installed distribution version as
-`DLUX_BAKED_VERSION`; this keeps the immutable rollback target distinct from the
-active imported package after container recreation. It reads `active.json`,
-falls back to the baked package for missing/corrupt state, forwards termination
-signals, and bounds graceful shutdown before restarting on a generation change.
+`PYTHONPATH`, it records the image (baked) version as `DLUX_BAKED_VERSION`; this
+keeps the immutable rollback target distinct from the active imported package
+after container recreation. The baked version is derived from `dlux.__version__`
+(the running code's release manifest — a stdlib-only import that triggers no
+Django setup), falling back to the installed distribution metadata only when
+`dlux` cannot be imported. Reading it from the manifest means a bind-mounted
+source checkout (where installed-package metadata is absent or stale) bakes the
+correct version, and unifies the source of truth with `get_baked_version()`. It
+reads `active.json`, falls back to the baked package for missing/corrupt state,
+forwards termination signals, and bounds graceful shutdown before restarting on a
+generation change. (The supervisor lives in the generated project's `tools/`, so
+existing deployments adopt this on the next image rebuild / `enable-updater`
+re-copy.)
 
 If an empty/corrupt volume cannot be reconstructed from the database's verified active-release metadata, the updater writes `state/degraded`, preserves that metadata for retry, and fails its bootstrap health check. Web and Celery therefore do not start against a silently downgraded package. A successful reconstruction (or the updater container's baked migrator repairing an already-restored pointer/static tree) clears and archives the degraded marker.
+
+Reconcile also has two self-healing fallbacks so a runtime never wedges
+permanently. (1) When the recorded active release cannot be served **and cannot
+be rebuilt** — there is no staged volume release on disk *and* no downloadable
+wheel URL/digest (an image- or mount-activated release, a backward image move, or
+a wiped runtime volume) — reconcile reverts to the baked image (re-activating it,
+clearing stale active/previous/latest metadata, bumping the generation, and
+restarting the worker) instead of hard-failing while chasing a wheel that never
+existed. (2) Once the runtime has converged back onto the baked image
+(`active == baked`), a lingering degraded flag from a transient failure is
+cleared, so a one-off degrade self-heals on the next reconcile. A degrade tied to
+a **present volume release** (for example a failed-rollback target that is still
+staged) deliberately stays sticky for operator review.
 
 When an operator deliberately rebuilds the project image with a newer Dlux pin
 for an unsafe, dependency-changing, or bootstrap-changing release, the updater

@@ -779,12 +779,18 @@ class ProfileViewsTests(TestCase):
     def test_user_profile_stats_calculation(self):
         """Test that profile stats are calculated correctly."""
         from dlux.models import UserActivityLog
+        # Use a model_name that does not collide with any registered model. Report
+        # eligibility (filter_report_eligible_activity) falls through to "include"
+        # only when the name resolves to no real model; the bare `TestModel`
+        # registered by test_signals would otherwise resolve to an ineligible
+        # dlux-app model and drop this row to 0 once that module is imported
+        # (full-suite ordering), even though the test passes in isolation.
         UserActivityLog.objects.create(
             created_by=self.user,
             action='CREATE',
-            model_name='TestModel'
+            model_name='ProfileStatsFixtureModel'
         )
-        
+
         response = self.client.get(reverse('user_profile'))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['stats']['total_actions'], 1)
@@ -3051,6 +3057,32 @@ class ProfileConfigAndOnboardingTests(TestCase):
         prof = Profile.all_objects.get(user=u)
         self.assertTrue(prof.is_configured)
         self.assertFalse(prof.preferences)
+
+    def test_form_density_and_modal_size_preferences_validate_and_persist(self):
+        from dlux.models import Profile
+        u = self.User.objects.create_user('fduser', 'fd@e.com', 'pw12345678')
+        c = Client(); c.force_login(u)
+        # Valid values persist.
+        c.post(reverse('update_preferences'), {'form_density': 'dense'})
+        c.post(reverse('update_preferences'), {'modal_size': 'wide'})
+        prefs = Profile.all_objects.get(user=u).preferences
+        self.assertEqual(prefs.get('form_density'), 'dense')
+        self.assertEqual(prefs.get('modal_size'), 'wide')
+        # Invalid values are rejected (and cleared).
+        c.post(reverse('update_preferences'), {'form_density': 'bogus'})
+        c.post(reverse('update_preferences'), {'modal_size': 'huge'})
+        prefs = Profile.all_objects.get(user=u).preferences
+        self.assertIsNone(prefs.get('form_density'))
+        self.assertIsNone(prefs.get('modal_size'))
+
+    def test_options_renders_form_density_and_modal_size_cards(self):
+        u = self.User.objects.create_user('optcards', 'oc@e.com', 'pw12345678')
+        c = Client(); c.force_login(u)
+        html = c.get(reverse('options_view')).content
+        self.assertIn(b'data-options-card="form-density"', html)
+        self.assertIn(b'data-options-card="modal-size"', html)
+        self.assertIn(b'data-form-density="dense"', html)
+        self.assertIn(b'data-modal-size="wide"', html)
 
     def test_landing_page_options_are_discovered_and_permission_filtered(self):
         from dlux.discovery import build_user_home_url_options

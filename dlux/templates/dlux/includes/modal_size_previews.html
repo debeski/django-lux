@@ -1,0 +1,42 @@
+<div class="dlux-modal-size-picker">
+    <div class="dlux-density-options" role="group" aria-label="{{ DLUX_STRINGS.modal_size|default:'Modal size' }}">
+        {% for value, _choice_label in size_choices %}
+        <button
+            type="button"
+            class="dlux-density-option{% if selected_size == value %} is-active{% endif %}"
+            data-modal-size="{{ value }}"
+            aria-pressed="{% if selected_size == value %}true{% else %}false{% endif %}"
+        >
+            <span class="dlux-density-option__icon" aria-hidden="true">
+                {% if value == 'compact' %}
+                <i class="bi bi-aspect-ratio"></i>
+                {% elif value == 'wide' %}
+                <i class="bi bi-arrows-angle-expand"></i>
+                {% else %}
+                <i class="bi bi-window"></i>
+                {% endif %}
+            </span>
+            <span class="dlux-density-option__copy">
+                <strong>
+                    {% if value == 'compact' %}
+                    {{ DLUX_STRINGS.modal_size_compact|default:"Compact" }}
+                    {% elif value == 'wide' %}
+                    {{ DLUX_STRINGS.modal_size_wide|default:"Wide" }}
+                    {% else %}
+                    {{ DLUX_STRINGS.modal_size_standard|default:"Standard" }}
+                    {% endif %}
+                </strong>
+                <small>
+                    {% if value == 'compact' %}
+                    {{ DLUX_STRINGS.modal_size_compact_desc|default:"A narrower dialog for short forms." }}
+                    {% elif value == 'wide' %}
+                    {{ DLUX_STRINGS.modal_size_wide_desc|default:"An extra-wide dialog for dense content." }}
+                    {% else %}
+                    {{ DLUX_STRINGS.modal_size_standard_desc|default:"The default extra-large dialog width." }}
+                    {% endif %}
+                </small>
+            </span>
+        </button>
+        {% endfor %}
+    </div>
+</div>

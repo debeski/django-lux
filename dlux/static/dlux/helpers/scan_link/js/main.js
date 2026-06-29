@@ -1,13 +1,18 @@
-class ScanLinkError extends Error {
+// Declared with `var ... || existing` (not `class`/`const`) so that a second
+// load/execution of this file — e.g. from a project-level custom_scripts include,
+// an AJAX fragment that re-runs it, or a stale/duplicated static copy — reuses the
+// existing globals instead of throwing "Identifier 'ScanLinkError' has already
+// been declared". The window.* exports at the bottom keep both available globally.
+var ScanLinkError = window.ScanLinkError || class ScanLinkError extends Error {
     constructor(message, code = "scan_failed", details = {}) {
         super(message);
         this.name = "ScanLinkError";
         this.code = code;
         this.details = details;
     }
-}
+};
 
-class ScanLink {
+var ScanLink = window.ScanLink || class ScanLink {
     constructor(options = {}) {
         this.httpUrl = options.httpUrl || "http://localhost:5000";
         this.httpsUrl = options.httpsUrl || "https://localhost:5443";
@@ -285,7 +290,7 @@ class ScanLink {
             window.setTimeout(resolve, delayMs);
         });
     }
-}
+};
 
 window.ScanLink = ScanLink;
 window.ScanLinkError = ScanLinkError;

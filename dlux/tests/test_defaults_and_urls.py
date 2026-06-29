@@ -673,7 +673,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertFalse(form.initial['titlebar_show_home_button'])
         self.assertTrue(form.initial['public_root_split_enabled'])
         self.assertEqual(form.initial['public_root_url'], '/public-landing/')
-        self.assertTrue(form.initial['titlebar_hide_on_public_unauthenticated_index'])
+        # Legacy titlebar hide=True migrates (inverted) to show_titlebar_on_public=False.
+        self.assertFalse(form.initial['show_titlebar_on_public'])
         self.assertEqual(form.initial['titlebar_home_shape'], 'square')
         self.assertEqual(form.initial['titlebar_title_align'], 'center')
         self.assertEqual(form.initial['titlebar_title_size'], 'lg')
@@ -1231,7 +1232,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("data-dlux-settings-toggle-field='allow_user_theme_override'", html)
         self.assertIn("data-dlux-settings-toggle-field='titlebar_show_title'", html)
         self.assertIn("data-dlux-settings-toggle-field='public_root_split_enabled'", html)
-        self.assertIn("data-dlux-settings-toggle-field='titlebar_hide_on_public_unauthenticated_index'", html)
+        self.assertIn("data-dlux-settings-toggle-field='show_titlebar_on_public'", html)
+        self.assertIn("data-dlux-settings-toggle-field='show_sidebar_on_public'", html)
+        self.assertIn("data-dlux-settings-toggle-field='honeypot_enabled'", html)
+        self.assertIn("data-dlux-settings-toggle-field='sticky_table_headers'", html)
+        self.assertIn("data-dlux-settings-toggle-field='zebra_striping'", html)
         self.assertIn("data-dlux-email-toggle-field='email_config_use_tls'", html)
         self.assertIn("data-dlux-email-toggle-field='email_config_use_ssl'", html)
         self.assertNotIn("data-dlux-settings-toggle-field='email_config_use_tls'", html)
@@ -1240,7 +1245,6 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('class="row mb-3"', html)
         self.assertIn('class="row g-3 mb-3"', html)
         self.assertIn('data-dlux-settings-toggle-field=\'titlebar_show_home_button\'', html)
-        self.assertIn('data-dlux-settings-toggle-field=\'titlebar_hide_on_public_unauthenticated_index\'', html)
         self.assertIn('data-public-root-dependent="true"', html)
         self.assertIn('data-public-root-split-dependent="true"', html)
 
@@ -1364,6 +1368,81 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertTrue(saved.public_root_split_enabled)
         self.assertEqual(saved.public_root_url, '/anonymous-landing/')
 
+    def test_form_save_persists_new_layout_and_public_root_keys(self):
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "System"}',
+                'home_url': '/dashboard/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'default_table_density': 'balanced',
+                'default_form_density': 'dense',
+                'default_modal_size': 'compact',
+                # sticky/zebra/honeypot omitted on a full form == toggled off
+                'languages': '{}',
+                'translations_override': '{}',
+                'public_root': 'on',
+                'public_root_theme': 'dark',
+                'public_root_title': 'Welcome',
+                'public_root_meta_description': 'Hello there',
+                'show_titlebar_on_public': 'on',
+                'show_sidebar_on_public': 'on',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(is_configured=True),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save(commit=False)
+        self.assertEqual(saved.default_form_density, 'dense')
+        self.assertEqual(saved.default_modal_size, 'compact')
+        self.assertFalse(saved.sticky_table_headers)
+        self.assertFalse(saved.zebra_striping)
+        self.assertEqual(saved.public_root_theme, 'dark')
+        self.assertEqual(saved.public_root_title, 'Welcome')
+        self.assertEqual(saved.public_root_meta_description, 'Hello there')
+        self.assertTrue(saved.show_titlebar_on_public)
+        self.assertTrue(saved.show_sidebar_on_public)
+        self.assertFalse(saved.honeypot_enabled)
+
+    def test_single_step_save_preserves_layout_keys_from_other_step(self):
+        request = RequestFactory().get('/sys/modals/dlux/systemsettings/1/?step=2')
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "System"}',
+                'home_url': '/dashboard/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'languages': '{}',
+                'translations_override': '{}',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(
+                is_configured=True,
+                layout_config={
+                    'default_table_density': 'balanced',
+                    'default_form_density': 'roomy',
+                    'default_modal_size': 'wide',
+                    'sticky_table_headers': False,
+                    'zebra_striping': False,
+                    'footer_enabled': True,
+                },
+            ),
+            request=request,
+        )
+
+        self.assertTrue(form.single_step_mode)
+        self.assertEqual(form.single_step_index, 2)
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save(commit=False)
+        # A Security-step (index 2) save must not wipe Themes-step (index 8) layout keys.
+        self.assertEqual(saved.default_form_density, 'roomy')
+        self.assertEqual(saved.default_modal_size, 'wide')
+        self.assertFalse(saved.sticky_table_headers)
+        self.assertFalse(saved.zebra_striping)
+
     def test_public_root_setup_js_uses_single_form_scoped_controller(self):
         script = (
             Path(__file__).resolve().parents[1]
@@ -1412,6 +1491,37 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertTrue(context['hide_titlebar_for_public_index'])
         self.assertNotIn('class="titlebar shadow-sm no-print"', html)
+
+    @override_settings(DLUX_CONFIG={
+        'is_configured': True,
+        'public_root': True,
+        'home_url': '/public-home/',
+        'public_root_theme': 'dark',
+        'public_root_title': 'Public Landing',
+        'public_root_meta_description': 'A public landing page.',
+        'show_titlebar_on_public': True,
+        'show_sidebar_on_public': True,
+    })
+    def test_context_applies_public_root_overrides_for_anonymous_index(self):
+        request = RequestFactory().get('/public-home/')
+        request.user = AnonymousUser()
+        request.session = {}
+        request.resolver_match = SimpleNamespace(url_name='public_home')
+
+        context = dlux_context(request)
+
+        self.assertTrue(context['dlux_is_public_index'])
+        # show_titlebar_on_public=True -> titlebar not hidden.
+        self.assertFalse(context['hide_titlebar_for_public_index'])
+        # show_sidebar_on_public=True -> sidebar rendered for the anonymous visitor.
+        self.assertTrue(context['dlux_show_sidebar'])
+        # Public theme override forces the configured theme for the visitor.
+        self.assertEqual(context['user_preferences'].get('theme'), 'dark')
+        self.assertEqual(context['APP_CONFIG']['security']['public_root_title'], 'Public Landing')
+        self.assertEqual(
+            context['APP_CONFIG']['security']['public_root_meta_description'],
+            'A public landing page.',
+        )
 
     def test_setup_form_hides_public_registration_dependents_until_enabled(self):
         form = SystemSettingsForm(
@@ -2237,7 +2347,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         )
         self.assertIn("dlux/main/js/system_setup.js", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/js/system_setup.js")
-        self.assertIn("dlux/main/js/system_setup.js' %}?v=20260623a", contents)
+        self.assertIn("dlux/main/js/system_setup.js' %}?v=20260627b", contents)
         self.assertIn("dlux/helpers/prevent_double_submit.js' %}?v=20260621a", contents)
         _assert_versioned_static_asset(self, contents, "dlux/helpers/prevent_double_submit.js")
         self.assertIn("dlux/helpers/wizard/js/main.js", contents)

@@ -30,8 +30,16 @@ from .system.constants import (
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
+    DEFAULT_FORM_DENSITY,
+    DEFAULT_MODAL_SIZE,
     DEFAULT_TABLE_DENSITY,
+    FORM_DENSITY_CHOICES,
+    FORM_DENSITY_VALUES,
     LAYOUT_FOOTER_TEXT_MAX_LENGTH,
+    MODAL_SIZE_CHOICES,
+    MODAL_SIZE_VALUES,
+    PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
+    PUBLIC_ROOT_TITLE_MAX_LENGTH,
     REGISTRATION_ACTIVATION_CHOICES,
     REGISTRATION_ACTIVATION_VALUES,
     NAVBAR_MODE_CHOICES,
@@ -1671,6 +1679,24 @@ class SystemSettingsForm(forms.ModelForm):
         choices=TABLE_DENSITY_CHOICES,
         widget=forms.HiddenInput(),
     )
+    default_form_density = forms.ChoiceField(
+        required=False,
+        choices=FORM_DENSITY_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    default_modal_size = forms.ChoiceField(
+        required=False,
+        choices=MODAL_SIZE_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    sticky_table_headers = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    zebra_striping = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
     footer_enabled = forms.BooleanField(
         required=False,
         initial=True,
@@ -1818,10 +1844,6 @@ class SystemSettingsForm(forms.ModelForm):
     titlebar_show_home_button = forms.BooleanField(
         required=False,
         initial=True,
-    )
-    titlebar_hide_on_public_unauthenticated_index = forms.BooleanField(
-        required=False,
-        initial=False,
     )
     titlebar_home_shape = forms.ChoiceField(
         required=False,
@@ -2050,6 +2072,28 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         max_length=255,
     )
+    public_root_theme = forms.ChoiceField(
+        required=False,
+        widget=forms.HiddenInput(),
+    )
+    public_root_title = forms.CharField(
+        required=False,
+        max_length=PUBLIC_ROOT_TITLE_MAX_LENGTH,
+        widget=forms.TextInput(attrs={'class': 'form-control glass-input', 'dir': 'auto'}),
+    )
+    public_root_meta_description = forms.CharField(
+        required=False,
+        max_length=PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
+        widget=forms.Textarea(attrs={'class': 'form-control glass-input', 'dir': 'auto', 'rows': 2}),
+    )
+    show_titlebar_on_public = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    show_sidebar_on_public = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
     public_registration_enabled = forms.BooleanField(
         required=False,
         initial=False,
@@ -2059,6 +2103,10 @@ class SystemSettingsForm(forms.ModelForm):
         choices=REGISTRATION_ACTIVATION_CHOICES,
     )
     registration_throttle_enabled = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    honeypot_enabled = forms.BooleanField(
         required=False,
         initial=True,
     )
@@ -2079,6 +2127,10 @@ class SystemSettingsForm(forms.ModelForm):
             'default_fonts',
             'allow_user_language_override',
             'default_table_density',
+            'default_form_density',
+            'default_modal_size',
+            'sticky_table_headers',
+            'zebra_striping',
             'footer_enabled',
             'footer_text',
             'footer_link_text',
@@ -2088,9 +2140,15 @@ class SystemSettingsForm(forms.ModelForm):
             'public_root',
             'public_root_split_enabled',
             'public_root_url',
+            'public_root_theme',
+            'public_root_title',
+            'public_root_meta_description',
+            'show_titlebar_on_public',
+            'show_sidebar_on_public',
             'public_registration_enabled',
             'registration_activation_mode',
             'registration_throttle_enabled',
+            'honeypot_enabled',
             'email_config',
             'languages',
             'translations_override',
@@ -2220,6 +2278,41 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['public_root_url_discovered'].widget.attrs.update({
             'class': 'form-select glass-input',
         })
+        self.fields['public_root_theme'].choices = (
+            ('', s.get('form_sys_public_root_theme_default', 'Use system default theme')),
+            *[(value, value) for value, _, _ in get_theme_choices()],
+        )
+        self.fields['public_root_theme'].label = s.get('form_sys_public_root_theme', 'Public root theme')
+        self.fields['public_root_theme'].help_text = s.get(
+            'help_sys_public_root_theme',
+            'Theme applied to the public root for anonymous visitors. Leave on the system default to inherit the normal theme.',
+        )
+        self.fields['public_root_title'].label = s.get('form_sys_public_root_title', 'Public root page title')
+        self.fields['public_root_title'].help_text = s.get(
+            'help_sys_public_root_title',
+            'Optional browser/tab title shown to anonymous visitors on the public root. Leave blank to use the system name.',
+        )
+        self.fields['public_root_meta_description'].label = s.get(
+            'form_sys_public_root_meta_description', 'Public root meta description'
+        )
+        self.fields['public_root_meta_description'].help_text = s.get(
+            'help_sys_public_root_meta_description',
+            'Optional meta description tag emitted on the public root for search engines and link previews.',
+        )
+        self.fields['show_titlebar_on_public'].label = s.get(
+            'form_sys_show_titlebar_on_public', 'Show titlebar on public root'
+        )
+        self.fields['show_titlebar_on_public'].help_text = s.get(
+            'help_sys_show_titlebar_on_public',
+            'Show the titlebar to anonymous visitors on the public root. Hidden by default.',
+        )
+        self.fields['show_sidebar_on_public'].label = s.get(
+            'form_sys_show_sidebar_on_public', 'Show sidebar on public root'
+        )
+        self.fields['show_sidebar_on_public'].help_text = s.get(
+            'help_sys_show_sidebar_on_public',
+            'Show the sidebar to anonymous visitors on the public root. Hidden by default.',
+        )
         self.fields['default_language'].label = s.get('form_sys_default_lang', "Default Language")
         self.fields['default_theme'].label = s.get('form_sys_default_theme', "Default Theme")
         self.fields['allowed_themes'].label = s.get('form_sys_allowed_themes', 'Allowed themes')
@@ -2262,6 +2355,36 @@ class SystemSettingsForm(forms.ModelForm):
             ('dense', s.get('table_density_dense', 'Dense')),
             (DEFAULT_TABLE_DENSITY, s.get('table_density_balanced', 'Balanced')),
             ('roomy', s.get('table_density_roomy', 'Roomy')),
+        )
+        self.fields['default_form_density'].label = s.get('form_sys_default_form_density', "Default Form Density")
+        self.fields['default_form_density'].help_text = s.get(
+            'help_sys_default_form_density',
+            'Spacing of form fields in dynamic modals and pages, independent of table density.',
+        )
+        self.fields['default_form_density'].choices = (
+            ('dense', s.get('table_density_dense', 'Dense')),
+            (DEFAULT_FORM_DENSITY, s.get('table_density_balanced', 'Balanced')),
+            ('roomy', s.get('table_density_roomy', 'Roomy')),
+        )
+        self.fields['default_modal_size'].label = s.get('form_sys_default_modal_size', "Default Modal Size")
+        self.fields['default_modal_size'].help_text = s.get(
+            'help_sys_default_modal_size',
+            'Default width of the dynamic modal: compact, standard, or wide.',
+        )
+        self.fields['default_modal_size'].choices = (
+            ('compact', s.get('modal_size_compact', 'Compact')),
+            (DEFAULT_MODAL_SIZE, s.get('modal_size_standard', 'Standard')),
+            ('wide', s.get('modal_size_wide', 'Wide')),
+        )
+        self.fields['sticky_table_headers'].label = s.get('form_sys_sticky_table_headers', 'Sticky table headers')
+        self.fields['sticky_table_headers'].help_text = s.get(
+            'help_sys_sticky_table_headers',
+            'Keep table header rows pinned to the top while scrolling long tables.',
+        )
+        self.fields['zebra_striping'].label = s.get('form_sys_zebra_striping', 'Zebra striping')
+        self.fields['zebra_striping'].help_text = s.get(
+            'help_sys_zebra_striping',
+            'Alternate row background shading in tables for easier scanning.',
         )
         self.fields['footer_text'].label = s.get('form_sys_footer_text', "Footer text")
         self.fields['footer_text'].help_text = s.get(
@@ -2380,10 +2503,6 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['titlebar_show_title'].label = s.get('form_sys_titlebar_show_title', 'Show titlebar title')
         self.fields['titlebar_show_logo'].label = s.get('form_sys_titlebar_show_logo', 'Show titlebar logo')
         self.fields['titlebar_show_home_button'].label = s.get('form_sys_titlebar_show_home_button', 'Show titlebar home button')
-        self.fields['titlebar_hide_on_public_unauthenticated_index'].label = s.get(
-            'form_sys_titlebar_hide_on_public_unauthenticated_index',
-            'Hide titlebar on anonymous public home/index',
-        )
         self.fields['titlebar_home_shape'].label = s.get('form_sys_titlebar_home_shape', 'Titlebar buttons shape')
         self.fields['titlebar_user_hub_style'].label = s.get('form_sys_titlebar_user_hub_style', 'Titlebar and user hub style')
         self.fields['titlebar_actions_order'].label = s.get('form_sys_titlebar_actions_order', 'Titlebar action order')
@@ -2407,10 +2526,6 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['titlebar_show_home_button'].help_text = s.get(
             'help_sys_titlebar_show_home_button',
             'Show the quick Home button in the titlebar.',
-        )
-        self.fields['titlebar_hide_on_public_unauthenticated_index'].help_text = s.get(
-            'help_sys_titlebar_hide_on_public_unauthenticated_index',
-            'Hide the titlebar when an anonymous user opens the public root/home page.',
         )
         self.fields['titlebar_logo_treatment'].help_text = s.get(
             'help_sys_titlebar_logo_treatment',
@@ -2768,6 +2883,11 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_registration_throttle',
             'Use cache-based IP/email throttles and resend cooldowns for public registration.',
         )
+        self.fields['honeypot_enabled'].label = s.get('form_sys_honeypot_enabled', 'Enable registration honeypot')
+        self.fields['honeypot_enabled'].help_text = s.get(
+            'help_sys_honeypot_enabled',
+            'Add a hidden bot-trap field to the registration form; submissions that fill it are silently dropped. Low-friction anti-bot before CAPTCHA.',
+        )
         self.sidebar_sections_manager_available = bool(has_section_models())
         _bind_choice_selector_widget(
             self.fields['default_table_density'],
@@ -2788,6 +2908,50 @@ class SystemSettingsForm(forms.ModelForm):
                     },
                 },
             ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['default_form_density'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'dense': {
+                        'icon': 'bi-text-paragraph',
+                        'description': s.get('form_density_dense_desc', 'Tighter field spacing to fit more on screen.'),
+                    },
+                    'balanced': {
+                        'icon': 'bi-textarea-resize',
+                        'description': s.get('form_density_balanced_desc', 'Comfortable default spacing for form fields.'),
+                    },
+                    'roomy': {
+                        'icon': 'bi-distribute-vertical',
+                        'description': s.get('form_density_roomy_desc', 'Larger fields and more breathing room.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['default_modal_size'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'compact': {
+                        'icon': 'bi-aspect-ratio',
+                        'description': s.get('modal_size_compact_desc', 'A narrower dialog for short forms.'),
+                    },
+                    'standard': {
+                        'icon': 'bi-window',
+                        'description': s.get('modal_size_standard_desc', 'The default extra-large dialog width.'),
+                    },
+                    'wide': {
+                        'icon': 'bi-arrows-angle-expand',
+                        'description': s.get('modal_size_wide_desc', 'An extra-wide dialog for dense content.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['public_root_theme'],
+            DluxChoiceSelectorWidget(variant='card', searchable=True),
         )
         _bind_choice_selector_widget(
             self.fields['sidebar_density'],
@@ -3156,7 +3320,10 @@ class SystemSettingsForm(forms.ModelForm):
         # values; the group normalizer fills defaults for anything missing.
         _existing_layout = getattr(self.instance, 'layout_config', None)
         _layout_initial_source = dict(_existing_layout) if isinstance(_existing_layout, dict) else {}
-        for _layout_key in ('footer_enabled', 'footer_text', 'footer_link_text', 'footer_link_url'):
+        for _layout_key in (
+            'footer_enabled', 'footer_text', 'footer_link_text', 'footer_link_url',
+            'default_form_density', 'default_modal_size', 'sticky_table_headers', 'zebra_striping',
+        ):
             if _layout_key not in _layout_initial_source and config.get(_layout_key) is not None:
                 _layout_initial_source[_layout_key] = config.get(_layout_key)
         _layout_initial_source['default_table_density'] = self.initial.get('default_table_density')
@@ -3200,6 +3367,23 @@ class SystemSettingsForm(forms.ModelForm):
                     else getattr(self.instance, 'public_root_split_enabled', config.get('public_root_split_enabled', False))
                 ),
                 'public_root_url': current_public_root_url,
+                'public_root_theme': (
+                    getattr(self.instance, 'public_root_theme', '')
+                    or config.get('public_root_theme', '')
+                ),
+                'public_root_title': (
+                    getattr(self.instance, 'public_root_title', '')
+                    or config.get('public_root_title', '')
+                ),
+                'public_root_meta_description': (
+                    getattr(self.instance, 'public_root_meta_description', '')
+                    or config.get('public_root_meta_description', '')
+                ),
+                # Read the migrated runtime values (get_system_config derives
+                # show_titlebar_on_public from the legacy titlebar hide flag on
+                # upgraded installs) so the toggles display the effective state.
+                'show_titlebar_on_public': bool(config.get('show_titlebar_on_public', False)),
+                'show_sidebar_on_public': bool(config.get('show_sidebar_on_public', False)),
             },
             hidden_field=False,
         )
@@ -3219,6 +3403,11 @@ class SystemSettingsForm(forms.ModelForm):
                     getattr(self.instance, 'registration_throttle_enabled', True)
                     if hasattr(self.instance, 'registration_throttle_enabled')
                     else config.get('registration_throttle_enabled', True)
+                ),
+                'honeypot_enabled': (
+                    getattr(self.instance, 'honeypot_enabled', True)
+                    if hasattr(self.instance, 'honeypot_enabled')
+                    else config.get('honeypot_enabled', True)
                 ),
             },
             hidden_field=False,
@@ -3284,9 +3473,6 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['titlebar_show_title'] = bool(initial_titlebar_config.get('show_title', True))
         self.initial['titlebar_show_logo'] = bool(initial_titlebar_config.get('show_logo', True))
         self.initial['titlebar_show_home_button'] = bool(initial_titlebar_config.get('show_home_button', True))
-        self.initial['titlebar_hide_on_public_unauthenticated_index'] = bool(
-            initial_titlebar_config.get('hide_on_public_unauthenticated_index', False)
-        )
         self.initial['titlebar_home_shape'] = initial_titlebar_config.get(
             'buttons_shape',
             initial_titlebar_config.get('home_shape', 'circle'),
@@ -3809,6 +3995,48 @@ class SystemSettingsForm(forms.ModelForm):
                     ),
                 ),
                 Row(
+                    build_settings_toggle_field(
+                        self,
+                        'show_titlebar_on_public',
+                        css_class=f"col-lg-6 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        attrs={
+                            'data_public_root_dependent': 'true',
+                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
+                        },
+                    ),
+                    build_settings_toggle_field(
+                        self,
+                        'show_sidebar_on_public',
+                        css_class=f"col-lg-6 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        attrs={
+                            'data_public_root_dependent': 'true',
+                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
+                        },
+                    ),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
+                    Div(
+                        Field('public_root_theme'),
+                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        data_public_root_dependent='true',
+                        aria_hidden='false' if self.initial.get('public_root', False) else 'true',
+                    ),
+                    Div(
+                        Field('public_root_title', dir='auto'),
+                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        data_public_root_dependent='true',
+                        aria_hidden='false' if self.initial.get('public_root', False) else 'true',
+                    ),
+                    Div(
+                        Field('public_root_meta_description', dir='auto'),
+                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        data_public_root_dependent='true',
+                        aria_hidden='false' if self.initial.get('public_root', False) else 'true',
+                    ),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
                     build_settings_toggle_field(self, 'public_registration_enabled', css_class='col-lg-12'),
                     css_class='g-3 mb-3',
                 ),
@@ -3822,6 +4050,15 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(
                         self,
                         'registration_throttle_enabled',
+                        css_class=f"col-lg-6 dlux-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        attrs={
+                            'data_public_registration_dependent': 'true',
+                            'aria_hidden': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
+                        },
+                    ),
+                    build_settings_toggle_field(
+                        self,
+                        'honeypot_enabled',
                         css_class=f"col-lg-6 dlux-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
                         attrs={
                             'data_public_registration_dependent': 'true',
@@ -3971,10 +4208,9 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step7', 'Step 7: Titlebar')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
                 Row(
-                    build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-3'),
-                    build_settings_toggle_field(self, 'titlebar_show_logo', css_class='col-lg-6 col-xl-3'),
-                    build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-6 col-xl-3'),
-                    build_settings_toggle_field(self, 'titlebar_hide_on_public_unauthenticated_index', css_class='col-lg-6 col-xl-3'),
+                    build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-4'),
+                    build_settings_toggle_field(self, 'titlebar_show_logo', css_class='col-lg-6 col-xl-4'),
+                    build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-6 col-xl-4'),
                     css_class='g-3 mb-3'
                 ),
                 Row(
@@ -4085,6 +4321,20 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
                 Row(
                     Div(Field('default_table_density'), css_class='col'),
+                    css_class='mb-3'
+                ),
+                Row(
+                    Div(Field('default_form_density'), css_class='col'),
+                    css_class='mb-3'
+                ),
+                Row(
+                    build_settings_toggle_field(self, 'sticky_table_headers', css_class='col-12 col-lg-6'),
+                    build_settings_toggle_field(self, 'zebra_striping', css_class='col-12 col-lg-6'),
+                    css_class='g-3 mb-3',
+                ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('modal_settings_title', 'Modals')}</h6>"),
+                Row(
+                    Div(Field('default_modal_size'), css_class='col'),
                     css_class='mb-3'
                 ),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('footer_settings_title', 'Footer')}</h6>"),
@@ -4321,6 +4571,85 @@ class SystemSettingsForm(forms.ModelForm):
         ):
             return bool(getattr(self.instance, 'footer_enabled', True))
         return bool(self.cleaned_data.get('footer_enabled'))
+
+    def _clean_preserved_toggle(self, field_name, step_index, default):
+        # Boolean toggles vanish from POST both when unchecked and when their step
+        # isn't the active one, so a single-step save of another step must restore
+        # the stored value rather than read the absence as False.
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != step_index
+        ):
+            stored = getattr(self.instance, field_name, None)
+            if stored is None:
+                return bool(default)
+            return bool(stored)
+        return bool(self.cleaned_data.get(field_name, default))
+
+    def _clean_preserved_choice(self, field_name, step_index, valid_values, default):
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != step_index and field_name not in self.data
+        ):
+            value = getattr(self.instance, field_name, None) or self.initial.get(field_name) or default
+        else:
+            value = self.cleaned_data.get(field_name) or default
+        return value if value in valid_values else default
+
+    def _clean_preserved_text(self, field_name, step_index, max_length):
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != step_index and field_name not in self.data
+        ):
+            value = getattr(self.instance, field_name, None)
+            if value in (None, ''):
+                value = self.initial.get(field_name, '')
+        else:
+            value = self.cleaned_data.get(field_name, '')
+        return str(value or '').strip()[:max_length].rstrip()
+
+    def clean_sticky_table_headers(self):
+        return self._clean_preserved_toggle('sticky_table_headers', 8, True)
+
+    def clean_zebra_striping(self):
+        return self._clean_preserved_toggle('zebra_striping', 8, True)
+
+    def clean_default_form_density(self):
+        return self._clean_preserved_choice('default_form_density', 8, FORM_DENSITY_VALUES, DEFAULT_FORM_DENSITY)
+
+    def clean_default_modal_size(self):
+        return self._clean_preserved_choice('default_modal_size', 8, MODAL_SIZE_VALUES, DEFAULT_MODAL_SIZE)
+
+    def clean_honeypot_enabled(self):
+        return self._clean_preserved_toggle('honeypot_enabled', 2, True)
+
+    def clean_show_titlebar_on_public(self):
+        return self._clean_preserved_toggle('show_titlebar_on_public', 2, False)
+
+    def clean_show_sidebar_on_public(self):
+        return self._clean_preserved_toggle('show_sidebar_on_public', 2, False)
+
+    def clean_public_root_title(self):
+        return self._clean_preserved_text('public_root_title', 2, PUBLIC_ROOT_TITLE_MAX_LENGTH)
+
+    def clean_public_root_meta_description(self):
+        return self._clean_preserved_text(
+            'public_root_meta_description', 2, PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH
+        )
+
+    def clean_public_root_theme(self):
+        # Stored value can be empty (= use system default), which is valid, so
+        # accept '' alongside known theme slugs.
+        valid = {''} | {value for value, _, _ in get_theme_choices()}
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != 2 and 'public_root_theme' not in self.data
+        ):
+            value = getattr(self.instance, 'public_root_theme', '') or self.initial.get('public_root_theme', '')
+        else:
+            value = self.cleaned_data.get('public_root_theme', '')
+        value = str(value or '').strip()
+        return value if value in valid else ''
 
     def clean_allow_user_home_url(self):
         # Checkbox in the Security step (index 2). Preserve the stored value when a
@@ -4723,9 +5052,13 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['titlebar_show_title'] = bool(titlebar.get('show_title', True))
             cleaned['titlebar_show_logo'] = bool(titlebar.get('show_logo', True))
             cleaned['titlebar_show_home_button'] = bool(titlebar.get('show_home_button', True))
-            cleaned['titlebar_hide_on_public_unauthenticated_index'] = bool(
-                titlebar.get('hide_on_public_unauthenticated_index', False)
-            )
+            # Legacy titlebar hide flag now maps to the centralized public-root
+            # show toggle (inverted). Only seed it when the import didn't already
+            # provide an explicit public-root value.
+            if 'show_titlebar_on_public' not in cleaned:
+                cleaned['show_titlebar_on_public'] = not bool(
+                    titlebar.get('hide_on_public_unauthenticated_index', False)
+                )
             cleaned['titlebar_home_shape'] = titlebar.get('buttons_shape', titlebar.get('home_shape', 'circle'))
             cleaned['titlebar_user_hub_style'] = titlebar.get('user_hub_style', TITLEBAR_USER_HUB_STYLE_DROPDOWN)
             cleaned['titlebar_actions_order'] = normalize_titlebar_actions_order(titlebar.get('actions_order'))
@@ -4942,8 +5275,11 @@ class SystemSettingsForm(forms.ModelForm):
             'show_title': bool(cleaned.get('titlebar_show_title', True)),
             'show_logo': bool(cleaned.get('titlebar_show_logo', True)),
             'show_home_button': bool(cleaned.get('titlebar_show_home_button', True)),
-            'hide_on_public_unauthenticated_index': bool(
-                cleaned.get('titlebar_hide_on_public_unauthenticated_index', False)
+            # Deprecated: titlebar visibility on the public root is now controlled
+            # by public_root_config.show_titlebar_on_public. Keep the legacy key in
+            # sync (inverted) so old consumers/exports stay coherent.
+            'hide_on_public_unauthenticated_index': not bool(
+                cleaned.get('show_titlebar_on_public', False)
             ),
             'buttons_shape': cleaned.get('titlebar_home_shape', 'circle'),
             'home_shape': cleaned.get('titlebar_home_shape', 'circle'),
@@ -5101,6 +5437,22 @@ class SystemSettingsForm(forms.ModelForm):
                 'default_table_density',
                 self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),
             ),
+            'default_form_density': layout_config.get(
+                'default_form_density',
+                self.cleaned_data.get('default_form_density', DEFAULT_FORM_DENSITY),
+            ),
+            'default_modal_size': layout_config.get(
+                'default_modal_size',
+                self.cleaned_data.get('default_modal_size', DEFAULT_MODAL_SIZE),
+            ),
+            'sticky_table_headers': bool(layout_config.get(
+                'sticky_table_headers',
+                self.cleaned_data.get('sticky_table_headers', True),
+            )),
+            'zebra_striping': bool(layout_config.get(
+                'zebra_striping',
+                self.cleaned_data.get('zebra_striping', True),
+            )),
             'footer_enabled': bool(layout_config.get(
                 'footer_enabled',
                 self.cleaned_data.get('footer_enabled', True),
@@ -5125,9 +5477,15 @@ class SystemSettingsForm(forms.ModelForm):
             'public_root': bool(public_root_config.get('public_root', False)),
             'public_root_split_enabled': bool(public_root_config.get('public_root_split_enabled', False)),
             'public_root_url': str(public_root_config.get('public_root_url') or '').strip(),
+            'public_root_theme': str(public_root_config.get('public_root_theme') or '').strip(),
+            'public_root_title': str(public_root_config.get('public_root_title') or '').strip(),
+            'public_root_meta_description': str(public_root_config.get('public_root_meta_description') or '').strip(),
+            'show_titlebar_on_public': bool(public_root_config.get('show_titlebar_on_public', False)),
+            'show_sidebar_on_public': bool(public_root_config.get('show_sidebar_on_public', False)),
             'public_registration_enabled': bool(registration_config.get('public_registration_enabled', False)),
             'registration_activation_mode': registration_config.get('registration_activation_mode'),
             'registration_throttle_enabled': bool(registration_config.get('registration_throttle_enabled', True)),
+            'honeypot_enabled': bool(registration_config.get('honeypot_enabled', True)),
             'email_config': self.cleaned_data.get('email_config', default_email_config()),
             'sidebar_config': self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []}),
             'navbar_config': self.cleaned_data.get('navbar_config', default_navbar_config()),

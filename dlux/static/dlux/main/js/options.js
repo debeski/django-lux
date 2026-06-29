@@ -195,6 +195,39 @@
         }
     }
 
+    function initBodyAttrPicker(pickerSelector, optionAttr, bodyDataKey, prefKey, fallback) {
+        const picker = document.querySelector(pickerSelector);
+        const options = picker ? Array.from(picker.querySelectorAll('.dlux-density-option[' + optionAttr + ']')) : [];
+        if (!options.length) {
+            return;
+        }
+        const current = (window.USER_PREFS && window.USER_PREFS[prefKey])
+            || getActiveOptionValue(options, optionAttr, fallback);
+        updateActiveOption(options, optionAttr, current);
+        document.body.dataset[bodyDataKey] = current;
+        options.forEach((option) => {
+            option.addEventListener('click', function () {
+                const value = this.getAttribute(optionAttr) || fallback;
+                updateActiveOption(options, optionAttr, value);
+                document.body.dataset[bodyDataKey] = value;
+                if (window.USER_PREFS) {
+                    window.USER_PREFS[prefKey] = value;
+                }
+                if (window.updatePreferences) {
+                    window.updatePreferences({ [prefKey]: value });
+                }
+            });
+        });
+    }
+
+    function initFormDensityPicker() {
+        initBodyAttrPicker('.dlux-form-density-picker', 'data-form-density', 'dluxFormDensity', 'form_density', 'balanced');
+    }
+
+    function initModalSizePicker() {
+        initBodyAttrPicker('.dlux-modal-size-picker', 'data-modal-size', 'dluxModalSize', 'modal_size', 'standard');
+    }
+
     function initNavbarModePicker() {
         const picker = document.querySelector('[data-navbar-mode-picker]');
         const options = picker ? Array.from(picker.querySelectorAll('[data-navbar-mode]')) : [];
@@ -478,6 +511,8 @@
         initLanguagePicker();
         initFontPicker();
         initDensityPickers();
+        initFormDensityPicker();
+        initModalSizePicker();
         initNavbarModePicker();
         initResetDefaults(grid);
     });

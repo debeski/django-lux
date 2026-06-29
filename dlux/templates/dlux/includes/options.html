@@ -407,6 +407,36 @@
             </div>
         </div>
 
+        <div class="dlux-options-card no-print" data-options-card="form-density">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi bi-textarea-resize me-2"></i> {{ DLUX_STRINGS.form_density|default:"Form Density" }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.form_density_desc|default:"Control how much vertical space form fields use while you work." }}</p>
+                {% include 'dlux/includes/form_density_previews.html' with selected_density=user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density density_choices=DLUX_TABLE_DENSITIES DLUX_STRINGS=DLUX_STRINGS %}
+            </div>
+        </div>
+
+        <div class="dlux-options-card no-print" data-options-card="modal-size">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi bi-window me-2"></i> {{ DLUX_STRINGS.modal_size|default:"Modal Size" }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.modal_size_desc|default:"Control the width of pop-up dialogs while you work." }}</p>
+                {% include 'dlux/includes/modal_size_previews.html' with selected_size=user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size size_choices=DLUX_MODAL_SIZES DLUX_STRINGS=DLUX_STRINGS %}
+            </div>
+        </div>
+
         {% if navbar.enabled and navbar.allow_user_mode_override %}
         <div class="dlux-options-card no-print" data-options-card="navbar-mode">
             <div class="glass-profile option-section h-100 dlux-options-panel">
@@ -749,6 +779,6 @@
 
 {% block scripts %}
     {{ block.super }}
-    <script src="{% static 'dlux/main/js/options.js' %}?v=20260618a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/options.js' %}?v=20260627b" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/updater.js' %}?v=20260626a" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

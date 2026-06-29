@@ -20,8 +20,14 @@ from .constants import (
     EMAIL_CONFIG_PROVIDER_PRESET_VALUES,
     EMAIL_CONFIG_SECRET_STORAGES,
     EMAIL_CONFIG_TRANSPORTS,
+    FORM_DENSITY_VALUES,
+    DEFAULT_FORM_DENSITY,
+    DEFAULT_MODAL_SIZE,
     LAYOUT_FOOTER_TEXT_MAX_LENGTH,
     LOGIN_STYLE_VALUES,
+    MODAL_SIZE_VALUES,
+    PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
+    PUBLIC_ROOT_TITLE_MAX_LENGTH,
     NAVBAR_MODE_VALUES,
     NOTIFICATION_FLASH_POSITIONS,
     NOTIFICATION_FLASH_SIZES,
@@ -286,15 +292,49 @@ def normalize_registration_config(value):
         'public_registration_enabled': bool(cfg.get('public_registration_enabled', False)),
         'registration_activation_mode': activation_mode,
         'registration_throttle_enabled': bool(cfg.get('registration_throttle_enabled', True)),
+        'honeypot_enabled': bool(cfg.get('honeypot_enabled', True)),
     }
+
+
+def _normalize_public_root_theme(value):
+    from ..themes import get_theme_names
+
+    theme = '' if value is None else str(value).strip()
+    if not theme:
+        return ''
+    return theme if theme in set(get_theme_names()) else ''
+
+
+def _normalize_bounded_text(value, max_length):
+    text = '' if value is None else str(value).strip()
+    if len(text) > max_length:
+        text = text[:max_length].rstrip()
+    return text
 
 
 def normalize_public_root_config(value):
     cfg = value if isinstance(value, dict) else {}
+    # Migrate the legacy titlebar-owned hide flag into the centralized show
+    # toggle (inverted polarity). The new key wins when both are present.
+    if 'show_titlebar_on_public' in cfg:
+        show_titlebar = bool(cfg.get('show_titlebar_on_public', False))
+    elif 'hide_on_public_unauthenticated_index' in cfg:
+        show_titlebar = not bool(cfg.get('hide_on_public_unauthenticated_index', False))
+    else:
+        show_titlebar = False
     return {
         'public_root': bool(cfg.get('public_root', False)),
         'public_root_split_enabled': bool(cfg.get('public_root_split_enabled', False)),
         'public_root_url': str(cfg.get('public_root_url') or '').strip(),
+        'public_root_theme': _normalize_public_root_theme(cfg.get('public_root_theme')),
+        'public_root_title': _normalize_bounded_text(
+            cfg.get('public_root_title'), PUBLIC_ROOT_TITLE_MAX_LENGTH
+        ),
+        'public_root_meta_description': _normalize_bounded_text(
+            cfg.get('public_root_meta_description'), PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH
+        ),
+        'show_titlebar_on_public': show_titlebar,
+        'show_sidebar_on_public': bool(cfg.get('show_sidebar_on_public', False)),
     }
 
 
@@ -327,9 +367,19 @@ def normalize_layout_config(value):
     density = cfg.get('default_table_density') or DEFAULT_TABLE_DENSITY
     if density not in TABLE_DENSITY_VALUES:
         density = DEFAULT_TABLE_DENSITY
+    form_density = cfg.get('default_form_density') or DEFAULT_FORM_DENSITY
+    if form_density not in FORM_DENSITY_VALUES:
+        form_density = DEFAULT_FORM_DENSITY
+    modal_size = cfg.get('default_modal_size') or DEFAULT_MODAL_SIZE
+    if modal_size not in MODAL_SIZE_VALUES:
+        modal_size = DEFAULT_MODAL_SIZE
     footer_enabled = cfg.get('footer_enabled', True)
     return {
         'default_table_density': density,
+        'default_form_density': form_density,
+        'default_modal_size': modal_size,
+        'sticky_table_headers': bool(cfg.get('sticky_table_headers', True)),
+        'zebra_striping': bool(cfg.get('zebra_striping', True)),
         'footer_enabled': bool(footer_enabled),
         'footer_text': _normalize_footer_text_value(cfg.get('footer_text')),
         'footer_link_text': _normalize_footer_text_value(cfg.get('footer_link_text')),

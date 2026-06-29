@@ -29,6 +29,8 @@ The wizard currently runs in eleven steps:
 3. Access and security
    This step controls public root access, the global Home URL, the optional split between authenticated Home and anonymous public-root destinations, public registration/email 2FA, Dlux email delivery, and centralized Client IP resolution (auto-detect, direct, header-based, or proxy-aware modes). Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
 
+   When public root is enabled, this step also exposes the public-root presentation controls (shown only while public root is on): a **fixed public-root theme** for anonymous visitors, an optional public-root **page title** and **meta description**, and **Show titlebar on public root** / **Show sidebar on public root** toggles (both default off — chrome is hidden for anonymous public-root visitors unless turned on; these replace the old titlebar-only "hide on public index" rule and the previous hardcoded hide-sidebar-for-anonymous behavior). When public registration is enabled, a **registration honeypot** toggle (default on) governs the hidden `website` bot-trap field.
+
    The email delivery panel adds three operator aids: a **provider preset** (Gmail, Outlook/Office 365, Amazon SES, Mailgun, internal relay, or custom) that prefills SMTP host/port/STARTTLS/SSL in the UI; **failure alert recipients** — a comma/newline list of emails warned **in-app** (never by email — that path is what failed) through the notification subsystem with a matching `audit` activity-log row whenever transactional mail fails to send (requires notifications enabled); and a **Send test email** button (`POST sys/settings/email/send-test/`, superuser-only) that sends a one-off message using the saved configuration so you can verify SMTP before relying on OTP or registration mail. Save the form before testing — the button uses the persisted config, not unsaved field values. The preset and failure-recipient list persist in `SystemSettings.email_config`; the test recipient is transient.
 
 4. Login Page
@@ -41,7 +43,7 @@ The wizard currently runs in eleven steps:
    This step manages the optional authenticated Nav Bar, including hierarchy/history mode, user override policy, and the static hierarchy tree. During first-launch setup, enabling an empty Nav Bar tree can seed it from the configured sidebar accordions.
 
 7. UI and Layout
-   This step manages titlebar controls (logo/home visibility, logo treatment, action-button shape, Dropdown vs Titlebar Actions user-hub layout, action ordering, alignment, height, and surface style), and the optional titlebar-hide rule for anonymous public home traffic.
+   This step manages titlebar controls (logo/home visibility, logo treatment, action-button shape, Dropdown vs Titlebar Actions user-hub layout, action ordering, alignment, height, and surface style). Titlebar visibility on the anonymous public root is now governed by **Show titlebar on public root** in Step 3 (Access and security), not here.
 
 8. Notifications
    This step controls the notification subsystem, including the flash, drawer, badge, browser bridge, email delivery, and automatic CRUD notification behavior.
@@ -257,6 +259,8 @@ The most common admin-facing configuration tasks are:
 - changing the default theme used before a user saves a personal preference
 - changing the default language used before a user saves a personal preference
 - changing the default table density used before a user saves a personal preference
+- changing the default form density and default modal size (Themes & Typography)
+- toggling sticky table headers and zebra striping (Themes & Typography)
 - updating the list of available languages
 - adding translation overrides without touching code
 - adjusting the global home URL used by the titlebar Home button

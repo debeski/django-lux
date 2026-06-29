@@ -817,6 +817,44 @@ For a footer with rich HTML — multiple links, Bootstrap icons (`<i class="bi �
 
 To restyle without editing templates, override the CSS variables on `.dlux-footer` (e.g. in `custom_head.html`): `--dlux-footer-color`, `--dlux-footer-bg`, `--dlux-footer-border`.
 
+### Appearance Toggles (Tables, Forms, Modals)
+
+*System Settings → Themes & Typography* exposes layout toggles stored on
+`SystemSettings.layout_config` (no migration; all surface as `APP_CONFIG.appearance.*`
+and round-trip through export/import):
+
+- **Sticky table headers** (`sticky_table_headers`, default on) and **Zebra
+  striping** (`zebra_striping`, default on). `base.html` emits
+  `data-dlux-sticky-header` / `data-dlux-zebra` on `<body>`, and `tables.css`
+  scopes the sticky-`thead` and `nth-child` row-shading rules under
+  `body[data-dlux-sticky-header="on"]` / `body[data-dlux-zebra="on"]`.
+- **Default Form Density** (`default_form_density`: `dense` / `balanced` / `roomy`)
+  is independent of table density. `body[data-dlux-form-density]` overrides the
+  `--dlux-form-*` variables in `form_fields.css` (row gutter, label margin,
+  input/textarea min-height) — override those variables to retune the scale.
+- **Default Modal Size** (`default_modal_size`: `compact` / `standard` / `wide`)
+  maps to `APP_CONFIG.appearance.modal_size_class` (`modal-lg` / `modal-xl` /
+  `modal-xl dlux-modal-wide`), applied to the shared `dynamic_modal.html` dialog.
+  `wide` widens beyond `modal-xl` on ≥1200px via `.dlux-modal-wide` in `main.css`.
+
+### Public Root Appearance and SEO
+
+*System Settings → Security* (under Home & Public Root) controls how the public
+root renders for **anonymous** visitors (`SystemSettings.public_root_config`):
+
+- **Public root theme** (`public_root_theme`, blank = inherit) forces a fixed
+  theme for anonymous public-root visitors regardless of the system default.
+- **Public root page title** / **meta description** (`public_root_title`,
+  `public_root_meta_description`) emit a custom `<title>` and
+  `<meta name="description">` only on the anonymous public index.
+- **Show titlebar on public root** / **Show sidebar on public root**
+  (`show_titlebar_on_public`, `show_sidebar_on_public`, both default **off**).
+  These replace the deprecated `titlebar_config.hide_on_public_unauthenticated_index`
+  (legacy values migrate, inverted) and the old hardcoded behavior that hid the
+  sidebar from every unauthenticated user. The shared `_is_public_index()` context
+  helper drives `hide_titlebar_for_public_index`, `dlux_show_sidebar`, and
+  `dlux_is_public_index` in `base.html`.
+
 ### Form Pages
 
 If a page is primarily a form, prefer the dedicated form base instead of loading form-only assets through the global base hooks:
