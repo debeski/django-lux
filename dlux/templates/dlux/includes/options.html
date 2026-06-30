@@ -5,7 +5,7 @@
 
 {% block extra_head %}
     {% include "dlux/forms/assets_head.html" %}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260623a">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260630c">
 {% endblock %}
 
 {% block content %}
@@ -14,104 +14,22 @@
     <div class="dlux-options-grid"
          id="dluxOptionsGrid"
          data-options-order-storage-key="dlux.options.card-order.v1">
-        <!-- Accessibility Section -->
-        <div class="dlux-options-card no-print" data-options-card="accessibility">
-            <div class="glass-profile option-section h-100 dlux-options-panel">
-                <button class="dlux-options-card-handle"
-                        type="button"
-                        data-options-card-handle
-                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-grip-vertical"></i>
-                </button>
-                <h4 class="mb-3"><i class="bi bi-eye me-2"></i> {{ DLUX_STRINGS.accessibility }}</h4>
-                <p class="text-muted small mb-4">{{ DLUX_STRINGS.accessibility_desc }}</p>
-
-                <div class="d-grid gap-3 dlux-options-switch-list">
-                    <div class="dlux-options-switch-row">
-                        <label for="options-accessibility-high-contrast">{{ DLUX_STRINGS.high_contrast }}</label>
-                        <div class="form-check form-switch">
-                            <input id="options-accessibility-high-contrast" name="accessibility_high_contrast" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="high-contrast">
-                        </div>
-                    </div>
-                    <div class="dlux-options-switch-row">
-                        <label for="options-accessibility-grayscale">{{ DLUX_STRINGS.grayscale }}</label>
-                        <div class="form-check form-switch">
-                            <input id="options-accessibility-grayscale" name="accessibility_grayscale" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="grayscale">
-                        </div>
-                    </div>
-                    <div class="dlux-options-switch-row">
-                        <label for="options-accessibility-invert">{{ DLUX_STRINGS.invert }}</label>
-                        <div class="form-check form-switch">
-                            <input id="options-accessibility-invert" name="accessibility_invert" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="invert">
-                        </div>
-                    </div>
-                    <div class="dlux-options-switch-row">
-                        <label for="options-accessibility-large-text">{{ DLUX_STRINGS.large_text }}</label>
-                        <div class="form-check form-switch">
-                            <input id="options-accessibility-large-text" name="accessibility_large_text" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="large-text">
-                        </div>
-                    </div>
-                    <div class="dlux-options-switch-row">
-                        <label for="options-accessibility-no-animations">{{ DLUX_STRINGS.no_animations }}</label>
-                        <div class="form-check form-switch">
-                            <input id="options-accessibility-no-animations" name="accessibility_no_animations" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="no-animations">
-                        </div>
-                    </div>
+        {% if show_system_diagnostics or user.is_superuser %}
+        <!-- Admin Panel: combined system status + update + backup + system settings -->
+        <div class="dlux-options-card dlux-admin-panel-card">
+            <div class="glass-profile option-section dlux-options-panel dlux-admin-panel">
+                <div class="dlux-admin-panel-heading">
+                    <h4 class="mb-1"><i class="bi bi-shield-lock-fill me-2"></i> {{ DLUX_STRINGS.admin_panel_title|default:'Admin panel' }}</h4>
+                    <p class="text-muted small mb-0">{{ DLUX_STRINGS.admin_panel_desc|default:'System status, updates, backups, and configuration.' }}</p>
                 </div>
-            </div>
-        </div>
-
-        {% if config.profile_config.allow_user_home_url %}
-        <!-- Landing Page (per-user) -->
-        <div class="dlux-options-card no-print" data-options-card="landing-page">
-            <div class="glass-profile option-section h-100 dlux-options-panel">
-                <button class="dlux-options-card-handle"
-                        type="button"
-                        data-options-card-handle
-                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-grip-vertical"></i>
-                </button>
-                <h4 class="mb-3"><i class="bi bi-house-door me-2"></i> {{ DLUX_STRINGS.options_landing_page|default:"Landing page" }}</h4>
-                <p class="text-muted small mb-3">{{ DLUX_STRINGS.options_landing_page_desc|default:"Where you land after signing in. Leave on system default to use the configured home." }}</p>
-                <div class="input-group">
-                    <select class="form-select" id="options-user-home-url" data-user-home-url>
-                        <option value="">{{ DLUX_STRINGS.options_landing_page_default|default:"System default" }}</option>
-                        {% for opt in user_home_url_options %}
-                        <option value="{{ opt.value }}" {% if opt.value == user_preferences.user_home_url %}selected{% endif %}>{{ opt.label }}</option>
-                        {% endfor %}
-                    </select>
-                    <button class="btn btn-primary" type="button" data-user-home-url-save
-                            data-saved-message="{{ DLUX_STRINGS.options_landing_page_saved|default:'Landing page saved.' }}">
-                        {{ DLUX_STRINGS.btn_save|default:"Save" }}
-                    </button>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if show_system_diagnostics %}
-        <!-- System Info Section -->
-        <div class="dlux-options-card dlux-options-card--wide" data-options-card="system-info">
-            <div class="glass-profile option-section h-100 dlux-options-panel">
-                <button class="dlux-options-card-handle"
-                        type="button"
-                        data-options-card-handle
-                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-grip-vertical"></i>
-                </button>
-                <h4 class="mb-3"><i class="bi bi-info-circle me-2"></i> {{ DLUX_STRINGS.system_info }}</h4>
-                <div class="table-responsive dlux-options-system-info-table">
-                <table class="table table-sm table-borderless mt-4">
-                    <tr>
-                        <th width="40%">{{ DLUX_STRINGS.server_time }}:</th>
-                        <td class="dir-ltr-inline-end font-monospace">{{ server_time_backend_display }}</td>
-                    </tr>
-                    <tr>
-                        <th width="40%">{{ DLUX_STRINGS.storage }}:</th>
-                        <td class="dir-ltr font-monospace">
+                <div class="dlux-admin-panel-top">
+                    {% if show_system_diagnostics %}
+                    <section class="dlux-admin-tile dlux-admin-tile--status">
+                        <h5 class="dlux-admin-tile-title"><i class="bi bi-activity"></i> {{ DLUX_STRINGS.system_info }}</h5>
+                        <div class="dlux-admin-stat-list">
+                            <div class="dlux-admin-stat dlux-admin-stat--wide">
+                                <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.storage }}</span>
+                                <div class="dlux-admin-stat-value">
                             <div class="d-flex dir-ltr-inline-end align-items-center gap-2 dlux-options-storage-row">
                                 <span>{{ disk_used }}GB / {{ disk_total }}GB</span>
                                 <div class="progress flex-shrink-0 dlux-options-storage-progress">
@@ -121,19 +39,28 @@
                                     </div>
                                 </div>
                             </div>
-                        </td>
-                    </tr>
+                                </div>
+                            </div>
+                            <div class="dlux-admin-stat">
+                                <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.server_time }}</span>
+                                <span class="dlux-admin-stat-value font-monospace dir-ltr-inline-end">{{ server_time_backend_display }}</span>
+                            </div>
+                            <div class="dlux-admin-stat">
+                                <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.python_version }}</span>
+                                <span class="dlux-admin-stat-value font-monospace">{{ python_version }}</span>
+                            </div>
+                            <div class="dlux-admin-stat">
+                                <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.django_version }}</span>
+                                <span class="dlux-admin-stat-value font-monospace">{{ django_version }}</span>
+                            </div>
+                        </div>
+                        <details class="dlux-admin-details">
+                            <summary>{{ DLUX_STRINGS.admin_panel_more_details|default:'More system details' }}</summary>
+                            <div class="table-responsive dlux-options-system-info-table">
+                                <table class="table table-sm table-borderless mb-0">
                     <tr>
                         <th>{{ DLUX_STRINGS.os_info }}:</th>
                         <td class="text-end">{{ os_info }}</td>
-                    </tr>
-                    <tr>
-                        <th>{{ DLUX_STRINGS.python_version }}:</th>
-                        <td class="text-end font-monospace">{{ python_version }}</td>
-                    </tr>
-                    <tr>
-                        <th>{{ DLUX_STRINGS.django_version }}:</th>
-                        <td class="text-end font-monospace">{{ django_version }}</td>
                     </tr>
                     {% if decrypter_version %}
                     <tr>
@@ -223,9 +150,12 @@
                         </td>
                     </tr>
                     {% endif %}
-                    <tr>
-                        <th>{{ DLUX_STRINGS.dlux_version }}:</th>
-                        <td class="text-end">
+                                </table>
+                            </div>
+                        </details>
+                    </section>
+                    <section class="dlux-admin-tile dlux-admin-tile--update">
+                        <h5 class="dlux-admin-tile-title"><i class="bi bi-arrow-repeat"></i> {{ DLUX_STRINGS.dlux_version }}</h5>
                             <div class="dlux-updater"
                                  data-dlux-updater
                                  data-state-url="{% url 'dlux_update_state' %}"
@@ -278,9 +208,234 @@
                                 </div>
                                 {% endif %}
                             </div>
-                        </td>
-                    </tr>
-                </table>
+                    </section>
+                    {% endif %}
+                    {% if user.is_superuser %}
+                    <section class="dlux-admin-tile dlux-admin-tile--backup">
+                        <h5 class="dlux-admin-tile-title"><i class="bi bi-safe2-fill"></i> {{ DLUX_STRINGS.sysbackup_title }}</h5>
+                {% with summary=system_backup_summary %}
+                <div class="dlux-system-backup-summary">
+                    <div class="dlux-system-backup-feature">
+                        <span class="dlux-system-backup-label">{{ DLUX_STRINGS.sysbackup_last_backup }}</span>
+                        <strong class="dlux-system-backup-value">
+                            {% if summary.latest_completed_backup and summary.latest_completed_backup.completed_at %}
+                                {{ summary.latest_completed_backup.completed_at|date:'Y-m-d H:i' }}
+                            {% elif summary.latest_backup %}
+                                {{ summary.latest_backup.created_at|date:'Y-m-d H:i' }}
+                            {% else %}
+                                {{ DLUX_STRINGS.sysbackup_never }}
+                            {% endif %}
+                        </strong>
+                    </div>
+                </div>
+                {% endwith %}
+                <a class="btn btn-primary dlux-system-backup-action"
+                   href="{% url 'system_backup_page' %}">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>{{ DLUX_STRINGS.sysbackup_open }}
+                </a>
+                    </section>
+                    {% endif %}
+                </div>
+                {% if user.is_superuser %}
+                <div class="dlux-admin-panel-settings">
+                    <div class="dlux-admin-settings-head">
+                        <h5 class="dlux-admin-tile-title mb-0"><i class="bi bi-sliders"></i> {{ DLUX_STRINGS.system_settings_label }}</h5>
+                        <p class="text-muted small mb-0">{{ DLUX_STRINGS.system_settings_desc }}</p>
+                    </div>
+                    <div class="dlux-system-settings-actions dlux-admin-settings-grid">
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=0"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_branding }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_branding_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_branding }}. {{ DLUX_STRINGS.system_settings_branding_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-palette-fill"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_branding }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=1"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_languages }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_languages_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_languages }}. {{ DLUX_STRINGS.system_settings_languages_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-translate"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_languages }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=2"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_security }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_security_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_security }}. {{ DLUX_STRINGS.system_settings_security_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-shield-lock"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_security }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=3"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_login_page }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_login_page_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_login_page }}. {{ DLUX_STRINGS.system_settings_login_page_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-box-arrow-in-right"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_login_page }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=4"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_sidebar }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_sidebar_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_sidebar }}. {{ DLUX_STRINGS.system_settings_sidebar_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-layout-sidebar-inset"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_sidebar }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=5"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_navbar }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_navbar_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_navbar }}. {{ DLUX_STRINGS.system_settings_navbar_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-signpost-split"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_navbar }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=6"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_ui_layout }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_ui_layout_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_ui_layout }}. {{ DLUX_STRINGS.system_settings_ui_layout_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-window-stack"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_ui_layout }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=7"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_notifications }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_notifications_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_notifications }}. {{ DLUX_STRINGS.system_settings_notifications_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-bell-fill"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_notifications }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=8"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_appearance }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_appearance_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_appearance }}. {{ DLUX_STRINGS.system_settings_appearance_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-brush"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_appearance }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=9"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_logging_desc|default:'Control activity, system, and audit logging.' }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}. {{ DLUX_STRINGS.system_settings_logging_desc|default:'Control activity, system, and audit logging.' }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-journal-text"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=10"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_profile_desc|default:'Profile-page composition and first-launch user setup.' }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}. {{ DLUX_STRINGS.system_settings_profile_desc|default:'Profile-page composition and first-launch user setup.' }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-person-badge"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=11"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_backups_desc|default:'Scheduled backup, storage, and retention policy.' }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}. {{ DLUX_STRINGS.system_settings_backups_desc|default:'Scheduled backup, storage, and retention policy.' }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-safe2-fill"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}</span>
+                    </button>
+                    <a class="dlux-system-settings-action dlux-system-settings-tile dlux-system-settings-action--secondary"
+                       href="{% url 'system_settings_export' %}"
+                       data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_export_desc }}"
+                       aria-label="{{ DLUX_STRINGS.system_settings_export }}. {{ DLUX_STRINGS.system_settings_export_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-download"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_export }}</span>
+                    </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        <!-- Accessibility Section -->
+        <div class="dlux-options-card no-print" data-options-card="accessibility">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi bi-eye me-2"></i> {{ DLUX_STRINGS.accessibility }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.accessibility_desc }}</p>
+
+                <div class="d-grid gap-3 dlux-options-switch-list">
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-high-contrast">{{ DLUX_STRINGS.high_contrast }}</label>
+                        <div class="form-check form-switch">
+                            <input id="options-accessibility-high-contrast" name="accessibility_high_contrast" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="high-contrast">
+                        </div>
+                    </div>
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-grayscale">{{ DLUX_STRINGS.grayscale }}</label>
+                        <div class="form-check form-switch">
+                            <input id="options-accessibility-grayscale" name="accessibility_grayscale" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="grayscale">
+                        </div>
+                    </div>
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-invert">{{ DLUX_STRINGS.invert }}</label>
+                        <div class="form-check form-switch">
+                            <input id="options-accessibility-invert" name="accessibility_invert" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="invert">
+                        </div>
+                    </div>
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-large-text">{{ DLUX_STRINGS.large_text }}</label>
+                        <div class="form-check form-switch">
+                            <input id="options-accessibility-large-text" name="accessibility_large_text" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="large-text">
+                        </div>
+                    </div>
+                    <div class="dlux-options-switch-row">
+                        <label for="options-accessibility-no-animations">{{ DLUX_STRINGS.no_animations }}</label>
+                        <div class="form-check form-switch">
+                            <input id="options-accessibility-no-animations" name="accessibility_no_animations" class="form-check-input accessibility-switch" type="checkbox" data-accessibility="no-animations">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if config.profile_config.allow_user_home_url %}
+        <!-- Landing Page (per-user) -->
+        <div class="dlux-options-card no-print" data-options-card="landing-page">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi bi-house-door me-2"></i> {{ DLUX_STRINGS.options_landing_page|default:"Landing page" }}</h4>
+                <p class="text-muted small mb-3">{{ DLUX_STRINGS.options_landing_page_desc|default:"Where you land after signing in. Leave on system default to use the configured home." }}</p>
+                <div class="input-group">
+                    <select class="form-select" id="options-user-home-url" data-user-home-url>
+                        <option value="">{{ DLUX_STRINGS.options_landing_page_default|default:"System default" }}</option>
+                        {% for opt in user_home_url_options %}
+                        <option value="{{ opt.value }}" {% if opt.value == user_preferences.user_home_url %}selected{% endif %}>{{ opt.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-primary" type="button" data-user-home-url-save
+                            data-saved-message="{{ DLUX_STRINGS.options_landing_page_saved|default:'Landing page saved.' }}">
+                        {{ DLUX_STRINGS.btn_save|default:"Save" }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -499,229 +654,34 @@
             </div>
         </div>
 
-        <!-- Reset Defaults -->
-        <div class="dlux-options-card no-print" data-options-card="reset-defaults">
-            <div class="glass-profile option-section h-100 dlux-options-panel dlux-options-panel--danger"
-                 data-reset-url="{% url 'reset_preferences' %}"
-                 data-reset-success="{{ DLUX_STRINGS.reset_success }}"
-                 data-reset-error="{{ DLUX_STRINGS.reset_error|default:'Unable to reset preferences.' }}">
-                <button class="dlux-options-card-handle"
-                        type="button"
-                        data-options-card-handle
-                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-grip-vertical"></i>
-                </button>
-                <h4 class="mb-3 text-danger"><i class="bi bi-arrow-counterclockwise me-2"></i> {{ DLUX_STRINGS.reset_defaults }}</h4>
-                <p class="text-muted small mb-4">{{ DLUX_STRINGS.reset_desc }}</p>
-                <div class="dlux-options-reset-action-shell">
-                    <button class="btn btn-outline-danger btn-sm dlux-options-reset-action" id="btnResetInit">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> {{ DLUX_STRINGS.reset_btn }}
-                    </button>
-                    <div id="resetActions" class="dlux-options-reset-actions" hidden>
-                        <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-danger btn-sm" id="btnResetConfirm">
-                                <i class="bi bi-check-lg me-1"></i> {{ DLUX_STRINGS.confirm }}
-                            </button>
-                            <button type="button" class="btn btn-secondary btn-sm" id="btnResetCancel">
-                                <i class="bi bi-x-lg me-1"></i> {{ DLUX_STRINGS.cancel }}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    </div>
 
-        {% if user.is_superuser %}
-        <!-- Backup & Restore -->
-        <div class="dlux-options-card" data-options-card="system-backup">
-            <div class="glass-profile option-section h-100 dlux-options-panel">
-                <button class="dlux-options-card-handle"
-                        type="button"
-                        data-options-card-handle
-                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-grip-vertical"></i>
-                </button>
-                <h4 class="mb-3"><i class="bi bi-safe2-fill me-2"></i> {{ DLUX_STRINGS.sysbackup_title }}</h4>
-                <p class="text-muted small mb-4">{{ DLUX_STRINGS.sysbackup_options_desc }}</p>
-                {% with summary=system_backup_summary %}
-                <div class="dlux-system-backup-summary">
-                    <div class="dlux-system-backup-feature">
-                        <span class="dlux-system-backup-label">{{ DLUX_STRINGS.sysbackup_last_backup }}</span>
-                        <strong class="dlux-system-backup-value">
-                            {% if summary.latest_completed_backup and summary.latest_completed_backup.completed_at %}
-                                {{ summary.latest_completed_backup.completed_at|date:'Y-m-d H:i' }}
-                            {% elif summary.latest_backup %}
-                                {{ summary.latest_backup.created_at|date:'Y-m-d H:i' }}
-                            {% else %}
-                                {{ DLUX_STRINGS.sysbackup_never }}
-                            {% endif %}
-                        </strong>
-                    </div>
-                    <div class="dlux-system-backup-metrics">
-                        <div class="dlux-system-backup-metric">
-                            <span>{{ DLUX_STRINGS.sysbackup_completed_count }}</span>
-                            <strong>{{ summary.completed_count|default:0 }}</strong>
-                        </div>
-                        <div class="dlux-system-backup-metric">
-                            <span>{{ DLUX_STRINGS.sysbackup_protected_count }}</span>
-                            <strong>{{ summary.protected_count|default:0 }}</strong>
-                        </div>
-                        <div class="dlux-system-backup-metric">
-                            <span>{{ DLUX_STRINGS.sysrestore_last_restore }}</span>
-                            <strong>
-                                {% if summary.latest_restore %}
-                                    {{ summary.latest_restore.created_at|date:'Y-m-d H:i' }}
-                                {% else %}
-                                    {{ DLUX_STRINGS.sysbackup_never }}
-                                {% endif %}
-                            </strong>
-                        </div>
-                    </div>
-                </div>
-                {% endwith %}
-                <a class="btn btn-primary dlux-system-backup-action"
-                   href="{% url 'system_backup_page' %}">
-                    <i class="bi bi-box-arrow-up-right me-1"></i>{{ DLUX_STRINGS.sysbackup_open }}
-                </a>
+    <!-- Reset Defaults: standalone footer danger zone (resets the options above; not an options card) -->
+    <div class="dlux-options-reset-footer no-print">
+        <div class="dlux-options-reset-bar dlux-options-panel--danger"
+             data-reset-url="{% url 'reset_preferences' %}"
+             data-reset-success="{{ DLUX_STRINGS.reset_success }}"
+             data-reset-error="{{ DLUX_STRINGS.reset_error|default:'Unable to reset preferences.' }}">
+            <div class="dlux-options-reset-bar-text">
+                <h4 class="mb-1 text-danger"><i class="bi bi-arrow-counterclockwise me-2"></i> {{ DLUX_STRINGS.reset_defaults }}</h4>
+                <p class="text-muted small mb-0">{{ DLUX_STRINGS.reset_desc }}</p>
             </div>
-        </div>
-
-        <!-- System Settings -->
-        <div class="dlux-options-card" data-options-card="system-settings">
-            <div class="glass-profile option-section h-100 dlux-options-panel">
-                <button class="dlux-options-card-handle"
-                        type="button"
-                        data-options-card-handle
-                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
-                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
-                    <i class="bi bi-grip-vertical"></i>
+            <div class="dlux-options-reset-bar-actions">
+                <button class="btn btn-outline-danger btn-sm dlux-options-reset-action" id="btnResetInit">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> {{ DLUX_STRINGS.reset_btn }}
                 </button>
-                <div class="dlux-system-settings-heading">
-                    <h4 class="mb-1"><i class="bi bi-sliders me-2"></i> {{ DLUX_STRINGS.system_settings_label }}</h4>
-                    <p class="text-muted small mb-0">{{ DLUX_STRINGS.system_settings_desc }}</p>
-                </div>
-                <div class="dlux-system-settings-actions dlux-system-settings-grid">
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=0"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_branding }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_branding_desc }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_branding }}. {{ DLUX_STRINGS.system_settings_branding_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-palette-fill"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_branding }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=1"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_languages }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_languages_desc }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_languages }}. {{ DLUX_STRINGS.system_settings_languages_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-translate"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_languages }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=2"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_security }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_security_desc }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_security }}. {{ DLUX_STRINGS.system_settings_security_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-shield-lock"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_security }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=3"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_login_page }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_login_page_desc }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_login_page }}. {{ DLUX_STRINGS.system_settings_login_page_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-box-arrow-in-right"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_login_page }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=4"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_sidebar }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_sidebar_desc }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_sidebar }}. {{ DLUX_STRINGS.system_settings_sidebar_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-layout-sidebar-inset"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_sidebar }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=5"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_navbar }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_navbar_desc }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_navbar }}. {{ DLUX_STRINGS.system_settings_navbar_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-signpost-split"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_navbar }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=6"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_ui_layout }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_ui_layout_desc }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_ui_layout }}. {{ DLUX_STRINGS.system_settings_ui_layout_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-window-stack"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_ui_layout }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=7"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_notifications }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_notifications_desc }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_notifications }}. {{ DLUX_STRINGS.system_settings_notifications_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-bell-fill"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_notifications }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=8"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_appearance }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_appearance_desc }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_appearance }}. {{ DLUX_STRINGS.system_settings_appearance_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-brush"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_appearance }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=9"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_logging_desc|default:'Control activity, system, and audit logging.' }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}. {{ DLUX_STRINGS.system_settings_logging_desc|default:'Control activity, system, and audit logging.' }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-journal-text"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=10"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_profile_desc|default:'Profile-page composition and first-launch user setup.' }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}. {{ DLUX_STRINGS.system_settings_profile_desc|default:'Profile-page composition and first-launch user setup.' }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-person-badge"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}</span>
-                    </button>
-                    <button class="dlux-system-settings-action dlux-system-settings-tile"
-                            type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=11"
-                            data-modal-title="{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}"
-                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_backups_desc|default:'Scheduled backup, storage, and retention policy.' }}"
-                            aria-label="{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}. {{ DLUX_STRINGS.system_settings_backups_desc|default:'Scheduled backup, storage, and retention policy.' }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-safe2-fill"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}</span>
-                    </button>
-                    <a class="dlux-system-settings-action dlux-system-settings-tile dlux-system-settings-action--secondary"
-                       href="{% url 'system_settings_export' %}"
-                       data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_export_desc }}"
-                       aria-label="{{ DLUX_STRINGS.system_settings_export }}. {{ DLUX_STRINGS.system_settings_export_desc }}">
-                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-download"></i></span>
-                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_export }}</span>
-                    </a>
+                <div id="resetActions" class="dlux-options-reset-actions" hidden>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-danger btn-sm" id="btnResetConfirm">
+                            <i class="bi bi-check-lg me-1"></i> {{ DLUX_STRINGS.confirm }}
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btnResetCancel">
+                            <i class="bi bi-x-lg me-1"></i> {{ DLUX_STRINGS.cancel }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-        {% endif %}
     </div>
 
     {% if can_manage_dlux_updates %}

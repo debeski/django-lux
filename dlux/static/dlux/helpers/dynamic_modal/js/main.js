@@ -232,6 +232,14 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }
         
+        // Open at the viewer's active modal-size preference so the dialog is the
+        // correct width from the first frame — never inheriting a stale
+        // `data-dlux-modal-size` left on <body> by a settings-form live preview or
+        // a previously opened modal. Width is driven by the body attribute + CSS.
+        if (window.USER_PREFS && window.USER_PREFS.modal_size) {
+            document.body.dataset.dluxModalSize = window.USER_PREFS.modal_size;
+        }
+
         dynamicModal.show(trigger);
 
         fetch(url, {

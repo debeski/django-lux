@@ -75,7 +75,7 @@ EXCLUDED_PATH_PARTS = (
     '/accounts/logout/',
     '/health/',
     '/sys/2fa/',
-    '/sys/api/',
+    '/api/',
     '/sys/modals/',
     '/sys/setup/',
 )
@@ -735,6 +735,11 @@ def _is_candidate(url_name, url, callback, include_system_items=False):
     leaf_tokens = set(_route_name_tokens(leaf))
 
     if namespace in EXCLUDED_NAMESPACE_PREFIXES:
+        return False
+    # API URL namespaces (the `<app>_api` / `api` convention, e.g. DRF routers)
+    # expose the same models as the page views under the same inferred label, so
+    # they otherwise surface as duplicate, non-navigable sidebar/landing entries.
+    if namespace == 'api' or namespace.endswith('_api'):
         return False
     if lower_leaf in EXCLUDED_EXACT_NAMES and not (include_system_items and _is_configurable_system_url(url_name)):
         return False

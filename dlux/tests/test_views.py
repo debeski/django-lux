@@ -173,9 +173,9 @@ class GeneralViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context['show_system_diagnostics'])
-        self.assertNotContains(response, 'bi-info-circle')
+        self.assertNotContains(response, 'dlux-admin-tile--status')
         self.assertNotContains(response, '?step=0')
-        self.assertNotContains(response, 'data-options-card="system-backup"')
+        self.assertNotContains(response, 'dlux-admin-tile--backup')
 
     def test_options_view_shows_system_backup_card_for_superuser_only(self):
         SystemBackup = apps.get_model('dlux', 'SystemBackup')
@@ -196,13 +196,11 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'data-options-card="system-backup"')
+        self.assertContains(response, 'dlux-admin-tile--backup')
         self.assertContains(response, reverse('system_backup_page'))
         self.assertEqual(response.context['system_backup_summary']['completed_count'], 1)
         self.assertEqual(response.context['system_backup_summary']['protected_count'], 1)
         self.assertContains(response, 'Last backup')
-        self.assertContains(response, 'Passphrase protected')
-        self.assertContains(response, 'Last restore')
 
         regular_user = User.objects.create_user(
             username='backupviewer',
@@ -214,7 +212,7 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'data-options-card="system-backup"')
+        self.assertNotContains(response, 'dlux-admin-tile--backup')
         self.assertNotContains(response, reverse('system_backup_page'))
 
     def test_options_view_hides_diagnostics_for_central_and_scoped_staff(self):
@@ -297,7 +295,7 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, '?step=5')
         self.assertContains(response, '?step=6')
         self.assertContains(response, reverse('system_settings_export'))
-        self.assertContains(response, 'dlux-system-settings-grid')
+        self.assertContains(response, 'dlux-admin-settings-grid')
         self.assertContains(response, 'dlux-system-settings-tile')
         self.assertContains(response, 'data-dlux-tooltip="System names, logo, favicon, and home route."')
 

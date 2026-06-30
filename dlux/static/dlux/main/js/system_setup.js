@@ -1851,22 +1851,18 @@
     }
 
     function applyLayoutBodyPreview(form) {
-        // Layout settings that live on the <body> (sticky headers, zebra striping,
-        // form density, modal size) preview live against the page behind the modal
-        // and, for form/modal, against the open settings form/modal itself.
+        // Live-preview only the GLOBAL layout settings on the <body> behind the
+        // modal: sticky headers and zebra striping (admin-only, no per-user
+        // override). `default_form_density` and `default_modal_size` are the admin
+        // DEFAULTS for those per-user preferences — previewing them here would
+        // overwrite the editing admin's OWN resolved `data-dlux-form-density` /
+        // `data-dlux-modal-size` (which reflect their personal Options choice),
+        // making every modal snap to the global default. So they are NOT previewed.
         if (form.querySelector('[name="sticky_table_headers"]')) {
             document.body.dataset.dluxStickyHeader = readBooleanField(form, '#id_sticky_table_headers', true) ? 'on' : 'off';
         }
         if (form.querySelector('[name="zebra_striping"]')) {
             document.body.dataset.dluxZebra = readBooleanField(form, '#id_zebra_striping', true) ? 'on' : 'off';
-        }
-        const formDensity = getNamedFieldValue(form, 'default_form_density');
-        if (formDensity) {
-            document.body.dataset.dluxFormDensity = formDensity;
-        }
-        const modalSize = getNamedFieldValue(form, 'default_modal_size');
-        if (modalSize) {
-            document.body.dataset.dluxModalSize = modalSize;
         }
     }
 

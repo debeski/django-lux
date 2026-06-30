@@ -2280,7 +2280,7 @@ class SystemSettingsForm(forms.ModelForm):
         })
         self.fields['public_root_theme'].choices = (
             ('', s.get('form_sys_public_root_theme_default', 'Use system default theme')),
-            *[(value, value) for value, _, _ in get_theme_choices()],
+            *[(theme['slug'], theme['label']) for theme in get_theme_options(s, config.get('allowed_themes'))],
         )
         self.fields['public_root_theme'].label = s.get('form_sys_public_root_theme', 'Public root theme')
         self.fields['public_root_theme'].help_text = s.get(
@@ -2949,9 +2949,23 @@ class SystemSettingsForm(forms.ModelForm):
                 },
             ),
         )
+        # Reuse the theme picker's swatches: render public_root_theme as a swatch
+        # selector (same `dlux-theme-preview--<slug>` swatches as the theme picker),
+        # limited to the allowed themes, with the optional "use system default" empty choice.
         _bind_choice_selector_widget(
             self.fields['public_root_theme'],
-            DluxChoiceSelectorWidget(variant='card', searchable=True),
+            DluxChoiceSelectorWidget(
+                variant='swatch',
+                option_meta={
+                    '': {'icon': 'bi-circle-half'},
+                    **{
+                        theme['slug']: {
+                            'preview_class': 'theme-preview dlux-theme-preview dlux-theme-preview--{}'.format(theme['slug']),
+                        }
+                        for theme in get_theme_options(s, config.get('allowed_themes'))
+                    },
+                },
+            ),
         )
         _bind_choice_selector_widget(
             self.fields['sidebar_density'],

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "1.2.13",
+  "version": "1.2.14",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "New System Settings appearance/anti-bot toggles (no migrations, inline-safe): layout_config gains sticky-header + zebra-striping toggles, default form density, and default modal size; registration_config gains a honeypot enable toggle gating the existing website bot-trap; public_root_config gains a fixed public-root theme, public-root <title>/meta-description overrides, and centralized show_titlebar_on_public + show_sidebar_on_public toggles (default hidden) that supersede titlebar_config.hide_on_public_unauthenticated_index and replace the hardcoded hide-sidebar-for-anonymous behavior. Also hardens the updater: reconcile reverts an unreconstructable active release to the baked image and self-heals a stuck degraded flag once back on baked, and the scaffold supervisor derives DLUX_BAKED_VERSION from dlux.__version__ so bind-mount dev works.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.13"
+  "summary": "Frontend-only fix (no migrations, inline-safe): the per-user Modal Size (and Form Density) Options preference now reliably governs the dynamic modal width. The System Settings live preview no longer overwrites the editing admin's own resolved data-dlux-modal-size / data-dlux-form-density body attributes with the global admin default (those are the defaults for non-overriding users, not a live body preview), and the dynamic modal now re-asserts the viewer's active modal_size on open so every dialog opens at the correct width from the first frame instead of inheriting a stale value.",
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.2.14"
 }

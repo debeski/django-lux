@@ -768,6 +768,30 @@ class UpdaterApiTests(TestCase):
             self.assertEqual(store.read_active(__version__)["version"], NEWER_VERSION)
             self.assertFalse(store.maintenance_file.exists())
 
+    def test_successful_apply_notifies_admins(self):
+        from django.core.cache import cache
+        from dlux.models import DluxNotification, DluxNotificationState
+        # Fresh config cache so notifications resolve to the enabled default
+        # (a prior test in the suite may have cached a disabled config).
+        cache.clear()
+        # A second superuser + a regular user: only the superusers get notified.
+        admin2 = get_user_model().objects.create_superuser(
+            username="admin2", email="a2@example.com", password="admin2-pass-123",
+        )
+        regular = get_user_model().objects.create_user(username="reg-upd", password="reg-pass-123")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run, state, store = self._apply_with_mocks(temp_dir)
+            self.assertEqual(run.status, run.STATUS_COMPLETED)
+        note = DluxNotification.objects.filter(action="dlux_update_applied").order_by("-id").first()
+        self.assertIsNotNone(note, "an app-updated notification should be created")
+        self.assertIn(NEWER_VERSION, note.message)
+        notified = set(
+            DluxNotificationState.objects.filter(notification=note).values_list("user_id", flat=True)
+        )
+        self.assertIn(self.user.id, notified)
+        self.assertIn(admin2.id, notified)
+        self.assertNotIn(regular.id, notified)
+
     def test_post_switch_health_failure_automatically_restores_previous(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run, state, store = self._apply_with_mocks(

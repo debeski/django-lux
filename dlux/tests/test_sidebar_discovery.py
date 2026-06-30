@@ -40,6 +40,18 @@ class SidebarDiscoveryTests(SimpleTestCase):
     def test_discovery_does_not_misclassify_credit_routes(self):
         self.assertTrue(_is_candidate("credit_report", "/finance/credit-report/", callback=None))
 
+    def test_discovery_excludes_api_namespace_and_path(self):
+        # API counterparts of page views (e.g. a `<app>_api` / `api` namespace
+        # and/or an `/api/` path) reuse the page's inferred label, so they would
+        # otherwise surface as duplicate, non-navigable sidebar/landing entries.
+        self.assertFalse(_is_candidate("documents_api:decree_list", "/api/decrees/", callback=None))
+        self.assertFalse(_is_candidate("api:decree_list", "/v1/decrees/", callback=None))
+        self.assertFalse(_is_candidate("documents:decree_list", "/api/decrees/", callback=None))
+        # The user-facing page view is still discovered, and a non-API path with
+        # "api" only as a substring is not falsely excluded.
+        self.assertTrue(_is_candidate("documents:decree_list", "/documents/decrees/", callback=None))
+        self.assertTrue(_is_candidate("rapid_report", "/finance/rapid-report/", callback=None))
+
     def test_sanitize_sidebar_config_hides_system_items_by_default(self):
         sidebar = {
             "home_url_name": None,

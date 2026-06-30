@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import subprocess
@@ -28,6 +29,8 @@ from .manifest import (
 from .health import runtime_probe_token
 from .runtime import RuntimeStore
 
+
+logger = logging.getLogger("dlux.updater")
 
 TERMINAL_STATUSES = frozenset({"completed", "failed", "rolled_back"})
 _SECRET_KEY_PATTERN = r"[A-Za-z0-9_.-]*(?:password|secret|token|authorization)[A-Za-z0-9_.-]*"
@@ -510,6 +513,50 @@ class UpdateService:
             if state.active_run_token == run.token:
                 state.active_run_token = ""
                 state.save(update_fields=["active_run_token", "updated_at"])
+        # The runtime is now durably on the new release — let admins know.
+        if run.action == run.ACTION_APPLY and status == run.STATUS_COMPLETED:
+            self._notify_admins_app_updated(run)
+
+    def _notify_admins_app_updated(self, run):
+        """Post a notification to admins (superusers) that DjangoLux was updated.
+
+        Best-effort and fully isolated: a notification failure must never affect
+        the (already durably-committed) update lifecycle.
+        """
+        try:
+            from django.contrib.auth import get_user_model
+            from django.urls import NoReverseMatch, reverse
+
+            from ..notifications import notify
+            from ..translations import get_strings
+
+            version = str((run.report or {}).get("active_version") or "").strip()
+            admins = list(get_user_model().objects.filter(is_active=True, is_superuser=True))
+            if not admins:
+                return
+            try:
+                target_url = reverse("options_view")
+            except NoReverseMatch:
+                target_url = ""
+            s = get_strings()
+            title = s.get("notif_app_updated_title", "DjangoLux updated")
+            template = s.get(
+                "notif_app_updated_message",
+                "DjangoLux was updated to version {version}.",
+            )
+            message = template.replace("{version}", version) if version else template
+            notify.success(
+                message,
+                title=title,
+                recipients=admins,
+                category="system",
+                action="dlux_update_applied",
+                source="updater",
+                target_url=target_url,
+                metadata={"version": version, "message_key": "notif_app_updated_message"},
+            )
+        except Exception:
+            logger.warning("Failed to emit the app-updated admin notification.", exc_info=True)
 
     def _process_check(self, run):
         state = _state_model().load()
