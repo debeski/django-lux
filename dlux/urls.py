@@ -133,6 +133,7 @@ urlpatterns = [
     path('sys/api/dlux-update/state/', views.dlux_update_state_view, name='dlux_update_state'),
     path('sys/api/dlux-update/check/', views.dlux_update_check_view, name='dlux_update_check'),
     path('sys/api/dlux-update/apply/', views.dlux_update_apply_view, name='dlux_update_apply'),
+    path('sys/api/dlux-update/image/', views.dlux_update_image_view, name='dlux_update_image'),
     path('sys/api/dlux-update/rollback/', views.dlux_update_rollback_view, name='dlux_update_rollback'),
     path('sys/api/dlux-update/runs/<str:token>/', views.dlux_update_run_view, name='dlux_update_run'),
     # Dynamic Modal CRUD

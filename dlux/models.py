@@ -1346,6 +1346,93 @@ class DluxUpdateRun(models.Model):
         return f"Dlux {self.action} {self.target_version or self.source_version} ({self.status})"
 
 
+class DluxImageUpdate(models.Model):
+    """Image-level (full container) update request, executed by the external
+    composer-updater rather than the inline wheel worker.
+
+    Deliberately SEPARATE from DluxUpdateRun so the battle-tested inline update
+    worker/recovery state machine is never disturbed. Lifecycle is driven by
+    ``UpdateService.tick_image_update()`` from the same worker loop: pending →
+    backing_up → awaiting_recreate → (composer recreates this container) →
+    completed/failed, finalized by reading composer's ``deploy-status.json``.
+    Backup-mode values intentionally mirror ``DluxUpdateRun`` so the shared
+    ``_create_backup`` helper can be reused unchanged.
+    """
+
+    BACKUP_FULL = 'full'
+    BACKUP_DATA = 'data'
+    BACKUP_SKIP = 'skip'
+    BACKUP_MODE_CHOICES = [
+        (BACKUP_FULL, 'Full (database + media)'),
+        (BACKUP_DATA, 'Quick (data only)'),
+        (BACKUP_SKIP, 'Skip backup'),
+    ]
+
+    STATUS_PENDING = 'pending'
+    STATUS_BACKING_UP = 'backing_up'
+    STATUS_AWAITING_RECREATE = 'awaiting_recreate'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_BACKING_UP, 'Backing Up'),
+        (STATUS_AWAITING_RECREATE, 'Awaiting Recreate'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_FAILED, 'Failed'),
+    ]
+    TERMINAL_STATUSES = frozenset({STATUS_COMPLETED, STATUS_FAILED})
+
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        default=generate_report_backup_token,
+        editable=False,
+        verbose_name="Token",
+    )
+    status = models.CharField(
+        max_length=32,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+        verbose_name="Status",
+    )
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name="Active")
+    source_version = models.CharField(max_length=32, blank=True, verbose_name="Source Version")
+    target_version = models.CharField(max_length=32, blank=True, verbose_name="Target Version")
+    requested_by_username = models.CharField(max_length=150, blank=True, verbose_name="Requested By")
+    backup_mode = models.CharField(
+        max_length=8,
+        choices=BACKUP_MODE_CHOICES,
+        default=BACKUP_DATA,
+        db_default=BACKUP_DATA,
+        verbose_name="Backup Mode",
+    )
+    backup_token = models.CharField(max_length=64, blank=True, verbose_name="Backup Token")
+    progress_log = models.TextField(blank=True, verbose_name="Progress Log")
+    error = models.TextField(blank=True, verbose_name="Error")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    handoff_at = models.DateTimeField(blank=True, null=True, verbose_name="Handoff At")
+    completed_at = models.DateTimeField(blank=True, null=True, verbose_name="Completed At")
+
+    class Meta:
+        verbose_name = "Dlux Image Update"
+        verbose_name_plural = "Dlux Image Updates"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['is_active', 'created_at'], name='dlux_image_active_idx'),
+        ]
+
+    def append_log(self, message):
+        line = str(message or '').replace('\x00', '').strip()
+        if not line:
+            return
+        combined = f"{self.progress_log}\n{line}".strip()
+        self.progress_log = combined[-65536:]
+
+    def __str__(self):
+        return f"Dlux image update {self.target_version or ''} ({self.status})"
+
+
 class PublicRegistration(models.Model):
     dlux_auto_create_user_profile = False
 

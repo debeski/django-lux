@@ -49,6 +49,7 @@
         const checked = root.querySelector('[data-dlux-update-checked]');
         const checkButton = root.querySelector('[data-dlux-update-check]');
         const reviewButton = root.querySelector('[data-dlux-update-review]');
+        const imageButton = root.querySelector('[data-dlux-update-image]');
         const rollbackButton = root.querySelector('[data-dlux-update-rollback]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
         const modalElement = document.getElementById('dluxUpdateReviewModal');
@@ -74,6 +75,37 @@
         let trackedRunToken = '';
         let rootStatusTimer = null;
         let checkHandle = null;
+        // Image-level (full container) update: not a DluxUpdateRun, so it is
+        // tracked via the state endpoint's `image_update` object rather than a
+        // run_url. The recreate takes this page into maintenance, so tracking is
+        // best-effort (poll until the connection drops; the final state shows on
+        // the next successful load).
+        let imageUpdate = null;
+        let imageStatePollTimer = null;
+        let lastImageNotice = '';
+
+        function imageActive(iu) {
+            return Boolean(iu && iu.active);
+        }
+
+        function imageStatusLabel(status, deployStatus) {
+            const base = {
+                pending: 'Image update queued…',
+                backing_up: 'Creating pre-update backup…',
+                awaiting_recreate: 'Updating containers…',
+                completed: 'Image update completed.',
+                failed: 'Image update failed.',
+            }[status] || status || '';
+            if (status === 'awaiting_recreate' && deployStatus) {
+                const phase = {
+                    starting: 'starting', pulling: 'pulling new image…',
+                    recreating: 'recreating containers…', migrating: 'running migrations…',
+                    ready: 'finishing…', failed: 'failed',
+                }[deployStatus];
+                if (phase) return `Updating — ${phase}`;
+            }
+            return base;
+        }
 
         // The "Check for updates" button spins via the shared loading-button
         // helper while the check is in flight (replacing the old root status line).
@@ -148,6 +180,71 @@
             modal.show();
         }
 
+        function showImageStarted() {
+            if (!modal) return;
+            reviewPanel.hidden = true;
+            progressPanel.hidden = false;
+            submit.hidden = true;
+            if (password) password.disabled = true;
+            dismissButtons.forEach((button) => { button.disabled = false; });
+            if (progressBar) {
+                progressBar.style.width = '100%';
+                progressBar.classList.add('progress-bar-animated');
+                progressBar.classList.remove('bg-danger', 'bg-success', 'bg-warning');
+            }
+            if (progressStatus) progressStatus.textContent = root.dataset.labelImageStarted || 'Image update started.';
+            if (progressLog && typeof imageUpdate?.progress_log === 'string') {
+                progressLog.textContent = imageUpdate.progress_log;
+                progressLog.scrollTop = progressLog.scrollHeight;
+            }
+            modal.show();
+        }
+
+        function finishImageNotice() {
+            if (!imageUpdate || imageActive(imageUpdate)) return;
+            const terminal = imageUpdate.status === 'completed' || imageUpdate.status === 'failed';
+            if (!terminal) return;
+            const succeeded = imageUpdate.status === 'completed';
+            if (lastImageNotice !== imageUpdate.token && window.showToast) {
+                lastImageNotice = imageUpdate.token;
+                window.showToast(
+                    succeeded ? (root.dataset.labelCompleted || 'Completed')
+                        : (imageUpdate.error || root.dataset.labelFailed || 'Failed'),
+                    succeeded ? 'success' : 'error',
+                );
+            }
+            if (progressPanel && !progressPanel.hidden) {
+                if (progressBar) {
+                    progressBar.classList.remove('progress-bar-animated');
+                    progressBar.classList.toggle('bg-success', succeeded);
+                    progressBar.classList.toggle('bg-danger', !succeeded);
+                }
+                if (progressStatus) progressStatus.textContent = imageStatusLabel(imageUpdate.status);
+            }
+        }
+
+        function scheduleImagePoll() {
+            window.clearTimeout(imageStatePollTimer);
+            imageStatePollTimer = window.setTimeout(pollImageState, 2500);
+        }
+
+        async function pollImageState() {
+            try {
+                const payload = await jsonRequest(root.dataset.stateUrl, { method: 'GET' });
+                imageUpdate = payload.image_update || null;
+                render(payload.state, payload.run);
+                if (imageActive(imageUpdate)) {
+                    scheduleImagePoll();
+                } else {
+                    finishImageNotice();
+                }
+            } catch (_error) {
+                // Expected during the recreate/maintenance window — keep polling
+                // quietly; the final state surfaces once the site is back.
+                scheduleImagePoll();
+            }
+        }
+
         function render(nextState, run) {
             state = nextState || state;
             if (!state) return;
@@ -174,13 +271,22 @@
                     reason.textContent = state.latest_reason || '';
                 }
             }
+            const imageAvailable = Boolean(state.image_update_available);
+            const imgActive = imageActive(imageUpdate);
             if (reviewButton) reviewButton.hidden = !updateAvailable;
+            if (imageButton) imageButton.hidden = !imageAvailable && !imgActive;
             if (rollbackButton) rollbackButton.hidden = !state.previous_version;
-            const running = Boolean(run?.active || state.active_run_token);
+            const running = Boolean(run?.active || state.active_run_token || imgActive);
             root.classList.toggle('is-running', running);
             if (checkButton) checkButton.disabled = running || Boolean(checkHandle);
             if (reviewButton) reviewButton.disabled = running;
+            if (imageButton) imageButton.disabled = running;
             if (rollbackButton) rollbackButton.disabled = running;
+            // While an image update is in flight, surface its phase on the root
+            // status line (the inline run panel doesn't apply to image updates).
+            if (imgActive) {
+                setRootStatus(imageStatusLabel(imageUpdate.status, imageUpdate.deploy_status?.status));
+            }
             const tracked = Boolean(run?.token && run.token === trackedRunToken);
             if (run && ['apply', 'rollback'].includes(run.action) && (run.active || !progressPanel?.hidden)) {
                 showProgress(run);
@@ -210,7 +316,13 @@
             if (payload.run?.active && payload.run.token) {
                 trackedRunToken = payload.run.token;
             }
+            imageUpdate = payload.image_update || null;
             render(payload.state, payload.run);
+            if (imageActive(imageUpdate)) {
+                scheduleImagePoll();
+            } else {
+                finishImageNotice();
+            }
             if (payload.run?.active && payload.run.token) {
                 if (payload.state?.can_manage) {
                     runUrl = root.dataset.stateUrl.replace(/state\/$/, `runs/${payload.run.token}/`);
@@ -280,22 +392,64 @@
             }
         });
 
+        // Render release notes as short bullet highlights instead of the long
+        // prose summary (which made the modal very tall). The generic
+        // "Bug fixes and improvements" entry is ALWAYS appended last, even when
+        // a release ships no curated highlights.
+        function renderReleaseNotes(container, manifest) {
+            if (!container) return;
+            container.textContent = '';
+            const list = document.createElement('ul');
+            list.className = 'dlux-update-highlights mb-0';
+            const items = Array.isArray(manifest?.highlights) ? manifest.highlights : [];
+            items.forEach((text) => {
+                const clean = String(text || '').trim();
+                if (!clean) return;
+                const li = document.createElement('li');
+                li.textContent = clean;
+                list.appendChild(li);
+            });
+            const generic = document.createElement('li');
+            generic.className = 'text-muted';
+            generic.textContent = root.dataset.labelGenericChanges || 'Bug fixes and improvements';
+            list.appendChild(generic);
+            container.appendChild(list);
+        }
+
         function openReview(action) {
             if (!modal || !state) return;
             currentAction = action;
             const isRollback = action === 'rollback';
-            modalElement.querySelector('[data-dlux-update-modal-title]').textContent = isRollback
-                ? root.dataset.labelRollbackTitle : root.dataset.labelUpdateTitle;
-            modalElement.querySelector('[data-dlux-update-submit]').textContent = isRollback
-                ? root.dataset.labelRollbackConfirm : root.dataset.labelUpdateConfirm;
-            modalElement.querySelector('[data-dlux-update-target]').textContent = isRollback
-                ? state.previous_version : state.latest_version;
-            modalElement.querySelector('[data-dlux-update-summary]').textContent = isRollback
-                ? (state.previous_manifest?.summary || '—')
-                : (state.latest_manifest?.summary || '—');
-            modalElement.querySelector('[data-dlux-update-compatibility]').textContent = isRollback
-                ? (state.previous_version ? root.dataset.labelLocalVerified : '—')
-                : (state.latest_reason || root.dataset.labelReady);
+            const isImage = action === 'image';
+            let title = root.dataset.labelUpdateTitle;
+            let confirm = root.dataset.labelUpdateConfirm;
+            let target = state.latest_version;
+            let manifest = state.latest_manifest;
+            let compatibility = state.latest_reason || root.dataset.labelReady;
+            if (isRollback) {
+                title = root.dataset.labelRollbackTitle;
+                confirm = root.dataset.labelRollbackConfirm;
+                target = state.previous_version;
+                manifest = state.previous_manifest;
+                compatibility = state.previous_version ? root.dataset.labelLocalVerified : '—';
+            } else if (isImage) {
+                title = root.dataset.labelImageTitle;
+                confirm = root.dataset.labelImageConfirm;
+                target = state.image_update_target || state.latest_version;
+                manifest = state.latest_manifest;
+                compatibility = state.image_update_reason || state.latest_reason || '';
+            }
+            modalElement.querySelector('[data-dlux-update-modal-title]').textContent = title;
+            modalElement.querySelector('[data-dlux-update-submit]').textContent = confirm;
+            modalElement.querySelector('[data-dlux-update-target]').textContent = target;
+            renderReleaseNotes(modalElement.querySelector('[data-dlux-update-summary]'), manifest);
+            modalElement.querySelector('[data-dlux-update-compatibility]').textContent = compatibility;
+            const maintenanceEl = modalElement.querySelector('[data-dlux-update-maintenance]');
+            if (maintenanceEl) {
+                maintenanceEl.textContent = isImage
+                    ? (root.dataset.imageMaintenanceNote || root.dataset.maintenanceNote || maintenanceEl.textContent)
+                    : (root.dataset.maintenanceNote || maintenanceEl.textContent);
+            }
             reviewPanel.hidden = false;
             progressPanel.hidden = true;
             submit.hidden = false;
@@ -313,11 +467,34 @@
         }
 
         reviewButton?.addEventListener('click', () => openReview('apply'));
+        imageButton?.addEventListener('click', () => openReview('image'));
         rollbackButton?.addEventListener('click', () => openReview('rollback'));
+
+        async function submitImage() {
+            submit.disabled = true;
+            try {
+                const body = new FormData();
+                body.append('current_password', password.value);
+                const backupMode = modalElement?.querySelector('[data-dlux-update-backup-mode]');
+                if (backupMode) body.append('backup_mode', backupMode.value);
+                const payload = await jsonRequest(root.dataset.imageUrl, { method: 'POST', body });
+                imageUpdate = payload.image_update || null;
+                password.value = '';
+                showImageStarted();
+                scheduleImagePoll();
+            } catch (requestError) {
+                showError(requestError.message);
+                submit.disabled = false;
+            }
+        }
 
         async function submitAction() {
             if (!password.value) {
                 password.reportValidity();
+                return;
+            }
+            if (currentAction === 'image') {
+                await submitImage();
                 return;
             }
             submit.disabled = true;

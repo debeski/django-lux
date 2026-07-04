@@ -636,6 +636,19 @@
     color: var(--primal);
 }
 
+/* Curated release highlights in the update modal — short bullets instead of a
+   long prose summary. Capped height keeps the modal from growing tall. */
+.dlux-update-highlights {
+    margin: 0;
+    padding-left: 1.15rem;
+    max-height: 11rem;
+    overflow-y: auto;
+}
+
+.dlux-update-highlights li {
+    margin-bottom: 0.2rem;
+}
+
 .dlux-updater-progress-log {
     max-height: 15rem;
     overflow: auto;

@@ -1,9 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.3.0",
+  "version": "1.3.1",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Permission Groups / Presets (inline-safe — migration 0007 is two additive CreateModels only). Adds reusable permission presets built on Django's native auth.Group: staff with the new dlux.manage_groups permission can define a named bundle of permissions once (optionally scoped) and reuse it. Users can be added to presets from the creation/permissions forms (a new preset selector layered above the direct-permission checkboxes) or from a dedicated Manage Groups modal in user management, which also lists each preset's members with who assigned them and when. Membership is live — editing a preset's permissions propagates to every member via native group inheritance, so existing user.has_perm checks are unchanged and users in no preset are entirely unaffected. New models GroupProfile (hosts the manage_groups permission) + GroupMembership. This release also folds in the previously-unreleased v1.2.15 frontend work — Options landing-page/public-root polish and Redis/Celery System Info diagnostics — plus a batch of dark-theme contrast fixes (permission cards now theme-aware on every dark theme, aether modal text and per-column table-header gradient, password-rules checklist) and the activity-log tab-count fix; all inline-safe.",
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.3.0"
+  "summary": "Image-level (full container) update orchestration, driven by the external composer-updater, plus curated release highlights in the update modal.",
+  "highlights": [
+    "Adds image-level updates: releases that need a full container rebuild can now be applied from the Updates page, not just inline wheel swaps.",
+    "Pre-update backup and maintenance mode are handled automatically before the new image is pulled and started.",
+    "Update notes now show as short highlights instead of a long summary."
+  ],
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.3.1"
 }

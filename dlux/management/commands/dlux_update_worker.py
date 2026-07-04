@@ -56,6 +56,7 @@ class Command(BaseCommand):
                 return
             if options["once"]:
                 service.process_next()
+                service.tick_image_update()
                 return
 
             jitter = 0 if options["no_jitter"] else random.randint(0, 1800)
@@ -68,6 +69,9 @@ class Command(BaseCommand):
                 if service.restart_worker:
                     self.stdout.write("Active release changed; restarting update worker.")
                     return
+                # Advance any in-flight image-level update (composer hand-off).
+                # Independent of the inline run queue above.
+                service.tick_image_update()
                 if not processed and updates_enabled() and time.monotonic() >= daily_check_after:
                     queue_daily_check_if_due()
                     daily_check_after = time.monotonic() + max(

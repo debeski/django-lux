@@ -184,6 +184,12 @@
                                  data-label-ready="{{ DLUX_STRINGS.dlux_update_ready|default:'Ready for inline update.' }}"
                                  data-label-uptodate="{{ DLUX_STRINGS.dlux_update_up_to_date|default:'DjangoLux is up to date.' }}"
                                  data-label-finish="{{ DLUX_STRINGS.dlux_update_finish|default:'Finish' }}"
+                                 data-label-generic-changes="{{ DLUX_STRINGS.dlux_update_generic_changes|default:'Bug fixes and improvements' }}"
+                                 data-image-url="{% url 'dlux_update_image' %}"
+                                 data-label-image-title="{{ DLUX_STRINGS.dlux_update_image_title|default:'Update DjangoLux (image rebuild)' }}"
+                                 data-label-image-confirm="{{ DLUX_STRINGS.dlux_update_image_confirm|default:'Rebuild and update' }}"
+                                 data-label-image-started="{{ DLUX_STRINGS.dlux_update_image_started|default:'Image update started. The site will enter maintenance and return on the new version; this page may be briefly unavailable during the rebuild.' }}"
+                                 data-image-maintenance-note="{{ DLUX_STRINGS.dlux_update_image_maintenance_notice|default:'This is a full image update: the application containers are pulled and recreated. The site enters maintenance and briefly becomes unavailable while the new version starts and migrations run.' }}"
                                  data-maintenance-note="{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}">
                                 <div class="dlux-updater-versions">
                                     <span>{{ DLUX_STRINGS.dlux_update_installed|default:'Installed' }}:</span>
@@ -207,6 +213,9 @@
                                     </button>
                                     <button type="button" class="btn btn-primary btn-sm" data-dlux-update-review hidden>
                                         {{ DLUX_STRINGS.dlux_update_review|default:'Review and update' }}
+                                    </button>
+                                    <button type="button" class="btn btn-warning btn-sm" data-dlux-update-image hidden>
+                                        {{ DLUX_STRINGS.dlux_update_image|default:'Update (image rebuild)' }}
                                     </button>
                                     <button type="button" class="btn btn-outline-warning btn-sm" data-dlux-update-rollback hidden>
                                         {{ DLUX_STRINGS.dlux_update_rollback|default:'Roll back to previous version' }}

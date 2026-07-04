@@ -835,6 +835,111 @@ class UpdateService:
             raise UpdaterError("The required pre-update system backup failed.")
         return backup
 
+    # --- image-level (full container) updates ---------------------------------
+    # Separate from the inline wheel lifecycle above. Driven from the worker
+    # loop via tick_image_update(); the actual pull/recreate is done by the
+    # external composer-updater, and finalized by reading its deploy-status.
+
+    def tick_image_update(self):
+        """Advance the single active image update, if any. No-op otherwise.
+
+        Never touches DluxUpdateRun / active_run_token, so the inline worker's
+        durable-run recovery is unaffected.
+        """
+        from .image_update import active_image_update
+
+        row = active_image_update()
+        if row is None:
+            return None
+        try:
+            if row.status == row.STATUS_PENDING:
+                self._begin_image_update(row)
+            elif row.status == row.STATUS_AWAITING_RECREATE:
+                self._finalize_image_update(row)
+        except Exception as exc:
+            try:
+                self.store.set_maintenance(False)
+            except Exception:
+                pass
+            self._fail_image_update(row, exc)
+        return row
+
+    def _begin_image_update(self, row):
+        from .image_update import write_composer_trigger
+
+        row.status = row.STATUS_BACKING_UP
+        row.append_log("Creating pre-update backup.")
+        row.save(update_fields=["status", "progress_log"])
+        backup = self._create_backup(row)
+        if backup is not None:
+            row.backup_token = backup.token
+            row.save(update_fields=["backup_token"])
+        # Maintenance stays on until composer finishes (success: cleared by the
+        # new container's reconcile reset-to-baked; failure/no-recreate: cleared
+        # by _finalize_image_update).
+        self.store.set_maintenance(True, token=row.token)
+        write_composer_trigger(self.store, row)
+        row.status = row.STATUS_AWAITING_RECREATE
+        row.handoff_at = timezone.now()
+        row.append_log("Maintenance enabled; requested image recreate from composer.")
+        row.save(update_fields=["status", "handoff_at", "progress_log"])
+
+    def _finalize_image_update(self, row):
+        from django.utils.dateparse import parse_datetime
+
+        from .image_update import HANDOFF_TIMEOUT_SECONDS, read_deploy_status
+
+        doc = read_deploy_status(self.store)
+        dstatus = str(doc.get("status") or "")
+        # composer rewrites deploy-status every run; only trust one written
+        # at/after our hand-off so a stale 'ready' from a prior update is ignored.
+        fresh = True
+        updated = parse_datetime(str(doc.get("updated_at") or ""))
+        if updated is not None and row.handoff_at is not None:
+            fresh = updated >= row.handoff_at
+
+        if fresh and dstatus == "ready":
+            baked = get_baked_version()
+            target_ok = True
+            try:
+                if row.target_version:
+                    target_ok = Version(str(baked)) >= Version(str(row.target_version))
+            except InvalidVersion:
+                target_ok = True
+            if target_ok:
+                self.store.set_maintenance(False)
+                self._complete_image_update(row, baked)
+                return
+        elif fresh and dstatus == "failed":
+            self.store.set_maintenance(False)
+            self._fail_image_update(row, doc.get("error") or "The image update failed.")
+            return
+
+        # Still in progress (or the target isn't live yet). Bail out and lift
+        # maintenance only once the hand-off has clearly timed out.
+        if row.handoff_at is not None:
+            elapsed = (timezone.now() - row.handoff_at).total_seconds()
+            if elapsed > HANDOFF_TIMEOUT_SECONDS:
+                self.store.set_maintenance(False)
+                self._fail_image_update(
+                    row, "The image update did not complete within the expected time."
+                )
+
+    def _complete_image_update(self, row, baked):
+        row.status = row.STATUS_COMPLETED
+        row.is_active = False
+        row.completed_at = timezone.now()
+        row.append_log(f"Image update to {row.target_version or baked} completed (baked {baked}).")
+        row.save(update_fields=["status", "is_active", "completed_at", "progress_log"])
+
+    def _fail_image_update(self, row, error):
+        row.status = row.STATUS_FAILED
+        row.is_active = False
+        row.completed_at = timezone.now()
+        row.error = _sanitize(error)
+        row.append_log(f"Image update failed: {row.error}")
+        row.save(update_fields=["status", "is_active", "completed_at", "error", "progress_log"])
+
     def _update_active_state(self, state, candidate, manifest, generation):
         state.previous_version = state.active_version or state.baked_version
         state.previous_wheel_url = state.active_wheel_url

@@ -13,6 +13,12 @@ from .. import __version__
 from ..guards import require_current_password
 from ..updater import UpdaterError
 from ..updater.health import runtime_probe_token
+from ..updater.image_update import (
+    active_image_update,
+    image_update_available,
+    queue_image_update,
+    serialize_image_update,
+)
 from ..updater.service import get_ui_state, queue_run, serialize_run, updates_enabled
 from ..utils import is_global_staff, log_audit_event
 
@@ -56,6 +62,10 @@ def dlux_update_runtime_health(request):
     return JsonResponse({"ok": True, "version": __version__})
 
 
+def _state_model():
+    return apps.get_model("dlux", "DluxUpdateState")
+
+
 @login_required
 @require_GET
 def dlux_update_state_view(request):
@@ -63,10 +73,17 @@ def dlux_update_state_view(request):
     state = get_ui_state()
     state["can_manage"] = bool(request.user.is_superuser and state["enabled"])
     latest_run = _run_model().objects.order_by("-created_at").first()
+    # Image-level (full container) update availability + any in-flight run.
+    available, target, reason = image_update_available(_state_model().load())
+    active_image = active_image_update()
+    state["image_update_available"] = available
+    state["image_update_target"] = target
+    state["image_update_reason"] = reason if available else ""
     return JsonResponse({
         "ok": True,
         "state": state,
         "run": serialize_run(latest_run) if latest_run else None,
+        "image_update": serialize_image_update(active_image, include_log=True),
     })
 
 
@@ -137,6 +154,34 @@ def dlux_update_apply_view(request):
         details={"run_token": run.token, "target_version": run.target_version, "backup_mode": run.backup_mode},
     )
     return _queue_response(run)
+
+
+@login_required
+@csrf_protect
+@require_POST
+def dlux_update_image_view(request):
+    """Queue an image-level update. Executed by the external composer-updater;
+    dlux backs up, enters maintenance, hands off, and finalizes."""
+    _require_superuser(request)
+    if failure := _password_guard(request):
+        return failure
+    backup_mode = str(request.POST.get("backup_mode") or "").strip().lower()
+    try:
+        row = queue_image_update(request.user.get_username(), backup_mode=backup_mode)
+    except UpdaterError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=409)
+    log_audit_event(
+        request,
+        "dlux_update_image",
+        "DLUX_UPDATE_IMAGE",
+        model_name="DjangoLux updater",
+        details={"image_token": row.token, "target_version": row.target_version, "backup_mode": row.backup_mode},
+    )
+    return JsonResponse({
+        "ok": True,
+        "image_update": serialize_image_update(row, include_log=True),
+        "state_url": reverse("dlux_update_state"),
+    })
 
 
 @login_required

@@ -266,6 +266,20 @@ def validate_release_manifest(manifest, expected_version):
     ):
         raise UpdaterError("The release manifest contains an invalid release URL.")
     manifest["summary"] = manifest.get("summary", "")[:1000]
+    # Optional curated release highlights (short bullet points shown in the
+    # update modal, so it doesn't render the whole prose summary and grow tall).
+    # Fully optional + back-compatible: older manifests omit it; older updaters
+    # ignore it. Normalize defensively — cap count and per-line length.
+    highlights = manifest.get("highlights")
+    if highlights is not None:
+        if not isinstance(highlights, list):
+            raise UpdaterError("The release manifest has invalid highlights.")
+        cleaned = []
+        for item in highlights[:8]:
+            text = str(item or "").strip()[:160]
+            if text:
+                cleaned.append(text)
+        manifest["highlights"] = cleaned
     return manifest
 
 
