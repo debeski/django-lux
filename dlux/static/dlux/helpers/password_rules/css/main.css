@@ -20,7 +20,11 @@
     display: flex;
     align-items: center;
     gap: 0.45rem;
-    color: var(--bs-secondary-color, #6c757d);
+    /* Use the shared dlux muted-text token (every dark theme defines
+       --dlux-setup-muted as a light grey; light themes fall back below). The
+       old fixed `--bs-secondary-color` grey rendered dark-on-dark under the dark
+       themes. `.is-met` overrides to full success green. */
+    color: var(--dlux-setup-muted, var(--bs-secondary-color, #6c757d));
     transition: color 0.15s ease;
 }
 

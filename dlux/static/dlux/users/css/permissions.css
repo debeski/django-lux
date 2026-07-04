@@ -1,6 +1,12 @@
+/* Card surfaces read from the shared dlux theme tokens (every dark theme
+   defines --dlux-setup-*; light themes fall back to the light values below).
+   This is why the widget is correct on ALL themes without per-theme rules —
+   the old hardcoded white background rendered white-on-light-text under every
+   dark theme except the ones that hand-rolled overrides. */
 .permissions-card {
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: var(--dlux-setup-card-bg, rgba(255, 255, 255, 0.95));
+    border: 1px solid var(--dlux-setup-item-border, rgba(0, 0, 0, 0.1));
+    color: var(--dlux-setup-text, var(--title, #212529));
     border-radius: 12px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     overflow: hidden;
@@ -8,13 +14,13 @@
 }
 
 .dlux-staff-tier-preview {
-    --dlux-tier-preview-panel-bg: linear-gradient(145deg, rgba(var(--primal-rgb, 13, 110, 253), 0.08), rgba(255, 255, 255, 0.98));
-    --dlux-tier-preview-panel-border: rgba(var(--primal-rgb, 13, 110, 253), 0.18);
+    --dlux-tier-preview-panel-bg: linear-gradient(145deg, rgba(var(--primal-rgb, 13, 110, 253), 0.08), var(--dlux-setup-card-bg, rgba(255, 255, 255, 0.98)));
+    --dlux-tier-preview-panel-border: var(--dlux-setup-item-border, rgba(var(--primal-rgb, 13, 110, 253), 0.18));
     --dlux-tier-preview-panel-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
-    --dlux-tier-preview-title-color: var(--primal_dark, #212529);
-    --dlux-tier-preview-body-color: rgba(33, 37, 41, 0.8);
-    --dlux-tier-preview-list-color: rgba(33, 37, 41, 0.84);
-    --dlux-tier-preview-muted-color: rgba(73, 80, 87, 0.88);
+    --dlux-tier-preview-title-color: var(--dlux-setup-text, var(--title, #212529));
+    --dlux-tier-preview-body-color: var(--dlux-setup-text, rgba(33, 37, 41, 0.8));
+    --dlux-tier-preview-list-color: var(--dlux-setup-text, rgba(33, 37, 41, 0.84));
+    --dlux-tier-preview-muted-color: var(--dlux-setup-muted, rgba(73, 80, 87, 0.88));
     background:
         var(--dlux-tier-preview-panel-bg);
     border: 1px solid var(--dlux-tier-preview-panel-border);
@@ -155,19 +161,42 @@
     font-size: 1.1rem;
     font-weight: 600;
     margin: 0;
-    color: var(--primal_dark, #212529);
+    color: var(--dlux-setup-text, var(--title, #212529));
 }
 
 .permissions-card-body {
     padding: 1.25rem;
 }
 
+/* Column-first (masonry-like) packing so a short model card (e.g. an app with a
+   single permission) fills the gap next to a taller neighbour instead of being
+   pushed onto its own row far below — the old Bootstrap `.row`/`.col` grid
+   coupled every card in a visual row to the tallest one's height. */
+.dlux-perm-columns {
+    column-count: 3;
+    column-gap: 1rem;
+}
+
+@media (max-width: 991.98px) {
+    .dlux-perm-columns { column-count: 2; }
+}
+
+@media (max-width: 575.98px) {
+    .dlux-perm-columns { column-count: 1; }
+}
+
 .model-group {
-    background: rgba(255, 255, 255, 0.5);
+    background: var(--dlux-setup-item-bg, rgba(255, 255, 255, 0.5));
     border-radius: 8px;
     padding: 1rem;
     margin-bottom: 1rem;
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--dlux-setup-item-border, rgba(0, 0, 0, 0.05));
+    /* Keep each card intact within a column and let columns pack independently.
+       Stays a block (NOT inline-block) — the old inline-block hack makes the
+       multi-column balancer treat cards as inline content and under-fill
+       columns (e.g. leaving the 3rd column empty). */
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
 }
 
 .model-group:last-child {
@@ -179,13 +208,14 @@
     align-items: center;
     margin-bottom: 0.75rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+    border-bottom: 1px dashed var(--dlux-setup-item-border, rgba(0, 0, 0, 0.1));
 }
 
 .model-title {
     font-size: 0.95rem;
     font-weight: 600;
     margin: 0;
+    color: var(--dlux-setup-text, var(--title, #212529));
 }
 
 .permission-item {
@@ -196,6 +226,43 @@
 
 .permission-item:hover {
     background: rgba(var(--primal-rgb, 13, 110, 253), 0.05);
+}
+
+/* Permissions granted by a selected preset group: read-only, visually muted,
+   with a "from group" badge. The badge is hidden until the item is inherited
+   (permissions.js toggles .is-inherited live as presets change). */
+.dlux-perm-inherited-badge {
+    display: none;
+    margin-inline-start: 0.4rem;
+    font-size: 0.62rem;
+    font-weight: 600;
+    vertical-align: middle;
+    color: var(--primal_dark, #0d6efd);
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.25);
+    border-radius: 999px;
+    padding: 0.1rem 0.45rem;
+}
+
+.permission-item.is-inherited {
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.06);
+    border-radius: 4px;
+}
+
+.permission-item.is-inherited .form-check-label {
+    opacity: 0.9;
+}
+
+.permission-item.is-inherited .dlux-perm-inherited-badge {
+    display: inline-block;
+}
+
+/* A checked+disabled inherited checkbox should still read as "granted", not
+   greyed into invisibility on dark themes. */
+.permission-item.is-inherited .permission-checkbox:disabled {
+    opacity: 1;
+    background-color: var(--primal, #2363c3);
+    border-color: var(--primal, #2363c3);
 }
 
 .toggle-icon {

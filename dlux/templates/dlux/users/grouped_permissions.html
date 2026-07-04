@@ -2,7 +2,11 @@
 
 {% with id=widget.attrs.id %}
 <div class="grouped-permissions-widget" id="{{ id }}_container">
-    <link rel="stylesheet" href="{% static 'dlux/users/css/permissions.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% static 'dlux/users/css/permissions.css' %}?v=20260704c">
+
+    {% if widget.group_permissions_map %}
+    {% with gpid=id|add:"_group_perms" %}{{ widget.group_permissions_map|json_script:gpid }}{% endwith %}
+    {% endif %}
 
     {% if widget.staff_tier_preview %}
     <div class="dlux-staff-tier-preview mb-3"
@@ -49,9 +53,8 @@
             <!-- Body contains models and permissions -->
             <div id="collapse_{{ app_label }}" class="collapse">
                 <div class="permissions-card-body">
-                    <div class="row g-3">
+                    <div class="dlux-perm-columns">
                         {% for model_name, model_data in app_data.models.items %}
-                        <div class="col-md-6 col-lg-4">
                             <div class="model-group">
                                 <div class="model-header">
                                     <div class="form-check me-2">
@@ -62,18 +65,22 @@
                                 </div>
                                 <div class="model-permissions">
                                     {% for option in model_data.permissions %}
-                                    <div class="permission-item">
+                                    <div class="permission-item{% if option.inherited %} is-inherited{% endif %}">
                                         <div class="form-check">
-                                            <input type="checkbox" name="{{ option.name }}" value="{{ option.value }}" 
-                                                   class="form-check-input permission-checkbox" 
+                                            <input type="checkbox" name="{{ option.name }}" value="{{ option.value }}"
+                                                   class="form-check-input permission-checkbox"
                                                    id="{{ option.attrs.id }}"
                                                    data-action="{{ option.attrs.data_action }}"
                                                    data-model="{{ option.attrs.data_model }}"
                                                    data-codename="{{ option.attrs.data_codename }}"
-                                                   {% if option.attrs.disabled %}disabled{% endif %}
-                                                   {% if option.selected %}checked{% endif %}>
+                                                   data-direct-checked="{% if option.selected %}true{% else %}false{% endif %}"
+                                                   {% if option.attrs.disabled or option.inherited %}disabled{% endif %}
+                                                   {% if option.selected or option.inherited %}checked{% endif %}>
                                             <label class="form-check-label small" for="{{ option.attrs.id }}">
                                                 {{ option.label }}
+                                                <span class="dlux-perm-inherited-badge badge">
+                                                    <i class="bi bi-people-fill"></i> {{ DLUX_STRINGS.permission_inherited|default:"From group" }}
+                                                </span>
                                             </label>
                                             {% if option.help_text %}
                                             <div class="form-text">{{ option.help_text }}</div>
@@ -83,7 +90,6 @@
                                     {% endfor %}
                                 </div>
                             </div>
-                        </div>
                         {% endfor %}
                     </div>
                 </div>
@@ -93,5 +99,5 @@
     </div>
 </div>
 
-<script src="{% static 'dlux/users/js/permissions.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% static 'dlux/users/js/permissions.js' %}?v=20260704a" nonce="{{ request.csp_nonce }}"></script>
 {% endwith %}

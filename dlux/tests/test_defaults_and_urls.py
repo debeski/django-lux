@@ -739,7 +739,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
         self.assertIn(
-            'data-setup-theme-preview-url="/static/dlux/themes/css/light.css?v=20260622a"',
+            'data-setup-theme-preview-url="/static/dlux/themes/css/light.css?v=20260704a"',
             form.theme_picker_html,
         )
         self.assertIn('data-setup-theme-allow-toggle="light"', form.theme_picker_html)
@@ -2361,7 +2361,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         _assert_versioned_static_asset(self, contents, "dlux/main/js/navbar.js")
         self.assertIn("dlux/main/css/navbar.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/navbar.css")
-        self.assertIn("{% static theme.css_path %}?v=20260622a", contents)
+        self.assertIn("{% static theme.css_path %}?v=20260704a", contents)
         self.assertIn("dlux/main/css/template_cleanup.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/template_cleanup.css")
 

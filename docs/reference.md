@@ -116,6 +116,8 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/sys/backup/upload/` | Upload an encrypted `.dlb` for restore |
 | `/sys/backup/restore/` | Start a system restore from an uploaded or existing `.dlb` |
 | `/sys/scopes/manage/` | Scope management |
+| `/sys/groups/manage/` | Permission group / preset management (requires `dlux.manage_groups`) |
+| `/sys/groups/<int:pk>/members/` | Preset membership modal + who/which/when history |
 | `/sys/sections/` | Section management |
 | `/sys/api/dlux-update/runtime-health/` | HMAC-authenticated internal-process version health response used directly by the update worker |
 
@@ -690,6 +692,11 @@ notice.setAttribute('data-autoclose', 'false');
 | `is_global_staff(user)` | Returns `True` if user is non-scoped staff with `manage_scopes` permission (can manage ALL users and scopes) |
 | `is_central_staff(user)` | Returns `True` if user is non-scoped staff WITHOUT `manage_scopes` permission (can only manage scopeless users) |
 | `can_manage_target_user(actor, target)` | Returns `True` if actor can manage target user, respecting superuser self-only rules, scope boundaries, and Central Staff restrictions |
+| `get_visible_group_presets(user)` | Preset Groups (auth.Group + GroupProfile) a user may see/assign: global + own-scope for scoped staff, all for superuser/Global Staff |
+| `can_manage_group_preset(actor, group)` | `True` if actor may CRUD/manage-membership on a preset (global presets are superuser/Global-Staff only; scoped staff manage own-scope presets) |
+| `set_user_group_presets(user, groups, actor, manageable_groups=None)` | Reconcile a user's preset membership within the manageable set — syncs native `user.groups` and the `GroupMembership` audit rows |
+| `set_group_members(group, users, actor, manageable_users=None)` | Group-centric inverse of the above: set one preset's members, syncing `group.user_set` and audit rows |
+| `get_manageable_users_queryset(actor)` | Users an actor may add to/remove from presets, honouring the same tiers as the user directory |
 | `collect_related_objects()` | Inspect reverse and related objects for reporting or delete warnings |
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |

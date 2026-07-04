@@ -3,6 +3,7 @@ import os
 import platform
 import sys
 import json
+import importlib
 import logging
 import urllib.error
 import urllib.request
@@ -237,6 +238,29 @@ def _cache_backend_label(backend_path):
     return backend_name.replace('_', ' ') or 'Cache'
 
 
+def _fetch_redis_version(cache_backend):
+    """Best-effort Redis server version lookup across django-redis and Django's builtin backend."""
+    client = None
+    getter = getattr(getattr(cache_backend, 'client', None), 'get_client', None)
+    if callable(getter):
+        try:
+            client = getter(write=False)
+        except TypeError:
+            client = getter()
+    if client is None:
+        getter = getattr(getattr(cache_backend, '_cache', None), 'get_client', None)
+        if callable(getter):
+            try:
+                client = getter(None)
+            except TypeError:
+                client = getter()
+    if client is None:
+        return ''
+
+    info = client.info('server')
+    return str(info.get('redis_version', '')).strip()
+
+
 def _get_cache_service():
     default_cache_config = (getattr(settings, 'CACHES', {}) or {}).get('default', {})
     backend_path = default_cache_config.get('BACKEND', '')
@@ -268,7 +292,16 @@ def _get_cache_service():
             note_key='service_cache_probe_unexpected',
         )
 
-    return _service_status('online', detail=label)
+    detail = label
+    if label == 'Redis':
+        try:
+            version = _fetch_redis_version(cache_backend)
+        except Exception:
+            version = ''
+        if version:
+            detail = f'{label} {version}'.strip()
+
+    return _service_status('online', detail=detail)
 
 
 def _get_drf_service():
@@ -338,6 +371,59 @@ def _get_api_service():
         )
 
 
+def _get_celery_app():
+    """Resolve the project's Celery app so worker health can be inspected in-process."""
+    settings_module = str(os.environ.get('DJANGO_SETTINGS_MODULE') or '')
+    project = settings_module.split('.', 1)[0]
+    if project:
+        try:
+            return importlib.import_module(f'{project}.celery').app
+        except Exception:
+            pass
+    try:
+        from celery import current_app
+        return current_app
+    except Exception:
+        return None
+
+
+# Worker pings hit the broker and block the request for up to a second, so the
+# result is memoized for a short window: the System Info panel stays light no
+# matter how often admins reload it, while still reflecting worker state quickly.
+CELERY_WORKER_PROBE_CACHE_KEY = 'dlux:health:celery-workers'
+CELERY_WORKER_PROBE_TTL = int(getattr(settings, 'DLUX_CELERY_HEALTH_TTL', 30) or 0)
+
+
+def _probe_celery_workers(app):
+    """Return ``(ok, worker_count, error)`` from a live worker ping, cached briefly.
+
+    ``ok`` is False only when the ping itself raised (broker unreachable); a
+    reachable broker with zero live workers returns ``(True, 0, '')``.
+    """
+    cache_backend = caches['default'] if CELERY_WORKER_PROBE_TTL > 0 else None
+    if cache_backend is not None:
+        try:
+            cached = cache_backend.get(CELERY_WORKER_PROBE_CACHE_KEY)
+        except Exception:
+            cached = None
+        if cached is not None:
+            return tuple(cached)
+
+    try:
+        replies = app.control.ping(timeout=1.0)
+        result = (True, len(replies or []), '')
+    except Exception as exc:
+        result = (False, 0, str(exc))
+
+    if cache_backend is not None:
+        try:
+            cache_backend.set(CELERY_WORKER_PROBE_CACHE_KEY, list(result), timeout=CELERY_WORKER_PROBE_TTL)
+        except Exception:
+            pass
+
+    return result
+
+
 def _get_celery_service():
     is_configured = any([
         getattr(settings, 'CELERY_BROKER_URL', ''),
@@ -357,12 +443,41 @@ def _get_celery_service():
         )
 
     version = getattr(celery, '__version__', '')
-    detail = f'Celery {version}'.strip()
+    detail = f'Celery {version}'.strip() or 'Celery'
+
+    app = _get_celery_app()
+    if app is None:
+        return _service_status(
+            'configured',
+            detail=detail,
+            note='Celery settings were detected, but the Celery app could not be loaded to check worker health.',
+            note_key='service_celery_app_unavailable',
+        )
+
+    ok, worker_count, error = _probe_celery_workers(app)
+    if not ok:
+        return _service_status(
+            'offline',
+            detail=detail,
+            note=f'Error: {error}',
+            note_key='service_error_detail',
+            note_context={'error': error},
+        )
+
+    if worker_count == 0:
+        return _service_status(
+            'offline',
+            detail=detail,
+            note='Celery is configured, but no workers responded to the health ping.',
+            note_key='service_celery_no_workers',
+        )
+
     return _service_status(
-        'configured',
-        detail=detail or 'Celery',
-        note='Celery settings were detected. Worker health is not auto-checked here.',
-        note_key='service_celery_configured',
+        'online',
+        detail=detail,
+        note='{count} worker(s) responded to the health ping.',
+        note_key='service_celery_workers_online',
+        note_context={'count': worker_count},
     )
 
 
@@ -429,6 +544,7 @@ def options_view(request):
         python_version = sys.version.split()[0]
         django_version = django.get_version()
         decrypter_version = os.getenv('DECRYPTER_VERSION', '').strip()
+        composer_version = os.getenv('COMPOSER_VERSION', '').strip()
 
         try:
             if psutil is None:
@@ -451,6 +567,7 @@ def options_view(request):
             'python_version': python_version,
             'django_version': django_version,
             'decrypter_version': decrypter_version,
+            'composer_version': composer_version,
             'drf_service': drf_service,
             'api_service': api_service,
             'db_service': db_service,

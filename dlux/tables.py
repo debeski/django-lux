@@ -260,6 +260,49 @@ class ScopeTable(DluxTable):
         dlux_actions = False
 
 
+class GroupPresetTable(DluxTable):
+    """Permission-preset (auth.Group + GroupProfile) directory grid."""
+    scope = tables.Column(accessor='dlux_profile__scope__name', orderable=False)
+    member_count = tables.Column(accessor='member_count', orderable=False)
+    permission_count = tables.Column(accessor='permission_count', orderable=False)
+    actions = tables.TemplateColumn(
+        template_name='dlux/groups/group_actions.html',
+        orderable=False,
+        verbose_name='',
+    )
+
+    class Meta(DluxTable.Meta):
+        model = apps.get_model('auth', 'Group')
+        fields = ("name", "scope", "member_count", "permission_count", "actions")
+        dlux_actions = False
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        s = get_strings()
+        self.columns['name'].column.verbose_name = s.get('form_group_name', 'Group Name')
+        self.columns['scope'].column.verbose_name = s.get('form_scope', 'Scope')
+        self.columns['member_count'].column.verbose_name = s.get('group_member_count', 'Members')
+        self.columns['permission_count'].column.verbose_name = s.get('group_permission_count', 'Permissions')
+
+    def render_scope(self, value):
+        return value or get_strings().get('group_scope_global', 'Global')
+
+
+class GroupMembershipTable(DluxTable):
+    """Read-only who/which/when history for a preset's membership."""
+    class Meta(DluxTable.Meta):
+        model = apps.get_model('dlux', 'GroupMembership')
+        fields = ("user", "assigned_by", "assigned_at")
+        dlux_actions = False
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        s = get_strings()
+        self.columns['user'].column.verbose_name = s.get('group_member_user', 'User')
+        self.columns['assigned_by'].column.verbose_name = s.get('group_assigned_by', 'Assigned By')
+        self.columns['assigned_at'].column.verbose_name = s.get('group_assigned_at', 'Assigned At')
+
+
 def _build_user_row_actions(record):
     s = get_strings()
     display_name = ''

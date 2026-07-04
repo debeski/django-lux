@@ -1,0 +1,16 @@
+<div class="d-flex gap-2 justify-content-center">
+    {% if record.dlux_can_manage %}
+    <button type="button" class="btn btn-sm btn-info js-group-nav"
+            data-url="{% url 'group_members' record.id %}"
+            title="{{ DLUX_STRINGS.group_members_label|default:'Members' }}">
+        <i class="bi bi-people-fill"></i>
+    </button>
+    <button type="button" class="btn btn-sm btn-primary js-group-nav"
+            data-url="{% url 'get_group_form' record.id %}"
+            title="{{ DLUX_STRINGS.edit_group|default:'Edit Group' }}">
+        <i class="bi bi-pencil-square"></i>
+    </button>
+    {% else %}
+    <span class="badge bg-secondary">{{ DLUX_STRINGS.group_view_only|default:"View only" }}</span>
+    {% endif %}
+</div>

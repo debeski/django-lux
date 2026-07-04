@@ -82,7 +82,10 @@
     --dlux-table-border: rgba(168, 255, 228, 0.12);
     --dlux-table-border-strong: rgba(131, 201, 255, 0.2);
     --dlux-table-shadow: 0 20px 42px -28px rgba(0, 0, 0, 0.68);
-    --dlux-table-header-surface: linear-gradient(135deg, rgba(45, 53, 65, 0.98), rgba(28, 36, 46, 0.98));
+    /* Vertical (not 135deg diagonal): the header surface is painted per-<th>, so a
+       diagonal gradient restarts in every column and looks segmented. Match the
+       other dark themes (dark/gothic/prism) with a top-to-bottom gradient. */
+    --dlux-table-header-surface: linear-gradient(180deg, rgba(45, 53, 65, 0.98), rgba(28, 36, 46, 0.98));
     --dlux-table-header-text: #f4f6fa;
     --dlux-table-row-odd: rgba(13, 17, 22, 0.98);
     --dlux-table-row-even: rgba(25, 33, 43, 0.98);
@@ -340,6 +343,19 @@
 
 :root.theme-aether .border-white {
     border-color: var(--aether-line) !important;
+}
+
+/* Dynamic modal: AJAX-injected fragments (detail/combined/form) sit on the dark
+   aether surface, but the detail partial hard-codes `.text-dark` and a `.bg-light`
+   card that Bootstrap paints with near-black text -> dark-on-dark and unreadable.
+   Force injected body text back to the light title colour. Scoped to the modal
+   body so the guarded bg-* behaviour elsewhere is untouched. */
+:root.theme-aether #universalDynamicModalBody,
+:root.theme-aether #universalDynamicModalBody .info-value,
+:root.theme-aether #universalDynamicModalBody .text-dark,
+:root.theme-aether #universalDynamicModalBody .bg-light,
+:root.theme-aether #universalDynamicModalBody .card:not([class*="text-bg-"]) {
+    color: var(--title) !important;
 }
 
 /* Titlebar - cut glass rail */

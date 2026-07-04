@@ -98,7 +98,15 @@ class UserActivityLogView(LoginRequiredMixin, UserPassesTestMixin, FilterView, S
         from django.db.models import Count
         s = get_strings()
         base = self._base_queryset()
-        counts = {row['category']: row['n'] for row in base.values('category').annotate(n=Count('id'))}
+        # NOTE: _base_queryset() carries `.order_by('-created_at')`. A values()/annotate()
+        # aggregate folds any ordering field into the GROUP BY, so without clearing it the
+        # rows group by (category, created_at) — one row per timestamp, each n=1 — and every
+        # non-empty tab badge would read 1. `.order_by()` drops the ordering so the grouping
+        # is by category alone and the counts are correct.
+        counts = {
+            row['category']: row['n']
+            for row in base.order_by().values('category').annotate(n=Count('id'))
+        }
         active = self._active_category()
         labels = {
             'user': s.get('log_tab_user', 'User'),

@@ -41,6 +41,12 @@
         </button>
         {% endif %}
 
+        {% if perms.dlux.manage_groups or request.user.is_superuser %}
+        <button type="button" class="btn btn-info rounded-pill no-print ms-2" title="{{ DLUX_STRINGS.manage_groups_btn|default:'Manage Groups' }}" id="btn-manage-groups" data-url="{% url 'manage_groups' %}">
+            <i class="bi bi-people-fill me-1 h4"></i> {{ DLUX_STRINGS.manage_groups_btn|default:"Manage Groups" }}
+        </button>
+        {% endif %}
+
         {% if request.user.is_superuser %}
         <div class="d-inline-block ms-auto no-print d-flex gap-3">
             {% if scope_enabled %}
@@ -125,6 +131,25 @@
         </div>
     </div>
 
+    <!-- Permission Group / Preset Management Modal -->
+    <div class="modal fade" id="groupModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="groupModalBody">
+                    <!-- Content loaded via AJAX -->
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">{{ DLUX_STRINGS.loading }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scope Activation Warning Modal -->
     <div class="modal fade" id="scopeWarningModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -173,4 +198,5 @@
 
 {% block scripts %}
     <script src="{% static 'dlux/users/js/manage_users.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% static 'dlux/users/js/manage_groups.js' %}?v=20260703a" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

@@ -6,7 +6,7 @@ import re
 from types import MethodType, SimpleNamespace
 
 from django import forms
-from django.contrib.auth.models import Permission as Permissions
+from django.contrib.auth.models import Group, Permission as Permissions
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UserChangeForm, PasswordChangeForm, SetPasswordForm
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -117,7 +117,7 @@ from .utils import (
     seed_navbar_config_from_sidebar,
 )
 from .system.registry import get_setting_group
-from .widgets import DluxChoiceSelectorWidget
+from .widgets import DluxChoiceSelectorWidget, DluxMultipleChoiceSelectorWidget
 
 User = get_user_model()
 
@@ -152,6 +152,10 @@ DLUX_PERMISSION_HELP_TEXTS = {
         'help_perm_manage_scopes',
         'Creates Global Staff access only when the user has no assigned scope.',
     ),
+    'manage_groups': (
+        'help_perm_manage_groups',
+        'Lets this staff user create and edit permission groups (presets) and assign users to them.',
+    ),
 }
 
 THEME_CHOICES = get_theme_choices()
@@ -179,7 +183,7 @@ def get_assignable_permissions_queryset():
     # systemsettings) except the section model.
     return Permissions.objects.exclude(
         Q(content_type__app_label__in=PERMISSION_UI_EXCLUDED_APP_LABELS) |
-        (Q(content_type__app_label='dlux') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'view_activitylog', 'view_reports', 'download_backup']) & ~Q(content_type__model='section')) |
+        (Q(content_type__app_label='dlux') & ~Q(codename__in=['manage_staff', 'manage_scopes', 'manage_groups', 'view_activitylog', 'view_reports', 'download_backup']) & ~Q(content_type__model='section')) |
         Q(content_type__app_label='auth', content_type__model__in=['group', 'user', 'permission'])
     )
 
@@ -364,6 +368,18 @@ def _configure_staff_tier_preview(form, *, fixed_scope=None, scope_locked=False)
         if initial_permissions is not None:
             initial_permissions = initial_permissions.all()
 
+    # Fold in permissions the user already inherits from preset groups so the
+    # tier summary reflects effective (direct ∪ group) access, not just direct.
+    combined_permissions = list(initial_permissions or [])
+    if instance is not None and getattr(instance, 'pk', None):
+        try:
+            combined_permissions += list(
+                Permissions.objects.filter(group__user=instance).distinct()
+            )
+        except Exception:
+            pass
+    initial_permissions = combined_permissions
+
     is_staff_value = bool(
         form.initial.get('is_staff')
         if 'is_staff' in getattr(form, 'initial', {})
@@ -404,6 +420,66 @@ def _system_settings_sidebar_tools_available(cleaned_data):
 def _bind_choice_selector_widget(field, widget):
     widget.choices = field.choices
     field.widget = widget
+
+
+def _maybe_add_group_presets_field(form, user_context, *, initial_groups=None):
+    """
+    Attach an optional ``groups`` preset selector to a user form, gated on the
+    actor holding ``manage_groups`` (membership management is a manage_groups
+    action). Rendered with the shared multi-select card selector. Returns True
+    when the field was added. Non-breaking: actors without the permission — or
+    systems with no presets defined — see the form exactly as before.
+    """
+    from .utils import get_visible_group_presets
+
+    can_assign = bool(
+        user_context
+        and (getattr(user_context, 'is_superuser', False)
+             or user_context.has_perm('dlux.manage_groups'))
+    )
+    if not can_assign:
+        return False
+
+    presets = get_visible_group_presets(user_context)
+    if not presets.exists():
+        return False
+
+    s = get_strings()
+    field = forms.ModelMultipleChoiceField(
+        queryset=presets,
+        required=False,
+        label=s.get('form_group_presets', 'Groups / Presets'),
+        help_text=s.get(
+            'help_group_presets',
+            'Assign reusable permission presets. The user inherits every permission in the selected presets, on top of any permissions checked below.',
+        ),
+    )
+    if initial_groups is not None:
+        field.initial = initial_groups
+    form.fields['groups'] = field
+    _bind_choice_selector_widget(
+        field,
+        DluxMultipleChoiceSelectorWidget(variant='card', searchable=True),
+    )
+
+    # Feed preset→permission inheritance into the grouped-permission widget so it
+    # can show which permissions come from the selected presets (checked + read-only
+    # + badged, never submitted as direct). The map lets permissions.js recompute
+    # this live as presets are toggled.
+    perm_field = form.fields.get('permissions')
+    if perm_field is not None and isinstance(perm_field.widget, GroupedPermissionWidget):
+        group_perms = {
+            str(group.pk): [perm.pk for perm in group.permissions.all()]
+            for group in presets.prefetch_related('permissions')
+        }
+        perm_field.widget.group_permissions_map = group_perms
+        inherited = set()
+        if initial_groups is not None:
+            for group in initial_groups:
+                gid = getattr(group, 'pk', group)
+                inherited.update(group_perms.get(str(gid), []))
+        perm_field.widget.inherited_permission_ids = inherited
+    return True
 
 
 
@@ -514,6 +590,19 @@ def _build_wizard_actions(strings, submit_label, submit_icon):
 def _build_submit_actions(strings, submit_label, submit_icon, submit_class='btn btn-success rounded-pill'):
     return _wrap_modal_action_buttons(
         _build_cancel_button_html(strings),
+        f"""
+        <button type="submit" class="{submit_class}">
+            <i class="bi {submit_icon} text-light me-1 h4"></i> {submit_label}
+        </button>
+        """,
+    )
+
+
+def _build_submit_only_actions(strings, submit_label, submit_icon, submit_class='btn btn-success rounded-pill'):
+    """Modal action bar with just the submit button — no dismiss/cancel. Used by
+    surfaces that navigate with an in-modal Back button (e.g. the Groups modal),
+    where a Cancel that closes the whole modal is the wrong affordance."""
+    return _wrap_modal_action_buttons(
         f"""
         <button type="submit" class="{submit_class}">
             <i class="bi {submit_icon} text-light me-1 h4"></i> {submit_label}
@@ -725,7 +814,11 @@ class GroupedPermissionWidget(ChoiceWidget):
     def get_context(self, name, value, attrs):
         context = super().get_context(name, value, attrs)
         s = getattr(self, 'translations', get_strings())
-        
+
+        # Permissions inherited from the user's selected preset groups (rendered
+        # read-only, not submitted). Empty for the preset-definition form.
+        inherited_ids = getattr(self, 'inherited_permission_ids', None) or set()
+
         # Get current selected values (as strings/ints)
         if value is None:
             value = []
@@ -751,7 +844,7 @@ class GroupedPermissionWidget(ChoiceWidget):
             codename = perm.codename
 
             # Keep staff-delegation permissions together in the dedicated staff-access UI.
-            if app_label == 'dlux' and codename in {'manage_staff', 'manage_scopes'}:
+            if app_label == 'dlux' and codename in {'manage_staff', 'manage_scopes', 'manage_groups'}:
                 model_name = 'staff_access'
                 # Force model_verbose_name to match what _attach_is_staff_permission uses
                 # "perm_staff_access" string usually "Staff Permissions"
@@ -820,6 +913,7 @@ class GroupedPermissionWidget(ChoiceWidget):
                 'label': perm_label,
                 'codename': codename,
                 'selected': str(perm.pk) in str_values,
+                'inherited': perm.pk in inherited_ids,
                 'help_text': help_text,
                 'attrs': {
                     'id': f"{current_id}_{perm.pk}",
@@ -885,6 +979,8 @@ class GroupedPermissionWidget(ChoiceWidget):
             
         context['widget']['grouped_perms'] = grouped_perms
         context['widget']['staff_tier_preview'] = getattr(self, 'staff_tier_preview', None)
+        # preset→permission map (json-serialisable) drives live inheritance in permissions.js
+        context['widget']['group_permissions_map'] = getattr(self, 'group_permissions_map', None)
         context['DLUX_STRINGS'] = s  # Pass translations to template
         return context
 
@@ -1023,6 +1119,9 @@ class CustomUserCreationForm(UserCreationForm):
                 scope_locked = True
         _configure_staff_tier_preview(self, fixed_scope=fixed_scope, scope_locked=scope_locked)
 
+        # Optional reusable permission-preset selector (gated on manage_groups).
+        _maybe_add_group_presets_field(self, self.user_context)
+
 
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -1054,10 +1153,10 @@ class CustomUserCreationForm(UserCreationForm):
             
         step_1_div = Div(*step_1_fields, css_class="wizard-step wizard-step-1")
         
-        step_2_fields = [
-            HTML("<hr>"),
-            Field("permissions", css_class="col-12")
-        ]
+        step_2_fields = [HTML("<hr>")]
+        if 'groups' in self.fields:
+            step_2_fields.append(Field("groups", css_class="col-12"))
+        step_2_fields.append(Field("permissions", css_class="col-12"))
         step_2_div = Div(*step_2_fields, css_class="wizard-step wizard-step-2 d-none")
 
         actions = _build_wizard_actions(
@@ -1109,7 +1208,17 @@ class CustomUserCreationForm(UserCreationForm):
                 preferences.pop('force_password_change', None)
             profile.preferences = preferences
             profile.save()
-            
+
+            # Sync any selected permission presets (live group membership + audit).
+            if 'groups' in self.fields:
+                from dlux.utils import set_user_group_presets
+                set_user_group_presets(
+                    user,
+                    self.cleaned_data.get('groups') or [],
+                    actor=self.user_context,
+                    manageable_groups=self.fields['groups'].queryset,
+                )
+
         return user
 
 
@@ -1311,10 +1420,20 @@ class CustomUserPermissionsForm(UserChangeForm):
         preview_scope = getattr(getattr(user_instance, 'profile', None), 'scope', None)
         _configure_staff_tier_preview(self, fixed_scope=preview_scope, scope_locked=True)
 
+        # Optional reusable permission-preset selector (gated on manage_groups).
+        initial_groups = None
+        if user_instance and getattr(user_instance, 'pk', None):
+            initial_groups = user_instance.groups.all()
+        _maybe_add_group_presets_field(self, self.user_context, initial_groups=initial_groups)
+
         self.helper = FormHelper()
         self.helper.form_tag = False
+        layout_fields = []
+        if 'groups' in self.fields:
+            layout_fields.append(Field("groups", css_class="col-12"))
+        layout_fields.append(Field("permissions", css_class="col-12"))
         self.helper.layout = Layout(
-            Field("permissions", css_class="col-12"),
+            *layout_fields,
             _build_submit_actions(
                 s,
                 submit_label=s.get('btn_update', 'Update'),
@@ -1345,8 +1464,18 @@ class CustomUserPermissionsForm(UserChangeForm):
                         permissions.append(view_user_perm)
                 except Permission.DoesNotExist:
                     pass
-            
+
             user.user_permissions.set(permissions)
+
+            # Sync any selected permission presets (live group membership + audit).
+            if 'groups' in self.fields:
+                from dlux.utils import set_user_group_presets
+                set_user_group_presets(
+                    user,
+                    self.cleaned_data.get('groups') or [],
+                    actor=self.user_context,
+                    manageable_groups=self.fields['groups'].queryset,
+                )
         return user
 
 
@@ -1603,6 +1732,158 @@ class ScopeForm(forms.ModelForm):
         self.helper.layout = Layout(
             Field('name', css_class='col-12'),
         )
+
+
+class GroupPresetForm(forms.ModelForm):
+    """
+    Create/edit a reusable permission PRESET — a Django auth ``Group`` plus its
+    dlux ``GroupProfile`` sidecar. Reuses the assignable-permission machinery so
+    a preset can only bundle permissions the acting admin is allowed to grant.
+    """
+    handles_save = True
+
+    description = forms.CharField(max_length=255, required=False)
+    scope = forms.ModelChoiceField(queryset=None, required=False, label="Scope")
+    permissions = forms.ModelMultipleChoiceField(
+        queryset=get_assignable_permissions_queryset(),
+        required=False,
+        widget=GroupedPermissionWidget,
+        label="Permissions",
+    )
+
+    class Meta:
+        model = Group
+        fields = ['name']
+
+    def __init__(self, *args, **kwargs):
+        self.user_context = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        from dlux.utils import is_scope_enabled
+
+        s = get_strings()
+        self.fields['permissions'].widget.translations = s
+
+        Scope = apps.get_model('dlux', 'Scope')
+        self.fields['scope'].queryset = Scope.objects.all()
+
+        # Restrict assignable permissions to what the actor may grant.
+        _apply_assignable_permission_filter(self, self.user_context)
+
+        # Preload from the existing preset (permissions + profile metadata).
+        if self.instance and self.instance.pk:
+            self.fields['permissions'].initial = self.instance.permissions.all()
+            profile = getattr(self.instance, 'dlux_profile', None)
+            if profile is not None:
+                self.fields['description'].initial = profile.description
+                self.fields['scope'].initial = profile.scope_id
+
+        # Scope handling: hidden when scopes are disabled (presets are global);
+        # locked to the actor's own scope for scoped non-superusers.
+        actor_scope = get_user_scope(self.user_context) if self.user_context else None
+        self._scope_enabled = is_scope_enabled()
+        if not self._scope_enabled:
+            self.fields['scope'].widget = forms.HiddenInput()
+            self.fields['scope'].queryset = Scope.objects.none()
+            self.fields['scope'].initial = None
+        elif self.user_context and not self.user_context.is_superuser and actor_scope is not None:
+            self.fields['scope'].initial = actor_scope.pk
+            self.fields['scope'].disabled = True
+            self.fields['scope'].queryset = Scope.objects.filter(pk=actor_scope.pk)
+
+        self.fields['name'].label = s.get('form_group_name', 'Group Name')
+        self.fields['description'].label = s.get('form_group_description', 'Description')
+        self.fields['scope'].label = s.get('form_scope', 'Scope')
+        self.fields['permissions'].label = s.get('form_permissions', 'Permissions')
+        self.modal_heading = s.get('manage_groups_label', 'Manage Groups')
+
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        layout_fields = [
+            Field('name', css_class='col-12'),
+            Field('description', css_class='col-12'),
+            Field('scope', css_class='col-12') if self._scope_enabled else Field('scope'),
+            HTML("<hr>"),
+            Field('permissions', css_class='col-12'),
+        ]
+        self.helper.layout = Layout(
+            *layout_fields,
+            _build_submit_only_actions(
+                s,
+                submit_label=s.get('btn_save', 'Save'),
+                submit_icon='bi-people-fill',
+            ),
+        )
+
+    def save(self, commit=True):
+        group = super().save(commit=False)
+        if commit:
+            group.save()
+            group.permissions.set(self.cleaned_data.get('permissions') or [])
+            GroupProfile = apps.get_model('dlux', 'GroupProfile')
+            actor = self.user_context if getattr(self.user_context, 'pk', None) else None
+            profile, _created = GroupProfile.objects.get_or_create(
+                group=group, defaults={'created_by': actor},
+            )
+            profile.description = self.cleaned_data.get('description') or ''
+            # cleaned_data holds the locked initial for disabled scope fields, and
+            # None when scopes are off — so this is always the intended value.
+            profile.scope = self.cleaned_data.get('scope')
+            profile.updated_by = actor
+            profile.save()
+        return group
+
+
+class GroupMembersForm(forms.Form):
+    """
+    Add/remove members of a single permission preset. ``members`` is initialised
+    to the preset's current membership (within the actor's manageable set); on
+    save the difference is reconciled through ``set_group_members`` so native
+    ``group.user_set`` and the ``GroupMembership`` audit rows stay in sync.
+    """
+    handles_save = True
+
+    members = forms.ModelMultipleChoiceField(queryset=None, required=False)
+
+    def __init__(self, *args, **kwargs):
+        self.user_context = kwargs.pop('user', None)
+        self.group = kwargs.pop('group', None)
+        super().__init__(*args, **kwargs)
+        from dlux.utils import get_manageable_users_queryset
+
+        s = get_strings()
+        manageable = get_manageable_users_queryset(self.user_context)
+        self.fields['members'].queryset = manageable
+        self.fields['members'].label = s.get('group_members_label', 'Members')
+        if self.group is not None and getattr(self.group, 'pk', None):
+            self.fields['members'].initial = manageable.filter(
+                groups=self.group
+            ).values_list('pk', flat=True)
+        _bind_choice_selector_widget(
+            self.fields['members'],
+            DluxMultipleChoiceSelectorWidget(variant='card', searchable=True),
+        )
+        self.modal_heading = s.get('group_members_label', 'Members')
+
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            Field('members', css_class='col-12'),
+            _build_submit_only_actions(
+                s,
+                submit_label=s.get('btn_save', 'Save'),
+                submit_icon='bi-people-fill',
+            ),
+        )
+
+    def save(self):
+        from dlux.utils import set_group_members
+        set_group_members(
+            self.group,
+            self.cleaned_data.get('members') or [],
+            actor=self.user_context,
+            manageable_users=self.fields['members'].queryset,
+        )
+        return self.group
 
 
 class SystemSettingsForm(forms.ModelForm):
@@ -2956,6 +3237,7 @@ class SystemSettingsForm(forms.ModelForm):
             self.fields['public_root_theme'],
             DluxChoiceSelectorWidget(
                 variant='swatch',
+                attrs={'class': 'dlux-public-root-theme-picker'},
                 option_meta={
                     '': {'icon': 'bi-circle-half'},
                     **{

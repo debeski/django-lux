@@ -205,6 +205,72 @@ Important behavior:
 - forms, filters, tables, and some context-menu labels are translated automatically by startup patches
 - language resolution is layered, so user preference and runtime defaults matter
 
+### Translating dropdown *option* labels
+
+Startup patches localize field **labels** and table cells, but the `<option>` labels of a
+`ChoiceField` (a model's `choices`) are **not** translated automatically — they render with
+the model's raw display strings. Use `translate_choices(choices, dlux_strings)`
+(`from dlux.utils import translate_choices`), which maps each option's value to the
+`choice_<value>` DLUX_STRINGS key:
+
+```python
+from dlux.translations import get_current_language_code, get_strings
+from dlux.utils import translate_choices
+from django import forms
+
+def translate_choice_fields(form, request=None):
+    strings = get_strings(get_current_language_code(request))
+    for field in form.fields.values():
+        if isinstance(field, forms.ModelChoiceField):
+            continue  # options are DB objects, not translatable strings
+        source = getattr(field, "choices", None) or getattr(field.widget, "choices", None)
+        if source:
+            field.widget.choices = translate_choices(list(source), strings)
+```
+
+Add the keys to `DLUX_STRINGS`, e.g. `"choice_draft": "مسودة"`, `"choice_issued": "صادرة"`.
+`translate_choices` leaves the empty placeholder option (`value == ""`) untouched.
+
+> **Gotcha — for django-filter `ChoiceField`s, write `widget.choices`, not `field.choices`.**
+> Two traps compound here:
+> 1. `set_first_choice()` (used by the filter helpers to put a label on the first option)
+>    sets the placeholder on `field.choices`, but a django-filter `ChoiceField` **renders
+>    from `widget.choices`**, which still holds the default `---------`. So the intended
+>    first-choice label never shows unless you also update the widget.
+> 2. Re-assigning `field.choices` makes the django-filter field **re-prepend** its empty
+>    option, duplicating the placeholder.
+>
+> Assigning the translated list to `field.widget.choices` (as above) solves both: it is
+> what actually renders, it preserves the single placeholder that `set_first_choice` put on
+> `field.choices`, and — because only *labels* change, not values — field validation is
+> unaffected. Also handles widget-only choice sources such as `NullBooleanSelect`
+> (the yes/no/any boolean filter).
+
+### Translating permission labels (group manager)
+
+The grouped-permission widget (the "permission group manager") resolves each
+checkbox label as `strings.get(f"perm_{codename}", str(permission))`. The
+`Permission.__str__` override only translates the **verb** (`can_view` → عرض, etc.)
+and leaves the **model name** as its English `verbose_name`, so a non-English group
+manager shows mixed labels like "عرض Customer".
+
+To fully translate a permission label (including the model name), add a
+`perm_<codename>` key with the complete label:
+
+```python
+DLUX_STRINGS = {
+    "ar": {
+        "perm_view_invoice": "عرض الفواتير",
+        "perm_issue_invoice": "إصدار (اعتماد) الفواتير",  # custom permissions too
+    },
+}
+```
+
+Cover the four CRUD codenames per model (`view_/add_/change_/delete_<model>`) plus
+any custom `Meta.permissions`. English can be omitted — it falls back to Django's
+default `str(permission)`. Note the model *group header* uses a separate key,
+`model_<model_name>` (see the sidebar/model-label convention), so translate both.
+
 ## Setup Import and Export
 
 Superusers can export the current System Settings payload from the Options System Settings card. The exported JSON uses the `django-lux.system-settings` format and is meant to be imported from step 1 of the setup/System Settings wizard in another development, staging, or local environment. Browser downloads are named `dlux-{project-slug}-{YYYY-MM-DD}.json`; the slug comes from the deployed project `BASE_DIR` folder name (generic container work-dir names such as `app`/`src`/`code` are skipped), falling back to the configured English system name (`system_names['en']`) when set, then to `project`.
@@ -280,9 +346,47 @@ Useful override points:
 - `show_table`
 - `show_form`
 - `handles_save` on the form class
-- `handles_save` on the form class
 - `get_modal_context()` on the model
 - `get_smart_view_context()` on the model (see Smart View Customization below)
+
+> **Gotcha — `show_table` defaults to `True`, so add-forms show a records table too.**
+> The default `DynamicModalManagerView` renders the *combined* table **and** form. For
+> an add/edit modal that should show only the form, wire it as
+> `DynamicModalManagerView.as_view(show_table=False)`. A convenient project pattern is a
+> single reusable route reused for every scoped model:
+>
+> ```python
+> path("app-modals/<str:app_label>/<str:model_name>/<str:pk>/",
+>      DynamicModalManagerView.as_view(show_table=False), name="scoped_modal_manager"),
+> ```
+>
+> (`pk="new"` for create; a real pk — a plain `<str:pk>` also matches numeric ids — for edit.)
+
+> **Gotcha — reloading the parent list after a modal save.** On success the modal POST
+> reloads the page **only** when the form sets `refresh_parent = True` (or `add_more`).
+> Without it the list behind a form-only modal won't reflect the new/edited row. Set
+> `refresh_parent = True` on the modal `ModelForm`.
+
+> **Gotcha — opening edit/view/delete modals from a plain list page.** `DluxTable` rows
+> dispatch bubbling `dlux:record:{view,edit,delete}` events. On a page **without** a
+> section manager (`#sectionData`), the generic fallback (`context_menu/js/main.js`)
+> navigates to `/{app}/{id}/edit|delete/` — routes a modal-only app doesn't have. To open
+> a modal instead, add a listener on `document` (bubble phase, so it runs before the
+> window-level fallback), call `event.preventDefault()` to opt out of that navigation, and
+> open the modal via the documented event:
+>
+> ```js
+> document.addEventListener("dlux:record:edit", function (e) {
+>     e.preventDefault();
+>     const id = e.detail.data.id;
+>     document.body.dispatchEvent(new CustomEvent("dlux:dynamic_modal:open", {
+>         detail: { data: { url: `/app-modals/${e.detail.data.app}/${e.detail.data.model}/${id}/` } },
+>     }));
+> });
+> ```
+>
+> (View appends `?action=view`; delete POSTs to the `DynamicModalDeleteView` route with the
+> CSRF token, then reloads.)
 
 ## Smart View Customization
 
@@ -887,6 +991,37 @@ If a page is primarily a list/filter surface, prefer the dedicated list base:
 - `dlux/forms/css/form_actions.css`
 
 That is the supported page-level entrypoint for Crispy filter helpers such as `setup_filter_helper()` and `advanced_filter_helper()`.
+
+> **Gotcha — render the filter with the `{% crispy %}` tag, not the `|crispy` filter.**
+> `setup_filter_helper()` / `advanced_filter_helper()` attach the whole layout (the
+> pill-shaped search/clear controls, the collapsible advanced section, injected
+> buttons, `form_method="get"`, and the `data-dlux-filter-autosubmit` attribute) as
+> `filter.form.helper`. Only the crispy **tag** applies `form.helper`:
+>
+> ```django
+> {% load crispy_forms_tags %}
+> {% if filter %}
+>     <div class="no-print mb-3">{% crispy filter.form %}</div>
+> {% endif %}
+> ```
+>
+> The `|crispy` **filter** (`{{ filter.form|crispy }}` / `as_crispy_form`) **ignores
+> `form.helper`** and renders bare fields — no `<form>` tag, no advanced collapse, no
+> autosubmit — so the helper silently appears to do nothing. (Note:
+> `crispy_forms.utils.render_crispy_form()` *does* honor the helper, so a passing
+> Python-side render check can mask a template that still uses the filter.)
+
+> **Gotcha — `advanced_filter_helper()` always renders the advanced-toggle button.**
+> The "advanced search" toggle is emitted even when `config` has no `advanced_fields`,
+> so it points at an empty collapse (a dead button). Either give every filter at least
+> one `advanced_fields` entry, or use `setup_filter_helper()` for filters that
+> genuinely have only a primary row.
+
+> **Tip — calling convention.** `advanced_filter_helper(self, request=request, config=…)`
+> is typically called from the `FilterSet.__init__` (using
+> `request = getattr(self, "request", None)`), which is where the reference projects
+> wire it. Calling it from the view's `get_filterset()` also works, as long as you pass
+> `request` explicitly.
 
 For `django_tables2` usage on those pages, Dlux now auto-adopts the stock table rendering path and wraps the table in its own responsive shell. In practice that means:
 

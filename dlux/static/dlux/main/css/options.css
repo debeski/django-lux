@@ -855,6 +855,12 @@
     letter-spacing: -0.01em;
 }
 
+/* The reset heading arrow is a plain icon here — no tinted badge behind it. */
+.dlux-options-reset-bar-text h4 > i:first-child {
+    background: none;
+    box-shadow: none;
+}
+
 .dlux-options-reset-bar-text > p {
     max-width: 70ch;
 }
@@ -910,4 +916,70 @@
     .dlux-options-reset-actions {
         transition: none;
     }
+}
+
+/* ===== Landing page picker (compact entry selector, fills the card height) ===== */
+/* Make the panel a column so the entry list fills the card's available height
+   (cards stretch to the tallest in the row) and scrolls — with `flex-basis:0`
+   the list never grows the card, so a long list stays a scroll area, not a tall
+   card. The reorder handle floats (flex ignores floats), so pin it absolutely. */
+.dlux-options-card[data-options-card="landing-page"] .dlux-options-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.dlux-options-card[data-options-card="landing-page"] .dlux-options-card-handle {
+    position: absolute;
+    top: 1.35rem;
+    inset-inline-end: 1.35rem;
+    float: none;
+    margin: 0;
+}
+
+.dlux-options-card[data-options-card="landing-page"] .dlux-options-panel > h4 {
+    padding-inline-end: 2.6rem;
+}
+
+.dlux-options-landing-picker {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* min-height keeps a visible list even when the card is alone in its row (no
+   taller sibling to stretch to); max-height caps it so many links scroll
+   instead of over-growing the card; flex-grow fills a taller stretched card. */
+.dlux-options-landing-picker .dlux-choice-selector__options {
+    flex: 1 1 auto;
+    min-height: 5rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    padding-inline-end: 0.15rem;
+    gap: 0.4rem;
+}
+
+.dlux-options-landing-picker .dlux-choice-option__surface {
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 0.7rem;
+}
+
+.dlux-options-landing-picker .dlux-choice-option__icon {
+    width: 1.85rem;
+    height: 1.85rem;
+    min-width: 1.85rem;
+}
+
+.dlux-options-landing-picker .dlux-choice-option__icon i {
+    font-size: 0.92rem;
+}
+
+.dlux-options-landing-picker .dlux-choice-option__label {
+    font-size: 0.86rem;
+}
+
+.dlux-options-landing-picker .dlux-choice-option__meta--secondary {
+    font-size: 0.72rem;
 }

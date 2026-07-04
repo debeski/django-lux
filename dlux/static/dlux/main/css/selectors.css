@@ -53,7 +53,9 @@
 
 .dlux-choice-selector--chip .dlux-choice-selector__options,
 .dlux-choice-selector--swatch .dlux-choice-selector__options {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  /* auto-fill (not auto-fit) so a handful of options stay compact and
+     left-aligned instead of stretching across the whole row. */
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
 
 .dlux-choice-selector--toggle .dlux-choice-selector__options {
@@ -215,6 +217,66 @@
 
 .dlux-choice-selector--swatch .dlux-choice-option__surface {
   align-items: center;
+}
+
+/* Public-root theme picker: render like the circular Options theme picker —
+   a swatch disc with its label beneath, tightly wrapped, no per-item card. */
+.dlux-public-root-theme-picker .dlux-choice-selector__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.9rem;
+}
+
+.dlux-public-root-theme-picker .dlux-choice-option__surface {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 4.6rem;
+  padding: 0.3rem;
+  border: none;
+  background: none;
+  box-shadow: none;
+  text-align: center;
+}
+
+.dlux-public-root-theme-picker .dlux-choice-option:hover .dlux-choice-option__surface,
+.dlux-public-root-theme-picker .dlux-choice-option__input:checked + .dlux-choice-option__surface,
+.dlux-public-root-theme-picker .dlux-choice-option__input:focus-visible:not(:checked) + .dlux-choice-option__surface {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.dlux-public-root-theme-picker .dlux-choice-option__swatch,
+.dlux-public-root-theme-picker .dlux-choice-option__icon {
+  width: 2.6rem;
+  height: 2.6rem;
+  min-width: 2.6rem;
+  transition: box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.dlux-public-root-theme-picker .dlux-choice-option:hover .dlux-choice-option__swatch,
+.dlux-public-root-theme-picker .dlux-choice-option:hover .dlux-choice-option__icon {
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb, 35, 99, 195), 0.28), 0 5px 12px -7px rgba(0, 0, 0, 0.45);
+}
+
+.dlux-public-root-theme-picker .dlux-choice-option__input:checked + .dlux-choice-option__surface .dlux-choice-option__swatch,
+.dlux-public-root-theme-picker .dlux-choice-option__input:checked + .dlux-choice-option__surface .dlux-choice-option__icon {
+  box-shadow: 0 0 0 3px var(--dlux-choice-ring, rgba(var(--primal-rgb, 35, 99, 195), 0.4));
+}
+
+.dlux-public-root-theme-picker .dlux-choice-option__copy {
+  align-items: center;
+}
+
+.dlux-public-root-theme-picker .dlux-choice-option__label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: normal;
+  overflow: visible;
 }
 
 .dlux-choice-option--toggle .dlux-choice-toggle {

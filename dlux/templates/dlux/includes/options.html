@@ -5,7 +5,7 @@
 
 {% block extra_head %}
     {% include "dlux/forms/assets_head.html" %}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260630c">
+    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260702b">
 {% endblock %}
 
 {% block content %}
@@ -53,6 +53,12 @@
                                 <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.django_version }}</span>
                                 <span class="dlux-admin-stat-value font-monospace">{{ django_version }}</span>
                             </div>
+                            {% if composer_version %}
+                            <div class="dlux-admin-stat">
+                                <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.composer_version }}</span>
+                                <span class="dlux-admin-stat-value font-monospace">{{ composer_version }}</span>
+                            </div>
+                            {% endif %}
                         </div>
                         <details class="dlux-admin-details">
                             <summary>{{ DLUX_STRINGS.admin_panel_more_details|default:'More system details' }}</summary>
@@ -425,17 +431,34 @@
                 </button>
                 <h4 class="mb-3"><i class="bi bi-house-door me-2"></i> {{ DLUX_STRINGS.options_landing_page|default:"Landing page" }}</h4>
                 <p class="text-muted small mb-3">{{ DLUX_STRINGS.options_landing_page_desc|default:"Where you land after signing in. Leave on system default to use the configured home." }}</p>
-                <div class="input-group">
-                    <select class="form-select" id="options-user-home-url" data-user-home-url>
-                        <option value="">{{ DLUX_STRINGS.options_landing_page_default|default:"System default" }}</option>
+                <div class="dlux-choice-selector dlux-options-landing-picker">
+                    <div class="dlux-choice-selector__options" role="radiogroup"
+                         data-user-home-url-group
+                         data-saved-message="{{ DLUX_STRINGS.options_landing_page_saved|default:'Landing page saved.' }}">
+                        <label class="dlux-choice-option dlux-choice-option--card" data-dlux-selector-option>
+                            <input type="radio" class="dlux-choice-option__input" name="user_home_url" value=""
+                                   {% if not user_preferences.user_home_url %}checked{% endif %}>
+                            <span class="dlux-choice-option__surface">
+                                <span class="dlux-choice-option__icon"><i class="bi bi-house-door"></i></span>
+                                <span class="dlux-choice-option__copy">
+                                    <span class="dlux-choice-option__label">{{ DLUX_STRINGS.options_landing_page_default|default:"System default" }}</span>
+                                </span>
+                            </span>
+                        </label>
                         {% for opt in user_home_url_options %}
-                        <option value="{{ opt.value }}" {% if opt.value == user_preferences.user_home_url %}selected{% endif %}>{{ opt.label }}</option>
+                        <label class="dlux-choice-option dlux-choice-option--card" data-dlux-selector-option>
+                            <input type="radio" class="dlux-choice-option__input" name="user_home_url" value="{{ opt.value }}"
+                                   {% if opt.value == user_preferences.user_home_url %}checked{% endif %}>
+                            <span class="dlux-choice-option__surface">
+                                <span class="dlux-choice-option__icon"><i class="bi bi-signpost-2"></i></span>
+                                <span class="dlux-choice-option__copy">
+                                    <span class="dlux-choice-option__label">{{ opt.label }}</span>
+                                    <span class="dlux-choice-option__meta dlux-choice-option__meta--secondary">{{ opt.value }}</span>
+                                </span>
+                            </span>
+                        </label>
                         {% endfor %}
-                    </select>
-                    <button class="btn btn-primary" type="button" data-user-home-url-save
-                            data-saved-message="{{ DLUX_STRINGS.options_landing_page_saved|default:'Landing page saved.' }}">
-                        {{ DLUX_STRINGS.btn_save|default:"Save" }}
-                    </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -739,6 +762,6 @@
 
 {% block scripts %}
     {{ block.super }}
-    <script src="{% static 'dlux/main/js/options.js' %}?v=20260627b" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% static 'dlux/main/js/options.js' %}?v=20260701a" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% static 'dlux/main/js/updater.js' %}?v=20260626a" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

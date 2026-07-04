@@ -85,6 +85,14 @@ urlpatterns = [
     path('sys/scopes/delete/<int:pk>/', views.delete_scope, name='delete_scope'),
     path('sys/scopes/toggle/', views.toggle_scopes, name='toggle_scopes'),
     path('sys/scopes/toggle-auto/', views.toggle_auto_scopes, name='toggle_auto_scopes'),
+    # Permission Group / Preset Management URLs
+    path('sys/groups/manage/', views.manage_groups, name='manage_groups'),
+    path('sys/groups/form/', views.get_group_form, name='get_group_form'),
+    path('sys/groups/form/<int:pk>/', views.get_group_form, name='get_group_form'),
+    path('sys/groups/save/', views.save_group, name='save_group'),
+    path('sys/groups/save/<int:pk>/', views.save_group, name='save_group'),
+    path('sys/groups/<int:pk>/members/', views.group_members, name='group_members'),
+    path('sys/groups/<int:pk>/members/save/', views.save_group_members, name='save_group_members'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
     path('sys/debug/notifications/', views.debug_notifications_view, name='debug_notifications'),

@@ -121,6 +121,163 @@ def can_manage_target_user(actor, target_user=None):
             return False
     return True
 
+# ── Permission-preset "Groups" helpers ──────────────────────────────────────
+# A preset is a Django auth Group carrying a GroupProfile sidecar. Native group
+# inheritance already unions the preset's permissions into user.has_perm, so
+# these helpers only manage *which* presets a user belongs to plus scope-aware
+# visibility — they never touch authorization resolution itself.
+
+# Group Presets - Function returns the preset groups visible/assignable to a manager.
+def get_visible_group_presets(user):
+    """
+    Active preset Groups (auth.Group rows that have a GroupProfile) that ``user``
+    may see and assign, honouring scope:
+    - superuser / Global Staff: every active preset
+    - scoped staff: global (scopeless) presets + presets in the user's own scope
+    - Central Staff / non-scoped non-global: global presets only
+    Unauthenticated → empty. Callers still gate the action by ``manage_groups``.
+    """
+    Group = apps.get_model('auth', 'Group')
+    qs = Group.objects.filter(
+        dlux_profile__isnull=False, dlux_profile__is_active=True
+    )
+    if not user or not getattr(user, 'is_authenticated', False):
+        return qs.none()
+    if getattr(user, 'is_superuser', False) or is_global_staff(user):
+        return qs
+    scope = get_user_scope(user)
+    if scope is not None:
+        return qs.filter(Q(dlux_profile__scope__isnull=True) | Q(dlux_profile__scope=scope))
+    return qs.filter(dlux_profile__scope__isnull=True)
+
+
+# Group Presets - Function checks whether an actor may CRUD/manage a specific preset.
+def can_manage_group_preset(actor, group):
+    """
+    Scope gate for *managing* (edit/delete/membership) a single preset — stricter
+    than assignment visibility: global (scopeless) presets are managed only by
+    superusers / Global Staff, while scoped staff manage presets in their own
+    scope. The ``manage_groups`` permission itself is checked separately.
+    """
+    if not actor or not getattr(actor, 'is_authenticated', False):
+        return False
+    if getattr(actor, 'is_superuser', False) or is_global_staff(actor):
+        return True
+    profile = getattr(group, 'dlux_profile', None)
+    preset_scope_id = getattr(profile, 'scope_id', None)
+    if preset_scope_id is None:
+        return False  # global presets are managed by superuser / Global Staff only
+    actor_scope = get_user_scope(actor)
+    return bool(actor_scope and actor_scope.pk == preset_scope_id)
+
+
+# Group Presets - Function reconciles a user's preset membership + audit trail.
+def set_user_group_presets(user, selected_groups, actor, manageable_groups=None):
+    """
+    Reconcile ``user``'s membership so that, *within the manageable set*, they
+    belong to exactly ``selected_groups``. Memberships in groups outside the
+    manageable set are left untouched (so a scoped manager can never wipe a
+    preset from another scope).
+
+    Keeps two things in lock-step:
+      1. Django's native ``user.groups`` — the permission source of truth.
+      2. The ``GroupMembership`` audit rows (who/which/when), stamping
+         ``assigned_by=actor`` on newly added memberships.
+
+    ``manageable_groups`` defaults to every preset Group (those with a
+    GroupProfile); forms pass their own visible-to-actor queryset.
+    """
+    Group = apps.get_model('auth', 'Group')
+    GroupMembership = apps.get_model('dlux', 'GroupMembership')
+
+    if manageable_groups is None:
+        manageable_groups = Group.objects.filter(dlux_profile__isnull=False)
+    manageable_ids = set(manageable_groups.values_list('id', flat=True))
+
+    selected_ids = {g.pk for g in selected_groups} & manageable_ids
+    current_ids = set(
+        user.groups.filter(id__in=manageable_ids).values_list('id', flat=True)
+    )
+
+    to_add = selected_ids - current_ids
+    to_remove = current_ids - selected_ids
+    if not to_add and not to_remove:
+        return
+
+    if to_add:
+        user.groups.add(*to_add)
+        for group_id in to_add:
+            GroupMembership.objects.get_or_create(
+                user=user, group_id=group_id,
+                defaults={'assigned_by': actor if getattr(actor, 'pk', None) else None},
+            )
+    if to_remove:
+        user.groups.remove(*to_remove)
+        GroupMembership.objects.filter(user=user, group_id__in=to_remove).delete()
+
+
+# Group Presets - Function returns the users an actor may add to / remove from a preset.
+def get_manageable_users_queryset(actor):
+    """
+    Users ``actor`` may manage membership for, honouring the same tier rules as
+    the user directory: superuser → everyone; Global Staff → all non-superusers;
+    Central Staff → scopeless non-Global-Staff users; scoped staff → own scope.
+    Soft-deleted profiles are always excluded.
+    """
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    qs = User.objects.filter(profile__deleted_at__isnull=True)
+    if not actor or not getattr(actor, 'is_authenticated', False):
+        return qs.none()
+    if getattr(actor, 'is_superuser', False):
+        return qs
+    qs = qs.exclude(is_superuser=True)
+    if is_global_staff(actor):
+        return qs
+    if is_central_staff(actor):
+        return exclude_global_staff_users(qs.filter(profile__scope__isnull=True))
+    actor_scope = get_user_scope(actor)
+    if actor_scope:
+        return qs.filter(profile__scope=actor_scope)
+    return qs.none()
+
+
+# Group Presets - Function reconciles a single preset's membership (group-centric).
+def set_group_members(group, selected_users, actor, manageable_users=None):
+    """
+    Group-centric inverse of ``set_user_group_presets``: set ``group``'s members
+    to exactly ``selected_users`` *within the manageable set*, leaving members
+    outside that set untouched. Keeps native ``group.user_set`` and the
+    ``GroupMembership`` audit rows in lock-step, stamping ``assigned_by=actor``.
+    """
+    GroupMembership = apps.get_model('dlux', 'GroupMembership')
+
+    if manageable_users is None:
+        manageable_users = get_manageable_users_queryset(actor)
+    manageable_ids = set(manageable_users.values_list('id', flat=True))
+
+    selected_ids = {u.pk for u in selected_users} & manageable_ids
+    current_ids = set(
+        group.user_set.filter(id__in=manageable_ids).values_list('id', flat=True)
+    )
+
+    to_add = selected_ids - current_ids
+    to_remove = current_ids - selected_ids
+    if not to_add and not to_remove:
+        return
+
+    if to_add:
+        group.user_set.add(*to_add)
+        for user_id in to_add:
+            GroupMembership.objects.get_or_create(
+                user_id=user_id, group=group,
+                defaults={'assigned_by': actor if getattr(actor, 'pk', None) else None},
+            )
+    if to_remove:
+        group.user_set.remove(*to_remove)
+        GroupMembership.objects.filter(group=group, user_id__in=to_remove).delete()
+
+
 # User Management - Function detects the Global Staff tier.
 def is_global_staff(user):
     """

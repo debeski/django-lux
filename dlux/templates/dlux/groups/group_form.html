@@ -1,0 +1,13 @@
+{% load crispy_forms_tags %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="modal-title mb-0">{% if group_id %}{{ DLUX_STRINGS.edit_group|default:"Edit Group" }}{% else %}{{ DLUX_STRINGS.add_group|default:"Add Group" }}{% endif %}</h5>
+    <button type="button" class="btn btn-secondary rounded-pill js-group-nav" data-url="{% url 'manage_groups' %}">
+        <i class="bi bi-arrow-right me-1"></i> {{ DLUX_STRINGS.back_to_list|default:"Back to List" }}
+    </button>
+</div>
+
+<form id="groupForm" class="dlux-form js-group-form" data-url="{% url 'save_group' %}{% if group_id %}{{ group_id }}/{% endif %}">
+    {% csrf_token %}
+    {% crispy form %}
+</form>

@@ -77,23 +77,24 @@
     }
 
     function initLandingPageControl() {
-        const input = document.querySelector('[data-user-home-url]');
-        const saveBtn = document.querySelector('[data-user-home-url-save]');
-        if (!input || !saveBtn) {
+        const group = document.querySelector('[data-user-home-url-group]');
+        if (!group) {
             return;
         }
-        function save() {
-            const value = input.value.trim();
+        // Entry selector (radio group): selecting an entry saves immediately,
+        // like the theme picker — no separate Save button.
+        group.addEventListener('change', function (event) {
+            const radio = event.target.closest('input[name="user_home_url"]');
+            if (!radio || !radio.checked) {
+                return;
+            }
+            const value = (radio.value || '').trim();
             if (window.updatePreferences) {
                 window.updatePreferences({ user_home_url: value });
             }
             if (window.showToast) {
-                window.showToast(saveBtn.dataset.savedMessage || 'Saved');
+                window.showToast(group.dataset.savedMessage || 'Saved');
             }
-        }
-        saveBtn.addEventListener('click', save);
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') { e.preventDefault(); save(); }
         });
     }
 

@@ -185,7 +185,8 @@ After first launch, day-to-day configuration continues in `/sys/options/`.
 The Options screen currently provides:
 
 - accessibility toggles such as high contrast, grayscale, invert, large text, and reduced animations
-- privileged system information such as server time, storage usage, Python version, Django version, DRF version, and the current app version
+- privileged system information such as server time, storage usage, Python version, Django version, DRF version, and the current app version. Two optional version rows appear only when their environment variables are injected by the deployment: `DECRYPTER_VERSION` → Decrypter Version, and `COMPOSER_VERSION` → Composer Version (set automatically when the project is run through the composer)
+- live service diagnostics for the Database, Cache, API, Email, and Tasks (Celery). The Database and Cache rows include the detected server version (the Cache row appends the Redis server version when the default cache is Redis, probed live via the cache client's `INFO`). The Tasks row loads the project Celery app and pings the workers: it shows **Online** with the number of workers that answered, **Offline** when the broker errors or no worker responds, and **Configured** only when Celery is set up but its app cannot be loaded to run the ping. Because a worker ping briefly blocks the request, its result is cached in the default cache for a short window so repeated Options loads stay fast — the window is `DLUX_CELERY_HEALTH_TTL` seconds (default `30`; set it to `0` to ping on every load)
 - theme switching
 - language switching
 - typography/font switching (if allowed by admin)
@@ -463,3 +464,40 @@ This prevents privilege escalation where a user could grant themselves or others
 #### Delete permissions
 
 `delete_<model>` permissions are assignable from the grouped permission cards (under each model alongside view/add/change). By default no one holds them except superusers, so deletion is opt-in: grant `delete_<model>` to the specific users who should be able to remove records. The grant is the single control point for both surfaces — it reveals the **Delete** entry in a table row's right-click/long-press context menu *and* authorizes the backend delete view (which independently enforces `delete_<model>` and returns 403 without it). A user who can only view/edit never sees the Delete entry. Sensitive deletes remain non-assignable through this UI: the `auth` user/group/permission models and most internal `dlux` models (e.g. activity logs, scopes, system settings); section structure is governed by `manage_sections`, which does **not** grant delete on unrelated data grids.
+
+## Permission Groups / Presets
+
+Assigning permissions one checkbox at a time gets tedious as a project grows. **Permission groups** (presets) let staff define a named bundle of permissions once and reuse it. A preset is a standard Django `auth.Group`; membership is *live*, so editing a preset's permissions instantly changes what every member can do. Because Django already unions a user's group permissions with their direct permissions, presets are purely additive — users in no preset behave exactly as before, and no existing `has_perm` check changes.
+
+### Who can manage presets
+
+Preset creation, editing, and membership are gated by the **`dlux.manage_groups`** permission (assignable from the grouped permission cards, like `manage_staff`/`manage_scopes`), or by being a superuser. Grant it to the staff who curate access bundles.
+
+### Creating and editing a preset
+
+1. Go to `/sys/users/` → **Manage Groups**.
+2. **Add Group** → give it a name, an optional description, an optional **Scope**, and check the permissions it should bundle. You can only include permissions you are allowed to grant yourself.
+3. Save. The preset appears in the list with its member and permission counts.
+
+Editing a preset's permissions later applies to **all current members** immediately (live inheritance).
+
+### Assigning users to presets
+
+Two ways, both requiring `manage_groups`:
+
+- **During user create/edit** — the Add User wizard (permissions step) and the Edit Permissions modal show a **Groups / Presets** selector above the per-permission checkboxes. Selected presets are applied on save; direct permissions still layer on top.
+- **From the preset's Members modal** — open **Manage Groups → (preset) → Members** to add or remove users in bulk. The modal also shows a **membership history** table recording which user was assigned, by whom, and when (`GroupMembership`).
+
+### Scope behaviour
+
+A preset can be **global** (no scope) or bound to a single `Scope`:
+
+- For *assignment*, scoped staff see global presets plus presets in their own scope.
+- For *management* (edit/delete/membership), global presets are restricted to superusers and Global Staff; scoped staff manage only presets in their own scope. Membership edits never touch members outside the actor's manageable set, so a scoped manager cannot remove a user from a preset they don't control.
+
+### Data model
+
+- `GroupProfile` — sidecar on `auth.Group`: `description`, `scope` (nullable = global), `is_active`, and audit fields.
+- `GroupMembership` — durable who/which/when record (`user`, `group`, `assigned_by`, `assigned_at`), kept in sync with native `user.groups` whenever membership changes.
+
+These tables and the `dlux.manage_groups` permission are added by migration `0007` (this is a schema change — not an inline-safe update).

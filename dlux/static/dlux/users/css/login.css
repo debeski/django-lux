@@ -115,27 +115,34 @@ body {
     z-index: 1100;             /* above any panel stacking context */
 }
 
-/* Readable on any login background */
+/* Readable on ANY login background — the toggle is a fixed element that can sit
+   over a coloured banner, a light gradient, or a plain white form area, so it
+   must supply its own contrast rather than assume a dark/coloured backdrop.
+   A theme-aware glass pill (visible on white via its border + shadow) with a
+   primal accent on the active option works on light and dark themes alike. */
 .dlux-login-lang-toggle {
-    background: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: color-mix(in srgb, var(--bg-card, #fff) 82%, transparent);
+    border: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.24);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.16);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 
 .dlux-login-lang-toggle .lang-option {
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--label-color);
+    opacity: 0.9;
 }
 
 .dlux-login-lang-toggle .lang-option:hover {
-    color: #fff;
+    color: var(--primal, var(--primary-color));
     opacity: 1;
 }
 
 .dlux-login-lang-toggle .lang-option.active {
-    background: rgba(255, 255, 255, 0.25);
+    background: var(--primal, var(--primary-color));
     color: #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    opacity: 1;
 }
 
 @media (max-width: 767px) {

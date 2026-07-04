@@ -30,12 +30,17 @@ from dlux.updater.manifest import (
     assess_wheel,
     download_wheel,
     select_latest_candidate,
+    validate_local_release_manifest,
     validate_release_manifest,
     verify_pypi_attestation,
 )
 from dlux.updater.runtime import RuntimeStore
 from dlux.updater.health import runtime_probe_token
-from dlux.updater.release_check import _changed_migrations, validate_inline_migrations
+from dlux.updater.release_check import (
+    _changed_migrations,
+    _previous_release_tag,
+    validate_inline_migrations,
+)
 from dlux.updater.service import UpdateService, _sanitize, queue_run
 
 
@@ -277,6 +282,38 @@ class ManifestTests(TestCase):
         ])
         self.assertEqual(run.call_args_list[0].args[0][3], "v1.2.1")
         self.assertIn("--others", run.call_args_list[1].args[0])
+
+    def test_local_migrations_honor_manifest_inline_safe_claim(self):
+        """Guard the SHIPPING release, not just the validator's mechanics.
+
+        If ``dlux/release-manifest.json`` advertises ``inline_safe: true`` then
+        the migrations this release actually adds (tracked-since-the-previous-tag
+        plus any untracked worktree migration) must pass the inline-migration
+        validator. This catches the exact class of mistake where a new migration
+        introduces an operation outside the ``CreateModel``/``AddField``/
+        ``AddIndex`` allowlist — e.g. an ``AlterModelOptions`` emitted by adding a
+        permission to an *existing* model — while the manifest still claims the
+        update is inline-safe. It mirrors what the CI release gate
+        (``release_check.main``) enforces at tag time, but runs on every suite so
+        the flag can never silently drift from the code.
+
+        Skips gracefully where git history is unavailable (e.g. an installed
+        wheel with no repository or previous tag), since there is nothing to diff.
+        """
+        manifest = validate_local_release_manifest()
+        if not manifest["inline_safe"]:
+            self.skipTest("Release declares inline_safe=False; no inline guarantee to verify.")
+        try:
+            base_tag = _previous_release_tag(f"v{manifest['version']}")
+        except (RuntimeError, subprocess.SubprocessError, FileNotFoundError) as exc:
+            self.skipTest(f"No previous release tag available for comparison: {exc}")
+        try:
+            self.assertTrue(validate_inline_migrations(base_tag))
+        except RuntimeError as exc:
+            self.fail(
+                "release-manifest.json declares inline_safe=True but the migrations "
+                f"added since {base_tag} are NOT inline-safe:\n{exc}"
+            )
 
 
 class RuntimeStoreTests(TestCase):

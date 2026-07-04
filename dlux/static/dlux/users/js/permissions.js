@@ -122,6 +122,58 @@
         (root || document).querySelectorAll('.dlux-staff-tier-preview').forEach(renderTierPreview);
     }
 
+    // ── Preset-group inheritance ────────────────────────────────────────────
+    // Permissions granted by the user's currently-selected preset groups are
+    // shown checked + read-only + badged, and are never submitted as direct
+    // permissions. The map (group id → [permission id]) is emitted by the widget.
+    function getGroupPermsMap(container) {
+        const script = container.querySelector('script[type="application/json"][id$="_group_perms"]');
+        if (!script) return null;
+        try {
+            return JSON.parse(script.textContent);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    function permissionWidgetFor(el) {
+        const form = el.closest('form');
+        return (form || document).querySelector('.grouped-permissions-widget');
+    }
+
+    function applyInheritance(container) {
+        if (!container) return;
+        const map = getGroupPermsMap(container);
+        if (!map) return;
+        const scope = container.closest('form') || document;
+
+        const inherited = new Set();
+        scope.querySelectorAll('input[name="groups"]').forEach((input) => {
+            if (input.checked) {
+                (map[input.value] || []).forEach((pid) => inherited.add(String(pid)));
+            }
+        });
+
+        container.querySelectorAll('.permission-checkbox').forEach((cb) => {
+            const item = cb.closest('.permission-item');
+            if (inherited.has(String(cb.value))) {
+                // Coming from a preset → force checked + read-only, don't submit.
+                cb.checked = true;
+                cb.disabled = true;
+                if (item) item.classList.add('is-inherited');
+            } else {
+                // Not (or no longer) inherited → restore the admin's direct choice.
+                cb.disabled = false;
+                cb.checked = cb.dataset.directChecked === 'true';
+                if (item) item.classList.remove('is-inherited');
+            }
+        });
+
+        container.querySelectorAll('.model-group').forEach(updateModelMasterStatus);
+        container.querySelectorAll('.permissions-card').forEach(updateAppMasterStatus);
+        syncTierPreviews(scope);
+    }
+
     // Attach to document for event delegation
     document.body.addEventListener('change', function(e) {
         // App Level Master
@@ -132,6 +184,7 @@
                 if (cb.disabled) return;
                 cb.checked = isChecked;
                 cb.indeterminate = false;
+                if (cb.matches('.permission-checkbox')) cb.dataset.directChecked = isChecked ? 'true' : 'false';
             });
         }
 
@@ -142,14 +195,22 @@
             modelGroup.querySelectorAll('.permission-checkbox').forEach(cb => {
                 if (cb.disabled) return;
                 cb.checked = isChecked;
+                cb.dataset.directChecked = isChecked ? 'true' : 'false';
             });
             updateAppMasterStatus(e.target.closest('.permissions-card'));
         }
 
-        // Individual Permission Checkbox
+        // Individual Permission Checkbox — remember the admin's direct choice so
+        // it survives a later preset toggle (inheritance restores it).
         if (e.target.matches('.permission-checkbox')) {
+            if (!e.target.disabled) e.target.dataset.directChecked = e.target.checked ? 'true' : 'false';
             updateModelMasterStatus(e.target.closest('.model-group'));
             updateAppMasterStatus(e.target.closest('.permissions-card'));
+        }
+
+        // Preset selector toggled → recompute inherited permissions live.
+        if (e.target.matches('input[name="groups"]')) {
+            applyInheritance(permissionWidgetFor(e.target));
         }
 
         if (e.target.matches('.permission-checkbox, .model-master-checkbox, .app-master-checkbox, input[name="is_staff"], [name="scope"]')) {
@@ -204,6 +265,7 @@
     // Export sync functions to window just in case
     window.syncPermissionsStatus = function(container) {
         const root = container || document;
+        root.querySelectorAll('.grouped-permissions-widget').forEach(applyInheritance);
         root.querySelectorAll('.model-group').forEach(group => updateModelMasterStatus(group));
         root.querySelectorAll('.permissions-card').forEach(card => updateAppMasterStatus(card));
         syncTierPreviews(root);

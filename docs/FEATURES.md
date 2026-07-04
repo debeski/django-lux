@@ -156,6 +156,10 @@
 - Toggle for scope system enable/disable
 - Auto-create scope per user option
 
+### Permission Group Models
+- `GroupProfile` — OneToOne sidecar on `auth.Group` holding preset metadata (description, optional `scope`, `is_active`, audit fields) and the `manage_groups` permission
+- `GroupMembership` — durable who/which/when membership record (`user`, `group`, `assigned_by`, `assigned_at`), kept in sync with native `user.groups`
+
 ### Notification Models
 - `DluxNotification(ScopedModel)` stores durable user-facing events with level, category, source/action, model/object metadata, target URL, audience type, metadata, and expiry.
 - `DluxNotificationState` stores per-user read, dismiss, and email state.
@@ -256,11 +260,19 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 ### Permissions
 - Grouped translated permissions display
 - Localized descriptions for Dlux-owned permissions in user/staff assignment cards
-- Custom permissions: `manage_staff`, `manage_scopes`
+- Custom permissions: `manage_staff`, `manage_scopes`, `manage_groups`
 - Scope-based permission filtering
 - Permission assignment principle: users can only assign permissions they themselves have
 - **Four-tier staff authorization**: Superuser, Global Staff, Central Staff, Scoped Staff
 - **Staff Tier Visuals**: Shared badge classes (`dlux-staff-tier-badge`) ensure high-contrast tier visibility across all management modals and tables
+
+### Permission Groups / Presets
+- **Reusable permission bundles** built on Django's native `auth.Group` — define a named preset once and reuse it, so effective permissions are `user_permissions ∪ group.permissions` via native inheritance (existing `has_perm` checks unchanged; users in no preset are unaffected)
+- **`GroupProfile`** sidecar (description, optional `scope`, `is_active`, audit fields) and **`GroupMembership`** audit rows (who assigned whom, and when)
+- **`dlux.manage_groups`** permission gates preset CRUD + membership; presets are **scope-aware** (global, or bound to a scope; scoped staff manage only their own-scope presets)
+- **Manage Groups modal** in user management: create/edit presets, manage members, and view a membership history table
+- **Preset selector** in the create/edit-permissions forms, with preset-derived permissions shown **read-only and badged "From group"** (never written as direct permissions) and recomputed live as presets are toggled
+- **Live membership**: editing a preset's permissions propagates to every member instantly
 
 ---
 
