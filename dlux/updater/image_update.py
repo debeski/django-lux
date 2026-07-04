@@ -16,13 +16,13 @@ import json
 import os
 from pathlib import Path
 
-from packaging.version import InvalidVersion, Version
-
 from django.apps import apps
 from django.utils import timezone
 
+from django.conf import settings
+
 from . import UpdaterError
-from .service import _state_model, runtime_store, updates_enabled
+from .service import _state_model, updates_enabled
 
 # How long to wait for composer to finish after hand-off before giving up and
 # clearing maintenance. Generous: a full pull + recreate + migrate can be slow.
@@ -30,6 +30,9 @@ HANDOFF_TIMEOUT_SECONDS = 3600
 
 TRIGGER_FILENAME = "image-update-request.json"
 STATUS_FILENAME = "deploy-status.json"
+# Published by composer's `watch --availability-file` (composer has registry
+# egress; dlux/web is network-isolated). Drives "image update available".
+AVAILABILITY_FILENAME = "image-available.json"
 
 
 def _image_model():
@@ -40,16 +43,25 @@ def _run_model():
     return apps.get_model("dlux", "DluxUpdateRun")
 
 
-def trigger_path(store):
-    return store.state_dir / TRIGGER_FILENAME
+def _state_dir(store=None):
+    """Runtime state dir WITHOUT creating it. Readers run on the web container,
+    which mounts the runtime volume read-only — they must never mkdir/ensure.
+    Writers (the worker) pass their own ensured ``store``."""
+    if store is not None:
+        return store.state_dir
+    root = Path(getattr(settings, "DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime")).expanduser()
+    return root / "state"
 
 
-def status_path(store):
-    return store.state_dir / STATUS_FILENAME
+def trigger_path(store=None):
+    return _state_dir(store) / TRIGGER_FILENAME
+
+
+def status_path(store=None):
+    return _state_dir(store) / STATUS_FILENAME
 
 
 def read_deploy_status(store=None):
-    store = store or runtime_store()
     try:
         data = json.loads(status_path(store).read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else {}
@@ -57,36 +69,32 @@ def read_deploy_status(store=None):
         return {}
 
 
-def image_update_available(state):
-    """(available, target_version, reason).
-
-    True when the latest known release is newer than the active runtime but is
-    NOT inline-safe because it needs a project image rebuild — exactly the case
-    the inline wheel updater detects and refuses (``latest_compatible`` False
-    with an image-rebuild reason). Inline-safe releases are left to the wheel
-    updater and never surface here.
-    """
-    latest = str(getattr(state, "latest_version", "") or "").strip()
-    active = str(getattr(state, "active_version", "") or getattr(state, "baked_version", "") or "").strip()
-    if not latest:
-        return False, "", ""
+def read_image_availability(store=None):
+    """The image-availability document composer publishes, or {}."""
     try:
-        if active and Version(latest) <= Version(active):
-            return False, "", ""
-    except InvalidVersion:
+        data = json.loads((_state_dir(store) / AVAILABILITY_FILENAME).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def image_update_available(store=None):
+    """(available, target, reason).
+
+    Registry-driven: True when composer reports a newer application image than
+    the one currently running (a changed remote tag digest). composer owns this
+    check because it has registry egress; dlux/web is network-isolated and only
+    reads the published file. ``target`` is a short remote digest for display.
+    """
+    data = read_image_availability(store)
+    if not data.get("available"):
         return False, "", ""
-    if getattr(state, "latest_compatible", False):
-        return False, "", ""
-    manifest = getattr(state, "latest_manifest", None) or {}
-    reason = str(getattr(state, "latest_reason", "") or "")
-    needs_image = (
-        manifest.get("migration_policy") == "image_rebuild"
-        or manifest.get("inline_safe") is False
-        or "image rebuild" in reason.lower()
-    )
-    if not needs_image:
-        return False, "", ""
-    return True, latest, reason
+    target = ""
+    for image in data.get("images", []):
+        if isinstance(image, dict) and image.get("update_available") and image.get("remote_digest"):
+            target = str(image["remote_digest"])[:19]  # sha256:xxxxxxxxxx
+            break
+    return True, target, "A new application image is available."
 
 
 def active_image_update():
@@ -122,7 +130,7 @@ def queue_image_update(username="", backup_mode=None):
     Run = _run_model()
     backup_mode = backup_mode if backup_mode in dict(Run.BACKUP_MODE_CHOICES) else Run.BACKUP_DATA
     state = _state_model().load()
-    available, target, _reason = image_update_available(state)
+    available, target, _reason = image_update_available()
     if not available:
         raise UpdaterError("No image-level DjangoLux update is available.")
     if state.active_run_token:

@@ -62,10 +62,6 @@ def dlux_update_runtime_health(request):
     return JsonResponse({"ok": True, "version": __version__})
 
 
-def _state_model():
-    return apps.get_model("dlux", "DluxUpdateState")
-
-
 @login_required
 @require_GET
 def dlux_update_state_view(request):
@@ -74,7 +70,8 @@ def dlux_update_state_view(request):
     state["can_manage"] = bool(request.user.is_superuser and state["enabled"])
     latest_run = _run_model().objects.order_by("-created_at").first()
     # Image-level (full container) update availability + any in-flight run.
-    available, target, reason = image_update_available(_state_model().load())
+    # Registry-driven: composer publishes availability; we just read it.
+    available, target, reason = image_update_available()
     active_image = active_image_update()
     state["image_update_available"] = available
     state["image_update_target"] = target
