@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "version": "1.3.2",
+  "version": "1.3.3",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Reliability fixes for image-level (application) updates: availability is now driven by the published image, and runtime status reads work on read-only deployments.",
+  "summary": "Live progress during application (image) updates: the update modal now shows real-time progress and a console while the app restarts, and returns you where you were when it finishes.",
   "highlights": [
-    "Application updates are now offered when a newer app image is published (more reliable detection).",
-    "Fixes reading update status on read-only deployment mounts."
+    "Application updates now show live progress + a console while the app restarts — no more blank waiting.",
+    "You are returned to the page you started from once the update completes."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.3.2"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.3.3"
 }

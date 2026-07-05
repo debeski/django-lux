@@ -83,6 +83,22 @@
         let imageUpdate = null;
         let imageStatePollTimer = null;
         let lastImageNotice = '';
+        // Image updates recreate `web`, so once it goes down the web state API is
+        // unreachable. Instead we track the update via the proxy-served deploy
+        // status/log (written by composer to the shared volume, served by the
+        // proxy which stays up) — so the modal keeps showing progress without a
+        // refresh, and returns the user here on completion.
+        const deployStatusUrl = root.dataset.deployStatusUrl || '/_update/status.json';
+        const deployLogUrl = root.dataset.deployLogUrl || '/_update/log.txt';
+        const DEPLOY_PCT = { preparing: 8, starting: 12, pulling: 38, recreating: 62, migrating: 84, restarting: 72, ready: 100, failed: 100 };
+        const DEPLOY_LABEL = {
+            preparing: 'Preparing…', starting: 'Starting…', pulling: 'Pulling the new image…',
+            recreating: 'Recreating containers…', migrating: 'Applying migrations…',
+            restarting: 'Restarting…', ready: 'Finishing…', failed: 'Update failed',
+        };
+        const DEPLOY_INPROG = { preparing: 1, starting: 1, pulling: 1, recreating: 1, migrating: 1, restarting: 1 };
+        let imgStarted = 0;
+        let imgSawProgress = false;
 
         function imageActive(iu) {
             return Boolean(iu && iu.active);
@@ -225,24 +241,60 @@
 
         function scheduleImagePoll() {
             window.clearTimeout(imageStatePollTimer);
-            imageStatePollTimer = window.setTimeout(pollImageState, 2500);
+            imageStatePollTimer = window.setTimeout(pollImageState, 2000);
         }
 
-        async function pollImageState() {
-            try {
-                const payload = await jsonRequest(root.dataset.stateUrl, { method: 'GET' });
-                imageUpdate = payload.image_update || null;
-                render(payload.state, payload.run);
-                if (imageActive(imageUpdate)) {
-                    scheduleImagePoll();
-                } else {
-                    finishImageNotice();
-                }
-            } catch (_error) {
-                // Expected during the recreate/maintenance window — keep polling
-                // quietly; the final state surfaces once the site is back.
-                scheduleImagePoll();
+        function renderDeployProgress(doc, logText) {
+            if (!modal) return;
+            const st = doc && typeof doc.status === 'string' ? doc.status : '';
+            const pct = DEPLOY_PCT[st] != null ? DEPLOY_PCT[st] : 100;
+            if (progressBar) {
+                progressBar.style.width = `${pct}%`;
+                progressBar.classList.toggle('progress-bar-animated', st !== 'ready' && st !== 'failed');
+                progressBar.classList.toggle('bg-danger', st === 'failed');
+                progressBar.classList.toggle('bg-success', st === 'ready');
             }
+            if (progressStatus) {
+                progressStatus.textContent = st === 'failed' && doc && doc.error
+                    ? String(doc.error)
+                    : (DEPLOY_LABEL[st] || root.dataset.labelImageStarted || 'Updating…');
+            }
+            if (progressLog && logText) {
+                progressLog.textContent = logText;
+                progressLog.scrollTop = progressLog.scrollHeight;
+            }
+        }
+
+        // Poll the proxy-served deploy status/log (works whether or not web is up).
+        async function pollImageState() {
+            if (!imgStarted) imgStarted = Date.now();
+            let doc = null;
+            let logText = '';
+            try {
+                const response = await fetch(deployStatusUrl, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+                if (response.ok) doc = await response.json();
+            } catch (_error) { /* web/proxy briefly unreachable — keep polling */ }
+            try {
+                const logResponse = await fetch(deployLogUrl, { cache: 'no-store' });
+                if (logResponse.ok) logText = (await logResponse.text()).trim();
+            } catch (_error) { /* no console yet */ }
+
+            const st = doc && typeof doc.status === 'string' ? doc.status : '';
+            if (DEPLOY_INPROG[st]) imgSawProgress = true;
+            renderDeployProgress(doc, logText);
+
+            if (st === 'failed') {
+                dismissButtons.forEach((button) => { button.disabled = false; });
+                return; // stop polling; operator dismisses
+            }
+            // Honor 'ready' only after real progress this session (ignore a stale
+            // 'ready' from a previous update) or after a safety timeout — then
+            // reload in place to return the operator where they were.
+            if (st === 'ready' && (imgSawProgress || Date.now() - imgStarted > 20000)) {
+                window.location.reload();
+                return;
+            }
+            scheduleImagePoll();
         }
 
         function render(nextState, run) {
@@ -480,6 +532,8 @@
                 const payload = await jsonRequest(root.dataset.imageUrl, { method: 'POST', body });
                 imageUpdate = payload.image_update || null;
                 password.value = '';
+                imgStarted = Date.now();
+                imgSawProgress = false;
                 showImageStarted();
                 scheduleImagePoll();
             } catch (requestError) {

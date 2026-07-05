@@ -163,3 +163,15 @@ def write_composer_trigger(store, row):
     tmp = path.with_name(f".{path.name}.tmp")
     tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
     os.replace(tmp, path)
+
+
+def write_deploy_status(store, status, **extra):
+    """Write an initial deploy-status so the live progress page never shows a
+    stale `ready` between hand-off and composer taking over. composer overwrites
+    this file with its own phases once the `-uo` run starts."""
+    path = status_path(store)
+    payload = {"status": status, "updated_at": timezone.now().isoformat(), **extra}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    os.replace(tmp, path)

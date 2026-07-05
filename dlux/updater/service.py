@@ -865,8 +865,12 @@ class UpdateService:
         return row
 
     def _begin_image_update(self, row):
-        from .image_update import write_composer_trigger
+        from .image_update import write_composer_trigger, write_deploy_status
 
+        # Publish an initial status immediately so the live progress page shows
+        # "preparing" (not a stale 'ready' from a previous update) while we back
+        # up and enter maintenance, before composer takes over the status file.
+        write_deploy_status(self.store, "preparing")
         row.status = row.STATUS_BACKING_UP
         row.append_log("Creating pre-update backup.")
         row.save(update_fields=["status", "progress_log"])

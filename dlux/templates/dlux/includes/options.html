@@ -186,6 +186,8 @@
                                  data-label-finish="{{ DLUX_STRINGS.dlux_update_finish|default:'Finish' }}"
                                  data-label-generic-changes="{{ DLUX_STRINGS.dlux_update_generic_changes|default:'Bug fixes and improvements' }}"
                                  data-image-url="{% url 'dlux_update_image' %}"
+                                 data-deploy-status-url="{{ DLUX_DEPLOY_STATUS_URL|default:'/_update/status.json' }}"
+                                 data-deploy-log-url="{{ DLUX_DEPLOY_LOG_URL|default:'/_update/log.txt' }}"
                                  data-label-image-title="{{ DLUX_STRINGS.dlux_update_image_title|default:'Update DjangoLux (image rebuild)' }}"
                                  data-label-image-confirm="{{ DLUX_STRINGS.dlux_update_image_confirm|default:'Rebuild and update' }}"
                                  data-label-image-started="{{ DLUX_STRINGS.dlux_update_image_started|default:'Image update started. The site will enter maintenance and return on the new version; this page may be briefly unavailable during the rebuild.' }}"
