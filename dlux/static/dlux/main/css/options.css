@@ -636,45 +636,52 @@
     color: var(--primal);
 }
 
-/* Redesigned Updates card: app-version header + status badge + details grid. */
-.dlux-updater-head {
+/* Compact Updates card: two icon rows (DjangoLux + application image) + ribbon. */
+.dlux-updater-rows { display: flex; flex-direction: column; gap: 0.5rem; }
+.dlux-upd-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 0.6rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.6rem;
+    min-width: 0;
 }
-.dlux-updater-appver { display: flex; align-items: baseline; gap: 0.4rem; }
-.dlux-updater-appver-num { font-size: 1.35rem; font-weight: 700; color: var(--title); line-height: 1; }
-.dlux-updater-appver-tag {
-    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+.dlux-upd-lead { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.dlux-upd-ic {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 1.85rem;
+    height: 1.85rem;
+    padding: 0;
+    border: none;
+    border-radius: 0.6rem;
+    background: color-mix(in srgb, var(--primal) 10%, transparent);
+    color: var(--primal);
+    font-size: 1.02rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+button.dlux-upd-ic:hover { background: color-mix(in srgb, var(--primal) 20%, transparent); transform: translateY(-1px); }
+.dlux-upd-ic--static { background: transparent; cursor: default; }
+.dlux-upd-ic.is-ok, .dlux-upd-ic--ok { color: #16a34a; background: transparent; }
+.dlux-upd-ic--avail { color: #d97706; background: color-mix(in srgb, #d97706 15%, transparent); }
+button.dlux-upd-ic--avail:hover { background: color-mix(in srgb, #d97706 26%, transparent); }
+.dlux-upd-ic--rollback { color: var(--title); background: transparent; font-size: 0.92rem; opacity: 0.65; }
+button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, var(--title) 9%, transparent); transform: none; }
+.dlux-upd-name { font-weight: 650; color: var(--title); }
+.dlux-upd-ver { color: color-mix(in srgb, var(--title) 78%, transparent); font-variant-numeric: tabular-nums; }
+.dlux-upd-digest { font-size: 0.72rem; color: color-mix(in srgb, var(--title) 48%, transparent); overflow-wrap: anywhere; text-align: end; }
+.dlux-upd-ribbon {
+    margin-top: 0.35rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.85rem;
+    font-size: 0.74rem;
     color: color-mix(in srgb, var(--title) 55%, transparent);
 }
-.dlux-updater-badge {
-    font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.6rem;
-    border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
-}
-.dlux-updater-badge.is-uptodate {
-    color: #16a34a; background: color-mix(in srgb, #16a34a 14%, transparent);
-    border-color: color-mix(in srgb, #16a34a 35%, transparent);
-}
-.dlux-updater-badge.is-available {
-    color: #d97706; background: color-mix(in srgb, #d97706 15%, transparent);
-    border-color: color-mix(in srgb, #d97706 38%, transparent);
-}
-.dlux-updater-badge.is-updating {
-    color: var(--primal); background: color-mix(in srgb, var(--primal) 15%, transparent);
-    border-color: color-mix(in srgb, var(--primal) 38%, transparent);
-}
-.dlux-updater-grid {
-    display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.8rem;
-    margin: 0; font-size: 0.82rem;
-}
-.dlux-updater-grid dt { color: color-mix(in srgb, var(--title) 55%, transparent); font-weight: 500; }
-.dlux-updater-grid dd { margin: 0; color: var(--title); overflow-wrap: anywhere; }
-.dlux-updater-grid code { font-size: 0.78rem; color: var(--title); }
-.dlux-admin-tile--update .dlux-updater-actions { justify-content: flex-start; margin-top: 0.9rem; }
+.dlux-upd-reason:empty { display: none; }
 
 /* Curated release highlights in the update modal — short bullets instead of a
    long prose summary. Capped height keeps the modal from growing tall. */

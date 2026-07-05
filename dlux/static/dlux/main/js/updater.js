@@ -52,11 +52,11 @@
         const imageButton = root.querySelector('[data-dlux-update-image]');
         const rollbackButton = root.querySelector('[data-dlux-update-rollback]');
         const appVersionEl = root.querySelector('[data-dlux-app-version]');
-        const badgeEl = root.querySelector('[data-dlux-update-badge]');
-        const imageRefEl = root.querySelector('[data-dlux-image-ref]');
+        const imageNameEl = root.querySelector('[data-dlux-image-name]');
         const imageDigestEl = root.querySelector('[data-dlux-image-digest]');
-        const imageUpdatedEl = root.querySelector('[data-dlux-image-updated]');
+        const imageOkEl = root.querySelector('[data-dlux-image-ok]');
         const imageCheckedEl = root.querySelector('[data-dlux-image-checked]');
+        const checkGlyph = root.querySelector('[data-dlux-check-glyph]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
         const modalElement = document.getElementById('dluxUpdateReviewModal');
         const modal = modalElement && window.bootstrap ? new window.bootstrap.Modal(modalElement) : null;
@@ -135,8 +135,13 @@
             return isNaN(d.getTime()) ? '—' : d.toLocaleString();
         }
         function shortDigest(digest) {
-            if (!digest) return '—';
+            if (!digest) return '';
             return 'sha256:' + String(digest).replace(/^sha256:/, '').slice(0, 12);
+        }
+        function shortImageName(ref) {
+            // "debeski/sales:latest" -> "debeski/sales"
+            if (!ref) return '';
+            return String(ref).split('@')[0].replace(/:[^/:]+$/, '');
         }
 
         // The "Check for updates" button spins via the shared loading-button
@@ -341,27 +346,31 @@
             }
             const imageAvailable = Boolean(state.image_update_available);
             const imgActive = imageActive(imageUpdate);
-            // Application-image facts + status badge.
+            // DjangoLux row: the check icon doubles as the status — a green
+            // check when up to date, hidden when an update is available (the
+            // down-arrow review icon takes its place); rollback icon if a
+            // previous version exists.
+            const checkedOnce = Boolean(state.last_checked_at);
+            const fwOk = checkedOnce && !updateAvailable && !state.last_check_error;
+            if (checkButton) {
+                checkButton.hidden = updateAvailable;
+                checkButton.classList.toggle('is-ok', fwOk);
+                if (checkGlyph) checkGlyph.className = fwOk ? 'bi bi-check-circle-fill' : 'bi bi-arrow-clockwise';
+            }
+            if (reviewButton) reviewButton.hidden = !updateAvailable;
+            if (rollbackButton) rollbackButton.hidden = !state.previous_version;
+            // Application image row: version + short digest; green check when up
+            // to date, down-arrow (start update) when a newer image is available.
             const img = state.image || {};
-            if (appVersionEl) appVersionEl.textContent = state.app_version ? ('v' + String(state.app_version).replace(/^v/, '')) : '—';
-            if (imageRefEl) imageRefEl.textContent = img.image || '—';
+            if (appVersionEl) appVersionEl.textContent = state.app_version ? ('v' + String(state.app_version).replace(/^v/, '')) : '';
+            if (imageNameEl) { const nm = shortImageName(img.image); if (nm) imageNameEl.textContent = nm; }
             if (imageDigestEl) {
                 imageDigestEl.textContent = shortDigest(img.running_digest);
                 if (img.running_digest) imageDigestEl.title = img.running_digest;
             }
-            if (imageUpdatedEl) imageUpdatedEl.textContent = (img.last_update && img.last_update.completed_at) ? fmtTime(img.last_update.completed_at) : '—';
             if (imageCheckedEl) imageCheckedEl.textContent = fmtTime(img.checked_at);
-            if (badgeEl) {
-                let btxt, bmod;
-                if (imgActive) { btxt = root.dataset.labelUpdating || 'Updating…'; bmod = 'is-updating'; }
-                else if (imageAvailable) { btxt = root.dataset.labelUpdateAvailable || 'Update available'; bmod = 'is-available'; }
-                else { btxt = root.dataset.labelUptodateBadge || 'Up to date'; bmod = 'is-uptodate'; }
-                badgeEl.textContent = btxt;
-                badgeEl.className = 'dlux-updater-badge ' + bmod;
-            }
-            if (reviewButton) reviewButton.hidden = !updateAvailable;
-            if (imageButton) imageButton.hidden = !imageAvailable && !imgActive;
-            if (rollbackButton) rollbackButton.hidden = !state.previous_version;
+            if (imageOkEl) imageOkEl.hidden = imageAvailable || imgActive;
+            if (imageButton) imageButton.hidden = !imageAvailable;
             const running = Boolean(run?.active || state.active_run_token || imgActive);
             root.classList.toggle('is-running', running);
             if (checkButton) checkButton.disabled = running || Boolean(checkHandle);

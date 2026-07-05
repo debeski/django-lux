@@ -161,7 +161,7 @@
                         </details>
                     </section>
                     <section class="dlux-admin-tile dlux-admin-tile--update">
-                        <h5 class="dlux-admin-tile-title"><i class="bi bi-arrow-repeat"></i> {{ DLUX_STRINGS.dlux_version }}</h5>
+                        <h5 class="dlux-admin-tile-title"><i class="bi bi-arrow-repeat"></i> {{ DLUX_STRINGS.dlux_update_card_title|default:'Application updates' }}</h5>
                             <div class="dlux-updater"
                                  data-dlux-updater
                                  data-state-url="{% url 'dlux_update_state' %}"
@@ -185,9 +185,6 @@
                                  data-label-uptodate="{{ DLUX_STRINGS.dlux_update_up_to_date|default:'DjangoLux is up to date.' }}"
                                  data-label-finish="{{ DLUX_STRINGS.dlux_update_finish|default:'Finish' }}"
                                  data-label-generic-changes="{{ DLUX_STRINGS.dlux_update_generic_changes|default:'Bug fixes and improvements' }}"
-                                 data-label-updating="{{ DLUX_STRINGS.dlux_update_updating_badge|default:'Updating…' }}"
-                                 data-label-update-available="{{ DLUX_STRINGS.dlux_update_available_badge|default:'Update available' }}"
-                                 data-label-uptodate-badge="{{ DLUX_STRINGS.dlux_update_uptodate_badge|default:'Up to date' }}"
                                  data-image-url="{% url 'dlux_update_image' %}"
                                  data-deploy-status-url="{{ DLUX_DEPLOY_STATUS_URL|default:'/_update/status.json' }}"
                                  data-deploy-log-url="{{ DLUX_DEPLOY_LOG_URL|default:'/_update/log.txt' }}"
@@ -196,46 +193,51 @@
                                  data-label-image-started="{{ DLUX_STRINGS.dlux_update_image_started|default:'Image update started. The site will enter maintenance and return on the new version; this page may be briefly unavailable during the rebuild.' }}"
                                  data-image-maintenance-note="{{ DLUX_STRINGS.dlux_update_image_maintenance_notice|default:'This is a full image update: the application containers are pulled and recreated. The site enters maintenance and briefly becomes unavailable while the new version starts and migrations run.' }}"
                                  data-maintenance-note="{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}">
-                                <div class="dlux-updater-head">
-                                    <div class="dlux-updater-appver">
-                                        <span class="dlux-updater-appver-num" data-dlux-app-version>—</span>
-                                        <span class="dlux-updater-appver-tag">{{ DLUX_STRINGS.dlux_update_application|default:'Application' }}</span>
+                                <div class="dlux-updater-rows">
+                                    <div class="dlux-upd-row">
+                                        <span class="dlux-upd-lead">
+                                            {% if can_manage_dlux_updates %}
+                                            <button type="button" class="dlux-upd-ic"
+                                                    title="{{ DLUX_STRINGS.dlux_update_check|default:'Check for updates' }}"
+                                                    aria-label="{{ DLUX_STRINGS.dlux_update_check|default:'Check for updates' }}" data-dlux-update-check><i class="bi bi-arrow-clockwise" data-dlux-check-glyph></i></button>
+                                            <button type="button" class="dlux-upd-ic dlux-upd-ic--avail" data-dlux-update-review hidden
+                                                    title="{{ DLUX_STRINGS.dlux_update_review|default:'Review and update' }}"
+                                                    aria-label="{{ DLUX_STRINGS.dlux_update_review|default:'Review and update' }}"><i class="bi bi-arrow-down-circle-fill"></i></button>
+                                            {% else %}
+                                            <i class="bi bi-box-seam dlux-upd-ic dlux-upd-ic--static"></i>
+                                            {% endif %}
+                                            <span class="dlux-upd-name">DjangoLux</span>
+                                            <span class="dlux-upd-ver" data-dlux-update-active>v{{ dlux_update_state.active_version|default:version }}</span>
+                                        </span>
+                                        {% if can_manage_dlux_updates %}
+                                        <button type="button" class="dlux-upd-ic dlux-upd-ic--rollback" data-dlux-update-rollback hidden
+                                                title="{{ DLUX_STRINGS.dlux_update_rollback|default:'Roll back to previous version' }}"
+                                                aria-label="{{ DLUX_STRINGS.dlux_update_rollback|default:'Roll back to previous version' }}"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                        {% endif %}
                                     </div>
-                                    <span class="dlux-updater-badge" data-dlux-update-badge></span>
+                                    <div class="dlux-upd-row">
+                                        <span class="dlux-upd-lead">
+                                            <i class="bi bi-check-circle-fill dlux-upd-ic dlux-upd-ic--static dlux-upd-ic--ok" data-dlux-image-ok></i>
+                                            {% if can_manage_dlux_updates %}
+                                            <button type="button" class="dlux-upd-ic dlux-upd-ic--avail" data-dlux-update-image hidden
+                                                    title="{{ DLUX_STRINGS.dlux_update_image|default:'Application update available' }}"
+                                                    aria-label="{{ DLUX_STRINGS.dlux_update_image|default:'Application update available' }}"><i class="bi bi-arrow-down-circle-fill"></i></button>
+                                            {% endif %}
+                                            <span class="dlux-upd-name" data-dlux-image-name>{{ DLUX_STRINGS.dlux_update_application|default:'Application' }}</span>
+                                            <span class="dlux-upd-ver" data-dlux-app-version></span>
+                                        </span>
+                                        <code class="dlux-upd-digest" data-dlux-image-digest></code>
+                                    </div>
+                                    <div class="dlux-upd-ribbon">
+                                        <span class="dlux-upd-reason" data-dlux-update-reason>{{ dlux_update_state.latest_reason }}</span>
+                                        <span class="dlux-upd-checked">{{ DLUX_STRINGS.dlux_update_last_check|default:'Last check' }}: <time data-dlux-update-checked>{{ dlux_update_state.last_checked_at|default:'—' }}</time> · {{ DLUX_STRINGS.dlux_update_image_label|default:'image' }} <time data-dlux-image-checked>—</time></span>
+                                    </div>
+                                    <div class="dlux-updater-run-status small mt-1" data-dlux-update-run-status hidden aria-live="polite"></div>
+                                    <span data-dlux-update-latest hidden>{% if dlux_update_state.latest_version %}v{{ dlux_update_state.latest_version }}{% endif %}</span>
+                                    {% if not dlux_update_state.enabled %}
+                                    <div class="small text-muted mt-1">{{ DLUX_STRINGS.dlux_update_disabled|default:'Inline updates are not enabled for this deployment.' }}</div>
+                                    {% endif %}
                                 </div>
-                                <dl class="dlux-updater-grid">
-                                    <dt>{{ DLUX_STRINGS.dlux_update_image_label|default:'Image' }}</dt>
-                                    <dd><code data-dlux-image-ref>—</code></dd>
-                                    <dt>{{ DLUX_STRINGS.dlux_update_digest|default:'Digest' }}</dt>
-                                    <dd><code data-dlux-image-digest>—</code></dd>
-                                    <dt>{{ DLUX_STRINGS.dlux_update_updated|default:'Updated' }}</dt>
-                                    <dd><time data-dlux-image-updated>—</time></dd>
-                                    <dt>{{ DLUX_STRINGS.dlux_update_reg_check|default:'Checked' }}</dt>
-                                    <dd><time data-dlux-image-checked>—</time></dd>
-                                    <dt>{{ DLUX_STRINGS.dlux_update_framework|default:'Framework' }}</dt>
-                                    <dd>DjangoLux <span data-dlux-update-active>v{{ dlux_update_state.active_version|default:version }}</span><span class="text-muted"> · {{ DLUX_STRINGS.dlux_update_latest|default:'latest' }} <span data-dlux-update-latest>{% if dlux_update_state.latest_version %}v{{ dlux_update_state.latest_version }}{% else %}—{% endif %}</span> · {{ DLUX_STRINGS.dlux_update_last_check|default:'checked' }} <time data-dlux-update-checked>{{ dlux_update_state.last_checked_at|default:'—' }}</time></span></dd>
-                                </dl>
-                                <div class="small text-muted mt-1" data-dlux-update-reason>{{ dlux_update_state.latest_reason }}</div>
-                                <div class="small mt-1 dlux-updater-run-status" data-dlux-update-run-status hidden aria-live="polite"></div>
-                                {% if not dlux_update_state.enabled %}
-                                <div class="small text-muted mt-1">{{ DLUX_STRINGS.dlux_update_disabled|default:'Inline updates are not enabled for this deployment.' }}</div>
-                                {% endif %}
-                                {% if can_manage_dlux_updates %}
-                                <div class="dlux-updater-actions mt-2">
-                                    <button type="button" class="btn btn-outline-primary btn-sm" data-dlux-update-check>
-                                        {{ DLUX_STRINGS.dlux_update_check|default:'Check for updates' }}
-                                    </button>
-                                    <button type="button" class="btn btn-primary btn-sm" data-dlux-update-review hidden>
-                                        {{ DLUX_STRINGS.dlux_update_review|default:'Review and update' }}
-                                    </button>
-                                    <button type="button" class="btn btn-warning btn-sm" data-dlux-update-image hidden>
-                                        {{ DLUX_STRINGS.dlux_update_image|default:'Update (image rebuild)' }}
-                                    </button>
-                                    <button type="button" class="btn btn-outline-warning btn-sm" data-dlux-update-rollback hidden>
-                                        {{ DLUX_STRINGS.dlux_update_rollback|default:'Roll back to previous version' }}
-                                    </button>
-                                </div>
-                                {% endif %}
                             </div>
                     </section>
                     {% endif %}
