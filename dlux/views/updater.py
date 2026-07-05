@@ -15,6 +15,7 @@ from ..updater import UpdaterError
 from ..updater.health import runtime_probe_token
 from ..updater.image_update import (
     active_image_update,
+    image_status_summary,
     image_update_available,
     queue_image_update,
     serialize_image_update,
@@ -76,6 +77,9 @@ def dlux_update_state_view(request):
     state["image_update_available"] = available
     state["image_update_target"] = target
     state["image_update_reason"] = reason if available else ""
+    # Application-image facts for the Updates card (app version, running/published
+    # digest, last update + registry check time).
+    state["image"] = image_status_summary()
     return JsonResponse({
         "ok": True,
         "state": state,

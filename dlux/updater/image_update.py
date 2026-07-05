@@ -101,6 +101,45 @@ def active_image_update():
     return _image_model().objects.filter(is_active=True).order_by("created_at").first()
 
 
+def app_version():
+    """The deployed application's own version (distinct from the DjangoLux
+    framework version). Prefers the ``DLUX_APP_VERSION`` setting; otherwise
+    auto-reads a ``VERSION`` file at the project root (``BASE_DIR``)."""
+    configured = str(getattr(settings, "DLUX_APP_VERSION", "") or "").strip()
+    if configured:
+        return configured
+    try:
+        return (Path(settings.BASE_DIR) / "VERSION").read_text(encoding="utf-8").strip()
+    except (OSError, ValueError, TypeError):
+        return ""
+
+
+def image_status_summary(store=None):
+    """Application-image facts for the Updates card: the running vs published
+    image digest (from composer's availability file) and the last image update
+    (from the DluxImageUpdate history). All best-effort; missing pieces are ''."""
+    data = read_image_availability(store)
+    images = data.get("images") or []
+    first = images[0] if images and isinstance(images[0], dict) else {}
+    last = _image_model().objects.order_by("-created_at").first()
+    last_summary = None
+    if last is not None:
+        last_summary = {
+            "status": last.status,
+            "target": last.target_version,
+            "completed_at": last.completed_at.isoformat() if last.completed_at else None,
+        }
+    return {
+        "app_version": app_version(),
+        "image": first.get("image") or "",
+        "running_digest": first.get("local_digest") or "",
+        "remote_digest": first.get("remote_digest") or "",
+        "update_available": bool(data.get("available")),
+        "checked_at": data.get("checked_at") or "",
+        "last_update": last_summary,
+    }
+
+
 def serialize_image_update(row, *, store=None, include_log=False):
     if row is None:
         return None

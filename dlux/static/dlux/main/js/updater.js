@@ -51,6 +51,12 @@
         const reviewButton = root.querySelector('[data-dlux-update-review]');
         const imageButton = root.querySelector('[data-dlux-update-image]');
         const rollbackButton = root.querySelector('[data-dlux-update-rollback]');
+        const appVersionEl = root.querySelector('[data-dlux-app-version]');
+        const badgeEl = root.querySelector('[data-dlux-update-badge]');
+        const imageRefEl = root.querySelector('[data-dlux-image-ref]');
+        const imageDigestEl = root.querySelector('[data-dlux-image-digest]');
+        const imageUpdatedEl = root.querySelector('[data-dlux-image-updated]');
+        const imageCheckedEl = root.querySelector('[data-dlux-image-checked]');
         const rootRunStatus = root.querySelector('[data-dlux-update-run-status]');
         const modalElement = document.getElementById('dluxUpdateReviewModal');
         const modal = modalElement && window.bootstrap ? new window.bootstrap.Modal(modalElement) : null;
@@ -121,6 +127,16 @@
                 if (phase) return `Updating — ${phase}`;
             }
             return base;
+        }
+
+        function fmtTime(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return isNaN(d.getTime()) ? '—' : d.toLocaleString();
+        }
+        function shortDigest(digest) {
+            if (!digest) return '—';
+            return 'sha256:' + String(digest).replace(/^sha256:/, '').slice(0, 12);
         }
 
         // The "Check for updates" button spins via the shared loading-button
@@ -325,6 +341,24 @@
             }
             const imageAvailable = Boolean(state.image_update_available);
             const imgActive = imageActive(imageUpdate);
+            // Application-image facts + status badge.
+            const img = state.image || {};
+            if (appVersionEl) appVersionEl.textContent = state.app_version ? ('v' + String(state.app_version).replace(/^v/, '')) : '—';
+            if (imageRefEl) imageRefEl.textContent = img.image || '—';
+            if (imageDigestEl) {
+                imageDigestEl.textContent = shortDigest(img.running_digest);
+                if (img.running_digest) imageDigestEl.title = img.running_digest;
+            }
+            if (imageUpdatedEl) imageUpdatedEl.textContent = (img.last_update && img.last_update.completed_at) ? fmtTime(img.last_update.completed_at) : '—';
+            if (imageCheckedEl) imageCheckedEl.textContent = fmtTime(img.checked_at);
+            if (badgeEl) {
+                let btxt, bmod;
+                if (imgActive) { btxt = root.dataset.labelUpdating || 'Updating…'; bmod = 'is-updating'; }
+                else if (imageAvailable) { btxt = root.dataset.labelUpdateAvailable || 'Update available'; bmod = 'is-available'; }
+                else { btxt = root.dataset.labelUptodateBadge || 'Up to date'; bmod = 'is-uptodate'; }
+                badgeEl.textContent = btxt;
+                badgeEl.className = 'dlux-updater-badge ' + bmod;
+            }
             if (reviewButton) reviewButton.hidden = !updateAvailable;
             if (imageButton) imageButton.hidden = !imageAvailable && !imgActive;
             if (rollbackButton) rollbackButton.hidden = !state.previous_version;
