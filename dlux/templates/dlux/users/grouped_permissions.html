@@ -1,8 +1,9 @@
 {% load static %}
+{% load dlux_tags %}
 
 {% with id=widget.attrs.id %}
 <div class="grouped-permissions-widget" id="{{ id }}_container">
-    <link rel="stylesheet" href="{% static 'dlux/users/css/permissions.css' %}?v=20260704c">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/users/css/permissions.css' %}">
 
     {% if widget.group_permissions_map %}
     {% with gpid=id|add:"_group_perms" %}{{ widget.group_permissions_map|json_script:gpid }}{% endwith %}
@@ -99,5 +100,5 @@
     </div>
 </div>
 
-<script src="{% static 'dlux/users/js/permissions.js' %}?v=20260704a" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% dlux_static 'dlux/users/js/permissions.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endwith %}

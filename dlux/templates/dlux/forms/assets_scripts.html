@@ -1,4 +1,5 @@
 {% load static %}
-<script src="{% static 'dlux/helpers/scan_link/js/main.js' %}?v=20260627a" nonce="{{ request.csp_nonce }}"></script>
-<script src="{% static 'dlux/helpers/scan_link/js/scan_button.js' %}?v=20260627a" nonce="{{ request.csp_nonce }}"></script>
-<script src="{% static 'dlux/forms/js/file_field.js' %}?v=20260627a" nonce="{{ request.csp_nonce }}"></script>
+{% load dlux_tags %}
+<script src="{% dlux_static 'dlux/helpers/scan_link/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% dlux_static 'dlux/helpers/scan_link/js/scan_button.js' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% dlux_static 'dlux/forms/js/file_field.js' %}" nonce="{{ request.csp_nonce }}"></script>

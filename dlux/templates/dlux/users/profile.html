@@ -8,7 +8,7 @@
 
 {% block extra_head %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'dlux/users/css/profile.css' %}?v=20260612c">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/users/css/profile.css' %}">
     {% include "dlux/forms/assets_head.html" %}
 {% endblock %}
 
@@ -683,5 +683,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{% static 'dlux/users/js/profile_2fa.js' %}?v=20260619a" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% dlux_static 'dlux/users/js/profile_2fa.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

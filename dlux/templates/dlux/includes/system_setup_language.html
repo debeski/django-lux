@@ -1,11 +1,12 @@
 {% extends 'dlux/form_base.html' %}
 {% load static %}
+{% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.system_setup_language_title|default:"Choose setup language" }}{% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260621a">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/main/css/system_setup.css' %}">
 {% endblock %}
 
 {% block layout %}

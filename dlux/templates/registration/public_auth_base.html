@@ -1,8 +1,9 @@
 {% extends 'dlux/base.html' %}
 {% load static %}
+{% load dlux_tags %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'dlux/users/css/login.css' %}?v={% now 'U' %}">
+<link rel="stylesheet" href="{% dlux_static 'dlux/users/css/login.css' %}">
 {% endblock %}
 
 {% block titlebar %}{% endblock %}
@@ -62,5 +63,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'dlux/users/js/login.js' %}?v={% now 'U' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% dlux_static 'dlux/users/js/login.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

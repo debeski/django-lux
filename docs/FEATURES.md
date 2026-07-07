@@ -200,6 +200,12 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - Destructive profile security actions such as 2FA disable, backup-code regeneration, and session revocation require current-password confirmation
 - Trusted device status is managed per-session from the profile page with immediate revocation support
 - Optional single active-session enforcement can force out every other active session when a new login or completed 2FA login connects; trusted-device records remain, but older sessions are evicted and see the session-ended page on their next request
+- The 2FA verification page follows the configured login style (split / centered / minimal / fullpage), with icon-only method-switch buttons (email / authenticator / backup / return) carrying dlux tooltips, an inline trust-device switch, and in-card back/cancel/resend pill buttons
+
+### Sign-in Protection & Password Policy
+- **Configurable login lockout**: cache-based per-IP and per-username failure counters with admin-tunable threshold (attempts, 1–50), counting window (minutes), and lock duration (minutes) — revealed under the lockout toggle in Access & Security; audit rows on failure and lock
+- **Configurable strong-password minimum length** (8–64, default 12) driving the strict validator on every set-password path while enforcement is on
+- **Live password checklist card** under new-password fields in both modes: configured strong rules when enforcement is on, Django's stock rules (8+ characters, not entirely numeric) when off; confirm fields show a live "matches the password" check
 
 ### Public Registration Playground
 - Disabled by default and SMTP-gated in setup/System Settings

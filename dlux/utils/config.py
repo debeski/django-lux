@@ -368,8 +368,16 @@ def build_config_groups(config, current_language=None):
             ),
             'registration_throttle_enabled': bool(config.get('registration_throttle_enabled', True)),
             'honeypot_enabled': bool(config.get('honeypot_enabled', True)),
+            'privacy_policy_url': config.get('privacy_policy_url', '') or '',
+            'terms_url': config.get('terms_url', '') or '',
+            'privacy_notice_text': config.get('privacy_notice_text', '') or '',
+            'registration_require_consent': bool(config.get('registration_require_consent', False)),
             'login_lockout_enabled': bool(config.get('login_lockout_enabled', True)),
+            'login_lockout_threshold': int(config.get('login_lockout_threshold', 5) or 5),
+            'login_lockout_window_minutes': int(config.get('login_lockout_window_minutes', 15) or 15),
+            'login_lockout_duration_minutes': int(config.get('login_lockout_duration_minutes', 15) or 15),
             'enforce_strong_passwords': bool(config.get('enforce_strong_passwords', False)),
+            'strong_password_min_length': int(config.get('strong_password_min_length', 12) or 12),
             'public_root_theme': config.get('public_root_theme', '') or '',
             'public_root_title': config.get('public_root_title', '') or '',
             'public_root_meta_description': config.get('public_root_meta_description', '') or '',
@@ -493,15 +501,12 @@ def default_backup_config():
     return _default_backup_config()
 
 
-# Auth Config - Function coerces the consolidated auth/session toggles to booleans.
+# Auth Config - Function coerces the consolidated auth/session toggles/knobs.
 def normalize_auth_config(value):
-    cfg = value if isinstance(value, dict) else {}
-    return {
-        'email_2fa': bool(cfg.get('email_2fa', False)),
-        'prevent_multiple_active_sessions': bool(cfg.get('prevent_multiple_active_sessions', False)),
-        'login_lockout_enabled': bool(cfg.get('login_lockout_enabled', True)),
-        'enforce_strong_passwords': bool(cfg.get('enforce_strong_passwords', False)),
-    }
+    # Delegate to the schema-owned normalizer so the key set (including the
+    # lockout threshold/window/duration and strong-password minimum length)
+    # can never drift between the two entry points.
+    return _system_normalize_auth_config(value)
 
 
 def default_registration_config():
@@ -1088,10 +1093,16 @@ def get_system_config():
                 'email_2fa',
                 'prevent_multiple_active_sessions',
                 'login_lockout_enabled',
+                'login_lockout_threshold',
+                'login_lockout_window_minutes',
+                'login_lockout_duration_minutes',
                 'enforce_strong_passwords',
+                'strong_password_min_length',
             ):
-                if _should_apply_db_override(bool(auth_config.get(auth_key)), default_config[auth_key]):
-                    db_config[auth_key] = bool(auth_config.get(auth_key))
+                # auth_config is already normalized (bools are bools, the lockout /
+                # min-length knobs are clamped ints) — don't bool()-coerce here.
+                if _should_apply_db_override(auth_config.get(auth_key), default_config[auth_key]):
+                    db_config[auth_key] = auth_config.get(auth_key)
         client_ip_config = normalize_client_ip_config(getattr(sys_settings, 'client_ip_config', {}))
         if _should_apply_db_override(client_ip_config, default_config['client_ip']):
             db_config['client_ip'] = client_ip_config
@@ -1171,6 +1182,17 @@ def get_system_config():
             )
         ):
             db_config['registration_throttle_enabled'] = bool(sys_settings.registration_throttle_enabled)
+
+        for _reg_url_key in ('privacy_policy_url', 'terms_url', 'privacy_notice_text'):
+            if hasattr(sys_settings, _reg_url_key):
+                _reg_url_val = str(getattr(sys_settings, _reg_url_key) or '').strip()
+                if _should_apply_db_override(_reg_url_val, default_config[_reg_url_key]):
+                    db_config[_reg_url_key] = _reg_url_val
+        if hasattr(sys_settings, 'registration_require_consent') and _should_apply_db_override(
+            bool(sys_settings.registration_require_consent),
+            default_config['registration_require_consent'],
+        ):
+            db_config['registration_require_consent'] = bool(sys_settings.registration_require_consent)
 
         if (
             isinstance(getattr(sys_settings, 'allowed_fonts', None), (list, tuple, set))
@@ -1365,7 +1387,11 @@ def get_system_config():
         'email_2fa',
         'prevent_multiple_active_sessions',
         'login_lockout_enabled',
+        'login_lockout_threshold',
+        'login_lockout_window_minutes',
+        'login_lockout_duration_minutes',
         'enforce_strong_passwords',
+        'strong_password_min_length',
     ):
         if auth_key in final_config:
             auth_seed[auth_key] = final_config[auth_key]

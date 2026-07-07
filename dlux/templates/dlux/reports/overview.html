@@ -1,5 +1,6 @@
 {% extends 'dlux/base.html' %}
 {% load static dlux_translation %}
+{% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.reports_title }}{% endblock %}
 
@@ -239,5 +240,5 @@
 
 {% block scripts %}
 {{ block.super }}
-<script src="{% static 'dlux/reports/js/overview.js' %}?v=20260624a" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% dlux_static 'dlux/reports/js/overview.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

@@ -1,12 +1,13 @@
 {% extends 'dlux/form_base.html' %}
 {% load crispy_forms_tags %}
 {% load static %}
+{% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.system_setup_title|default:"System Setup" }}{% endblock %}
 
 {% block extra_head %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/system_setup.css' %}?v=20260621a">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/main/css/system_setup.css' %}">
 {% endblock %}
 
 {% block layout %}

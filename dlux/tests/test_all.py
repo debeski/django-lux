@@ -11,6 +11,7 @@ TEST_LABELS = [
     'dlux.tests.test_views',
     'dlux.tests.test_api',
     'dlux.tests.test_activitylog',
+    'dlux.tests.test_auth_security',
     'dlux.tests.test_context_processors',
     'dlux.tests.test_defaults_and_urls',
     'dlux.tests.test_groups',

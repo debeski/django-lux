@@ -67,10 +67,12 @@ def _public_auth_context(request):
 def register_view(request):
     _ensure_public_registration()
     context = _public_auth_context(request)
+    reg_config = public_registration_config()
+    require_consent = bool(reg_config.get('require_consent'))
     if request.method == 'POST':
-        if public_registration_config().get('honeypot_enabled', True) and request.POST.get('website'):
+        if reg_config.get('honeypot_enabled', True) and request.POST.get('website'):
             return redirect('register_sent')
-        form = PublicRegistrationForm(request.POST)
+        form = PublicRegistrationForm(request.POST, require_consent=require_consent)
         if form.is_valid():
             email = form.cleaned_data['email']
             if not public_registration_available():
@@ -91,8 +93,11 @@ def register_view(request):
                     ))
                 return redirect('register_sent')
     else:
-        form = PublicRegistrationForm()
+        form = PublicRegistrationForm(require_consent=require_consent)
     context['form'] = form
+    context['registration_require_consent'] = require_consent
+    context['privacy_policy_url'] = reg_config.get('privacy_policy_url', '')
+    context['terms_url'] = reg_config.get('terms_url', '')
     return render(request, 'registration/register.html', context)
 
 

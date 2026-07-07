@@ -107,7 +107,11 @@ SYSTEM_SETTING_GROUPS = (
             _field('auth', 'email_2fa', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('auth', 'prevent_multiple_active_sessions', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('auth', 'login_lockout_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
+            _field('auth', 'login_lockout_threshold', field_type='int', default=5, legacy_flat=True),
+            _field('auth', 'login_lockout_window_minutes', field_type='int', default=15, legacy_flat=True),
+            _field('auth', 'login_lockout_duration_minutes', field_type='int', default=15, legacy_flat=True),
             _field('auth', 'enforce_strong_passwords', field_type='bool', default=False, widget='switch', legacy_flat=True),
+            _field('auth', 'strong_password_min_length', field_type='int', default=12, legacy_flat=True),
         ),
     ),
     SettingGroup(
@@ -146,6 +150,10 @@ SYSTEM_SETTING_GROUPS = (
             _field('registration', 'registration_activation_mode', default='auto_login_after_verify', widget='choice', legacy_flat=True),
             _field('registration', 'registration_throttle_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('registration', 'honeypot_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
+            _field('registration', 'privacy_policy_url', field_type='str', default='', legacy_flat=True),
+            _field('registration', 'terms_url', field_type='str', default='', legacy_flat=True),
+            _field('registration', 'privacy_notice_text', field_type='str', default='', legacy_flat=True),
+            _field('registration', 'registration_require_consent', field_type='bool', default=False, widget='switch', legacy_flat=True),
         ),
     ),
     SettingGroup(

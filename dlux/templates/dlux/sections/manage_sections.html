@@ -2,6 +2,7 @@
 {% load crispy_forms_tags %}
 {% load django_tables2 %}
 {% load static %}
+{% load dlux_tags %}
 
 {% block extra_head %}
     {% include "dlux/forms/filter_assets_head.html" %}
@@ -174,7 +175,7 @@
 
 {% block scripts %}
     {# Section Manager (Smart Delete / View) #}
-    <script src="{% static 'dlux/helpers/context_menu/js/section_manager.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/sections/js/manage_sections.js' %}?v=20260506a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/helpers/context_menu/js/section_manager.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/sections/js/manage_sections.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
 
 {% endblock %}

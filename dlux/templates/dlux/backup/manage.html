@@ -1,5 +1,6 @@
 {% extends 'dlux/base.html' %}
 {% load static %}
+{% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.sysbackup_title }}{% endblock %}
 
@@ -198,5 +199,5 @@
 
 {% block scripts %}
 {{ block.super }}
-<script src="{% static 'dlux/backup/js/manage.js' %}?v=20260624a" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% dlux_static 'dlux/backup/js/manage.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

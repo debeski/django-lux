@@ -23,7 +23,16 @@ def default_auth_config():
         'email_2fa': False,
         'prevent_multiple_active_sessions': False,
         'login_lockout_enabled': True,
+        # Lockout tuning (effective only while login_lockout_enabled is on):
+        # failed attempts before the lock arms, the rolling window counting them,
+        # and how long the lock lasts once armed.
+        'login_lockout_threshold': 5,
+        'login_lockout_window_minutes': 15,
+        'login_lockout_duration_minutes': 15,
         'enforce_strong_passwords': False,
+        # Minimum length the strict validator (and live checklist) requires while
+        # enforce_strong_passwords is on.
+        'strong_password_min_length': 12,
     }
 
 
@@ -50,6 +59,13 @@ def default_registration_config():
         'registration_activation_mode': REGISTRATION_ACTIVATION_AUTO_LOGIN,
         'registration_throttle_enabled': True,
         'honeypot_enabled': True,
+        # Privacy / consent (operator-supplied; the framework never ships legal
+        # text). URLs + optional notice are surfaced on the sign-in / sign-up
+        # pages; require_consent gates a mandatory agreement checkbox at signup.
+        'privacy_policy_url': '',
+        'terms_url': '',
+        'privacy_notice_text': '',
+        'registration_require_consent': False,
     }
 
 

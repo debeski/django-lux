@@ -1,14 +1,35 @@
 from django import template
 from django.template.loader import get_template
 from django.template import TemplateDoesNotExist
+from django.templatetags.static import static as _django_static
 from django.http import QueryDict
 from django.utils.timesince import timesince
 from django.utils.html import avoid_wrapping
 from django.conf import settings
+from .. import __version__ as _DLUX_VERSION
 from ..translations import get_strings
 from ..navbar import build_navbar_hierarchy_crumbs, build_navbar_route_label_map
 
 register = template.Library()
+
+
+@register.simple_tag
+def dlux_static(path):
+    """Like ``{% static path %}`` but appends a ``?v=<DjangoLux version>`` cache
+    buster. The version is read from the package (``dlux.__version__``), NOT the
+    template context, so it works everywhere — including widget-rendered
+    partials (grouped permissions, profile image) that have no request context
+    and thus no ``DLUX_VERSION`` context variable.
+
+    Because the version changes on every release, every static asset is
+    re-fetched by browsers after an inline update — no more stale cached CSS/JS
+    from a forgotten manual buster. Interim measure; once the generated project
+    adopts ManifestStaticFilesStorage (content-hashed names) this can be dropped
+    in favour of a plain ``{% static %}``.
+    """
+    url = _django_static(path)
+    separator = '&' if '?' in url else '?'
+    return f"{url}{separator}v={_DLUX_VERSION}"
 
 @register.simple_tag(takes_context=True)
 def dlux_timesince(context, value, arg=None):

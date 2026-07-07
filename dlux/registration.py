@@ -33,6 +33,9 @@ def public_registration_config():
         'activation_mode': config.get('registration_activation_mode') or REGISTRATION_ACTIVATION_AUTO_LOGIN,
         'throttle_enabled': bool(config.get('registration_throttle_enabled', True)),
         'honeypot_enabled': bool(config.get('honeypot_enabled', True)),
+        'require_consent': bool(config.get('registration_require_consent', False)),
+        'privacy_policy_url': config.get('privacy_policy_url', '') or '',
+        'terms_url': config.get('terms_url', '') or '',
     }
 
 

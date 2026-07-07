@@ -4672,6 +4672,48 @@
         });
     }
 
+    function initAuthSecurityOptions(root) {
+        // Reveal the lockout tuning row only while "Enable login lockout" is on,
+        // and the strong-password minimum-length row only while enforcement is on
+        // (same idiom as the client-ip proxy-hops reveal).
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
+            if (form.dataset.authSecurityBound === 'true') {
+                return;
+            }
+
+            const lockoutRow = form.querySelector('[data-auth-lockout-fields]');
+            const strongRow = form.querySelector('[data-auth-strong-fields]');
+            if (!lockoutRow && !strongRow) {
+                return;
+            }
+
+            form.dataset.authSecurityBound = 'true';
+
+            function syncAuthSecurityOptions() {
+                const lockoutInput = form.querySelector('input[name="login_lockout_enabled"]');
+                const strongInput = form.querySelector('input[name="enforce_strong_passwords"]');
+                if (lockoutRow && lockoutInput) {
+                    const showLockout = !!lockoutInput.checked;
+                    lockoutRow.classList.toggle('d-none', !showLockout);
+                    lockoutRow.setAttribute('aria-hidden', showLockout ? 'false' : 'true');
+                }
+                if (strongRow && strongInput) {
+                    const showStrong = !!strongInput.checked;
+                    strongRow.classList.toggle('d-none', !showStrong);
+                    strongRow.setAttribute('aria-hidden', showStrong ? 'false' : 'true');
+                }
+            }
+
+            form.addEventListener('change', (event) => {
+                const name = event.target && event.target.name;
+                if (name === 'login_lockout_enabled' || name === 'enforce_strong_passwords') {
+                    syncAuthSecurityOptions();
+                }
+            });
+            syncAuthSecurityOptions();
+        });
+    }
+
     function initLoginPageOptions(root) {
         root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.loginPageBound === 'true') return;
@@ -5104,6 +5146,7 @@
         initPublicRegistrationOptions(root);
         initPublicRootOptions(root);
         initClientIpOptions(root);
+        initAuthSecurityOptions(root);
         initLoginPageOptions(root);
         initTitlebarBehaviorOptions(root);
         initNotificationBehaviorOptions(root);

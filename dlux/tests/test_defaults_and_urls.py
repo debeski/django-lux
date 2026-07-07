@@ -41,7 +41,10 @@ _LEGACY_HOME_URL = '/sys/'
 
 
 def _assert_versioned_static_asset(testcase, contents, asset_path):
-    testcase.assertRegex(contents, rf"{re.escape(asset_path)}[^\\n]*\\?v=")
+    # An asset is cache-busted either via the {% dlux_static 'path' %} tag (which
+    # appends ?v=<DjangoLux version> at render) or a legacy {% static %}?v=DATE ref.
+    p = re.escape(asset_path)
+    testcase.assertRegex(contents, rf"(dlux_static\s+['\"]{p}['\"]|{p}[^\n]*\?v=)")
 
 
 class DluxDefaultRouteTests(SimpleTestCase):
@@ -739,7 +742,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertIn('data-setup-theme-choice="light"', form.theme_picker_html)
         self.assertIn(
-            'data-setup-theme-preview-url="/static/dlux/themes/css/light.css?v=20260704a"',
+            'data-setup-theme-preview-url="/static/dlux/themes/css/light.css?v=',
             form.theme_picker_html,
         )
         self.assertIn('data-setup-theme-allow-toggle="light"', form.theme_picker_html)
@@ -2339,29 +2342,30 @@ class DluxDefaultRouteTests(SimpleTestCase):
         _assert_versioned_static_asset(self, contents, "dlux/main/css/main.css")
         self.assertIn("dlux/main/css/system_setup.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/system_setup.css")
-        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260621a", contents)
+        self.assertIn("dlux_static 'dlux/main/css/system_setup.css'", contents)
         self.assertIn("dlux/main/css/titlebar_surfaces.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/titlebar_surfaces.css")
         self.assertLess(
-            contents.index("{% static theme.css_path %}?v="),
+            contents.index("{% dlux_static theme.css_path %}"),
             contents.index("dlux/main/css/titlebar_surfaces.css"),
         )
         self.assertIn("dlux/main/js/system_setup.js", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/js/system_setup.js")
-        self.assertIn("dlux/main/js/system_setup.js' %}?v=20260629a", contents)
-        self.assertIn("dlux/helpers/prevent_double_submit.js' %}?v=20260621a", contents)
+        self.assertIn("dlux_static 'dlux/main/js/system_setup.js'", contents)
+        self.assertIn("dlux_static 'dlux/helpers/prevent_double_submit.js'", contents)
         _assert_versioned_static_asset(self, contents, "dlux/helpers/prevent_double_submit.js")
         self.assertIn("dlux/helpers/wizard/js/main.js", contents)
         self.assertLess(
             contents.index("dlux/main/js/system_setup.js"),
             contents.index("dlux/helpers/wizard/js/main.js"),
         )
-        self.assertGreaterEqual(contents.count("?v="), 20)
+        # Every versioned asset now goes through {% dlux_static %} (?v=<version>).
+        self.assertGreaterEqual(contents.count("{% dlux_static"), 20)
         self.assertIn("dlux/main/js/navbar.js", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/js/navbar.js")
         self.assertIn("dlux/main/css/navbar.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/navbar.css")
-        self.assertIn("{% static theme.css_path %}?v=20260704a", contents)
+        self.assertIn("{% dlux_static theme.css_path %}", contents)
         self.assertIn("dlux/main/css/template_cleanup.css", contents)
         _assert_versioned_static_asset(self, contents, "dlux/main/css/template_cleanup.css")
 
@@ -2377,7 +2381,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('and not hide_sidebar_toggle', titlebar_contents)
         self.assertIn('id="sidebarToggle"', titlebar_contents)
         self.assertIn("'hide_sidebar_toggle': True,", view_contents)
-        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260621a", setup_contents)
+        self.assertIn("dlux_static 'dlux/main/css/system_setup.css'", setup_contents)
         self.assertLess(
             setup_contents.index('dlux-setup-intro__text'),
             setup_contents.index('dlux-setup-page-logo'),
@@ -2403,7 +2407,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('name="setup_language"', contents)
         self.assertIn('data-setup-language-start="{{ code }}"', contents)
         self.assertIn('dlux-setup-language-choice', contents)
-        self.assertIn("dlux/main/css/system_setup.css' %}?v=20260621a", contents)
+        self.assertIn("dlux_static 'dlux/main/css/system_setup.css'", contents)
         self.assertLess(
             contents.index('dlux-setup-intro__text'),
             contents.index('dlux-setup-page-logo'),

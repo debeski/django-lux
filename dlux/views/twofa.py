@@ -496,6 +496,21 @@ def _login_user_methods(user):
     }
 
 
+def _login_style_context(request):
+    """Login-page style config so the 2FA verify page mirrors the configured
+    login style (split / centered / minimal / fullpage) and hero message.
+    APP_CONFIG.login is always available as a template fallback; this also
+    resolves the per-language hero used by the fullpage style."""
+    from ..utils import get_system_config
+    config = get_system_config()
+    login_cfg = config.get('login', {}) or {}
+    hero = login_cfg.get('hero_message', '')
+    if isinstance(hero, dict):
+        current_lang = request.session.get('lang') or config.get('default_language', 'en')
+        hero = hero.get(current_lang) or (next(iter(hero.values()), '') if hero else '')
+    return {'login_config': login_cfg, 'login_hero_message': hero}
+
+
 # 2FA View — Handles OTP verification for login and method activation
 def verify_otp_view(request, intent='login'):
     """
@@ -555,6 +570,7 @@ def verify_otp_view(request, intent='login'):
                 'DLUX_STRINGS': s,
                 'user_methods': user_methods,
                 'challenge_state': _build_login_challenge_state(request, user) if intent == 'login' else {},
+                **_login_style_context(request),
             }, status=429)
 
         is_valid = False
@@ -648,6 +664,7 @@ def verify_otp_view(request, intent='login'):
         'DLUX_STRINGS': s,
         'user_methods': user_methods,
         'challenge_state': _build_login_challenge_state(request, user) if intent == 'login' else {},
+        **_login_style_context(request),
     })
 
 

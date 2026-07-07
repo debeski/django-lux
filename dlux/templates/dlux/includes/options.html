@@ -1,11 +1,12 @@
 {% extends 'dlux/base.html' %}
 {% load static %}
+{% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.options_title }}{% endblock %}
 
 {% block extra_head %}
     {% include "dlux/forms/assets_head.html" %}
-    <link rel="stylesheet" href="{% static 'dlux/main/css/options.css' %}?v=20260702b">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/main/css/options.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -787,6 +788,6 @@
 
 {% block scripts %}
     {{ block.super }}
-    <script src="{% static 'dlux/main/js/options.js' %}?v=20260701a" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% static 'dlux/main/js/updater.js' %}?v=20260626a" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/main/js/options.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/main/js/updater.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
 {% endblock %}

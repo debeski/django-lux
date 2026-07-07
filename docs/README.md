@@ -20,6 +20,7 @@ Use the sections below based on what you are trying to do.
 - [Admin Guide](admin-guide.md) for the first-launch setup wizard, Options view, sidebar builder, themes, languages, and runtime preferences.
 - [DSRP-1 Security Standard](security-dsrp-1.md) for the active backend authorization and security-flow policy.
 - [Public Registration Playground](registration.md) for the disabled-by-default email-verified local signup path.
+- [Data & Privacy](data-privacy.md) for the personal data DjangoLux stores, transparency vs. consent, retention, and the privacy-notice / consent operator controls.
 - [Optional SSO Packages](sso.md) for the separate OIDC provider plugin and client SDK.
 - [Verified Inline Updater](inline-updater.md) for generated-Compose deployment, bootstrap, release verification, maintenance, and rollback behavior.
 

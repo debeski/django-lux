@@ -2,6 +2,7 @@
 {% load django_tables2 %}
 {% load static %}
 {% load crispy_forms_tags %}
+{% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.manage_users }}{% endblock %}
 
@@ -197,6 +198,6 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{% static 'dlux/users/js/manage_users.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}"></script>
-    <script src="{% static 'dlux/users/js/manage_groups.js' %}?v=20260703a" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% dlux_static 'dlux/users/js/manage_users.js' %}" nonce="{{ request.csp_nonce }}"></script>
+    <script src="{% dlux_static 'dlux/users/js/manage_groups.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

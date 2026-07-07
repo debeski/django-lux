@@ -361,6 +361,17 @@ class SingletonModel(models.Model):
                     for auth_key in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled', 'enforce_strong_passwords'):
                         if auth_key in config:
                             auth[auth_key] = bool(config.get(auth_key))
+                    for auth_key in (
+                        'login_lockout_threshold',
+                        'login_lockout_window_minutes',
+                        'login_lockout_duration_minutes',
+                        'strong_password_min_length',
+                    ):
+                        if auth_key in config:
+                            try:
+                                auth[auth_key] = int(config.get(auth_key))
+                            except (TypeError, ValueError):
+                                pass
                     obj.auth_config = auth
                 if hasattr(obj, 'public_root') and 'public_root' in config:
                     obj.public_root = bool(config.get('public_root'))
@@ -386,6 +397,11 @@ class SingletonModel(models.Model):
                     obj.registration_throttle_enabled = bool(config.get('registration_throttle_enabled'))
                 if hasattr(obj, 'honeypot_enabled') and 'honeypot_enabled' in config:
                     obj.honeypot_enabled = bool(config.get('honeypot_enabled'))
+                for _reg_url_key in ('privacy_policy_url', 'terms_url', 'privacy_notice_text'):
+                    if hasattr(obj, _reg_url_key) and _reg_url_key in config:
+                        setattr(obj, _reg_url_key, str(config.get(_reg_url_key) or '').strip())
+                if hasattr(obj, 'registration_require_consent') and 'registration_require_consent' in config:
+                    obj.registration_require_consent = bool(config.get('registration_require_consent'))
                 if hasattr(obj, 'default_form_density') and config.get('default_form_density') in TABLE_DENSITY_VALUES:
                     obj.default_form_density = config.get('default_form_density')
                 if hasattr(obj, 'default_modal_size') and 'default_modal_size' in config:

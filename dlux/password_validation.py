@@ -18,6 +18,23 @@ from django.core.exceptions import ValidationError
 STRONG_PASSWORD_MIN_LENGTH = 12
 
 
+def strong_password_min_length():
+    """Resolve the admin-configured minimum length (auth_config, clamped 8–64)."""
+    try:
+        from dlux.utils import get_system_config
+        value = int(get_system_config().get('strong_password_min_length', STRONG_PASSWORD_MIN_LENGTH))
+        if 8 <= value <= 64:
+            return value
+    except Exception:
+        pass
+    return STRONG_PASSWORD_MIN_LENGTH
+
+
+def _min_length_label(strings, min_length):
+    template = strings.get('password_rule_min_length', 'At least {count} characters')
+    return template.replace('{count}', str(min_length))
+
+
 def strong_password_failures(password):
     """Return a list of translated requirement labels the password fails.
 
@@ -26,9 +43,10 @@ def strong_password_failures(password):
     from dlux.translations import get_strings
     s = get_strings()
     password = password or ''
+    min_length = strong_password_min_length()
     failures = []
-    if len(password) < STRONG_PASSWORD_MIN_LENGTH:
-        failures.append(s.get('password_rule_length', 'At least 12 characters'))
+    if len(password) < min_length:
+        failures.append(_min_length_label(s, min_length))
     if not re.search(r'[A-Z]', password):
         failures.append(s.get('password_rule_upper', 'An uppercase letter'))
     if not re.search(r'[a-z]', password):
@@ -71,7 +89,8 @@ class DluxStrongPasswordValidator:
             return ''
         from dlux.translations import get_strings
         s = get_strings()
-        return s.get(
+        template = s.get(
             'password_rules_help',
-            'At least 12 characters with upper and lower case letters, a digit, and a symbol.',
+            'At least {count} characters with upper and lower case letters, a digit, and a symbol.',
         )
+        return template.replace('{count}', str(strong_password_min_length()))

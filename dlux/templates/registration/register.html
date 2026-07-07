@@ -83,6 +83,20 @@
         {{ form.website }}
     </div>
 
+    {% if registration_require_consent %}
+    <div class="form-check dlux-auth-consent mb-3">
+        <input class="form-check-input {% if form.consent.errors %}is-invalid{% endif %}" type="checkbox"
+               id="{{ form.consent.id_for_label }}" name="{{ form.consent.html_name }}" value="on"
+               {% if form.consent.value %}checked{% endif %} required>
+        <label class="form-check-label small" for="{{ form.consent.id_for_label }}">
+            {{ DLUX_STRINGS.consent_agree_prefix|default:'I agree to the' }}
+            {% if terms_url %}<a href="{{ terms_url }}" target="_blank" rel="noopener noreferrer">{{ DLUX_STRINGS.terms_link|default:'Terms' }}</a>{% if privacy_policy_url %} {{ DLUX_STRINGS.consent_and|default:'and' }} {% endif %}{% endif %}
+            {% if privacy_policy_url %}<a href="{{ privacy_policy_url }}" target="_blank" rel="noopener noreferrer">{{ DLUX_STRINGS.privacy_policy_link|default:'Privacy Policy' }}</a>{% endif %}.
+        </label>
+        {% if form.consent.errors %}<div class="invalid-feedback d-block">{% for error in form.consent.errors %}{{ error }}{% endfor %}</div>{% endif %}
+    </div>
+    {% endif %}
+
     <button type="submit" class="w-100 btn btn-lg mt-3" id="submit" data-dlux-loading>
         <i class="bi bi-person-check me-2"></i>{{ DLUX_STRINGS.btn_register|default:'Register' }}
     </button>
@@ -92,5 +106,6 @@
             <span>{{ DLUX_STRINGS.back_to_login|default:'Back to login' }}</span>
         </a>
     </div>
+    {% include 'dlux/includes/auth_privacy_notice.html' %}
 </form>
 {% endblock %}

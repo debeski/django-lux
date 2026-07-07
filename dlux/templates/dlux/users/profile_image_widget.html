@@ -1,4 +1,5 @@
 {% load static %}
+{% load dlux_tags %}
 <div class="dlux-profile-image-input-wrapper">
     <div class="dlux-profile-image-preview-area">
         {% if widget.value %}
@@ -15,4 +16,4 @@
     </div>
     <input type="{{ widget.type }}" name="{{ widget.name }}" {% if widget.value %}value="{{ widget.value }}"{% endif %} {% for name, value in widget.attrs.items %}{{ name }}="{{ value }}" {% endfor %} class="d-none dlux-profile-file-input" data-preview-target="dlux-profile-preview-{{ widget.attrs.id }}">
 </div>
-<script src="{% static 'dlux/users/js/profile_image_widget.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% dlux_static 'dlux/users/js/profile_image_widget.js' %}" nonce="{{ request.csp_nonce }}" defer></script>

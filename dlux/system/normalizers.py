@@ -279,7 +279,11 @@ def normalize_auth_config(value):
         'email_2fa': bool(cfg.get('email_2fa', False)),
         'prevent_multiple_active_sessions': bool(cfg.get('prevent_multiple_active_sessions', False)),
         'login_lockout_enabled': bool(cfg.get('login_lockout_enabled', True)),
+        'login_lockout_threshold': _to_int(cfg.get('login_lockout_threshold', 5), 5, min_value=1, max_value=50),
+        'login_lockout_window_minutes': _to_int(cfg.get('login_lockout_window_minutes', 15), 15, min_value=1, max_value=1440),
+        'login_lockout_duration_minutes': _to_int(cfg.get('login_lockout_duration_minutes', 15), 15, min_value=1, max_value=1440),
         'enforce_strong_passwords': bool(cfg.get('enforce_strong_passwords', False)),
+        'strong_password_min_length': _to_int(cfg.get('strong_password_min_length', 12), 12, min_value=8, max_value=64),
     }
 
 
@@ -293,6 +297,10 @@ def normalize_registration_config(value):
         'registration_activation_mode': activation_mode,
         'registration_throttle_enabled': bool(cfg.get('registration_throttle_enabled', True)),
         'honeypot_enabled': bool(cfg.get('honeypot_enabled', True)),
+        'privacy_policy_url': str(cfg.get('privacy_policy_url') or '').strip(),
+        'terms_url': str(cfg.get('terms_url') or '').strip(),
+        'privacy_notice_text': str(cfg.get('privacy_notice_text') or '').strip(),
+        'registration_require_consent': bool(cfg.get('registration_require_consent', False)),
     }
 
 

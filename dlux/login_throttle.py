@@ -9,10 +9,15 @@ client IP, one on the attempted username — each with a TTL equal to the lockou
 window. Once either counter reaches the configured threshold the key is "locked"
 until ``locked_until``. A successful login clears both counters.
 
-Config:
-- ``login_lockout_enabled``  -> SystemSettings toggle (resolved via get_system_config).
-- ``DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS`` (settings, default 5)
-- ``DLUX_LOGIN_LOCKOUT_SECONDS``      (settings, default 900 = 15 min)
+Config (SystemSettings ``auth_config``, resolved via get_system_config):
+- ``login_lockout_enabled``          -> on/off toggle
+- ``login_lockout_threshold``        -> failed attempts before the lock arms (default 5)
+- ``login_lockout_window_minutes``   -> rolling window counting failures (default 15)
+- ``login_lockout_duration_minutes`` -> how long the lock lasts once armed (default 15)
+
+The legacy Django-settings knobs (``DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS`` /
+``DLUX_LOGIN_LOCKOUT_SECONDS``) remain only as a fallback when the system config
+cannot be resolved at all — the admin-configurable values supersede them.
 """
 
 import time
@@ -25,18 +30,44 @@ DEFAULT_MAX_ATTEMPTS = 5
 DEFAULT_LOCKOUT_SECONDS = 15 * 60
 
 
-def _max_attempts():
+def _settings_fallback_attempts():
     try:
         return max(int(getattr(settings, 'DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS', DEFAULT_MAX_ATTEMPTS)), 1)
     except (TypeError, ValueError):
         return DEFAULT_MAX_ATTEMPTS
 
 
-def _lockout_seconds():
+def _settings_fallback_seconds():
     try:
         return max(int(getattr(settings, 'DLUX_LOGIN_LOCKOUT_SECONDS', DEFAULT_LOCKOUT_SECONDS)), 1)
     except (TypeError, ValueError):
         return DEFAULT_LOCKOUT_SECONDS
+
+
+def _max_attempts():
+    try:
+        from dlux.utils import get_system_config
+        return max(int(get_system_config().get('login_lockout_threshold', 5)), 1)
+    except Exception:
+        return _settings_fallback_attempts()
+
+
+def _window_seconds():
+    """Rolling window (seconds) during which failed attempts accumulate."""
+    try:
+        from dlux.utils import get_system_config
+        return max(int(get_system_config().get('login_lockout_window_minutes', 15)), 1) * 60
+    except Exception:
+        return _settings_fallback_seconds()
+
+
+def _lockout_seconds():
+    """How long (seconds) the lock lasts once the threshold is reached."""
+    try:
+        from dlux.utils import get_system_config
+        return max(int(get_system_config().get('login_lockout_duration_minutes', 15)), 1) * 60
+    except Exception:
+        return _settings_fallback_seconds()
 
 
 def _enabled():
@@ -100,7 +131,8 @@ def register_failed_login(request, username):
         return
     now = time.time()
     threshold = _max_attempts()
-    window = _lockout_seconds()
+    window = _window_seconds()
+    duration = _lockout_seconds()
     newly_locked = False
     for key in _keys(request, username):
         data = cache.get(key) or {'count': 0, 'locked_until': 0}
@@ -108,8 +140,12 @@ def register_failed_login(request, username):
         if data['count'] >= threshold:
             if not data.get('locked_until'):
                 newly_locked = True
-            data['locked_until'] = now + window
-        cache.set(key, data, timeout=window)
+            data['locked_until'] = now + duration
+            # The key must outlive the lock even when the lock lasts longer
+            # than the counting window.
+            cache.set(key, data, timeout=max(window, duration))
+        else:
+            cache.set(key, data, timeout=window)
     _log_failed_login(request, username, locked=newly_locked)
 
 

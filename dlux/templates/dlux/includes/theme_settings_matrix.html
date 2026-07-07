@@ -1,4 +1,5 @@
 {% load static %}
+{% load dlux_tags %}
 <div data-setup-theme-picker data-theme-input="{{ input_id }}">
     {% if label %}
     <label class="form-label d-block">{{ label }}</label>
@@ -36,7 +37,7 @@
                         type="button"
                         class="dlux-theme-settings-option__preview"
                         data-setup-theme-choice="{{ theme.slug }}"
-                        data-setup-theme-preview-url="{% static theme.css_path %}?v=20260704a"
+                        data-setup-theme-preview-url="{% dlux_static theme.css_path %}"
                         aria-pressed="{% if selected_theme == theme.slug %}true{% else %}false{% endif %}"
                         aria-label="{{ DLUX_STRINGS.form_sys_default_theme|default:'Default Theme' }}: {{ theme.label }}"
                         title="{{ DLUX_STRINGS.form_sys_default_theme|default:'Default Theme' }}: {{ theme.label }}"

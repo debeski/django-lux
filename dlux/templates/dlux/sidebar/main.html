@@ -1,18 +1,19 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'dlux/sidebar/css/main.css' %}?v=20260612c">
+{% load dlux_tags %}
+<link rel="stylesheet" href="{% dlux_static 'dlux/sidebar/css/main.css' %}">
 {% if sidebar_toolbar_enabled and sidebar_theme_picker_enabled %}
-<link rel="stylesheet" href="{% static 'dlux/sidebar/css/theme_picker.css' %}?v=20260412c">
+<link rel="stylesheet" href="{% dlux_static 'dlux/sidebar/css/theme_picker.css' %}">
 {% endif %}
 {% if sidebar_toolbar_enabled and sidebar_reorder_enabled %}
-<link rel="stylesheet" href="{% static 'dlux/sidebar/css/reorder.css' %}?v=20260402k">
+<link rel="stylesheet" href="{% dlux_static 'dlux/sidebar/css/reorder.css' %}">
 {% endif %}
-<script src="{% static 'dlux/sidebar/js/preload.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}"></script>
-<script src="{% static 'dlux/sidebar/js/main.js' %}?v=20260612c" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% dlux_static 'dlux/sidebar/js/preload.js' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% dlux_static 'dlux/sidebar/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
 {% if sidebar_toolbar_enabled and sidebar_theme_picker_enabled %}
-<script src="{% static 'dlux/sidebar/js/theme_picker.js' %}?v=20260426a" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% dlux_static 'dlux/sidebar/js/theme_picker.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
 {% endif %}
 {% if sidebar_toolbar_enabled and sidebar_reorder_enabled %}
-<script src="{% static 'dlux/sidebar/js/reorder.js' %}?v=20260402k" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% dlux_static 'dlux/sidebar/js/reorder.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
 {% endif %}
 <!-- Ghost Sidebar for small screens layout stability -->
 {% if request.user.is_authenticated %}

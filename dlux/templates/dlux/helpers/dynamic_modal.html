@@ -1,5 +1,6 @@
 
 {% load static %}
+{% load dlux_tags %}
 
 <div class="modal fade" id="universalDynamicModal" tabindex="-1" aria-labelledby="dynamicModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-xl-down">
@@ -23,4 +24,4 @@
     </div>
 </div>
 
-<script src="{% static 'dlux/helpers/dynamic_modal/js/main.js' %}?v=20260629a" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% dlux_static 'dlux/helpers/dynamic_modal/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>

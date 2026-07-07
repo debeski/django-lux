@@ -264,9 +264,23 @@ class PublicRegistrationForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={'autocomplete': 'off', 'tabindex': '-1'}),
     )
+    # Optional agreement checkbox; made required per-request when the operator
+    # enables `registration_require_consent`. The label + policy links are
+    # rendered in the template (register.html), not here.
+    consent = forms.BooleanField(required=False)
+
+    def __init__(self, *args, require_consent=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.require_consent = bool(require_consent)
 
     def clean_email(self):
         return str(self.cleaned_data['email']).strip().lower()
+
+    def clean_consent(self):
+        agreed = bool(self.cleaned_data.get('consent'))
+        if self.require_consent and not agreed:
+            raise ValidationError(_("You must agree to continue."))
+        return agreed
 
     def clean(self):
         cleaned = super().clean()
@@ -1087,7 +1101,10 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields["is_active"].help_text = s.get('help_is_active', "Designates whether this user should be treated as active.")
         self.fields["force_password_change"].help_text = s.get('help_force_password_change', "The new user must change this password before using the system.")
         self.fields["is_staff"].help_text = s.get('help_is_staff', "Enables staff access. The final tier depends on scope and selected permissions.")
-        self.fields["password1"].help_text = s.get('help_password_common', "Your password can't be too similar to your other personal information.")
+        # No static requirement bullets: the live password-rules card (rendered
+        # under the field on focus by password_rules/js/main.js) shows the active
+        # criteria — configured strong rules or Django's defaults.
+        self.fields["password1"].help_text = ''
         self.fields["password2"].help_text = s.get('help_password_match', "Enter the same password as before, for verification.")
         self.fields["phone"].help_text = s.get('help_phone', "Enter a valid phone number (optional).")
         _apply_autocomplete_attrs(
@@ -1540,7 +1557,8 @@ class ResetPasswordForm(DluxPasswordMustChangeMixin, SetPasswordForm):
         
         self.helper = FormHelper()
         self.fields["new_password1"].label = s.get('form_new_password', "New Password")
-        self.fields['new_password1'].help_text = mark_safe(s.get('help_password_common', "Password should not be similar to..."))
+        # Live password-rules card replaces the static requirement bullets.
+        self.fields['new_password1'].help_text = ''
 
         self.fields["new_password2"].label = s.get('form_confirm_new_password', "Confirm New Password")
         self.fields['new_password2'].help_text = s.get('help_password_match', "Enter the same password as...")
@@ -1699,7 +1717,8 @@ class CustomPasswordChangeForm(DluxPasswordMustChangeMixin, PasswordChangeForm):
         
         # New Password 1
         self.fields['new_password1'].label = s.get('form_new_password', "New Password")
-        self.fields['new_password1'].help_text = mark_safe(s.get('help_password_common', "Password should not be similar to..."))
+        # Live password-rules card replaces the static requirement bullets.
+        self.fields['new_password1'].help_text = ''
         self.fields['new_password1'].widget.attrs.pop('dir', None)
 
         # New Password 2
@@ -2316,10 +2335,14 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=True,
     )
+    login_lockout_threshold = forms.IntegerField(required=False, min_value=1, max_value=50, initial=5)
+    login_lockout_window_minutes = forms.IntegerField(required=False, min_value=1, max_value=1440, initial=15)
+    login_lockout_duration_minutes = forms.IntegerField(required=False, min_value=1, max_value=1440, initial=15)
     enforce_strong_passwords = forms.BooleanField(
         required=False,
         initial=False,
     )
+    strong_password_min_length = forms.IntegerField(required=False, min_value=8, max_value=64, initial=12)
     auth_config = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -2391,6 +2414,10 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=True,
     )
+    privacy_policy_url = forms.CharField(required=False, max_length=500)
+    terms_url = forms.CharField(required=False, max_length=500)
+    privacy_notice_text = forms.CharField(required=False, max_length=500)
+    registration_require_consent = forms.BooleanField(required=False, initial=False)
 
     class Meta:
         model = apps.get_model('dlux', 'SystemSettings')
@@ -2430,6 +2457,10 @@ class SystemSettingsForm(forms.ModelForm):
             'registration_activation_mode',
             'registration_throttle_enabled',
             'honeypot_enabled',
+            'privacy_policy_url',
+            'terms_url',
+            'privacy_notice_text',
+            'registration_require_consent',
             'email_config',
             'languages',
             'translations_override',
@@ -3059,10 +3090,30 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_login_lockout',
             'Temporarily block sign-in after repeated failed password attempts from the same IP or username.',
         )
+        self.fields['login_lockout_threshold'].label = s.get('form_sys_login_lockout_threshold', 'Lockout after (attempts)')
+        self.fields['login_lockout_threshold'].help_text = s.get(
+            'help_sys_login_lockout_threshold',
+            'Failed attempts from the same IP or username before sign-in is locked.',
+        )
+        self.fields['login_lockout_window_minutes'].label = s.get('form_sys_login_lockout_window_minutes', 'Counting window (minutes)')
+        self.fields['login_lockout_window_minutes'].help_text = s.get(
+            'help_sys_login_lockout_window_minutes',
+            'How long failed attempts keep counting toward the threshold.',
+        )
+        self.fields['login_lockout_duration_minutes'].label = s.get('form_sys_login_lockout_duration_minutes', 'Lockout duration (minutes)')
+        self.fields['login_lockout_duration_minutes'].help_text = s.get(
+            'help_sys_login_lockout_duration_minutes',
+            'How long sign-in stays blocked once the lock is armed.',
+        )
         self.fields['enforce_strong_passwords'].label = s.get('form_sys_enforce_strong_passwords', 'Enforce strong passwords')
         self.fields['enforce_strong_passwords'].help_text = s.get(
             'help_sys_enforce_strong_passwords',
-            'Require new passwords to be at least 12 characters with upper and lower case letters, a digit, and a symbol.',
+            'Require new passwords to meet the configured minimum length with upper and lower case letters, a digit, and a symbol.',
+        )
+        self.fields['strong_password_min_length'].label = s.get('form_sys_strong_password_min_length', 'Minimum password length')
+        self.fields['strong_password_min_length'].help_text = s.get(
+            'help_sys_strong_password_min_length',
+            'Minimum characters required while strong passwords are enforced (8-64).',
         )
         self.fields['client_ip_mode'].label = s.get('form_sys_client_ip_mode')
         self.fields['client_ip_mode'].help_text = s.get('help_sys_client_ip_mode')
@@ -3168,6 +3219,26 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['honeypot_enabled'].help_text = s.get(
             'help_sys_honeypot_enabled',
             'Add a hidden bot-trap field to the registration form; submissions that fill it are silently dropped. Low-friction anti-bot before CAPTCHA.',
+        )
+        self.fields['privacy_policy_url'].label = s.get('form_sys_privacy_policy_url', 'Privacy policy URL')
+        self.fields['privacy_policy_url'].help_text = s.get(
+            'help_sys_privacy_policy_url',
+            "Link to your organization's privacy policy. When set, a privacy line is shown on the sign-in and sign-up pages.",
+        )
+        self.fields['terms_url'].label = s.get('form_sys_terms_url', 'Terms of service URL')
+        self.fields['terms_url'].help_text = s.get(
+            'help_sys_terms_url',
+            'Optional link to your terms of service, shown alongside the privacy policy in the consent line.',
+        )
+        self.fields['privacy_notice_text'].label = s.get('form_sys_privacy_notice_text', 'Privacy notice text')
+        self.fields['privacy_notice_text'].help_text = s.get(
+            'help_sys_privacy_notice_text',
+            'Optional short notice shown with the privacy link on the auth pages (e.g. what data you collect and why). Leave blank for a default line.',
+        )
+        self.fields['registration_require_consent'].label = s.get('form_sys_registration_require_consent', 'Require agreement to sign up')
+        self.fields['registration_require_consent'].help_text = s.get(
+            'help_sys_registration_require_consent',
+            'Show a required "I agree to the Terms & Privacy Policy" checkbox on the public sign-up form. Set the policy links above.',
         )
         self.sidebar_sections_manager_available = bool(has_section_models())
         _bind_choice_selector_widget(
@@ -3705,6 +3776,26 @@ class SystemSettingsForm(forms.ModelForm):
                     if hasattr(self.instance, 'honeypot_enabled')
                     else config.get('honeypot_enabled', True)
                 ),
+                'privacy_policy_url': (
+                    getattr(self.instance, 'privacy_policy_url', '')
+                    if hasattr(self.instance, 'privacy_policy_url')
+                    else config.get('privacy_policy_url', '')
+                ),
+                'terms_url': (
+                    getattr(self.instance, 'terms_url', '')
+                    if hasattr(self.instance, 'terms_url')
+                    else config.get('terms_url', '')
+                ),
+                'privacy_notice_text': (
+                    getattr(self.instance, 'privacy_notice_text', '')
+                    if hasattr(self.instance, 'privacy_notice_text')
+                    else config.get('privacy_notice_text', '')
+                ),
+                'registration_require_consent': (
+                    getattr(self.instance, 'registration_require_consent', False)
+                    if hasattr(self.instance, 'registration_require_consent')
+                    else config.get('registration_require_consent', False)
+                ),
             },
             hidden_field=False,
         )
@@ -4220,6 +4311,29 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(self, 'enforce_strong_passwords', css_class='col-lg-6'),
                     css_class='g-3 mb-3',
                 ),
+                # Lockout tuning — revealed only while the lockout toggle is on
+                # (same reveal idiom as the client-ip proxy-hops field).
+                Row(
+                    Div(Field('login_lockout_threshold', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    Div(Field('login_lockout_window_minutes', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    Div(Field('login_lockout_duration_minutes', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    css_class=(
+                        "g-3 mb-3 dlux-auth-lockout-fields"
+                        f"{'' if self.initial.get('login_lockout_enabled', True) else ' d-none'}"
+                    ),
+                    data_auth_lockout_fields='true',
+                    aria_hidden='false' if self.initial.get('login_lockout_enabled', True) else 'true',
+                ),
+                # Strong-password tuning — revealed only while enforcement is on.
+                Row(
+                    Div(Field('strong_password_min_length', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    css_class=(
+                        "g-3 mb-3 dlux-auth-strong-fields"
+                        f"{'' if self.initial.get('enforce_strong_passwords', False) else ' d-none'}"
+                    ),
+                    data_auth_strong_fields='true',
+                    aria_hidden='false' if self.initial.get('enforce_strong_passwords', False) else 'true',
+                ),
                 Field('auth_config'),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title')}</h6>"),
                 HTML(
@@ -4361,7 +4475,26 @@ class SystemSettingsForm(forms.ModelForm):
                             'aria_hidden': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
                         },
                     ),
+                    build_settings_toggle_field(
+                        self,
+                        'registration_require_consent',
+                        css_class=f"col-lg-6 dlux-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        attrs={
+                            'data_public_registration_dependent': 'true',
+                            'aria_hidden': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
+                        },
+                    ),
                     css_class='g-3',
+                ),
+                # Privacy links + notice apply to BOTH the sign-in and sign-up
+                # pages, so they are shown regardless of the registration toggle.
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('privacy_settings_title', 'Privacy & Consent')}</h6>"),
+                HTML(f"<p class='small text-muted mb-3'>{s.get('privacy_settings_desc', 'Point users to your own privacy policy and terms. DjangoLux does not supply legal text — see the Data &amp; Privacy documentation for what personal data it stores.')}</p>"),
+                Row(
+                    Div(Field('privacy_policy_url'), css_class='col-lg-6'),
+                    Div(Field('terms_url'), css_class='col-lg-6'),
+                    Div(Field('privacy_notice_text', dir='auto'), css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
                 ),
                 css_class=_step_css_class(2),
             ),
@@ -4919,6 +5052,18 @@ class SystemSettingsForm(forms.ModelForm):
     def clean_honeypot_enabled(self):
         return self._clean_preserved_toggle('honeypot_enabled', 2, True)
 
+    def clean_registration_require_consent(self):
+        return self._clean_preserved_toggle('registration_require_consent', 2, False)
+
+    def clean_privacy_policy_url(self):
+        return self._clean_preserved_text('privacy_policy_url', 2, 500)
+
+    def clean_terms_url(self):
+        return self._clean_preserved_text('terms_url', 2, 500)
+
+    def clean_privacy_notice_text(self):
+        return self._clean_preserved_text('privacy_notice_text', 2, 500)
+
     def clean_show_titlebar_on_public(self):
         return self._clean_preserved_toggle('show_titlebar_on_public', 2, False)
 
@@ -4985,8 +5130,36 @@ class SystemSettingsForm(forms.ModelForm):
     def clean_login_lockout_enabled(self):
         return self._auth_toggle_clean('login_lockout_enabled', True)
 
+    def _auth_int_clean(self, key, default):
+        # Same preservation rule as _auth_toggle_clean, for the numeric knobs:
+        # a single-step post that doesn't own the security step omits the input,
+        # so fall back to the stored auth_config value rather than the default.
+        if (
+            self.is_bound
+            and self.mode != 'setup'
+            and self.single_step_mode
+            and self.single_step_index != 2
+            and key not in self.data
+        ):
+            existing = normalize_auth_config(getattr(self.instance, 'auth_config', None) or {})
+            return existing.get(key, default)
+        value = self.cleaned_data.get(key)
+        return default if value in (None, '') else value
+
+    def clean_login_lockout_threshold(self):
+        return self._auth_int_clean('login_lockout_threshold', 5)
+
+    def clean_login_lockout_window_minutes(self):
+        return self._auth_int_clean('login_lockout_window_minutes', 15)
+
+    def clean_login_lockout_duration_minutes(self):
+        return self._auth_int_clean('login_lockout_duration_minutes', 15)
+
     def clean_enforce_strong_passwords(self):
         return self._auth_toggle_clean('enforce_strong_passwords', False)
+
+    def clean_strong_password_min_length(self):
+        return self._auth_int_clean('strong_password_min_length', 12)
 
     def clean_sidebar_density(self):
         value = self.cleaned_data.get('sidebar_density') or DEFAULT_SIDEBAR_DENSITY
@@ -5265,13 +5438,21 @@ class SystemSettingsForm(forms.ModelForm):
             'email_2fa',
             'prevent_multiple_active_sessions',
             'login_lockout_enabled',
+            'login_lockout_threshold',
+            'login_lockout_window_minutes',
+            'login_lockout_duration_minutes',
             'enforce_strong_passwords',
+            'strong_password_min_length',
             'client_ip_config',
             'public_root',
             'public_root_split_enabled',
             'public_registration_enabled',
             'registration_activation_mode',
             'registration_throttle_enabled',
+            'privacy_policy_url',
+            'terms_url',
+            'privacy_notice_text',
+            'registration_require_consent',
             'email_config',
             'notification_config',
             'backup_config',
@@ -5768,7 +5949,11 @@ class SystemSettingsForm(forms.ModelForm):
             'email_2fa': bool(auth_config.get('email_2fa', False)),
             'prevent_multiple_active_sessions': bool(auth_config.get('prevent_multiple_active_sessions', False)),
             'login_lockout_enabled': bool(auth_config.get('login_lockout_enabled', True)),
+            'login_lockout_threshold': auth_config.get('login_lockout_threshold', 5),
+            'login_lockout_window_minutes': auth_config.get('login_lockout_window_minutes', 15),
+            'login_lockout_duration_minutes': auth_config.get('login_lockout_duration_minutes', 15),
             'enforce_strong_passwords': bool(auth_config.get('enforce_strong_passwords', False)),
+            'strong_password_min_length': auth_config.get('strong_password_min_length', 12),
             'client_ip_config': self.cleaned_data.get('client_ip_config', default_client_ip_config()),
             'public_root': bool(public_root_config.get('public_root', False)),
             'public_root_split_enabled': bool(public_root_config.get('public_root_split_enabled', False)),
@@ -5782,6 +5967,10 @@ class SystemSettingsForm(forms.ModelForm):
             'registration_activation_mode': registration_config.get('registration_activation_mode'),
             'registration_throttle_enabled': bool(registration_config.get('registration_throttle_enabled', True)),
             'honeypot_enabled': bool(registration_config.get('honeypot_enabled', True)),
+            'privacy_policy_url': registration_config.get('privacy_policy_url', ''),
+            'terms_url': registration_config.get('terms_url', ''),
+            'privacy_notice_text': registration_config.get('privacy_notice_text', ''),
+            'registration_require_consent': bool(registration_config.get('registration_require_consent', False)),
             'email_config': self.cleaned_data.get('email_config', default_email_config()),
             'sidebar_config': self.cleaned_data.get('sidebar_config', {'home_url_name': None, 'entries': []}),
             'navbar_config': self.cleaned_data.get('navbar_config', default_navbar_config()),

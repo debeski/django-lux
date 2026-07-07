@@ -1,0 +1,15 @@
+{% comment %}
+Reusable privacy notice for the sign-in / sign-up pages. Renders only when the
+operator has configured a privacy-policy URL or a custom notice text (System
+Settings → Access & Security → Privacy & Consent). Reads APP_CONFIG.security so
+it works on any page without extra view context. DjangoLux ships no legal text.
+{% endcomment %}
+{% with sec=APP_CONFIG.security %}
+{% if sec.privacy_policy_url or sec.privacy_notice_text %}
+<div class="dlux-auth-privacy small text-muted mt-3">
+    {% if sec.privacy_notice_text %}<span>{{ sec.privacy_notice_text }}</span>{% endif %}
+    {% if sec.privacy_policy_url %}<a href="{{ sec.privacy_policy_url }}" target="_blank" rel="noopener noreferrer">{{ DLUX_STRINGS.privacy_policy_link|default:'Privacy Policy' }}</a>{% endif %}
+    {% if sec.terms_url %}<a href="{{ sec.terms_url }}" target="_blank" rel="noopener noreferrer">{{ DLUX_STRINGS.terms_link|default:'Terms' }}</a>{% endif %}
+</div>
+{% endif %}
+{% endwith %}

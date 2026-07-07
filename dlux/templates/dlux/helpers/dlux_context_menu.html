@@ -1,8 +1,9 @@
 {% load static %}
+{% load dlux_tags %}
 
 <!-- Dlux Context Menu Resources -->
-<link rel="stylesheet" href="{% static 'dlux/helpers/context_menu/css/main.css' %}?v=20260612c">
-<script nonce="{{ request.csp_nonce }}" src="{% static 'dlux/helpers/context_menu/js/main.js' %}?v=20260612c"></script>
+<link rel="stylesheet" href="{% dlux_static 'dlux/helpers/context_menu/css/main.css' %}">
+<script nonce="{{ request.csp_nonce }}" src="{% dlux_static 'dlux/helpers/context_menu/js/main.js' %}"></script>
 
 <!-- 
     Dlux Context Menu Container

@@ -207,3 +207,68 @@ class PublicRegistrationTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(self.client.session.get('_auth_user_id'))
+
+
+@override_settings(
+    DEBUG=True,
+    EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    DEFAULT_FROM_EMAIL='security@example.com',
+)
+class RegistrationConsentAndPrivacyTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        mail.outbox = []
+        self.client = Client()
+        s = SystemSettings.load()
+        s.is_configured = True
+        s.public_registration_enabled = True
+        s.registration_throttle_enabled = False
+        s.registration_require_consent = True
+        s.privacy_policy_url = 'https://example.com/privacy'
+        s.terms_url = 'https://example.com/terms'
+        s.privacy_notice_text = 'We log sign-in IPs for security.'
+        s.save()
+
+    def _payload(self, **extra):
+        data = {
+            'email': 'consent@example.com',
+            'password1': 'Strong-test-pass-123',
+            'password2': 'Strong-test-pass-123',
+            'first_name': 'C',
+            'last_name': 'User',
+            'website': '',
+        }
+        data.update(extra)
+        return data
+
+    def test_config_exposes_privacy_keys(self):
+        from dlux.utils import get_system_config
+        cache.clear()
+        config = get_system_config()
+        self.assertEqual(config['privacy_policy_url'], 'https://example.com/privacy')
+        self.assertTrue(config['registration_require_consent'])
+        self.assertEqual(config['security']['terms_url'], 'https://example.com/terms')
+
+    def test_register_page_shows_consent_and_privacy_notice(self):
+        html = self.client.get(reverse('register')).content.decode()
+        self.assertIn('dlux-auth-consent', html)
+        self.assertIn('name="consent"', html)
+        self.assertIn('dlux-auth-privacy', html)
+        self.assertIn('https://example.com/privacy', html)
+        self.assertIn('We log sign-in IPs for security.', html)
+
+    def test_signup_blocked_without_consent(self):
+        response = self.client.post(reverse('register'), self._payload())
+        self.assertEqual(response.status_code, 200)  # re-rendered with error
+        self.assertFalse(User.objects.filter(email='consent@example.com').exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_signup_succeeds_with_consent(self):
+        response = self.client.post(reverse('register'), self._payload(consent='on'))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_login_page_shows_privacy_notice(self):
+        html = self.client.get(reverse('login')).content.decode()
+        self.assertIn('dlux-auth-privacy', html)
+        self.assertIn('https://example.com/privacy', html)

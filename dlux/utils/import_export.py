@@ -105,10 +105,15 @@ def export_system_settings_payload(instance=None):
             'email_2fa',
             'prevent_multiple_active_sessions',
             'login_lockout_enabled',
+            'login_lockout_threshold',
+            'login_lockout_window_minutes',
+            'login_lockout_duration_minutes',
             'enforce_strong_passwords',
+            'strong_password_min_length',
         ):
-            # These toggles are stored in the consolidated auth_config JSON field;
-            # keep exporting them as flat keys for backward-compatible import files.
+            # These toggles/knobs are stored in the consolidated auth_config JSON
+            # field; keep exporting them as flat keys for backward-compatible
+            # import files.
             value = auth_export.get(field_name)
         else:
             value = getattr(instance, field_name, None)
@@ -240,6 +245,7 @@ def normalize_system_settings_import_payload(payload):
         'public_registration_enabled',
         'registration_throttle_enabled',
         'honeypot_enabled',
+        'registration_require_consent',
         'sticky_table_headers',
         'zebra_striping',
     ):
@@ -292,6 +298,17 @@ def apply_system_settings_import(
             # Flat auth toggles route into the consolidated auth_config JSON field.
             auth = dict(getattr(instance, 'auth_config', None) or {})
             auth[field_name] = _coerce_import_bool(value)
+            instance.auth_config = normalize_auth_config(auth)
+        elif field_name in (
+            'login_lockout_threshold',
+            'login_lockout_window_minutes',
+            'login_lockout_duration_minutes',
+            'strong_password_min_length',
+        ):
+            # Flat auth int knobs also route into auth_config; the normalizer
+            # clamps out-of-range values back to the shipped defaults.
+            auth = dict(getattr(instance, 'auth_config', None) or {})
+            auth[field_name] = value
             instance.auth_config = normalize_auth_config(auth)
         elif field_name == 'auth_config' and isinstance(value, dict):
             instance.auth_config = normalize_auth_config(value)

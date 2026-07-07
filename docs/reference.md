@@ -473,6 +473,12 @@ Common runtime feature flags in `get_system_config()`:
 
 - `email_2fa` — Enable email-based 2FA (set via `DLUX_CONFIG['email_2fa']` or the System Settings UI)
 - `prevent_multiple_active_sessions` — When true, each successful login or completed 2FA login becomes the user's only active session. Dlux evicts other session keys for that user regardless of trusted-device status; trusted devices keep their trust record but must start a new session next time.
+- `login_lockout_enabled` — Cache-based failed-login lockout on the password step (default on).
+- `login_lockout_threshold` — Failed attempts from the same IP or username before the lock arms (1–50, default 5).
+- `login_lockout_window_minutes` — Rolling window during which failed attempts keep counting (1–1440, default 15).
+- `login_lockout_duration_minutes` — How long sign-in stays blocked once the lock is armed (1–1440, default 15). The legacy `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` / `DLUX_LOGIN_LOCKOUT_SECONDS` Django settings act only as a fallback when system config cannot be resolved.
+- `enforce_strong_passwords` — Enable the strict password validator on every set-password path.
+- `strong_password_min_length` — Minimum length the strict validator (and the live checklist card) requires while enforcement is on (8–64, default 12).
 - `email_config` — Redacted Dlux email delivery config. Supports delivery `transport` (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never include SMTP secrets.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.
@@ -481,6 +487,14 @@ Common runtime feature flags in `get_system_config()`:
   form (`registration_config.honeypot_enabled`, default on). When on, a submission
   that fills the hidden field is silently redirected to `register_sent`. Exposed as
   `APP_CONFIG.security.honeypot_enabled`.
+- `privacy_policy_url` / `terms_url` — Operator-supplied policy links
+  (`registration_config`). When `privacy_policy_url` is set, a privacy line/link is
+  rendered on the sign-in and sign-up pages (shared `dlux/includes/auth_privacy_notice.html`,
+  reading `APP_CONFIG.security`). DjangoLux ships no legal text.
+- `privacy_notice_text` — Optional short notice shown with the privacy link.
+- `registration_require_consent` — When true, the public registration form shows a
+  **required** "I agree to the Terms & Privacy Policy" checkbox (validated in
+  `PublicRegistrationForm(require_consent=...)`). See [Data & Privacy](data-privacy.md).
 - `client_ip_config` — Centralized Client IP resolution configuration. Supports
   `mode` (`auto`, `x_forwarded_for`, `remote_addr`, `x_real_ip`, `cloudflare`,
   or `custom`), `trusted_proxy_hops` (0–8), and `custom_header` for custom mode.

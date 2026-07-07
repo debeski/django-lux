@@ -1,8 +1,9 @@
 {% extends 'dlux/base.html' %}
 {% load static %}
+{% load dlux_tags %}
 {% block title %}{{ DLUX_STRINGS.login }}{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'dlux/users/css/login.css' %}?v={% now 'U' %}">
+<link rel="stylesheet" href="{% dlux_static 'dlux/users/css/login.css' %}">
 {% if theme %}
 {{ theme|json_script:"login-theme-data" }}
 {% endif %}
@@ -79,6 +80,8 @@
                     </div>
                 </div>
                 {% endif %}
+
+                {% include 'dlux/includes/auth_privacy_notice.html' %}
             </div>
         </form>
       </div>
@@ -101,5 +104,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% static 'dlux/users/js/login.js' %}?v={% now 'U' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% dlux_static 'dlux/users/js/login.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}
