@@ -16,8 +16,9 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.cache import caches
 from django.core.validators import validate_email
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.db import connection
+from django.db import connection, transaction
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
@@ -27,6 +28,7 @@ from django.utils.module_loading import import_string
 from django.utils.text import slugify
 
 from dlux import __version__
+from dlux.guards import require_current_password
 from dlux.system.constants import DEFAULT_HOME_URL
 from dlux.notifications import notify
 from dlux.translations import get_current_language_code, get_strings
@@ -507,6 +509,27 @@ def _get_system_backup_summary():
     }
 
 
+def _force_password_change_for_all_non_superusers():
+    """Set the existing first-login password-change marker on every non-superuser."""
+    User = get_user_model()
+    Profile = apps.get_model('dlux', 'Profile')
+    users = User.objects.filter(is_superuser=False).only('pk')
+    updated_count = 0
+
+    with transaction.atomic():
+        for user in users.iterator():
+            profile, _created = Profile.all_objects.get_or_create(user=user)
+            preferences = dict(profile.preferences or {})
+            if preferences.get('force_password_change') is True:
+                continue
+            preferences['force_password_change'] = True
+            profile.preferences = preferences
+            profile.save(update_fields=['preferences'])
+            updated_count += 1
+
+    return updated_count, users.count()
+
+
 # Dashboard View removed as per UX enhancements
 # @login_required
 # def dashboard(request):
@@ -607,6 +630,69 @@ def options_view(request):
         )
     context.update(diagnostic_context)
     return render(request, 'dlux/includes/options.html', context)
+
+
+@login_required
+@require_POST
+def force_password_change_all_view(request):
+    """
+    Superuser-only admin-panel command that reuses the existing forced password
+    change marker used by the create-user form.
+    """
+    strings = get_strings(get_current_language_code(request))
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+    if not request.user.is_superuser:
+        message = strings.get('permission_denied', 'Permission denied.')
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': message}, status=403)
+        raise PermissionDenied
+
+    if failure_response := require_current_password(request, redirect_name='options_view'):
+        return failure_response
+
+    updated_count, total_count = _force_password_change_for_all_non_superusers()
+    message_template = strings.get(
+        'force_pass_change_all_success',
+        'Password change is required for {total} non-superuser account(s); {count} newly marked.',
+    )
+    try:
+        message = message_template.format(count=updated_count, total=total_count)
+    except Exception:
+        message = message_template
+
+    try:
+        from dlux.utils import log_audit_event
+        log_audit_event(
+            request,
+            'force_password_change_all',
+            'PASSWORD_RESET',
+            instance=request.user,
+            model_name='user',
+            details={'updated_count': updated_count, 'total_count': total_count},
+        )
+    except Exception:
+        logger.debug("Failed to write bulk force-password-change audit event.", exc_info=True)
+
+    notify.success(
+        message,
+        request=request,
+        action='force_password_change_all',
+        category='security',
+        metadata={
+            'message_key': 'force_pass_change_all_success',
+            'updated_count': updated_count,
+            'total_count': total_count,
+        },
+    )
+
+    return JsonResponse({
+        'status': 'success',
+        'success': True,
+        'message': message,
+        'updated_count': updated_count,
+        'total_count': total_count,
+    })
 
 
 def _debug_bool_param(request, name, default=None):

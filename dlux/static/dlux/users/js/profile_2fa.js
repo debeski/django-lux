@@ -427,106 +427,19 @@ function downloadCodes(codes) {
 
 // Helper for Confirmation Modal
 function showConfirmation(message, onConfirm) {
-    const config = typeof message === 'object' && message !== null
-        ? message
-        : { message, onConfirm };
-    const modalEl = document.getElementById('confirmationModal');
-    const msgEl = document.getElementById('confirmationMessage');
-    const btnEl = document.getElementById('confirmationConfirmBtn');
-    const passwordWrap = document.getElementById('confirmationPasswordWrap');
-    const passwordInput = document.getElementById('confirmationPasswordInput');
-    const passwordError = document.getElementById('confirmationPasswordError');
-    
-    if (!modalEl || !msgEl || !btnEl) return;
-    
-    msgEl.textContent = config.message || '';
-    const requirePassword = !!config.requirePassword;
-    if (passwordWrap) {
-        passwordWrap.classList.toggle('d-none', !requirePassword);
-    }
-    if (passwordInput) {
-        passwordInput.value = '';
-        passwordInput.required = requirePassword;
-        passwordInput.classList.remove('is-invalid');
-    }
-    if (passwordError) {
-        passwordError.textContent = '';
-        passwordError.classList.add('d-none');
-    }
-    
-    // Create new modal instance
-    const modal = new bootstrap.Modal(modalEl);
-    
-    // Remove old listeners to prevent stacking
-    const newBtn = btnEl.cloneNode(true);
-    btnEl.parentNode.replaceChild(newBtn, btnEl);
-
-    const clearPasswordError = function() {
-        if (passwordInput) passwordInput.classList.remove('is-invalid');
-        if (passwordError) {
-            passwordError.textContent = '';
-            passwordError.classList.add('d-none');
-        }
-    };
-    const showPasswordError = function(message) {
-        if (passwordInput) {
-            passwordInput.classList.add('is-invalid');
-            passwordInput.focus();
-        }
-        if (passwordError) {
-            passwordError.textContent = message || '';
-            passwordError.classList.toggle('d-none', !message);
-        }
-    };
-    
-    const confirmCurrentModal = function() {
-        const currentPassword = passwordInput ? passwordInput.value.trim() : '';
-        if (requirePassword && !currentPassword) {
-            showPasswordError(passwordInput?.dataset.requiredMsg || 'Please enter your current password.');
-            return;
-        }
-        clearPasswordError();
-        if (typeof config.onConfirm !== 'function') {
-            modal.hide();
-            return;
-        }
-
-        const result = config.onConfirm(currentPassword, { showError: showPasswordError });
-        if (!result || typeof result.then !== 'function') {
-            if (result !== false) modal.hide();
-            return;
-        }
-
-        setButtonLoading(newBtn, true);
-        result
-            .then(shouldClose => {
-                if (shouldClose !== false) modal.hide();
-            })
-            .catch(err => showPasswordError(err.message))
-            .finally(() => setButtonLoading(newBtn, false));
-    };
-
-    newBtn.addEventListener('click', confirmCurrentModal);
-    if (requirePassword && passwordInput) {
-        const submitOnEnter = function(event) {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            confirmCurrentModal();
-        };
-        const removeEnterHandler = function() {
-            passwordInput.removeEventListener('keydown', submitOnEnter);
-            passwordInput.removeEventListener('input', clearPasswordError);
-        };
-
-        passwordInput.addEventListener('keydown', submitOnEnter);
-        passwordInput.addEventListener('input', clearPasswordError);
-        modalEl.addEventListener('hidden.bs.modal', removeEnterHandler, { once: true });
-    }
-    
-    modal.show();
-    if (requirePassword && passwordInput) {
-        setTimeout(() => passwordInput.focus(), 150);
-    }
+    // Thin wrapper over the global confirm-password prompt (confirm_password.js).
+    // Accepts the legacy (message, onConfirm) signature and the config object.
+    const config = (typeof message === 'object' && message !== null) ? message : { message: message, onConfirm: onConfirm };
+    if (typeof window.dluxConfirmPassword !== 'function') { return; }
+    return window.dluxConfirmPassword({
+        title: config.title,
+        description: config.description != null ? config.description : config.message,
+        confirmLabel: config.confirmLabel,
+        requirePassword: config.requirePassword,
+        danger: config.danger,
+        icon: config.icon,
+        onConfirm: config.onConfirm,
+    });
 }
 
 function disable2FA(e) {

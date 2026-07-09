@@ -335,6 +335,82 @@
         });
     }
 
+    function initForcePasswordChangeAll() {
+        // Reuse the global confirm-password prompt (confirm_password.js) instead of
+        // a bespoke modal — same design as every other "confirm with your password".
+        const openButton = document.querySelector('[data-force-pass-change-open]');
+        if (!openButton) {
+            return;
+        }
+        openButton.addEventListener('click', () => {
+            if (typeof window.dluxConfirmPassword !== 'function') {
+                return;
+            }
+            window.dluxConfirmPassword({
+                title: openButton.dataset.title,
+                description: openButton.dataset.description,
+                confirmLabel: openButton.dataset.confirmLabel,
+                icon: 'bi-key-fill',
+                danger: true,
+                requirePassword: true,
+                onConfirm: (currentPassword) => {
+                    const body = new FormData();
+                    body.append('current_password', currentPassword);
+                    return fetch(openButton.dataset.url, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken(),
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body,
+                    })
+                        .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+                        .then(({ ok, data }) => {
+                            if (!ok || data.status !== 'success') {
+                                throw new Error(data.message || 'Unable to apply command.');
+                            }
+                            if (window.showToast && data.message) {
+                                window.showToast(data.message);
+                            }
+                            return true;
+                        });
+                },
+            });
+        });
+    }
+
+    function initAdminCommandLauncher() {
+        const launcher = document.querySelector('[data-admin-command-launcher]');
+        const toggle = launcher?.querySelector('[data-admin-command-toggle]');
+        if (!launcher || !toggle) {
+            return;
+        }
+
+        function setOpen(isOpen) {
+            launcher.classList.toggle('is-open', isOpen);
+            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            setOpen(!launcher.classList.contains('is-open'));
+        });
+
+        launcher.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+
+        document.addEventListener('click', () => {
+            setOpen(false);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                setOpen(false);
+            }
+        });
+    }
+
     function persistCardOrder(grid, storageKey) {
         const order = Array.from(grid.querySelectorAll('.dlux-options-card[data-options-card]'))
             .map((card) => card.dataset.optionsCard)
@@ -498,13 +574,96 @@
         });
     }
 
+    // Tabbed Options layout: turn each visible card (admin panel first, then the
+    // user-preference cards) into a tab pane, driven by a generated tab strip.
+    // Labels/icons are read from each card's own heading so no server changes are
+    // needed. Reordering is disabled in this mode.
+    function initOptionsTabs(grid) {
+      try {
+        const cards = Array.from(grid.querySelectorAll(':scope > .dlux-options-card'))
+            .filter((card) => window.getComputedStyle(card).display !== 'none');
+        // With fewer than two panes, tabs add nothing — leave the cards visible
+        // (the fail-safe CSS only hides panes once we add the ready class below).
+        if (cards.length < 2) {
+            return;
+        }
+
+        const nav = document.createElement('div');
+        nav.className = 'dlux-options-tabs no-print';
+        nav.setAttribute('role', 'tablist');
+
+        const tabs = [];
+        cards.forEach((card, index) => {
+            const heading = card.querySelector('h4');
+            const iconEl = heading ? heading.querySelector('i.bi') : null;
+            const label = heading ? heading.textContent.trim() : ('Tab ' + (index + 1));
+
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = 'dlux-options-tab';
+            tab.setAttribute('role', 'tab');
+            tab.id = 'dlux-options-tab-' + index;
+            if (iconEl) {
+                const icon = document.createElement('i');
+                icon.className = iconEl.className;
+                tab.appendChild(icon);
+            }
+            const text = document.createElement('span');
+            text.className = 'dlux-options-tab__label';
+            text.textContent = label;
+            tab.appendChild(text);
+
+            tab.addEventListener('click', () => activate(index));
+            tab.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); activate((index + 1) % cards.length); }
+                else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); activate((index - 1 + cards.length) % cards.length); }
+            });
+            nav.appendChild(tab);
+            tabs.push(tab);
+        });
+
+        function activate(index) {
+            cards.forEach((card, i) => {
+                const on = i === index;
+                card.classList.toggle('dlux-options-card--tab-active', on);
+                tabs[i].classList.toggle('is-active', on);
+                tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
+                tabs[i].setAttribute('tabindex', on ? '0' : '-1');
+            });
+            try { sessionStorage.setItem('dlux.options.active-tab', String(index)); } catch (_e) { /* ignore */ }
+        }
+
+        grid.parentNode.insertBefore(nav, grid);
+        let start = 0;
+        try {
+            const saved = parseInt(sessionStorage.getItem('dlux.options.active-tab'), 10);
+            if (!isNaN(saved) && saved >= 0 && saved < cards.length) { start = saved; }
+        } catch (_e) { /* ignore */ }
+        activate(start);
+        // Only now — with the tab strip built and one pane active — do we let the
+        // CSS hide the inactive panes. If anything above threw, this line is never
+        // reached and every card stays visible (a plain stacked list), so the page
+        // is never blank and the style can always be changed back.
+        grid.classList.add('dlux-options-tabs-ready');
+      } catch (_e) {
+        grid.classList.remove('dlux-options-tabs-ready');
+      }
+    }
+
     onReady(() => {
         const grid = document.getElementById('dluxOptionsGrid');
         if (!grid) {
             return;
         }
 
-        initCardOrdering(grid);
+        // Card reordering only applies to the default card grid; tabs/compact
+        // are single-flow layouts where drag-reorder makes no sense.
+        const optionsStyle = grid.getAttribute('data-options-style') || 'cards';
+        if (optionsStyle === 'tabs') {
+            initOptionsTabs(grid);
+        } else if (optionsStyle === 'cards') {
+            initCardOrdering(grid);
+        }
         initAutofill();
         initThemePicker();
         initAccessibilityToggles();
@@ -516,6 +675,8 @@
         initModalSizePicker();
         initNavbarModePicker();
         initResetDefaults(grid);
+        initAdminCommandLauncher();
+        initForcePasswordChangeAll();
         focusHashCard();
     });
 

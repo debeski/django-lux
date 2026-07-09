@@ -654,32 +654,8 @@
     </div>
 </div>
 
-<!-- Generic Confirmation Modal -->
-<div class="modal fade profile-confirmation-modal" id="confirmationModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content glass-card border-0">
-            <div class="modal-body text-center p-4">
-                <i class="bi bi-exclamation-circle text-warning display-4 mb-3"></i>
-                <h5 class="mb-2 profile-confirmation-title">{{ DLUX_STRINGS.modal_confirm_title }}</h5>
-                <p class="small mb-4 profile-confirmation-copy" id="confirmationMessage">{{ DLUX_STRINGS.modal_confirm_msg }}</p>
-                <div id="confirmationPasswordWrap" class="d-none text-start mb-3">
-                    <label for="confirmationPasswordInput" class="form-label">{{ DLUX_STRINGS.form_old_password }}</label>
-                    <input type="password"
-                           class="form-control"
-                           id="confirmationPasswordInput"
-                           autocomplete="current-password"
-                           data-required-msg="{{ DLUX_STRINGS.current_password_required }}">
-                    <div class="form-text">{{ DLUX_STRINGS.current_password_prompt }}</div>
-                    <div class="text-danger small mt-2 d-none" id="confirmationPasswordError"></div>
-                </div>
-                <div class="d-flex justify-content-center gap-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">{{ DLUX_STRINGS.cancel }}</button>
-                    <button type="button" class="btn btn-primary btn-sm px-4" id="confirmationConfirmBtn">{{ DLUX_STRINGS.confirm }}</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+{# Confirm-password prompts now use the global dluxConfirmPassword modal        #}
+{# (dlux/includes/confirm_password_modal.html, rendered in base.html).          #}
 {% endblock %}
 
 {% block scripts %}

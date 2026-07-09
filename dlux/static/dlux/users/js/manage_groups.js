@@ -49,6 +49,27 @@
             .catch(function (err) { console.error('dlux groups: submit error', err); });
     }
 
+    function csrfToken() {
+        var token = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (token && token.value) return token.value;
+        var match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function postAction(url) {
+        if (!url) return;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { if (d && typeof d.html === 'string') setBody(d.html); })
+            .catch(function (err) { console.error('dlux groups: action error', err); });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         var openBtn = document.getElementById('btn-manage-groups');
         if (openBtn) {
@@ -69,6 +90,19 @@
                     e.preventDefault();
                     loadView(nav.dataset.url);
                 }
+            });
+
+            body.addEventListener('dlux:group:members', function (e) {
+                var url = e.detail?.data?.url || e.detail?.action?.data?.url;
+                loadView(url);
+            });
+            body.addEventListener('dlux:group:edit', function (e) {
+                var url = e.detail?.data?.url || e.detail?.action?.data?.url;
+                loadView(url);
+            });
+            body.addEventListener('dlux:group:toggle-public-default', function (e) {
+                var url = e.detail?.data?.url || e.detail?.action?.data?.url;
+                postAction(url);
             });
         }
     });

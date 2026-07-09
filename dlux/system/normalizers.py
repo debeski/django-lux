@@ -23,9 +23,11 @@ from .constants import (
     FORM_DENSITY_VALUES,
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
+    DEFAULT_OPTIONS_STYLE,
     LAYOUT_FOOTER_TEXT_MAX_LENGTH,
     LOGIN_STYLE_VALUES,
     MODAL_SIZE_VALUES,
+    OPTIONS_STYLE_VALUES,
     PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
     PUBLIC_ROOT_TITLE_MAX_LENGTH,
     NAVBAR_MODE_VALUES,
@@ -385,6 +387,9 @@ def normalize_layout_config(value):
     modal_size = cfg.get('default_modal_size') or DEFAULT_MODAL_SIZE
     if modal_size not in MODAL_SIZE_VALUES:
         modal_size = DEFAULT_MODAL_SIZE
+    options_style = cfg.get('options_style') or DEFAULT_OPTIONS_STYLE
+    if options_style not in OPTIONS_STYLE_VALUES:
+        options_style = DEFAULT_OPTIONS_STYLE
     footer_enabled = cfg.get('footer_enabled', True)
     return {
         'default_table_density': density,
@@ -392,6 +397,7 @@ def normalize_layout_config(value):
         'default_modal_size': modal_size,
         'sticky_table_headers': bool(cfg.get('sticky_table_headers', True)),
         'zebra_striping': bool(cfg.get('zebra_striping', True)),
+        'options_style': options_style,
         'footer_enabled': bool(footer_enabled),
         'footer_text': _normalize_footer_text_value(cfg.get('footer_text')),
         'footer_link_text': _normalize_footer_text_value(cfg.get('footer_link_text')),

@@ -201,7 +201,16 @@
     }
 
     var ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
+    var lastActivityTick = 0;
     function onActivity() {
+        // Throttle hard: scroll/mousemove fire dozens of times per second, but the
+        // idle window is minutes — doing anything per-event just janks scrolling.
+        // A single timestamp compare per event is all these listeners cost now.
+        var now = Date.now();
+        if (now - lastActivityTick < 1000) {
+            return;
+        }
+        lastActivityTick = now;
         // Ignore activity while the warning modal is open so clicking its own
         // buttons doesn't silently reset the clock; the buttons handle intent.
         if (modal && modal.classList.contains('dlux-idle-modal--open')) {

@@ -1,0 +1,103 @@
+<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <h5 class="modal-title mb-1">{{ scope.name }}</h5>
+        {% if scope.description %}
+            <p class="text-muted small mb-0">{{ scope.description }}</p>
+        {% endif %}
+    </div>
+    <button type="button" class="btn btn-secondary rounded-pill js-load-scope-form" data-url="{% url 'manage_scopes' %}">
+        <i class="bi bi-arrow-right me-1"></i> {{ DLUX_STRINGS.back_to_list|default:"Back to List" }}
+    </button>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="border rounded p-3 h-100">
+            <div class="text-muted small">{{ DLUX_STRINGS.scope_users_title|default:"Users" }}</div>
+            <div class="fs-4 fw-semibold">{{ user_count }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="border rounded p-3 h-100">
+            <div class="text-muted small">{{ DLUX_STRINGS.scope_group_presets_title|default:"Group Presets" }}</div>
+            <div class="fs-4 fw-semibold">{{ preset_count }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="border rounded p-3 h-100">
+            <div class="text-muted small">{{ DLUX_STRINGS.scope_activity_title|default:"Activity" }}</div>
+            <div class="fs-4 fw-semibold">{{ activity_count }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="border rounded p-3 h-100">
+            <div class="text-muted small">{{ DLUX_STRINGS.public_registration_default_short|default:"Registration" }}</div>
+            {% if scope.is_public_registration_default %}
+                <span class="badge bg-primary mt-2">
+                    <i class="bi bi-person-plus-fill me-1"></i>{{ DLUX_STRINGS.public_registration_default_badge|default:"Public default" }}
+                </span>
+            {% else %}
+                <span class="text-muted small">-</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <h6 class="mb-2">{{ DLUX_STRINGS.scope_users_title|default:"Users" }}</h6>
+        <div class="list-group">
+            {% for user in users %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>{{ user.get_full_name|default:user.username }}</span>
+                    <span class="text-muted small">{{ user.email }}</span>
+                </div>
+            {% empty %}
+                <div class="list-group-item text-muted small">{{ DLUX_STRINGS.scope_no_users|default:"No users in this scope." }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <h6 class="mb-2">{{ DLUX_STRINGS.scope_data_title|default:"Data" }}</h6>
+        <div class="list-group">
+            {% for item in data_counts %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>{{ item.label|capfirst }}</span>
+                    <span class="badge bg-secondary">{{ item.count }}</span>
+                </div>
+            {% empty %}
+                <div class="list-group-item text-muted small">{{ DLUX_STRINGS.scope_no_data|default:"No scoped data found." }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <h6 class="mb-2">{{ DLUX_STRINGS.scope_group_presets_title|default:"Group Presets" }}</h6>
+        <div class="list-group">
+            {% for preset in group_presets %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>{{ preset.group.name }}</span>
+                    {% if preset.is_public_registration_default %}
+                        <span class="badge bg-primary">{{ DLUX_STRINGS.public_registration_default_badge|default:"Public default" }}</span>
+                    {% else %}
+                        <span class="text-muted small">{{ DLUX_STRINGS.group_member_count|default:"Members" }}: {{ preset.group.user_set.count }}</span>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <div class="list-group-item text-muted small">{{ DLUX_STRINGS.scope_no_group_presets|default:"No group presets in this scope." }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <h6 class="mb-2">{{ DLUX_STRINGS.scope_activity_title|default:"Activity" }}</h6>
+        <div class="list-group">
+            {% for item in recent_activity %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>{{ item }}</span>
+                    <span class="text-muted small">{{ item.created_at }}</span>
+                </div>
+            {% empty %}
+                <div class="list-group-item text-muted small">{{ DLUX_STRINGS.scope_no_activity|default:"No recent scope activity." }}</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

@@ -67,6 +67,7 @@ from .config import (
     normalize_default_fonts,
     normalize_email_config,
     normalize_extra_config,
+    normalize_layout_config,
     normalize_log_config,
     normalize_login_config,
     normalize_profile_config,
@@ -100,6 +101,7 @@ def export_system_settings_payload(instance=None):
 
     data = {}
     auth_export = normalize_auth_config(getattr(instance, 'auth_config', None) or {})
+    layout_export = normalize_layout_config(getattr(instance, 'layout_config', None) or {})
     for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
         if field_name in (
             'email_2fa',
@@ -118,6 +120,9 @@ def export_system_settings_payload(instance=None):
             # field; keep exporting them as flat keys for backward-compatible
             # import files.
             value = auth_export.get(field_name)
+        elif field_name == 'options_style':
+            # JSON-only layout key (no legacy column): export from layout_config.
+            value = layout_export.get('options_style')
         else:
             value = getattr(instance, field_name, None)
         if field_name in {'logo', 'favicon'}:
@@ -316,6 +321,11 @@ def apply_system_settings_import(
             auth = dict(getattr(instance, 'auth_config', None) or {})
             auth[field_name] = value
             instance.auth_config = normalize_auth_config(auth)
+        elif field_name == 'options_style':
+            # JSON-only layout key (no legacy column): route into layout_config.
+            layout = dict(getattr(instance, 'layout_config', None) or {})
+            layout['options_style'] = value
+            instance.layout_config = normalize_layout_config(layout)
         elif field_name == 'auth_config' and isinstance(value, dict):
             instance.auth_config = normalize_auth_config(value)
         elif field_name == 'notification_config' and isinstance(value, dict):

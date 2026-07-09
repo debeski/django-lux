@@ -1345,7 +1345,7 @@
         }
 
         const catalog = parseJson(builder.querySelector('.dlux-navbar-catalog-data')?.value || '[]', [])
-            .filter((entry) => entry && entry.kind === 'item' && entry.url_name && !entry.is_system);
+            .filter((entry) => entry && entry.kind === 'item' && entry.url_name);
         const languages = parseJson(builder.querySelector('.dlux-navbar-languages-data')?.value || '{}', {});
         const state = {
             config: readNavbarBuilderConfig(parseJson(hiddenInput.value || builder.querySelector('.dlux-navbar-config-data')?.value || '{}', {})),

@@ -90,7 +90,8 @@
     <script src="{% dlux_static 'dlux/main/js/signature.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/password_rules/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     {% if request.user.is_authenticated %}<script src="{% dlux_static 'dlux/main/js/session_timeout.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
-    <script src="{% dlux_static 'dlux/main/js/global_search.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}
+    <script src="{% dlux_static 'dlux/main/js/global_search.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/main/js/confirm_password.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}
 
 </head>
 <body data-dlux-sticky-header="{{ APP_CONFIG.appearance.sticky_table_headers|yesno:'on,off' }}" data-dlux-zebra="{{ APP_CONFIG.appearance.zebra_striping|yesno:'on,off' }}" data-dlux-form-density="{{ user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density|default:'balanced' }}" data-dlux-modal-size="{{ user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size|default:'standard' }}">
@@ -138,6 +139,8 @@
     {% block footer %}
     {% include 'dlux/includes/footer.html' %}
     {% endblock %}
+
+    {% if request.user.is_authenticated %}{% include 'dlux/includes/confirm_password_modal.html' %}{% endif %}
 
     {% include_if_exists 'dlux/includes/custom_scripts.html' %}
     

@@ -5,13 +5,14 @@ setup_test_environment()
 import re
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core import mail
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from dlux.system.constants import REGISTRATION_ACTIVATION_PENDING_APPROVAL
-from dlux.models import PublicRegistration, SystemSettings
+from dlux.models import GroupProfile, PublicRegistration, Scope, ScopeSettings, SystemSettings
 
 
 User = get_user_model()
@@ -158,6 +159,44 @@ class PublicRegistrationTests(TestCase):
         registration = PublicRegistration.objects.get(user=user)
         self.assertEqual(registration.status, 'activated')
         self.assertFalse(registration.token_hash)
+
+    def test_verify_applies_public_registration_scope_and_group_defaults(self):
+        self._enable_registration()
+        scope_settings = ScopeSettings.load()
+        scope_settings.is_enabled = True
+        scope_settings.save(update_fields=['is_enabled'])
+        default_scope = Scope.objects.create(
+            name='Public Scope',
+            description='New public accounts land here.',
+            is_public_registration_default=True,
+        )
+        other_scope = Scope.objects.create(name='Other Scope')
+        global_group = Group.objects.create(name='Global Public')
+        scoped_group = Group.objects.create(name='Scoped Public')
+        other_group = Group.objects.create(name='Other Scoped Public')
+        GroupProfile.objects.create(group=global_group, is_public_registration_default=True)
+        GroupProfile.objects.create(
+            group=scoped_group,
+            scope=default_scope,
+            is_public_registration_default=True,
+        )
+        GroupProfile.objects.create(
+            group=other_group,
+            scope=other_scope,
+            is_public_registration_default=True,
+        )
+        self.client.post(reverse('register'), self._registration_payload())
+        token = self._posted_token()
+
+        response = self.client.get(reverse('register_verify', args=[token]))
+
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(email='newuser@example.com')
+        user.profile.refresh_from_db()
+        self.assertEqual(user.profile.scope_id, default_scope.pk)
+        self.assertFalse(user.profile.preferences.get('force_password_change', False))
+        assigned_names = set(user.groups.values_list('name', flat=True))
+        self.assertEqual(assigned_names, {'Global Public', 'Scoped Public'})
 
     def test_verified_pending_approval_keeps_user_inactive_until_superuser_post_approval(self):
         self._enable_registration(REGISTRATION_ACTIVATION_PENDING_APPROVAL)

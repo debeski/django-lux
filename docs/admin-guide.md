@@ -44,6 +44,7 @@ The wizard currently runs in eleven steps:
 
 7. UI and Layout
    This step manages titlebar controls (logo/home visibility, logo treatment, action-button shape, Dropdown vs Titlebar Actions user-hub layout, action ordering, alignment, height, and surface style). Titlebar visibility on the anonymous public root is now governed by **Show titlebar on public root** in Step 3 (Access and security), not here.
+   It also sets the **Options page style** (`layout_config.options_style`): **Cards** (default rearrangeable grid), **Tabs** (one section at a time behind a tab strip — the superuser Admin panel becomes the first tab), or **Compact** (a dense single-page, desktop-app-style list). This is a system-wide default applied to every user's Options page.
    This step also configures **Global Search**: a titlebar search box that jumps to pages, settings, and actions from anywhere (press **Ctrl/⌘-K** to focus it). Choose **Icon, expand on focus** (default), **Always visible**, or **Disabled**. While search is enabled, an **Include data records in search** toggle appears — when on, search also matches records the user is allowed to view (not just app components). Settings results deep-link straight to the right settings step, so searching e.g. "inactivity" or "backup" takes you there directly.
 
 8. Notifications
@@ -121,9 +122,9 @@ Step 6 owns the optional authenticated Nav Bar. When enabled, it appears above p
 - **Hierarchy** uses the visual Step 6 tree editor. Discovered routes provide translated labels, and manual grouping nodes can add non-clickable labels or URL-backed shared ancestors.
 - **History** keeps one six-entry recent trail in the current browser session, deduplicates repeated paths without treating filters, sorting, or pagination query strings as new pages, and resolves known route labels in the active interface language.
 - **User override** is available in Options only when the developer allows it. Otherwise the developer-selected default style stays authoritative.
-- Dlux-owned system views are not manually placed from the hierarchy builder; they are automatically grouped under an unclickable `System` crumb when accessible.
+- Dlux-owned system views are automatically grouped under an unclickable `System` crumb when accessible. When a Dlux route is not explicitly placed in the hierarchy builder, its fallback breadcrumb can infer Dlux-owned page links; for example Backup & Restore appears under Application Options because `/sys/options/` links to `/sys/backup/`. Configurable Dlux system routes are available in the builder, and an explicit placement for that route overrides the inferred parent.
 
-Dynamic object and tab pages can supply a `dlux_navbar_crumbs` runtime context list when their labels cannot be modeled by the static hierarchy tree. Runtime crumbs take precedence over the stored tree; unconfigured pages fall back to a translated Root and current-view pair.
+Dynamic object and tab pages can supply a `dlux_navbar_crumbs` runtime context list when their labels cannot be modeled by the static hierarchy tree. Runtime crumbs take precedence over the stored tree; unconfigured pages fall back to the translated Root/System/default route-label chain.
 
 ## Themes and the Shared Theme Registry
 
@@ -259,6 +260,8 @@ DjangoLux provides multiple layers of authentication security.
 - **Sign Out On Browser Close**: Step 3 / Access & Security has a **Sign out on browser close** toggle. When on, the session ends when the tab or browser is closed (the session cookie is dropped instead of persisting), so the next visit requires signing in again.
 - **Sign Out After Inactivity**: The **Sign out after inactivity** toggle reveals an **Inactivity timeout (minutes)** field (1–1440, default 10). After that many minutes with no activity the user is signed out; roughly 30 seconds before, a countdown modal appears with a **Stay signed in** button (which resets the timer) and a **Sign out now** button. Enforcement is both client-side (the modal) and server-side (DluxMiddleware), so it still applies if scripts are disabled.
 - **Privacy & Consent**: Step 3 / Access & Security has a **Privacy & Consent** block. Set **Privacy policy URL** (and optionally **Terms of service URL** + **Privacy notice text**) to render a small privacy line/link on the sign-in and sign-up pages, and enable **Require agreement to sign up** to add a mandatory consent checkbox to the public registration form. DjangoLux supplies no legal text — you provide the policy at those URLs. See [Data & Privacy](data-privacy.md) for exactly what personal data DjangoLux stores and the transparency-vs-consent guidance.
+- **Default scope/groups for public registrations**: These are not System Settings fields. In **Manage Scopes**, right-click or long-press a scope row and choose **Use for public registrations** to mark the one default landing scope. In **Manage Groups**, right-click or long-press a preset row and choose **Use for public registrations** to mark one or more live Group presets. After email verification or superuser approval activates a public registration, Dlux applies the marked scope (only while scopes are enabled) and assigns the marked global or matching-scope presets as normal `auth.Group` memberships. The admin-created-user **Force password change** checkbox does not apply to public registrations.
+- **Bulk Forced Password Change**: The Options **Admin panel** title row has a circular expandable admin-command button. Its **Force passwords** command is superuser-only and asks for the current password before setting `Profile.preferences["force_password_change"]` on every non-superuser account. The next login for those users is forced through the same profile password-change flow used by the create-user **Require password change on first login** checkbox; superusers are skipped.
 
 ## Themes, Languages, and Home URL
 
@@ -484,7 +487,7 @@ Preset creation, editing, and membership are gated by the **`dlux.manage_groups`
 
 1. Go to `/sys/users/` → **Manage Groups**.
 2. **Add Group** → give it a name, an optional description, an optional **Scope**, and check the permissions it should bundle. You can only include permissions you are allowed to grant yourself.
-3. Save. The preset appears in the list with its member and permission counts.
+3. Save. The preset appears in the list with its member and permission counts. Row actions (Edit, Members, public-registration default toggle) live in the shared Dlux right-click/long-press context menu.
 
 Editing a preset's permissions later applies to **all current members** immediately (live inheritance).
 
@@ -494,6 +497,7 @@ Two ways, both requiring `manage_groups`:
 
 - **During user create/edit** — the Add User wizard (permissions step) and the Edit Permissions modal show a **Groups / Presets** selector above the per-permission checkboxes. Selected presets are applied on save; direct permissions still layer on top.
 - **From the preset's Members modal** — open **Manage Groups → (preset) → Members** to add or remove users in bulk. The modal also shows a **membership history** table recording which user was assigned, by whom, and when (`GroupMembership`).
+- **As a public-registration default** — in **Manage Groups**, mark safe baseline presets through the row context menu. Public registrations receive those presets only after activation; Dlux stores membership as live `user.groups`, not copied permissions.
 
 ### Scope behaviour
 
@@ -502,9 +506,12 @@ A preset can be **global** (no scope) or bound to a single `Scope`:
 - For *assignment*, scoped staff see global presets plus presets in their own scope.
 - For *management* (edit/delete/membership), global presets are restricted to superusers and Global Staff; scoped staff manage only presets in their own scope. Membership edits never touch members outside the actor's manageable set, so a scoped manager cannot remove a user from a preset they don't control.
 
+Scope management itself uses the same context-menu pattern. In **Manage Scopes**, scope rows expose Edit, Details, disabled Delete, and public-registration default actions. The details view shows the scope description, assigned users, related data counts, and recent activity. `Scope.description` is optional and safe to blank.
+
 ### Data model
 
-- `GroupProfile` — sidecar on `auth.Group`: `description`, `scope` (nullable = global), `is_active`, and audit fields.
+- `Scope` — named isolation boundary with optional `description` and `is_public_registration_default` marker.
+- `GroupProfile` — sidecar on `auth.Group`: `description`, `scope` (nullable = global), `is_active`, `is_public_registration_default`, and audit fields.
 - `GroupMembership` — durable who/which/when record (`user`, `group`, `assigned_by`, `assigned_at`), kept in sync with native `user.groups` whenever membership changes.
 
-These tables and the `dlux.manage_groups` permission are added by migration `0007` (this is a schema change — not an inline-safe update).
+The group tables and the `dlux.manage_groups` permission were added by migration `0007`; public-registration default markers and `Scope.description` are added by inline-safe migration `0009`.

@@ -116,6 +116,13 @@ SYSTEM_ROUTE_META = {
         'icon': 'bi-safe2-fill',
         'permissions': ['is_superuser'],
         'group_key': 'dlux',
+        'breadcrumb_parent': 'options_view',
+    },
+    'reports_overview': {
+        'label_key': 'reports_title',
+        'icon': 'bi-graph-up-arrow',
+        'permissions': ['__dlux_reports__'],
+        'group_key': 'dlux',
     },
 }
 

@@ -43,6 +43,15 @@ MODAL_SIZE_CLASSES = {
     'standard': 'modal-xl',
     'wide': 'modal-xl dlux-modal-wide',
 }
+# Options page/view layout style (layout_config.options_style): a rearrangeable
+# card grid (default), a tabbed layout, or a dense single-page "desktop app" view.
+DEFAULT_OPTIONS_STYLE = 'cards'
+OPTIONS_STYLE_CHOICES = (
+    (DEFAULT_OPTIONS_STYLE, 'Cards'),
+    ('tabs', 'Tabs'),
+    ('compact', 'Compact'),
+)
+OPTIONS_STYLE_VALUES = {value for value, _label in OPTIONS_STYLE_CHOICES}
 # Max length of the optional global footer copyright/credit line (layout_config).
 LAYOUT_FOOTER_TEXT_MAX_LENGTH = 300
 # Max lengths for the optional public-root SEO overrides (public_root_config).
@@ -241,6 +250,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'default_modal_size',
     'sticky_table_headers',
     'zebra_striping',
+    'options_style',
     'footer_enabled',
     'footer_text',
     'footer_link_text',

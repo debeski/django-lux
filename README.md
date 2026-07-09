@@ -21,7 +21,7 @@ Think of it as a cohesive foundation rather than a themed admin shell — instea
 
 ## What DjangoLux gives you
 
-- A complete, themeable design system on Bootstrap 5: multiple built-in themes with a shared theme registry, full RTL/LTR and multilingual rendering, custom font management, responsive layouts, reusable components (tables, forms, modals, selectors, sidebar, navbar, tutorials), and theme/language/direction-aware surfaces — all driven by a single `dlux` token vocabulary.
+- A complete, themeable design system on Bootstrap 5: multiple built-in themes with a shared theme registry, full RTL/LTR and multilingual rendering, custom font management, responsive layouts, reusable components (tables, forms, modals, selectors, sidebar, navbar, titlebar global search, tutorials), and theme/language/direction-aware surfaces — all driven by a single `dlux` token vocabulary.
 - A first-launch setup wizard at `/sys/setup/` for identity, explicit language catalog management, translation-matrix overrides, access/security toggles, UI-first Dlux email delivery, themes, default table density, global home URL, and sidebar structure, including full sidebar disable, runtime sidebar-toolbar, and user-reordering controls.
 - A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
 - A disabled-by-default public registration playground for email-first local signup with mandatory email verification, Dlux email readiness checks, public-account provenance badges, throttles, and optional approval.

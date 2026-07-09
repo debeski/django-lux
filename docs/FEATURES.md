@@ -159,11 +159,13 @@
 
 ### Scope & ScopeSettings Models
 - Scope isolation for multi-tenant scenarios
+- Optional nullable `Scope.description`
+- Single `Scope.is_public_registration_default` marker for public-registration landing scope
 - Toggle for scope system enable/disable
 - Auto-create scope per user option
 
 ### Permission Group Models
-- `GroupProfile` — OneToOne sidecar on `auth.Group` holding preset metadata (description, optional `scope`, `is_active`, audit fields) and the `manage_groups` permission
+- `GroupProfile` — OneToOne sidecar on `auth.Group` holding preset metadata (description, optional `scope`, `is_active`, `is_public_registration_default`, audit fields) and the `manage_groups` permission
 - `GroupMembership` — durable who/which/when membership record (`user`, `group`, `assigned_by`, `assigned_at`), kept in sync with native `user.groups`
 
 ### Notification Models
@@ -264,6 +266,7 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - User detail modal
 - Create/Edit/Permissions modals
 - Optional create-user checkbox to require a first-login password change; the flag is stored in profile preferences, enforced by middleware, and cleared after the user changes their password to a value different from the current password
+- Admin panel command launcher with a current-password-gated **Force passwords** action that marks every non-superuser account for the same enforced next-login password-change flow
 
 ### Profile Management
 - Edit profile modal
@@ -285,6 +288,8 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - **`GroupProfile`** sidecar (description, optional `scope`, `is_active`, audit fields) and **`GroupMembership`** audit rows (who assigned whom, and when)
 - **`dlux.manage_groups`** permission gates preset CRUD + membership; presets are **scope-aware** (global, or bound to a scope; scoped staff manage only their own-scope presets)
 - **Manage Groups modal** in user management: create/edit presets, manage members, and view a membership history table
+- **Context-menu preset actions** for edit, members/history, and public-registration default toggles
+- **Public-registration defaults**: marked presets are assigned as live group memberships after verification/approval
 - **Preset selector** in the create/edit-permissions forms, with preset-derived permissions shown **read-only and badged "From group"** (never written as direct permissions) and recomputed live as presets are toggled
 - **Live membership**: editing a preset's permissions propagates to every member instantly
 
@@ -489,6 +494,7 @@ ActivityLog.safe_log(
 - Profile timeline (compact format)
 - User Report modal with print/PDF browser flow and XLSX export for authorized staff
 - Durable known-device and presence-session history for forward-looking device, IP, browser, OS, request, and estimated-time reporting
+- Nav Bar fallback breadcrumbs place linked Dlux system views under their Dlux parent pages by default, so Backup & Restore appears under Application Options unless explicitly placed elsewhere in the hierarchy builder
 
 ### User Report Data Sources
 - `ActivityLog` remains the action/audit source (`UserActivityLog` is an import alias only).
@@ -543,9 +549,12 @@ ActivityLog.safe_log(
 - `/sys/scopes/manage/` — scope list
 - `/sys/scopes/form/` — create/edit form
 - `/sys/scopes/save/` — save scope
+- `/sys/scopes/<pk>/detail/` — detail partial with users, data counts, activity, and description
+- `/sys/scopes/<pk>/public-registration-default/` — POST set/clear public-registration default scope
 - `/sys/scopes/delete/<pk>/` — delete scope
 - `/sys/scopes/toggle/` — enable/disable system
 - `/sys/scopes/toggle-auto/` — toggle auto-creation
+- `/sys/groups/<pk>/public-registration-default/` — POST toggle public-registration default Group preset
 
 ### 2FA API
 - `/sys/2fa/enable/` — enable 2FA

@@ -97,7 +97,7 @@ context["dlux_navbar_crumbs"] = [
 ]
 ```
 
-Explicit runtime crumbs win over the System Settings hierarchy. If neither exists for the current route, Dlux falls back to `Root / Current View`. Dlux-owned system routes are grouped automatically under an unclickable `System` crumb instead of being placed from the hierarchy builder. History mode stores one browser-session path trail, resolves known route labels in the active interface language, ignores query-string-only route changes, and keeps six recent non-root entries.
+Explicit runtime crumbs win over the System Settings hierarchy. If neither exists for the current route, Dlux falls back to the discovered route label; Dlux-owned system routes are grouped under an unclickable `System` crumb by default. Framework-owned Dlux pages can declare a `breadcrumb_parent` in `SYSTEM_ROUTE_META` to mirror their own page links for unplaced routes, so `/sys/backup/` resolves as `Root / System / Application Options / Backup & Restore` because the Options page links to it. Configurable Dlux system routes are available in the hierarchy builder, and explicit placement for the current route overrides that inferred parent chain. History mode stores one browser-session path trail, resolves known route labels in the active interface language, ignores query-string-only route changes, and keeps six recent non-root entries.
 
 ### Sidebar Permission Enforcement
 

@@ -84,6 +84,8 @@ urlpatterns = [
     path('sys/scopes/save/', views.save_scope, name='save_scope'),
     path('sys/scopes/save/<int:pk>/', views.save_scope, name='save_scope'),
     path('sys/scopes/delete/<int:pk>/', views.delete_scope, name='delete_scope'),
+    path('sys/scopes/<int:pk>/detail/', views.scope_detail, name='scope_detail'),
+    path('sys/scopes/<int:pk>/public-registration-default/', views.toggle_scope_public_registration_default, name='toggle_scope_public_registration_default'),
     path('sys/scopes/toggle/', views.toggle_scopes, name='toggle_scopes'),
     path('sys/scopes/toggle-auto/', views.toggle_auto_scopes, name='toggle_auto_scopes'),
     # Permission Group / Preset Management URLs
@@ -94,8 +96,10 @@ urlpatterns = [
     path('sys/groups/save/<int:pk>/', views.save_group, name='save_group'),
     path('sys/groups/<int:pk>/members/', views.group_members, name='group_members'),
     path('sys/groups/<int:pk>/members/save/', views.save_group_members, name='save_group_members'),
+    path('sys/groups/<int:pk>/public-registration-default/', views.toggle_group_public_registration_default, name='toggle_group_public_registration_default'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
+    path('sys/admin/force-password-change-all/', views.force_password_change_all_view, name='dlux_force_pass_change_all'),
     path('search/', views.global_search_view, name='global_search'),
     path('sys/debug/notifications/', views.debug_notifications_view, name='debug_notifications'),
     path('sys/sections/', views.core_models_view, name='manage_sections'),

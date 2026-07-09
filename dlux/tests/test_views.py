@@ -23,7 +23,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from dlux.models import Scope, Section, SystemSettings
+from dlux.models import GroupProfile, Scope, Section, SystemSettings
 from dlux.utils import get_user_management_tier_state_for_user
 
 User = get_user_model()
@@ -64,6 +64,88 @@ class GeneralViewsTests(TestCase):
         self.assertIn('version', response.context)
         self.assertIn('django_version', response.context)
         self.assertIn('python_version', response.context)
+
+    def test_options_view_renders_admin_command_launcher_for_superuser(self):
+        response = self.client.get(reverse('options_view'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-admin-command-launcher')
+        self.assertContains(response, 'data-force-pass-change-open')
+        self.assertContains(response, reverse('dlux_force_pass_change_all'))
+
+    def test_force_password_change_all_requires_superuser(self):
+        regular = User.objects.create_user(
+            username='regular-admin-command',
+            email='regular-admin-command@example.com',
+            password='regularpass123',
+        )
+        self.client.logout()
+        self.client.login(username='regular-admin-command', password='regularpass123')
+
+        response = self.client.post(
+            reverse('dlux_force_pass_change_all'),
+            {'current_password': 'regularpass123'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_force_password_change_all_requires_current_password(self):
+        response = self.client.post(
+            reverse('dlux_force_pass_change_all'),
+            {'current_password': 'wrongpass'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = json.loads(response.content)
+        self.assertEqual(payload['status'], 'error')
+
+    def test_force_password_change_all_marks_non_superusers_only(self):
+        Profile = apps.get_model('dlux', 'Profile')
+        first = User.objects.create_user(
+            username='bulk-force-one',
+            email='bulk-force-one@example.com',
+            password='userpass123',
+        )
+        second = User.objects.create_user(
+            username='bulk-force-two',
+            email='bulk-force-two@example.com',
+            password='userpass123',
+        )
+        already_marked = User.objects.create_user(
+            username='bulk-force-already',
+            email='bulk-force-already@example.com',
+            password='userpass123',
+        )
+        other_superuser = User.objects.create_superuser(
+            username='bulk-force-root',
+            email='bulk-force-root@example.com',
+            password='rootpass123',
+        )
+        already_marked.profile.preferences = {'force_password_change': True, 'theme': 'classic'}
+        already_marked.profile.save(update_fields=['preferences'])
+
+        response = self.client.post(
+            reverse('dlux_force_pass_change_all'),
+            {'current_password': 'adminpass123'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['updated_count'], 2)
+        self.assertEqual(payload['total_count'], 3)
+
+        for user in (first, second, already_marked):
+            prefs = Profile.all_objects.get(user=user).preferences
+            self.assertTrue(prefs.get('force_password_change'))
+
+        self.assertEqual(Profile.all_objects.get(user=already_marked).preferences.get('theme'), 'classic')
+        self.assertFalse(Profile.all_objects.get(user=other_superuser).preferences.get('force_password_change'))
+        self.user.profile.refresh_from_db()
+        self.assertFalse(self.user.profile.preferences.get('force_password_change'))
 
     def test_options_view_shows_navbar_mode_card_only_when_override_is_allowed(self):
         settings_obj = SystemSettings.load()
@@ -937,6 +1019,64 @@ class ScopeViewsTests(TestCase):
         """Test that manage_scopes is accessible to superusers."""
         response = self.client.get(reverse('manage_scopes'))
         self.assertEqual(response.status_code, 200)
+
+    def test_scope_form_saves_description(self):
+        response = self.client.post(
+            reverse('save_scope'),
+            {'name': 'Public Scope', 'description': 'Default registration landing scope.'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        scope = Scope.objects.get(name='Public Scope')
+        self.assertEqual(scope.description, 'Default registration landing scope.')
+
+    def test_toggle_public_registration_default_is_single_scope_marker(self):
+        first = Scope.objects.create(name='First Public')
+        second = Scope.objects.create(name='Second Public')
+
+        first_response = self.client.post(
+            reverse('toggle_scope_public_registration_default', args=[first.pk])
+        )
+        second_response = self.client.post(
+            reverse('toggle_scope_public_registration_default', args=[second.pk])
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertFalse(first.is_public_registration_default)
+        self.assertTrue(second.is_public_registration_default)
+        self.assertIn('Public default', second_response.json()['html'])
+
+    def test_scope_detail_returns_users_data_and_activity_counts(self):
+        scope = Scope.objects.create(
+            name='Detail Scope',
+            description='Operational scope.',
+            is_public_registration_default=True,
+        )
+        scoped_user = User.objects.create_user(
+            username='scoped-detail',
+            email='scoped-detail@example.com',
+            password='pw',
+        )
+        scoped_user.profile.scope = scope
+        scoped_user.profile.save(update_fields=['scope'])
+        group = Group.objects.create(name='Detail Preset')
+        GroupProfile.objects.create(
+            group=group,
+            scope=scope,
+            is_public_registration_default=True,
+        )
+
+        response = self.client.get(reverse('scope_detail', args=[scope.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        html = response.json()['html']
+        self.assertIn('Operational scope.', html)
+        self.assertIn('scoped-detail@example.com', html)
+        self.assertIn('Detail Preset', html)
+        self.assertIn('Public default', html)
 
     def test_toggle_scopes_requires_superuser(self):
         """Test that toggle_scopes requires superuser status."""

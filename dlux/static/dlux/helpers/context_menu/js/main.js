@@ -87,7 +87,7 @@
             e.preventDefault();
             // Execute the action
             if (quickAction.url) {
-                window.location.href = quickAction.url;
+                openActionUrl(quickAction);
             } else if (quickAction.action || quickAction.event) {
                  // Dispatch event if it's an event-based action
                  const eventName = quickAction.action || quickAction.event;
@@ -244,7 +244,7 @@
         // 1. URL Navigation
         if (action.type === 'url' || action.url) {
             if (action.confirm && !confirm(action.confirm)) return;
-            window.location.href = action.url;
+            openActionUrl(action);
         }
         // 2. Form Submission (POST)
         else if (action.type === 'form') {
@@ -271,6 +271,26 @@
             // This is unsafe if not careful, better use events.
             // Skipping for now unless requested.
         }
+    }
+
+    function shouldOpenInNewTab(action) {
+        return action && (
+            action.target === '_blank' ||
+            action.newTab === true ||
+            action.openInNewTab === true
+        );
+    }
+
+    function openActionUrl(action) {
+        if (!action || !action.url) return;
+
+        if (shouldOpenInNewTab(action)) {
+            const opened = window.open(action.url, '_blank', 'noopener,noreferrer');
+            if (opened) opened.opener = null;
+            return;
+        }
+
+        window.location.href = action.url;
     }
 
     function submitForm(url, data) {

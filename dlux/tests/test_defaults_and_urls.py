@@ -513,7 +513,93 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertFalse(crumbs[1]['clickable'])
         self.assertTrue(crumbs[2]['clickable'])
 
-    def test_navbar_frontend_uses_language_aware_history_and_hides_system_routes_from_builder(self):
+    def test_navbar_hierarchy_infers_dlux_link_parent_for_unplaced_system_route(self):
+        request = RequestFactory().get('/sys/backup/')
+        request.resolver_match = SimpleNamespace(
+            view_name='dlux:system_backup_page',
+            url_name='system_backup_page',
+        )
+        catalog = [
+            {
+                'url_name': 'options_view',
+                'label': 'Application Options',
+                'url': '/sys/options/',
+                'group_key': 'dlux',
+            },
+            {
+                'url_name': 'system_backup_page',
+                'label': 'Backup & Restore',
+                'url': '/sys/backup/',
+                'group_key': 'dlux',
+            },
+        ]
+
+        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(
+                request,
+                {'enabled': True, 'hierarchy': {'nodes': []}},
+                'en',
+                {'navbar_root': 'Root', 'navbar_system': 'System'},
+            )
+
+        self.assertEqual(
+            [crumb['label'] for crumb in crumbs],
+            ['Root', 'System', 'Application Options', 'Backup & Restore'],
+        )
+        self.assertFalse(crumbs[1]['clickable'])
+        self.assertTrue(crumbs[2]['clickable'])
+
+    def test_navbar_hierarchy_explicit_route_tree_overrides_inferred_dlux_parent(self):
+        request = RequestFactory().get('/sys/backup/')
+        request.resolver_match = SimpleNamespace(
+            view_name='dlux:system_backup_page',
+            url_name='system_backup_page',
+        )
+        config = {
+            'enabled': True,
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'maintenance',
+                    'labels': {'en': 'Maintenance'},
+                    'children': [{
+                        'kind': 'route',
+                        'id': 'system_backup_page',
+                        'url_name': 'system_backup_page',
+                    }],
+                }],
+            },
+        }
+        catalog = [
+            {
+                'url_name': 'options_view',
+                'label': 'Application Options',
+                'url': '/sys/options/',
+                'group_key': 'dlux',
+            },
+            {
+                'url_name': 'system_backup_page',
+                'label': 'Backup & Restore',
+                'url': '/sys/backup/',
+                'group_key': 'dlux',
+            },
+        ]
+
+        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(
+                request,
+                config,
+                'en',
+                {'navbar_root': 'Root', 'navbar_system': 'System'},
+            )
+
+        self.assertEqual(
+            [crumb['label'] for crumb in crumbs],
+            ['Root', 'System', 'Maintenance', 'Backup & Restore'],
+        )
+        self.assertNotIn('Application Options', [crumb['label'] for crumb in crumbs])
+
+    def test_navbar_frontend_uses_language_aware_history_and_allows_system_routes_in_builder(self):
         navbar_js = Path('dlux/static/dlux/main/js/navbar.js').read_text(encoding='utf-8')
         setup_js = Path('dlux/static/dlux/main/js/system_setup.js').read_text(encoding='utf-8')
 
@@ -521,7 +607,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('labels[language] = label;', navbar_js)
         self.assertIn('labelsByPath[normalizedPath(entry.path)]', navbar_js)
         self.assertIn('trail.replaceChildren(fragment);', navbar_js)
-        self.assertIn('!entry.is_system', setup_js)
+        self.assertIn("entry.kind === 'item' && entry.url_name", setup_js)
+        self.assertNotIn("entry.kind === 'item' && entry.url_name && !entry.is_system", setup_js)
         self.assertNotIn('crumb.clickable && crumb.url && !isCurrent', navbar_js)
 
     def test_unconfigured_root_url_redirects_anonymous_to_login(self):
@@ -2641,8 +2728,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         template = template_path.read_text(encoding='utf-8')
         script = script_path.read_text(encoding='utf-8')
 
+        confirm_js = (Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'confirm_password.js').read_text(encoding='utf-8')
+
         _assert_versioned_static_asset(self, template, "dlux/users/js/profile_2fa.js")
-        self.assertIn("passwordInput.addEventListener('keydown', submitOnEnter);", script)
         self.assertIn('profile-session-trust-form', template)
         self.assertIn('DLUX_STRINGS.msg_confirm_trust_current_device', template)
         self.assertIn('DLUX_STRINGS.session_revoke_trusted_denied', template)
@@ -2652,11 +2740,63 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('function confirmSessionTrust(form)', script)
         self.assertIn("resetPasswordModal.dataset.dluxOpenOnLoad === 'true'", script)
         self.assertIn('window.bootstrap.Modal.getOrCreateInstance(resetPasswordModal).show();', script)
-        self.assertIn("passwordInput.addEventListener('input', clearPasswordError);", script)
-        self.assertIn("if (event.key !== 'Enter') return;", script)
-        self.assertIn('confirmCurrentModal();', script)
         self.assertIn('.then(parseJsonResponse)', script)
         self.assertIn("window.location.assign(data.redirect_url || window.location.href);", script)
+        # The confirm-password prompt is now the global dluxConfirmPassword helper;
+        # profile_2fa.js's showConfirmation delegates to it, and the enter-to-submit
+        # + inline password-error behaviour lives in confirm_password.js.
+        self.assertIn('window.dluxConfirmPassword', script)
+        self.assertIn('window.dluxConfirmPassword = dluxConfirmPassword', confirm_js)
+        self.assertIn("addEventListener('keydown', onKey)", confirm_js)
+        self.assertIn("e.key === 'Enter'", confirm_js)
+        self.assertIn("addEventListener('input', onInput)", confirm_js)
+
+    def test_global_confirm_password_prompt_wiring(self):
+        base = Path(__file__).resolve().parents[1]
+        base_html = (base / 'templates' / 'dlux' / 'base.html').read_text(encoding='utf-8')
+        options_html = (base / 'templates' / 'dlux' / 'includes' / 'options.html').read_text(encoding='utf-8')
+        partial = (base / 'templates' / 'dlux' / 'includes' / 'confirm_password_modal.html').read_text(encoding='utf-8')
+        options_js = (base / 'static' / 'dlux' / 'main' / 'js' / 'options.js').read_text(encoding='utf-8')
+
+        # base.html renders the global prompt + loads its script for authenticated users.
+        self.assertIn("include 'dlux/includes/confirm_password_modal.html'", base_html)
+        self.assertIn('confirm_password.js', base_html)
+        # Redesigned admin-style modal (header + warning alert + footer).
+        self.assertIn('data-dlux-confirm-modal', partial)
+        self.assertIn('modal-header', partial)
+        self.assertIn('modal-footer', partial)
+        self.assertIn('alert alert-warning', partial)
+        # The alert must opt out of the global .alert auto-hide (base_runtime.js),
+        # or the modal's description would vanish after ~3s.
+        self.assertIn('data-autoclose="false"', partial)
+        self.assertIn('data-dlux-confirm-password', partial)
+        # Admin force-password drives the global prompt from the chip; no bespoke modal.
+        self.assertIn('data-force-pass-change-open', options_html)
+        self.assertIn('dlux_force_pass_change_all', options_html)
+        self.assertNotIn('data-force-pass-change-modal', options_html)
+        self.assertIn('window.dluxConfirmPassword', options_js)
+
+    def test_navbar_current_title_translates_for_reports_and_profile(self):
+        # The Nav Bar current-page title (navbar_current_label = last crumb) must
+        # resolve the translated title for non-sidebar system pages, not an English
+        # humanization of the URL.
+        from django.test import RequestFactory
+        from django.urls import resolve
+        from dlux.navbar import build_navbar_hierarchy_crumbs
+        from dlux.translations import get_strings
+
+        factory = RequestFactory()
+        navbar_config = {'enabled': True, 'mode': 'hierarchy', 'hierarchy': {'nodes': []}}
+        cases = {
+            '/sys/reports/': {'en': 'Reports', 'ar': 'التقارير'},
+            '/accounts/profile/': {'en': 'Profile', 'ar': 'الملف الشخصي'},
+        }
+        for path, expected in cases.items():
+            for lang, label in expected.items():
+                request = factory.get(path)
+                request.resolver_match = resolve(path)
+                crumbs = build_navbar_hierarchy_crumbs(request, navbar_config, lang, get_strings(lang))
+                self.assertEqual(crumbs[-1].get('label'), label, msg=f'{path} [{lang}]')
 
     def test_setup_form_render_does_not_emit_inline_style_attributes(self):
         form = SystemSettingsForm(

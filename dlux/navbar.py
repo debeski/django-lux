@@ -105,6 +105,17 @@ def _node_to_crumb(node, lang_code, catalog_lookup):
     label = _translated_label(node.get('labels'), lang_code)
     if not label and catalog_entry:
         label = str(catalog_entry.get('label') or '').strip()
+    if not label and kind == 'route':
+        # Non-sidebar system pages (user profile, reports overview) are not in the
+        # catalog, so resolve their translated title from SYSTEM_ROUTE_META's
+        # label_key before falling back to an English humanization of the URL.
+        meta = SYSTEM_ROUTE_META.get(_route_leaf(url_name)) or SYSTEM_ROUTE_META.get(url_name)
+        label_key = str((meta or {}).get('label_key') or '').strip()
+        if label_key:
+            from .translations import get_strings
+            from .utils import get_system_config
+            strings = get_strings(lang_code, overrides=get_system_config().get('translations'))
+            label = str(strings.get(label_key) or '').strip()
     if not label:
         label = _humanize(url_name if kind == 'route' else node.get('id'))
     configured_url = str(node.get('url') or '').strip()
@@ -118,6 +129,20 @@ def _node_to_crumb(node, lang_code, catalog_lookup):
         'kind': kind,
         'group_key': (catalog_entry or {}).get('group_key', ''),
     }
+
+
+def _route_catalog_entry(catalog_lookup, url_name):
+    url_name = str(url_name or '').strip()
+    return catalog_lookup.get(url_name) or catalog_lookup.get(_route_leaf(url_name))
+
+
+def _route_crumb(url_name, lang_code, catalog_lookup):
+    return _node_to_crumb({
+        'kind': 'route',
+        'id': url_name,
+        'url_name': url_name,
+        'children': [],
+    }, lang_code, catalog_lookup)
 
 
 def _runtime_to_crumb(raw_crumb, lang_code, dlux_strings):
@@ -172,6 +197,30 @@ def _is_system_route(url_name, catalog_entry=None):
     return route_name in SYSTEM_ROUTE_META or _route_leaf(route_name) in SYSTEM_ROUTE_META
 
 
+def _inferred_system_route_crumbs(url_name, catalog_entry, lang_code, catalog_lookup):
+    if not _is_system_route(url_name, catalog_entry):
+        return []
+
+    route_names = []
+    seen = set()
+    current = str(url_name or '').strip()
+    while current:
+        leaf = _route_leaf(current)
+        if leaf in seen:
+            break
+        seen.add(leaf)
+        route_names.append(current)
+        parent = str((SYSTEM_ROUTE_META.get(leaf) or {}).get('breadcrumb_parent') or '').strip()
+        if not parent or _route_leaf(parent) in seen:
+            break
+        current = parent
+
+    return [
+        _route_crumb(route_name, lang_code, catalog_lookup)
+        for route_name in reversed(route_names)
+    ]
+
+
 def build_navbar_route_label_map(lang_code):
     route_labels = {}
     for entry in discover_sidebar_catalog(lang_code=lang_code, include_system_items=True):
@@ -179,6 +228,23 @@ def build_navbar_route_label_map(lang_code):
         label = str(entry.get('label') or '').strip()
         if path and label:
             route_labels[path] = label
+    # Also label the system routes that are NOT sidebar candidates (e.g. the
+    # user profile and reports overview) so the Nav Bar shows their translated
+    # title instead of a client-side English humanization of the URL segment.
+    from .translations import get_strings
+    from .utils import get_system_config
+    strings = get_strings(lang_code, overrides=get_system_config().get('translations'))
+    for route_name, meta in SYSTEM_ROUTE_META.items():
+        label_key = str((meta or {}).get('label_key') or '').strip()
+        if not label_key:
+            continue
+        try:
+            path = reverse(route_name).split('?', 1)[0].rstrip('/') or '/'
+        except NoReverseMatch:
+            continue
+        label = str(strings.get(label_key) or '').strip()
+        if label:
+            route_labels.setdefault(path, label)
     return route_labels
 
 
@@ -219,8 +285,21 @@ def build_navbar_hierarchy_crumbs(request, navbar_config, lang_code, dlux_string
         chain_crumbs = [_node_to_crumb(node, lang_code, catalog_lookup) for node in route_chain]
         return _with_system_group(root, chain_crumbs, dlux_strings)
 
-    catalog_entry = next((catalog_lookup[name] for name in route_names if name in catalog_lookup), None)
+    catalog_entry = None
+    for name in route_names:
+        catalog_entry = _route_catalog_entry(catalog_lookup, name)
+        if catalog_entry:
+            break
     fallback_name = route_names[0] if route_names else ''
+    inferred_crumbs = _inferred_system_route_crumbs(
+        fallback_name,
+        catalog_entry,
+        lang_code,
+        catalog_lookup,
+    )
+    if inferred_crumbs:
+        return _with_system_group(root, inferred_crumbs, dlux_strings)
+
     fallback_label = str((catalog_entry or {}).get('label') or '').strip() or _humanize(fallback_name)
     if not fallback_label:
         return [root]

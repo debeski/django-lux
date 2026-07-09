@@ -189,6 +189,8 @@ def user_matches_permission_token(user, permission):
         return user_can_view_user_directory(user)
     if permission == '__dlux_activity_log__':
         return user_can_view_activity_log(user)
+    if permission == '__dlux_reports__':
+        return user_can_view_reports(user)
     if permission == '__dlux_sections_view__':
         return user_has_section_view_permission(user)
     if permission == '__dlux_sections_manage__':

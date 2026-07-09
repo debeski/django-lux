@@ -35,6 +35,7 @@ from ..system.constants import (
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
+    DEFAULT_OPTIONS_STYLE,
     DEFAULT_TABLE_DENSITY,
     MODAL_SIZE_CLASSES,
     REGISTRATION_ACTIVATION_AUTO_LOGIN,
@@ -404,6 +405,7 @@ def build_config_groups(config, current_language=None):
             ),
             'sticky_table_headers': bool(config.get('sticky_table_headers', True)),
             'zebra_striping': bool(config.get('zebra_striping', True)),
+            'options_style': config.get('options_style', DEFAULT_OPTIONS_STYLE),
             'footer_enabled': bool(config.get('footer_enabled', True)),
             'footer_text': config.get('footer_text', '') or '',
             'footer_link_text': config.get('footer_link_text', '') or '',
@@ -1036,6 +1038,15 @@ def get_system_config():
         _zebra_striping = bool(getattr(sys_settings, 'zebra_striping', True))
         if _should_apply_db_override(_zebra_striping, bool(default_config.get('zebra_striping', True))):
             db_config['zebra_striping'] = _zebra_striping
+        # options_style is JSON-only (no legacy column, inline-safe): read it from
+        # the stored layout_config dict rather than a model attribute.
+        _layout_json = getattr(sys_settings, 'layout_config', None)
+        if isinstance(_layout_json, dict):
+            _options_style = _layout_json.get('options_style')
+            if _options_style and _should_apply_db_override(
+                _options_style, default_config.get('options_style', DEFAULT_OPTIONS_STYLE)
+            ):
+                db_config['options_style'] = _options_style
         if str(getattr(sys_settings, 'footer_text', '') or '').strip():
             db_config['footer_text'] = sys_settings.footer_text
         if str(getattr(sys_settings, 'footer_link_text', '') or '').strip():

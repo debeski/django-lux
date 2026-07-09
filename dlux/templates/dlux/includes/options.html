@@ -14,13 +14,42 @@
 
     <div class="dlux-options-grid"
          id="dluxOptionsGrid"
+         data-options-style="{{ APP_CONFIG.appearance.options_style|default:'cards' }}"
          data-options-order-storage-key="dlux.options.card-order.v1">
         {% if show_system_diagnostics or user.is_superuser %}
         <!-- Admin Panel: combined system status + update + backup + system settings -->
         <div class="dlux-options-card dlux-admin-panel-card">
             <div class="glass-profile option-section dlux-options-panel dlux-admin-panel">
                 <div class="dlux-admin-panel-heading">
-                    <h4 class="mb-1"><i class="bi bi-shield-lock-fill me-2"></i> {{ DLUX_STRINGS.admin_panel_title|default:'Admin panel' }}</h4>
+                    <div class="dlux-admin-panel-heading-row">
+                        <h4 class="mb-1"><i class="bi bi-shield-lock-fill me-2"></i> {{ DLUX_STRINGS.admin_panel_title|default:'Admin panel' }}</h4>
+                        {% if user.is_superuser %}
+                        <div class="dlux-admin-command-launcher" data-admin-command-launcher>
+                            <div class="dlux-admin-command-rail" data-admin-command-rail>
+                                <button class="dlux-admin-command-chip"
+                                        type="button"
+                                        data-force-pass-change-open
+                                        data-url="{% url 'dlux_force_pass_change_all' %}"
+                                        data-title="{{ DLUX_STRINGS.force_pass_change_all_title|default:'Force password change for all users' }}"
+                                        data-description="{{ DLUX_STRINGS.force_pass_change_all_warning|default:'Every non-superuser account will be required to change password before continuing. Superusers are skipped.' }}"
+                                        data-confirm-label="{{ DLUX_STRINGS.force_pass_change_all_confirm|default:'Force password change' }}"
+                                        data-dlux-tooltip="{{ DLUX_STRINGS.force_pass_change_all_desc|default:'Require every non-superuser account to change password on next login.' }}"
+                                        aria-label="{{ DLUX_STRINGS.force_pass_change_all_title|default:'Force password change for all users' }}">
+                                    <i class="bi bi-key-fill"></i>
+                                    <span>{{ DLUX_STRINGS.force_pass_change_all_short|default:'Force passwords' }}</span>
+                                </button>
+                            </div>
+                            <button class="dlux-admin-command-toggle"
+                                    type="button"
+                                    data-admin-command-toggle
+                                    aria-expanded="false"
+                                    aria-label="{{ DLUX_STRINGS.admin_commands_title|default:'Admin commands' }}"
+                                    title="{{ DLUX_STRINGS.admin_commands_title|default:'Admin commands' }}">
+                                <i class="bi bi-terminal"></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
                     <p class="text-muted small mb-0">{{ DLUX_STRINGS.admin_panel_desc|default:'System status, updates, backups, and configuration.' }}</p>
                 </div>
                 <div class="dlux-admin-panel-top">
@@ -784,6 +813,9 @@
         </div>
     </div>
     {% endif %}
+
+    {# Force-password-change confirmation now uses the global dluxConfirmPassword #}
+    {# prompt (base.html), driven from the launcher chip's data-* attributes.     #}
 {% endblock %}
 
 {% block scripts %}

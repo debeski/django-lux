@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.utils.module_loading import import_string
+from django.views.decorators.http import require_POST
 from django_tables2 import RequestConfig
 
 # Project imports
@@ -158,3 +159,22 @@ def save_group_members(request, pk):
         return JsonResponse({'success': True, 'html': _render_members(request, group)})
 
     return JsonResponse({'success': False, 'html': _render_members(request, group, form=form)})
+
+
+@login_required
+@require_POST
+def toggle_group_public_registration_default(request, pk):
+    _require_manage_groups(request)
+    group = get_object_or_404(Group, pk=pk)
+    if not can_manage_group_preset(request.user, group):
+        raise PermissionDenied
+    GroupProfile = import_string('dlux.models.GroupProfile')
+    profile, _created = GroupProfile.objects.get_or_create(group=group)
+    profile.is_public_registration_default = not bool(profile.is_public_registration_default)
+    profile.updated_by = request.user
+    profile.save(update_fields=['is_public_registration_default', 'updated_by', 'updated_at'])
+    return JsonResponse({
+        'success': True,
+        'is_default': profile.is_public_registration_default,
+        'html': _render_manager(request),
+    })

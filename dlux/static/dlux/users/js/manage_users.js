@@ -148,6 +148,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
         });
+
+        scopeModalBody.addEventListener('dlux:scope:edit', function(e) {
+            const url = e.detail?.data?.url || e.detail?.action?.data?.url;
+            if (url) loadScopeForm(url);
+        });
+
+        scopeModalBody.addEventListener('dlux:scope:detail', function(e) {
+            const url = e.detail?.data?.url || e.detail?.action?.data?.url;
+            if (url) loadScopeForm(url);
+        });
+
+        scopeModalBody.addEventListener('dlux:scope:toggle-public-default', function(e) {
+            const url = e.detail?.data?.url || e.detail?.action?.data?.url;
+            if (url) postScopeAction(url);
+        });
+
+        scopeModalBody.addEventListener('dlux:scope:delete-disabled', function(e) {
+            const url = e.detail?.data?.url || e.detail?.action?.data?.url;
+            if (url) deleteScope(url);
+        });
     }
 });
 
@@ -224,6 +244,31 @@ function deleteScope(url) {
         }
     })
     .catch(err => console.error('Error deleting scope:', err));
+}
+
+function getScopeCsrfToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (token && token.value) return token.value;
+    const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+function postScopeAction(url) {
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getScopeCsrfToken(),
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const body = document.getElementById('scopeModalBody');
+        if (body && data.html) {
+            body.innerHTML = data.html;
+        }
+    })
+    .catch(err => console.error('Error applying scope action:', err));
 }
 
 function handleToggleScopes(e) {

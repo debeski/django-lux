@@ -5,6 +5,7 @@ setup_test_environment()
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
+from django.urls import reverse
 
 from dlux.forms import GroupPresetForm, GroupMembersForm
 from dlux.models import GroupProfile, GroupMembership, Scope, ScopeSettings
@@ -185,3 +186,29 @@ class GroupPresetScopeVisibilityTests(TestCase):
         self.assertTrue(can_manage_group_preset(staff, self.a_preset))
         self.assertFalse(can_manage_group_preset(staff, self.global_preset))
         self.assertFalse(can_manage_group_preset(staff, self.b_preset))
+
+
+class GroupPresetPublicRegistrationDefaultViewTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('admin', 'admin@example.com', 'pw')
+        self.client.login(username='admin', password='pw')
+        self.group = Group.objects.create(name='Public Default Preset')
+        GroupProfile.objects.create(group=self.group)
+
+    def test_toggle_public_registration_default_is_post_only(self):
+        response = self.client.get(
+            reverse('toggle_group_public_registration_default', args=[self.group.pk])
+        )
+
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(self.group.dlux_profile.is_public_registration_default)
+
+    def test_toggle_public_registration_default_marks_group_profile(self):
+        response = self.client.post(
+            reverse('toggle_group_public_registration_default', args=[self.group.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.group.dlux_profile.refresh_from_db()
+        self.assertTrue(self.group.dlux_profile.is_public_registration_default)
+        self.assertIn('Public default', response.json()['html'])

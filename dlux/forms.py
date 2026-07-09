@@ -38,6 +38,9 @@ from .system.constants import (
     LAYOUT_FOOTER_TEXT_MAX_LENGTH,
     MODAL_SIZE_CHOICES,
     MODAL_SIZE_VALUES,
+    OPTIONS_STYLE_CHOICES,
+    OPTIONS_STYLE_VALUES,
+    DEFAULT_OPTIONS_STYLE,
     PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
     PUBLIC_ROOT_TITLE_MAX_LENGTH,
     REGISTRATION_ACTIVATION_CHOICES,
@@ -1739,7 +1742,7 @@ class CustomPasswordChangeForm(DluxPasswordMustChangeMixin, PasswordChangeForm):
 class ScopeForm(forms.ModelForm):
     class Meta:
         model = apps.get_model('dlux', 'Scope')
-        fields = ['name']
+        fields = ['name', 'description']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1748,10 +1751,14 @@ class ScopeForm(forms.ModelForm):
         # If we have request in kwargs we can use it, but typically ModelForms don't get request.
         # Fallback to default is okay for now or we can inject request if needed.
         self.fields['name'].label = s.get('form_scope_name', "Scope Name")
+        self.fields['description'].label = s.get('form_scope_description', "Description")
+        self.fields['description'].required = False
+        self.fields['description'].widget.attrs.update({'rows': 3})
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
             Field('name', css_class='col-12'),
+            Field('description', css_class='col-12'),
         )
 
 
@@ -1989,6 +1996,11 @@ class SystemSettingsForm(forms.ModelForm):
     default_modal_size = forms.ChoiceField(
         required=False,
         choices=MODAL_SIZE_CHOICES,
+        widget=forms.HiddenInput(),
+    )
+    options_style = forms.ChoiceField(
+        required=False,
+        choices=OPTIONS_STYLE_CHOICES,
         widget=forms.HiddenInput(),
     )
     sticky_table_headers = forms.BooleanField(
@@ -2494,6 +2506,19 @@ class SystemSettingsForm(forms.ModelForm):
             'login_config',
         ]
 
+    def _step_render(self, step_index, template, context):
+        """Render a heavy step-specific template block only when it will actually
+        be shown. In single-step modal mode the form still builds ALL step Divs
+        (hidden with CSS), so without this every step's matrices (themes, fonts,
+        sidebar/navbar/log/profile builders, translation editor…) were rendered
+        on every modal open — ~2 MB and many template renders per load. Now a
+        step's block is built only when that step is the active one (or in the
+        full setup wizard). Fields for skipped steps still exist on the form and
+        are preserved on save by the step-scoped clean methods."""
+        if getattr(self, 'single_step_mode', False) and self.single_step_index != step_index:
+            return ''
+        return render_to_string(template, context)
+
     def _apply_schema_group_initials(self, storage_field, source, *, hidden_field=True):
         group = get_setting_group(storage_field)
         normalized = group.normalizer(source)
@@ -2707,6 +2732,16 @@ class SystemSettingsForm(forms.ModelForm):
             ('compact', s.get('modal_size_compact', 'Compact')),
             (DEFAULT_MODAL_SIZE, s.get('modal_size_standard', 'Standard')),
             ('wide', s.get('modal_size_wide', 'Wide')),
+        )
+        self.fields['options_style'].label = s.get('form_sys_options_style', 'Options page style')
+        self.fields['options_style'].help_text = s.get(
+            'help_sys_options_style',
+            'How the Options page is laid out: rearrangeable cards, a tabbed view, or a dense single-page compact view.',
+        )
+        self.fields['options_style'].choices = (
+            (DEFAULT_OPTIONS_STYLE, s.get('options_style_cards', 'Cards')),
+            ('tabs', s.get('options_style_tabs', 'Tabs')),
+            ('compact', s.get('options_style_compact', 'Compact')),
         )
         self.fields['sticky_table_headers'].label = s.get('form_sys_sticky_table_headers', 'Sticky table headers')
         self.fields['sticky_table_headers'].help_text = s.get(
@@ -3343,6 +3378,26 @@ class SystemSettingsForm(forms.ModelForm):
                     'wide': {
                         'icon': 'bi-arrows-angle-expand',
                         'description': s.get('modal_size_wide_desc', 'An extra-wide dialog for dense content.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['options_style'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'cards': {
+                        'icon': 'bi-grid-1x2',
+                        'description': s.get('options_style_cards_desc', 'Rearrangeable cards in a grid (the default).'),
+                    },
+                    'tabs': {
+                        'icon': 'bi-segmented-nav',
+                        'description': s.get('options_style_tabs_desc', 'One section at a time behind tabs.'),
+                    },
+                    'compact': {
+                        'icon': 'bi-list-ul',
+                        'description': s.get('options_style_compact_desc', 'A dense single-page list, desktop-app style.'),
                     },
                 },
             ),
@@ -4069,7 +4124,7 @@ class SystemSettingsForm(forms.ModelForm):
             if code not in current_languages
         ]
 
-        self.language_catalog_html = render_to_string(
+        self.language_catalog_html = self._step_render(1,
             'dlux/includes/language_catalog_editor.html',
             {
                 'language_rows': [
@@ -4087,7 +4142,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'DLUX_STRINGS': s,
             },
         )
-        self.system_names_html = render_to_string(
+        self.system_names_html = self._step_render(0,
             'dlux/includes/system_names_editor.html',
             {
                 'language_rows': [
@@ -4107,7 +4162,7 @@ class SystemSettingsForm(forms.ModelForm):
                 group['label'] = s.get('translation_matrix_group_project', group.get('label') or 'Project translations')
             elif group.get('id') == 'runtime':
                 group['label'] = s.get('translation_matrix_group_runtime', group.get('label') or 'Settings overrides')
-        self.translation_matrix_html = render_to_string(
+        self.translation_matrix_html = self._step_render(1,
             'dlux/includes/translation_matrix_editor.html',
             {
                 'languages': current_languages,
@@ -4116,7 +4171,7 @@ class SystemSettingsForm(forms.ModelForm):
             },
         )
 
-        self.theme_picker_html = render_to_string(
+        self.theme_picker_html = self._step_render(8,
             'dlux/includes/theme_settings_matrix.html',
             {
                 'selected_theme': self.initial.get('default_theme', 'light'),
@@ -4130,9 +4185,9 @@ class SystemSettingsForm(forms.ModelForm):
                 'help_text': self.fields['allowed_themes'].help_text,
             },
         )
-        
+
         from .fonts import get_builtin_fonts
-        self.font_picker_html = render_to_string(
+        self.font_picker_html = self._step_render(8,
             'dlux/includes/font_settings_matrix.html',
             {
                 'picker_mode': 'setup',
@@ -4145,7 +4200,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'help_text': self.fields['allowed_fonts'].help_text,
             },
         )
-        
+
         default_fonts_data = self.initial.get('default_fonts') or {}
         if isinstance(default_fonts_data, str):
             try:
@@ -4153,7 +4208,7 @@ class SystemSettingsForm(forms.ModelForm):
             except (TypeError, ValueError, json.JSONDecodeError):
                 default_fonts_data = {}
 
-        self.language_fonts_editor_html = render_to_string(
+        self.language_fonts_editor_html = self._step_render(8,
             'dlux/includes/language_fonts_editor.html',
             {
                 'current_languages': current_languages,
@@ -4163,7 +4218,7 @@ class SystemSettingsForm(forms.ModelForm):
             },
         )
 
-        self.sidebar_builder_html = render_to_string(
+        self.sidebar_builder_html = self._step_render(4,
             'dlux/includes/sidebar_builder.html',
             {
                 'sidebar_catalog': self.sidebar_catalog,
@@ -4174,7 +4229,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'DLUX_STRINGS': s,
             },
         )
-        self.navbar_builder_html = render_to_string(
+        self.navbar_builder_html = self._step_render(5,
             'dlux/includes/navbar_builder.html',
             {
                 'navbar_catalog_json': _json_dump(self.sidebar_catalog, ensure_ascii=False),
@@ -4202,7 +4257,7 @@ class SystemSettingsForm(forms.ModelForm):
                     for a in _item.get('actions') or ('create', 'update', 'delete')
                 ]
 
-        self.log_builder_html = render_to_string(
+        self.log_builder_html = self._step_render(9,
             'dlux/includes/log_builder.html',
             {
                 'log_config_json': _json_dump(initial_log_config, ensure_ascii=False),
@@ -4222,7 +4277,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'DLUX_STRINGS': s,
             },
         )
-        self.profile_builder_html = render_to_string(
+        self.profile_builder_html = self._step_render(10,
             'dlux/includes/profile_builder.html',
             {
                 'profile_config_json': _json_dump(initial_profile_config, ensure_ascii=False),
@@ -4307,6 +4362,21 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             Div(
                 *step_1_fields,
+                # Footer lives in Identity — it's branding/credit copy for every page.
+                HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'>{s.get('footer_settings_title', 'Footer')}</h6>"),
+                Row(
+                    build_settings_toggle_field(self, 'footer_enabled', css_class='col-12'),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
+                    Div(Field('footer_text', dir='auto'), css_class='col-12'),
+                    css_class='mb-3'
+                ),
+                Row(
+                    Div(Field('footer_link_text', dir='auto'), css_class='col-12 col-lg-6'),
+                    Div(Field('footer_link_url', dir='ltr'), css_class='col-12 col-lg-6'),
+                    css_class='mb-3'
+                ),
                 css_class=_step_css_class(0),
             ),
             Div(
@@ -4843,6 +4913,9 @@ class SystemSettingsForm(forms.ModelForm):
                 build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
                 HTML(self.language_fonts_editor_html),
                 Field('default_fonts'),
+                # ── UI & Layout group: tables, forms, modals, and the Options page,
+                # visually separated from the Themes & Typography group above. ──
+                HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'><i class='bi bi-window-stack me-2'></i>{s.get('ui_layout_group_title', 'UI &amp; Layout')}</h6>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
                 Row(
                     Div(Field('default_table_density'), css_class='col'),
@@ -4862,18 +4935,9 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('default_modal_size'), css_class='col'),
                     css_class='mb-3'
                 ),
-                HTML(f"<h6 class='fw-bold my-3'>{s.get('footer_settings_title', 'Footer')}</h6>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('options_page_settings_title', 'Options Page')}</h6>"),
                 Row(
-                    build_settings_toggle_field(self, 'footer_enabled', css_class='col-12'),
-                    css_class='g-3 mb-3',
-                ),
-                Row(
-                    Div(Field('footer_text', dir='auto'), css_class='col-12'),
-                    css_class='mb-3'
-                ),
-                Row(
-                    Div(Field('footer_link_text', dir='auto'), css_class='col-12 col-lg-6'),
-                    Div(Field('footer_link_url', dir='ltr'), css_class='col-12 col-lg-6'),
+                    Div(Field('options_style'), css_class='col'),
                     css_class='mb-3'
                 ),
                 css_class=_step_css_class(8),
@@ -5087,12 +5151,12 @@ class SystemSettingsForm(forms.ModelForm):
         return self._clean_preserved_footer_string('footer_link_url')
 
     def clean_footer_enabled(self):
-        # Checkbox in the Themes & Typography step (index 8). An unchecked box and
-        # an omitted-because-other-step box both vanish from POST data, so key off
+        # Checkbox in the Identity step (index 0). An unchecked box and an
+        # omitted-because-other-step box both vanish from POST data, so key off
         # the active step rather than mere presence.
         if (
             self.is_bound and self.mode != 'setup' and self.single_step_mode
-            and self.single_step_index != 8
+            and self.single_step_index != 0
         ):
             return bool(getattr(self.instance, 'footer_enabled', True))
         return bool(self.cleaned_data.get('footer_enabled'))
@@ -5144,6 +5208,9 @@ class SystemSettingsForm(forms.ModelForm):
 
     def clean_default_modal_size(self):
         return self._clean_preserved_choice('default_modal_size', 8, MODAL_SIZE_VALUES, DEFAULT_MODAL_SIZE)
+
+    def clean_options_style(self):
+        return self._clean_preserved_choice('options_style', 8, OPTIONS_STYLE_VALUES, DEFAULT_OPTIONS_STYLE)
 
     def clean_honeypot_enabled(self):
         return self._clean_preserved_toggle('honeypot_enabled', 2, True)
@@ -6025,6 +6092,9 @@ class SystemSettingsForm(forms.ModelForm):
             'default_fonts': self.cleaned_data.get('default_fonts', {}),
             'allow_user_font_override': bool(self.cleaned_data.get('allow_user_font_override', True)),
             'allow_user_language_override': bool(self.cleaned_data.get('allow_user_language_override', True)),
+            # options_style is a JSON-only layout key (no legacy column); pass it
+            # flat so apply_system_settings_import routes it into layout_config.
+            'options_style': layout_config.get('options_style', DEFAULT_OPTIONS_STYLE),
             'default_table_density': layout_config.get(
                 'default_table_density',
                 self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),

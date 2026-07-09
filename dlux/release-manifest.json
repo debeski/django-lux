@@ -1,15 +1,16 @@
 {
   "schema_version": 1,
-  "version": "1.4.0",
+  "version": "1.4.1",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Global search in the titlebar: a live 'search everywhere' dropdown that jumps to pages, System Settings sections (deep-linked to the right step), and titlebar/nav actions, with an optional data-record provider — all permission-aware, translated, and theme/RTL-ready. Configured under System Settings > Titlebar > Global Search (always / icon-on-focus / disabled, plus an include-data toggle). Also bundles session-lifecycle controls (sign out on browser close; configurable inactivity timeout with a countdown modal) and a microsys->dlux branding-media migration fix. No migrations; inline-safe (auth_config + titlebar_config JSON keys).",
+  "summary": "Options page layout styles: a new admin-set System Settings option (UI & Layout) picks how the Options page is laid out — rearrangeable Cards (default), Tabs (one section at a time; the Admin panel is the first tab), or a dense desktop-app-style Compact list. Hierarchy Nav Bar fallback also infers Dlux-owned link parents, so Backup & Restore appears under Application Options unless explicitly placed elsewhere. The Admin panel now has a circular expandable command launcher with a current-password-gated Force passwords command that marks all non-superusers for next-login password change. Public-registration defaults now live on Scopes and Group presets through context-menu markers and inline-safe migration 0009, applying the default scope and live auth.Group preset memberships after verification/approval. Also throttles the inactivity-timeout activity tracker so it no longer janks scrolling. Inline-safe: JSON config keys, route metadata, view/static/template updates, and additive nullable/db_default migration 0009.",
   "highlights": [
-    "New titlebar global search: jump to any page, setting, or action as you type (Ctrl/Cmd-K), with optional data-record search.",
-    "Settings results deep-link straight to the right settings step — no more hunting for where an option lives.",
-    "Sign out on browser close, plus a configurable inactivity timeout with a 30-second countdown warning.",
-    "Fixes migrated django-microsys logos that 404'd by relocating branding media to dlux/branding/."
+    "New Options page layout styles — Cards, Tabs, or Compact — set system-wide in System Settings → UI & Layout.",
+    "Hierarchy Nav Bar now places Backup & Restore under Application Options by default; configurable system routes are available in the builder for explicit overrides.",
+    "Smoother scrolling: the inactivity-timeout activity tracker is now throttled.",
+    "Admin panel command launcher: superusers can force all non-superusers through the existing next-login password-change flow after current-password confirmation.",
+    "Public-registration defaults: Scopes and Group presets expose context-menu markers; activated public registrations receive the marked scope and live Group preset memberships via inline-safe migration 0009."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.0"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.1"
 }

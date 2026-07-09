@@ -128,6 +128,7 @@ Section security contract:
 - `/sys/users/` plus the user-detail page/modal require `auth.view_user` for staff users (superusers still bypass)
 - `/sys/reset_password/<int:pk>/` now requires `auth.change_user` and the same staff/scope/superuser target checks as the hardened user-management modal routes. Reset submissions are rejected if the new password matches the target user's current password.
 - the create-user modal can mark a new account with `profile.preferences["force_password_change"]`; `DluxMiddleware` then redirects that user to `/accounts/profile/?force_password_change=1` until the profile password-change form succeeds and clears the marker. While this marker is active, the first-login Initial User Setup auto-modal is deferred so the password-change requirement remains the only blocking first action. The forced change must set a password different from the current one.
+- `/sys/admin/force-password-change-all/` is a POST-only superuser endpoint used by the Options Admin panel command launcher. It requires the acting superuser's current password and sets the same `profile.preferences["force_password_change"]` marker on every non-superuser user, preserving other preference keys and skipping all superusers.
 - `/sys/logs/` and `/sys/logs/<int:pk>/details/` now require the explicit `dlux.view_activitylog` permission or superuser status rather than plain `is_staff`
 - embedded activity snippets on user-detail surfaces only render when the caller also has `dlux.view_activitylog`
 - sidebar-discovered system routes plus the built-in dashboard/user-hub shortcuts now mirror those same helper-backed checks instead of older template-only `is_staff` assumptions
@@ -522,6 +523,11 @@ Common runtime feature flags in `get_system_config()`:
 - `registration_require_consent` — When true, the public registration form shows a
   **required** "I agree to the Terms & Privacy Policy" checkbox (validated in
   `PublicRegistrationForm(require_consent=...)`). See [Data & Privacy](data-privacy.md).
+- Public-registration defaults are model markers, not configuration keys:
+  `Scope.is_public_registration_default` selects the one default landing scope
+  while scopes are enabled, and `GroupProfile.is_public_registration_default`
+  marks one or more live Group presets to assign after verification/approval.
+  `Scope.description` is optional and nullable for inline-safe edits.
 - `client_ip_config` — Centralized Client IP resolution configuration. Supports
   `mode` (`auto`, `x_forwarded_for`, `remote_addr`, `x_real_ip`, `cloudflare`,
   or `custom`), `trusted_proxy_hops` (0–8), and `custom_header` for custom mode.
@@ -546,6 +552,12 @@ Common runtime feature flags in `get_system_config()`:
 - `sticky_table_headers` / `zebra_striping` — Toggle (default on) the sticky table
   header row and alternating row shading; gated in `tables.css` via
   `body[data-dlux-sticky-header]` / `body[data-dlux-zebra]` emitted from `base.html`.
+- `options_style` — Layout of the Options page (`/sys/options/`): `cards` (default,
+  rearrangeable card grid), `tabs` (one section at a time behind a generated tab
+  strip — the Admin panel is the first tab), or `compact` (a dense single-page,
+  desktop-app-style list). Exposed at `APP_CONFIG.appearance.options_style` and
+  emitted as `data-options-style` on `#dluxOptionsGrid`; `options.css`/`options.js`
+  render the three modes from the same card DOM (JSON-only, no migration).
   Exposed as `APP_CONFIG.appearance.*`.
 - `footer_text` — Optional copyright/description line for the global page footer
   (`layout_config.footer_text`, max 300 chars, blank by default). Edited from
@@ -565,6 +577,7 @@ Options/runtime UI notes:
 - Options cards are draggable through per-card handles and the current order is persisted in browser `localStorage`
 - the wide System Info card intentionally keeps a double-column span inside the grid
 - Autofill and Reset Defaults are standalone cards in the shared Options card system, not nested sub-cards
+- the authenticated Nav Bar groups Dlux-owned routes under an unclickable `System` crumb by default; unplaced Dlux system routes may also follow `SYSTEM_ROUTE_META[*].breadcrumb_parent` to mirror Dlux page links, so Backup & Restore falls under Application Options unless the hierarchy builder explicitly places it elsewhere; configurable Dlux system routes remain available in that builder for overrides
 
 ## Framework-Owned Table Surface
 
@@ -738,6 +751,7 @@ notice.setAttribute('data-autoclose', 'false');
 | `set_user_group_presets(user, groups, actor, manageable_groups=None)` | Reconcile a user's preset membership within the manageable set — syncs native `user.groups` and the `GroupMembership` audit rows |
 | `set_group_members(group, users, actor, manageable_users=None)` | Group-centric inverse of the above: set one preset's members, syncing `group.user_set` and audit rows |
 | `get_manageable_users_queryset(actor)` | Users an actor may add to/remove from presets, honouring the same tiers as the user directory |
+| `apply_public_registration_defaults(user)` | Apply the marked public-registration default scope and matching global/scope Group presets to an activated public-registration user |
 | `collect_related_objects()` | Inspect reverse and related objects for reporting or delete warnings |
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
@@ -777,6 +791,7 @@ Sidebar items are only visible to users who have the required view permission. T
    - `user_activity_log` → `__dlux_activity_log__`
    - `manage_sections` → `__dlux_sections_view__`
    - `options_view` → `__dlux_authenticated__`
+   - `system_backup_page` → `is_superuser`
 3. **Model-based inference**: for class-based views with a model, the permission is `app_label.view_model_name`.
 4. **URL pattern inference**: for function-based views without a model, the app label comes from the URL namespace (or callback module) and the model name from the URL name prefix (e.g., `documents:outgoing_list` → `documents.view_outgoing`).
 5. **No inference**: if none of the above produce a permission, the item is hidden from non-superusers.

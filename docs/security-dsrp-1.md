@@ -147,6 +147,17 @@ The first v1 policy is intentionally narrow:
   approval.
 - Duplicate, throttled, and honeypot submissions use generic responses and must
   not disclose account existence.
+- Bulk password-change enforcement is an admin-panel command, not a setting. The
+  `/sys/admin/force-password-change-all/` POST endpoint is superuser-only,
+  requires the acting user's current password, skips all superusers, and reuses
+  the existing `Profile.preferences["force_password_change"]` marker enforced by
+  `DluxMiddleware`.
+- Default public-registration scope/group assignment is owned by the Scopes and
+  Groups managers, not by System Settings. Scope default changes are superuser
+  POSTs; Group preset default changes require `dlux.manage_groups` plus the
+  normal preset-management scope gate. Activation applies live `auth.Group`
+  memberships after verification/approval and never uses the admin-created-user
+  first-login password-change checkbox.
 
 ## Optional SSO Extensions
 

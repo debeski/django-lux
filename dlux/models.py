@@ -1,6 +1,7 @@
 # Imports of the required python modules and libraries
 ######################################################
 import logging
+from django.apps import apps
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -129,6 +130,12 @@ def default_profile_config():
 
 class Scope(models.Model):
     name = models.CharField(max_length=100, verbose_name="Scope")
+    description = models.TextField(blank=True, null=True, verbose_name="Description")
+    is_public_registration_default = models.BooleanField(
+        default=False,
+        db_default=False,
+        verbose_name="Default for Public Registration",
+    )
 
     def __str__(self):
         return self.name
@@ -181,6 +188,11 @@ class GroupProfile(models.Model):
         related_name='group_presets', verbose_name="Scope",
     )
     is_active = models.BooleanField(default=True, verbose_name="Active")
+    is_public_registration_default = models.BooleanField(
+        default=False,
+        db_default=False,
+        verbose_name="Default for Public Registration",
+    )
     created_at = models.DateTimeField(auto_now_add=True, editable=False, verbose_name="Created At")
     updated_at = models.DateTimeField(auto_now=True, editable=False, verbose_name="Updated At")
     created_by = models.ForeignKey(
@@ -851,6 +863,45 @@ class Profile(ScopedModel):
             ("view_reports", "Can view reports"),
             ("download_backup", "Can download backup"),
         ]
+
+
+def apply_public_registration_defaults(user):
+    """
+    Apply admin-marked Scope and Group preset defaults to an activated public
+    registration account. Defaults are owned by the Scopes and Groups managers,
+    not System Settings.
+    """
+    if not getattr(user, 'pk', None):
+        return
+
+    profile, _created = Profile.all_objects.get_or_create(user=user)
+    scope = None
+
+    try:
+        if ScopeSettings.load().is_enabled:
+            scope = Scope.objects.filter(is_public_registration_default=True).order_by('name', 'pk').first()
+            if scope is not None and profile.scope_id != scope.pk:
+                profile.scope = scope
+                profile.save(update_fields=['scope'])
+    except Exception:
+        logger.exception("Failed to apply default public-registration scope for user pk=%s", user.pk)
+
+    try:
+        Group = apps.get_model('auth', 'Group')
+        default_profiles = GroupProfile.objects.filter(
+            is_active=True,
+            is_public_registration_default=True,
+        )
+        if scope is not None:
+            default_profiles = default_profiles.filter(models.Q(scope__isnull=True) | models.Q(scope=scope))
+        else:
+            default_profiles = default_profiles.filter(scope__isnull=True)
+        groups = Group.objects.filter(dlux_profile__in=default_profiles)
+        if groups.exists():
+            from .utils import set_user_group_presets
+            set_user_group_presets(user, list(groups), actor=None, manageable_groups=groups)
+    except Exception:
+        logger.exception("Failed to apply default public-registration group presets for user pk=%s", user.pk)
 
 
 class TrustedDevice(models.Model):
@@ -1549,6 +1600,7 @@ class PublicRegistration(models.Model):
             self.status = REGISTRATION_STATUS_ACTIVATED
             self.user.is_active = True
             self.user.save(update_fields=['is_active'])
+            apply_public_registration_defaults(self.user)
         else:
             self.status = REGISTRATION_STATUS_PENDING_APPROVAL
             self.user.is_active = False
@@ -1566,6 +1618,7 @@ class PublicRegistration(models.Model):
         self.approved_by = actor
         self.user.is_active = True
         self.user.save(update_fields=['is_active'])
+        apply_public_registration_defaults(self.user)
         self.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
 
     def reject(self, actor):

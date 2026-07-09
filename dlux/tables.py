@@ -248,32 +248,51 @@ class UserActivityLogTableNoUser(UserActivityLogTable):
 
 
 class ScopeTable(DluxTable):
-    actions = tables.TemplateColumn(
-        template_name='dlux/scopes/scope_actions.html',
-        orderable=False,
-        verbose_name=''
-    )
+    description = tables.Column(orderable=False, default='')
+    public_registration_default = tables.Column(empty_values=(), orderable=False)
 
     class Meta(DluxTable.Meta):
         model = apps.get_model('dlux', 'Scope')
-        fields = ("name", "actions")
+        fields = ("name", "description", "public_registration_default")
+        row_attrs = {
+            "data-dlux-context": "true",
+            "data-dlux-actions": lambda record: json.dumps(_build_scope_row_actions(record)),
+        }
         dlux_actions = False
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        s = get_strings()
+        self.columns['name'].column.verbose_name = s.get('form_scope_name', 'Scope Name')
+        self.columns['description'].column.verbose_name = s.get('form_scope_description', 'Description')
+        self.columns['public_registration_default'].column.verbose_name = s.get('public_registration_default_short', 'Registration')
+
+    def render_description(self, value):
+        return value or format_html('<span class="text-muted">{}</span>', '-')
+
+    def render_public_registration_default(self, record):
+        if getattr(record, 'is_public_registration_default', False):
+            return format_html(
+                '<span class="badge bg-primary"><i class="bi bi-person-plus-fill me-1"></i>{}</span>',
+                get_strings().get('public_registration_default_badge', 'Public default'),
+            )
+        return format_html('<span class="text-muted small">{}</span>', '-')
 
 
 class GroupPresetTable(DluxTable):
     """Permission-preset (auth.Group + GroupProfile) directory grid."""
     scope = tables.Column(accessor='dlux_profile__scope__name', orderable=False)
+    public_registration_default = tables.Column(empty_values=(), orderable=False)
     member_count = tables.Column(accessor='member_count', orderable=False)
     permission_count = tables.Column(accessor='permission_count', orderable=False)
-    actions = tables.TemplateColumn(
-        template_name='dlux/groups/group_actions.html',
-        orderable=False,
-        verbose_name='',
-    )
 
     class Meta(DluxTable.Meta):
         model = apps.get_model('auth', 'Group')
-        fields = ("name", "scope", "member_count", "permission_count", "actions")
+        fields = ("name", "scope", "public_registration_default", "member_count", "permission_count")
+        row_attrs = {
+            "data-dlux-context": "true",
+            "data-dlux-actions": lambda record: json.dumps(_build_group_preset_row_actions(record)),
+        }
         dlux_actions = False
 
     def __init__(self, *args, **kwargs):
@@ -281,11 +300,21 @@ class GroupPresetTable(DluxTable):
         s = get_strings()
         self.columns['name'].column.verbose_name = s.get('form_group_name', 'Group Name')
         self.columns['scope'].column.verbose_name = s.get('form_scope', 'Scope')
+        self.columns['public_registration_default'].column.verbose_name = s.get('public_registration_default_short', 'Registration')
         self.columns['member_count'].column.verbose_name = s.get('group_member_count', 'Members')
         self.columns['permission_count'].column.verbose_name = s.get('group_permission_count', 'Permissions')
 
     def render_scope(self, value):
         return value or get_strings().get('group_scope_global', 'Global')
+
+    def render_public_registration_default(self, record):
+        profile = getattr(record, 'dlux_profile', None)
+        if profile and getattr(profile, 'is_public_registration_default', False):
+            return format_html(
+                '<span class="badge bg-primary"><i class="bi bi-person-plus-fill me-1"></i>{}</span>',
+                get_strings().get('public_registration_default_badge', 'Public default'),
+            )
+        return format_html('<span class="text-muted small">{}</span>', '-')
 
 
 class GroupMembershipTable(DluxTable):
@@ -365,5 +394,93 @@ def _build_user_row_actions(record):
                 "url": reverse('reset_password', args=[record.pk]),
             },
             "permissions": ["auth.change_user"],
+        },
+    ]
+
+
+def _build_group_preset_row_actions(record):
+    s = get_strings()
+    can_manage = bool(getattr(record, 'dlux_can_manage', False))
+    profile = getattr(record, 'dlux_profile', None)
+    is_default = bool(profile and getattr(profile, 'is_public_registration_default', False))
+    actions = []
+    if can_manage:
+        actions.extend([
+            {
+                "label": s.get("group_members_label", "Members"),
+                "icon": "bi bi-people-fill",
+                "type": "event",
+                "event": "dlux:group:members",
+                "data": {"url": reverse('group_members', args=[record.pk])},
+                "dblclick": True,
+            },
+            {
+                "label": s.get("edit_group", "Edit Group"),
+                "icon": "bi bi-pencil-square",
+                "type": "event",
+                "event": "dlux:group:edit",
+                "data": {"url": reverse('get_group_form', args=[record.pk])},
+            },
+            {"type": "divider"},
+            {
+                "label": (
+                    s.get("group_clear_public_registration_default", "Clear public-registration default")
+                    if is_default else
+                    s.get("group_set_public_registration_default", "Use for public registrations")
+                ),
+                "icon": "bi bi-person-plus-fill",
+                "type": "event",
+                "event": "dlux:group:toggle-public-default",
+                "data": {"url": reverse('toggle_group_public_registration_default', args=[record.pk])},
+            },
+        ])
+    else:
+        actions.append({
+            "label": s.get("group_view_only", "View only"),
+            "icon": "bi bi-eye",
+            "type": "event",
+            "event": "dlux:noop",
+        })
+    return actions
+
+
+def _build_scope_row_actions(record):
+    s = get_strings()
+    is_default = bool(getattr(record, 'is_public_registration_default', False))
+    return [
+        {
+            "label": s.get("view_details", "View Details"),
+            "icon": "bi bi-eye",
+            "type": "event",
+            "event": "dlux:scope:detail",
+            "data": {"url": reverse('scope_detail', args=[record.pk])},
+            "dblclick": True,
+        },
+        {
+            "label": s.get("edit_scope", "Edit Scope"),
+            "icon": "bi bi-pencil-square",
+            "type": "event",
+            "event": "dlux:scope:edit",
+            "data": {"url": reverse('get_scope_form', args=[record.pk])},
+        },
+        {"type": "divider"},
+        {
+            "label": (
+                s.get("scope_clear_public_registration_default", "Clear public-registration default")
+                if is_default else
+                s.get("scope_set_public_registration_default", "Use for public registrations")
+            ),
+            "icon": "bi bi-person-plus-fill",
+            "type": "event",
+            "event": "dlux:scope:toggle-public-default",
+            "data": {"url": reverse('toggle_scope_public_registration_default', args=[record.pk])},
+        },
+        {
+            "label": s.get("delete_label", "Delete"),
+            "icon": "bi bi-trash",
+            "type": "event",
+            "event": "dlux:scope:delete-disabled",
+            "textClass": "text-danger",
+            "data": {"url": reverse('delete_scope', args=[record.pk])},
         },
     ]
