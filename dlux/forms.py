@@ -64,6 +64,8 @@ from .system.constants import (
     TITLEBAR_SIZE_VALUES,
     TITLEBAR_SURFACE_CHOICES,
     TITLEBAR_SURFACE_VALUES,
+    TITLEBAR_GLOBAL_SEARCH_CHOICES,
+    TITLEBAR_GLOBAL_SEARCH_VALUES,
     TITLEBAR_ACTIONS_ORDER,
     TITLEBAR_USER_HUB_STYLE_ACTIONS,
     TITLEBAR_USER_HUB_STYLE_CHOICES,
@@ -2189,6 +2191,15 @@ class SystemSettingsForm(forms.ModelForm):
         choices=TITLEBAR_LOGO_TREATMENT_SHAPE_CHOICES,
         initial='soft',
     )
+    titlebar_global_search_mode = forms.ChoiceField(
+        required=False,
+        choices=TITLEBAR_GLOBAL_SEARCH_CHOICES,
+        initial='icon',
+    )
+    titlebar_global_search_include_data = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
     notification_config = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -2343,6 +2354,15 @@ class SystemSettingsForm(forms.ModelForm):
         initial=False,
     )
     strong_password_min_length = forms.IntegerField(required=False, min_value=8, max_value=64, initial=12)
+    purge_session_on_exit = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    inactivity_timeout_enabled = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    inactivity_timeout_minutes = forms.IntegerField(required=False, min_value=1, max_value=1440, initial=10)
     auth_config = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -2827,6 +2847,17 @@ class SystemSettingsForm(forms.ModelForm):
             'form_sys_titlebar_logo_treatment_shape',
             'Logo treatment shape',
         )
+        self.fields['titlebar_global_search_mode'].label = s.get('form_sys_titlebar_global_search', 'Global search')
+        self.fields['titlebar_global_search_mode'].help_text = s.get(
+            'help_sys_titlebar_global_search',
+            'Show a search box in the titlebar to jump to pages, settings, and actions from anywhere.',
+        )
+        self.fields['titlebar_global_search_include_data'].label = s.get(
+            'form_sys_titlebar_global_search_include_data', 'Include data records in search')
+        self.fields['titlebar_global_search_include_data'].help_text = s.get(
+            'help_sys_titlebar_global_search_include_data',
+            'When on, global search also matches records the user can view, not just app components (pages, settings, actions).',
+        )
         self.fields['titlebar_show_title'].help_text = s.get(
             'help_sys_titlebar_show_title',
             'Show the system title in the titlebar.',
@@ -3115,6 +3146,21 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_strong_password_min_length',
             'Minimum characters required while strong passwords are enforced (8-64).',
         )
+        self.fields['purge_session_on_exit'].label = s.get('form_sys_purge_session_on_exit', 'Sign out on browser close')
+        self.fields['purge_session_on_exit'].help_text = s.get(
+            'help_sys_purge_session_on_exit',
+            'End the session when the tab or browser is closed instead of keeping the user signed in on their next visit.',
+        )
+        self.fields['inactivity_timeout_enabled'].label = s.get('form_sys_inactivity_timeout', 'Sign out after inactivity')
+        self.fields['inactivity_timeout_enabled'].help_text = s.get(
+            'help_sys_inactivity_timeout',
+            'Automatically sign users out after a period of no activity. A countdown warning appears shortly before sign-out.',
+        )
+        self.fields['inactivity_timeout_minutes'].label = s.get('form_sys_inactivity_timeout_minutes', 'Inactivity timeout (minutes)')
+        self.fields['inactivity_timeout_minutes'].help_text = s.get(
+            'help_sys_inactivity_timeout_minutes',
+            'Minutes of inactivity before the user is signed out (1-1440).',
+        )
         self.fields['client_ip_mode'].label = s.get('form_sys_client_ip_mode')
         self.fields['client_ip_mode'].help_text = s.get('help_sys_client_ip_mode')
         self.fields['client_ip_mode'].choices = (
@@ -3297,6 +3343,26 @@ class SystemSettingsForm(forms.ModelForm):
                     'wide': {
                         'icon': 'bi-arrows-angle-expand',
                         'description': s.get('modal_size_wide_desc', 'An extra-wide dialog for dense content.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
+            self.fields['titlebar_global_search_mode'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'always': {
+                        'icon': 'bi-search',
+                        'description': s.get('global_search_mode_always_desc', 'Show the search field in the titlebar at all times.'),
+                    },
+                    'icon': {
+                        'icon': 'bi-search-heart',
+                        'description': s.get('global_search_mode_icon_desc', 'Show a search icon that expands into a field on focus.'),
+                    },
+                    'disabled': {
+                        'icon': 'bi-slash-circle',
+                        'description': s.get('global_search_mode_disabled_desc', 'Hide global search entirely.'),
                     },
                 },
             ),
@@ -3878,6 +3944,9 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['titlebar_surface'] = initial_titlebar_config.get('surface', 'default')
         self.initial['titlebar_logo_treatment'] = initial_titlebar_config.get('logo_treatment', 'none')
         self.initial['titlebar_logo_treatment_shape'] = initial_titlebar_config.get('logo_treatment_shape', 'soft')
+        self.initial['titlebar_global_search_mode'] = initial_titlebar_config.get('global_search_mode', 'icon')
+        self.initial['titlebar_global_search_include_data'] = bool(
+            initial_titlebar_config.get('global_search_include_data', False))
         initial_notification_config = normalize_notification_config(
             (
                 config.get('notifications', {})
@@ -4309,6 +4378,8 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(self, 'prevent_multiple_active_sessions', css_class='col-lg-6'),
                     build_settings_toggle_field(self, 'login_lockout_enabled', css_class='col-lg-6'),
                     build_settings_toggle_field(self, 'enforce_strong_passwords', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'purge_session_on_exit', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'inactivity_timeout_enabled', css_class='col-lg-6'),
                     css_class='g-3 mb-3',
                 ),
                 # Lockout tuning — revealed only while the lockout toggle is on
@@ -4333,6 +4404,16 @@ class SystemSettingsForm(forms.ModelForm):
                     ),
                     data_auth_strong_fields='true',
                     aria_hidden='false' if self.initial.get('enforce_strong_passwords', False) else 'true',
+                ),
+                # Inactivity-timeout tuning — revealed only while the toggle is on.
+                Row(
+                    Div(Field('inactivity_timeout_minutes', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    css_class=(
+                        "g-3 mb-3 dlux-auth-inactivity-fields"
+                        f"{'' if self.initial.get('inactivity_timeout_enabled', False) else ' d-none'}"
+                    ),
+                    data_auth_inactivity_fields='true',
+                    aria_hidden='false' if self.initial.get('inactivity_timeout_enabled', False) else 'true',
                 ),
                 Field('auth_config'),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title')}</h6>"),
@@ -4653,6 +4734,21 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(Field('titlebar_user_hub_style'), css_class='col-lg-12'),
                     css_class='g-3 mb-3',
+                ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('global_search_settings_title', 'Global Search')}</h6>"),
+                Row(
+                    Div(Field('titlebar_global_search_mode'), css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
+                ),
+                # Data-search toggle — shown only while global search is enabled.
+                Row(
+                    build_settings_toggle_field(self, 'titlebar_global_search_include_data', css_class='col-lg-12'),
+                    css_class=(
+                        "g-3 mb-3 dlux-global-search-data-field"
+                        f"{' d-none' if self.initial.get('titlebar_global_search_mode', 'icon') == 'disabled' else ''}"
+                    ),
+                    data_global_search_data_field='true',
+                    aria_hidden='true' if self.initial.get('titlebar_global_search_mode', 'icon') == 'disabled' else 'false',
                 ),
                 HTML(self.titlebar_actions_order_html),
                 Field('titlebar_actions_order'),
@@ -5161,6 +5257,15 @@ class SystemSettingsForm(forms.ModelForm):
     def clean_strong_password_min_length(self):
         return self._auth_int_clean('strong_password_min_length', 12)
 
+    def clean_purge_session_on_exit(self):
+        return self._auth_toggle_clean('purge_session_on_exit', False)
+
+    def clean_inactivity_timeout_enabled(self):
+        return self._auth_toggle_clean('inactivity_timeout_enabled', False)
+
+    def clean_inactivity_timeout_minutes(self):
+        return self._auth_int_clean('inactivity_timeout_minutes', 10)
+
     def clean_sidebar_density(self):
         value = self.cleaned_data.get('sidebar_density') or DEFAULT_SIDEBAR_DENSITY
         if value not in SIDEBAR_DENSITY_VALUES:
@@ -5183,6 +5288,12 @@ class SystemSettingsForm(forms.ModelForm):
         value = self.cleaned_data.get('titlebar_user_hub_style') or TITLEBAR_USER_HUB_STYLE_DROPDOWN
         if value not in TITLEBAR_USER_HUB_STYLE_VALUES:
             raise ValidationError("Invalid titlebar and user hub style.")
+        return value
+
+    def clean_titlebar_global_search_mode(self):
+        value = self.cleaned_data.get('titlebar_global_search_mode') or 'icon'
+        if value not in TITLEBAR_GLOBAL_SEARCH_VALUES:
+            raise ValidationError("Invalid global search mode.")
         return value
 
     def clean_titlebar_actions_order(self):
@@ -5545,6 +5656,8 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['titlebar_surface'] = titlebar.get('surface', 'default')
             cleaned['titlebar_logo_treatment'] = titlebar.get('logo_treatment', 'none')
             cleaned['titlebar_logo_treatment_shape'] = titlebar.get('logo_treatment_shape', 'soft')
+            cleaned['titlebar_global_search_mode'] = titlebar.get('global_search_mode', 'icon')
+            cleaned['titlebar_global_search_include_data'] = bool(titlebar.get('global_search_include_data', False))
 
         notifications = imported.get('notification_config')
         if isinstance(notifications, dict):
@@ -5768,6 +5881,8 @@ class SystemSettingsForm(forms.ModelForm):
             'surface': cleaned.get('titlebar_surface', 'default'),
             'logo_treatment': cleaned.get('titlebar_logo_treatment', 'none'),
             'logo_treatment_shape': cleaned.get('titlebar_logo_treatment_shape', 'soft'),
+            'global_search_mode': cleaned.get('titlebar_global_search_mode', 'icon'),
+            'global_search_include_data': bool(cleaned.get('titlebar_global_search_include_data', False)),
         })
         notification_split_fields = (
             'notifications_enabled',
@@ -5954,6 +6069,9 @@ class SystemSettingsForm(forms.ModelForm):
             'login_lockout_duration_minutes': auth_config.get('login_lockout_duration_minutes', 15),
             'enforce_strong_passwords': bool(auth_config.get('enforce_strong_passwords', False)),
             'strong_password_min_length': auth_config.get('strong_password_min_length', 12),
+            'purge_session_on_exit': bool(auth_config.get('purge_session_on_exit', False)),
+            'inactivity_timeout_enabled': bool(auth_config.get('inactivity_timeout_enabled', False)),
+            'inactivity_timeout_minutes': auth_config.get('inactivity_timeout_minutes', 10),
             'client_ip_config': self.cleaned_data.get('client_ip_config', default_client_ip_config()),
             'public_root': bool(public_root_config.get('public_root', False)),
             'public_root_split_enabled': bool(public_root_config.get('public_root_split_enabled', False)),

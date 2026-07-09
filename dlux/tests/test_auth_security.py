@@ -70,6 +70,94 @@ class AuthConfigFlatExposureTests(TestCase):
             self.assertTrue(config['enforce_strong_passwords'])
 
 
+class SessionPolicyConfigTests(TestCase):
+    def test_defaults_include_session_lifecycle_knobs(self):
+        cfg = normalize_auth_config({})
+        self.assertFalse(cfg['purge_session_on_exit'])
+        self.assertFalse(cfg['inactivity_timeout_enabled'])
+        self.assertEqual(cfg['inactivity_timeout_minutes'], 10)
+
+    def test_inactivity_minutes_clamped(self):
+        self.assertEqual(normalize_auth_config({'inactivity_timeout_minutes': 0})['inactivity_timeout_minutes'], 1)
+        self.assertEqual(normalize_auth_config({'inactivity_timeout_minutes': 99999})['inactivity_timeout_minutes'], 1440)
+        self.assertEqual(normalize_auth_config({'inactivity_timeout_minutes': 'nope'})['inactivity_timeout_minutes'], 10)
+
+    def test_session_keys_flatten_into_system_config(self):
+        from dlux.utils import get_system_config
+
+        _fresh_config_state()
+        with override_settings(DLUX_CONFIG={
+            'auth_config': {
+                'purge_session_on_exit': True,
+                'inactivity_timeout_enabled': True,
+                'inactivity_timeout_minutes': 25,
+            },
+        }):
+            config = get_system_config()
+            self.assertTrue(config['purge_session_on_exit'])
+            self.assertTrue(config['inactivity_timeout_enabled'])
+            self.assertEqual(config['inactivity_timeout_minutes'], 25)
+
+    def test_security_group_exposes_session_knobs(self):
+        from dlux.utils.config import build_config_groups
+
+        groups = build_config_groups({
+            'inactivity_timeout_enabled': True,
+            'inactivity_timeout_minutes': 20,
+            'purge_session_on_exit': True,
+        })
+        self.assertTrue(groups['security']['purge_session_on_exit'])
+        self.assertTrue(groups['security']['inactivity_timeout_enabled'])
+        self.assertEqual(groups['security']['inactivity_timeout_minutes'], 20)
+
+
+class SessionTimeoutMiddlewareTests(TestCase):
+    def setUp(self):
+        _fresh_config_state()
+        self.factory = RequestFactory()
+
+    def _authed_request(self):
+        from django.contrib.auth import get_user_model
+        from importlib import import_module
+        from django.conf import settings as dj_settings
+
+        user = get_user_model().objects.create_user(username='idle', password='x')
+        request = self.factory.get('/dashboard/')
+        engine = import_module(dj_settings.SESSION_ENGINE)
+        request.session = engine.SessionStore()
+        request.user = user
+        return request
+
+    def test_idle_timeout_from_config_signs_out(self):
+        import time as _time
+        from dlux.middleware import DluxMiddleware
+
+        mw = DluxMiddleware(lambda r: None)
+        with override_settings(DLUX_CONFIG={
+            'auth_config': {'inactivity_timeout_enabled': True, 'inactivity_timeout_minutes': 1},
+        }):
+            request = self._authed_request()
+            # First authed request anchors the idle clock.
+            self.assertIsNone(mw._session_timeout_response(request))
+            # Backdate activity beyond the 1-minute window.
+            request.session['dlux_last_activity'] = _time.time() - 120
+            response = mw._session_timeout_response(request)
+            self.assertIsNotNone(response)
+            self.assertIn('idle_timeout', response.url)
+
+    def test_purge_on_exit_sets_browser_close_expiry(self):
+        from dlux.middleware import DluxMiddleware
+
+        mw = DluxMiddleware(lambda r: None)
+        with override_settings(DLUX_CONFIG={
+            'auth_config': {'purge_session_on_exit': True},
+        }):
+            request = self._authed_request()
+            mw._apply_session_cookie_policy(request)
+            self.assertTrue(request.session.get_expire_at_browser_close())
+            self.assertTrue(request.session.get('dlux_expire_on_close'))
+
+
 class LoginLockoutConfigTests(TestCase):
     def setUp(self):
         _fresh_config_state()

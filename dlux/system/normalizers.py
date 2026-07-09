@@ -47,6 +47,7 @@ from .constants import (
     TITLEBAR_LOGO_TREATMENT_SHAPE_VALUES,
     TITLEBAR_LOGO_TREATMENT_VALUES,
     TITLEBAR_SIZE_VALUES,
+    TITLEBAR_GLOBAL_SEARCH_VALUES,
     TITLEBAR_SURFACE_VALUES,
     TITLEBAR_USER_HUB_STYLE_VALUES,
 )
@@ -284,6 +285,9 @@ def normalize_auth_config(value):
         'login_lockout_duration_minutes': _to_int(cfg.get('login_lockout_duration_minutes', 15), 15, min_value=1, max_value=1440),
         'enforce_strong_passwords': bool(cfg.get('enforce_strong_passwords', False)),
         'strong_password_min_length': _to_int(cfg.get('strong_password_min_length', 12), 12, min_value=8, max_value=64),
+        'purge_session_on_exit': bool(cfg.get('purge_session_on_exit', False)),
+        'inactivity_timeout_enabled': bool(cfg.get('inactivity_timeout_enabled', False)),
+        'inactivity_timeout_minutes': _to_int(cfg.get('inactivity_timeout_minutes', 10), 10, min_value=1, max_value=1440),
     }
 
 
@@ -505,6 +509,13 @@ def normalize_titlebar_config(titlebar_config):
         normalized['user_hub_style'] = user_hub_style
 
     normalized['actions_order'] = normalize_titlebar_actions_order(config.get('actions_order'))
+
+    global_search_mode = config.get('global_search_mode')
+    if global_search_mode in TITLEBAR_GLOBAL_SEARCH_VALUES:
+        normalized['global_search_mode'] = global_search_mode
+    normalized['global_search_include_data'] = bool(
+        config.get('global_search_include_data', normalized['global_search_include_data'])
+    )
     return normalized
 
 

@@ -11,7 +11,10 @@
  *
  * Targets Django's new-password fields (autocomplete="new-password") so login
  * and current-password fields are excluded; downstream forms can opt in with
- * data-dlux-password-rules. A confirm field (name ending in `password2`, e.g.
+ * data-dlux-password-rules, or explicitly opt OUT (even when
+ * autocomplete="new-password") with data-dlux-password-rules="off" — used for
+ * optional secrets like backup-encryption passphrases that are not account
+ * passwords. A confirm field (name ending in `password2`, e.g.
  * `password2` / `new_password2`) instead shows a single "passwords match" check
  * against its `...password1` sibling. No network, no inline JS (DSRP-1).
  */
@@ -74,6 +77,11 @@
 
     function bind(input) {
         if (!input || input.dataset.dluxPwRulesBound === 'true') { return; }
+        // Explicit opt-out: fields carrying an unrelated passphrase/secret (e.g.
+        // optional backup-encryption passphrases) set data-dlux-password-rules="off"
+        // so the account-password checklist — which they would otherwise inherit
+        // via autocomplete="new-password" — is suppressed entirely.
+        if (input.getAttribute('data-dlux-password-rules') === 'off') { return; }
         input.dataset.dluxPwRulesBound = 'true';
 
         var primary = confirmPrimaryFor(input);

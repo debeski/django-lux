@@ -56,6 +56,8 @@
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/password_rules/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/helpers/loading_button/css/main.css' %}">
     <link rel="stylesheet" href="{% dlux_static 'dlux/users/css/user_hub.css' %}">
+    {% if request.user.is_authenticated %}<link rel="stylesheet" href="{% dlux_static 'dlux/main/css/session_timeout.css' %}">
+    <link rel="stylesheet" href="{% dlux_static 'dlux/main/css/global_search.css' %}">{% endif %}
     <link rel="icon" href="{{ APP_CONFIG.favicon_url|default:'/static/img/base_logo.svg' }}">
     <!-- <link rel="icon" type="image/png" sizes="192x192" href="{% static 'icons/icon-192x192.png' %}">
     <link rel="icon" type="image/png" sizes="512x512" href="{% static 'icons/icon-512x512.png' %}"> -->
@@ -87,6 +89,8 @@
     <script src="{% dlux_static 'dlux/main/js/navbar.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/main/js/signature.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/password_rules/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    {% if request.user.is_authenticated %}<script src="{% dlux_static 'dlux/main/js/session_timeout.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/main/js/global_search.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}
 
 </head>
 <body data-dlux-sticky-header="{{ APP_CONFIG.appearance.sticky_table_headers|yesno:'on,off' }}" data-dlux-zebra="{{ APP_CONFIG.appearance.zebra_striping|yesno:'on,off' }}" data-dlux-form-density="{{ user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density|default:'balanced' }}" data-dlux-modal-size="{{ user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size|default:'standard' }}">

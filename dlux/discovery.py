@@ -111,6 +111,12 @@ SYSTEM_ROUTE_META = {
         'permissions': ['__dlux_authenticated__'],
         'group_key': 'dlux',
     },
+    'system_backup_page': {
+        'label_key': 'sysbackup_title',
+        'icon': 'bi-safe2-fill',
+        'permissions': ['is_superuser'],
+        'group_key': 'dlux',
+    },
 }
 
 CONFIGURABLE_SYSTEM_ROUTE_NAMES = {
@@ -118,6 +124,7 @@ CONFIGURABLE_SYSTEM_ROUTE_NAMES = {
     'manage_users',
     'user_activity_log',
     'options_view',
+    'system_backup_page',
 }
 
 HIDDEN_SIDEBAR_GROUP_KEYS = {'dlux'}
@@ -284,6 +291,12 @@ def _guess_icon(url_name, model=None, callback=None):
         return _plain_text(explicit)
     if model and getattr(model._meta, 'sidebar_icon', None):
         return _plain_text(getattr(model._meta, 'sidebar_icon'))
+
+    # Honour the icon declared for a system route (mirrors how label_key is used),
+    # so routes without a matching VIEW_ICON_HINTS token still get a real icon.
+    meta_leaf = _route_leaf(url_name)
+    if meta_leaf in SYSTEM_ROUTE_META and SYSTEM_ROUTE_META[meta_leaf].get('icon'):
+        return _plain_text(SYSTEM_ROUTE_META[meta_leaf]['icon'])
 
     leaf = url_name.split(':')[-1].lower()
     for hint, icon in VIEW_ICON_HINTS.items():

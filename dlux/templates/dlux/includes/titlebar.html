@@ -37,6 +37,30 @@
     </div>
     <div class="titlebar__side titlebar__side--end pe-2">
         {% if user.is_authenticated %}
+            {% if titlebar.global_search_mode != 'disabled' %}
+            <div class="dlux-global-search no-print"
+                 data-global-search
+                 data-global-search-mode="{{ titlebar.global_search_mode|default:'icon' }}"
+                 data-global-search-url="{% url 'global_search' %}"
+                 data-global-search-include-data="{% if titlebar.global_search_include_data %}1{% else %}0{% endif %}">
+                <button type="button" class="dlux-global-search__toggle" data-global-search-toggle
+                        data-dlux-tooltip="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}"
+                        aria-label="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}">
+                    <i class="bi bi-search"></i>
+                </button>
+                <div class="dlux-global-search__box">
+                    <i class="bi bi-search dlux-global-search__icon" aria-hidden="true"></i>
+                    <input type="search" class="dlux-global-search__input" data-global-search-input
+                           placeholder="{{ DLUX_STRINGS.global_search_placeholder|default:'Search…' }}"
+                           aria-label="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}"
+                           role="combobox" aria-expanded="false" aria-autocomplete="list"
+                           aria-controls="dlux-global-search-results" autocomplete="off" dir="auto">
+                    <span class="dlux-global-search__hint" aria-hidden="true">Ctrl K</span>
+                </div>
+                <div class="dlux-global-search__results" id="dlux-global-search-results"
+                     data-global-search-results role="listbox" hidden></div>
+            </div>
+            {% endif %}
             <div class="titlebar__actions titlebar__actions--dropdown" data-titlebar-actions-group="dropdown">
                 {% include 'dlux/includes/notifications.html' %}
                 <a

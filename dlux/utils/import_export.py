@@ -110,6 +110,9 @@ def export_system_settings_payload(instance=None):
             'login_lockout_duration_minutes',
             'enforce_strong_passwords',
             'strong_password_min_length',
+            'purge_session_on_exit',
+            'inactivity_timeout_enabled',
+            'inactivity_timeout_minutes',
         ):
             # These toggles/knobs are stored in the consolidated auth_config JSON
             # field; keep exporting them as flat keys for backward-compatible
@@ -294,6 +297,8 @@ def apply_system_settings_import(
             'prevent_multiple_active_sessions',
             'login_lockout_enabled',
             'enforce_strong_passwords',
+            'purge_session_on_exit',
+            'inactivity_timeout_enabled',
         ):
             # Flat auth toggles route into the consolidated auth_config JSON field.
             auth = dict(getattr(instance, 'auth_config', None) or {})
@@ -304,6 +309,7 @@ def apply_system_settings_import(
             'login_lockout_window_minutes',
             'login_lockout_duration_minutes',
             'strong_password_min_length',
+            'inactivity_timeout_minutes',
         ):
             # Flat auth int knobs also route into auth_config; the normalizer
             # clamps out-of-range values back to the shipped defaults.

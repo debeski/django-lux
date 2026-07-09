@@ -73,6 +73,12 @@
 - Standalone Autofill and Reset Defaults cards using shared external CSS/JS assets
 - Titlebar notification icon with unread badge, drawer list, detail view, dismiss, mark-all-read, and clear-read actions
 
+### Global Search (titlebar)
+- Live "search everywhere" dropdown in the titlebar (Ctrl/⌘-K to focus) that jumps to **pages**, **System Settings sections** (deep-linked to the exact settings step), and **titlebar/nav actions**, with results grouped and ranked as you type
+- Permission-aware and translated: pages filter by route permissions, settings are superuser-only, everything reads through `DLUX_STRINGS`; theme- and RTL-aware dropdown
+- Optional **data search** (per-toggle) matches `icontains` across the text fields of the project's real models (plus User/Profile), gated by each model's `view` permission and auto-scoped for `ScopedModel` records; tunable via `DLUX_SEARCH_DATA_MODELS` and `DLUX_SEARCH_DATA_URL_RESOLVER`
+- Titlebar selector modes: **always visible**, **icon that expands on focus** (default), or **disabled**; served by the `login_required` `/search/` JSON endpoint
+
 ### Utilities & Helpers
 - `dlux_settings(globals())` — one-line settings integration
 - `get_system_config()` — cached config retrieval with fallback handling
@@ -206,6 +212,8 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - **Configurable login lockout**: cache-based per-IP and per-username failure counters with admin-tunable threshold (attempts, 1–50), counting window (minutes), and lock duration (minutes) — revealed under the lockout toggle in Access & Security; audit rows on failure and lock
 - **Configurable strong-password minimum length** (8–64, default 12) driving the strict validator on every set-password path while enforcement is on
 - **Live password checklist card** under new-password fields in both modes: configured strong rules when enforcement is on, Django's stock rules (8+ characters, not entirely numeric) when off; confirm fields show a live "matches the password" check
+- **Sign out on browser close**: optional toggle that makes the session a browser-session cookie so closing the tab/browser ends the session
+- **Sign out after inactivity**: optional idle timeout (1–1440 minutes, default 10) enforced by middleware, with a theme-aware countdown modal (~30s warning, "Stay signed in" / "Sign out now") and a keepalive endpoint that resets the timer on dismiss
 
 ### Public Registration Playground
 - Disabled by default and SMTP-gated in setup/System Settings

@@ -2,7 +2,7 @@
 # so that `from . import views` and `views.XYZ` in urls.py keeps working.
 
 # General / Dashboard / Preferences
-from .general import debug_notifications_view, email_send_test_view, export_system_settings_view, options_view, system_setup_view
+from .general import debug_notifications_view, email_send_test_view, export_system_settings_view, global_search_view, options_view, system_setup_view
 
 # Authentication & User Management
 from .users import (
@@ -12,6 +12,7 @@ from .users import (
     delete_user,
     reset_password,
     session_ended_view,
+    session_keepalive_view,
     user_report_modal_view,
     user_report_xlsx_view,
     User,

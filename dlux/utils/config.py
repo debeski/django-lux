@@ -378,6 +378,9 @@ def build_config_groups(config, current_language=None):
             'login_lockout_duration_minutes': int(config.get('login_lockout_duration_minutes', 15) or 15),
             'enforce_strong_passwords': bool(config.get('enforce_strong_passwords', False)),
             'strong_password_min_length': int(config.get('strong_password_min_length', 12) or 12),
+            'purge_session_on_exit': bool(config.get('purge_session_on_exit', False)),
+            'inactivity_timeout_enabled': bool(config.get('inactivity_timeout_enabled', False)),
+            'inactivity_timeout_minutes': int(config.get('inactivity_timeout_minutes', 10) or 10),
             'public_root_theme': config.get('public_root_theme', '') or '',
             'public_root_title': config.get('public_root_title', '') or '',
             'public_root_meta_description': config.get('public_root_meta_description', '') or '',
@@ -1098,6 +1101,9 @@ def get_system_config():
                 'login_lockout_duration_minutes',
                 'enforce_strong_passwords',
                 'strong_password_min_length',
+                'purge_session_on_exit',
+                'inactivity_timeout_enabled',
+                'inactivity_timeout_minutes',
             ):
                 # auth_config is already normalized (bools are bools, the lockout /
                 # min-length knobs are clamped ints) — don't bool()-coerce here.
@@ -1392,6 +1398,9 @@ def get_system_config():
         'login_lockout_duration_minutes',
         'enforce_strong_passwords',
         'strong_password_min_length',
+        'purge_session_on_exit',
+        'inactivity_timeout_enabled',
+        'inactivity_timeout_minutes',
     ):
         if auth_key in final_config:
             auth_seed[auth_key] = final_config[auth_key]

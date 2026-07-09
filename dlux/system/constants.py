@@ -91,6 +91,12 @@ TITLEBAR_SURFACE_CHOICES = (
     ('glass', 'Glass'),
 )
 TITLEBAR_SURFACE_VALUES = {value for value, _label in TITLEBAR_SURFACE_CHOICES}
+TITLEBAR_GLOBAL_SEARCH_CHOICES = (
+    ('always', 'Always visible'),
+    ('icon', 'Icon, expand on focus'),
+    ('disabled', 'Disabled'),
+)
+TITLEBAR_GLOBAL_SEARCH_VALUES = {value for value, _label in TITLEBAR_GLOBAL_SEARCH_CHOICES}
 TITLEBAR_LOGO_TREATMENT_CHOICES = (
     ('none', 'None'),
     ('plate', 'Plate'),
@@ -247,6 +253,9 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'login_lockout_duration_minutes',
     'enforce_strong_passwords',
     'strong_password_min_length',
+    'purge_session_on_exit',
+    'inactivity_timeout_enabled',
+    'inactivity_timeout_minutes',
     'client_ip_config',
     'public_root',
     'public_root_split_enabled',

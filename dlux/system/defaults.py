@@ -33,6 +33,13 @@ def default_auth_config():
         # Minimum length the strict validator (and live checklist) requires while
         # enforce_strong_passwords is on.
         'strong_password_min_length': 12,
+        # When on, the session cookie is a browser-session cookie (no persistent
+        # Max-Age) so closing the tab/browser signs the user out.
+        'purge_session_on_exit': False,
+        # Idle sign-out: when enabled, an authenticated session is terminated after
+        # inactivity_timeout_minutes of no activity (a client countdown warns first).
+        'inactivity_timeout_enabled': False,
+        'inactivity_timeout_minutes': 10,
     }
 
 
@@ -195,6 +202,11 @@ def default_titlebar_config():
         'logo_treatment_shape': 'soft',
         'user_hub_style': TITLEBAR_USER_HUB_STYLE_DROPDOWN,
         'actions_order': list(TITLEBAR_ACTIONS_ORDER),
+        # Global search: 'always' (field shown), 'icon' (icon expands to field on
+        # focus), or 'disabled'. include_data extends search from components to
+        # data records when on.
+        'global_search_mode': 'icon',
+        'global_search_include_data': False,
     }
 
 

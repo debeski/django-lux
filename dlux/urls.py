@@ -11,6 +11,7 @@ urlpatterns = [
     path('accounts/login/', views.CustomLoginView.as_view(), name='login'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('accounts/session-ended/', views.session_ended_view, name='session_ended'),
+    path('accounts/session-keepalive/', views.session_keepalive_view, name='session_keepalive'),
     path('accounts/register/', views.register_view, name='register'),
     path('accounts/register/sent/', views.register_sent_view, name='register_sent'),
     path('accounts/register/verify/<str:token>/', views.register_verify_view, name='register_verify'),
@@ -95,6 +96,7 @@ urlpatterns = [
     path('sys/groups/<int:pk>/members/save/', views.save_group_members, name='save_group_members'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
+    path('search/', views.global_search_view, name='global_search'),
     path('sys/debug/notifications/', views.debug_notifications_view, name='debug_notifications'),
     path('sys/sections/', views.core_models_view, name='manage_sections'),
     path('sys/subsection/add/', views.add_subsection, name='add_subsection'),

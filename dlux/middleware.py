@@ -225,6 +225,18 @@ class DluxMiddleware:
             absolute = int(getattr(settings, 'DLUX_SESSION_ABSOLUTE_TIMEOUT_SECONDS', 0) or 0)
         except (TypeError, ValueError):
             return None
+
+        # The admin-configurable inactivity timeout (auth_config) overrides the
+        # static idle setting when enabled: the client shows a countdown warning,
+        # and this server-side check is the authoritative backstop.
+        try:
+            from dlux.utils import get_system_config
+            config = get_system_config()
+            if config.get('inactivity_timeout_enabled'):
+                idle = max(0, int(config.get('inactivity_timeout_minutes', 10) or 10)) * 60
+        except Exception:
+            pass
+
         if idle <= 0 and absolute <= 0:
             return None
 
@@ -261,6 +273,31 @@ class DluxMiddleware:
         except (TypeError, ValueError):
             session['dlux_last_activity'] = now
         return None
+
+    def _apply_session_cookie_policy(self, request):
+        """Apply ``purge_session_on_exit``: when on, make the session cookie a
+        browser-session cookie (no persistent Max-Age) so closing the tab/browser
+        signs the user out. A session marker keeps this to a single write and lets
+        us restore the persistent lifetime if the admin turns the policy back off.
+        """
+        user = getattr(request, 'user', None)
+        if not (user and getattr(user, 'is_authenticated', False)):
+            return
+        session = getattr(request, 'session', None)
+        if session is None:
+            return
+        try:
+            from dlux.utils import get_system_config
+            purge = bool(get_system_config().get('purge_session_on_exit', False))
+        except Exception:
+            return
+        applied = session.get('dlux_expire_on_close')
+        if purge and not applied:
+            session.set_expiry(0)  # 0 → expire at browser close
+            session['dlux_expire_on_close'] = True
+        elif not purge and applied:
+            session.set_expiry(None)  # restore global SESSION_COOKIE_AGE
+            session.pop('dlux_expire_on_close', None)
 
     def _force_password_change_response(self, request):
         user = getattr(request, 'user', None)
@@ -304,6 +341,32 @@ class DluxMiddleware:
             }, status=403)
         return redirect(redirect_url)
 
+    def _activate_display_language(self, request):
+        """Make Django's language machinery agree with the Dlux UI language.
+
+        Django's ``LocaleMiddleware`` runs *before* ``AuthenticationMiddleware``,
+        so it resolves ``request.LANGUAGE_CODE`` from the ``Accept-Language``
+        header / default before the user's profile is known — an English browser
+        on an Arabic account ends up with ``LANGUAGE_CODE='en'`` even though the
+        Dlux UI is Arabic. ``DluxMiddleware`` runs *after* auth, so here we
+        re-resolve with Dlux's own rules (session preview → profile preference →
+        session → config default) and re-activate, overriding that early guess for
+        the rest of the request. This keeps ``request.LANGUAGE_CODE``,
+        ``translation.get_language()`` (activity-log labels, etc.), and
+        ``FORMAT_MODULE_PATH`` (``dlux.formats`` date/number formats) all in sync
+        with the language the user actually chose. No per-request deactivate — like
+        Django's own LocaleMiddleware, every request re-activates.
+        """
+        try:
+            from django.utils import translation
+            from dlux.translations import get_current_language_code
+            lang = get_current_language_code(request)
+            if lang:
+                translation.activate(lang)
+                request.LANGUAGE_CODE = lang
+        except Exception:
+            pass
+
     def _sync_auth_redirects(self):
         """
         Dynamically update LOGIN_REDIRECT_URL and LOGOUT_REDIRECT_URL
@@ -335,6 +398,7 @@ class DluxMiddleware:
         _thread_locals.request = request
 
         try:
+            self._activate_display_language(request)
             self._sync_auth_redirects()
             self._remember_session_device(request)
 
@@ -345,6 +409,8 @@ class DluxMiddleware:
             timeout_redirect = self._session_timeout_response(request)
             if timeout_redirect is not None:
                 return timeout_redirect
+
+            self._apply_session_cookie_policy(request)
 
             setup_redirect = self._setup_redirect_response(request)
             if setup_redirect is not None:

@@ -1,0 +1,89 @@
+/*
+ * Dlux inactivity-timeout countdown modal. Aligned to the Dlux theme tokens
+ * every theme defines (--hbody surface, --title text, --primal accent,
+ * --primal-rgb), so it follows light / dark / mono / etc. automatically. The
+ * action buttons reuse the app's theme-skinned Bootstrap .btn classes
+ * (buttons.css), so they inherit the correct colours per theme. The modal DOM
+ * is built by session_timeout.js; this file only styles it.
+ */
+.dlux-idle-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.dlux-idle-modal--open {
+    display: flex;
+    animation: dlux-idle-fade 0.15s ease-out;
+}
+
+@keyframes dlux-idle-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.dlux-idle-modal__dialog {
+    width: 100%;
+    max-width: 26rem;
+    /* Elevated card surface + primary text, straight from the active theme. */
+    background: var(--hbody, #fff);
+    color: var(--title, #212529);
+    border: 1px solid rgba(var(--primal-rgb, 71, 85, 105), 0.22);
+    border-radius: 1rem;
+    box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.55);
+    padding: 1.75rem 1.75rem 1.5rem;
+    text-align: center;
+    animation: dlux-idle-pop 0.18s ease-out;
+}
+
+@keyframes dlux-idle-pop {
+    from { transform: translateY(8px) scale(0.97); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.dlux-idle-modal__title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+    color: var(--title, #212529);
+}
+
+.dlux-idle-modal__message {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0 0 1.25rem;
+    color: var(--title, #212529);
+    opacity: 0.85;
+}
+
+.dlux-idle-modal__count {
+    display: inline-block;
+    min-width: 2.25em;
+    padding: 0 0.35em;
+    margin: 0 0.15em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--primal, #475569);
+    font-size: 1.15em;
+    opacity: 1;
+}
+
+.dlux-idle-modal__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: center;
+}
+
+/* Layout hook only — colours come from the reused .btn / .btn-primary /
+   .btn-outline-secondary classes so each theme skins them consistently. */
+.dlux-idle-modal__btn {
+    min-width: 8.5rem;
+}

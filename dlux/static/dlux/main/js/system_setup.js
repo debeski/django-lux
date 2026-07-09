@@ -4683,7 +4683,8 @@
 
             const lockoutRow = form.querySelector('[data-auth-lockout-fields]');
             const strongRow = form.querySelector('[data-auth-strong-fields]');
-            if (!lockoutRow && !strongRow) {
+            const inactivityRow = form.querySelector('[data-auth-inactivity-fields]');
+            if (!lockoutRow && !strongRow && !inactivityRow) {
                 return;
             }
 
@@ -4692,6 +4693,7 @@
             function syncAuthSecurityOptions() {
                 const lockoutInput = form.querySelector('input[name="login_lockout_enabled"]');
                 const strongInput = form.querySelector('input[name="enforce_strong_passwords"]');
+                const inactivityInput = form.querySelector('input[name="inactivity_timeout_enabled"]');
                 if (lockoutRow && lockoutInput) {
                     const showLockout = !!lockoutInput.checked;
                     lockoutRow.classList.toggle('d-none', !showLockout);
@@ -4702,15 +4704,45 @@
                     strongRow.classList.toggle('d-none', !showStrong);
                     strongRow.setAttribute('aria-hidden', showStrong ? 'false' : 'true');
                 }
+                if (inactivityRow && inactivityInput) {
+                    const showInactivity = !!inactivityInput.checked;
+                    inactivityRow.classList.toggle('d-none', !showInactivity);
+                    inactivityRow.setAttribute('aria-hidden', showInactivity ? 'false' : 'true');
+                }
             }
 
             form.addEventListener('change', (event) => {
                 const name = event.target && event.target.name;
-                if (name === 'login_lockout_enabled' || name === 'enforce_strong_passwords') {
+                if (name === 'login_lockout_enabled' || name === 'enforce_strong_passwords' || name === 'inactivity_timeout_enabled') {
                     syncAuthSecurityOptions();
                 }
             });
             syncAuthSecurityOptions();
+        });
+    }
+
+    function initGlobalSearchOptions(root) {
+        // Reveal the "include data in search" toggle only while global search is
+        // enabled (mode !== 'disabled'). The mode is a toggle choice-selector, so
+        // its value is the checked radio named titlebar_global_search_mode.
+        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
+            if (form.dataset.globalSearchBound === 'true') return;
+            const dataRow = form.querySelector('[data-global-search-data-field]');
+            if (!dataRow) return;
+            form.dataset.globalSearchBound = 'true';
+
+            function sync() {
+                const checked = form.querySelector('input[name="titlebar_global_search_mode"]:checked');
+                const mode = checked ? checked.value : 'icon';
+                const show = mode !== 'disabled';
+                dataRow.classList.toggle('d-none', !show);
+                dataRow.setAttribute('aria-hidden', show ? 'false' : 'true');
+            }
+
+            form.addEventListener('change', (event) => {
+                if (event.target && event.target.name === 'titlebar_global_search_mode') sync();
+            });
+            sync();
         });
     }
 
@@ -5147,6 +5179,7 @@
         initPublicRootOptions(root);
         initClientIpOptions(root);
         initAuthSecurityOptions(root);
+        initGlobalSearchOptions(root);
         initLoginPageOptions(root);
         initTitlebarBehaviorOptions(root);
         initNotificationBehaviorOptions(root);

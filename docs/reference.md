@@ -293,8 +293,32 @@ System Settings store titlebar layout in `titlebar_config`:
 
 - `user_hub_style`: `dropdown` (default) or `titlebar_actions`
 - `actions_order`: ordered rail keys; defaults to `notifications`, `home`, `profile`, `help`, `users`, `activity`, `reports`, `settings`, `auth`
+- `global_search_mode`: `icon` (default; a search icon that expands into a field on focus), `always` (field always shown), or `disabled`
+- `global_search_include_data`: when true, global search also matches data records the user can view, not just components (pages, settings, actions); default false
 
 `dropdown` preserves the current notification/home/user-trigger layout and `dlux/users/user_hub.html` dropdown. `titlebar_actions` suppresses the dropdown card and renders available shortcuts as `.dlux-titlebar-action` buttons using the shared `titlebar.buttons_shape` setting. Runtime gates are unchanged for users/activity/reports; hidden home and disabled notification drawer settings omit those actions. Authenticated logout is always a POST form with CSRF.
+
+### Global search
+
+The titlebar global search (configured above) is served by the `login_required`
+JSON endpoint `global_search` (`/search/?q=…`). It returns permission-filtered,
+translated results grouped by type — `page`, `setting`, `option`, `action`, and
+(when `global_search_include_data` is on **and** the request passes `?data=1`)
+`data`. Result labels follow the viewer's language (resolved with Dlux's own
+`get_current_language_code`, i.e. session preview → profile preference → session
+→ config; the index is cached per language), so an Arabic UI returns Arabic
+results and an Arabic query matches:
+
+- **Pages** come from the sidebar route discovery, filtered by each route's inferred permissions.
+- **Settings** are the 12 System Settings sections, each deep-linking to the same step-scoped dynamic modal the Options page uses (superuser-only).
+- **Options** are the Options-page user-preference cards (theme, language, accessibility, typography, densities, modal size, nav-bar mode, landing page, autofill), visible to every authenticated user; a result deep-links to `/sys/options/#dlux-option-<slug>` and scrolls to the card.
+- **Actions** are curated titlebar/nav shortcuts (My Profile, Options).
+- **Data** searches `icontains` across the text fields of the project's real models (the activity-log model set plus User/Profile), gated by each model's `view` permission; scoped models are row-filtered automatically by `ScopedManager`.
+
+Two optional settings tune the data provider:
+
+- `DLUX_SEARCH_DATA_MODELS` — an allowlist of `app_label.model` strings; when set, only these models are searched (otherwise the default heuristic set is used).
+- `DLUX_SEARCH_DATA_URL_RESOLVER` — dotted path to a callable `obj → url` that produces the click-through URL for a data result. Without it, results link only when a `<model>_detail` / `<model>_update` route exists, and are shown non-clickable otherwise.
 
 ### Activity logging (`log_config`)
 
@@ -479,6 +503,9 @@ Common runtime feature flags in `get_system_config()`:
 - `login_lockout_duration_minutes` — How long sign-in stays blocked once the lock is armed (1–1440, default 15). The legacy `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` / `DLUX_LOGIN_LOCKOUT_SECONDS` Django settings act only as a fallback when system config cannot be resolved.
 - `enforce_strong_passwords` — Enable the strict password validator on every set-password path.
 - `strong_password_min_length` — Minimum length the strict validator (and the live checklist card) requires while enforcement is on (8–64, default 12).
+- `purge_session_on_exit` — When true, the session cookie is a browser-session cookie (`session.set_expiry(0)`, no persistent `Max-Age`), so closing the tab/browser signs the user out; the next visit is unauthenticated. Enforced by `DluxMiddleware` on authenticated requests (default off).
+- `inactivity_timeout_enabled` — Enable idle sign-out. When on, `DluxMiddleware` expires the session after inactivity (overriding the static `DLUX_SESSION_IDLE_TIMEOUT_SECONDS`), and authenticated pages load `session_timeout.js`, which shows a countdown modal ~30s before expiry with a "Stay signed in" dismiss (pings `/accounts/session-keepalive/`) and a "Sign out now" action (default off).
+- `inactivity_timeout_minutes` — Minutes of inactivity before sign-out while `inactivity_timeout_enabled` is on (1–1440, default 10).
 - `email_config` — Redacted Dlux email delivery config. Supports delivery `transport` (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never include SMTP secrets.
 - `public_registration_enabled` — Enable disabled-by-default public signup.
 - `registration_activation_mode` — `auto_login_after_verify` or `verified_pending_approval`.

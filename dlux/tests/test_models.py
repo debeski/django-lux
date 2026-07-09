@@ -408,3 +408,63 @@ class SectionTests(TestCase):
     def test_section_is_managed(self):
         """Test that Section is not managed."""
         self.assertFalse(Section._meta.managed)
+
+
+class MicrosysBrandingRepairTests(TestCase):
+    """The microsys→dlux migration must relocate branding media that django-microsys
+    stored under 'microsys/branding/' to dlux's 'dlux/branding/' upload path,
+    otherwise the migrated logo/favicon 404 forever."""
+
+    def setUp(self):
+        cache.clear()
+
+    def _run_repair(self):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('dlux_migrate_from_microsys', '--repair-branding-media', '--yes', stdout=out)
+        return out.getvalue()
+
+    def test_repair_rewrites_path_and_moves_file(self):
+        import tempfile
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            old_name = 'microsys/branding/logo.png'
+            default_storage.save(old_name, ContentFile(b'PNGDATA'))
+
+            settings_row = SystemSettings.load()
+            SystemSettings.objects.filter(pk=settings_row.pk).update(logo=old_name)
+
+            self._run_repair()
+
+            moved = SystemSettings.objects.get(pk=settings_row.pk)
+            self.assertEqual(moved.logo.name, 'dlux/branding/logo.png')
+            self.assertTrue(default_storage.exists('dlux/branding/logo.png'))
+            self.assertFalse(default_storage.exists(old_name))
+
+    def test_repair_rewrites_path_even_when_file_missing(self):
+        import tempfile
+        from django.core.files.storage import default_storage
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            settings_row = SystemSettings.load()
+            SystemSettings.objects.filter(pk=settings_row.pk).update(
+                favicon='microsys/branding/icon.png')
+
+            self._run_repair()
+
+            moved = SystemSettings.objects.get(pk=settings_row.pk)
+            # Path is corrected so a re-upload lands in the right place; no file to move.
+            self.assertEqual(moved.favicon.name, 'dlux/branding/icon.png')
+            self.assertFalse(default_storage.exists('microsys/branding/icon.png'))
+
+    def test_repair_leaves_dlux_paths_untouched(self):
+        settings_row = SystemSettings.load()
+        SystemSettings.objects.filter(pk=settings_row.pk).update(logo='dlux/branding/logo.png')
+        self._run_repair()
+        self.assertEqual(
+            SystemSettings.objects.get(pk=settings_row.pk).logo.name,
+            'dlux/branding/logo.png',
+        )

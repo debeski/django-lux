@@ -516,5 +516,20 @@
         initModalSizePicker();
         initNavbarModePicker();
         initResetDefaults(grid);
+        focusHashCard();
     });
+
+    // Global search deep-links to a specific options card via
+    // #dlux-option-<slug> → scroll it into view and briefly highlight it.
+    function focusHashCard() {
+        const match = /^#dlux-option-(.+)$/.exec(window.location.hash || '');
+        if (!match) { return; }
+        const card = document.querySelector('[data-options-card="' + CSS.escape(match[1]) + '"]');
+        if (!card) { return; }
+        window.setTimeout(function () {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('dlux-options-card--flash');
+            window.setTimeout(function () { card.classList.remove('dlux-options-card--flash'); }, 2000);
+        }, 120);
+    }
 })();

@@ -21,6 +21,7 @@ TEST_LABELS = [
     'dlux.tests.test_registration',
     'dlux.tests.test_report_backup',
     'dlux.tests.test_scaffold',
+    'dlux.tests.test_search',
     'dlux.tests.test_dlux_setup',
     'dlux.tests.test_sidebar_discovery',
     'dlux.tests.test_signals',

@@ -112,6 +112,9 @@ SYSTEM_SETTING_GROUPS = (
             _field('auth', 'login_lockout_duration_minutes', field_type='int', default=15, legacy_flat=True),
             _field('auth', 'enforce_strong_passwords', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('auth', 'strong_password_min_length', field_type='int', default=12, legacy_flat=True),
+            _field('auth', 'purge_session_on_exit', field_type='bool', default=False, widget='switch', legacy_flat=True),
+            _field('auth', 'inactivity_timeout_enabled', field_type='bool', default=False, widget='switch', legacy_flat=True),
+            _field('auth', 'inactivity_timeout_minutes', field_type='int', default=10, legacy_flat=True),
         ),
     ),
     SettingGroup(

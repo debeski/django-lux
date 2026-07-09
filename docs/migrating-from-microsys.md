@@ -93,6 +93,19 @@ in place, without data loss.
 
 ## Notes & caveats
 
+- **Branding media (logo/favicon 404 after migrating):** django-microsys stored
+  the system logo and favicon under `media/microsys/branding/`, while DjangoLux's
+  `ImageField` upload path is `dlux/branding/`. The migration now rewrites those
+  stored paths (`microsys/branding/*` → `dlux/branding/*`) and moves the files on
+  the media storage as part of the main run. If you migrated with an older command
+  version and the logo still 404s under `.../microsys/branding/…`, fix it in place:
+  ```bash
+  python manage.py dlux_migrate_from_microsys --repair-branding-media        # dry-run
+  python manage.py dlux_migrate_from_microsys --repair-branding-media --yes
+  ```
+  The path is corrected even when the original file is absent (it was never copied
+  into the new media volume) — in that case simply re-upload the logo/favicon in
+  System Settings and it will land in the correct `dlux/branding/` path.
 - **Older Microsys repair:** if an earlier command version was already run
   against a pre-2.4.x Microsys database and Dlux pages fail because tables such
   as `dlux_systembackup`, `dlux_reportbackup`, or `dlux_systemrestore` are

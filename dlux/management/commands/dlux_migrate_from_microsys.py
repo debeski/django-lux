@@ -18,7 +18,15 @@ so migrating an existing database needs no schema *changes* — only a relabelli
    which key off the content type, follow automatically);
 4. collapse the recorded migration history to dlux's single ``0001_initial``
    (the renamed tables already carry the final, fully-migrated schema);
-5. rewrite ``UserActivityLog.model_key`` values ``microsys.*`` -> ``dlux.*``.
+5. rewrite ``UserActivityLog.model_key`` values ``microsys.*`` -> ``dlux.*``;
+6. relocate branding media: microsys stored ``SystemSettings.logo`` / ``favicon``
+   under ``microsys/branding/`` while dlux serves from ``dlux/branding/``, so the
+   stored paths are rewritten ``microsys/branding/*`` -> ``dlux/branding/*`` and
+   the underlying files moved on the media storage (best-effort; a missing source
+   file is reported, not fatal — re-upload the logo in System Settings).
+
+An already-relabelled dlux database whose logo still 404s under ``microsys/…`` can
+be fixed on its own with ``--repair-branding-media --yes``.
 
 Dry-run by default; pass ``--yes`` to apply. Take a database backup first.
 Supported only from a *fully migrated* django-microsys 2.4.1 database.
@@ -49,10 +57,20 @@ class Command(BaseCommand):
                 "missing concrete dlux tables from the current model state."
             ),
         )
+        parser.add_argument(
+            "--repair-branding-media",
+            action="store_true",
+            help=(
+                "Repair an already-relabelled django-lux database whose logo/favicon "
+                "still point at 'microsys/branding/…': rewrite the stored paths to "
+                "'dlux/branding/…' and move the files on the media storage."
+            ),
+        )
 
     def handle(self, *args, **options):
         apply = options["yes"]
         repair_missing_tables = options["repair_missing_tables"]
+        repair_branding_media = options["repair_branding_media"]
 
         if not apps.is_installed(NEW):
             raise CommandError(
@@ -67,6 +85,8 @@ class Command(BaseCommand):
         missing_models = self._missing_dlux_models(existing, renames)
 
         if not old_tables:
+            if repair_branding_media:
+                return self._repair_branding_media(apply)
             if repair_missing_tables and missing_models:
                 return self._repair_missing_tables(missing_models, apply)
             raise CommandError(
@@ -102,6 +122,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"      {model._meta.label}  →  {model._meta.db_table}")
         self.stdout.write(f"  • django_migrations: drop app '{OLD}' history, record '{NEW}.0001_initial' as applied")
         self.stdout.write(f"  • UserActivityLog.model_key: '{OLD}.*' → '{NEW}.*'")
+        self.stdout.write(f"  • branding media: SystemSettings.logo/favicon '{OLD}/branding/*' → '{NEW}/branding/*' (+ move files)")
 
         if not apply:
             self.stdout.write(self.style.WARNING(
@@ -137,6 +158,10 @@ class Command(BaseCommand):
 
             # App-label-qualified activity-log keys (microsys.x -> dlux.x).
             self._rewrite_model_keys()
+
+            # Branding media paths + files (microsys/branding/* -> dlux/branding/*).
+            for note in self._relocate_branding_media():
+                self.stdout.write(f"      {note}")
 
         self.stdout.write(self.style.SUCCESS(
             f"\nDone. Database migrated from django-microsys to django-lux. "
@@ -201,3 +226,78 @@ class Command(BaseCommand):
         UAL.objects.filter(model_key__startswith=f"{OLD}.").update(
             model_key=Concat(Value(f"{NEW}."), Substr("model_key", prefix_len + 1))
         )
+
+    # Branding media lived under 'microsys/branding/' in django-microsys; dlux's
+    # ImageField upload_to is 'dlux/branding/'. Relabelling the tables leaves the
+    # stored logo/favicon paths pointing at the old prefix, so the logo 404s.
+    _BRANDING_OLD_PREFIX = f"{OLD}/branding/"
+    _BRANDING_NEW_PREFIX = f"{NEW}/branding/"
+
+    def _relocate_branding_media(self):
+        """Rewrite SystemSettings.logo/favicon paths microsys/branding/* -> dlux/
+        branding/* and move the underlying files on the media storage. Returns a
+        list of human-readable notes. Best-effort per file: a missing source is
+        reported, never fatal. Idempotent — already-dlux paths are skipped."""
+        from django.core.files.storage import default_storage
+
+        notes = []
+        try:
+            SystemSettings = apps.get_model(NEW, "SystemSettings")
+        except LookupError:
+            return notes
+
+        image_fields = ("logo", "favicon")
+        for row in SystemSettings.objects.all():
+            changes = {}
+            for field_name in image_fields:
+                field = getattr(row, field_name, None)
+                name = getattr(field, "name", "") or ""
+                if not name.startswith(self._BRANDING_OLD_PREFIX):
+                    continue
+                new_name = self._BRANDING_NEW_PREFIX + name[len(self._BRANDING_OLD_PREFIX):]
+                moved = self._move_media_file(default_storage, name, new_name)
+                changes[field_name] = new_name
+                notes.append(
+                    f"{field_name}: {name} → {new_name}"
+                    + ("" if moved else "  (source file missing — re-upload in System Settings)")
+                )
+            if changes:
+                # Direct column update — bypass SystemSettings.save()/config-sync.
+                SystemSettings.objects.filter(pk=row.pk).update(**changes)
+        if not notes:
+            notes.append("branding media: nothing to relocate (no 'microsys/branding/' paths)")
+        return notes
+
+    @staticmethod
+    def _move_media_file(storage, old_name, new_name):
+        """Copy old_name -> new_name on the storage and delete the source. Returns
+        True if the file was moved, False if the source did not exist."""
+        try:
+            if not storage.exists(old_name):
+                return False
+            if not storage.exists(new_name):
+                with storage.open(old_name, "rb") as src:
+                    storage.save(new_name, src)
+            storage.delete(old_name)
+            return True
+        except Exception:
+            return False
+
+    def _repair_branding_media(self, apply):
+        self.stdout.write(self.style.MIGRATE_HEADING(
+            "\ndjango-lux branding-media repair plan:"))
+        self.stdout.write(
+            f"  • SystemSettings.logo/favicon '{OLD}/branding/*' → '{NEW}/branding/*' (+ move files)")
+
+        if not apply:
+            self.stdout.write(self.style.WARNING(
+                "\nDRY-RUN — nothing changed. Re-run with --repair-branding-media "
+                "--yes to apply."))
+            return
+
+        with transaction.atomic():
+            for note in self._relocate_branding_media():
+                self.stdout.write(f"      {note}")
+
+        self.stdout.write(self.style.SUCCESS(
+            "\nDone. Branding media paths were repaired."))

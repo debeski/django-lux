@@ -218,6 +218,30 @@ def session_ended_view(request):
     })
 
 
+@login_required
+def session_keepalive_view(request):
+    """Lightweight endpoint the inactivity-countdown modal pings when the user
+    chooses "Stay signed in". Touching the session lets DluxMiddleware refresh
+    ``dlux_last_activity`` on this request, resetting the idle window. Returns the
+    live idle window so the client can re-sync its countdown."""
+    from ..utils import get_system_config
+
+    config = get_system_config()
+    enabled = bool(config.get('inactivity_timeout_enabled', False))
+    try:
+        minutes = int(config.get('inactivity_timeout_minutes', 10) or 10)
+    except (TypeError, ValueError):
+        minutes = 10
+    # Force a session write so the middleware's throttled activity refresh sticks.
+    # Epoch float, matching DluxMiddleware's dlux_last_activity bookkeeping.
+    request.session['dlux_last_activity'] = timezone.now().timestamp()
+    return JsonResponse({
+        'ok': True,
+        'inactivity_timeout_enabled': enabled,
+        'inactivity_timeout_seconds': max(0, minutes) * 60,
+    })
+
+
 # User Management — List view with filtering, pagination, and scope-aware queryset
 class UserListView(LoginRequiredMixin, UserPassesTestMixin, FilterView, SingleTableView):
     model = User

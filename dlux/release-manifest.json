@@ -1,16 +1,15 @@
 {
   "schema_version": 1,
-  "version": "1.3.6",
+  "version": "1.4.0",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Admin-tunable sign-in security: the login lockout gains configurable threshold, counting window, and lock duration, and the strong-password rule gains a configurable minimum length (System Settings, Access & Security, revealed under their parent toggles). The static password help bullets were replaced by the live on-entry checklist card, which now always appears under new-password fields and adapts to the active policy. The 2FA verification page was also reworked to follow the configured login style, fit its card, and use icon buttons with tooltips. New data-protection surfaces: an operator-configurable privacy-policy/terms link and notice on the sign-in and sign-up pages, an optional required consent checkbox at sign-up, and a Data & Privacy docs page listing exactly what personal data DjangoLux stores. No migrations; inline-safe.",
+  "summary": "Global search in the titlebar: a live 'search everywhere' dropdown that jumps to pages, System Settings sections (deep-linked to the right step), and titlebar/nav actions, with an optional data-record provider — all permission-aware, translated, and theme/RTL-ready. Configured under System Settings > Titlebar > Global Search (always / icon-on-focus / disabled, plus an include-data toggle). Also bundles session-lifecycle controls (sign out on browser close; configurable inactivity timeout with a countdown modal) and a microsys->dlux branding-media migration fix. No migrations; inline-safe (auth_config + titlebar_config JSON keys).",
   "highlights": [
-    "Login lockout is now tunable: attempts before lock, counting window, and lock duration.",
-    "Strong passwords gain a configurable minimum length (8-64, default 12).",
-    "New-password fields now always show the live requirements checklist, matching the active policy.",
-    "The 2FA verification page now matches your login style, fits its card, and uses tidy icon buttons.",
-    "New privacy controls: show a privacy-policy link on the sign-in/sign-up pages and optionally require a consent checkbox at sign-up."
+    "New titlebar global search: jump to any page, setting, or action as you type (Ctrl/Cmd-K), with optional data-record search.",
+    "Settings results deep-link straight to the right settings step — no more hunting for where an option lives.",
+    "Sign out on browser close, plus a configurable inactivity timeout with a 30-second countdown warning.",
+    "Fixes migrated django-microsys logos that 404'd by relocating branding media to dlux/branding/."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.3.6"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.0"
 }

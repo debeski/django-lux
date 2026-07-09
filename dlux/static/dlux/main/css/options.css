@@ -1043,3 +1043,13 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 .dlux-options-landing-picker .dlux-choice-option__meta--secondary {
     font-size: 0.72rem;
 }
+
+/* Global-search deep-link highlight: briefly flash the targeted options card. */
+.dlux-options-card--flash {
+    animation: dlux-options-card-flash 2s ease-out;
+}
+@keyframes dlux-options-card-flash {
+    0% { box-shadow: 0 0 0 0 rgba(var(--primal-rgb, 71, 85, 105), 0.55); }
+    30% { box-shadow: 0 0 0 0.28rem rgba(var(--primal-rgb, 71, 85, 105), 0.35); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--primal-rgb, 71, 85, 105), 0); }
+}
