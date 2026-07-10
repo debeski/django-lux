@@ -3,6 +3,8 @@
 
 # General / Dashboard / Preferences
 from .general import (
+    data_reset_execute_view,
+    data_reset_preview_view,
     debug_notifications_view,
     email_send_test_view,
     export_system_settings_view,
@@ -119,6 +121,14 @@ from .registration import (
     register_verify_view,
     register_view,
     reject_registration_view,
+)
+
+# Forgot-password / reset flow
+from .password_reset import (
+    DluxPasswordResetCompleteView,
+    DluxPasswordResetConfirmView,
+    DluxPasswordResetDoneView,
+    DluxPasswordResetView,
 )
 
 # Inline DjangoLux updater

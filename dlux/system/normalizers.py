@@ -280,6 +280,7 @@ def normalize_auth_config(value):
     cfg = value if isinstance(value, dict) else {}
     return {
         'email_2fa': bool(cfg.get('email_2fa', False)),
+        'forgot_password_enabled': bool(cfg.get('forgot_password_enabled', False)),
         'prevent_multiple_active_sessions': bool(cfg.get('prevent_multiple_active_sessions', False)),
         'login_lockout_enabled': bool(cfg.get('login_lockout_enabled', True)),
         'login_lockout_threshold': _to_int(cfg.get('login_lockout_threshold', 5), 5, min_value=1, max_value=50),

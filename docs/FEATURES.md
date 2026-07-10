@@ -211,6 +211,8 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - The 2FA verification page follows the configured login style (split / centered / minimal / fullpage), with icon-only method-switch buttons (email / authenticator / backup / return) carrying dlux tooltips, an inline trust-device switch, and in-card back/cancel/resend pill buttons
 
 ### Sign-in Protection & Password Policy
+- **Self-service forgot-password flow** (`forgot_password_enabled`, default off, self-gates on email readiness): a login-page **Forgot password?** link and a full request → email → set-new-password → done flow rendered in the configured login style, RTL/LTR, and language; reset mail is sent through Dlux's own email transport
+- **Live login lockout countdown**: a locked-out sign-in attempt shows a live mm:ss countdown (with the submit button disabled until it clears) instead of a generic "too many attempts" error
 - **Configurable login lockout**: cache-based per-IP and per-username failure counters with admin-tunable threshold (attempts, 1–50), counting window (minutes), and lock duration (minutes) — revealed under the lockout toggle in Access & Security; audit rows on failure and lock
 - **Configurable strong-password minimum length** (8–64, default 12) driving the strict validator on every set-password path while enforcement is on
 - **Live password checklist card** under new-password fields in both modes: configured strong rules when enforcement is on, Django's stock rules (8+ characters, not entirely numeric) when off; confirm fields show a live "matches the password" check

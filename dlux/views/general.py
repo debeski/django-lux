@@ -695,6 +695,78 @@ def force_password_change_all_view(request):
     })
 
 
+@login_required
+@require_POST
+def data_reset_preview_view(request):
+    """Superuser-only: current-password-gated listing of the models a data reset
+    can clear (row counts, scoped/soft-delete flag, media presence)."""
+    strings = get_strings(get_current_language_code(request))
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': strings.get('permission_denied', 'Permission denied.')}, status=403)
+    if failure := require_current_password(request, redirect_name='options_view'):
+        return failure
+    from dlux.data_reset import build_reset_catalog
+    return JsonResponse({'status': 'success', 'models': build_reset_catalog(request.user, strings)})
+
+
+@login_required
+@require_POST
+def data_reset_execute_view(request):
+    """Superuser-only: current-password-gated execution of a data reset on the
+    selected models (scoped → soft-delete, others → hard-delete)."""
+    strings = get_strings(get_current_language_code(request))
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': strings.get('permission_denied', 'Permission denied.')}, status=403)
+    if failure := require_current_password(request, redirect_name='options_view'):
+        return failure
+
+    from dlux.data_reset import execute_reset
+    selected = request.POST.getlist('models')
+    if not selected:
+        return JsonResponse({'status': 'error', 'message': strings.get('data_reset_no_models', 'Select at least one model to reset.')}, status=400)
+    delete_media = str(request.POST.get('delete_media') or '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+    results = execute_reset(request.user, selected, delete_media=delete_media)
+    total_deleted = sum(int(r.get('deleted') or 0) for r in results)
+    soft = sum(int(r.get('deleted') or 0) for r in results if r.get('scoped'))
+    hard = total_deleted - soft
+    blocked = [r for r in results if r.get('status') in ('protected', 'error')]
+
+    message_template = strings.get(
+        'data_reset_success',
+        'Data reset complete: {total} row(s) cleared ({soft} soft-deleted, {hard} permanently).',
+    )
+    try:
+        message = message_template.format(total=total_deleted, soft=soft, hard=hard)
+    except Exception:
+        message = message_template
+
+    try:
+        from dlux.utils import log_audit_event
+        log_audit_event(
+            request,
+            'data_reset',
+            'DELETE',
+            instance=request.user,
+            model_name='user',
+            details={'models': selected, 'delete_media': delete_media,
+                     'total_deleted': total_deleted, 'results': results},
+        )
+    except Exception:
+        logger.debug("Failed to write data-reset audit event.", exc_info=True)
+
+    notify.warning(
+        message,
+        request=request,
+        action='data_reset',
+        category='security',
+        metadata={'total_deleted': total_deleted, 'soft': soft, 'hard': hard},
+    )
+
+    return JsonResponse({'status': 'success', 'message': message, 'results': results,
+                         'total_deleted': total_deleted, 'blocked': bool(blocked)})
+
+
 def _debug_bool_param(request, name, default=None):
     raw_value = request.GET.get(name)
     if raw_value is None:

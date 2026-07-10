@@ -105,6 +105,7 @@ SYSTEM_SETTING_GROUPS = (
         admin_section='security',
         fields=(
             _field('auth', 'email_2fa', field_type='bool', default=False, widget='switch', legacy_flat=True),
+            _field('auth', 'forgot_password_enabled', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('auth', 'prevent_multiple_active_sessions', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('auth', 'login_lockout_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('auth', 'login_lockout_threshold', field_type='int', default=5, legacy_flat=True),

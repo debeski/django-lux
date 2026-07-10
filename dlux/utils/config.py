@@ -373,6 +373,7 @@ def build_config_groups(config, current_language=None):
             'terms_url': config.get('terms_url', '') or '',
             'privacy_notice_text': config.get('privacy_notice_text', '') or '',
             'registration_require_consent': bool(config.get('registration_require_consent', False)),
+            'forgot_password_enabled': bool(config.get('forgot_password_enabled', False)),
             'login_lockout_enabled': bool(config.get('login_lockout_enabled', True)),
             'login_lockout_threshold': int(config.get('login_lockout_threshold', 5) or 5),
             'login_lockout_window_minutes': int(config.get('login_lockout_window_minutes', 15) or 15),
@@ -1105,6 +1106,7 @@ def get_system_config():
                 db_config['auth_config'] = auth_config
             for auth_key in (
                 'email_2fa',
+                'forgot_password_enabled',
                 'prevent_multiple_active_sessions',
                 'login_lockout_enabled',
                 'login_lockout_threshold',
@@ -1402,6 +1404,7 @@ def get_system_config():
     )
     for auth_key in (
         'email_2fa',
+        'forgot_password_enabled',
         'prevent_multiple_active_sessions',
         'login_lockout_enabled',
         'login_lockout_threshold',

@@ -23,6 +23,8 @@ TEST_LABELS = [
     'dlux.tests.test_scaffold',
     'dlux.tests.test_search',
     'dlux.tests.test_options_layout',
+    'dlux.tests.test_data_reset',
+    'dlux.tests.test_password_reset',
     'dlux.tests.test_dlux_setup',
     'dlux.tests.test_sidebar_discovery',
     'dlux.tests.test_signals',

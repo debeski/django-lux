@@ -186,6 +186,50 @@ Autofill security contract:
 | --- | --- | --- |
 | `/sys/api/preferences/update/` | `POST` | Merge updated preference values into `Profile.preferences` |
 | `/sys/api/preferences/reset/` | `POST` | Clear saved preferences and related session keys |
+| `/sys/api/preferences/app/<namespace>/` | `POST` | Set (or clear) one app-owned preference namespace |
+
+#### App-owned preferences (the `app` namespace)
+
+Downstream projects can persist their **own** per-user state (dashboard layouts,
+saved views, collapsed panels, …) so it follows the user across browsers and
+devices, without adding a model. It lives under a single **reserved top-level
+key** in `Profile.preferences`:
+
+```jsonc
+// Profile.preferences
+{
+  "theme": "dark",                 // Dlux-owned keys (validated by Dlux)
+  "app": {                          // reserved namespace — opaque to Dlux
+    "myproject.dashboard.v1": { "order": [3,1,2], "hidden": ["kpis"] }
+  }
+}
+```
+
+Dlux never inspects the shape of anything under `app`; it only merges at the
+namespace level and enforces the size cap. Namespace keys are arbitrary dotted
+strings (max 128 chars) — prefix with your project to avoid collisions.
+
+- **Bulk write** — `POST /sys/api/preferences/update/` with `{"app": {"<ns>": <value>}}` merges that namespace, preserving sibling namespaces and Dlux keys. A `null` value clears a namespace.
+- **Targeted, concurrent-safe write** — `POST /sys/api/preferences/app/<namespace>/` with the namespace's new value as the JSON body writes *only* that namespace (two tabs writing different namespaces won't clobber each other). A `null` body clears it. Returns `{status, namespace, value}`.
+- **Size cap** — the whole `Profile.preferences` blob is inlined into every authenticated page as `window.USER_PREFS`, so a hard ceiling applies. Writes that would exceed it are rejected with **HTTP 413**. Default 64 KB; override with `settings.DLUX_MAX_PREFERENCES_BYTES`.
+
+Browser helpers (global, defined alongside `window.updatePreferences`):
+
+```js
+// read (from the inlined window.USER_PREFS.app, no request)
+const layout = window.getAppPreference('myproject.dashboard.v1', { order: [] });
+
+// write just this namespace (targeted endpoint); returns the fetch Promise
+window.updateAppPreference('myproject.dashboard.v1', layout)
+  .then(res => { if (res.status === 413) { /* too large */ } });
+
+// clear it
+window.updateAppPreference('myproject.dashboard.v1', null);
+```
+
+`localStorage` remains a fine fallback/migration layer — read it if
+`getAppPreference` returns your default, then write through to the namespace so
+the value becomes cross-device.
 
 ### Notifications
 
@@ -497,6 +541,7 @@ override-only data; Dlux never stores the merged translation catalog in
 Common runtime feature flags in `get_system_config()`:
 
 - `email_2fa` — Enable email-based 2FA (set via `DLUX_CONFIG['email_2fa']` or the System Settings UI)
+- `forgot_password_enabled` — Show the login-page **Forgot password?** link and enable the self-service email reset flow (`/accounts/password-reset/`). Default off; additionally self-gates on email readiness (`get_email_service_status()`), so the link and reset views stay hidden/404 until Dlux email delivery is configured. The reset email is sent through `send_dlux_mail`, and every reset page renders in the configured login style/direction/language.
 - `prevent_multiple_active_sessions` — When true, each successful login or completed 2FA login becomes the user's only active session. Dlux evicts other session keys for that user regardless of trusted-device status; trusted devices keep their trust record but must start a new session next time.
 - `login_lockout_enabled` — Cache-based failed-login lockout on the password step (default on).
 - `login_lockout_threshold` — Failed attempts from the same IP or username before the lock arms (1–50, default 5).

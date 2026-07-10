@@ -162,6 +162,7 @@ def build_default_system_config():
         'allow_user_language_override': True,
         'default_table_density': DEFAULT_TABLE_DENSITY,
         'email_2fa': False,
+        'forgot_password_enabled': False,
         'prevent_multiple_active_sessions': False,
         'login_lockout_enabled': True,
         'login_lockout_threshold': 5,

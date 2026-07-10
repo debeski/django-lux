@@ -467,3 +467,98 @@ class APIEndpointsTests(TestCase):
         data = json.loads(response.content)
         self.assertFalse(data['success'])
         self.assertNotIn('sensitive failure', data['error'])
+
+
+class AppPreferencesTests(TestCase):
+    """The reserved `app` namespace + size cap + targeted patch endpoint."""
+
+    def setUp(self):
+        cache.clear()
+        ss = SystemSettings.load()
+        ss.is_configured = True
+        ss.save(update_fields=['is_configured'])
+        self.user = User.objects.create_user('appuser', 'app@example.com', 'pw12345!')
+        self.client = Client()
+        self.client.login(username='appuser', password='pw12345!')
+
+    def _prefs(self):
+        self.user.profile.refresh_from_db()
+        return self.user.profile.preferences
+
+    # --- main endpoint: app namespace pass-through + merge -----------------
+    def test_app_namespace_is_stored_opaquely(self):
+        payload = {'app': {'proj.dashboard.v1': {'order': [3, 1, 2], 'hidden': ['x']}}}
+        r = self.client.post(reverse('update_preferences'), json.dumps(payload), content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._prefs()['app']['proj.dashboard.v1'], {'order': [3, 1, 2], 'hidden': ['x']})
+
+    def test_app_namespace_merges_and_preserves_siblings(self):
+        self.client.post(reverse('update_preferences'),
+                         json.dumps({'app': {'a': {'v': 1}}}), content_type='application/json')
+        self.client.post(reverse('update_preferences'),
+                         json.dumps({'app': {'b': {'v': 2}}}), content_type='application/json')
+        app = self._prefs()['app']
+        self.assertEqual(app, {'a': {'v': 1}, 'b': {'v': 2}})
+
+    def test_app_namespace_does_not_touch_dlux_keys(self):
+        self.client.post(reverse('update_preferences'),
+                         json.dumps({'theme': 'dark'}), content_type='application/json')
+        self.client.post(reverse('update_preferences'),
+                         json.dumps({'app': {'a': {'v': 1}}}), content_type='application/json')
+        prefs = self._prefs()
+        self.assertEqual(prefs.get('theme'), 'dark')
+        self.assertEqual(prefs['app']['a'], {'v': 1})
+
+    def test_app_namespace_none_clears_entry(self):
+        self.client.post(reverse('update_preferences'),
+                         json.dumps({'app': {'a': {'v': 1}}}), content_type='application/json')
+        self.client.post(reverse('update_preferences'),
+                         json.dumps({'app': {'a': None}}), content_type='application/json')
+        self.assertNotIn('app', self._prefs())
+
+    # --- size cap ----------------------------------------------------------
+    def test_oversized_payload_is_rejected_with_413(self):
+        with self.settings(DLUX_MAX_PREFERENCES_BYTES=2048):
+            blob = 'x' * 4096
+            r = self.client.post(reverse('update_preferences'),
+                                 json.dumps({'app': {'big': blob}}), content_type='application/json')
+        self.assertEqual(r.status_code, 413)
+        self.assertNotIn('app', self._prefs())  # nothing persisted
+
+    # --- targeted patch endpoint ------------------------------------------
+    def test_patch_endpoint_sets_single_namespace(self):
+        url = reverse('update_app_preference', kwargs={'namespace': 'proj.dash'})
+        r = self.client.post(url, json.dumps({'order': [1, 2]}), content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['value'], {'order': [1, 2]})
+        self.assertEqual(self._prefs()['app']['proj.dash'], {'order': [1, 2]})
+
+    def test_patch_endpoint_isolates_other_namespaces_and_dlux_keys(self):
+        self.client.post(reverse('update_preferences'),
+                         json.dumps({'theme': 'dark', 'app': {'keep': {'v': 1}}}),
+                         content_type='application/json')
+        url = reverse('update_app_preference', kwargs={'namespace': 'proj.dash'})
+        self.client.post(url, json.dumps({'order': [9]}), content_type='application/json')
+        prefs = self._prefs()
+        self.assertEqual(prefs['theme'], 'dark')
+        self.assertEqual(prefs['app']['keep'], {'v': 1})
+        self.assertEqual(prefs['app']['proj.dash'], {'order': [9]})
+
+    def test_patch_endpoint_null_body_clears_namespace(self):
+        url = reverse('update_app_preference', kwargs={'namespace': 'proj.dash'})
+        self.client.post(url, json.dumps({'order': [1]}), content_type='application/json')
+        r = self.client.post(url, 'null', content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn('app', self._prefs())
+
+    def test_patch_endpoint_enforces_size_cap(self):
+        url = reverse('update_app_preference', kwargs={'namespace': 'big'})
+        with self.settings(DLUX_MAX_PREFERENCES_BYTES=2048):
+            r = self.client.post(url, json.dumps({'blob': 'x' * 4096}), content_type='application/json')
+        self.assertEqual(r.status_code, 413)
+
+    def test_patch_endpoint_requires_login_and_post(self):
+        url = reverse('update_app_preference', kwargs={'namespace': 'proj.dash'})
+        self.assertEqual(self.client.get(url).status_code, 405)
+        self.client.logout()
+        self.assertEqual(self.client.post(url, 'null', content_type='application/json').status_code, 302)

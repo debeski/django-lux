@@ -116,6 +116,75 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
+    // Lockout countdown — when the server rejects a locked-out attempt it emits
+    // a block carrying the exact remaining seconds; tick it down live and keep
+    // the submit button disabled until the lock clears.
+    const lockoutEl = document.querySelector('[data-dlux-lockout-remaining]');
+    if (lockoutEl) {
+        const messageEl = lockoutEl.querySelector('[data-dlux-lockout-message]');
+        const template = lockoutEl.getAttribute('data-dlux-lockout-template') || 'Try again in {time}.';
+        const expiredText = lockoutEl.getAttribute('data-dlux-lockout-expired') || '';
+        const submitBtn = document.getElementById('submit');
+        let remaining = parseInt(lockoutEl.getAttribute('data-dlux-lockout-remaining'), 10);
+        if (!Number.isFinite(remaining) || remaining < 0) { remaining = 0; }
+
+        const fmt = function (secs) {
+            const m = Math.floor(secs / 60);
+            const s = secs % 60;
+            return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        };
+
+        const lockFields = [
+            submitBtn,
+            document.getElementById('username'),
+            document.getElementById('password'),
+        ].filter(Boolean);
+
+        const setDisabled = function (disabled) {
+            lockFields.forEach(function (el) {
+                el.disabled = disabled;
+                el.classList.toggle('disabled', disabled);
+                el.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+            });
+        };
+
+        const render = function () {
+            if (remaining > 0) {
+                if (messageEl) { messageEl.textContent = template.replace('{time}', fmt(remaining)); }
+            } else {
+                if (messageEl) { messageEl.textContent = expiredText; }
+                lockoutEl.classList.add('dlux-login-lockout--cleared');
+                // Flip the notice from a warning to an all-clear tone.
+                const alertEl = lockoutEl.querySelector('.alert');
+                if (alertEl) {
+                    alertEl.classList.remove('alert-warning');
+                    alertEl.classList.add('alert-success');
+                }
+                const iconEl = lockoutEl.querySelector('.bi');
+                if (iconEl) {
+                    iconEl.classList.remove('bi-hourglass-split');
+                    iconEl.classList.add('bi-check-circle');
+                }
+                setDisabled(false);
+            }
+        };
+
+        if (remaining > 0) {
+            setDisabled(true);
+            render();
+            const timer = setInterval(function () {
+                remaining -= 1;
+                if (remaining <= 0) {
+                    remaining = 0;
+                    clearInterval(timer);
+                }
+                render();
+            }, 1000);
+        } else {
+            render();
+        }
+    }
+
     // Submit "thinking" state is now handled by the shared loading-button helper
     // (dlux/helpers/loading_button/js/main.js): the login and register submit
     // buttons carry `data-dlux-loading`, so the global helper shows the spinner

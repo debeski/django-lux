@@ -58,19 +58,28 @@ class CustomLoginView(LoginView):
         from ..login_throttle import login_lockout_remaining
         remaining = login_lockout_remaining(request, request.POST.get('username', ''))
         if remaining > 0:
+            # Don't flash a toast/notification (it auto-dismisses and pops the
+            # notification bar). Render the login page with the exact remaining
+            # seconds so the form shows a persistent live countdown notice under
+            # the submit button instead. Render the initial message server-side
+            # too (progressive enhancement) so the notice is never blank even if
+            # the JS is cached/stale — login.js only upgrades it to a live tick.
             s = get_strings()
-            minutes = max(1, (remaining + 59) // 60)
-            template = s.get(
-                'login_locked_out',
-                'Too many failed login attempts. Please try again in about {minutes} minute(s).',
-            )
+            template = s.get('login_lockout_countdown', 'Too many failed attempts. Try again in {time}.')
+            display = '%02d:%02d' % (remaining // 60, remaining % 60)
             try:
-                message = template.format(minutes=minutes)
+                lockout_message = template.replace('{time}', display)
             except Exception:
-                message = template
-            notify.error(message, request=request, action='login_locked_out', category='security', persist=False)
+                lockout_message = template
             form = self.get_form_class()(request)
-            return self.render_to_response(self.get_context_data(form=form), status=429)
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form,
+                    lockout_remaining=remaining,
+                    lockout_message=lockout_message,
+                ),
+                status=429,
+            )
         return super().post(request, *args, **kwargs)
 
     def form_invalid(self, form):
@@ -154,6 +163,8 @@ class CustomLoginView(LoginView):
         context['login_hero_message'] = hero
         from ..registration import public_registration_config
         context['public_registration_enabled'] = public_registration_config().get('enabled', False)
+        from ..password_reset import forgot_password_available
+        context['forgot_password_enabled'] = forgot_password_available()
 
         return context
 

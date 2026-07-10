@@ -12,7 +12,6 @@
 {% with lc=login_config|default:APP_CONFIG.login %}
 {% with ls=lc.style|default:"split" lt=lc.logo_treatment|default:"none" lts=lc.logo_treatment_shape|default:"soft" lbc=lc.banner_color|default:"" sl=lc.show_logo %}
 {% include 'dlux/includes/messages.html' with dlux_flash_mode='page' %}
-{% if form.non_field_errors %}<div class="dlux-login-error-float shake-trigger">{% for error in form.non_field_errors %}<div class="alert alert-danger d-flex align-items-center gap-2 m-0 h4"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span></div>{% endfor %}</div>{% endif %}
 <div class="page dlux-login--{{ ls }} dlux-public-auth-page {% block public_auth_page_class %}{% endblock %}">
     {% if language_picker_enabled %}
     <div class="lang-toggle-container desktop-lang-toggle dlux-login-lang-toggle d-none d-md-flex">
@@ -31,6 +30,14 @@
         </div>
         {% endif %}
         <div class="form m-0 mx-auto dlux-public-auth-form">
+            {% if form.non_field_errors %}
+            <div class="dlux-login-error shake-trigger mb-3" role="alert">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <div class="dlux-login-error__body">
+                    {% for error in form.non_field_errors %}<span>{{ error }}</span>{% endfor %}
+                </div>
+            </div>
+            {% endif %}
             {% block public_auth_panel %}{% endblock %}
 
             {% if language_picker_enabled %}

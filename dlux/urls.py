@@ -15,6 +15,12 @@ urlpatterns = [
     path('accounts/register/', views.register_view, name='register'),
     path('accounts/register/sent/', views.register_sent_view, name='register_sent'),
     path('accounts/register/verify/<str:token>/', views.register_verify_view, name='register_verify'),
+
+    # Forgot-password / reset flow (Dlux login-style, gated by forgot_password_enabled)
+    path('accounts/password-reset/', views.DluxPasswordResetView.as_view(), name='password_reset'),
+    path('accounts/password-reset/sent/', views.DluxPasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('accounts/reset/<uidb64>/<token>/', views.DluxPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('accounts/reset/done/', views.DluxPasswordResetCompleteView.as_view(), name='password_reset_complete'),
     path('accounts/profile/', views.user_profile, name='user_profile'),
     path('accounts/welcome/', views.initial_user_setup, name='initial_user_setup'),
     path('accounts/profile/sessions/<str:session_key>/revoke/', views.revoke_profile_session, name='revoke_profile_session'),
@@ -100,6 +106,8 @@ urlpatterns = [
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
     path('sys/admin/force-password-change-all/', views.force_password_change_all_view, name='dlux_force_pass_change_all'),
+    path('sys/admin/data-reset/preview/', views.data_reset_preview_view, name='dlux_data_reset_preview'),
+    path('sys/admin/data-reset/execute/', views.data_reset_execute_view, name='dlux_data_reset_execute'),
     path('search/', views.global_search_view, name='global_search'),
     path('sys/debug/notifications/', views.debug_notifications_view, name='debug_notifications'),
     path('sys/sections/', views.core_models_view, name='manage_sections'),
@@ -128,6 +136,7 @@ urlpatterns = [
     # preferences API
     path('sys/api/preferences/update/', api.update_preferences, name='update_preferences'),
     path('sys/api/preferences/reset/', api.reset_preferences, name='reset_preferences'),
+    path('sys/api/preferences/app/<str:namespace>/', api.update_app_preference, name='update_app_preference'),
     # notifications API
     path('sys/api/notifications/', api.notifications_list, name='notifications_list'),
     path('sys/api/notifications/read-all/', api.notifications_mark_all_read, name='notifications_read_all'),

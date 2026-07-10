@@ -258,6 +258,44 @@ input::-moz-focus-inner { border: 0; }
   transform: translateY(-1px);
   outline: none;
 }
+
+/* "Forgot password?" — a quiet inline link under the sign-in button. */
+.dlux-login-forgot-link {
+  color: var(--primal_dark, var(--primary-color));
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  padding: 0.15rem 0.35rem;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.dlux-login-forgot-link:hover,
+.dlux-login-forgot-link:focus-visible {
+  color: var(--primal_dark, var(--primary-color));
+  background: rgba(var(--primal-rgb, 35, 99, 195), 0.10);
+  text-decoration: underline;
+  outline: none;
+}
+
+/* Lockout countdown — a persistent notice under the sign-in button (not a
+   flash/toast): it stays put and its message ticks down live. */
+.dlux-login-lockout {
+  width: 100%;
+}
+
+.dlux-login-lockout .alert {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.dlux-login-lockout [data-dlux-lockout-message] {
+  font-variant-numeric: tabular-nums;
+}
+
+.dlux-login-lockout--cleared .alert {
+  opacity: 0.9;
+}
 /* Adaptive Frosted Plate
    A premium near-white frosted card. It gives the logo a clean, consistent
    light surface in every context: it pops with depth on dark banners/themes,
@@ -374,29 +412,41 @@ input::-moz-focus-inner { border: 0; }
     z-index: 2000;
 }
 
-/* Floating Error at top of page (Prevents card layout shifts) */
-.dlux-login-error-float {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    width: 100%;
-}
-
-.dlux-login-error-float .alert {
-    border-radius: 0 0 15px 15px;
-    border: none;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    justify-content: center;
-    padding: 1.25rem;
-    backdrop-filter: blur(10px);
-    background: rgba(220, 53, 69, 0.9);
-    color: white;
-}
-
+/* Inline credential error — a modern red notice sitting directly under the
+   password field (the field borders also go red), replacing the old floating
+   top banner. The shake animation is still triggered off `.is-invalid`. */
 .dlux-login-error {
-    display: none !important;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    color: #dc3545;
+    background: rgba(220, 53, 69, 0.08);
+    border: 1px solid rgba(220, 53, 69, 0.28);
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.35;
+    animation: dlux-login-error-in 0.22s ease both;
+}
+
+.dlux-login-error i {
+    font-size: 1rem;
+    line-height: 1.35;
+    flex-shrink: 0;
+}
+
+.dlux-login-error__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+@keyframes dlux-login-error-in {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Field Error Styling */

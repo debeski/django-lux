@@ -1,4 +1,5 @@
 from django.apps import apps
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import FieldDoesNotExist
 from django.http import JsonResponse
@@ -9,7 +10,17 @@ import json
 from datetime import date, datetime
 import logging
 # Project imports
-from .system.constants import FORM_DENSITY_VALUES, MODAL_SIZE_VALUES, NAVBAR_MODE_VALUES, SIDEBAR_DENSITY_VALUES, TABLE_DENSITY_VALUES, TABLE_PAGE_SIZE_VALUES
+from .system.constants import (
+    DEFAULT_MAX_PREFERENCES_BYTES,
+    FORM_DENSITY_VALUES,
+    MODAL_SIZE_VALUES,
+    NAVBAR_MODE_VALUES,
+    PREFERENCES_APP_NAMESPACE,
+    PREFERENCES_APP_NAMESPACE_MAXLEN,
+    SIDEBAR_DENSITY_VALUES,
+    TABLE_DENSITY_VALUES,
+    TABLE_PAGE_SIZE_VALUES,
+)
 from .utils import (
     get_effective_allowed_themes,
     get_system_config,
@@ -23,6 +34,56 @@ from .utils import (
 )
 
 logger = logging.getLogger('dlux')
+
+
+def _max_preferences_bytes():
+    """Resolved size ceiling for the whole Profile.preferences blob."""
+    try:
+        return max(int(getattr(settings, 'DLUX_MAX_PREFERENCES_BYTES', DEFAULT_MAX_PREFERENCES_BYTES)), 1024)
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_PREFERENCES_BYTES
+
+
+def _coerce_prefs_dict(value):
+    """Return a plain dict for a stored preferences value (tolerating legacy str)."""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {}
+        except (TypeError, ValueError):
+            return {}
+    return {}
+
+
+def _merge_app_namespace(current_app, incoming_app):
+    """Shallow-merge an incoming ``app`` namespace dict into the stored one.
+
+    Each top-level key under ``app`` is one app-owned namespace; its value is
+    opaque to Dlux. Incoming namespaces overwrite matching ones and leave the
+    rest untouched; an explicit ``None`` value clears that namespace. Returns
+    the merged dict (possibly empty) or ``None`` when the input isn't usable.
+    """
+    if not isinstance(incoming_app, dict):
+        return current_app if isinstance(current_app, dict) else None
+    merged = dict(current_app) if isinstance(current_app, dict) else {}
+    for ns_key, ns_value in incoming_app.items():
+        ns_key = str(ns_key)[:PREFERENCES_APP_NAMESPACE_MAXLEN]
+        if ns_value is None:
+            merged.pop(ns_key, None)
+        else:
+            merged[ns_key] = ns_value
+    return merged
+
+
+def _prefs_within_cap(prefs):
+    """True if ``prefs`` serializes to JSON within the configured byte ceiling."""
+    try:
+        return len(json.dumps(prefs, default=str).encode('utf-8')) <= _max_preferences_bytes()
+    except (TypeError, ValueError):
+        # Non-serializable payloads are rejected as if oversized.
+        return False
 
 def _can_view_model(user, model):
     """Check if user has permission to view the model."""
@@ -282,6 +343,15 @@ def update_preferences(request):
                 if key != 'csrfmiddlewaretoken':
                     if key == '__language_preview':
                         continue
+                    if key == PREFERENCES_APP_NAMESPACE:
+                        # App-owned namespace: opaque pass-through, merged at the
+                        # namespace level so different namespaces don't clobber.
+                        merged_app = _merge_app_namespace(prefs.get(PREFERENCES_APP_NAMESPACE), value)
+                        if merged_app:
+                            prefs[PREFERENCES_APP_NAMESPACE] = merged_app
+                        else:
+                            prefs.pop(PREFERENCES_APP_NAMESPACE, None)
+                        continue
                     if key == 'theme':
                         if not system_config.get('allow_user_theme_override', True):
                             prefs.pop('theme', None)
@@ -373,7 +443,15 @@ def update_preferences(request):
                              val = val.lower() == 'true'
                          request.session['sidebarCollapsed'] = val
 
-            # 4. Save
+            # 4. Enforce the overall size ceiling before persisting (the blob is
+            # inlined into every page as window.USER_PREFS).
+            if not _prefs_within_cap(prefs):
+                return JsonResponse(
+                    {'status': 'error', 'message': 'Preferences payload too large.'},
+                    status=413,
+                )
+
+            # 5. Save
             profile.preferences = prefs
             profile.save(update_fields=['preferences'])
             request.session.modified = True
@@ -413,5 +491,64 @@ def reset_preferences(request):
         except Exception:
             logger.exception("Failed to reset preferences for user pk=%s", request.user.pk)
             return JsonResponse({'success': False, 'error': 'Unable to reset preferences.'}, status=500)
-    
+
     return JsonResponse({'success': False}, status=400)
+
+
+# Preferences API — Targeted, concurrent-safe write to one app-owned namespace.
+@login_required
+@require_POST
+def update_app_preference(request, namespace):
+    """Set (or clear) a single app-owned preferences namespace.
+
+    Writes only ``Profile.preferences['app'][<namespace>]`` — Dlux-owned keys and
+    every other app namespace are left untouched, so two tabs writing *different*
+    namespaces don't clobber each other. The request body is the namespace's new
+    value (any JSON) and is stored opaquely; an empty/``null`` body clears it.
+    Enforces the same overall size ceiling as the main preferences endpoint.
+    """
+    namespace = str(namespace or '').strip()
+    if not namespace or len(namespace) > PREFERENCES_APP_NAMESPACE_MAXLEN:
+        return JsonResponse({'status': 'error', 'message': 'Invalid namespace.'}, status=400)
+
+    try:
+        if request.content_type == 'application/json':
+            body = json.loads(request.body or b'null')
+        else:
+            raw = request.POST.get('value')
+            body = json.loads(raw) if raw not in (None, '') else None
+    except (TypeError, ValueError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON body.'}, status=400)
+
+    try:
+        Profile = apps.get_model('dlux', 'Profile')
+        profile, _created = Profile.all_objects.get_or_create(user=request.user)
+        prefs = dict(_coerce_prefs_dict(profile.preferences))
+
+        app_prefs = dict(_coerce_prefs_dict(prefs.get(PREFERENCES_APP_NAMESPACE)))
+        if body is None:
+            app_prefs.pop(namespace, None)
+        else:
+            app_prefs[namespace] = body
+
+        if app_prefs:
+            prefs[PREFERENCES_APP_NAMESPACE] = app_prefs
+        else:
+            prefs.pop(PREFERENCES_APP_NAMESPACE, None)
+
+        if not _prefs_within_cap(prefs):
+            return JsonResponse(
+                {'status': 'error', 'message': 'Preferences payload too large.'},
+                status=413,
+            )
+
+        profile.preferences = prefs
+        profile.save(update_fields=['preferences'])
+        return JsonResponse({
+            'status': 'success',
+            'namespace': namespace,
+            'value': app_prefs.get(namespace),
+        })
+    except Exception:
+        logger.exception("Failed to update app preference '%s' for user pk=%s", namespace, request.user.pk)
+        return JsonResponse({'status': 'error', 'message': 'Unable to update preference.'}, status=400)

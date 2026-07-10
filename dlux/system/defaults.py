@@ -22,6 +22,9 @@ from .constants import (
 def default_auth_config():
     return {
         'email_2fa': False,
+        # Show the "Forgot password?" link on the login page and enable the
+        # reset flow. Opt-in, and additionally self-gates on email readiness.
+        'forgot_password_enabled': False,
         'prevent_multiple_active_sessions': False,
         'login_lockout_enabled': True,
         # Lockout tuning (effective only while login_lockout_enabled is on):

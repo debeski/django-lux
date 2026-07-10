@@ -37,6 +37,20 @@ MODAL_SIZE_CHOICES = (
     ('wide', 'Wide'),
 )
 MODAL_SIZE_VALUES = {value for value, _label in MODAL_SIZE_CHOICES}
+
+# App-owned user preferences: downstream projects store their own per-user state
+# under this single reserved top-level key in `Profile.preferences`, namespaced
+# by a dotted string (e.g. preferences['app']['myproject.dashboard.v1']). Dlux
+# treats everything under this key as opaque pass-through data and never
+# validates its shape — it only merges at the namespace level and enforces the
+# overall size cap below. Keeps app data cleanly isolated from Dlux-owned keys.
+PREFERENCES_APP_NAMESPACE = 'app'
+# Hard ceiling (bytes, UTF-8 JSON) on the entire `Profile.preferences` blob.
+# The blob is inlined into every authenticated page render (window.USER_PREFS),
+# so this bounds that per-request cost. Override with settings.DLUX_MAX_PREFERENCES_BYTES.
+DEFAULT_MAX_PREFERENCES_BYTES = 64 * 1024
+# Max length of a single app-preference namespace key.
+PREFERENCES_APP_NAMESPACE_MAXLEN = 128
 # CSS dialog class applied for each modal-size preset (standard preserves modal-xl).
 MODAL_SIZE_CLASSES = {
     'compact': 'modal-lg',
@@ -256,6 +270,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'footer_link_text',
     'footer_link_url',
     'email_2fa',
+    'forgot_password_enabled',
     'prevent_multiple_active_sessions',
     'login_lockout_enabled',
     'login_lockout_threshold',

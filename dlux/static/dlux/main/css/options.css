@@ -828,6 +828,29 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     transform: translateY(-1px);
 }
 
+/* Destructive commands (e.g. Reset data) read as danger even at rest. */
+.dlux-admin-command-chip--danger {
+    border-color: rgba(var(--bs-danger-rgb, 220, 53, 69), 0.45);
+    color: var(--bs-danger, #dc3545);
+}
+.dlux-admin-command-chip--danger .bi {
+    color: inherit;
+}
+
+/* Data-reset model list — a scannable, scrollable list inside the modal. */
+.dlux-data-reset-list {
+    max-height: 46vh;
+    overflow-y: auto;
+    border-top: 1px solid rgba(var(--primal-rgb, 71, 85, 105), 0.16);
+}
+.dlux-data-reset-row {
+    cursor: pointer;
+    margin: 0;
+}
+.dlux-data-reset-row:hover {
+    background: rgba(var(--primal-rgb, 71, 85, 105), 0.06);
+}
+
 .dlux-admin-panel-top {
     display: flex;
     flex-wrap: wrap;

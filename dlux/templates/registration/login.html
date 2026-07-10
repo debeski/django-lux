@@ -14,7 +14,6 @@
 {% with lc=login_config|default:APP_CONFIG.login %}
 {% with ls=lc.style|default:"split" lt=lc.logo_treatment|default:"none" lts=lc.logo_treatment_shape|default:"soft" lbc=lc.banner_color|default:"" sl=lc.show_logo %}
 {% include 'dlux/includes/messages.html' with dlux_flash_mode='page' %}
-{% if form.non_field_errors %}<div class="dlux-login-error-float shake-trigger">{% for error in form.non_field_errors %}<div class="alert alert-danger d-flex align-items-center gap-2 m-0 h4"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ error }}</span></div>{% endfor %}</div>{% endif %}
 <div class="page dlux-login--{{ ls }}{% if public_registration_enabled %} dlux-login-has-register{% endif %}">
     {% if language_picker_enabled %}
     <div class="lang-toggle-container desktop-lang-toggle dlux-login-lang-toggle d-none d-md-flex">
@@ -42,7 +41,7 @@
             <div class="form m-0 mx-auto">
                 <div class="mb-4 position-relative">
                     <label for="username">{{ DLUX_STRINGS.username }}</label>
-                    <input type="text" class="login-input {% if form.username.errors %}is-invalid{% endif %}" id="username" name="username" autofocus required value="{{ form.username.value|default:'' }}">
+                    <input type="text" class="login-input {% if form.username.errors or form.non_field_errors %}is-invalid{% endif %}" id="username" name="username" autofocus required value="{{ form.username.value|default:'' }}"{% if lockout_remaining %} disabled aria-disabled="true"{% endif %}>
                     {% if form.username.errors %}
                         <div class="invalid-feedback d-block">
                             {% for error in form.username.errors %}{{ error }}{% endfor %}
@@ -52,15 +51,38 @@
 
                 <div class="mb-4 position-relative">
                     <label for="password">{{ DLUX_STRINGS.password }}</label>
-                    <input type="password" class="login-input {% if form.password.errors %}is-invalid{% endif %}" id="password" name="password" required>
+                    <input type="password" class="login-input {% if form.password.errors or form.non_field_errors %}is-invalid{% endif %}" id="password" name="password" required{% if lockout_remaining %} disabled aria-disabled="true"{% endif %}>
                     {% if form.password.errors %}
                         <div class="invalid-feedback d-block">
                             {% for error in form.password.errors %}{{ error }}{% endfor %}
                         </div>
                     {% endif %}
+                    {% if form.non_field_errors %}
+                        <div class="dlux-login-error shake-trigger" role="alert">
+                            <i class="bi bi-exclamation-circle-fill"></i>
+                            <div class="dlux-login-error__body">
+                                {% for error in form.non_field_errors %}<span>{{ error }}</span>{% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
 
-                <button type="submit" class="w-100 btn btn-lg mt-4" id="submit" data-dlux-loading>{{ DLUX_STRINGS.login_submit }}</button>
+                <button type="submit" class="w-100 btn btn-lg mt-4" id="submit" data-dlux-loading{% if lockout_remaining %} disabled aria-disabled="true"{% endif %}>{{ DLUX_STRINGS.login_submit }}</button>
+                {% if lockout_remaining %}
+                <div class="dlux-login-lockout mt-3 shake-trigger"
+                     data-dlux-lockout-remaining="{{ lockout_remaining }}"
+                     data-dlux-lockout-template="{{ DLUX_STRINGS.login_lockout_countdown|default:'Too many failed attempts. Try again in {time}.' }}"
+                     data-dlux-lockout-expired="{{ DLUX_STRINGS.login_lockout_expired|default:'You can try signing in again now.' }}">
+                    <div class="alert alert-warning d-flex align-items-center gap-2 m-0" role="alert" data-autoclose="false">
+                        <i class="bi bi-hourglass-split"></i><span data-dlux-lockout-message>{{ lockout_message }}</span>
+                    </div>
+                </div>
+                {% endif %}
+                {% if forgot_password_enabled %}
+                    <div class="dlux-login-forgot mt-3 text-center">
+                        <a href="{% url 'password_reset' %}" class="dlux-login-forgot-link">{{ DLUX_STRINGS.forgot_password_link|default:"Forgot password?" }}</a>
+                    </div>
+                {% endif %}
                 {% if public_registration_enabled %}
                     <div class="login-register-action mt-3">
                         <a href="{% url 'register' %}" class="login-register-link">

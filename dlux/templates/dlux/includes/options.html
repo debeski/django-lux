@@ -38,6 +38,19 @@
                                     <i class="bi bi-key-fill"></i>
                                     <span>{{ DLUX_STRINGS.force_pass_change_all_short|default:'Force passwords' }}</span>
                                 </button>
+                                <button class="dlux-admin-command-chip dlux-admin-command-chip--danger"
+                                        type="button"
+                                        data-data-reset-open
+                                        data-preview-url="{% url 'dlux_data_reset_preview' %}"
+                                        data-execute-url="{% url 'dlux_data_reset_execute' %}"
+                                        data-title="{{ DLUX_STRINGS.data_reset_title|default:'Reset data' }}"
+                                        data-description="{{ DLUX_STRINGS.data_reset_password_prompt|default:'Enter your current password to choose which data to clear.' }}"
+                                        data-confirm-label="{{ DLUX_STRINGS.data_reset_continue|default:'Continue' }}"
+                                        data-dlux-tooltip="{{ DLUX_STRINGS.data_reset_desc|default:'Clear row data from selected models (scoped models are soft-deleted).' }}"
+                                        aria-label="{{ DLUX_STRINGS.data_reset_title|default:'Reset data' }}">
+                                    <i class="bi bi-trash3-fill"></i>
+                                    <span>{{ DLUX_STRINGS.data_reset_short|default:'Reset data' }}</span>
+                                </button>
                             </div>
                             <button class="dlux-admin-command-toggle"
                                     type="button"
@@ -816,10 +829,12 @@
 
     {# Force-password-change confirmation now uses the global dluxConfirmPassword #}
     {# prompt (base.html), driven from the launcher chip's data-* attributes.     #}
+    {% if user.is_superuser %}{% include 'dlux/includes/data_reset_modal.html' %}{% endif %}
 {% endblock %}
 
 {% block scripts %}
     {{ block.super }}
     <script src="{% dlux_static 'dlux/main/js/options.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/main/js/updater.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    {% if user.is_superuser %}<script src="{% dlux_static 'dlux/main/js/data_reset.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}
 {% endblock %}

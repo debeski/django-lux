@@ -370,7 +370,7 @@ class SingletonModel(models.Model):
                         obj.backup_config = backup
                 if hasattr(obj, 'auth_config'):
                     auth = dict(obj.auth_config or {})
-                    for auth_key in ('email_2fa', 'prevent_multiple_active_sessions', 'login_lockout_enabled', 'enforce_strong_passwords', 'purge_session_on_exit', 'inactivity_timeout_enabled'):
+                    for auth_key in ('email_2fa', 'forgot_password_enabled', 'prevent_multiple_active_sessions', 'login_lockout_enabled', 'enforce_strong_passwords', 'purge_session_on_exit', 'inactivity_timeout_enabled'):
                         if auth_key in config:
                             auth[auth_key] = bool(config.get(auth_key))
                     for auth_key in (

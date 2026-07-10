@@ -105,6 +105,7 @@ def export_system_settings_payload(instance=None):
     for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
         if field_name in (
             'email_2fa',
+            'forgot_password_enabled',
             'prevent_multiple_active_sessions',
             'login_lockout_enabled',
             'login_lockout_threshold',
@@ -243,6 +244,7 @@ def normalize_system_settings_import_payload(payload):
         'allow_user_font_override',
         'allow_user_language_override',
         'email_2fa',
+        'forgot_password_enabled',
         'prevent_multiple_active_sessions',
         'login_lockout_enabled',
         'enforce_strong_passwords',
@@ -299,6 +301,7 @@ def apply_system_settings_import(
             )
         elif field_name in (
             'email_2fa',
+            'forgot_password_enabled',
             'prevent_multiple_active_sessions',
             'login_lockout_enabled',
             'enforce_strong_passwords',

@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "version": "1.4.1",
+  "version": "1.4.2",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Options page layout styles: a new admin-set System Settings option (UI & Layout) picks how the Options page is laid out — rearrangeable Cards (default), Tabs (one section at a time; the Admin panel is the first tab), or a dense desktop-app-style Compact list. Hierarchy Nav Bar fallback also infers Dlux-owned link parents, so Backup & Restore appears under Application Options unless explicitly placed elsewhere. The Admin panel now has a circular expandable command launcher with a current-password-gated Force passwords command that marks all non-superusers for next-login password change. Public-registration defaults now live on Scopes and Group presets through context-menu markers and inline-safe migration 0009, applying the default scope and live auth.Group preset memberships after verification/approval. Also throttles the inactivity-timeout activity tracker so it no longer janks scrolling. Inline-safe: JSON config keys, route metadata, view/static/template updates, and additive nullable/db_default migration 0009.",
+  "summary": "Adds app-owned user preferences: downstream projects persist their own per-user state under a reserved 'app' namespace in Profile.preferences (opaque to Dlux, cross-device), bounded by a size cap and served by a targeted concurrent-safe patch endpoint plus browser helpers. Adds a complete self-service forgot-password flow rendered in the Dlux login layout (all login styles, RTL/LTR, Arabic/English/custom languages), delivered through Dlux's own email transport and gated by a new 'forgot_password_enabled' setting that self-hides until email delivery is ready; the login page also shows a live lockout countdown instead of a generic error and a modern inline credential-error message. Plus a superuser 'Reset data' admin command that lists discovered models with row counts and clears selected ones (scoped models soft-deleted/recoverable, others permanent, optional media deletion) with System Settings, updater state, permission groups, and superusers always protected; a confirm-password prompt auto-hide fix; and the missing Arabic/English names for Dlux operational models. Inline-safe: no migration, JSON/view/static/template updates only.",
   "highlights": [
-    "New Options page layout styles — Cards, Tabs, or Compact — set system-wide in System Settings → UI & Layout.",
-    "Hierarchy Nav Bar now places Backup & Restore under Application Options by default; configurable system routes are available in the builder for explicit overrides.",
-    "Smoother scrolling: the inactivity-timeout activity tracker is now throttled.",
-    "Admin panel command launcher: superusers can force all non-superusers through the existing next-login password-change flow after current-password confirmation.",
-    "Public-registration defaults: Scopes and Group presets expose context-menu markers; activated public registrations receive the marked scope and live Group preset memberships via inline-safe migration 0009."
+    "App-owned user preferences: downstream projects persist their own per-user state under a reserved 'app' namespace in Profile.preferences (opaque to Dlux), with a size cap and a targeted, concurrent-safe patch endpoint plus window.getAppPreference/updateAppPreference helpers.",
+    "New self-service forgot-password reset flow in the Dlux login layout (multiple login styles, RTL/LTR, i18n), sent via Dlux email; gated by 'forgot_password_enabled' and auto-hidden until email is configured.",
+    "Login page shows a live lockout countdown (mm:ss) with a disabled submit button instead of a generic 'too many attempts' error.",
+    "New superuser 'Reset data' command: clear selected models' rows (scoped models soft-deleted/recoverable, others permanent) after current-password confirmation; System Settings, updater state, permission groups, and superusers always protected.",
+    "Fixed the confirm-password prompt so its warning no longer auto-hides, and translated the previously-untranslated Dlux operational model names."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.1"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.2"
 }

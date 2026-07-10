@@ -1,0 +1,37 @@
+{% comment %}
+Data-reset selection modal (superuser). Shown after the password prompt; its list
+is populated by data_reset.js from the preview endpoint. DSRP-1: no inline JS.
+{% endcomment %}
+<div class="modal fade" id="dluxDataResetModal" tabindex="-1" aria-hidden="true"
+     aria-labelledby="dluxDataResetTitle" data-data-reset-modal>
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dluxDataResetTitle">{{ DLUX_STRINGS.data_reset_title|default:'Reset data' }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger d-flex align-items-start gap-2" role="alert" data-autoclose="false">
+                    <i class="bi bi-exclamation-octagon-fill flex-shrink-0 mt-1"></i>
+                    <span>{{ DLUX_STRINGS.data_reset_warning|default:'Scoped models are soft-deleted (recoverable); everything else is permanently removed. Superusers and system settings are never touched.' }}</span>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-data-reset-select-all>{{ DLUX_STRINGS.data_reset_select_all|default:'Select all' }}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-data-reset-select-none>{{ DLUX_STRINGS.data_reset_select_none|default:'Clear selection' }}</button>
+                    <div class="form-check form-switch ms-auto mb-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="dluxDataResetMedia" data-data-reset-media>
+                        <label class="form-check-label" for="dluxDataResetMedia">{{ DLUX_STRINGS.data_reset_delete_media|default:'Also delete related media files' }}</label>
+                    </div>
+                </div>
+                <div class="dlux-data-reset-list" data-data-reset-list></div>
+                <div class="mt-3 d-none" data-data-reset-result aria-live="polite"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ DLUX_STRINGS.cancel|default:'Cancel' }}</button>
+                <button type="button" class="btn btn-danger" data-data-reset-execute disabled>
+                    <i class="bi bi-trash3-fill me-1"></i>{{ DLUX_STRINGS.data_reset_execute|default:'Reset selected data' }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

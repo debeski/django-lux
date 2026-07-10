@@ -2350,6 +2350,10 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=False,
     )
+    forgot_password_enabled = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
     prevent_multiple_active_sessions = forms.BooleanField(
         required=False,
         initial=False,
@@ -3148,6 +3152,11 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['email_2fa'].help_text = s.get(
             'help_sys_email_2fa',
             'Allow users to enable two-factor authentication via email. Requires Dlux email delivery to be ready.',
+        )
+        self.fields['forgot_password_enabled'].label = s.get('form_sys_forgot_password', 'Enable "Forgot password?"')
+        self.fields['forgot_password_enabled'].help_text = s.get(
+            'help_sys_forgot_password',
+            'Show a "Forgot password?" link on the login page and enable the email-based reset flow. Requires Dlux email delivery to be ready.',
         )
         self.fields['prevent_multiple_active_sessions'].label = s.get('form_sys_prevent_multiple_active_sessions')
         self.fields['prevent_multiple_active_sessions'].help_text = s.get('help_sys_prevent_multiple_active_sessions')
@@ -4445,6 +4454,7 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
                     build_settings_toggle_field(self, 'email_2fa', css_class='col-lg-6'),
+                    build_settings_toggle_field(self, 'forgot_password_enabled', css_class='col-lg-6'),
                     build_settings_toggle_field(self, 'prevent_multiple_active_sessions', css_class='col-lg-6'),
                     build_settings_toggle_field(self, 'login_lockout_enabled', css_class='col-lg-6'),
                     build_settings_toggle_field(self, 'enforce_strong_passwords', css_class='col-lg-6'),
@@ -5287,6 +5297,9 @@ class SystemSettingsForm(forms.ModelForm):
     def clean_email_2fa(self):
         return self._auth_toggle_clean('email_2fa', False)
 
+    def clean_forgot_password_enabled(self):
+        return self._auth_toggle_clean('forgot_password_enabled', False)
+
     def clean_prevent_multiple_active_sessions(self):
         return self._auth_toggle_clean('prevent_multiple_active_sessions', False)
 
@@ -5614,6 +5627,7 @@ class SystemSettingsForm(forms.ModelForm):
             'allow_user_language_override',
             'default_table_density',
             'email_2fa',
+            'forgot_password_enabled',
             'prevent_multiple_active_sessions',
             'login_lockout_enabled',
             'login_lockout_threshold',
@@ -6132,6 +6146,7 @@ class SystemSettingsForm(forms.ModelForm):
                 self.cleaned_data.get('footer_link_url', ''),
             ),
             'email_2fa': bool(auth_config.get('email_2fa', False)),
+            'forgot_password_enabled': bool(auth_config.get('forgot_password_enabled', False)),
             'prevent_multiple_active_sessions': bool(auth_config.get('prevent_multiple_active_sessions', False)),
             'login_lockout_enabled': bool(auth_config.get('login_lockout_enabled', True)),
             'login_lockout_threshold': auth_config.get('login_lockout_threshold', 5),

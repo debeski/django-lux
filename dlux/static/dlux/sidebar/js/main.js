@@ -26,6 +26,60 @@ window.updatePreferences = function(data) {
     });
 };
 
+// App-owned preferences helpers ------------------------------------------------
+// Downstream projects persist their own per-user state under the reserved `app`
+// namespace so it survives across browsers/devices, cleanly isolated from
+// Dlux's own preference keys.
+//
+//   window.updateAppPreference('myproject.dashboard.v1', { order: [...] })
+//   const layout = window.getAppPreference('myproject.dashboard.v1', {})
+//
+// updateAppPreference does a targeted, concurrent-safe write (only that one
+// namespace is touched) and returns the fetch Promise so callers can react to
+// a 413 (payload too large). Pass `null` as the value to clear the namespace.
+window.getAppPreference = function (namespace, fallback) {
+    const bag = (window.USER_PREFS && window.USER_PREFS.app) || {};
+    return Object.prototype.hasOwnProperty.call(bag, namespace) ? bag[namespace] : fallback;
+};
+
+window.updateAppPreference = function (namespace, value) {
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+    if (!csrfToken) {
+        console.error("CSRF token not found, cannot save app preference.");
+        return Promise.reject(new Error('missing-csrf'));
+    }
+
+    return fetch('/sys/api/preferences/app/' + encodeURIComponent(namespace) + '/', {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": csrfToken,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(value === undefined ? null : value)
+    }).then(response => {
+        if (!response.ok) {
+            console.error("Failed to save app preference:", response.statusText);
+            return response;
+        }
+        // Mirror the write into the in-page cache so getAppPreference is fresh.
+        if (window.USER_PREFS) {
+            if (!window.USER_PREFS.app || typeof window.USER_PREFS.app !== 'object') {
+                window.USER_PREFS.app = {};
+            }
+            if (value === null || value === undefined) {
+                delete window.USER_PREFS.app[namespace];
+            } else {
+                window.USER_PREFS.app[namespace] = value;
+            }
+        }
+        return response;
+    }).catch(error => {
+        console.error("Error updating app preference:", error);
+        throw error;
+    });
+};
+
 document.addEventListener("DOMContentLoaded", function () {
     const sidebar = document.getElementById("sidebar");
     const sidebarToggle = document.getElementById("sidebarToggle");
