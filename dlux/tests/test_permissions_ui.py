@@ -186,6 +186,12 @@ class PermissionsUiTests(TestCase):
             'Allows viewing activity-log pages and activity detail modals.',
         )
 
+    def test_user_form_is_active_uses_distinct_label(self):
+        # The User form's active toggle uses the distinct form_user_is_active key
+        # ("Account Active") rather than the generic form_is_active ("Active Account").
+        form = CustomUserCreationForm(user=self.user)
+        self.assertIn(str(form.fields['is_active'].label), ('Account Active', 'حساب نشط'))
+
     def test_creation_form_renders_staff_tier_preview(self):
         form = CustomUserCreationForm(user=self.user)
 

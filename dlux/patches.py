@@ -405,6 +405,17 @@ def _patch_modelform_init():
         config = get_system_config()
         s = get_strings(overrides=config.get('translations'))
 
+        # Model-qualified labels let one form give a field a distinct label
+        # (form_{model}_{field} / label_{model}_{field}) before the generic keys —
+        # opt-in and backward compatible (matches the table-header scheme).
+        form_model_name = ''
+        try:
+            meta = getattr(self, '_meta', None)
+            model = getattr(meta, 'model', None) if meta else None
+            form_model_name = (model._meta.model_name or '') if model else ''
+        except Exception:
+            form_model_name = ''
+
         for name, field in self.fields.items():
             # ── Auto-Scope Logic ──
             # If the field is a ModelChoiceField and uses a ScopedManager, refresh its queryset
@@ -423,8 +434,11 @@ def _patch_modelform_init():
             # ── Universal Translation Logic ──
             # Try prefixes: 1. label_[name], 2. label_[raw_label], 3. [name], 4. [raw_label]
             raw_label = str(field.label) if field.label else name
-            
-            keys = [f"label_{name}", f"label_{raw_label}", name, raw_label]
+
+            keys = []
+            if form_model_name:
+                keys += [f"form_{form_model_name}_{name}", f"label_{form_model_name}_{name}"]
+            keys += [f"label_{name}", f"label_{raw_label}", name, raw_label]
             for k in keys:
                 if k in s:
                     field.label = lazy_translator(k, raw_label)
@@ -642,16 +656,29 @@ def _patch_table_init():
         config = get_system_config()
         s = get_strings(overrides=config.get('translations'))
 
+        # Model-qualified header keys let one table give a column a *distinct*
+        # header without disturbing the shared generic key: e.g. the User table's
+        # `is_active` reads `tbl_user_is_active` if defined, else falls back to the
+        # generic `tbl_is_active`. Opt-in — define the qualified key to override.
+        model_name = ''
+        try:
+            model_name = (self._meta.model._meta.model_name or '') if getattr(self._meta, 'model', None) else ''
+        except Exception:
+            model_name = ''
+
         # django-tables2: Translate column headers using a lazy proxy
         for name, column in self.columns.items():
             # BoundColumn.verbose_name is read-only, so we must patch the underlying Column object's verbose_name.
             # The underlying Column is shared across requests, so we wrap the string inside a Django lazy proxy
             # that translates dynamically using the current thread's language at render time.
-            
+
             raw_vname = str(column.header) if column.header else name
-            
-            keys = [f"tbl_{name}", f"label_{name}", f"tbl_{raw_vname}", f"label_{raw_vname}", raw_vname]
-            
+
+            keys = []
+            if model_name:
+                keys += [f"tbl_{model_name}_{name}", f"label_{model_name}_{name}"]
+            keys += [f"tbl_{name}", f"label_{name}", f"tbl_{raw_vname}", f"label_{raw_vname}", raw_vname]
+
             for k in keys:
                 if k in s:
                     # Found a valid translation key. Wrap it in a lazy translator and attach to the underlying column.
@@ -803,13 +830,19 @@ def _patch_model_meta():
     for model in apps.get_models():
         meta = model._meta
         
-        # verbose_name
+        singular_key = f"model_{meta.model_name}"
+        plural_key = f"models_{meta.model_name}"
+
+        # verbose_name: prefer the singular key, fall back to the plural key,
+        # then the raw name — so a model translated with only one key still
+        # resolves everywhere.
         raw_vn = str(meta.verbose_name) if meta.verbose_name else meta.model_name
-        meta.verbose_name = lazy_translator(f"model_{meta.model_name}", raw_vn)
-        
-        # verbose_name_plural
+        meta.verbose_name = lazy_translator(singular_key, raw_vn, fallback_keys=[plural_key])
+
+        # verbose_name_plural: prefer the plural key, fall back to the singular
+        # key, then the raw plural name (matches resolve_model_label order).
         raw_vnp = str(meta.verbose_name_plural) if meta.verbose_name_plural else f"{raw_vn}s"
-        meta.verbose_name_plural = lazy_translator(f"models_{meta.model_name}", raw_vnp)
+        meta.verbose_name_plural = lazy_translator(plural_key, raw_vnp, fallback_keys=[singular_key])
 
 
 # ──────────────────────────────────────────────────────────

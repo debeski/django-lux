@@ -1043,11 +1043,26 @@ def has_submit_button(form):
     has already included a Submit or Button object. Used to auto-hide duplicate
     buttons in generic modal/section templates.
     """
-    if not hasattr(form, 'helper') or not form.helper or not getattr(form.helper, 'layout', None):
+    # NB: an empty FormHelper is falsy (crispy's __len__ counts layout fields),
+    # so test for absence explicitly — a helper carrying only inputs is valid.
+    if getattr(form, 'helper', None) is None:
         return False
-        
+
     from crispy_forms.layout import Submit, Button, HTML
-    
+
+    # crispy_forms' `helper.add_input(Submit(...))` — the most common way a form
+    # declares its own Save button — stores it on `helper.inputs`, NOT in the
+    # layout. Inspect inputs first so those buttons are detected too (otherwise
+    # the generic section/modal template renders a duplicate Save button).
+    for inp in (getattr(form.helper, 'inputs', None) or []):
+        if isinstance(inp, (Submit, Button)):
+            return True
+        if str(getattr(inp, 'input_type', '')).lower() == 'submit':
+            return True
+
+    if not getattr(form.helper, 'layout', None):
+        return False
+
     # Crispy Layout - Helper recursively inspects layout nodes for submit controls.
     def check_node(node):
         # Direct match for Submit or Button objects

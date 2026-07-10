@@ -51,6 +51,18 @@ PREFERENCES_APP_NAMESPACE = 'app'
 DEFAULT_MAX_PREFERENCES_BYTES = 64 * 1024
 # Max length of a single app-preference namespace key.
 PREFERENCES_APP_NAMESPACE_MAXLEN = 128
+
+# System-level app-owned config: the parallel of the per-user `app` namespace, but
+# for GLOBAL project config. Downstream projects store opaque JSON under this
+# reserved key inside SystemSettings.extra_config (e.g.
+# extra_config['app']['myproject.settings']). Only superusers may write it, via a
+# namespace-scoped endpoint; Dlux never validates its shape. Bounded by the cap
+# below to protect the get_system_config() payload (loaded app-wide).
+SYSTEM_APP_CONFIG_NAMESPACE = 'app'
+DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES = 64 * 1024
+# Namespace keys and card ids must match this to keep them injection-safe in
+# attributes/CSS classes and URLs (letters, digits, dot, dash, underscore).
+SAFE_NAMESPACE_RE = r'^[A-Za-z0-9._-]+$'
 # CSS dialog class applied for each modal-size preset (standard preserves modal-xl).
 MODAL_SIZE_CLASSES = {
     'compact': 'modal-lg',

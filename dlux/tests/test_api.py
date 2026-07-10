@@ -562,3 +562,76 @@ class AppPreferencesTests(TestCase):
         self.assertEqual(self.client.get(url).status_code, 405)
         self.client.logout()
         self.assertEqual(self.client.post(url, 'null', content_type='application/json').status_code, 302)
+
+
+class SystemAppConfigTests(TestCase):
+    """Superuser-only, namespace-scoped, size-capped system config writes."""
+
+    def setUp(self):
+        cache.clear()
+        ss = SystemSettings.load()
+        ss.is_configured = True
+        ss.extra_config = {}
+        ss.save()
+        self.superuser = User.objects.create_superuser('root', 'root@example.com', 'pw12345!')
+        self.regular = User.objects.create_user('joe', 'joe@example.com', 'pw12345!')
+
+    def _url(self, ns='proj.settings'):
+        return reverse('update_app_system_config', kwargs={'namespace': ns})
+
+    def _extra(self):
+        cache.clear()
+        return SystemSettings.load().extra_config
+
+    def test_requires_superuser(self):
+        # non-superuser -> 403
+        c = Client(); c.force_login(self.regular)
+        self.assertEqual(c.post(self._url(), json.dumps({'x': 1}), content_type='application/json').status_code, 403)
+        # anonymous -> redirect to login
+        self.assertEqual(Client().post(self._url(), 'null', content_type='application/json').status_code, 302)
+        # GET blocked
+        c2 = Client(); c2.force_login(self.superuser)
+        self.assertEqual(c2.get(self._url()).status_code, 405)
+
+    def test_superuser_write_and_read_helper(self):
+        from dlux.utils import get_app_system_config
+        c = Client(); c.force_login(self.superuser)
+        r = c.post(self._url(), json.dumps({'flag': True, 'n': 3}), content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self._extra()['app']['proj.settings'], {'flag': True, 'n': 3})
+        cache.clear()
+        self.assertEqual(get_app_system_config('proj.settings'), {'flag': True, 'n': 3})
+        self.assertEqual(get_app_system_config('missing', 'D'), 'D')
+
+    def test_write_is_namespace_scoped_and_isolated(self):
+        # Seed an unrelated dlux-owned extra_config key + another namespace.
+        ss = SystemSettings.load()
+        ss.extra_config = {'dlux_owned': {'keep': 1}, 'app': {'other': {'v': 9}}}
+        ss.save()
+        c = Client(); c.force_login(self.superuser)
+        c.post(self._url('proj.settings'), json.dumps({'v': 1}), content_type='application/json')
+        extra = self._extra()
+        self.assertEqual(extra['dlux_owned'], {'keep': 1})       # untouched
+        self.assertEqual(extra['app']['other'], {'v': 9})         # sibling preserved
+        self.assertEqual(extra['app']['proj.settings'], {'v': 1})
+
+    def test_null_body_clears_namespace(self):
+        c = Client(); c.force_login(self.superuser)
+        c.post(self._url(), json.dumps({'v': 1}), content_type='application/json')
+        r = c.post(self._url(), 'null', content_type='application/json')
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn('app', self._extra())
+
+    def test_size_cap_returns_413(self):
+        c = Client(); c.force_login(self.superuser)
+        with self.settings(DLUX_MAX_SYSTEM_APP_CONFIG_BYTES=2048):
+            r = c.post(self._url(), json.dumps({'blob': 'x' * 4096}), content_type='application/json')
+        self.assertEqual(r.status_code, 413)
+        self.assertNotIn('app', self._extra())
+
+    def test_invalid_namespace_rejected(self):
+        c = Client(); c.force_login(self.superuser)
+        # A namespace with an unsafe char never resolves to this route, so hit the
+        # validator directly through a safe route with an over-long name instead.
+        bad = reverse('update_app_system_config', kwargs={'namespace': 'a' * 200})
+        self.assertEqual(c.post(bad, 'null', content_type='application/json').status_code, 400)

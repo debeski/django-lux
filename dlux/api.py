@@ -7,17 +7,21 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 import json
+import re
 from datetime import date, datetime
 import logging
 # Project imports
 from .system.constants import (
     DEFAULT_MAX_PREFERENCES_BYTES,
+    DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES,
     FORM_DENSITY_VALUES,
     MODAL_SIZE_VALUES,
     NAVBAR_MODE_VALUES,
     PREFERENCES_APP_NAMESPACE,
     PREFERENCES_APP_NAMESPACE_MAXLEN,
+    SAFE_NAMESPACE_RE,
     SIDEBAR_DENSITY_VALUES,
+    SYSTEM_APP_CONFIG_NAMESPACE,
     TABLE_DENSITY_VALUES,
     TABLE_PAGE_SIZE_VALUES,
 )
@@ -42,6 +46,17 @@ def _max_preferences_bytes():
         return max(int(getattr(settings, 'DLUX_MAX_PREFERENCES_BYTES', DEFAULT_MAX_PREFERENCES_BYTES)), 1024)
     except (TypeError, ValueError):
         return DEFAULT_MAX_PREFERENCES_BYTES
+
+
+def _max_system_app_config_bytes():
+    """Resolved size ceiling for the whole SystemSettings.extra_config blob."""
+    try:
+        return max(int(getattr(settings, 'DLUX_MAX_SYSTEM_APP_CONFIG_BYTES', DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES)), 1024)
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES
+
+
+_SAFE_NAMESPACE = re.compile(SAFE_NAMESPACE_RE)
 
 
 def _coerce_prefs_dict(value):
@@ -552,3 +567,85 @@ def update_app_preference(request, namespace):
     except Exception:
         logger.exception("Failed to update app preference '%s' for user pk=%s", namespace, request.user.pk)
         return JsonResponse({'status': 'error', 'message': 'Unable to update preference.'}, status=400)
+
+
+# System Config API — Superuser-only write to one app-owned system-config namespace.
+@login_required
+@require_POST
+def update_app_system_config(request, namespace):
+    """Set (or clear) one app-owned GLOBAL system-config namespace.
+
+    Writes only ``SystemSettings.extra_config['app'][<namespace>]`` — Dlux-owned
+    config and every other namespace are left untouched. This is global,
+    project-wide state, so it is **superuser-only**, POST + CSRF, size-capped,
+    audit-logged, and cache-refreshed (via ``SystemSettings.save``). The body is
+    the namespace's new value (opaque JSON); an empty/``null`` body clears it.
+
+    Deliberately *not* a general settings mutator: it can never reach Dlux's own
+    settings fields or other ``extra_config`` keys, so it cannot be used to
+    tamper with security-relevant configuration.
+    """
+    # Firm gate: global config is superuser-only. Non-superusers get 403 even
+    # though they passed @login_required.
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Superuser required.'}, status=403)
+
+    namespace = str(namespace or '').strip()
+    if not namespace or len(namespace) > PREFERENCES_APP_NAMESPACE_MAXLEN or not _SAFE_NAMESPACE.match(namespace):
+        return JsonResponse({'status': 'error', 'message': 'Invalid namespace.'}, status=400)
+
+    try:
+        if request.content_type == 'application/json':
+            body = json.loads(request.body or b'null')
+        else:
+            raw = request.POST.get('value')
+            body = json.loads(raw) if raw not in (None, '') else None
+    except (TypeError, ValueError):
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON body.'}, status=400)
+
+    try:
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        sys_settings = SystemSettings.load()
+        extra = sys_settings.extra_config
+        extra = dict(extra) if isinstance(extra, dict) else {}
+
+        app_bag = extra.get(SYSTEM_APP_CONFIG_NAMESPACE)
+        app_bag = dict(app_bag) if isinstance(app_bag, dict) else {}
+        if body is None:
+            app_bag.pop(namespace, None)
+        else:
+            app_bag[namespace] = body
+
+        if app_bag:
+            extra[SYSTEM_APP_CONFIG_NAMESPACE] = app_bag
+        else:
+            extra.pop(SYSTEM_APP_CONFIG_NAMESPACE, None)
+
+        # Size cap: extra_config rides inside every get_system_config() load.
+        try:
+            too_big = len(json.dumps(extra, default=str).encode('utf-8')) > _max_system_app_config_bytes()
+        except (TypeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'Value is not JSON-serializable.'}, status=400)
+        if too_big:
+            return JsonResponse({'status': 'error', 'message': 'System config payload too large.'}, status=413)
+
+        sys_settings.extra_config = extra
+        sys_settings.save()  # refresh_cache() invalidates the config cache
+
+        try:
+            log_user_action(
+                request, 'UPDATE', instance=sys_settings, model_name='systemsettings',
+                details={'app_config_namespace': namespace, 'cleared': body is None},
+                category='audit',
+            )
+        except Exception:
+            logger.debug("Audit logging failed for app system-config write '%s'", namespace, exc_info=True)
+
+        return JsonResponse({
+            'status': 'success',
+            'namespace': namespace,
+            'value': app_bag.get(namespace),
+        })
+    except Exception:
+        logger.exception("Failed to update app system-config '%s' by user pk=%s", namespace, request.user.pk)
+        return JsonResponse({'status': 'error', 'message': 'Unable to update system config.'}, status=400)

@@ -1444,3 +1444,18 @@ def get_system_config():
     final_config.update(build_config_groups(final_config, final_config.get('default_language')))
 
     return final_config
+
+
+def get_app_system_config(namespace, default=None):
+    """Read one app-owned system-config namespace.
+
+    Returns the opaque value stored at ``SystemSettings.extra_config['app'][namespace]``
+    (see the superuser-only write endpoint), or ``default`` when unset. This is the
+    global, project-wide counterpart of the per-user ``app`` preferences namespace.
+    """
+    from ..system.constants import SYSTEM_APP_CONFIG_NAMESPACE
+    extra = get_system_config().get('extra_config') or {}
+    app_bag = extra.get(SYSTEM_APP_CONFIG_NAMESPACE)
+    if not isinstance(app_bag, dict) or namespace not in app_bag:
+        return default
+    return app_bag[namespace]

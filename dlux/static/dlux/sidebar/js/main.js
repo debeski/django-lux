@@ -80,6 +80,51 @@ window.updateAppPreference = function (namespace, value) {
     });
 };
 
+// Declarative auto-persist: any control marked `data-dlux-app-pref="<namespace>"`
+// writes its value to that app-pref namespace on change — no per-card JS needed.
+//   <select data-dlux-app-pref="sales.catalog_layout"> ...        // scalar value
+//   <input type="checkbox" data-dlux-app-pref="myapp.flags"
+//          data-dlux-app-pref-field="compact">                     // merge one field
+// After persisting, a `dlux:app-pref-changed` event fires on document
+// (detail: {namespace, field, value}) so the app can apply the change live.
+window.bindAppPrefControls = function (root) {
+    root = root || document;
+    const controls = root.querySelectorAll('[data-dlux-app-pref]');
+    controls.forEach(function (el) {
+        if (el.__dluxAppPrefBound) { return; }
+        el.__dluxAppPrefBound = true;
+        el.addEventListener('change', function () {
+            const ns = el.getAttribute('data-dlux-app-pref');
+            if (!ns) { return; }
+            const field = el.getAttribute('data-dlux-app-pref-field') || null;
+            let raw = (el.type === 'checkbox') ? el.checked : el.value;
+
+            let payload;
+            let changedValue;
+            if (field) {
+                const current = window.getAppPreference(ns, {});
+                const obj = (current && typeof current === 'object' && !Array.isArray(current))
+                    ? Object.assign({}, current) : {};
+                obj[field] = raw;
+                payload = obj;
+                changedValue = raw;
+            } else {
+                payload = raw;
+                changedValue = raw;
+            }
+
+            window.updateAppPreference(ns, payload);
+            document.dispatchEvent(new CustomEvent('dlux:app-pref-changed', {
+                detail: { namespace: ns, field: field, value: changedValue }
+            }));
+        });
+    });
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    window.bindAppPrefControls(document);
+});
+
 document.addEventListener("DOMContentLoaded", function () {
     const sidebar = document.getElementById("sidebar");
     const sidebarToggle = document.getElementById("sidebarToggle");

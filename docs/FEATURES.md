@@ -576,13 +576,13 @@ ActivityLog.safe_log(
 - **Database overrides:** `translations_override` JSON field
 - **Lazy translator:** Runtime translation resolution
 - **Universal patching:** gettext/gettext_lazy/pgettext patches check DLUX_STRINGS first
-- **Model meta patching:** `verbose_name` and `verbose_name_plural` wrapped with lazy translators
+- **Model meta patching:** `verbose_name` and `verbose_name_plural` wrapped with lazy translators (plural falls back to the singular key and vice-versa, then the raw name)
 - **Translation-First Policy**: All new UI components (2FA, Trusted Devices, IP Config) are built without hardcoded strings, utilizing the Dlux translation framework for all user-facing copy
 
 ### Key Translation Keys
 - `label_<field>` — form field labels
 - `tbl_<column>` — table column headers
-- `model_<name>` / `models_<name>` — model names
+- `model_<name>` / `models_<name>` — model names (resolved plural→singular→raw via `resolve_model_label`)
 - `form_*`, `help_*` — form labels and help text
 - `btn_*` — button labels
 - `msg_*` — flash messages

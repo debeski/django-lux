@@ -25,28 +25,14 @@ DLUX_STRINGS = {
         'login_logo_alt': 'شعار تسجيل الدخول',
 
         # Dashboard
-        'dashboard_welcome': 'مرحباً بك في النظام المتكامل لإدارة الموارد العامة.',
         'greeting_morning': 'صباح الخير',
         'greeting_afternoon': 'مساء الخير',
         'greeting_evening': 'طابت ليلتك',
-        # 'app_core': 'الرئيسية',
-        # 'app_storage': 'إدارة المخازن',
-        # 'app_storage_desc': 'إدارة الأصول، المخازن، وحركة الأصناف.',
-        # 'app_finance': 'إدارة المالية',
-        # 'app_finance_desc': 'إدارة الميزانية، الأبواب، والمناقلات المالية.',
-        # 'app_treasury': 'الخزينة',
-        # 'app_treasury_desc': 'إدارة الإيرادات، المصروفات، والعهد المالية.',
-        # 'app_hr_payroll': 'الموارد البشرية والمرتبات',
-        # 'app_salary': 'المرتبات',
-        # 'app_salary_desc': 'إدارة بطاقات المرتبات، الإستقطاعات، وكشوف المرتبات.',
-        'sidebar_system_desc': 'إدارة المستخدمين، الصلاحيات، وإعدادات المنظومة.',
         'contact_admin': 'الرجاء التواصل مع مدير النظام للحصول على صلاحيات الوصول.',
-        'work_scope': 'نطاق العمل',
         'manage_users': 'إدارة المستخدمين',
         'manage_users_desc': 'إدارة حسابات المستخدمين والصلاحيات.',
         'manage_sections': 'إدارة الأقسام',
         'manage_sections_desc': 'هيكلة الأقسام والجهات والوحدات الإدارية.',
-        'activity_log': 'سجل النشاط',
         'activity_log_desc': 'متابعة نشاطات المستخدمين والتغييرات.',
         'settings': 'الإعدادات',
         'settings_desc': 'خيارات النظام ومعلومات النسخة.',
@@ -54,7 +40,6 @@ DLUX_STRINGS = {
         'go': 'الذهاب',
         'activity_24h': 'النشاط (آخر 24 ساعة)',
         'system_settings_title': 'إعدادات النظام العامة',
-        'system_settings_label': 'إعدادات النظام',
         'system_settings_btn': 'إدارة إعدادات النظام',
         'system_settings_desc': 'تهيئة إعدادات المنظومة العامة والافتراضيات.',
         'system_settings_export': 'تصدير ملف التهيئة',
@@ -69,7 +54,6 @@ DLUX_STRINGS = {
         'system_settings_sidebar_desc': 'باني الشريط الجانبي وسلوك الترتيب والكثافة والطي.',
         'system_settings_navbar': 'شريط التنقل',
         'system_settings_navbar_desc': 'تفعيل شريط التنقل ونمطه وشجرة التسلسل.',
-        'system_settings_ui_layout': 'شريط العنوان',
         'system_settings_ui_layout_desc': 'أزرار وشعار وعنوان الشريط العلوي وسلوكه.',
         'global_search_settings_title': 'البحث الشامل',
         'form_sys_titlebar_global_search': 'البحث الشامل',
@@ -81,12 +65,8 @@ DLUX_STRINGS = {
         'global_search_mode_disabled_desc': 'إخفاء البحث الشامل تماماً.',
         'global_search_placeholder': 'بحث…',
         'search_group_pages': 'الصفحات',
-        'search_group_settings': 'الإعدادات',
         'search_group_options': 'الخيارات',
-        'search_group_actions': 'الإجراءات',
-        'search_group_data': 'البيانات',
         'search_no_results': 'لا توجد نتائج مطابقة.',
-        'system_settings_notifications': 'الإشعارات',
         'system_settings_notifications_desc': 'مفتاح عام للإشعارات: التنبيهات المنبثقة ودرج الإشعارات والبريد والإشعارات التلقائية.',
         'system_settings_appearance': 'المظهر والخط',
         'system_settings_appearance_desc': 'السمات والخطوط وكثافة الجداول الافتراضية.',
@@ -169,7 +149,6 @@ DLUX_STRINGS = {
         'help_sys_log_audit': 'سجلّات التدقيق للإلحاق فقط ولا تُحذف تلقائياً افتراضياً.',
         'form_sys_log_audit_retention': 'مدة حفظ التدقيق (أيام، 0 = للأبد)',
         'log_tab_user': 'المستخدم',
-        'log_tab_system': 'النظام',
         'log_tab_audit': 'التدقيق',
         'log_model_user_accounts': 'حسابات المستخدمين',
         'apply_language': 'تطبيق اللغة',
@@ -255,7 +234,6 @@ DLUX_STRINGS = {
         'help_sys_options_style': 'كيفية عرض صفحة الخيارات: بطاقات قابلة لإعادة الترتيب، أو عرض بعلامات تبويب، أو عرض مضغوط بصفحة واحدة كثيفة.',
         'options_style_cards': 'بطاقات',
         'options_style_tabs': 'علامات تبويب',
-        'options_style_compact': 'مضغوط',
         'options_style_cards_desc': 'بطاقات قابلة لإعادة الترتيب في شبكة (الافتراضي).',
         'options_style_tabs_desc': 'قسم واحد في كل مرة خلف علامات تبويب.',
         'options_style_compact_desc': 'قائمة مضغوطة بصفحة واحدة بأسلوب تطبيقات سطح المكتب.',
@@ -321,7 +299,6 @@ DLUX_STRINGS = {
         'translation_matrix_search': 'بحث في الترجمات',
         'translation_matrix_search_placeholder': 'مفتاح أو قيمة',
         'translation_matrix_filter': 'تصفية',
-        'translation_matrix_all': 'الكل',
         'translation_matrix_missing': 'الناقصة',
         'translation_matrix_overrides': 'المعدلة',
         'translation_matrix_key': 'المفتاح',
@@ -337,7 +314,6 @@ DLUX_STRINGS = {
         'help_sys_sidebar_enable_toolbar': 'إظهار شريط أدوات الشريط الجانبي الذي يحتوي على مبدّل الألوان السريع وزر إعادة الترتيب واختصار مدير الأقسام الديناميكي.',
         'form_sys_sidebar_show_icons': 'إظهار أيقونات الشريط الجانبي',
         'help_sys_sidebar_show_icons': 'إظهار الأيقونات بجانب عناصر ومجلدات الشريط الجانبي عند كونه موسعاً.',
-        'form_sys_sidebar_density': 'كثافة الشريط الجانبي',
         'help_sys_sidebar_density': 'اختر الكثافة الافتراضية لعناصر الشريط الجانبي.',
         'form_sys_sidebar_allow_user_density': 'السماح للمستخدم بتغيير كثافة الشريط الجانبي',
         'help_sys_sidebar_allow_user_density': 'السماح للمستخدمين بتغيير كثافة الشريط الجانبي من شريط الأدوات أثناء العمل.',
@@ -408,7 +384,6 @@ DLUX_STRINGS = {
         'dismiss': 'إخفاء',
         'open': 'فتح',
         'btn_back': 'رجوع',
-        'notification_settings_title': 'الإشعارات',
         'form_sys_notification_config': 'إعدادات الإشعارات',
         'form_sys_notifications_enabled': 'تفعيل الإشعارات',
         'help_sys_notifications_enabled': 'مفتاح رئيسي لنظام الإشعارات بالكامل. عند إيقافه تُعطَّل التنبيهات السريعة ودرج الإشعارات والشارة والبريد والإشعارات التلقائية ودالة notify().',
@@ -443,10 +418,7 @@ DLUX_STRINGS = {
         'notification_position_titlebar_end': 'نهاية شريط العنوان',
         'notification_position_bottom_start': 'أسفل البداية',
         'notification_position_bottom_end': 'أسفل النهاية',
-        'notification_size_compact': 'مضغوط',
-        'notification_size_balanced': 'متوازن',
         'notification_size_prominent': 'بارز',
-        'notification_update_off': 'إيقاف',
         'notification_update_summary': 'ملخص',
         'notification_update_full': 'كامل',
         'titlebar_home_shape_circle': 'دائري',
@@ -467,11 +439,8 @@ DLUX_STRINGS = {
         'titlebar_size_md_desc': 'الحجم الافتراضي المتوازن.',
         'titlebar_size_lg': 'كبير',
         'titlebar_size_lg_desc': 'عنوان أكبر وأكثر بروزاً.',
-        'titlebar_height_dense': 'مضغوط',
         'titlebar_height_dense_desc': 'ارتفاع أقل ومساحة رأسية أصغر.',
-        'titlebar_height_balanced': 'متوازن',
         'titlebar_height_balanced_desc': 'الارتفاع الافتراضي المتوازن.',
-        'titlebar_height_roomy': 'مريح',
         'titlebar_height_roomy_desc': 'مساحة داخلية أكبر لشريط العنوان.',
         'titlebar_surface_default': 'افتراضي',
         'titlebar_surface_default_desc': 'السطح الافتراضي لشريط العنوان.',
@@ -491,7 +460,6 @@ DLUX_STRINGS = {
         'titlebar_logo_treatment_shape_soft_desc': 'لوحة حديثة بحواف دائرية ناعمة.',
         'titlebar_logo_treatment_shape_pill': 'كبسولة',
         'titlebar_logo_treatment_shape_pill_desc': 'لوحة مستديرة بالكامل.',
-        'titlebar_logo_treatment_shape_square': 'مربع',
         'titlebar_logo_treatment_shape_square_desc': 'لوحة مدمجة بحواف أكثر حدة.',
         'form_sys_email_2fa': 'تفعيل التحقق الثنائي عبر البريد الإلكتروني',
         'help_sys_email_2fa': 'السماح للمستخدمين بتفعيل التحقق الثنائي عبر البريد الإلكتروني. يتطلب جاهزية إعدادات توصيل البريد في Dlux.',
@@ -526,7 +494,6 @@ DLUX_STRINGS = {
         'client_ip_settings_title': 'آلية تحديد عنوان IP للعميل',
         'client_ip_settings_desc': 'يستخدم Dlux هذا الإعداد في سجل النشاطات والأجهزة المسجّل دخولها والأجهزة الموثوقة وحدود معدل المصادقة الثنائية. أبقه بسيطاً واختر الرأس الذي يضبطه الوسيط لديك بشكل صحيح.',
         'email_delivery_settings_title': 'توصيل البريد الإلكتروني',
-        'access_security_settings_title': 'الوصول والأمان',
         'email_delivery_settings_desc': 'تظهر عند تفعيل <strong>التسجيل العام</strong> أو <strong>التحقق الثنائي عبر البريد</strong>. في المشاريع المنشأة عبر <strong>python -m dlux startproject</strong> اختر <strong>مرحّل SMTP الداخلي</strong>: الويب وCelery يتصلان فقط بـ <strong>smtp-relay:1025</strong> <strong>بدون TLS/SSL</strong>، وحقول مزود SMTP أدناه يستخدمها المرحّل للاتصال الخارجي. اختر <strong>SMTP مباشر</strong> فقط إذا كانت خدمة الويب تستطيع الوصول إلى مزود البريد مباشرة. استخدم <strong>سر قاعدة البيانات المشفرة</strong> لكلمات المرور المُدارة من الواجهة؛ التصدير يبقى محجوباً.',
         'form_sys_email_transport': 'مسار التوصيل',
         'form_sys_email_secret_storage': 'تخزين السر',
@@ -568,8 +535,6 @@ DLUX_STRINGS = {
         'sidebar_selected_desc': 'ابنِ العناصر العلوية والمجموعات القابلة للطي هنا.',
         'sidebar_available_title': 'العناصر المكتشفة',
         'sidebar_available_desc': 'هذه المسارات صالحة للملاحة ويمكن إضافتها للشريط الجانبي.',
-        'sidebar_add_group': 'إضافة مجموعة',
-        'sidebar_add_entry': 'إضافة',
         'sidebar_add_all': 'إضافة الكل',
         'sidebar_remove_entry': 'إزالة',
         'sidebar_remove_all': 'إزالة الكل',
@@ -614,11 +579,9 @@ DLUX_STRINGS = {
         'force_pass_change_all_warning': 'سيُطلب من كل حساب غير خارق تغيير كلمة المرور قبل المتابعة. يتم استثناء المستخدمين الخارقين.',
         'force_pass_change_all_confirm': 'فرض تغيير كلمة المرور',
         'force_pass_change_all_success': 'أصبح تغيير كلمة المرور مطلوباً من {total} حساب غير خارق؛ تم تعليم {count} حساب جديد.',
-        'data_reset_title': 'إعادة تعيين البيانات',
         'data_reset_short': 'إعادة تعيين البيانات',
         'data_reset_desc': 'مسح بيانات الصفوف من النماذج المحددة (النماذج المرتبطة بالنطاق تُحذف حذفاً ناعماً).',
         'data_reset_password_prompt': 'أدخل كلمة المرور الحالية لاختيار البيانات المراد مسحها.',
-        'data_reset_continue': 'متابعة',
         'data_reset_warning': 'النماذج المرتبطة بالنطاق تُحذف حذفاً ناعماً (قابلة للاستعادة)؛ وكل ما عداها يُحذف نهائياً. لا يتم المساس بالمستخدمين الخارقين أو إعدادات النظام.',
         'data_reset_select_all': 'تحديد الكل',
         'data_reset_select_none': 'إلغاء التحديد',
@@ -649,6 +612,7 @@ DLUX_STRINGS = {
         'status_offline': 'غير متاح',
         'status_degraded': 'تحذير',
         'status_configured': 'مهيأ',
+        'status_unknown': 'لم يُفحص',
         'service_error_detail': 'الخطأ: {error}',
         'service_db_version_lookup_failed': 'تم الاتصال، لكن تعذر جلب نسخة قاعدة البيانات: {error}',
         'service_cache_probe_unexpected': 'استجابت خدمة التخزين المؤقت، لكن نتيجة فحص السلامة كانت غير متوقعة.',
@@ -658,6 +622,8 @@ DLUX_STRINGS = {
         'service_celery_app_unavailable': 'تم اكتشاف إعدادات Celery، لكن تعذّر تحميل تطبيق Celery لفحص حالة العمّال (workers).',
         'service_celery_no_workers': 'إعدادات Celery مهيأة، لكن لم يستجب أي عامل (worker) لفحص السلامة.',
         'service_celery_workers_online': 'استجاب {count} عامل (worker) لفحص السلامة.',
+        'service_celery_recheck': 'فحص حالة العمّال (workers)',
+        'service_celery_check_failed': 'فشل الفحص',
         'database': 'قاعدة البيانات (Database)',
         'cache': 'التخزين المؤقت (Cache)',
         'tasks': 'خادم المهام (Tasks)',
@@ -723,9 +689,7 @@ DLUX_STRINGS = {
         'table_rows_per_page': 'عدد الصفوف',
         'table_total_records': 'إجمالي السجلات',
         'table_page_label': 'الصفحة',
-        'table_of_label': 'من',
         'theme_white': 'أبيض',
-        'theme_royal': 'ملكي',
         'theme_gold': 'ذهبي',
         'theme_green': 'أخضر',
         'theme_red': 'أحمر',
@@ -751,21 +715,19 @@ DLUX_STRINGS = {
         'autofill_disabled': 'تم إيقاف التعبئة التلقائية.',
 
         # Auth / Admin verbose names (used by apps.py)
-        'auth_system': 'نظام المصادقة',
         'permission_manage': 'ادارة الصلاحيات',
         'permissions': 'الصلاحيات',
 
         # Sidebar system group
-        'sidebar_system': 'إدارة النظام',
 
         # Table headers (used by tables.py)
-        'tbl_username': 'اسم المستخدم',
         'tbl_phone': 'رقم الهاتف',
         'tbl_email': 'البريد الالكتروني',
         'tbl_scope': 'النطاق',
         'tbl_full_name': 'الاسم الكامل',
-        'tbl_is_staff': 'مسؤول',
         'tbl_is_active': 'نشط',
+        # Model-qualified header: the User table's active column (clearer than the generic "نشط").
+        'tbl_user_is_active': 'حساب نشط',
         'tbl_last_login': 'اخر دخول',
         'tbl_timestamp': 'وقت العملية',
         'tbl_model_name': 'النموذج',
@@ -784,7 +746,6 @@ DLUX_STRINGS = {
         'filter_date': 'التاريخ',
         'filter_date_from': 'من تاريخ',
         'filter_date_to': 'إلى تاريخ',
-        'filter_scope': 'النطاق',
         'filter_all': 'الكل',
         'filter_from': 'من ',
         'filter_to': 'إلى ',
@@ -795,7 +756,6 @@ DLUX_STRINGS = {
         'manage_scopes_btn': 'إدارة النطاقات',
         # Permission Groups / Presets
         'manage_groups_btn': 'إدارة المجموعات',
-        'manage_groups_label': 'إدارة المجموعات',
         'manage_groups_desc': 'إعدادات جاهزة لصلاحيات قابلة لإعادة الاستخدام. يرث الأعضاء كل صلاحية في المجموعة.',
         'add_group': 'إضافة مجموعة',
         'edit_group': 'تعديل المجموعة',
@@ -804,18 +764,14 @@ DLUX_STRINGS = {
         'form_group_presets': 'المجموعات / الإعدادات الجاهزة',
         'help_group_presets': 'قم بتعيين إعدادات صلاحيات قابلة لإعادة الاستخدام. يرث المستخدم كل صلاحية في المجموعات المحددة، بالإضافة إلى أي صلاحيات محددة بالأسفل.',
         'permission_inherited': 'من المجموعة',
-        'group_members_label': 'الأعضاء',
         'group_membership_history': 'سجل العضوية',
         'group_member_count': 'الأعضاء',
-        'group_permission_count': 'الصلاحيات',
         'group_scope_global': 'عام',
         'group_view_only': 'عرض فقط',
         'public_registration_default_short': 'التسجيل',
         'public_registration_default_badge': 'افتراضي - عام',
         'group_set_public_registration_default': 'تعيين للتسجيل العام',
         'group_clear_public_registration_default': 'إزالة افتراضي التسجيل العام',
-        'scope_set_public_registration_default': 'تعيين للتسجيل العام',
-        'scope_clear_public_registration_default': 'إزالة افتراضي التسجيل العام',
         'scope_users_title': 'المستخدمون',
         'scope_data_title': 'البيانات',
         'scope_activity_title': 'النشاط',
@@ -848,8 +804,6 @@ DLUX_STRINGS = {
         'manage_label': 'إدارة',
         'list_label': 'قائمة',
         'save': 'حفظ',
-        'add_label': 'إضافة',
-        'edit_label': 'تعديل',
         'edit_user_label': 'تعديل المستخدم',
         'edit_permissions_label': 'تعديل الصلاحيات',
         'delete_label': 'حذف',
@@ -878,18 +832,11 @@ DLUX_STRINGS = {
         'app_contenttypes': 'أنواع المحتوى',
         'model_user': 'المستخدمين',
         'model_group': 'المجموعات',
-        'model_permission': 'الصلاحيات',
         'model_scope': 'النطاقات',
         'model_log': 'سجل النشاط',
-        'model_scope_settings': 'إعدادات النطاق',
         'model_systemsettings': 'إعدادات النظام',
-        'model_system_settings': 'إعدادات النظام',
         'model_section': 'الأقسام',
-        'model_subsection': 'الأقسام الفرعية',
         'model_profile': 'ملف المستخدم',
-        'model_useractivitylog': 'سجل النشاط',
-        'model_activitylog': 'سجل النشاط',
-        'model_dluxnotification': 'الإشعارات',
         'model_dluxnotificationrule': 'قواعد الإشعارات',
         'model_dluxnotificationwatch': 'متابعات الإشعارات',
         'model_dluxnotificationstate': 'حالات الإشعارات',
@@ -903,14 +850,12 @@ DLUX_STRINGS = {
         'model_trusteddevice': 'الأجهزة الموثوقة',
         'model_userknowndevice': 'الأجهزة المعروفة',
         'model_userpresencesession': 'جلسات التواجد',
-        'model_password': 'كلمة المرور',
         'model_user profile': 'بيانات المستخدم',
         'model_auth': 'المصادقة',
 
         # Theme picker
         'theme_pick_color': 'اختر اللون',
         'theme_change': 'تغيير المظهر',
-        'sidebar_density_runtime': 'كثافة الشريط الجانبي',
         'theme_light': 'أبيض',
         'theme_blue': 'ملكي',
         'theme_gold': 'ذهبي',
@@ -928,17 +873,15 @@ DLUX_STRINGS = {
         # User form Labels
         'user_label': 'مستخدم',
         'reset_password': 'إعادة تعيين كلمة المرور',
-        'form_username': 'اسم المستخدم',
-        'form_password': 'كلمة المرور',
         'form_password_confirm': 'تأكيد كلمة المرور',
         'form_firstname': 'الاسم الأول',
         'form_lastname': 'اللقب',
         'form_email': 'البريد الإلكتروني',
         'form_phone': 'رقم الهاتف',
-        'form_scope': 'النطاق',
-        'form_permissions': 'الصلاحيات',
         'form_is_staff': 'تفعيل صلاحيات المستخدم الإداري',
         'form_is_active': 'تفعيل الحساب',
+        # Distinct label for the User form's active toggle (matches tbl_user_is_active).
+        'form_user_is_active': 'حساب نشط',
         'form_force_password_change': 'طلب تغيير كلمة المرور عند أول تسجيل دخول',
         'form_profile_pic': 'الصورة الشخصية',
         'form_new_password': 'كلمة المرور الجديدة',
@@ -969,7 +912,6 @@ DLUX_STRINGS = {
         'form_confirm_new_password': 'تأكيد كلمة المرور الجديدة',
         'form_old_password': 'كلمة المرور القديمة',
         'form_scope_name': 'اسم النطاق',
-        'form_scope_description': 'الوصف',
         
         # User form Help Text
         'help_username': 'اسم المستخدم يجب أن يكون فريدًا، 20 حرفًا أو أقل. فقط حروف، أرقام و @ . + - _',
@@ -987,7 +929,6 @@ DLUX_STRINGS = {
         'btn_add': 'إضافة',
         'enable': 'تفعيل',
         'btn_update': 'تحديث',
-        'btn_cancel': 'إلغاء',
         'btn_next': 'التالي',
         'btn_prev': 'السابق',
         'btn_change_password': 'تغيير كلمة المرور',
@@ -999,7 +940,6 @@ DLUX_STRINGS = {
         'can_view': 'عرض',
         'permission_word': 'الصلاحيات',
         'perm_staff_access': 'درجة وصلاحيات المستخدم الإداري',
-        'perm_manage_users': 'إدارة المستخدمين',
         'perm_view_reports': 'عرض التقارير',
         'help_perm_view_reports': 'يسمح بعرض صفحة التقارير وتصدير ملخصاتها.',
         'perm_download_backup': 'تنزيل النسخ الاحتياطية',
@@ -1014,13 +954,10 @@ DLUX_STRINGS = {
         'help_perm_manage_staff': 'يسمح لهذا المستخدم الإداري بتعيين صلاحيات الإدارة للآخرين دون توسيع نطاقه الخاص.',
         'perm_manage_groups': 'إدارة مجموعات الصلاحيات',
         'help_perm_manage_groups': 'يسمح لهذا المستخدم الإداري بإنشاء مجموعات الصلاحيات (الإعدادات الجاهزة) وتعديلها وتعيين المستخدمين إليها.',
-        'perm_view_activity_log': 'عرض سجل النشاط',
         'perm_view_activitylog': 'عرض سجل النشاط',
-        'help_perm_view_activity_log': 'يسمح بعرض صفحات سجل النشاط ونوافذ تفاصيل النشاط.',
         'help_perm_view_activitylog': 'يسمح بعرض صفحات سجل النشاط ونوافذ تفاصيل النشاط.',
         'staff_tier_preview': 'معاينة درجة الإدارة',
         'staff_tier_preview_caption': 'ملخص للقراءة فقط يعتمد على صلاحيات الإدارة والنطاق والصلاحيات المحددة.',
-        'tier_regular_user': 'مستخدم عادي',
         'tier_desc_regular_user': 'لا توجد صلاحيات لإدارة المستخدمين مفعلة لهذا الحساب.',
         'tier_superuser': 'مدير النظام',
         'tier_desc_superuser': 'وصول كامل لإدارة النظام والمستخدمين دون قيود نطاق أو صلاحيات.',
@@ -1053,13 +990,7 @@ DLUX_STRINGS = {
         'action_login': 'تسجيل دخول',
         'action_logout': 'تسجيل خروج',
         'action_create': 'إنشاء',
-        'action_update': 'تحديث',
-        'action_delete': 'حذف',
-        'action_view': 'عرض',
         'action_download': 'تحميل',
-        'action_confirm': 'تأكيد',
-        'action_reject': 'رفض',
-        'action_reset': 'إعادة تعيين',
         
         # Activity Log Modal
         'view_details': 'عرض التفاصيل',
@@ -1140,13 +1071,10 @@ DLUX_STRINGS = {
         'user_report_subtitle': 'ملخص شامل لما يحتفظ به Dlux عن هذا المستخدم داخل المشروع الحالي.',
         'user_report_history_note': 'بيانات الحضور والأجهزة الدقيقة تبدأ من وقت تفعيل هذه الميزة. السجلات الأقدم تعتمد على سجل النشاطات والبيانات المتاحة سابقاً.',
         'user_report_print': 'طباعة / PDF',
-        'user_report_export_xlsx': 'تصدير XLSX',
         'user_report_window_week': 'آخر أسبوع',
         'user_report_window_month': 'آخر شهر',
         'user_report_window_all': 'الكل',
-        'user_report_total_actions': 'إجمالي العمليات',
         'user_report_estimated_time': 'الوقت المقدّر',
-        'user_report_known_devices': 'الأجهزة المعروفة',
         'user_report_ip_addresses': 'عناوين IP',
         'user_report_identity': 'الهوية والحالة',
         'user_report_presence': 'الحضور والاستخدام',
@@ -1162,25 +1090,19 @@ DLUX_STRINGS = {
         'user_report_device': 'الجهاز',
         'user_report_empty_activity': 'لا توجد نشاطات مسجلة لهذا المستخدم.',
         'user_report_empty_devices': 'لا توجد أجهزة معروفة لهذا المستخدم بعد.',
-        'user_report_no': 'لا',
         'user_report_not_available': 'غير متاح',
         'user_report_unknown': 'غير معروف',
         'user_report_duration_hours_minutes': '{hours} ساعة و {minutes} دقيقة',
         'user_report_duration_minutes': '{minutes} دقيقة',
         'user_report_sheet_summary': 'الملخص',
         'user_report_sheet_activity': 'النشاطات',
-        'user_report_sheet_presence': 'الجلسات',
         'user_report_sheet_devices': 'الأجهزة',
         'user_report_sheet_logs': 'السجلات',
         'user_report_field': 'الحقل',
-        'user_report_value': 'القيمة',
-        'user_report_username': 'اسم المستخدم',
         'user_report_display_name': 'الاسم المعروض',
         'user_report_email': 'البريد الإلكتروني',
         'user_report_is_active': 'نشط',
-        'user_report_is_staff': 'مسؤول',
         'user_report_is_superuser': 'مدير نظام',
-        'user_report_date_joined': 'تاريخ الانضمام',
         'user_report_last_login': 'آخر دخول',
         'user_report_activity_count': 'عدد النشاطات',
         'user_report_known_device_count': 'عدد الأجهزة المعروفة',
@@ -1190,9 +1112,7 @@ DLUX_STRINGS = {
         'user_report_request_count': 'عدد الطلبات',
         'user_report_ip_count': 'عدد عناوين IP',
         'user_report_action': 'العملية',
-        'user_report_model': 'النموذج',
         'user_report_timestamp': 'الوقت',
-        'user_report_count': 'العدد',
         'user_report_ip_address': 'عنوان IP',
         'user_report_user_agent': 'وكيل المستخدم',
         'reports_title': 'التقارير',
@@ -1234,11 +1154,9 @@ DLUX_STRINGS = {
         'sysbackup_schedule_off': 'الجدولة متوقفة',
         'sysbackup_target': 'الوجهة',
         'sysbackup_rotation': 'التدوير',
-        'sysbackup_days': 'أيام',
         'sysbackup_files_label': 'ملفات',
         'sysbackup_unlimited': 'غير محدود',
         'sysbackup_trigger': 'المشغّل',
-        'sysbackup_scope_label': 'النطاق',
         'sysbackup_scope_full': 'كامل (قاعدة البيانات + الوسائط)',
         'sysbackup_scope_data': 'سريع — البيانات فقط (بدون وسائط)',
         'sysbackup_data_only_badge': 'بيانات فقط',
@@ -1264,7 +1182,6 @@ DLUX_STRINGS = {
         'sysbackup_files': 'الملفات',
         'sysbackup_size': 'الحجم',
         'sysbackup_download': 'تنزيل',
-        'sysbackup_delete': 'حذف',
         'sysbackup_deleted': 'تم حذف النسخة الاحتياطية.',
         'sysbackup_empty': 'لا توجد نسخ احتياطية كاملة بعد.',
         'sysbackup_orphans': 'ملفات نسخ احتياطي خارجية',
@@ -1373,8 +1290,6 @@ DLUX_STRINGS = {
         'no_activity_recorded': 'لم يتم تسجيل نشاط بعد.',
 
         # Tutorial / Guided Tour
-        'tut_btn_next': 'التالي',
-        'tut_btn_prev': 'السابق',
         'tut_btn_skip': 'إلغاء',
         'tut_btn_finish': 'إنهاء',
         'tut_of': 'من',
@@ -1406,13 +1321,11 @@ DLUX_STRINGS = {
         'tut_users_roles_desc': 'يمكنك تمييز أدوار الصلاحيات من خلال العلامات (مدير، مسؤول، مستخدم).',
         'tut_users_row_title': 'تفاصيل وبدائل المستخدم',
         'tut_users_row_desc': 'انقر نقرًا مزدوجًا على أي صف لفتح بطاقة تفاصيل المستخدم شاملة سجلات نشاطه.',
-        'tut_users_add_btn_title': 'إضافة مستخدم جديد',
         'tut_users_add_btn_desc': 'انقر هنا لإنشاء حساب مستخدم جديد وتحديد صلاحياته.',
         'tut_users_scopes_title': 'إدارة النطاقات',
         'tut_users_scopes_desc': 'يتيح لك نظام النطاقات تقييد رؤية المستخدمين لبيانات محددة بناءً على إداراتهم.',
         
         # Logs Tutorial
-        'tut_logs_row_title': 'تفاصيل النشاط',
         'tut_logs_row_desc': 'اضغط نقراً مزدوجاً على أي صف أو اضغط على زر التفاصيل لعرض ما تم تغييره بالضبط.',
         
         # Profile Tutorial
@@ -1420,7 +1333,6 @@ DLUX_STRINGS = {
         'tut_profile_stats_desc': 'هنا تجد إحصائيات سريعة عن نشاطك داخل النظام.',
         'tut_profile_details_title': 'بياناتك الشخصية',
         'tut_profile_details_desc': 'تُعرض معلومات حسابك مثل البريد الإلكتروني ورقم الهاتف والدور في النظام هنا.',
-        'tut_profile_edit_title': 'تحديث البيانات',
         'tut_profile_edit_desc': 'استخدم هذا الزر لتعديل بيانات ملفك الشخصي أو تغيير صورتك الرمزية.',
         'tut_profile_2fa_title': 'إعدادات الأمان (2FA)',
         'tut_profile_2fa_desc': 'يمكنك تفعيل وتعطيل طرق المصادقة الثنائية لزيادة أمان حسابك.',
@@ -1430,9 +1342,7 @@ DLUX_STRINGS = {
         # Options Tutorial
         'tut_options_tabs_title': 'تبويبات الإعدادات',
         'tut_options_tabs_desc': 'تصفح التبويبات للوصول إلى خيارات سهولة الوصول، المظهر، والتعبئة التلقائية.',
-        'tut_options_access_title': 'سهولة الوصول',
         'tut_options_access_desc': 'يتيح هذا القسم تخصيص تجربة القراءة وتفعيل خيارات مثل التباين العالي وإلغاء الحركات.',
-        'tut_options_info_title': 'معلومات النظام',
         'tut_options_info_desc': 'عرض تفاصيل خادم النظام والتخزين وإصدارات الخدمات البرمجية الأساسية.',
         'tut_options_theme_title': 'المظهر والألوان',
         'tut_options_theme_desc': 'اختر المظهر الذي يناسبك، سيتم تطبيق التغييرات فوراً.',
@@ -1479,7 +1389,6 @@ DLUX_STRINGS = {
         # Pending Registrations
         'pending_registrations': 'التسجيلات المعلقة',
         'tbl_email_header': 'البريد الإلكتروني',
-        'tbl_name_header': 'الاسم',
         'tbl_created_header': 'تاريخ الإنشاء',
         'actions': 'الإجراءات',
         'btn_approve': 'موافقة',
@@ -1505,7 +1414,6 @@ DLUX_STRINGS = {
 
         # Dynamic Modal
         'manage_records': 'إدارة السجلات',
-        'close_label': 'إغلاق',
 
         # Activity Log / Detail Modal
         'error_loading_details': 'خطأ في تحميل التفاصيل.',
@@ -1526,7 +1434,6 @@ DLUX_STRINGS = {
         'err_cannot_delete_superuser': 'ليس لديك صلاحية لحذف المشرفين!',
         'err_cannot_delete_last_superuser': 'لا يمكن حذف المشرف الرئيسي الأخير للنظام!',
         'err_no_delete_permission_user': 'ليس لديك صلاحية لحذف هذا المستخدم!',
-        'err_no_edit_permission_user_reset': 'ليس لديك صلاحية لتعديل هذا المستخدم!',
         'msg_registration_not_configured': 'إرسال بريد التسجيل غير مهيأ.',
         'msg_verification_email_failed': 'لم نتمكن من إرسال بريد التحقق. يرجى المحاولة لاحقاً.',
         'msg_registration_approved': 'تمت الموافقة على التسجيل.',
@@ -1552,7 +1459,6 @@ DLUX_STRINGS = {
         'err_cannot_delete_related': 'لا يمكن حذف هذا العنصر لارتباطه بسجلات أخرى.',
         'msg_subsection_deleted': 'تم حذف',
         'err_unable_update_preferences': 'تعذر تحديث التفضيلات.',
-        'err_invalid_method_api': 'طريقة غير صالحة.',
         'help_is_staff_no_perm_form': 'ليس لديك صلاحية لتعيين هذا المستخدم كمسؤول.',
     },
 
@@ -1576,24 +1482,11 @@ DLUX_STRINGS = {
         'greeting_morning': 'Good Morning',
         'greeting_afternoon': 'Good Afternoon',
         'greeting_evening': 'Good Evening',
-        # 'app_core': 'Home',
-        # 'app_storage': 'Storage Management',
-        # 'app_storage_desc': 'Manage assets, warehouses, and item movements.',
-        # 'app_finance': 'Finance Management',
-        # 'app_finance_desc': 'Manage budget, chapters, and financial transfers.',
-        # 'app_treasury': 'Treasury',
-        # 'app_treasury_desc': 'Manage revenues, expenses, and financial trusts.',
-        # 'app_hr_payroll': 'HR & Payroll',
-        # 'app_salary': 'Salary Management',
-        # 'app_salary_desc': 'Manage salary cards, deductions, and payroll sheets.',
-        'sidebar_system_desc': 'Manage users, permissions, and system settings.',
         'contact_admin': 'Please contact the system administrator to grant you access.',
-        'work_scope': 'Work Scope',
         'manage_users': 'User Management',
         'manage_users_desc': 'Manage user accounts and permissions.',
         'manage_sections': 'Section Management',
         'manage_sections_desc': 'Structure departments, entities, and administrative units.',
-        'activity_log': 'Activity Log',
         'activity_log_desc': 'Track user activities and changes.',
         'settings': 'Settings',
         'settings_desc': 'System options and version info.',
@@ -1601,7 +1494,6 @@ DLUX_STRINGS = {
         'go': 'Go',
         'activity_24h': 'Activity (Last 24 Hours)',
         'system_settings_title': 'General System Settings',
-        'system_settings_label': 'System Settings',
         'system_settings_btn': 'Manage System Settings',
         'system_settings_desc': 'Configure global system settings and defaults.',
         'system_settings_export': 'Export setup file',
@@ -1616,7 +1508,6 @@ DLUX_STRINGS = {
         'system_settings_sidebar_desc': 'Sidebar builder, reorder, density, icons, and collapse behavior.',
         'system_settings_navbar': 'Nav Bar',
         'system_settings_navbar_desc': 'Nav Bar enablement, style, user override, and hierarchy tree.',
-        'system_settings_ui_layout': 'Titlebar',
         'system_settings_ui_layout_desc': 'Top bar logo, title, home button, alignment, and surface.',
         'global_search_settings_title': 'Global Search',
         'form_sys_titlebar_global_search': 'Global search',
@@ -1628,12 +1519,8 @@ DLUX_STRINGS = {
         'global_search_mode_disabled_desc': 'Hide global search entirely.',
         'global_search_placeholder': 'Search…',
         'search_group_pages': 'Pages',
-        'search_group_settings': 'Settings',
         'search_group_options': 'Options',
-        'search_group_actions': 'Actions',
-        'search_group_data': 'Data',
         'search_no_results': 'No matches found.',
-        'system_settings_notifications': 'Notifications',
         'system_settings_notifications_desc': 'Master switch for notifications: flash notices, titlebar drawer/badge, email, and automatic CRUD events.',
         'system_settings_appearance': 'Themes & Typography',
         'system_settings_appearance_desc': 'Allowed themes, font defaults, and table density.',
@@ -1716,7 +1603,6 @@ DLUX_STRINGS = {
         'help_sys_log_audit': 'Audit logs are append-only and never auto-pruned by default.',
         'form_sys_log_audit_retention': 'Audit retention (days, 0 = keep forever)',
         'log_tab_user': 'User',
-        'log_tab_system': 'System',
         'log_tab_audit': 'Audit',
         'log_model_user_accounts': 'User accounts',
         'apply_language': 'Apply language',
@@ -1804,7 +1690,6 @@ DLUX_STRINGS = {
         'help_sys_options_style': 'How the Options page is laid out: rearrangeable cards, a tabbed view, or a dense single-page compact view.',
         'options_style_cards': 'Cards',
         'options_style_tabs': 'Tabs',
-        'options_style_compact': 'Compact',
         'options_style_cards_desc': 'Rearrangeable cards in a grid (the default).',
         'options_style_tabs_desc': 'One section at a time behind tabs.',
         'options_style_compact_desc': 'A dense single-page list, desktop-app style.',
@@ -1870,7 +1755,6 @@ DLUX_STRINGS = {
         'translation_matrix_search': 'Search Translations',
         'translation_matrix_search_placeholder': 'Key or value',
         'translation_matrix_filter': 'Filter',
-        'translation_matrix_all': 'All',
         'translation_matrix_missing': 'Missing',
         'translation_matrix_overrides': 'Overrides',
         'translation_matrix_key': 'Key',
@@ -1886,7 +1770,6 @@ DLUX_STRINGS = {
         'help_sys_sidebar_enable_toolbar': 'Show the sidebar toolbar that contains the quick theme picker, reorder toggle, and dynamic section manager shortcut.',
         'form_sys_sidebar_show_icons': 'Show Sidebar Icons',
         'help_sys_sidebar_show_icons': 'Show icons beside sidebar items and folders when the sidebar is expanded.',
-        'form_sys_sidebar_density': 'Sidebar Density',
         'help_sys_sidebar_density': 'Choose the default density for sidebar rows.',
         'form_sys_sidebar_allow_user_density': 'Allow User Sidebar Density Override',
         'help_sys_sidebar_allow_user_density': 'Allow users to change sidebar density from the sidebar toolbar at runtime.',
@@ -1957,7 +1840,6 @@ DLUX_STRINGS = {
         'dismiss': 'Dismiss',
         'open': 'Open',
         'btn_back': 'Back',
-        'notification_settings_title': 'Notifications',
         'form_sys_notification_config': 'Notification configuration',
         'form_sys_notifications_enabled': 'Enable notifications',
         'help_sys_notifications_enabled': 'Master switch for the entire notification subsystem. When off, flash notices, the titlebar drawer/badge, emails, automatic CRUD notifications, and notify(...) are all suppressed.',
@@ -1992,10 +1874,7 @@ DLUX_STRINGS = {
         'notification_position_titlebar_end': 'Titlebar end',
         'notification_position_bottom_start': 'Bottom start',
         'notification_position_bottom_end': 'Bottom end',
-        'notification_size_compact': 'Compact',
-        'notification_size_balanced': 'Balanced',
         'notification_size_prominent': 'Prominent',
-        'notification_update_off': 'Off',
         'notification_update_summary': 'Summary',
         'notification_update_full': 'Full',
         'titlebar_home_shape_circle': 'Circle',
@@ -2016,11 +1895,8 @@ DLUX_STRINGS = {
         'titlebar_size_md_desc': 'Balanced default title sizing.',
         'titlebar_size_lg': 'Large',
         'titlebar_size_lg_desc': 'Larger, more prominent title sizing.',
-        'titlebar_height_dense': 'Dense',
         'titlebar_height_dense_desc': 'Tighter vertical titlebar spacing.',
-        'titlebar_height_balanced': 'Balanced',
         'titlebar_height_balanced_desc': 'Default titlebar spacing.',
-        'titlebar_height_roomy': 'Roomy',
         'titlebar_height_roomy_desc': 'More breathing room inside the titlebar.',
         'titlebar_surface_default': 'Default',
         'titlebar_surface_default_desc': 'Standard titlebar surface styling.',
@@ -2040,7 +1916,6 @@ DLUX_STRINGS = {
         'titlebar_logo_treatment_shape_soft_desc': 'A modern rounded plate.',
         'titlebar_logo_treatment_shape_pill': 'Pill',
         'titlebar_logo_treatment_shape_pill_desc': 'A fully rounded capsule plate.',
-        'titlebar_logo_treatment_shape_square': 'Square',
         'titlebar_logo_treatment_shape_square_desc': 'A sharper compact plate.',
         'form_sys_email_2fa': 'Enable Email 2FA',
         'help_sys_email_2fa': 'Allow users to enable two-factor authentication via email. Requires Dlux email delivery to be ready.',
@@ -2075,7 +1950,6 @@ DLUX_STRINGS = {
         'client_ip_settings_title': 'Client IP Resolution',
         'client_ip_settings_desc': 'Dlux uses this setting for activity logs, signed-in devices, trusted devices, and 2FA rate limits. Keep it simple: choose the header your proxy already sets correctly.',
         'email_delivery_settings_title': 'Email Delivery',
-        'access_security_settings_title': 'Access & Security',
         'email_delivery_settings_desc': 'Visible when <strong>public signup</strong> or <strong>email 2FA</strong> is enabled. For projects created with <strong>python -m dlux startproject</strong>, choose <strong>Internal SMTP relay</strong>: web and Celery only talk to <strong>smtp-relay:1025</strong> with <strong>no TLS/SSL</strong>, and the provider fields below are loaded and used by the relay for upstream SMTP. Choose <strong>Direct SMTP</strong> only when web can reach the provider itself. Use <strong>Encrypted database secret</strong> for UI-managed passwords; exports stay redacted.',
         'form_sys_email_transport': 'Delivery path',
         'form_sys_email_secret_storage': 'Secret storage',
@@ -2117,8 +1991,6 @@ DLUX_STRINGS = {
         'sidebar_selected_desc': 'Build your top-level items and accordion groups here.',
         'sidebar_available_title': 'Available Entries',
         'sidebar_available_desc': 'These routes were discovered automatically and can be added to the sidebar.',
-        'sidebar_add_group': 'Add Group',
-        'sidebar_add_entry': 'Add',
         'sidebar_add_all': 'Add All',
         'sidebar_remove_entry': 'Remove',
         'sidebar_remove_all': 'Remove All',
@@ -2161,11 +2033,9 @@ DLUX_STRINGS = {
         'force_pass_change_all_warning': 'Every non-superuser account will be required to change password before continuing. Superusers are skipped.',
         'force_pass_change_all_confirm': 'Force password change',
         'force_pass_change_all_success': 'Password change is required for {total} non-superuser account(s); {count} newly marked.',
-        'data_reset_title': 'Reset data',
         'data_reset_short': 'Reset data',
         'data_reset_desc': 'Clear row data from selected models (scoped models are soft-deleted).',
         'data_reset_password_prompt': 'Enter your current password to choose which data to clear.',
-        'data_reset_continue': 'Continue',
         'data_reset_warning': 'Scoped models are soft-deleted (recoverable); everything else is permanently removed. Superusers and system settings are never touched.',
         'data_reset_select_all': 'Select all',
         'data_reset_select_none': 'Clear selection',
@@ -2196,6 +2066,7 @@ DLUX_STRINGS = {
         'status_offline': 'Offline',
         'status_degraded': 'Degraded',
         'status_configured': 'Configured',
+        'status_unknown': 'Not checked',
         'service_error_detail': 'Error: {error}',
         'service_db_version_lookup_failed': 'Connected, but version lookup failed: {error}',
         'service_cache_probe_unexpected': 'Cache responded, but the health probe returned an unexpected value.',
@@ -2205,6 +2076,8 @@ DLUX_STRINGS = {
         'service_celery_app_unavailable': 'Celery settings were detected, but the Celery app could not be loaded to check worker health.',
         'service_celery_no_workers': 'Celery is configured, but no workers responded to the health ping.',
         'service_celery_workers_online': '{count} worker(s) responded to the health ping.',
+        'service_celery_recheck': 'Check worker health',
+        'service_celery_check_failed': 'Check failed',
         'database': 'Database',
         'cache': 'Cache',
         'tasks': 'Task Server',
@@ -2270,9 +2143,7 @@ DLUX_STRINGS = {
         'table_rows_per_page': 'Rows',
         'table_total_records': 'Total records',
         'table_page_label': 'Page',
-        'table_of_label': 'of',
         'theme_white': 'White',
-        'theme_royal': 'Royal',
         'theme_gold': 'Gold',
         'theme_green': 'Green',
         'theme_red': 'Red',
@@ -2298,21 +2169,19 @@ DLUX_STRINGS = {
         'autofill_disabled': 'Autofill disabled.',
 
         # Auth / Admin verbose names (used by apps.py)
-        'auth_system': 'Authentication System',
         'permission_manage': 'Permission Management',
         'permissions': 'Permissions',
 
         # Sidebar system group
-        'sidebar_system': 'System Management',
 
         # Table headers (used by tables.py)
-        'tbl_username': 'Username',
         'tbl_phone': 'Phone',
         'tbl_email': 'Email',
         'tbl_scope': 'Scope',
         'tbl_full_name': 'Full Name',
-        'tbl_is_staff': 'Staff',
         'tbl_is_active': 'Active',
+        # Model-qualified header: the User table's active column (clearer than the generic "Active").
+        'tbl_user_is_active': 'Account Active',
         'tbl_last_login': 'Last Login',
         'tbl_timestamp': 'Timestamp',
         'tbl_model_name': 'Model',
@@ -2331,7 +2200,6 @@ DLUX_STRINGS = {
         'filter_date': 'Date',
         'filter_date_from': 'From Date',
         'filter_date_to': 'To Date',
-        'filter_scope': 'Scope',
         'filter_all': 'All',
         'filter_from': 'From ',
         'filter_to': 'To ',
@@ -2342,7 +2210,6 @@ DLUX_STRINGS = {
         'manage_scopes_btn': 'Manage Scopes',
         # Permission Groups / Presets
         'manage_groups_btn': 'Manage Groups',
-        'manage_groups_label': 'Manage Groups',
         'manage_groups_desc': 'Reusable permission presets. Members inherit every permission in the preset.',
         'add_group': 'Add Group',
         'edit_group': 'Edit Group',
@@ -2351,18 +2218,14 @@ DLUX_STRINGS = {
         'form_group_presets': 'Groups / Presets',
         'help_group_presets': 'Assign reusable permission presets. The user inherits every permission in the selected presets, on top of any permissions checked below.',
         'permission_inherited': 'From group',
-        'group_members_label': 'Members',
         'group_membership_history': 'Membership History',
         'group_member_count': 'Members',
-        'group_permission_count': 'Permissions',
         'group_scope_global': 'Global',
         'group_view_only': 'View only',
         'public_registration_default_short': 'Registration',
         'public_registration_default_badge': 'Public default',
         'group_set_public_registration_default': 'Use for public registrations',
         'group_clear_public_registration_default': 'Clear public-registration default',
-        'scope_set_public_registration_default': 'Use for public registrations',
-        'scope_clear_public_registration_default': 'Clear public-registration default',
         'scope_users_title': 'Users',
         'scope_data_title': 'Data',
         'scope_activity_title': 'Activity',
@@ -2395,8 +2258,6 @@ DLUX_STRINGS = {
         'manage_label': 'Manage',
         'list_label': 'List of',
         'save': 'Save',
-        'add_label': 'Add',
-        'edit_label': 'Edit',
         'edit_user_label': 'Edit User',
         'edit_permissions_label': 'Edit Permissions',
         'delete_label': 'Delete',
@@ -2424,18 +2285,11 @@ DLUX_STRINGS = {
         'app_contenttypes': 'Content Types',
         'model_user': 'Users',
         'model_group': 'Groups',
-        'model_permission': 'Permissions',
         'model_scope': 'Scopes',
         'model_log': 'Activity Logs',
-        'model_scope_settings': 'Scope Settings',
         'model_systemsettings': 'System Settings',
-        'model_system_settings': 'System Settings',
         'model_section': 'Sections',
-        'model_subsection': 'Subsections',
         'model_profile': 'User Profile',
-        'model_useractivitylog': 'Activity Log',
-        'model_activitylog': 'Activity Log',
-        'model_dluxnotification': 'Notifications',
         'model_dluxnotificationrule': 'Notification Rules',
         'model_dluxnotificationwatch': 'Notification Watches',
         'model_dluxnotificationstate': 'Notification States',
@@ -2449,14 +2303,12 @@ DLUX_STRINGS = {
         'model_trusteddevice': 'Trusted Devices',
         'model_userknowndevice': 'Known Devices',
         'model_userpresencesession': 'Presence Sessions',
-        'model_password': 'Password',
         'model_user profile': 'User Data',
         'model_auth': 'Authentication',
 
         # Theme picker
         'theme_pick_color': 'Pick Color',
         'theme_change': 'Change Theme',
-        'sidebar_density_runtime': 'Sidebar Density',
         'theme_light': 'Light',
         'theme_blue': 'Royal',
         'theme_gold': 'Gold',
@@ -2474,17 +2326,15 @@ DLUX_STRINGS = {
         # User form Labels
         'user_label': 'User',
         'reset_password': 'Reset Password',
-        'form_username': 'Username',
-        'form_password': 'Password',
         'form_password_confirm': 'Confirm Password',
         'form_firstname': 'First Name',
         'form_lastname': 'Last Name',
         'form_email': 'Email Address',
         'form_phone': 'Phone Number',
-        'form_scope': 'Scope',
-        'form_permissions': 'Permissions',
         'form_is_staff': 'Enable Staff Access',
         'form_is_active': 'Active Account',
+        # Distinct label for the User form's active toggle (matches tbl_user_is_active).
+        'form_user_is_active': 'Account Active',
         'form_force_password_change': 'Require password change on first login',
         'form_profile_pic': 'Profile Picture',
         'form_new_password': 'New Password',
@@ -2515,7 +2365,6 @@ DLUX_STRINGS = {
         'form_confirm_new_password': 'Confirm New Password',
         'form_old_password': 'Current Password',
         'form_scope_name': 'Scope Name',
-        'form_scope_description': 'Description',
         
         # User form Help Text
         'help_username': 'Username must be unique, 20 characters or fewer. Letters, digits and @/./+/-/_ only.',
@@ -2533,7 +2382,6 @@ DLUX_STRINGS = {
         'btn_add': 'Add',
         'enable': 'Enable',
         'btn_update': 'Update',
-        'btn_cancel': 'Cancel',
         'btn_next': 'Next',
         'btn_prev': 'Previous',
         'btn_change_password': 'Change Password',
@@ -2545,7 +2393,6 @@ DLUX_STRINGS = {
         'can_view': 'Can view',
         'permission_word': 'permission',
         'perm_staff_access': 'Staff Tier & Access',
-        'perm_manage_users': 'User Management',
         'perm_view_reports': 'Can view reports',
         'help_perm_view_reports': 'Allows viewing the reports overview and exporting report summaries.',
         'perm_download_backup': 'Can download backup',
@@ -2560,13 +2407,10 @@ DLUX_STRINGS = {
         'help_perm_manage_staff': 'Lets this staff user assign staff access to other users. It does not widen their own scope.',
         'perm_manage_groups': 'Manage Permission Groups',
         'help_perm_manage_groups': 'Lets this staff user create and edit permission groups (presets) and assign users to them.',
-        'perm_view_activity_log': 'View activity log',
         'perm_view_activitylog': 'View activity log',
-        'help_perm_view_activity_log': 'Allows viewing activity-log pages and activity detail modals.',
         'help_perm_view_activitylog': 'Allows viewing activity-log pages and activity detail modals.',
         'staff_tier_preview': 'Staff Tier Preview',
         'staff_tier_preview_caption': 'Read-only summary based on staff access, scope, and selected permissions.',
-        'tier_regular_user': 'Standard User',
         'tier_desc_regular_user': 'No staff user-management access is enabled for this account.',
         'tier_superuser': 'Superuser',
         'tier_desc_superuser': 'Full system administration access without scope or permission limits.',
@@ -2599,13 +2443,7 @@ DLUX_STRINGS = {
         'action_login': 'Login',
         'action_logout': 'Logout',
         'action_create': 'Create',
-        'action_update': 'Update',
-        'action_delete': 'Delete',
-        'action_view': 'View',
         'action_download': 'Download',
-        'action_confirm': 'Confirm',
-        'action_reject': 'Reject',
-        'action_reset': 'Reset',
 
         # Activity Log Modal
         'view_details': 'View Details',
@@ -2686,13 +2524,10 @@ DLUX_STRINGS = {
         'user_report_subtitle': 'A consolidated summary of what Dlux knows about this user in the current project.',
         'user_report_history_note': 'Precise presence and device history starts when this feature is installed. Older history is limited to existing activity logs and previously stored data.',
         'user_report_print': 'Print / PDF',
-        'user_report_export_xlsx': 'Export XLSX',
         'user_report_window_week': 'Last Week',
         'user_report_window_month': 'Last Month',
         'user_report_window_all': 'All Time',
-        'user_report_total_actions': 'Total Actions',
         'user_report_estimated_time': 'Estimated Time',
-        'user_report_known_devices': 'Known Devices',
         'user_report_ip_addresses': 'IP Addresses',
         'user_report_identity': 'Identity & Status',
         'user_report_presence': 'Presence & Usage',
@@ -2708,25 +2543,19 @@ DLUX_STRINGS = {
         'user_report_device': 'Device',
         'user_report_empty_activity': 'No activity has been recorded for this user.',
         'user_report_empty_devices': 'No known devices have been recorded for this user yet.',
-        'user_report_no': 'No',
         'user_report_not_available': 'Not available',
         'user_report_unknown': 'Unknown',
         'user_report_duration_hours_minutes': '{hours}h {minutes}m',
         'user_report_duration_minutes': '{minutes}m',
         'user_report_sheet_summary': 'Summary',
         'user_report_sheet_activity': 'Activity',
-        'user_report_sheet_presence': 'Sessions',
         'user_report_sheet_devices': 'Devices',
         'user_report_sheet_logs': 'Logs',
         'user_report_field': 'Field',
-        'user_report_value': 'Value',
-        'user_report_username': 'Username',
         'user_report_display_name': 'Display Name',
         'user_report_email': 'Email',
         'user_report_is_active': 'Active',
-        'user_report_is_staff': 'Staff',
         'user_report_is_superuser': 'Superuser',
-        'user_report_date_joined': 'Date Joined',
         'user_report_last_login': 'Last Login',
         'user_report_activity_count': 'Activity Count',
         'user_report_known_device_count': 'Known Device Count',
@@ -2736,9 +2565,7 @@ DLUX_STRINGS = {
         'user_report_request_count': 'Request Count',
         'user_report_ip_count': 'IP Count',
         'user_report_action': 'Action',
-        'user_report_model': 'Model',
         'user_report_timestamp': 'Timestamp',
-        'user_report_count': 'Count',
         'user_report_ip_address': 'IP Address',
         'user_report_user_agent': 'User Agent',
         'reports_title': 'Reports',
@@ -2780,11 +2607,9 @@ DLUX_STRINGS = {
         'sysbackup_schedule_off': 'Scheduling is off',
         'sysbackup_target': 'Target',
         'sysbackup_rotation': 'Rotation',
-        'sysbackup_days': 'days',
         'sysbackup_files_label': 'files',
         'sysbackup_unlimited': 'unlimited',
         'sysbackup_trigger': 'Trigger',
-        'sysbackup_scope_label': 'Scope',
         'sysbackup_scope_full': 'Full (database + media)',
         'sysbackup_scope_data': 'Quick — data only (no media)',
         'sysbackup_data_only_badge': 'Data only',
@@ -2810,7 +2635,6 @@ DLUX_STRINGS = {
         'sysbackup_files': 'Files',
         'sysbackup_size': 'Size',
         'sysbackup_download': 'Download',
-        'sysbackup_delete': 'Delete',
         'sysbackup_deleted': 'Backup deleted.',
         'sysbackup_empty': 'No full backups yet.',
         'sysbackup_orphans': 'External Backup Files',
@@ -2916,8 +2740,6 @@ DLUX_STRINGS = {
         'no_activity_recorded': 'No activity recorded yet.',
 
         # Tutorial / Guided Tour
-        'tut_btn_next': 'Next',
-        'tut_btn_prev': 'Previous',
         'tut_btn_skip': 'Skip',
         'tut_btn_finish': 'Finish',
         'tut_of': 'of',
@@ -2949,13 +2771,11 @@ DLUX_STRINGS = {
         'tut_users_roles_desc': 'You can distinguish permission roles through badges (Admin, Staff, User).',
         'tut_users_row_title': 'User Details & Actions',
         'tut_users_row_desc': 'Double-click any row to open the user details card, including their activity logs.',
-        'tut_users_add_btn_title': 'Add New User',
         'tut_users_add_btn_desc': 'Click here to create a new user account and configure their permissions.',
         'tut_users_scopes_title': 'Scope Management',
         'tut_users_scopes_desc': 'Scopes restrict users from viewing certain data unless they belong to the authorized department.',
         
         # Logs Tutorial
-        'tut_logs_row_title': 'Activity Details',
         'tut_logs_row_desc': 'Double-click any row or click the details button to see exactly what changed.',
         
         # Profile Tutorial
@@ -2963,7 +2783,6 @@ DLUX_STRINGS = {
         'tut_profile_stats_desc': 'Find quick statistics about your activity within the system here.',
         'tut_profile_details_title': 'Personal Information',
         'tut_profile_details_desc': 'Your account details, including email, phone number, and system role are displayed here.',
-        'tut_profile_edit_title': 'Update Info',
         'tut_profile_edit_desc': 'Use this button to edit your profile data or change your avatar.',
         'tut_profile_2fa_title': 'Security Settings (2FA)',
         'tut_profile_2fa_desc': 'You can enable and disable two-factor authentication methods to secure your account.',
@@ -2973,9 +2792,7 @@ DLUX_STRINGS = {
         # Options Tutorial
         'tut_options_tabs_title': 'Settings Tabs',
         'tut_options_tabs_desc': 'Browse the tabs to access accessibility, theme, and autofill options.',
-        'tut_options_access_title': 'Accessibility',
         'tut_options_access_desc': 'This section lets you customize the reading experience with high contrast or by disabling animations.',
-        'tut_options_info_title': 'System Info',
         'tut_options_info_desc': 'View details regarding the server environment, storage, and underlying service versions.',
         'tut_options_theme_title': 'Themes & Colors',
         'tut_options_theme_desc': 'Choose the theme that suits you, changes apply immediately.',
@@ -3022,7 +2839,6 @@ DLUX_STRINGS = {
         # Pending Registrations
         'pending_registrations': 'Pending registrations',
         'tbl_email_header': 'Email',
-        'tbl_name_header': 'Name',
         'tbl_created_header': 'Created',
         'actions': 'Actions',
         'btn_approve': 'Approve',
@@ -3048,7 +2864,6 @@ DLUX_STRINGS = {
 
         # Dynamic Modal
         'manage_records': 'Manage Records',
-        'close_label': 'Close',
 
         # Activity Log / Detail Modal
         'error_loading_details': 'Error loading details.',
@@ -3069,7 +2884,6 @@ DLUX_STRINGS = {
         'err_cannot_delete_superuser': 'You do not have permission to delete superusers!',
         'err_cannot_delete_last_superuser': 'Cannot delete the last system superuser!',
         'err_no_delete_permission_user': 'You do not have permission to delete this user!',
-        'err_no_edit_permission_user_reset': 'You do not have permission to edit this user!',
         'msg_registration_not_configured': 'Registration email delivery is not configured.',
         'msg_verification_email_failed': 'We could not send the verification email. Please try again later.',
         'msg_registration_approved': 'Registration approved.',
@@ -3095,7 +2909,6 @@ DLUX_STRINGS = {
         'err_cannot_delete_related': 'Cannot delete this item because it is linked to other records.',
         'msg_subsection_deleted': 'Deleted',
         'err_unable_update_preferences': 'Unable to update preferences.',
-        'err_invalid_method_api': 'Invalid method.',
         'help_is_staff_no_perm_form': "You don't have permission to assign this user as staff.",
     },
 }
@@ -3444,6 +3257,16 @@ def get_current_language_code(request=None):
     return lang.split('-')[0]
 
 
+# Unified-key aliases {retired_key: canonical_key}, generated by
+# scripts/apply_tier1_unification.py. Retired duplicate keys resolve to their
+# canonical key's value at runtime (see get_strings), so they keep working while
+# only the canonical carries the actual translation. Absent file -> no aliases.
+try:
+    from .translation_aliases import STRING_ALIASES as _STRING_ALIASES
+except Exception:
+    _STRING_ALIASES = {}
+
+
 def get_strings(lang_code=None, overrides=None):
     """
     Get the translation dict for a given language code.
@@ -3487,9 +3310,22 @@ def get_strings(lang_code=None, overrides=None):
         lang_strings = all_strings.get(lang, {})
         base.update(lang_strings)
 
+    lang_overrides = {}
     if overrides and isinstance(overrides, dict):
         lang_overrides = overrides.get(lang, {})
         base.update(lang_overrides)
+
+    # ── 4. Resolve unified-key aliases ──
+    # Retired duplicate keys are kept working (backward compatible) by pointing
+    # them at their canonical key's *final* value — so editing the canonical once
+    # changes them all. Applied after overrides (so a canonical override
+    # propagates), but an explicit override of a retired key still wins.
+    if _STRING_ALIASES:
+        for alias, canonical in _STRING_ALIASES.items():
+            if alias in lang_overrides:
+                continue
+            if canonical in base:
+                base[alias] = base[canonical]
 
     return base
 
@@ -3504,23 +3340,31 @@ class MigrationSafeTranslation(str):
     resolves through the active Dlux translation table at runtime.
     """
 
-    def __new__(cls, key, default_val):
+    def __new__(cls, key, default_val, fallback_keys=None):
         obj = super().__new__(cls, default_val)
         obj.key = key
         obj.default_val = default_val
+        # Ordered secondary keys tried at runtime when `key` is absent. Kept out
+        # of migration serialization (_migration_value/_migration keep using the
+        # primary key) so generated migrations never depend on fallback state.
+        obj.fallback_keys = tuple(fallback_keys or ())
         return obj
 
     def __getnewargs__(self):
         # str subclasses are reconstructed via __new__ during copy/pickle.
         # str's default __getnewargs__ returns only (str_value,), which calls
-        # __new__(cls, value) and raises "missing 'default_val'". Supplying both
+        # __new__(cls, value) and raises "missing 'default_val'". Supplying all
         # constructor args keeps deepcopy/pickle (e.g. Django form/widget
         # deepcopy of translated labels) working.
-        return (self.key, self.default_val)
+        return (self.key, self.default_val, self.fallback_keys)
 
     def _resolve(self):
         try:
-            return get_strings().get(self.key, self.default_val)
+            strings = get_strings()
+            for k in (self.key, *self.fallback_keys):
+                if k in strings:
+                    return strings[k]
+            return self.default_val
         except Exception:
             return self.default_val
 
@@ -3552,9 +3396,39 @@ class MigrationSafeTranslation(str):
         return hash(self._migration_value())
 
 
-def lazy_translator(key, default_val):
+def lazy_translator(key, default_val, fallback_keys=None):
     """
     Returns a migration-safe object that evaluates to the translated string
     at render time, using the current thread's language.
+
+    ``fallback_keys`` is an optional ordered sequence of secondary DLUX_STRINGS
+    keys tried (in order) at render time when ``key`` is missing, before finally
+    falling back to ``default_val``.
     """
-    return MigrationSafeTranslation(key, default_val)
+    return MigrationSafeTranslation(key, default_val, fallback_keys)
+
+
+def resolve_model_label(model, strings=None, lang=None):
+    """Canonical display label for a content/user model.
+
+    This is the single entry point every Dlux component (nav, sidebar, section
+    manager, etc.) uses so they always agree on the same string for a given
+    model. Resolution order:
+
+        models_<model_name>  (plural key)   →
+        model_<model_name>   (singular key) →
+        raw verbose_name_plural            (final fallback)
+
+    ``strings`` may be supplied to resolve against an already-loaded table (e.g.
+    a specific language); otherwise the active language table is used.
+    """
+    if model is None:
+        return ''
+    if strings is None:
+        strings = get_strings(lang) if lang else get_strings()
+    name = model._meta.model_name
+    for key in (f'models_{name}', f'model_{name}'):
+        val = strings.get(key)
+        if val:
+            return str(val)
+    return str(model._meta.verbose_name_plural)

@@ -65,6 +65,35 @@ class DluxConfig(AppConfig):
         except (LookupError, ImportError):
             pass
 
+        # Autodiscover Options cards: import each installed app's optional
+        # `dlux_options` module so it can call dlux.options.register_card(...).
+        self._autodiscover_option_cards()
+
+    def _autodiscover_option_cards(self):
+        """Import ``<app>.dlux_options`` for every installed app, if present.
+
+        Registration is trusted code run once at startup — this is the only path
+        by which an Options card can enter the registry. A broken options module
+        in one app is logged and skipped so it can't take down site startup.
+        """
+        import logging
+        from importlib import import_module
+        from importlib.util import find_spec
+        from django.apps import apps as django_apps
+
+        logger = logging.getLogger('dlux')
+        for app_config in django_apps.get_app_configs():
+            module_name = f"{app_config.name}.dlux_options"
+            try:
+                if find_spec(module_name) is None:
+                    continue
+            except (ImportError, AttributeError, ValueError):
+                continue
+            try:
+                import_module(module_name)
+            except Exception:
+                logger.exception("Failed to import Options cards from '%s'; skipping.", module_name)
+
     def _validate_configuration(self):
         """Validate dlux configuration at startup and emit warnings."""
         import warnings

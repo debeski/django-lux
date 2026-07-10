@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "version": "1.4.2",
+  "version": "1.4.3",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds app-owned user preferences: downstream projects persist their own per-user state under a reserved 'app' namespace in Profile.preferences (opaque to Dlux, cross-device), bounded by a size cap and served by a targeted concurrent-safe patch endpoint plus browser helpers. Adds a complete self-service forgot-password flow rendered in the Dlux login layout (all login styles, RTL/LTR, Arabic/English/custom languages), delivered through Dlux's own email transport and gated by a new 'forgot_password_enabled' setting that self-hides until email delivery is ready; the login page also shows a live lockout countdown instead of a generic error and a modern inline credential-error message. Plus a superuser 'Reset data' admin command that lists discovered models with row counts and clears selected ones (scoped models soft-deleted/recoverable, others permanent, optional media deletion) with System Settings, updater state, permission groups, and superusers always protected; a confirm-password prompt auto-hide fix; and the missing Arabic/English names for Dlux operational models. Inline-safe: no migration, JSON/view/static/template updates only.",
+  "summary": "Makes the Options page extendable so downstream projects can add their own cards and store global project config through hardened, Dlux-first extension points. Apps register Options cards through a secure code-only registry (register_card, autodiscovered from each app's optional dlux_options.py at startup) — so a card can never be injected via a request, a stored value, or a non-superuser — with server-side permission/superuser gating, sandboxed rendering (a broken card is skipped, never blanks the page), and a dlux:options-ready lifecycle event for attaching card JS; the built-in cards are untouched. Adds a superuser-only, namespace-scoped app-owned system-config endpoint writing only SystemSettings.extra_config['app'][namespace] (size-capped, audit-logged, cache-cleared) plus a get_app_system_config() read helper. Inline-safe: no migration, JSON/view/static/template updates only.",
   "highlights": [
-    "App-owned user preferences: downstream projects persist their own per-user state under a reserved 'app' namespace in Profile.preferences (opaque to Dlux), with a size cap and a targeted, concurrent-safe patch endpoint plus window.getAppPreference/updateAppPreference helpers.",
-    "New self-service forgot-password reset flow in the Dlux login layout (multiple login styles, RTL/LTR, i18n), sent via Dlux email; gated by 'forgot_password_enabled' and auto-hidden until email is configured.",
-    "Login page shows a live lockout countdown (mm:ss) with a disabled submit button instead of a generic 'too many attempts' error.",
-    "New superuser 'Reset data' command: clear selected models' rows (scoped models soft-deleted/recoverable, others permanent) after current-password confirmation; System Settings, updater state, permission groups, and superusers always protected.",
-    "Fixed the confirm-password prompt so its warning no longer auto-hides, and translated the previously-untranslated Dlux operational model names."
+    "Extendable Options page: downstream apps add cards via a secure registry (register_card + autodiscovered dlux_options.py) — registration is code-only so cards can't be injected via HTTP/data — with server-side permission gating, sandboxed rendering, and a dlux:options-ready lifecycle event; built-in cards untouched.",
+    "App-owned system config: superuser-only, namespace-scoped endpoint writing SystemSettings.extra_config['app'][ns] (size-capped, audited, cache-cleared) plus a get_app_system_config() read helper.",
+    "Adding a card is minimal: create <yourapp>/dlux_options.py, call register_card(id, title, template_name, ...), and your template renders as the card body inside the standard card chrome.",
+    "Cards support config-driven visibility (a fail-closed visible() predicate) and declarative persistence: a control marked data-dlux-app-pref auto-saves to the user's app-pref namespace and fires dlux:app-pref-changed for live updates.",
+    "Translation hygiene: table columns can now use model-qualified headers (tbl_{model}_{column}) for distinct labels, and 88 duplicate keys were unified into a backward-compatible alias map (get_strings resolves retired keys to their canonical), with dev scripts to find unused/duplicate strings and apply the unification."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.2"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.3"
 }

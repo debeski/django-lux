@@ -419,16 +419,12 @@ def _infer_label(url_name, strings, model=None, callback=None):
             return _plain_text(strings[key])
 
     if model is not None:
-        if leaf.endswith('list'):
-            return _plain_text(
-                strings.get(
-                    f'models_{model._meta.model_name}',
-                    strings.get(f'model_{model._meta.model_name}', str(model._meta.verbose_name_plural))
-                )
-            )
+        from .translations import resolve_model_label
         if leaf in ['dashboard', 'index', 'home']:
             return _plain_text(strings.get(f'{model._meta.app_label}_{leaf}', _humanize(f'{model._meta.app_label} {leaf}')))
-        return _plain_text(strings.get(f'model_{model._meta.model_name}', str(model._meta.verbose_name_plural)))
+        # Every model-name label (list pages and generic model routes alike)
+        # resolves through the shared plural→singular→raw entry point.
+        return _plain_text(resolve_model_label(model, strings))
 
     if leaf in ['dashboard', 'index', 'home'] and namespace:
         return _plain_text(f"{group_label} {_humanize(leaf)}")

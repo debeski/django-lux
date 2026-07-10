@@ -105,6 +105,7 @@ urlpatterns = [
     path('sys/groups/<int:pk>/public-registration-default/', views.toggle_group_public_registration_default, name='toggle_group_public_registration_default'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
+    path('sys/api/celery-health/', views.celery_health_check_view, name='celery_health_check'),
     path('sys/admin/force-password-change-all/', views.force_password_change_all_view, name='dlux_force_pass_change_all'),
     path('sys/admin/data-reset/preview/', views.data_reset_preview_view, name='dlux_data_reset_preview'),
     path('sys/admin/data-reset/execute/', views.data_reset_execute_view, name='dlux_data_reset_execute'),
@@ -137,6 +138,8 @@ urlpatterns = [
     path('sys/api/preferences/update/', api.update_preferences, name='update_preferences'),
     path('sys/api/preferences/reset/', api.reset_preferences, name='reset_preferences'),
     path('sys/api/preferences/app/<str:namespace>/', api.update_app_preference, name='update_app_preference'),
+    # System-level app-owned config (superuser only)
+    path('sys/api/system-config/app/<str:namespace>/', api.update_app_system_config, name='update_app_system_config'),
     # notifications API
     path('sys/api/notifications/', api.notifications_list, name='notifications_list'),
     path('sys/api/notifications/read-all/', api.notifications_mark_all_read, name='notifications_read_all'),

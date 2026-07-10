@@ -379,6 +379,80 @@
         });
     }
 
+    function initCeleryHealthCheck() {
+        // On-demand Celery worker check. Nothing pings the broker until the user
+        // clicks the recheck arrow; the server persists the result, so the badge
+        // keeps its last outcome across visits until the next manual check.
+        const container = document.querySelector('[data-dlux-celery-health]');
+        if (!container) {
+            return;
+        }
+        const button = container.querySelector('[data-celery-recheck]');
+        const badge = container.querySelector('[data-celery-badge]');
+        if (!button || !badge) {
+            return;
+        }
+        const detail = container.querySelector('[data-celery-detail]');
+        const note = container.querySelector('[data-celery-note]');
+        const checkUrl = container.getAttribute('data-check-url');
+        const errorLabel = container.getAttribute('data-error-label') || 'Check failed';
+
+        async function runCheck() {
+            const response = await fetch(checkUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({}),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.status !== 'ok' || !data.service) {
+                throw new Error('celery check failed');
+            }
+            const svc = data.service;
+            badge.className = 'badge ' + (svc.badge_class || 'bg-secondary');
+            badge.textContent = svc.label || '';
+            badge.setAttribute('title', svc.note || '');
+            if (detail && svc.detail) {
+                detail.textContent = svc.detail;
+            }
+            if (note) {
+                note.textContent = svc.note || '';
+            }
+        }
+
+        function paintError() {
+            badge.className = 'badge bg-danger';
+            badge.textContent = errorLabel;
+            badge.setAttribute('title', '');
+        }
+
+        button.addEventListener('click', () => {
+            if (window.DluxLoadingButton) {
+                if (window.DluxLoadingButton.isBusy(button)) {
+                    return;
+                }
+                window.DluxLoadingButton.run(button, () => runCheck().catch((err) => {
+                    paintError();
+                    throw err; // let the button show its error state too
+                }));
+                return;
+            }
+            // Fallback if the shared spinner helper is unavailable.
+            if (button.disabled) {
+                return;
+            }
+            button.disabled = true;
+            runCheck()
+                .catch(paintError)
+                .finally(() => {
+                    button.disabled = false;
+                });
+        });
+    }
+
     function initAdminCommandLauncher() {
         const launcher = document.querySelector('[data-admin-command-launcher]');
         const toggle = launcher?.querySelector('[data-admin-command-toggle]');
@@ -677,7 +751,25 @@
         initResetDefaults(grid);
         initAdminCommandLauncher();
         initForcePasswordChangeAll();
+        initCeleryHealthCheck();
         focusHashCard();
+
+        // Lifecycle hook: app-contributed Options cards attach their behaviour
+        // here instead of patching options.js. `detail.cardIds` lists every
+        // rendered card (built-in + app) so a project can find its own by id.
+        try {
+            // Auto-persist any data-dlux-app-pref controls inside app cards.
+            if (typeof window.bindAppPrefControls === 'function') {
+                window.bindAppPrefControls(grid);
+            }
+            const cardIds = Array.from(grid.querySelectorAll('.dlux-options-card[data-options-card]'))
+                .map((el) => el.getAttribute('data-options-card'));
+            document.dispatchEvent(new CustomEvent('dlux:options-ready', {
+                detail: { grid: grid, cardIds: cardIds }
+            }));
+        } catch (e) {
+            /* never let the lifecycle event break options init */
+        }
     });
 
     // Global search deep-links to a specific options card via

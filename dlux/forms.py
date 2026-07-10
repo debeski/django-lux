@@ -1094,7 +1094,7 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields["is_staff"].label = s.get('form_is_staff', "Enable Staff Access")
         self.fields["password1"].label = s.get('form_password', "Password")
         self.fields["password2"].label = s.get('form_password_confirm', "Confirm Password")
-        self.fields["is_active"].label = s.get('form_is_active', "Active")
+        self.fields["is_active"].label = s.get('form_user_is_active', s.get('form_is_active', "Active"))
         self.fields["force_password_change"].label = s.get('form_force_password_change', "Require password change on first login")
         self.fields["phone"].label = s.get('form_phone', "Phone Number")
         self.fields["scope"].label = s.get('form_scope', "Scope")
@@ -1277,7 +1277,7 @@ class CustomUserChangeForm(UserChangeForm):
         self.fields["email"].label = s.get('form_email', "Email")
         self.fields["first_name"].label = s.get('form_firstname', "First Name")
         self.fields["last_name"].label = s.get('form_lastname', "Last Name")
-        self.fields["is_active"].label = s.get('form_is_active', "Active")
+        self.fields["is_active"].label = s.get('form_user_is_active', s.get('form_is_active', "Active"))
         self.fields["phone"].label = s.get('form_phone', "Phone Number")
         self.fields["scope"].label = s.get('form_scope', "Scope")
         

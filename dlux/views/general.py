@@ -67,6 +67,7 @@ SERVICE_BADGE_CLASSES = {
     'degraded': 'bg-warning text-dark',
     'configured': 'bg-warning text-dark',
     'offline': 'bg-danger',
+    'unknown': 'bg-secondary',
 }
 
 
@@ -128,6 +129,7 @@ SERVICE_STATE_LABEL_KEYS = {
     'degraded': 'status_degraded',
     'configured': 'status_configured',
     'offline': 'status_offline',
+    'unknown': 'status_unknown',
 }
 
 
@@ -389,44 +391,86 @@ def _get_celery_app():
         return None
 
 
-# Worker pings hit the broker and block the request for up to a second, so the
-# result is memoized for a short window: the System Info panel stays light no
-# matter how often admins reload it, while still reflecting worker state quickly.
-CELERY_WORKER_PROBE_CACHE_KEY = 'dlux:health:celery-workers'
-CELERY_WORKER_PROBE_TTL = int(getattr(settings, 'DLUX_CELERY_HEALTH_TTL', 30) or 0)
+# A worker ping hits the broker and blocks the request for up to a second, so it
+# is NEVER run on a normal Options page load. The check is on-demand only
+# (triggered by the recheck button → `celery_health_check_view`); its result is
+# persisted so the panel keeps showing the last outcome until the next manual
+# check, instead of re-pinging on every visit.
+CELERY_HEALTH_RESULT_KEY = 'dlux:health:celery-workers:last-result'
 
 
 def _probe_celery_workers(app):
-    """Return ``(ok, worker_count, error)`` from a live worker ping, cached briefly.
+    """Return ``(ok, worker_count, error)`` from a single live worker ping.
 
     ``ok`` is False only when the ping itself raised (broker unreachable); a
-    reachable broker with zero live workers returns ``(True, 0, '')``.
+    reachable broker with zero live workers returns ``(True, 0, '')``. No
+    caching — the caller decides when to probe (on demand only).
     """
-    cache_backend = caches['default'] if CELERY_WORKER_PROBE_TTL > 0 else None
-    if cache_backend is not None:
-        try:
-            cached = cache_backend.get(CELERY_WORKER_PROBE_CACHE_KEY)
-        except Exception:
-            cached = None
-        if cached is not None:
-            return tuple(cached)
-
     try:
         replies = app.control.ping(timeout=1.0)
-        result = (True, len(replies or []), '')
+        return (True, len(replies or []), '')
     except Exception as exc:
-        result = (False, 0, str(exc))
-
-    if cache_backend is not None:
-        try:
-            cache_backend.set(CELERY_WORKER_PROBE_CACHE_KEY, list(result), timeout=CELERY_WORKER_PROBE_TTL)
-        except Exception:
-            pass
-
-    return result
+        return (False, 0, str(exc))
 
 
-def _get_celery_service():
+def _load_celery_probe_result():
+    """Return the last persisted on-demand probe result, or None if never run."""
+    try:
+        cached = caches['default'].get(CELERY_HEALTH_RESULT_KEY)
+    except Exception:
+        return None
+    if not cached:
+        return None
+    try:
+        ok, worker_count, error = cached
+        return (bool(ok), int(worker_count), str(error or ''))
+    except Exception:
+        return None
+
+
+def _store_celery_probe_result(result):
+    """Persist the on-demand probe result until the next manual check (no TTL)."""
+    try:
+        caches['default'].set(CELERY_HEALTH_RESULT_KEY, list(result), timeout=None)
+    except Exception:
+        pass
+
+
+def _celery_status_from_result(detail, result):
+    """Build a service-status dict from a ``(ok, worker_count, error)`` probe."""
+    ok, worker_count, error = result
+    if not ok:
+        return _service_status(
+            'offline',
+            detail=detail,
+            note=f'Error: {error}',
+            note_key='service_error_detail',
+            note_context={'error': error},
+        )
+    if worker_count == 0:
+        return _service_status(
+            'offline',
+            detail=detail,
+            note='Celery is configured, but no workers responded to the health ping.',
+            note_key='service_celery_no_workers',
+        )
+    return _service_status(
+        'online',
+        detail=detail,
+        note='{count} worker(s) responded to the health ping.',
+        note_key='service_celery_workers_online',
+        note_context={'count': worker_count},
+    )
+
+
+def _get_celery_service(probe=False):
+    """Resolve the Tasks (Celery) service status.
+
+    The cheap configuration/package/app checks always run, but the broker is
+    pinged ONLY when ``probe=True`` (the on-demand recheck endpoint). On a normal
+    page load (``probe=False``) the last persisted result is shown, or a neutral
+    "not checked yet" state when no check has been run.
+    """
     is_configured = any([
         getattr(settings, 'CELERY_BROKER_URL', ''),
         getattr(settings, 'CELERY_RESULT_BACKEND', ''),
@@ -456,31 +500,21 @@ def _get_celery_service():
             note_key='service_celery_app_unavailable',
         )
 
-    ok, worker_count, error = _probe_celery_workers(app)
-    if not ok:
-        return _service_status(
-            'offline',
-            detail=detail,
-            note=f'Error: {error}',
-            note_key='service_error_detail',
-            note_context={'error': error},
-        )
+    if probe:
+        result = _probe_celery_workers(app)
+        _store_celery_probe_result(result)
+        return _celery_status_from_result(detail, result)
 
-    if worker_count == 0:
+    stored = _load_celery_probe_result()
+    if stored is None:
+        # Never checked (or the store was cleared) — neutral, not-green state.
         return _service_status(
-            'offline',
+            'unknown',
             detail=detail,
-            note='Celery is configured, but no workers responded to the health ping.',
-            note_key='service_celery_no_workers',
+            note='Celery settings were detected. Worker health is not auto-checked here.',
+            note_key='service_celery_configured',
         )
-
-    return _service_status(
-        'online',
-        detail=detail,
-        note='{count} worker(s) responded to the health ping.',
-        note_key='service_celery_workers_online',
-        note_context={'count': worker_count},
-    )
+    return _celery_status_from_result(detail, stored)
 
 
 def _get_system_backup_summary():
@@ -628,8 +662,44 @@ def options_view(request):
         context['can_manage_dlux_updates'] = bool(
             request.user.is_superuser and context['dlux_update_state']['enabled']
         )
+    # App-contributed Options cards (registry-driven, permission-filtered and
+    # sandbox-rendered — a failing card is dropped, never blanks the page).
+    from dlux.options import render_cards
+    context['dlux_option_cards'] = render_cards(request)
+
     context.update(diagnostic_context)
     return render(request, 'dlux/includes/options.html', context)
+
+
+@login_required
+@require_POST
+def celery_health_check_view(request):
+    """On-demand Celery worker health probe (superuser / global-staff only).
+
+    Pings the broker once, persists the result so the Options panel keeps showing
+    it until the next manual check, and returns the localized status for the JS
+    to paint the Tasks badge. This is the ONLY place a ping is issued — normal
+    Options loads never touch the broker.
+    """
+    if not (request.user.is_superuser or is_global_staff(request.user)):
+        raise PermissionDenied
+
+    strings = get_strings(get_current_language_code(request))
+    service = _get_celery_service(probe=True)
+    if service is None:
+        return JsonResponse({'status': 'not_configured'}, status=404)
+
+    service = _localize_service_status(service, strings)
+    return JsonResponse({
+        'status': 'ok',
+        'service': {
+            'state': service['state'],
+            'label': service['label'],
+            'badge_class': service['badge_class'],
+            'detail': service['detail'],
+            'note': service['note'],
+        },
+    })
 
 
 @login_required

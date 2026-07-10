@@ -5,6 +5,7 @@
 from .general import (
     data_reset_execute_view,
     data_reset_preview_view,
+    celery_health_check_view,
     debug_notifications_view,
     email_send_test_view,
     export_system_settings_view,

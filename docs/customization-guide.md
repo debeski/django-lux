@@ -205,6 +205,40 @@ Important behavior:
 - forms, filters, tables, and some context-menu labels are translated automatically by startup patches
 - language resolution is layered, so user preference and runtime defaults matter
 
+### Table column headers (generic vs distinct)
+
+A table column resolves its header from the first matching key, in priority
+order: `tbl_{model}_{column}` → `label_{model}_{column}` → `tbl_{column}` →
+`label_{column}` → the raw verbose name. So by default columns share a **generic**
+key (`tbl_name`, `tbl_number`, `tbl_created_at`, …), and you make one **distinct**
+by defining the **model-qualified** key:
+
+```python
+# A "name" column reads "Product Name" on the Product table, "Name" elsewhere.
+DLUX_STRINGS = {"en": {"tbl_product_name": "Product Name"},
+                "ar": {"tbl_product_name": "اسم المنتج"}}
+```
+
+Dlux ships one example: the User table's active column reads
+`tbl_user_is_active` ("Account Active") in preference to the generic
+`tbl_is_active` ("Active").
+
+The same **model-qualified** priority applies to **form field labels** —
+`form_{model}_{field}` / `label_{model}_{field}` are tried before the generic
+`label_{field}` — so the User form's active toggle reads `form_user_is_active`
+("Account Active") in preference to the generic `form_is_active`.
+
+### Unified keys (aliases)
+
+Duplicate keys that carried the exact same English *and* Arabic value have been
+unified: one canonical key holds the value and the rest are **aliases**
+(`dlux/translation_aliases.py`, applied in `get_strings()`). Aliased keys still
+resolve — nothing breaks — and editing the canonical (or its
+`translations_override`) changes them all at once. Two dev helpers report/apply
+this: `scripts/find_duplicate_translations.py` (report, `--md`) and
+`scripts/apply_tier1_unification.py` (`--apply`). An explicit
+`translations_override` of an aliased key still wins.
+
 ### Translating dropdown *option* labels
 
 Startup patches localize field **labels** and table cells, but the `<option>` labels of a
@@ -323,6 +357,39 @@ class Department(ScopedModel):
 ```
 
 Use sections when you want discovery, a system-managed list screen, and minimal boilerplate.
+
+### Model-name labels (sidebar, nav, section manager)
+
+Every Dlux surface that shows a model's *name* — the sidebar entry, the page
+title/breadcrumb, and the Section Manager tabs and headings — resolves it through
+one shared order so they always agree on the same string:
+
+1. `models_<model_name>` — the **plural** key (e.g. `models_department`)
+2. `model_<model_name>` — the **singular** key (e.g. `model_department`)
+3. the raw `Meta.verbose_name_plural` (English fallback)
+
+Because of the fallback, translating **either** key makes the model resolve on
+every surface — but for correct singular/plural copy you should provide both:
+
+```python
+DLUX_STRINGS = {
+    "ar": {"model_department": "قسم",  "models_department": "الأقسام"},
+    "en": {"model_department": "Department", "models_department": "Departments"},
+}
+```
+
+`Meta.verbose_name`/`verbose_name_plural` are wrapped in lazy translators at
+startup, so the fallback happens automatically anywhere those metas are rendered.
+The canonical entry point is `dlux.translations.resolve_model_label(model)` if you
+need the same label in your own code.
+
+> **Gotcha — duplicate Save button in the Section Manager.** The section screen
+> renders your form's crispy layout and then adds its own Save/Cancel action bar,
+> **unless** your form already declares a submit control (Dlux auto-hides its bar
+> then). It detects both a submit in `helper.layout` *and* one added via
+> `helper.add_input(Submit(...))` (which lives on `helper.inputs`). If you want the
+> Dlux-styled action bar, simply don't add your own submit; if you want your own,
+> add it and the Dlux bar disappears.
 
 ## Dynamic Modals
 

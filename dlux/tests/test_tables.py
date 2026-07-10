@@ -199,6 +199,20 @@ class TableRenderingTests(TestCase):
         self.assertIn('dlux-staff-tier-badge--global_staff', html)
         self.assertIn('dlux-staff-tier-badge--delegate', html)
 
+    def test_model_qualified_header_overrides_generic(self):
+        # The User table's is_active column resolves the model-qualified key
+        # tbl_user_is_active in preference to the generic tbl_is_active.
+        table = UserTable(User.objects.none(), request=self._request())
+        header = str(table.columns['is_active'].column.verbose_name)
+        self.assertIn(header, ('Account Active', 'حساب نشط'))
+        self.assertNotIn(header, ('Active', 'نشط'))
+
+    def test_generic_header_still_used_when_no_qualified_key(self):
+        # A column without a model-qualified key falls back to the generic one.
+        table = UserTable(User.objects.none(), request=self._request())
+        header = str(table.columns['username'].column.verbose_name)
+        self.assertIn(header, ('Username', 'اسم المستخدم'))
+
     def test_rendered_table_outputs_per_page_options_and_resets_page(self):
         request = self._request('page=3&sort=username')
         table = AutoCapturedHostTable(User.objects.order_by('username'), request=request)

@@ -548,6 +548,47 @@ class UtilsTests(TestCase):
         self.assertEqual(imports, set())
         self.assertEqual(label, 'Name')
 
+    def test_lazy_translator_uses_fallback_keys_then_default(self):
+        from django.db.migrations.serializer import serializer_factory
+        from dlux.translations import lazy_translator
+
+        label = lazy_translator('models_category', 'Categories',
+                                fallback_keys=['model_category'])
+
+        # Primary key wins when present.
+        with patch('dlux.translations.get_strings',
+                   return_value={'models_category': 'الأصناف', 'model_category': 'صنف'}):
+            self.assertEqual(str(label), 'الأصناف')
+
+        # Falls back to the secondary key when the primary is absent.
+        with patch('dlux.translations.get_strings', return_value={'model_category': 'صنف'}):
+            self.assertEqual(str(label), 'صنف')
+
+        # Falls back to the raw default when neither key exists.
+        with patch('dlux.translations.get_strings', return_value={}):
+            self.assertEqual(str(label), 'Categories')
+
+        # Fallback keys never leak into migration serialization.
+        serialized, _ = serializer_factory(label).serialize()
+        self.assertEqual(serialized, "'Categories'")
+
+    def test_resolve_model_label_prefers_plural_then_singular_then_raw(self):
+        from types import SimpleNamespace
+        from dlux.translations import resolve_model_label
+
+        model = SimpleNamespace(
+            _meta=SimpleNamespace(model_name='category', verbose_name_plural='Categories')
+        )
+
+        self.assertEqual(
+            resolve_model_label(model, {'models_category': 'الأصناف', 'model_category': 'صنف'}),
+            'الأصناف',
+        )
+        # Only the singular key provided → components still agree on that string.
+        self.assertEqual(resolve_model_label(model, {'model_category': 'صنف'}), 'صنف')
+        # Neither key → raw plural verbose name.
+        self.assertEqual(resolve_model_label(model, {}), 'Categories')
+
     def test_translation_matrix_groups_core_and_project_override_keys(self):
         from dlux.translations import build_translation_matrix_groups
 
@@ -928,6 +969,29 @@ class UtilsTests(TestCase):
         form.helper = FormHelper()
         form.helper.layout = Layout(HTML("<button type='submit' class='btn btn-primary'>Save</button>"))
         self.assertTrue(has_submit_button(form))
+
+    def test_has_submit_button_detects_helper_inputs(self):
+        """A Submit added via helper.add_input (helper.inputs, no layout) is detected."""
+        from dlux.utils import has_submit_button
+        from django import forms
+        from crispy_forms.helper import FormHelper
+        from crispy_forms.layout import Submit
+
+        class TestForm(forms.Form):
+            name = forms.CharField()
+
+        # Submit lives on helper.inputs with no custom layout — the common case
+        # for downstream forms reused inside the section manager.
+        form = TestForm()
+        form.helper = FormHelper()
+        form.helper.add_input(Submit("submit", "Save"))
+        self.assertIsNone(getattr(form.helper, "layout", None))
+        self.assertTrue(has_submit_button(form))
+
+        # A helper with neither inputs nor layout still reports no submit.
+        form2 = TestForm()
+        form2.helper = FormHelper()
+        self.assertFalse(has_submit_button(form2))
 
     def test_safe_referer(self):
         """Test _safe_referer to prevent open-redirect vulnerabilities."""

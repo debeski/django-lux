@@ -231,6 +231,99 @@ window.updateAppPreference('myproject.dashboard.v1', null);
 `getAppPreference` returns your default, then write through to the namespace so
 the value becomes cross-device.
 
+#### App-owned **system** config (the `extra_config['app']` namespace)
+
+The global, project-wide counterpart of the per-user `app` namespace. Downstream
+projects store opaque JSON under a reserved key in `SystemSettings.extra_config`:
+
+```jsonc
+// SystemSettings.extra_config
+{ "app": { "myproject.settings": { "feature_x": true } } }
+```
+
+- **Write** — `POST /sys/api/system-config/app/<namespace>/` with the namespace's new value as the JSON body. **Superuser-only** (non-superusers get 403), POST + CSRF, namespace-scoped (only `extra_config['app'][<ns>]` is touched — it can never reach Dlux's own settings or other keys), size-capped (**HTTP 413**; default 64 KB, override `settings.DLUX_MAX_SYSTEM_APP_CONFIG_BYTES`), **audit-logged**, and cache-refreshed. A `null` body clears the namespace.
+- **Read** — `from dlux.utils import get_app_system_config`; `get_app_system_config('myproject.settings', default)`. Reads through the cached `get_system_config()`.
+
+Because it is opaque JSON written only by superusers into a walled-off key, it
+cannot be used to tamper with security-relevant Dlux configuration. Card
+templates that display this data get Django's auto-escaping — do **not** `|safe`
+it.
+
+### Adding an Options-page card
+
+Downstream apps add cards to `/sys/options/` through a small registry — the only
+supported path (registration is trusted Python run once at startup; there is no
+HTTP/DB/settings way to inject a card). Create `<yourapp>/dlux_options.py`; Dlux
+autodiscovers and imports it:
+
+```python
+# myapp/dlux_options.py
+from dlux.options import register_card
+
+def _build(request):
+    from dlux.utils import get_app_system_config
+    return {"settings": get_app_system_config("myproject.settings", {})}
+
+register_card(
+    id="myproject.dashboard",          # [A-Za-z0-9._-], also the data-options-card value
+    title="Dashboard Layout",          # str, or callable(request)->str for i18n
+    icon="bi-grid",                    # Bootstrap-Icons class(es)
+    template_name="myapp/options/dashboard_card.html",  # rendered as the card *body*
+    order=100,                          # lower sorts first
+    superuser_only=False,               # or permission="myapp.change_thing"
+    context_builder=_build,             # optional callable(request)->dict
+    visible=lambda r: get_app_system_config("myproject.settings", {}).get("enabled", True),
+)                                       # optional config-driven visibility (fail-closed)
+```
+
+`visible` is an optional `callable(request)->bool` for **config-driven visibility**
+— e.g. show the card only when a feature is enabled in `extra_config`. It is
+evaluated server-side *after* `superuser_only`/`permission`, and **fail-closed**:
+if it raises, the card is hidden.
+
+Your template renders only the card body; Dlux supplies the surrounding card
+chrome (heading, drag handle) and includes it in reordering/tabs like any
+built-in card. The card body context is your `context_builder` output plus
+`request`, `user`, and `DLUX_STRINGS`. Guarantees:
+
+- **Server-side gating** — `superuser_only`/`permission` are enforced before the
+  builder runs or the template renders.
+- **Sandboxed** — a card that raises is logged and skipped; it can never blank
+  the Options page.
+- **Lifecycle hook** — after `options.js` initializes it dispatches
+  `document`-level `dlux:options-ready` (`event.detail.cardIds` lists all
+  rendered cards); attach your card's JS there instead of patching `options.js`.
+
+#### Auto-persisting a card control to an app preference
+
+Rather than wiring `updateAppPreference` by hand, mark any control inside your
+card with `data-dlux-app-pref="<namespace>"` and Dlux persists its value to that
+per-user `app` namespace on `change` — then fires a `dlux:app-pref-changed`
+event (`detail: {namespace, field, value}`) so you can apply it live:
+
+```html
+<!-- scalar value -> USER_PREFS.app["myproject.catalog_layout"] = "table" -->
+<select data-dlux-app-pref="myproject.catalog_layout">
+  <option value="grid">Grid</option>
+  <option value="table">Table</option>
+</select>
+```
+
+```js
+document.addEventListener('dlux:app-pref-changed', (e) => {
+  if (e.detail.namespace === 'myproject.catalog_layout') applyCatalogLayout(e.detail.value);
+});
+```
+
+Add `data-dlux-app-pref-field="<key>"` to merge one field into an object-valued
+namespace instead of replacing it. Controls in the initial page are bound
+automatically; call `window.bindAppPrefControls(root)` after injecting new DOM.
+Resolve the effective value app-side as *user pref → global default*, e.g.
+`window.getAppPreference('myproject.catalog_layout', globalDefault)`, where the
+global default comes from `get_app_system_config(...)`. Dlux's **Reset Defaults**
+clears the `app` namespace along with the rest, so a reset falls back to the
+global default.
+
 ### Notifications
 
 | Route | Method | Purpose |

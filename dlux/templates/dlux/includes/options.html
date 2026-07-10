@@ -187,15 +187,19 @@
                     <tr>
                         <th>{{ DLUX_STRINGS.tasks }}:</th>
                         <td class="text-end">
-                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap"
+                                 data-dlux-celery-health
+                                 data-check-url="{% url 'celery_health_check' %}"
+                                 data-error-label="{{ DLUX_STRINGS.service_celery_check_failed|default:'Check failed' }}">
                                 {% if celery_service.detail %}
-                                <span class="font-monospace">{{ celery_service.detail }}</span>
+                                <span class="font-monospace" data-celery-detail>{{ celery_service.detail }}</span>
                                 {% endif %}
-                                <span class="badge {{ celery_service.badge_class }}" title="{{ celery_service.note|default:'' }}">{{ celery_service.label }}</span>
+                                <span class="badge {{ celery_service.badge_class }}" data-celery-badge title="{{ celery_service.note|default:'' }}">{{ celery_service.label }}</span>
+                                <button type="button" class="dlux-upd-ic" data-celery-recheck
+                                        title="{{ DLUX_STRINGS.service_celery_recheck|default:'Check worker health' }}"
+                                        aria-label="{{ DLUX_STRINGS.service_celery_recheck|default:'Check worker health' }}"><i class="bi bi-arrow-clockwise"></i></button>
                             </div>
-                            {% if celery_service.note %}
-                            <div class="small text-muted mt-1">{{ celery_service.note }}</div>
-                            {% endif %}
+                            <div class="small text-muted mt-1" data-celery-note>{{ celery_service.note }}</div>
                         </td>
                     </tr>
                     {% endif %}
@@ -744,6 +748,26 @@
                 </div>
             </div>
         </div>
+
+        {# App-contributed Options cards (dlux.options.register_card). Card ids/icons
+           are validated at registration; `html` is trusted card-template output
+           (its data auto-escaped during that render). Each card is rendered
+           sandboxed server-side, so a broken card simply isn't in this list. #}
+        {% for card in dlux_option_cards %}
+        <div class="dlux-options-card no-print" data-options-card="{{ card.id }}">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi {{ card.icon }} me-2"></i> {{ card.title }}</h4>
+                <div class="dlux-options-card-body">{{ card.html|safe }}</div>
+            </div>
+        </div>
+        {% endfor %}
 
     </div>
 
