@@ -11,6 +11,7 @@ from .general import (
     export_system_settings_view,
     force_password_change_all_view,
     global_search_view,
+    app_settings_modal_view,
     options_view,
     system_setup_view,
 )

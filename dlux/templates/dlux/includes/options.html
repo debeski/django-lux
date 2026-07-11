@@ -429,6 +429,17 @@
                         <span class="dlux-system-settings-tile-icon"><i class="bi bi-safe2-fill"></i></span>
                         <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}</span>
                     </button>
+                    {% for app_setting in dlux_app_settings %}
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'dlux_app_settings_modal' app_setting.namespace %}"
+                            data-modal-title="{{ app_setting.title }}"
+                            data-dlux-tooltip="{{ app_setting.description|default:DLUX_STRINGS.app_settings_default_desc }}"
+                            aria-label="{{ app_setting.title }}. {{ app_setting.description|default:DLUX_STRINGS.app_settings_default_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi {{ app_setting.icon }}"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ app_setting.title }}</span>
+                    </button>
+                    {% endfor %}
                     <a class="dlux-system-settings-action dlux-system-settings-tile dlux-system-settings-action--secondary"
                        href="{% url 'system_settings_export' %}"
                        data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_export_desc }}"
@@ -748,11 +759,6 @@
                 </div>
             </div>
         </div>
-
-        {# App-contributed Options cards (dlux.options.register_card). Card ids/icons
-           are validated at registration; `html` is trusted card-template output
-           (its data auto-escaped during that render). Each card is rendered
-           sandboxed server-side, so a broken card simply isn't in this list. #}
         {% for card in dlux_option_cards %}
         <div class="dlux-options-card no-print" data-options-card="{{ card.id }}">
             <div class="glass-profile option-section h-100 dlux-options-panel">

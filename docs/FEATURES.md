@@ -72,6 +72,7 @@
 - Generated-Compose DjangoLux updater state with Global Staff read-only visibility and superuser-only verified check/apply/rollback controls
 - Standalone Autofill and Reset Defaults cards using shared external CSS/JS assets
 - Titlebar notification icon with unread badge, drawer list, detail view, dismiss, mark-all-read, and clear-read actions
+- App-owned project settings can register superuser-only admin tiles with `register_app_settings(...)`, saving only the app namespace under `SystemSettings.extra_config['app']` through a separate form/modal instead of the core System Settings form
 
 ### Global Search (titlebar)
 - Live "search everywhere" dropdown in the titlebar (Ctrl/⌘-K to focus) that jumps to **pages**, **System Settings sections** (deep-linked to the exact settings step), and **titlebar/nav actions**, with results grouped and ranked as you type

@@ -105,6 +105,7 @@ urlpatterns = [
     path('sys/groups/<int:pk>/public-registration-default/', views.toggle_group_public_registration_default, name='toggle_group_public_registration_default'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
+    path('sys/options/app-settings/<str:namespace>/', views.app_settings_modal_view, name='dlux_app_settings_modal'),
     path('sys/api/celery-health/', views.celery_health_check_view, name='celery_health_check'),
     path('sys/admin/force-password-change-all/', views.force_password_change_all_view, name='dlux_force_pass_change_all'),
     path('sys/admin/data-reset/preview/', views.data_reset_preview_view, name='dlux_data_reset_preview'),

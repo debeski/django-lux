@@ -102,6 +102,7 @@ See [Optional SSO Packages](sso.md), [Public Registration Playground](registrati
 | `/health/` | Django health-check endpoint for readiness checks |
 | `/sys/setup/` | First-launch setup language gate and system setup wizard |
 | `/sys/options/` | Options view |
+| `/sys/options/app-settings/<namespace>/` | Superuser-only modal for settings registered with `register_app_settings(...)` |
 | `/sys/users/` | User management |
 | `/sys/registrations/` | Superuser-only pending public registration approvals |
 | `/sys/registrations/<int:pk>/approve/` | POST-only public registration approval |
@@ -248,6 +249,86 @@ Because it is opaque JSON written only by superusers into a walled-off key, it
 cannot be used to tamper with security-relevant Dlux configuration. Card
 templates that display this data get Django's auto-escaping — do **not** `|safe`
 it.
+
+#### Surfacing app-owned system settings in Options
+
+If a downstream app has project-level settings worth exposing, register a
+settings surface from `<yourapp>/dlux_options.py`. Dlux adds one tile per
+registered namespace to the Options admin settings grid, visible to superusers
+only. The modal is separate from `SystemSettingsForm` and saves only
+`extra_config['app'][namespace]`.
+
+Simple built-in controls:
+
+```python
+# myapp/dlux_options.py
+from dlux.options import register_app_settings
+
+register_app_settings(
+    namespace="myproject.catalog",
+    title="Catalog Settings",
+    description="Project-wide catalog defaults.",
+    icon="bi-grid",
+    fields=[
+        {
+            "name": "enabled",
+            "type": "boolean",
+            "label": "Enable catalog",
+            "help_text": "Show catalog navigation and catalog-specific actions.",
+            "default": True,
+        },
+        {
+            "name": "default_view",
+            "type": "choice",
+            "label": "Default view",
+            "choices": [("grid", "Grid"), ("table", "Table")],
+            "default": "grid",
+            "control": "selector",
+            "variant": "toggle",
+            "option_meta": {
+                "grid": {"icon": "bi-grid"},
+                "table": {"icon": "bi-table"},
+            },
+        },
+        {
+            "name": "page_size",
+            "type": "integer",
+            "label": "Default page size",
+            "default": 24,
+            "min_value": 1,
+            "max_value": 200,
+        },
+    ],
+)
+```
+
+Supported field `type` values are `boolean`, `choice`, `multiple_choice`,
+`char`, `text`, `integer`, `number`, and `json`. Choice fields can use Dlux's
+selector widgets with `control="selector"` and `variant="card"` or `"toggle"`.
+Existing unknown keys in the namespace are preserved when the generated form
+saves, so adding/removing surfaced fields does not wipe other app-owned data.
+
+Custom form escape hatch:
+
+```python
+from django import forms
+from dlux.options import register_app_settings
+
+class CatalogSettingsForm(forms.Form):
+    label = forms.CharField(max_length=80)
+
+    def to_app_config(self, current_value):
+        value = dict(current_value or {})
+        value["label"] = self.cleaned_data["label"].strip()
+        return value
+
+register_app_settings(
+    namespace="myproject.catalog",
+    title="Catalog Settings",
+    form_class=CatalogSettingsForm,
+    defaults={"label": "Catalog"},
+)
+```
 
 ### Adding an Options-page card
 

@@ -5,12 +5,14 @@ setup_test_environment()
 import copy
 import os
 
+from django import forms
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.test import Client, RequestFactory, TestCase, override_settings
+from django.urls import reverse
 
 from dlux import options
 from dlux.models import SystemSettings
@@ -212,3 +214,201 @@ class OptionsViewIntegrationTests(TestCase):
         r = self.client.get('/sys/options/')
         self.assertNotContains(r, 'data-options-card="admin.only"')
         self.assertNotContains(r, 'ADMINONLY-SENTINEL-XYZ')
+
+
+class RegisterAppSettingsValidationTests(TestCase):
+    def setUp(self):
+        options.clear_registry()
+
+    def tearDown(self):
+        options.clear_registry()
+
+    def test_valid_field_registration(self):
+        options.register_app_settings(
+            namespace='proj.settings',
+            title='Project Settings',
+            fields=[
+                {'name': 'enabled', 'type': 'boolean', 'label': 'Enabled', 'default': True},
+                {'name': 'mode', 'type': 'choice', 'choices': [('grid', 'Grid'), ('table', 'Table')]},
+            ],
+        )
+        self.assertIn('proj.settings', options._SETTINGS_REGISTRY)
+
+    def test_rejects_unsafe_namespace_and_fields(self):
+        with self.assertRaises(ValueError):
+            options.register_app_settings(namespace='bad/path', title='Bad', fields=[{'name': 'x'}])
+        with self.assertRaises(ValueError):
+            options.register_app_settings(namespace='ok.ns', title='Bad', fields=[{'name': 'bad-name'}])
+        with self.assertRaises(ValueError):
+            options.register_app_settings(namespace='ok.ns', title='Bad', fields=[{'name': 'mode', 'type': 'choice'}])
+        with self.assertRaises(ValueError):
+            options.register_app_settings(
+                namespace='ok.ns',
+                title='Bad',
+                fields=[{'name': 'mode'}],
+                form_class=forms.Form,
+            )
+
+
+class AppSettingsVisibilityTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        options.clear_registry()
+        self.factory = RequestFactory()
+        self.superuser = User.objects.create_superuser('root2', 'r2@x.com', 'pw')
+        self.regular = User.objects.create_user('joe2', 'j2@x.com', 'pw')
+
+    def tearDown(self):
+        options.clear_registry()
+
+    def _req(self, user):
+        req = self.factory.get('/sys/options/')
+        req.user = user
+        return req
+
+    def test_app_settings_are_superuser_only(self):
+        options.register_app_settings(namespace='proj.settings', title='Project Settings', fields=[{'name': 'enabled'}])
+        self.assertEqual(options.get_visible_app_settings(self._req(self.regular)), [])
+        self.assertEqual(
+            [item['namespace'] for item in options.get_visible_app_settings(self._req(self.superuser))],
+            ['proj.settings'],
+        )
+
+    def test_visible_predicate_fails_closed(self):
+        def boom(request):
+            raise RuntimeError('bad config')
+        options.register_app_settings(
+            namespace='proj.settings',
+            title='Project Settings',
+            fields=[{'name': 'enabled'}],
+            visible=boom,
+        )
+        self.assertEqual(options.get_visible_app_settings(self._req(self.superuser)), [])
+
+
+@override_settings(TEMPLATES=_TEMPLATES)
+class AppSettingsModalTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        options.clear_registry()
+        ss = SystemSettings.load()
+        ss.is_configured = True
+        ss.extra_config = {}
+        ss.save()
+        self.superuser = User.objects.create_superuser('settings-root', 'settings-root@example.com', 'pw12345!')
+        self.regular = User.objects.create_user('settings-joe', 'settings-joe@example.com', 'pw12345!')
+        self.client = Client()
+        self.client.force_login(self.superuser)
+
+    def tearDown(self):
+        options.clear_registry()
+
+    def _url(self, ns='proj.settings'):
+        return reverse('dlux_app_settings_modal', kwargs={'namespace': ns})
+
+    def _register_builtin(self):
+        options.register_app_settings(
+            namespace='proj.settings',
+            title='Project Settings',
+            description='Project switches',
+            icon='bi-grid',
+            fields=[
+                {
+                    'name': 'enabled',
+                    'type': 'boolean',
+                    'label': 'Enable project feature',
+                    'default': True,
+                },
+                {
+                    'name': 'mode',
+                    'type': 'choice',
+                    'label': 'Mode',
+                    'choices': [('grid', 'Grid'), ('table', 'Table')],
+                    'default': 'grid',
+                    'control': 'selector',
+                    'variant': 'toggle',
+                    'option_meta': {'grid': {'icon': 'bi-grid'}, 'table': {'icon': 'bi-table'}},
+                },
+                {
+                    'name': 'limit',
+                    'type': 'integer',
+                    'label': 'Limit',
+                    'default': 5,
+                    'min_value': 1,
+                    'max_value': 20,
+                },
+            ],
+        )
+
+    def test_options_page_shows_app_settings_tile_for_superuser_only(self):
+        self._register_builtin()
+        r = self.client.get('/sys/options/')
+        self.assertContains(r, 'Project Settings')
+        self.assertContains(r, self._url())
+        c = Client(); c.force_login(self.regular)
+        self.assertNotContains(c.get('/sys/options/'), 'Project Settings')
+
+    def test_modal_renders_builtin_controls(self):
+        self._register_builtin()
+        r = self.client.get(self._url(), HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(r.status_code, 200)
+        body = r.json()['html']
+        self.assertIn('Enable project feature', body)
+        self.assertIn('dlux-settings-toggle-field', body)
+        self.assertIn('dlux-choice-selector', body)
+        self.assertIn('Project switches', body)
+
+    def test_modal_post_saves_namespace_and_preserves_unknown_keys(self):
+        self._register_builtin()
+        ss = SystemSettings.load()
+        ss.extra_config = {'app': {'proj.settings': {'legacy': 'keep'}, 'other.ns': {'x': 1}}}
+        ss.save()
+        r = self.client.post(
+            self._url(),
+            {'enabled': '', 'mode': 'table', 'limit': '12'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()['success'])
+        cache.clear()
+        extra = SystemSettings.load().extra_config
+        self.assertEqual(extra['app']['proj.settings'], {
+            'legacy': 'keep',
+            'enabled': False,
+            'mode': 'table',
+            'limit': 12,
+        })
+        self.assertEqual(extra['app']['other.ns'], {'x': 1})
+
+    def test_custom_form_can_control_saved_value(self):
+        class ProjectForm(forms.Form):
+            name = forms.CharField()
+
+            def to_app_config(self, current_value):
+                value = dict(current_value if isinstance(current_value, dict) else {})
+                value['name'] = self.cleaned_data['name'].strip().upper()
+                return value
+
+        options.register_app_settings(
+            namespace='proj.custom',
+            title='Custom Settings',
+            form_class=ProjectForm,
+            defaults={'legacy': 'keep'},
+        )
+        r = self.client.post(
+            self._url('proj.custom'),
+            {'name': 'alpha'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(r.status_code, 200)
+        cache.clear()
+        self.assertEqual(SystemSettings.load().extra_config['app']['proj.custom'], {
+            'legacy': 'keep',
+            'name': 'ALPHA',
+        })
+
+    def test_modal_requires_superuser_and_registered_namespace(self):
+        self._register_builtin()
+        c = Client(); c.force_login(self.regular)
+        self.assertEqual(c.get(self._url(), HTTP_X_REQUESTED_WITH='XMLHttpRequest').status_code, 403)
+        self.assertEqual(self.client.get(self._url('missing.ns'), HTTP_X_REQUESTED_WITH='XMLHttpRequest').status_code, 404)

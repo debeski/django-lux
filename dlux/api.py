@@ -13,7 +13,6 @@ import logging
 # Project imports
 from .system.constants import (
     DEFAULT_MAX_PREFERENCES_BYTES,
-    DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES,
     FORM_DENSITY_VALUES,
     MODAL_SIZE_VALUES,
     NAVBAR_MODE_VALUES,
@@ -21,10 +20,10 @@ from .system.constants import (
     PREFERENCES_APP_NAMESPACE_MAXLEN,
     SAFE_NAMESPACE_RE,
     SIDEBAR_DENSITY_VALUES,
-    SYSTEM_APP_CONFIG_NAMESPACE,
     TABLE_DENSITY_VALUES,
     TABLE_PAGE_SIZE_VALUES,
 )
+from .options import AppSystemConfigError, write_app_system_config
 from .utils import (
     get_effective_allowed_themes,
     get_system_config,
@@ -46,14 +45,6 @@ def _max_preferences_bytes():
         return max(int(getattr(settings, 'DLUX_MAX_PREFERENCES_BYTES', DEFAULT_MAX_PREFERENCES_BYTES)), 1024)
     except (TypeError, ValueError):
         return DEFAULT_MAX_PREFERENCES_BYTES
-
-
-def _max_system_app_config_bytes():
-    """Resolved size ceiling for the whole SystemSettings.extra_config blob."""
-    try:
-        return max(int(getattr(settings, 'DLUX_MAX_SYSTEM_APP_CONFIG_BYTES', DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES)), 1024)
-    except (TypeError, ValueError):
-        return DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES
 
 
 _SAFE_NAMESPACE = re.compile(SAFE_NAMESPACE_RE)
@@ -604,48 +595,14 @@ def update_app_system_config(request, namespace):
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON body.'}, status=400)
 
     try:
-        SystemSettings = apps.get_model('dlux', 'SystemSettings')
-        sys_settings = SystemSettings.load()
-        extra = sys_settings.extra_config
-        extra = dict(extra) if isinstance(extra, dict) else {}
-
-        app_bag = extra.get(SYSTEM_APP_CONFIG_NAMESPACE)
-        app_bag = dict(app_bag) if isinstance(app_bag, dict) else {}
-        if body is None:
-            app_bag.pop(namespace, None)
-        else:
-            app_bag[namespace] = body
-
-        if app_bag:
-            extra[SYSTEM_APP_CONFIG_NAMESPACE] = app_bag
-        else:
-            extra.pop(SYSTEM_APP_CONFIG_NAMESPACE, None)
-
-        # Size cap: extra_config rides inside every get_system_config() load.
-        try:
-            too_big = len(json.dumps(extra, default=str).encode('utf-8')) > _max_system_app_config_bytes()
-        except (TypeError, ValueError):
-            return JsonResponse({'status': 'error', 'message': 'Value is not JSON-serializable.'}, status=400)
-        if too_big:
-            return JsonResponse({'status': 'error', 'message': 'System config payload too large.'}, status=413)
-
-        sys_settings.extra_config = extra
-        sys_settings.save()  # refresh_cache() invalidates the config cache
-
-        try:
-            log_user_action(
-                request, 'UPDATE', instance=sys_settings, model_name='systemsettings',
-                details={'app_config_namespace': namespace, 'cleared': body is None},
-                category='audit',
-            )
-        except Exception:
-            logger.debug("Audit logging failed for app system-config write '%s'", namespace, exc_info=True)
-
+        stored_value = write_app_system_config(namespace, body, request=request)
         return JsonResponse({
             'status': 'success',
             'namespace': namespace,
-            'value': app_bag.get(namespace),
+            'value': stored_value,
         })
+    except AppSystemConfigError as exc:
+        return JsonResponse({'status': 'error', 'message': exc.message}, status=exc.status_code)
     except Exception:
         logger.exception("Failed to update app system-config '%s' by user pk=%s", namespace, request.user.pk)
         return JsonResponse({'status': 'error', 'message': 'Unable to update system config.'}, status=400)

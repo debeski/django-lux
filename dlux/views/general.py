@@ -21,7 +21,8 @@ from django.contrib.auth.decorators import login_required
 from django.db import connection, transaction
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_POST
+from django.template.loader import render_to_string
+from django.views.decorators.http import require_POST, require_http_methods
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.module_loading import import_string
@@ -664,11 +665,65 @@ def options_view(request):
         )
     # App-contributed Options cards (registry-driven, permission-filtered and
     # sandbox-rendered — a failing card is dropped, never blanks the page).
-    from dlux.options import render_cards
+    from dlux.options import get_visible_app_settings, render_cards
     context['dlux_option_cards'] = render_cards(request)
+    context['dlux_app_settings'] = get_visible_app_settings(request)
 
     context.update(diagnostic_context)
     return render(request, 'dlux/includes/options.html', context)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def app_settings_modal_view(request, namespace):
+    """Render/save one app-registered project settings form.
+
+    This intentionally stays outside ``SystemSettingsForm``. It is superuser-only
+    and writes only the app-owned ``extra_config['app'][namespace]`` value.
+    """
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    from dlux.options import (
+        AppSystemConfigError,
+        build_app_settings_form,
+        get_app_settings_form_value,
+        get_visible_app_setting,
+        write_app_system_config,
+    )
+
+    definition = get_visible_app_setting(request, namespace)
+    if definition is None:
+        raise Http404
+
+    if request.method == 'POST':
+        form = build_app_settings_form(definition, request, data=request.POST)
+        if form.is_valid():
+            try:
+                value = get_app_settings_form_value(definition, form)
+                stored_value = write_app_system_config(definition['namespace'], value, request=request)
+            except AppSystemConfigError as exc:
+                form.add_error(None, exc.message)
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'namespace': definition['namespace'],
+                    'value': stored_value,
+                })
+    else:
+        form = build_app_settings_form(definition, request)
+
+    strings = get_strings(get_current_language_code(request))
+    html = render_to_string(
+        'dlux/includes/app_settings_form.html',
+        {
+            'form': form,
+            'app_setting': definition,
+            'DLUX_STRINGS': strings,
+        },
+        request=request,
+    )
+    return JsonResponse({'html': html})
 
 
 @login_required

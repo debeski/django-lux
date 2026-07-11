@@ -1,0 +1,33 @@
+{% load crispy_forms_tags %}
+
+<form method="post"
+      class="dlux-form dlux-app-settings-form"
+      action="{% url 'dlux_app_settings_modal' app_setting.namespace %}">
+    {% csrf_token %}
+    {% if app_setting.description %}
+    <p class="text-muted small mb-3">{{ app_setting.description }}</p>
+    {% endif %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger" data-autoclose="false">
+        {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+    {% crispy form %}
+    <div class="dlux-form-actions mt-3 pt-3 border-top" data-dlux-modal-footer>
+        <button type="submit"
+                class="dlux-form-action dlux-form-action-primary"
+                aria-label="{{ DLUX_STRINGS.btn_save|default:'Save Changes' }}"
+                title="{{ DLUX_STRINGS.btn_save|default:'Save Changes' }}">
+            <span class="dlux-form-action-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+            <span class="visually-hidden">{{ DLUX_STRINGS.btn_save|default:'Save Changes' }}</span>
+        </button>
+        <button type="button"
+                class="dlux-form-action dlux-form-action-neutral"
+                data-bs-dismiss="modal"
+                aria-label="{{ DLUX_STRINGS.close_label|default:'Close' }}"
+                title="{{ DLUX_STRINGS.close_label|default:'Close' }}">
+            <span class="dlux-form-action-icon"><i class="bi bi-x-lg" aria-hidden="true"></i></span>
+            <span class="visually-hidden">{{ DLUX_STRINGS.close_label|default:'Close' }}</span>
+        </button>
+    </div>
+</form>
