@@ -709,6 +709,11 @@ def app_settings_modal_view(request, namespace):
                     'success': True,
                     'namespace': definition['namespace'],
                     'value': stored_value,
+                    # App-settings tiles have no records table to reopen; without
+                    # this the dynamic-modal JS re-loads the form into the modal on
+                    # success (it "hides" then pops back up). refresh_parent tells it
+                    # to close and reload the Options page so the saved value shows.
+                    'refresh_parent': True,
                 })
     else:
         form = build_app_settings_form(definition, request)
