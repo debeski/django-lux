@@ -4,11 +4,9 @@
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Makes DjangoLux client-side API URLs safe when dlux.urls is mounted outside project root. Base templates now inject the resolved Dlux mount prefix plus a Django-reversed endpoint map, and static JS helpers resolve preference writes, app-owned preferences, notifications, global search, session keepalive/logout/session-ended, and autofill API calls through those values instead of hardcoded /sys/, /accounts/, or /search/ paths. Inline-safe: no migration, context/template/static/docs/tests updates only.",
+  "summary": "Fixes the app-owned settings modal save flow. Successful POSTs from register_app_settings forms now return refresh_parent=true.",
   "highlights": [
-    "Injects reversed URL metadata plus dluxUrl() and dluxEndpoint() for prefix-aware static JavaScript.",
-    "Rewires built-in preference, notification, search, session, and autofill calls away from hardcoded root paths.",
-    "Documents the downstream JavaScript rule: use {% url %}, dluxEndpoint(), or dluxUrl() for Dlux routes."
+    "App-settings modal saves now return refresh_parent=true so the shared dynamic modal closes instead of reopening itself."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.5"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.6"
 }
