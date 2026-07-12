@@ -14,6 +14,8 @@
     {% endif %}
     
     {{ user_preferences|json_script:"user-prefs-data" }}
+    {{ DLUX_URL_PREFIX|default:"/"|json_script:"dlux-url-prefix" }}
+    {{ DLUX_URLS|json_script:"dlux-url-data" }}
     {{ DLUX_STRINGS|json_script:"dlux-strings-data" }}
     {{ DLUX_THEME_NAMES|json_script:"dlux-theme-names" }}
     {{ config|json_script:"dlux-config-data" }}

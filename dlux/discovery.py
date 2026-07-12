@@ -552,6 +552,11 @@ def _sanitize_sidebar_entry(entry, allow_system_items=False):
         cleaned_group['label'] = _plain_text(cleaned_group.get('label') or 'Group')
         cleaned_group['icon'] = _plain_text(cleaned_group.get('icon') or 'bi-folder2-open')
         cleaned_group['items'] = items
+        group_labels = _normalize_sidebar_labels(cleaned_group.get('labels'))
+        if group_labels:
+            cleaned_group['labels'] = group_labels
+        else:
+            cleaned_group.pop('labels', None)
         return cleaned_group
 
     if _is_hidden_sidebar_entry(entry, allow_system_items=allow_system_items):
@@ -564,6 +569,11 @@ def _sanitize_sidebar_entry(entry, allow_system_items=False):
         cleaned_item['icon'] = _plain_text(cleaned_item.get('icon'))
     if 'group_label' in cleaned_item:
         cleaned_item['group_label'] = _plain_text(cleaned_item.get('group_label'))
+    item_labels = _normalize_sidebar_labels(cleaned_item.get('labels'))
+    if item_labels:
+        cleaned_item['labels'] = item_labels
+    else:
+        cleaned_item.pop('labels', None)
     return cleaned_item
 
 
@@ -979,17 +989,18 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
             if kind == 'group':
                 items = []
                 for raw_item in entry.get('items', []):
-                    resolved_item = _resolve_sidebar_item(raw_item, catalog)
+                    resolved_item = _resolve_sidebar_item(raw_item, catalog, lang_code)
                     if resolved_item and _user_has_sidebar_permission(user, resolved_item.get('permissions'), resolved_item.get('permissions_explicit', False)):
                         items.append(resolved_item)
                 if items:
                     group_id = entry.get('id') or f"group-{len(render_entries) + 1}"
+                    group_label_override = _pick_sidebar_label(entry.get('labels'), lang_code)
                     inferred_group_label = next((item.get('group_label') for item in items if item.get('group_label')), None)
                     inferred_group_icon = next((item.get('group_icon') for item in items if item.get('group_icon')), None)
                     render_entries.append({
                         'kind': 'group',
                         'id': group_id,
-                        'label': inferred_group_label or entry.get('label') or 'Group',
+                        'label': group_label_override or inferred_group_label or entry.get('label') or 'Group',
                         'icon': inferred_group_icon or entry.get('icon') or 'bi-folder2-open',
                         'url': _resolve_group_url(entry),
                         'url_name': entry.get('url_name'),
@@ -1000,7 +1011,7 @@ def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, r
                     })
                 continue
 
-            resolved = _resolve_sidebar_item(entry, catalog)
+            resolved = _resolve_sidebar_item(entry, catalog, lang_code)
             if resolved and _user_has_sidebar_permission(user, resolved.get('permissions'), resolved.get('permissions_explicit', False)):
                 render_entries.append(resolved)
         return render_entries
@@ -1050,8 +1061,42 @@ def _resolve_group_url(entry):
     return url or '#'
 
 
-def _resolve_sidebar_item(entry, catalog):
+def _normalize_sidebar_labels(value):
+    """Per-language label override map for a sidebar entry: ``{lang_code: label}``.
+
+    Mirrors the navbar builder's ``labels`` model so multilingual apps can name a
+    sidebar entry per display language. Values are plain-text sanitized; empty
+    codes/labels are dropped. Returns ``{}`` when nothing usable is present.
+    """
+    if not isinstance(value, dict):
+        return {}
+    labels = {}
+    for raw_code, raw_label in value.items():
+        code = str(raw_code or '').strip().lower()
+        label = str(_plain_text(raw_label) or '').strip()
+        if code and label:
+            labels[code] = label
+    return labels
+
+
+def _pick_sidebar_label(labels, lang_code):
+    """Resolve a per-language override for the current display language.
+
+    Unlike the navbar (which has no auto-translation and falls back to the first
+    available label), the sidebar deliberately returns ``''`` when the current
+    language has no explicit override, so the caller falls through to the
+    auto-discovered, per-language catalog label instead of a wrong-language one.
+    """
+    if not isinstance(labels, dict) or not labels:
+        return ''
+    code = str(lang_code or '').strip().lower()
+    base = code.split('-')[0]
+    return str(labels.get(code) or labels.get(base) or '').strip()
+
+
+def _resolve_sidebar_item(entry, catalog, lang_code=None):
     item = dict(entry)
+    label_override = _pick_sidebar_label(entry.get('labels'), lang_code)
     discovered = catalog.get(item.get('id') or item.get('url_name') or '')
     if discovered:
         merged = dict(discovered)
@@ -1077,7 +1122,9 @@ def _resolve_sidebar_item(entry, catalog):
     else:
         return None
 
-    item['label'] = item.get('label') or _humanize(item.get('id') or url_name or 'link')
+    # A per-language override wins; otherwise the catalog's per-language label
+    # (for discovered routes) or the stored/humanized label is used.
+    item['label'] = label_override or item.get('label') or _humanize(item.get('id') or url_name or 'link')
     item['icon'] = item.get('icon') or 'bi-link-45deg'
     item['permissions'] = _normalize_permissions(item.get('permissions') or item.get('permission'))
     item['id'] = item.get('id') or url_name or item.get('url')

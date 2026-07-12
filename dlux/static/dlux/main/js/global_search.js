@@ -34,7 +34,11 @@
         root.dataset.globalSearchBound = 'true';
 
         var mode = root.getAttribute('data-global-search-mode') || 'icon';
-        var endpoint = root.getAttribute('data-global-search-url') || '/search/';
+        var endpoint = root.getAttribute('data-global-search-url') || (
+            window.dluxEndpoint
+                ? window.dluxEndpoint('globalSearch', null, '/search/')
+                : (window.dluxUrl ? window.dluxUrl('/search/') : '/search/')
+        );
         var includeData = root.getAttribute('data-global-search-include-data') === '1';
         var input = root.querySelector('[data-global-search-input]');
         var results = root.querySelector('[data-global-search-results]');

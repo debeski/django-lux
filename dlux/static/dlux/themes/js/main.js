@@ -131,7 +131,10 @@ if (typeof window.updatePreferences !== 'function') {
             return Promise.resolve();
         }
 
-        return fetch('/sys/api/preferences/update/', {
+        const url = window.dluxEndpoint
+            ? window.dluxEndpoint('preferencesUpdate', null, '/sys/api/preferences/update/')
+            : (window.dluxUrl ? window.dluxUrl('/sys/api/preferences/update/') : '/sys/api/preferences/update/');
+        return fetch(url, {
             method: "POST",
             headers: {
                 "X-CSRFToken": csrfToken,

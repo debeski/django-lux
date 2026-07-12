@@ -2,6 +2,7 @@
     <textarea id="dlux-sidebar-catalog-data-{{ mode }}" class="d-none dlux-sidebar-catalog-data">{{ sidebar_catalog_json }}</textarea>
     <textarea id="dlux-sidebar-catalog-fallback-data-{{ mode }}" class="d-none dlux-sidebar-catalog-fallback-data">{{ sidebar_catalog_fallback_json }}</textarea>
     <textarea id="dlux-sidebar-config-data-{{ mode }}" class="d-none dlux-sidebar-config-data">{{ sidebar_config_json }}</textarea>
+    <textarea class="d-none dlux-sidebar-languages-data">{{ languages_json }}</textarea>
 
     <div class="row g-3">
         <div class="col-xl-5">
@@ -85,8 +86,9 @@
                         <div class="row g-3 align-items-start">
                             <div class="col-lg-5">
                                 <div class="mb-3">
-                                    <label class="form-label" for="dlux-sidebar-builder-label-{{ mode }}">{{ DLUX_STRINGS.sidebar_label_field|default:"Label" }}</label>
-                                    <input id="dlux-sidebar-builder-label-{{ mode }}" type="text" class="form-control glass-input" data-builder-label-input>
+                                    <label class="form-label">{{ DLUX_STRINGS.sidebar_label_field|default:"Label" }}</label>
+                                    <div data-builder-label-inputs></div>
+                                    <div class="form-text">{{ DLUX_STRINGS.sidebar_label_help|default:"Leave a language blank to use the auto-translated name." }}</div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label" for="dlux-sidebar-builder-icon-{{ mode }}">{{ DLUX_STRINGS.sidebar_icon_field|default:"Icon" }}</label>

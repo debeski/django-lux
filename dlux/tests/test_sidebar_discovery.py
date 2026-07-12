@@ -205,6 +205,66 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
     @patch("dlux.discovery.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
+    def test_build_sidebar_navigation_applies_per_language_label_override(self, mock_get_system_config, mock_discover_sidebar_catalog):
+        # Item overrides EN + AR explicitly; leaves FR unset to test fall-through.
+        mock_get_system_config.return_value = {
+            "default_language": "en",
+            "translations": {},
+            "sidebar": {
+                "entries": [
+                    {
+                        "kind": "item",
+                        "id": "options_view",
+                        "url_name": "options_view",
+                        "labels": {"en": "My Options", "ar": "خياراتي"},
+                        "icon": "bi-gear",
+                        "group_key": "dlux",
+                    }
+                ],
+            },
+        }
+
+        def _catalog(lang_code=None, include_system_items=False):
+            # The auto-discovered label itself follows the requested language.
+            auto = "الخيارات" if str(lang_code or "").startswith("ar") else "Options"
+            return [{
+                "kind": "item", "id": "options_view", "url_name": "options_view",
+                "url": "/sys/options/", "label": auto, "icon": "bi-gear",
+                "permissions": ["__dlux_authenticated__"], "permissions_explicit": True,
+                "group_key": "dlux", "group_label": "System", "group_icon": "bi-sliders",
+            }]
+        mock_discover_sidebar_catalog.side_effect = _catalog
+
+        en_nav = build_sidebar_navigation(lang_code="en", user=_StubUser(), request_path="/x/")
+        self.assertEqual(en_nav["entries"][0]["label"], "My Options")
+
+        cache.clear()
+        ar_nav = build_sidebar_navigation(lang_code="ar", user=_StubUser(), request_path="/x/")
+        self.assertEqual(ar_nav["entries"][0]["label"], "خياراتي")
+
+        # No override for French → fall through to the auto-translated catalog label.
+        cache.clear()
+        fr_nav = build_sidebar_navigation(lang_code="fr", user=_StubUser(), request_path="/x/")
+        self.assertEqual(fr_nav["entries"][0]["label"], "Options")
+
+    def test_sanitize_sidebar_config_preserves_per_language_labels(self):
+        config = {
+            "entries": [
+                {
+                    "kind": "item",
+                    "id": "options_view",
+                    "url_name": "options_view",
+                    "labels": {"EN ": " My Options ", "ar": "خياراتي", "bad": ""},
+                }
+            ],
+        }
+        sanitized = sanitize_sidebar_config(config, allow_system_items=True)
+        labels = sanitized["entries"][0]["labels"]
+        # Codes normalized/lowercased, values trimmed, empty labels dropped.
+        self.assertEqual(labels, {"en": "My Options", "ar": "خياراتي"})
+
+    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_hides_manage_users_without_directory_access(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
             "default_language": "en",

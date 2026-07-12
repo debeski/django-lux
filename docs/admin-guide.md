@@ -107,6 +107,7 @@ Important behaviors:
 - hidden dlux, Django admin, and health-check routes are excluded from the public navigation catalog
 - **sidebar items are only visible to users who have the required view permission** — there is no implicit staff access; each item's permission is inferred from the model, URL pattern, or explicit decorator
 - icons, labels, and grouping can be curated in the inspector
+- **names can be overridden per language** — the inspector shows one name field for each configured language (like the Nav Bar builder). Fill in the languages you want to rename and leave the rest blank; a blank language automatically uses the auto-translated route name, and the runtime sidebar always resolves each viewer's own display language. Overrides are stored per entry as a `labels` map (`{lang_code: name}`)
 - the global Home URL is now independent from sidebar structure
 - runtime user reordering works as a personal override layered on top of the system base tree when reorder is enabled
 - the sidebar toolbar can be disabled entirely if a project does not want the runtime theme picker and reorder entrypoint in the sidebar footer
@@ -119,7 +120,8 @@ Operationally, that means you can keep a carefully curated default navigation wh
 
 Step 6 owns the optional authenticated Nav Bar. When enabled, it appears above page content beside the sidebar and uses the same translated UI layer as the rest of Dlux.
 
-- **Hierarchy** uses the visual Step 6 tree editor. Discovered routes provide translated labels, and manual grouping nodes can add non-clickable labels or URL-backed shared ancestors.
+- **Hierarchy** uses the visual Step 6 tree editor. Discovered routes provide translated labels, and manual grouping nodes can add non-clickable labels or URL-backed shared ancestors. The **node inspector sits on its own row above** the tree and available-routes panes: **Add Group** is always available there, while the move/remove actions, a **Clear selection** (✕) button, the optional URL, and the per-language name fields appear once you select a node. Manual grouping-node names are shown in your current display language in the editor.
+- **Show system items** — Dlux's own system-management and authentication routes (Options, Users, Activity Log, Backup, Sections) are hidden from the available routes by default; enable the toggle to place or override one of them in the Nav Bar tree.
 - **History** keeps one six-entry recent trail in the current browser session, deduplicates repeated paths without treating filters, sorting, or pagination query strings as new pages, and resolves known route labels in the active interface language.
 - **User override** is available in Options only when the developer allows it. Otherwise the developer-selected default style stays authoritative.
 - Dlux-owned system views are automatically grouped under an unclickable `System` crumb when accessible. When a Dlux route is not explicitly placed in the hierarchy builder, its fallback breadcrumb can infer Dlux-owned page links; for example Backup & Restore appears under Application Options because `/sys/options/` links to `/sys/backup/`. Configurable Dlux system routes are available in the builder, and an explicit placement for that route overrides the inferred parent.

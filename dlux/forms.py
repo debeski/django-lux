@@ -2,6 +2,7 @@
 ######################################################
 import os
 import json
+import logging
 import re
 from types import MethodType, SimpleNamespace
 
@@ -125,6 +126,8 @@ from .system.registry import get_setting_group
 from .widgets import DluxChoiceSelectorWidget, DluxMultipleChoiceSelectorWidget
 
 User = get_user_model()
+
+logger = logging.getLogger(__name__)
 
 _LEGACY_HOME_URL = '/sys/'
 
@@ -2548,6 +2551,20 @@ class SystemSettingsForm(forms.ModelForm):
         self._user = user if user is not None else kwargs.pop('user', None)
         self.mode = mode if mode is not None else kwargs.pop('mode', 'modal')
         super().__init__(*args, **kwargs)
+        # A bound (POST) settings save must source its data from the AUTHORITATIVE
+        # DB row. Views hand this form ``SystemSettings.load()`` (the cached
+        # singleton), and single-step saves re-serialise the WHOLE config while
+        # preserving non-edited fields from ``self.instance`` (see the
+        # ``clean_*`` preservers below). If that instance is a stale cache, the
+        # save writes stale values back to the DB permanently — the reported bug
+        # where saving one step (e.g. the public theme) silently reverts
+        # ``default_theme`` to 'light'. Refresh from the DB before any
+        # clean/preserve or initial-building reads ``self.instance``.
+        if self.is_bound and self.mode != 'setup' and getattr(self.instance, 'pk', None):
+            try:
+                self.instance.refresh_from_db()
+            except Exception:
+                logger.warning("SystemSettingsForm: could not refresh instance from DB before save.", exc_info=True)
         self.refresh_parent = True
         self.extra_form_class = 'dlux-system-setup-form'
         self.single_step_mode = False
@@ -4044,7 +4061,17 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['notification_auto_update'] = automatic_config.get('update', 'summary')
         self.initial['notification_auto_delete'] = bool(automatic_config.get('delete', True))
 
-        catalog_lang = self.initial.get('default_language') or self.instance.default_language or config.get('default_language', 'en')
+        # Show the builder's discovered/available entries in the admin's CURRENT
+        # display language (not the system default), so an English-viewing admin
+        # doesn't see an Arabic catalog just because the default language is Arabic.
+        # Runtime navigation re-resolves every entry per viewer regardless, so this
+        # only affects what the editor sees. Falls back to the configured default.
+        catalog_lang = (
+            get_current_language_code(self.request)
+            or self.initial.get('default_language')
+            or self.instance.default_language
+            or config.get('default_language', 'en')
+        )
         public_sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=False)
         self.sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=True)
         self.sidebar_catalog_fallback = discover_sidebar_catalog(lang_code='en', include_system_items=True)
@@ -4234,6 +4261,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'sidebar_catalog_json': _json_dump(self.sidebar_catalog, ensure_ascii=False),
                 'sidebar_catalog_fallback_json': _json_dump(self.sidebar_catalog_fallback, ensure_ascii=False),
                 'sidebar_config_json': _json_dump(self.initial.get('sidebar_config', {}), ensure_ascii=False),
+                'languages_json': _json_dump(current_languages, ensure_ascii=False),
                 'mode': self.mode,
                 'DLUX_STRINGS': s,
             },

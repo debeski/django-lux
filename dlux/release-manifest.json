@@ -1,16 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.4.4",
+  "version": "1.4.5",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds a first-class app-owned project settings surface on the Options admin panel. Downstream apps can register superuser-only settings tiles from their autodiscovered dlux_options.py with register_app_settings(...), using simple built-in Dlux controls (toggles, selectors, text/number/json fields) or a custom Django form. Each modal saves only the registered SystemSettings.extra_config['app'][namespace] value through the same namespace-scoped, size-capped, audit-logged app-system-config writer, so the core System Settings form remains Dlux-only and secure. Inline-safe: no migration, JSON/view/static/template/docs updates only.",
+  "summary": "Makes DjangoLux client-side API URLs safe when dlux.urls is mounted outside project root. Base templates now inject the resolved Dlux mount prefix plus a Django-reversed endpoint map, and static JS helpers resolve preference writes, app-owned preferences, notifications, global search, session keepalive/logout/session-ended, and autofill API calls through those values instead of hardcoded /sys/, /accounts/, or /search/ paths. Inline-safe: no migration, context/template/static/docs/tests updates only.",
   "highlights": [
-    "register_app_settings(...): downstream apps can expose project-specific settings as superuser-only Options admin tiles from their existing dlux_options.py integration module.",
-    "Built-in controls cover boolean toggles, choice/multiple-choice selectors, text, number, integer, and JSON fields; choice fields can use Dlux selector variants such as card and toggle.",
-    "Custom forms are supported with an optional to_app_config(current_value) hook for projects that need their own validation or layout.",
-    "Saves stay isolated to SystemSettings.extra_config['app'][namespace] and reuse the namespace-scoped, size-capped, audit-logged app-system-config writer; core System Settings stays Dlux-only.",
-    "The generated form preserves unknown keys already present in the app namespace so adding/removing surfaced fields does not wipe other project-owned config."
+    "Injects reversed URL metadata plus dluxUrl() and dluxEndpoint() for prefix-aware static JavaScript.",
+    "Rewires built-in preference, notification, search, session, and autofill calls away from hardcoded root paths.",
+    "Documents the downstream JavaScript rule: use {% url %}, dluxEndpoint(), or dluxUrl() for Dlux routes."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.4"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.5"
 }

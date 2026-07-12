@@ -16,6 +16,39 @@
 
     window.USER_PREFS = parseJsonScript('user-prefs-data', {});
     window.DLUX_STRINGS = parseJsonScript('dlux-strings-data', {});
+
+    // Path prefix dlux is mounted under ("/" at root, e.g. "/en/" behind an
+    // i18n language prefix or a sub-path mount). dlux JS uses root-relative
+    // paths like "/sys/api/preferences/update/"; those 404 under a prefix, so
+    // dluxUrl() rewrites a root-relative path onto the real mount prefix.
+    var rawPrefix = parseJsonScript('dlux-url-prefix', '/');
+    var rawUrls = parseJsonScript('dlux-url-data', {});
+    if (typeof rawPrefix !== 'string' || !rawPrefix) {
+        rawPrefix = '/';
+    }
+    if (!rawUrls || typeof rawUrls !== 'object' || Array.isArray(rawUrls)) {
+        rawUrls = {};
+    }
+    if (rawPrefix.charAt(0) !== '/') { rawPrefix = '/' + rawPrefix; }
+    if (rawPrefix.charAt(rawPrefix.length - 1) !== '/') { rawPrefix += '/'; }
+    window.DLUX_URL_PREFIX = rawPrefix;
+    window.DLUX_URLS = rawUrls;
+    window.dluxUrl = function (path) {
+        if (!path || typeof path !== 'string') { return path; }
+        // Leave absolute URLs (http(s)://, //host) and already-prefixed paths alone.
+        if (/^(https?:)?\/\//.test(path)) { return path; }
+        var prefix = window.DLUX_URL_PREFIX || '/';
+        if (prefix !== '/' && path.indexOf(prefix) === 0) { return path; }
+        return prefix + path.replace(/^\/+/, '');
+    };
+    window.dluxEndpoint = function (name, params, fallbackPath) {
+        var path = (window.DLUX_URLS && window.DLUX_URLS[name]) || fallbackPath || '';
+        if (!path || typeof path !== 'string') { return path; }
+        Object.keys(params || {}).forEach(function (key) {
+            path = path.split('__' + key + '__').join(encodeURIComponent(String(params[key])));
+        });
+        return window.dluxUrl(path);
+    };
     window.DLUX_THEME_NAMES = parseJsonScript('dlux-theme-names', ['light']);
     window.DLUX_CONFIG = parseJsonScript('dlux-config-data', {});
     window.DLUX_FONT_FAMILIES = parseJsonScript('dlux-font-families', {});

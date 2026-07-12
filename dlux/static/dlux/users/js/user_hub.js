@@ -41,4 +41,17 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Ctrl/Cmd-J opens the Options view (mirrors Ctrl/Cmd-K for global search).
+    // Navigate via the rendered options link so gating/URL stay server-driven:
+    // no link (unavailable) means the shortcut is a no-op.
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J')) {
+            const link = document.querySelector('[data-dlux-options-link], [data-titlebar-action-key="settings"]');
+            if (link && link.href) {
+                e.preventDefault();
+                window.location.href = link.href;
+            }
+        }
+    });
+
 });

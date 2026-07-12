@@ -65,7 +65,10 @@
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
         const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
-        fetch('/sys/api/preferences/update/', {
+        const url = window.dluxEndpoint
+            ? window.dluxEndpoint('preferencesUpdate', null, '/sys/api/preferences/update/')
+            : (window.dluxUrl ? window.dluxUrl('/sys/api/preferences/update/') : '/sys/api/preferences/update/');
+        fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

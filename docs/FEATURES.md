@@ -80,6 +80,10 @@
 - Optional **data search** (per-toggle) matches `icontains` across the text fields of the project's real models (plus User/Profile), gated by each model's `view` permission and auto-scoped for `ScopedModel` records; tunable via `DLUX_SEARCH_DATA_MODELS` and `DLUX_SEARCH_DATA_URL_RESOLVER`
 - Titlebar selector modes: **always visible**, **icon that expands on focus** (default), or **disabled**; served by the `login_required` `/search/` JSON endpoint
 
+### Keyboard Shortcuts
+- **Ctrl/⌘-K** focuses the titlebar global search box from anywhere
+- **Ctrl/⌘-J** opens the **Options** view from anywhere (navigates to the rendered options link, so it respects the same server-side gating and is a no-op when Options isn't available)
+
 ### Utilities & Helpers
 - `dlux_settings(globals())` — one-line settings integration
 - `get_system_config()` — cached config retrieval with fallback handling

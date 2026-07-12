@@ -86,6 +86,61 @@ def _reverse_or_empty(url_name):
         return ''
 
 
+def _reverse_template_or_empty(url_name, *args):
+    try:
+        return reverse(url_name, args=args)
+    except NoReverseMatch:
+        return ''
+
+
+def _dlux_url_prefix():
+    """Resolve the path prefix dlux.urls is mounted under, so client-side JS can
+    build correct URLs regardless of where the host project includes dlux
+    (root, a sub-path, or behind an i18n language prefix).
+
+    dlux's JS historically hardcodes root-relative paths like
+    ``/sys/api/preferences/update/``; when the app is served under a prefix those
+    404. We derive the prefix by reversing a known dlux route and stripping its
+    known root-relative tail. Returns a string that always starts and ends with
+    ``/`` (``/`` when mounted at root, e.g. ``/en/`` behind i18n_patterns).
+    ``reverse`` runs per-request with the active language, so an i18n prefix is
+    resolved correctly for the current page.
+    """
+    known_tail = 'sys/api/preferences/update/'
+    try:
+        full = reverse('update_preferences')
+    except NoReverseMatch:
+        return '/'
+    idx = full.rfind(known_tail)
+    if idx == -1:
+        return '/'
+    prefix = full[:idx]
+    if not prefix.startswith('/'):
+        prefix = '/' + prefix
+    if not prefix.endswith('/'):
+        prefix = prefix + '/'
+    return prefix
+
+
+def _dlux_client_urls():
+    model_details = _reverse_template_or_empty('api_get_model_details', '__app__', '__model__', 0)
+    if model_details:
+        model_details = model_details.replace('/0/', '/__pk__/', 1)
+    urls = {
+        'preferencesUpdate': _reverse_or_empty('update_preferences'),
+        'preferencesReset': _reverse_or_empty('reset_preferences'),
+        'appPreference': _reverse_template_or_empty('update_app_preference', '__namespace__'),
+        'notificationsList': _reverse_or_empty('notifications_list'),
+        'globalSearch': _reverse_or_empty('global_search'),
+        'sessionKeepalive': _reverse_or_empty('session_keepalive'),
+        'logout': _reverse_or_empty('logout'),
+        'sessionEnded': _reverse_or_empty('session_ended'),
+        'lastEntry': _reverse_template_or_empty('api_get_last_entry', '__app__', '__model__'),
+        'modelDetails': model_details,
+    }
+    return {key: value for key, value in urls.items() if value}
+
+
 def _build_titlebar_actions(request, context, final_config, dlux_strings):
     titlebar_config = context.get('titlebar') or {}
     action_order = normalize_titlebar_actions_order(titlebar_config.get('actions_order'))
@@ -435,6 +490,8 @@ def dlux_context(request):
     context['DLUX_THEMES'] = get_theme_options(dlux_strings, allowed_themes=allowed_theme_names)
     context['DLUX_TABLE_DENSITIES'] = list(TABLE_DENSITY_CHOICES)
     context['DLUX_MODAL_SIZES'] = list(MODAL_SIZE_CHOICES)
+    context['DLUX_URL_PREFIX'] = _dlux_url_prefix()
+    context['DLUX_URLS'] = _dlux_client_urls()
 
     context['CURRENT_LANG'] = current_lang
     context['CURRENT_DIR'] = current_dir

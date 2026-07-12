@@ -8,7 +8,10 @@ window.updatePreferences = function(data) {
         return;
     }
 
-    fetch('/sys/api/preferences/update/', {
+    const url = window.dluxEndpoint
+        ? window.dluxEndpoint('preferencesUpdate', null, '/sys/api/preferences/update/')
+        : (window.dluxUrl ? window.dluxUrl('/sys/api/preferences/update/') : '/sys/api/preferences/update/');
+    fetch(url, {
         method: "POST",
         headers: {
             "X-CSRFToken": csrfToken,
@@ -50,7 +53,10 @@ window.updateAppPreference = function (namespace, value) {
         return Promise.reject(new Error('missing-csrf'));
     }
 
-    return fetch('/sys/api/preferences/app/' + encodeURIComponent(namespace) + '/', {
+    const url = window.dluxEndpoint
+        ? window.dluxEndpoint('appPreference', { namespace: namespace }, '/sys/api/preferences/app/__namespace__/')
+        : (window.dluxUrl ? window.dluxUrl('/sys/api/preferences/app/') : '/sys/api/preferences/app/') + encodeURIComponent(namespace) + '/';
+    return fetch(url, {
         method: "POST",
         headers: {
             "X-CSRFToken": csrfToken,

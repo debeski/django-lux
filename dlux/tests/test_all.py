@@ -25,6 +25,7 @@ TEST_LABELS = [
     'dlux.tests.test_search',
     'dlux.tests.test_options_layout',
     'dlux.tests.test_options_registry',
+    'dlux.tests.test_settings_theme_persistence',
     'dlux.tests.test_data_reset',
     'dlux.tests.test_password_reset',
     'dlux.tests.test_dlux_setup',

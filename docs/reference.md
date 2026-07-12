@@ -228,6 +228,16 @@ window.updateAppPreference('myproject.dashboard.v1', layout)
 window.updateAppPreference('myproject.dashboard.v1', null);
 ```
 
+Mounted/prefixed projects: Dlux injects `window.DLUX_URL_PREFIX`,
+`window.DLUX_URLS`, `window.dluxUrl(path)`, and
+`window.dluxEndpoint(name, params, fallbackPath)` into `base.html`. Built-in
+preference/theme/language/table-density writes use the reversed
+`preferencesUpdate` endpoint, and app-pref writes use the reversed
+`appPreference` template, so they work under `/`, `/dlux/`, or an active i18n
+prefix. Downstream JS should use `{% url %}` for concrete routes or these
+helpers for Dlux route templates rather than posting directly to
+`/sys/api/...`.
+
 `localStorage` remains a fine fallback/migration layer — read it if
 `getAppPreference` returns your default, then write through to the namespace so
 the value becomes cross-device.

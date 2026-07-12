@@ -380,8 +380,19 @@
 
 .dlux-navbar-builder__grid {
   display: grid;
-  grid-template-columns: minmax(15rem, 1fr) minmax(15rem, 0.92fr) minmax(16rem, 1fr);
+  grid-template-columns: minmax(15rem, 1fr) minmax(16rem, 1fr);
   gap: 0.85rem;
+}
+
+/* The node inspector lives on its own full-width row above the tree/routes grid.
+   Add Group is always shown; the selection-dependent actions appear inline after it
+   once a node is inspected. Toggling only `d-none` (Bootstrap's none is !important)
+   reliably hides it; when shown, this rule restores the inline-flex layout. */
+.dlux-navbar-inspector-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .dlux-navbar-builder__pane {

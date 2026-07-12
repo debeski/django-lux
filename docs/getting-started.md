@@ -132,6 +132,14 @@ LOGIN_REDIRECT_URL = "/dlux/accounts/profile/"
 LOGOUT_REDIRECT_URL = "/dlux/accounts/login/"
 ```
 
+Dlux's own browser code resolves runtime API URLs from Django-reversed metadata,
+so built-in preferences, theme switching, notifications, search, session
+keepalive, and autofill continue to work when mounted at `/dlux/` or behind an
+i18n prefix. Project JavaScript should follow the same rule: use `{% url %}` in
+templates for concrete endpoints, or use `window.dluxEndpoint(name, params,
+fallbackPath)` / `window.dluxUrl("/sys/...")` for Dlux routes instead of
+hardcoding root-relative `/sys/...` or `/accounts/...` URLs.
+
 ## Run Initial Setup
 
 Run the setup helper:

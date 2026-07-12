@@ -30,9 +30,12 @@
     // Throttle server keepalive pings so active single-page use keeps the
     // server clock fresh without a request per keystroke.
     var PING_MS = Math.max(30 * 1000, Math.floor(TIMEOUT_MS / 2));
-    var KEEPALIVE_URL = '/accounts/session-keepalive/';
-    var LOGOUT_URL = '/accounts/logout/';
-    var ENDED_URL = '/accounts/session-ended/?reason=idle_timeout';
+    var _u = window.dluxEndpoint || function (_name, _params, fallbackPath) {
+        return window.dluxUrl ? window.dluxUrl(fallbackPath) : fallbackPath;
+    };
+    var KEEPALIVE_URL = _u('sessionKeepalive', null, '/accounts/session-keepalive/');
+    var LOGOUT_URL = _u('logout', null, '/accounts/logout/');
+    var ENDED_URL = _u('sessionEnded', null, '/accounts/session-ended/') + '?reason=idle_timeout';
 
     var strings = window.DLUX_STRINGS || {};
     function s(key, fallback) {

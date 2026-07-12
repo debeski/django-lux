@@ -23,7 +23,10 @@
     }
 
     function endpoint(root, id, action) {
-        const base = (root.dataset.listUrl || '/sys/api/notifications/').replace(/\/$/, '');
+        const fallback = window.dluxEndpoint
+            ? window.dluxEndpoint('notificationsList', null, '/sys/api/notifications/')
+            : (window.dluxUrl ? window.dluxUrl('/sys/api/notifications/') : '/sys/api/notifications/');
+        const base = (root.dataset.listUrl || fallback).replace(/\/$/, '');
         return base + '/' + encodeURIComponent(id) + '/' + action + '/';
     }
 

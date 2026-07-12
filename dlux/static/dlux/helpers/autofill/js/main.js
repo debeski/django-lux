@@ -252,13 +252,22 @@
      * API Helpers
      */
     async function fetchLastEntry(app, model) {
-        const response = await fetch(`/sys/api/last-entry/${app}/${model}/`);
+        const path = `/sys/api/last-entry/${app}/${model}/`;
+        const url = window.dluxEndpoint
+            ? window.dluxEndpoint('lastEntry', { app: app, model: model }, path)
+            : (window.dluxUrl ? window.dluxUrl(path) : path);
+        const response = await fetch(url);
         if (!response.ok) throw new Error(response.statusText);
         return await response.json();
     }
-    
+
     async function fetchModelDetails(app, model, pk) {
-        const url = `/sys/api/details/${app}/${model}/${pk}/`;
+        let url = `/sys/api/details/${app}/${model}/${pk}/`;
+        if (window.dluxEndpoint) {
+            url = window.dluxEndpoint('modelDetails', { app: app, model: model, pk: pk }, url);
+        } else if (window.dluxUrl) {
+            url = window.dluxUrl(url);
+        }
         debugLog("Autofill: Calling API:", url);
         const response = await fetch(url);
         if (!response.ok) throw new Error(`API Error ${response.status}: ${response.statusText}`);

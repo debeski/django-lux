@@ -1347,10 +1347,12 @@
         const catalog = parseJson(builder.querySelector('.dlux-navbar-catalog-data')?.value || '[]', [])
             .filter((entry) => entry && entry.kind === 'item' && entry.url_name);
         const languages = parseJson(builder.querySelector('.dlux-navbar-languages-data')?.value || '{}', {});
+        const currentLang = String((window.USER_PREFS && window.USER_PREFS._lang) || document.documentElement.getAttribute('lang') || 'en').toLowerCase();
         const state = {
             config: readNavbarBuilderConfig(parseJson(hiddenInput.value || builder.querySelector('.dlux-navbar-config-data')?.value || '{}', {})),
             selectedId: '',
             search: '',
+            showSystemItems: false,
         };
 
         const refs = {
@@ -1358,7 +1360,9 @@
             routeList: builder.querySelector('[data-navbar-route-list]'),
             routeSearch: builder.querySelector('[data-navbar-route-search]'),
             inspector: builder.querySelector('[data-navbar-inspector]'),
+            inspectorActions: builder.querySelector('[data-navbar-inspector-actions]'),
             inspectorEmpty: builder.querySelector('[data-navbar-inspector-empty]'),
+            systemToggle: builder.querySelector('[data-navbar-system-toggle]'),
             labelInputs: builder.querySelector('[data-navbar-label-inputs]'),
             urlInput: builder.querySelector('[data-navbar-node-url]'),
         };
@@ -1382,12 +1386,22 @@
         }
 
         function nodeLabel(node) {
-            const configuredLabel = Object.values(node.labels || {}).find((label) => String(label || '').trim());
-            if (configuredLabel) {
-                return configuredLabel;
+            const labels = node.labels || {};
+            // Prefer the override for the current display language so a manual node
+            // named in several languages shows the right one in the editor (not just
+            // whichever happened to be first in the object).
+            const localized = labels[currentLang] || labels[currentLang.split('-')[0]];
+            if (localized && String(localized).trim()) {
+                return String(localized).trim();
             }
             const route = node.kind === 'route' ? catalogEntry(node.url_name) : null;
-            return String((route && route.label) || node.id || '').trim();
+            if (route && String(route.label || '').trim()) {
+                return String(route.label).trim();
+            }
+            // No current-language override and no catalog label (manual node named in
+            // only other languages): fall back to any configured label, then the id.
+            const anyLabel = Object.values(labels).find((label) => String(label || '').trim());
+            return String(anyLabel || node.id || '').trim();
         }
 
         function serialize() {
@@ -1453,7 +1467,9 @@
         function renderRoutes() {
             refs.routeList.innerHTML = '';
             const groups = {};
-            catalog.filter(routeMatches).forEach((entry) => {
+            catalog
+                .filter((entry) => (state.showSystemItems || !entry.is_system) && routeMatches(entry))
+                .forEach((entry) => {
                 const key = entry.group_label || entry.group_key || t('navbar_routes', '');
                 groups[key] = groups[key] || [];
                 groups[key].push(entry);
@@ -1493,6 +1509,9 @@
         function renderInspector() {
             const selected = findNode(state.config.hierarchy.nodes, state.selectedId);
             refs.inspector.classList.toggle('d-none', !selected);
+            if (refs.inspectorActions) {
+                refs.inspectorActions.classList.toggle('d-none', !selected);
+            }
             refs.inspectorEmpty.classList.toggle('d-none', Boolean(selected));
             if (!selected) {
                 return;
@@ -1573,6 +1592,13 @@
             serialize();
         });
         builder.querySelector('[data-navbar-add-manual]')?.addEventListener('click', addManualNode);
+        builder.querySelector('[data-navbar-clear-selection]')?.addEventListener('click', () => selectNode(''));
+        if (refs.systemToggle) {
+            refs.systemToggle.addEventListener('change', () => {
+                state.showSystemItems = Boolean(refs.systemToggle.checked);
+                renderRoutes();
+            });
+        }
         builder.querySelector('[data-navbar-move-up]')?.addEventListener('click', () => moveSelected(-1));
         builder.querySelector('[data-navbar-move-down]')?.addEventListener('click', () => moveSelected(1));
         builder.querySelector('[data-navbar-move-root]')?.addEventListener('click', () => {
@@ -1925,17 +1951,20 @@
     }
 
     function availableItemDisplayLabel(item) {
+        // Trust the server-resolved catalog label directly, exactly like the navbar
+        // builder (renderRoutes uses entry.label as-is). The catalog label already
+        // went through the full translation chain server-side. The previous logic
+        // discarded a label that merely equalled its group label and fell back to a
+        // hardcoded English name ("<Group> Dashboard" / humanized url) — which
+        // wrongly Anglicised valid translations whose name matches the group (e.g.
+        // an Arabic "product_list" or "workspace dashboard"). Only humanize the URL
+        // as a last resort when the server gave us no usable label at all.
         const label = String(item && item.label ? item.label : '').trim();
-        const groupLabel = String(item && item.group_label ? item.group_label : '').trim();
-        const urlName = String(item && item.url_name ? item.url_name : item && item.id ? item.id : '').trim();
-        const leaf = urlName.split(':').pop();
-
-        if (label && label !== groupLabel) {
+        if (label) {
             return label;
         }
-        if (leaf === 'dashboard' && groupLabel) {
-            return `${groupLabel} Dashboard`;
-        }
+        const urlName = String(item && item.url_name ? item.url_name : item && item.id ? item.id : '').trim();
+        const groupLabel = String(item && item.group_label ? item.group_label : '').trim();
         return humanizeKey(urlName) || groupLabel || t('sidebar_group_label', 'Item');
     }
 
@@ -2252,6 +2281,8 @@
         const catalogData = builder.querySelector('.dlux-sidebar-catalog-data');
         const fallbackCatalogData = builder.querySelector('.dlux-sidebar-catalog-fallback-data');
         const configData = builder.querySelector('.dlux-sidebar-config-data');
+        const languages = parseJson(builder.querySelector('.dlux-sidebar-languages-data')?.value || '{}', {});
+        const currentLang = String((window.USER_PREFS && window.USER_PREFS._lang) || document.documentElement.getAttribute('lang') || 'en').toLowerCase();
         const catalog = normalizeCatalog(parseJson(catalogData ? catalogData.value : '[]', []));
         const fallbackCatalog = normalizeCatalog(parseJson(fallbackCatalogData ? fallbackCatalogData.value : '[]', []));
         const catalogLookup = buildCatalogLookup(catalog);
@@ -2278,7 +2309,7 @@
             systemToggle: builder.querySelector('[data-builder-system-toggle]'),
             inspector: builder.querySelector('[data-builder-inspector]'),
             inspectorEmpty: builder.querySelector('[data-builder-empty-inspector]'),
-            labelInput: builder.querySelector('[data-builder-label-input]'),
+            labelInputs: builder.querySelector('[data-builder-label-inputs]'),
             iconInput: builder.querySelector('[data-builder-icon-input]'),
             iconPreview: builder.querySelector('[data-builder-icon-preview]'),
             iconSuggestions: builder.querySelector('[data-builder-icon-suggestions]'),
@@ -2294,6 +2325,31 @@
 
         function serialize() {
             hiddenInput.value = JSON.stringify(state.config);
+        }
+
+        function languageRows() {
+            const rows = Object.entries(languages && typeof languages === 'object' ? languages : {});
+            return rows.length ? rows : [['en', { name: 'en' }]];
+        }
+
+        // Per-language name override resolution for the builder's own tree display.
+        // Precedence: explicit per-language override → the current-language catalog
+        // label (so the Selected tree matches the Available pane and runtime instead
+        // of a label baked in whatever language it was added in) → the stored label
+        // (only reached for non-discovered/custom entries and groups).
+        function entryLabelForDisplay(entry) {
+            const labels = entry && entry.labels;
+            if (labels && typeof labels === 'object') {
+                const override = labels[currentLang] || labels[currentLang.split('-')[0]];
+                if (override && String(override).trim()) {
+                    return override;
+                }
+            }
+            const discovered = findCatalogEntry(entry, catalogLookup);
+            if (discovered) {
+                return availableItemDisplayLabel(discovered);
+            }
+            return (entry && entry.label) || '';
         }
 
         function renderAvailable() {
@@ -2353,11 +2409,9 @@
                     button.innerHTML = `
                         <span class="dlux-builder-item-main">
                             <i class="bi ${item.icon}"></i>
-                            <span class="dlux-builder-item-copy">
-                                <span class="dlux-builder-item-label">${availableItemDisplayLabel(item)}</span>
-                                <span class="dlux-builder-item-meta">${item.url_name || item.id}</span>
-                            </span>
+                            <span>${availableItemDisplayLabel(item)}</span>
                         </span>
+                        <span class="badge text-bg-light">${item.url_name || item.id}</span>
                     `;
                     button.addEventListener('click', () => {
                         state.selected = { pane: 'available', id: item.id, kind: 'item' };
@@ -2450,7 +2504,7 @@
                     <div class="dlux-builder-group-header">
                         <span class="dlux-builder-item-main">
                             <i class="bi ${entry.icon}"></i>
-                            <span>${entry.label}</span>
+                            <span>${entryLabelForDisplay(entry)}</span>
                         </span>
                         <span class="badge text-bg-light">${(entry.items || []).length}</span>
                     </div>
@@ -2480,7 +2534,7 @@
                 wrapper.innerHTML = `
                     <span class="dlux-builder-item-main">
                         <i class="bi ${entry.icon}"></i>
-                        <span>${entry.label}</span>
+                        <span>${entryLabelForDisplay(entry)}</span>
                     </span>
                     <span class="badge text-bg-light">${entry.url_name}</span>
                 `;
@@ -2517,7 +2571,7 @@
 
             refs.inspector.classList.remove('d-none');
             refs.inspectorEmpty.classList.add('d-none');
-            refs.labelInput.value = location.entry.label || '';
+            renderLabelInputs(location.entry);
             refs.iconInput.value = location.entry.icon || '';
             refs.iconPreview.className = `bi ${location.entry.icon || 'bi-link-45deg'}`;
             refs.iconSuggestions.innerHTML = '';
@@ -2753,15 +2807,42 @@
             });
         }
 
-        refs.labelInput.addEventListener('input', () => {
-            if (!state.selected || state.selected.pane !== 'selected') return;
-            const location = findEntryLocation(state.config.entries, state.selected.id, state.selected.kind);
-            if (!location) return;
-            location.entry.label = refs.labelInput.value || '';
-            serialize();
-            renderSelected();
-            renderAvailable();
-        });
+        // Per-language name overrides (mirrors the navbar builder): one field per
+        // configured language, stored on entry.labels[code]. A blank language means
+        // "use the auto-translated name" (resolved server-side per viewer language).
+        function renderLabelInputs(entry) {
+            if (!refs.labelInputs) return;
+            refs.labelInputs.innerHTML = '';
+            languageRows().forEach(([code, payload]) => {
+                const langCode = String(code || '').toLowerCase();
+                const name = (payload && payload.name) || langCode;
+                const field = document.createElement('label');
+                field.className = 'form-label dlux-builder-label-field w-100 mb-2';
+                const currentValue = (entry.labels && entry.labels[langCode]) || '';
+                field.innerHTML = `
+                    <span class="small text-muted d-block mb-1">${escapeHtml(name)} <small>${escapeHtml(langCode)}</small></span>
+                    <input type="text" class="form-control glass-input" value="${escapeHtml(currentValue)}">
+                `;
+                field.querySelector('input').addEventListener('input', (event) => {
+                    const loc = findEntryLocation(state.config.entries, state.selected.id, state.selected.kind);
+                    if (!loc) return;
+                    const value = String(event.target.value || '').trim();
+                    loc.entry.labels = loc.entry.labels || {};
+                    if (value) {
+                        loc.entry.labels[langCode] = value;
+                    } else {
+                        delete loc.entry.labels[langCode];
+                    }
+                    if (!Object.keys(loc.entry.labels).length) {
+                        delete loc.entry.labels;
+                    }
+                    serialize();
+                    renderSelected();
+                    renderAvailable();
+                });
+                refs.labelInputs.appendChild(field);
+            });
+        }
 
         refs.iconInput.addEventListener('input', () => {
             if (!state.selected || state.selected.pane !== 'selected') return;

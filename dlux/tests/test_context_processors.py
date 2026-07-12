@@ -39,6 +39,24 @@ class ContextProcessorsTests(TestCase):
         context = dlux_context(request)
         self.assertIsInstance(context, dict)
 
+    @override_settings(ROOT_URLCONF='dlux.tests.urls_with_prefix_mount')
+    def test_dlux_context_exports_prefixed_client_urls(self):
+        request = self.factory.get('/dlux/sys/options/')
+        request.user = self.user
+
+        context = dlux_context(request)
+
+        self.assertEqual(context['DLUX_URL_PREFIX'], '/dlux/')
+        self.assertEqual(context['DLUX_URLS']['preferencesUpdate'], '/dlux/sys/api/preferences/update/')
+        self.assertEqual(context['DLUX_URLS']['preferencesReset'], '/dlux/sys/api/preferences/reset/')
+        self.assertEqual(context['DLUX_URLS']['appPreference'], '/dlux/sys/api/preferences/app/__namespace__/')
+        self.assertEqual(context['DLUX_URLS']['notificationsList'], '/dlux/sys/api/notifications/')
+        self.assertEqual(context['DLUX_URLS']['globalSearch'], '/dlux/search/')
+        self.assertEqual(context['DLUX_URLS']['sessionKeepalive'], '/dlux/accounts/session-keepalive/')
+        self.assertEqual(context['DLUX_URLS']['sessionEnded'], '/dlux/accounts/session-ended/')
+        self.assertEqual(context['DLUX_URLS']['lastEntry'], '/dlux/sys/api/last-entry/__app__/__model__/')
+        self.assertEqual(context['DLUX_URLS']['modelDetails'], '/dlux/sys/api/details/__app__/__model__/__pk__/')
+
     def test_dlux_context_includes_system_config(self):
         """Test that dlux_context includes system config."""
         request = self.factory.get('/')
