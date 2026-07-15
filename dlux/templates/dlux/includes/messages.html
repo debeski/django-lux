@@ -10,7 +10,7 @@
         data-dlux-flash-max-visible="{{ dlux_notification_config.flash.max_visible|default:3 }}"
     >
         {% for message in dlux_flash_notifications %}
-            <div class="alert alert-{{ message.tags }} {% if dlux_flash_mode == 'page' %}dlux-page-alert{% else %}dlux-global-alert dlux-flash{% endif %}" role="{% if 'danger' in message.tags or 'error' in message.tags %}alert{% else %}status{% endif %}" data-dlux-notification-id="{{ message.id|default:'' }}">
+            <div class="alert alert-{{ message.tags }} {% if dlux_flash_mode == 'page' %}dlux-page-alert{% else %}dlux-global-alert dlux-flash{% endif %}" role="{% if 'danger' in message.tags or 'error' in message.tags %}alert{% else %}status{% endif %}" data-autohide="true" data-dlux-notification-id="{{ message.id|default:'' }}">
                 {% if 'success' in message.tags %}
                     <i class="bi bi-check-circle-fill dlux-alert__icon" aria-hidden="true"></i>
                 {% elif 'warning' in message.tags %}

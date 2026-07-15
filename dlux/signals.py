@@ -187,6 +187,14 @@ def log_save(sender, instance, created, **kwargs):
             except Exception:
                 pass
 
+        # No-op update: we compared against the captured original and nothing the
+        # diff tracks actually changed. Don't create a log entry — this is what
+        # cluttered the activity log when System Settings (and other singletons)
+        # were re-saved without edits. Soft-delete transitions are excluded here
+        # because their action was already promoted to DELETE above.
+        if not details:
+            return
+
     # Normalize Model and Object ID for User/Profile/satellite identity unification.
     is_user_entry = False
     # Stable, locale-independent key ("app_label.model_name"). Left None for the unified

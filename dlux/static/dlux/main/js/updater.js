@@ -52,6 +52,7 @@
         const imageButton = root.querySelector('[data-dlux-update-image]');
         const rollbackButton = root.querySelector('[data-dlux-update-rollback]');
         const appVersionEl = root.querySelector('[data-dlux-app-version]');
+        const imageTargetEl = root.querySelector('[data-dlux-image-target]');
         const imageNameEl = root.querySelector('[data-dlux-image-name]');
         const imageDigestEl = root.querySelector('[data-dlux-image-digest]');
         const imageOkEl = root.querySelector('[data-dlux-image-ok]');
@@ -362,13 +363,28 @@
             // Application image row: version + short digest; green check when up
             // to date, down-arrow (start update) when a newer image is available.
             const img = state.image || {};
-            if (appVersionEl) appVersionEl.textContent = state.app_version ? ('v' + String(state.app_version).replace(/^v/, '')) : '';
+            // The deployed project's own version (from DLUX_APP_VERSION or a VERSION
+            // file at BASE_DIR); the state view nests it under `image`, so read it
+            // from there rather than the top level (which is never set).
+            const appVersion = img.app_version || state.app_version || '';
+            if (appVersionEl) appVersionEl.textContent = appVersion ? ('v' + String(appVersion).replace(/^v/, '')) : '';
             if (imageNameEl) { const nm = shortImageName(img.image); if (nm) imageNameEl.textContent = nm; }
             if (imageDigestEl) {
                 imageDigestEl.textContent = shortDigest(img.running_digest);
                 if (img.running_digest) imageDigestEl.title = img.running_digest;
             }
             if (imageCheckedEl) imageCheckedEl.textContent = fmtTime(img.checked_at);
+            // When an update is available, show what it would update to: the target
+            // version composer published, or the short remote digest as a fallback.
+            if (imageTargetEl) {
+                const tv = String(state.image_update_target || '').trim();
+                if (imageAvailable && tv) {
+                    imageTargetEl.textContent = '→ ' + (tv.indexOf('sha256:') === 0 ? shortDigest(tv) : (tv.charAt(0) === 'v' ? tv : 'v' + tv));
+                    imageTargetEl.hidden = false;
+                } else {
+                    imageTargetEl.hidden = true;
+                }
+            }
             if (imageOkEl) imageOkEl.hidden = imageAvailable || imgActive;
             if (imageButton) imageButton.hidden = !imageAvailable;
             const running = Boolean(run?.active || state.active_run_token || imgActive);

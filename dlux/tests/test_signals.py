@@ -146,6 +146,42 @@ class SignalTests(TestCase):
             if hasattr(_thread_locals, 'request'):
                 del _thread_locals.request
 
+    def test_log_save_skips_no_op_update(self):
+        """A save that changes no tracked field must not create a log entry —
+        this is what cluttered the activity log when System Settings (and other
+        singletons) were re-saved without edits. A real change still logs."""
+        from dlux.middleware import _thread_locals
+
+        request = self.factory.get('/')
+        request.user = self.user
+        _thread_locals.user = self.user
+        _thread_locals.request = request
+        try:
+            self.user.first_name = 'Original'
+            self.user.save()
+            UserActivityLog.objects.filter(created_by=self.user, action='UPDATE').delete()
+
+            # No-op: reload and save without changing anything.
+            same = User.objects.get(pk=self.user.pk)
+            same.save()
+            self.assertEqual(
+                UserActivityLog.objects.filter(created_by=self.user, action='UPDATE').count(),
+                0,
+                'a no-op update should not be logged',
+            )
+
+            # A real change still logs.
+            same.first_name = 'Changed'
+            same.save()
+            self.assertEqual(
+                UserActivityLog.objects.filter(created_by=self.user, action='UPDATE').count(),
+                1,
+            )
+        finally:
+            for attr in ('user', 'request'):
+                if hasattr(_thread_locals, attr):
+                    delattr(_thread_locals, attr)
+
     def test_log_save_skips_last_login_only_update(self):
         """Test that post_save skips updates to last_login field only."""
         from dlux.signals import log_save

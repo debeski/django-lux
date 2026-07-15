@@ -89,11 +89,22 @@ def image_update_available(store=None):
     data = read_image_availability(store)
     if not data.get("available"):
         return False, "", ""
+    # Prefer the target image's own version (composer publishes it best-effort as
+    # ``version`` from the OCI version label); fall back to a short remote digest
+    # when the version isn't available, so this never breaks without composer's
+    # newer output.
     target = ""
+    digest_fallback = ""
     for image in data.get("images", []):
-        if isinstance(image, dict) and image.get("update_available") and image.get("remote_digest"):
-            target = str(image["remote_digest"])[:19]  # sha256:xxxxxxxxxx
+        if not (isinstance(image, dict) and image.get("update_available")):
+            continue
+        version = str(image.get("version") or "").strip()
+        if version:
+            target = version if version.lower().startswith("v") else f"v{version}"
             break
+        if not digest_fallback and image.get("remote_digest"):
+            digest_fallback = str(image["remote_digest"])[:19]  # sha256:xxxxxxxxxx
+    target = target or digest_fallback
     return True, target, "A new application image is available."
 
 
@@ -134,6 +145,9 @@ def image_status_summary(store=None):
         "image": first.get("image") or "",
         "running_digest": first.get("local_digest") or "",
         "remote_digest": first.get("remote_digest") or "",
+        # Best-effort target version composer published (OCI version label); ''
+        # when unavailable, in which case the UI falls back to the remote digest.
+        "remote_version": str(first.get("version") or "").strip(),
         "update_available": bool(data.get("available")),
         "checked_at": data.get("checked_at") or "",
         "last_update": last_summary,

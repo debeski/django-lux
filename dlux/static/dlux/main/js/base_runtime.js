@@ -74,7 +74,14 @@
             }, 260);
         }
 
-        document.querySelectorAll(".alert:not([data-autoclose='false'])").forEach(function (message) {
+        // Auto-hide is OPT-IN, not the default. Only alerts explicitly marked
+        // data-autohide="true" fade out on their own. The Dlux flash/notification
+        // template stamps that attribute on its messages, so real notifications
+        // still auto-dismiss — but every other .alert on the page (modal notices,
+        // form warnings, inline hints) now stays until the user dismisses it, with
+        // no opt-out attribute needed. data-autoclose="false" still force-pins an
+        // alert that would otherwise auto-hide (kept for backward compatibility).
+        document.querySelectorAll('.alert[data-autohide="true"]:not([data-autoclose="false"])').forEach(function (message) {
             const container = message.closest('[data-dlux-flash-timeout]');
             const configuredTimeout = container ? parseInt(container.dataset.dluxFlashTimeout || '', 10) : NaN;
             const timeout = Number.isFinite(configuredTimeout) ? configuredTimeout : 3200;

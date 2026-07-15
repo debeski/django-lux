@@ -26,6 +26,22 @@ def _set_options_style(style):
     return ss
 
 
+def _set_small_theme_language_options(style):
+    ss = _set_options_style(style)
+    ss.default_theme = 'light'
+    ss.allowed_themes = ['light', 'dark']
+    ss.allow_user_theme_override = True
+    ss.default_language = 'en'
+    ss.languages = {
+        'en': {'name': 'English', 'dir': 'ltr', 'flag': 'GB'},
+        'ar': {'name': 'Arabic', 'dir': 'rtl', 'flag': 'SA'},
+    }
+    ss.allow_user_language_override = True
+    ss.save()
+    cache.clear()
+    return ss
+
+
 class OptionsStyleNormalizerTests(TestCase):
     def test_default_is_cards(self):
         self.assertEqual(normalize_layout_config({})['options_style'], 'cards')
@@ -89,7 +105,29 @@ class OptionsStyleRenderTests(TestCase):
         match = re.search(r'data-options-style="(\w+)"', html)
         return match.group(1) if match else None
 
+    def _rendered_html(self):
+        self.client.force_login(self.superuser)
+        return self.client.get('/sys/options/').content.decode()
+
     def test_each_style_renders_attribute(self):
         for style in ('cards', 'tabs', 'compact'):
             _set_options_style(style)
             self.assertEqual(self._rendered_style(), style)
+
+    def test_tabbed_small_theme_language_options_remain_separate_cards(self):
+        _set_small_theme_language_options('tabs')
+
+        html = self._rendered_html()
+
+        self.assertIn('data-options-card="theme"', html)
+        self.assertIn('data-options-card="language"', html)
+        self.assertNotIn('data-options-card="theme-language"', html)
+
+    def test_card_small_theme_language_options_still_merge(self):
+        _set_small_theme_language_options('cards')
+
+        html = self._rendered_html()
+
+        self.assertIn('data-options-card="theme-language"', html)
+        self.assertNotIn('data-options-card="theme"', html)
+        self.assertNotIn('data-options-card="language"', html)

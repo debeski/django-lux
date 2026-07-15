@@ -1,12 +1,15 @@
 {
   "schema_version": 1,
-  "version": "1.4.6",
+  "version": "1.4.7",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Fixes the app-owned settings modal save flow. Successful POSTs from register_app_settings forms now return refresh_parent=true.",
+  "summary": "Limits notification drawer background polling to active progress notifications and improves tabbed Options discoverability. The browser no longer performs a standing unread-badge poll; it refreshes on drawer/action use and runs the deduplicated 3s poll only while a locked progress notification exists. Tabbed Options now keeps Theme and Language as separate tabs even when card/compact layouts merge the small-choice controls. Inline-safe: template/static JavaScript/docs/tests only; no migration.",
   "highlights": [
-    "App-settings modal saves now return refresh_parent=true so the shared dynamic modal closes instead of reopening itself."
+    "Removes the standing 15s unread-badge notification poll.",
+    "Runs deduped 3s polling only while a locked progress notification exists.",
+    "Keeps Theme and Language as separate tabs in tabbed Options style.",
+    "Preserves the small-choice Theme/Language merge for card and compact Options layouts."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.6"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.7"
 }

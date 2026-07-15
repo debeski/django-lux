@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+    const PROGRESS_REFRESH_MS = 3000;
+
     function csrfToken() {
         const meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.getAttribute('content') : '';
@@ -109,6 +111,27 @@
         return root.dataset.emptyText || 'No notifications';
     }
 
+    function notificationsEnabled(root) {
+        return root && root.dataset.dluxNotificationsEnabled === 'true';
+    }
+
+    function applyPayload(root, payload) {
+        renderList(root, payload.items || []);
+        updateBadge(root, payload.unread_count || 0, payload.unread_level || 'info');
+    }
+
+    function hasActiveProgress(payload) {
+        return Boolean(payload && (payload.items || []).some(function (item) {
+            return item.metadata && item.metadata.backup_progress && item.metadata.locked;
+        }));
+    }
+
+    function rootHasActiveProgress(root) {
+        return Boolean(root && root.querySelector(
+            '[data-dlux-notification-item][data-backup-progress="true"][data-locked="true"]'
+        ));
+    }
+
     function renderList(root, items) {
         const list = root.querySelector('[data-dlux-notifications-list]');
         if (!list) {
@@ -130,7 +153,7 @@
 
     function refresh(root) {
         const url = root.dataset.listUrl;
-        if (!url) {
+        if (!url || !notificationsEnabled(root)) {
             return Promise.resolve();
         }
         return fetch(url, {
@@ -143,10 +166,16 @@
             }
             return response.json();
         }).then(function (payload) {
-            renderList(root, payload.items || []);
-            updateBadge(root, payload.unread_count || 0, payload.unread_level || 'info');
+            applyPayload(root, payload);
             return payload;
         }).catch(function () { return null; });
+    }
+
+    function refreshRoot(root) {
+        if (root && typeof root.__dluxNotificationsRefresh === 'function') {
+            return root.__dluxNotificationsRefresh();
+        }
+        return refresh(root);
     }
 
     function setOpen(root, open) {
@@ -158,7 +187,7 @@
         panel.hidden = !open;
         trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
         if (open) {
-            refresh(root);
+            refreshRoot(root);
         }
     }
 
@@ -223,26 +252,111 @@
         if (item.dataset.readUrl && item.classList.contains('dlux-notifications__item--unread')) {
             postJSON(item.dataset.readUrl).then(function () {
                 item.classList.remove('dlux-notifications__item--unread');
-                refresh(root);
+                refreshRoot(root);
             }).catch(function () {});
         }
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         const roots = Array.from(document.querySelectorAll('[data-dlux-notifications]'));
-        const refreshTimers = new WeakMap();
-        function scheduleRefresh(root, delay) {
-            const current = refreshTimers.get(root);
+        const groupsByUrl = new Map();
+        roots.forEach(function (root) {
+            const url = root.dataset.listUrl || '';
+            if (!url) {
+                return;
+            }
+            if (!groupsByUrl.has(url)) {
+                groupsByUrl.set(url, { url: url, roots: [] });
+            }
+            groupsByUrl.get(url).roots.push(root);
+        });
+        const refreshGroups = Array.from(groupsByUrl.values());
+        const refreshTimers = new Map();
+
+        function groupEnabled(group) {
+            return group.roots.some(notificationsEnabled);
+        }
+
+        function groupHasActiveProgress(group) {
+            return group.roots.some(function (root) {
+                return notificationsEnabled(root) && rootHasActiveProgress(root);
+            });
+        }
+
+        function clearRefresh(group) {
+            const current = refreshTimers.get(group);
             if (current) window.clearTimeout(current);
-            refreshTimers.set(root, window.setTimeout(function () {
-                refresh(root).then(function (payload) {
-                    const active = Boolean(payload && (payload.items || []).some(function (item) {
-                        return item.metadata && item.metadata.backup_progress && item.metadata.locked;
-                    }));
-                    scheduleRefresh(root, active ? 3000 : 15000);
+            refreshTimers.delete(group);
+        }
+
+        function refreshGroup(group) {
+            const enabledRoots = group.roots.filter(notificationsEnabled);
+            if (!group.url || !enabledRoots.length || document.hidden) {
+                return Promise.resolve(null);
+            }
+            return fetch(group.url, {
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Request failed');
+                }
+                return response.json();
+            }).then(function (payload) {
+                enabledRoots.forEach(function (root) {
+                    applyPayload(root, payload);
+                });
+                return payload;
+            }).catch(function () { return null; });
+        }
+
+        function scheduleProgressRefresh(group, delay) {
+            clearRefresh(group);
+            if (!groupEnabled(group) || !groupHasActiveProgress(group) || document.hidden) {
+                return;
+            }
+            refreshTimers.set(group, window.setTimeout(function () {
+                if (document.hidden) {
+                    clearRefresh(group);
+                    return;
+                }
+                refreshGroup(group).then(function (payload) {
+                    if (hasActiveProgress(payload) || (payload === null && groupHasActiveProgress(group))) {
+                        scheduleProgressRefresh(group, PROGRESS_REFRESH_MS);
+                    } else {
+                        clearRefresh(group);
+                    }
                 });
             }, delay));
         }
+
+        function startGroupProgressRefresh(group, delay) {
+            if (!groupEnabled(group) || !groupHasActiveProgress(group) || document.hidden || refreshTimers.get(group)) {
+                return;
+            }
+            scheduleProgressRefresh(group, delay);
+        }
+
+        function refreshGroupAndMaybePoll(group) {
+            return refreshGroup(group).then(function (payload) {
+                if (hasActiveProgress(payload)) {
+                    scheduleProgressRefresh(group, PROGRESS_REFRESH_MS);
+                } else if (!groupHasActiveProgress(group)) {
+                    clearRefresh(group);
+                }
+                return payload;
+            });
+        }
+
+        refreshGroups.forEach(function (group) {
+            group.roots.forEach(function (root) {
+                root.__dluxNotificationsRefresh = function () {
+                    return refreshGroupAndMaybePoll(group);
+                };
+            });
+        });
+
         roots.forEach(function (root) {
             const trigger = root.querySelector('[data-dlux-notifications-toggle]');
             const readAll = root.querySelector('[data-dlux-notifications-read-all]');
@@ -273,7 +387,7 @@
                         return;
                     }
                     postJSON(root.dataset.readAllUrl).then(function () {
-                        refresh(root);
+                        refreshRoot(root);
                         showList(root);
                     }).catch(function () {});
                 });
@@ -286,7 +400,7 @@
                         return;
                     }
                     postJSON(root.dataset.clearAllUrl).then(function () {
-                        refresh(root);
+                        refreshRoot(root);
                         showList(root);
                     }).catch(function () {});
                 });
@@ -307,16 +421,24 @@
                     }
                     postJSON(url).then(function () {
                         showList(root);
-                        refresh(root);
+                        refreshRoot(root);
                     }).catch(function () {});
                 });
             }
-            refresh(root).then(function (payload) {
-                const active = Boolean(payload && (payload.items || []).some(function (item) {
-                    return item.metadata && item.metadata.backup_progress && item.metadata.locked;
-                }));
-                scheduleRefresh(root, active ? 3000 : 15000);
-            });
+        });
+
+        refreshGroups.forEach(function (group) {
+            startGroupProgressRefresh(group, 0);
+        });
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                refreshGroups.forEach(clearRefresh);
+            } else {
+                refreshGroups.forEach(function (group) {
+                    startGroupProgressRefresh(group, 0);
+                });
+            }
         });
 
         document.addEventListener('click', function () {

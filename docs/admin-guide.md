@@ -209,6 +209,7 @@ Options layout note:
 - the cards are intentionally reorganizable from their drag handles
 - card order persists per browser in local storage, not in `Profile.preferences`
 - the System Info card intentionally stays wider than the rest of the cards inside the grid
+- in tabbed Options style, Theme and Language are always separate tabs; the small-choice compact merge is only used by the card/compact layouts
 
 Security note:
 

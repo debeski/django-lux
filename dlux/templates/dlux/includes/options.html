@@ -272,6 +272,12 @@
                                             {% endif %}
                                             <span class="dlux-upd-name" data-dlux-image-name>{{ DLUX_STRINGS.dlux_update_application|default:'Application' }}</span>
                                             <span class="dlux-upd-ver" data-dlux-app-version></span>
+                                            {% if dlux_update_state.baked_version %}
+                                            <span class="dlux-upd-baked" data-dlux-baked-version
+                                                  title="{{ DLUX_STRINGS.dlux_update_baked_note|default:'DjangoLux version baked into this image' }}">{{ DLUX_STRINGS.dlux_update_baked_label|default:'baked dlux' }} v{{ dlux_update_state.baked_version }}</span>
+                                            {% endif %}
+                                            <span class="dlux-upd-target" data-dlux-image-target hidden
+                                                  title="{{ DLUX_STRINGS.dlux_update_image|default:'Application update available' }}"></span>
                                         </span>
                                         <code class="dlux-upd-digest" data-dlux-image-digest></code>
                                     </div>
@@ -550,7 +556,7 @@
         <!-- Theme / Language Selection -->
         {% if config.allow_user_theme_override and DLUX_THEMES|length > 1 or language_picker_enabled %}
 
-            {% if DLUX_THEMES|length > 5 or LANGUAGES|length > 2 %}
+            {% if APP_CONFIG.appearance.options_style == 'tabs' or DLUX_THEMES|length > 5 or LANGUAGES|length > 2 %}
 
                 {% if config.allow_user_theme_override and DLUX_THEMES|length > 1 %}
                 <div class="dlux-options-card no-print" data-options-card="theme">

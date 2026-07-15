@@ -672,6 +672,25 @@ button.dlux-upd-ic--avail:hover { background: color-mix(in srgb, #d97706 26%, tr
 button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, var(--title) 9%, transparent); transform: none; }
 .dlux-upd-name { font-weight: 650; color: var(--title); }
 .dlux-upd-ver { color: color-mix(in srgb, var(--title) 78%, transparent); font-variant-numeric: tabular-nums; }
+.dlux-upd-baked {
+    font-size: 0.68rem;
+    color: color-mix(in srgb, var(--title) 52%, transparent);
+    font-variant-numeric: tabular-nums;
+    border: 1px solid color-mix(in srgb, var(--title) 18%, transparent);
+    border-radius: 0.5rem;
+    padding: 0.02rem 0.4rem;
+    white-space: nowrap;
+}
+.dlux-upd-target {
+    font-size: 0.72rem;
+    color: #d97706;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid color-mix(in srgb, #d97706 45%, transparent);
+    background: color-mix(in srgb, #d97706 12%, transparent);
+    border-radius: 0.5rem;
+    padding: 0.02rem 0.42rem;
+    white-space: nowrap;
+}
 .dlux-upd-digest { font-size: 0.72rem; color: color-mix(in srgb, var(--title) 48%, transparent); overflow-wrap: anywhere; text-align: end; }
 .dlux-upd-ribbon {
     margin-top: 0.35rem;

@@ -127,6 +127,30 @@ page reconnects to an active apply/rollback run. A successful update exposes
 an idle card does not repeat the latest historical check as an active/completed
 operation, while actionable failure details remain visible.
 
+The **Application** row shows the deployed project's own version, taken from
+`settings.DLUX_APP_VERSION` (else a `VERSION` file at `BASE_DIR`). Set one of
+those to surface your project's version — the value is shown next to the running
+image name/digest. After it, a small **`DjangoLux v<baked>`** badge shows the
+DjangoLux framework version baked into that image
+(`dlux_update_state.baked_version` = `DLUX_BAKED_VERSION`, falling back to the
+packaged `dlux.__version__`), so the row reads as "project version + which
+DjangoLux the image was built with." When an inline wheel update has moved the
+running DjangoLux ahead of the image, the running `DjangoLux` row version and
+this baked badge differ.
+
+Detecting whether a **newer application image** is available is registry- and
+digest-driven (the `composer` service compares the running image digest against
+the remote tag and publishes availability); it does not require a project-side
+release manifest. When an update is available the row shows **`→ v<target>`** —
+the target image's version, which `composer` reads best-effort from the image's
+OCI `org.opencontainers.image.version` label (override with
+`COMPOSER_VERSION_LABEL`) and publishes in `image-available.json`. This is the
+**same label composer's version gate compares** to reject downgrades (an image
+whose version is lower than the currently deployed one), so the version shown is
+exactly the one the gate acts on. If composer can't read the label (older
+composer, private/unsupported registry, or a missing label), the row falls back
+to a short remote digest — nothing breaks.
+
 ## Release Verification Contract
 
 Every wheel must contain `dlux/release-manifest.json` with schema version 1, the exact wheel version, `inline_safe`, minimum updater schema, migration policy, summary, and the official GitHub release URL. Discovery uses PyPI's Simple JSON API and excludes prereleases, development releases, yanked files, non-wheel files, and anything other than `py3-none-any`.

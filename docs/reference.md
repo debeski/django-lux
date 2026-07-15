@@ -806,6 +806,7 @@ Options/runtime UI notes:
 - Options cards are draggable through per-card handles and the current order is persisted in browser `localStorage`
 - the wide System Info card intentionally keeps a double-column span inside the grid
 - Autofill and Reset Defaults are standalone cards in the shared Options card system, not nested sub-cards
+- `tabs` style keeps Theme and Language as separate cards/tabs even when the card/compact layouts would merge a small number of choices into one combined card
 - the authenticated Nav Bar groups Dlux-owned routes under an unclickable `System` crumb by default; unplaced Dlux system routes may also follow `SYSTEM_ROUTE_META[*].breadcrumb_parent` to mirror Dlux page links, so Backup & Restore falls under Application Options unless the hierarchy builder explicitly places it elsewhere; configurable Dlux system routes remain available in that builder for overrides
 
 ## Framework-Owned Table Surface
