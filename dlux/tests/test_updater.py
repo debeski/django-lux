@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import timedelta
 from pathlib import Path
 import subprocess
 import sys
@@ -21,7 +22,14 @@ from django.urls import reverse
 from django.utils import timezone
 
 from dlux import __version__
-from dlux.models import ActivityLog, DluxUpdateRun, DluxUpdateState, SystemBackup, SystemSettings
+from dlux.models import (
+    ActivityLog,
+    DluxImageUpdate,
+    DluxUpdateRun,
+    DluxUpdateState,
+    SystemBackup,
+    SystemSettings,
+)
 from dlux.scaffold import ScaffoldError, enable_updater
 from dlux.updater import UpdaterError
 from dlux.updater.manifest import (
@@ -35,6 +43,7 @@ from dlux.updater.manifest import (
     verify_pypi_attestation,
 )
 from dlux.updater.runtime import RuntimeStore
+from dlux.updater.image_update import ack_path, read_composer_ack, status_path
 from dlux.updater.health import runtime_probe_token
 from dlux.updater.release_check import (
     _changed_migrations,
@@ -603,6 +612,122 @@ class RuntimeStoreTests(TestCase):
         )
 
 
+class ImageUpdateHandoffTests(TestCase):
+    def _awaiting_row(self):
+        return DluxImageUpdate.objects.create(
+            status=DluxImageUpdate.STATUS_AWAITING_RECREATE,
+            handoff_at=timezone.now() - timedelta(seconds=5),
+            target_version="",
+        )
+
+    @staticmethod
+    def _write_ack(store, row, exit_code, *, token=None):
+        payload = {
+            "token": token if token is not None else row.token,
+            "exit_code": exit_code,
+            "finished_at": timezone.now().isoformat(),
+        }
+        ack_path(store).write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    def test_failed_token_matched_ack_clears_maintenance_without_status_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            row = self._awaiting_row()
+            store.set_maintenance(True, token=row.token)
+            self._write_ack(store, row, 1)
+
+            UpdateService(store=store)._finalize_image_update(row)
+
+            row.refresh_from_db()
+            self.assertEqual(row.status, row.STATUS_FAILED)
+            self.assertFalse(row.is_active)
+            self.assertIn("exited with status 1", row.error)
+            self.assertFalse(store.maintenance_file.exists())
+            self.assertEqual(read_composer_ack(store)["token"], row.token)
+
+    def test_successful_token_matched_ack_completes_without_status_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            row = self._awaiting_row()
+            store.set_maintenance(True, token=row.token)
+            self._write_ack(store, row, 0)
+
+            UpdateService(store=store)._finalize_image_update(row)
+
+            row.refresh_from_db()
+            self.assertEqual(row.status, row.STATUS_COMPLETED)
+            self.assertFalse(row.is_active)
+            self.assertFalse(store.maintenance_file.exists())
+
+    def test_ack_for_an_older_request_cannot_finalize_current_handoff(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            row = self._awaiting_row()
+            store.set_maintenance(True, token=row.token)
+            self._write_ack(store, row, 1, token="older-request")
+
+            UpdateService(store=store)._finalize_image_update(row)
+
+            row.refresh_from_db()
+            self.assertEqual(row.status, row.STATUS_AWAITING_RECREATE)
+            self.assertTrue(row.is_active)
+            self.assertTrue(store.maintenance_file.exists())
+
+    def test_fresh_failed_status_clears_maintenance_with_detailed_error(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            row = self._awaiting_row()
+            store.set_maintenance(True, token=row.token)
+            status_path(store).write_text(
+                json.dumps({
+                    "status": "failed",
+                    "updated_at": timezone.now().isoformat(),
+                    "request_token": row.token,
+                    "error": "Composer could not create its runtime override.",
+                }) + "\n",
+                encoding="utf-8",
+            )
+
+            UpdateService(store=store)._finalize_image_update(row)
+
+            row.refresh_from_db()
+            self.assertEqual(row.status, row.STATUS_FAILED)
+            self.assertEqual(row.error, "Composer could not create its runtime override.")
+            self.assertFalse(store.maintenance_file.exists())
+
+    def test_undated_status_cannot_finalize_a_new_handoff(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            row = self._awaiting_row()
+            store.set_maintenance(True, token=row.token)
+            status_path(store).write_text(
+                json.dumps({"status": "failed", "error": "stale failure"}) + "\n",
+                encoding="utf-8",
+            )
+
+            UpdateService(store=store)._finalize_image_update(row)
+
+            row.refresh_from_db()
+            self.assertEqual(row.status, row.STATUS_AWAITING_RECREATE)
+            self.assertTrue(row.is_active)
+            self.assertTrue(store.maintenance_file.exists())
+
+    def test_unacknowledged_handoff_fails_before_full_deploy_timeout(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            row = self._awaiting_row()
+            row.handoff_at = timezone.now() - timedelta(seconds=121)
+            row.save(update_fields=["handoff_at"])
+            store.set_maintenance(True, token=row.token)
+
+            UpdateService(store=store)._finalize_image_update(row)
+
+            row.refresh_from_db()
+            self.assertEqual(row.status, row.STATUS_FAILED)
+            self.assertIn("did not acknowledge", row.error)
+            self.assertFalse(store.maintenance_file.exists())
+
+
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
 class UpdaterApiTests(TestCase):
     def setUp(self):
@@ -780,6 +905,8 @@ class UpdaterApiTests(TestCase):
         response = self.client.get(reverse("options_view"))
         self.assertContains(response, "data-dlux-updater")
         self.assertContains(response, "data-dlux-update-check>")
+        self.assertContains(response, "data-dlux-update-recheck")
+        self.assertContains(response, "Re-check for newer release")
         self.assertContains(response, "dluxUpdateReviewModal")
         self.assertContains(response, "data-dlux-update-progress-panel")
         self.assertContains(response, 'name="current_password" autocomplete="off"')
@@ -802,6 +929,7 @@ class UpdaterApiTests(TestCase):
         options_response = staff_client.get(reverse("options_view"))
         self.assertContains(options_response, "data-dlux-updater")
         self.assertNotContains(options_response, "data-dlux-update-check>")
+        self.assertNotContains(options_response, "data-dlux-update-recheck")
         script = Path(__file__).resolve().parents[1] / "static" / "dlux" / "main" / "js" / "updater.js"
         contents = script.read_text(encoding="utf-8")
         self.assertIn("if (payload.state?.can_manage)", contents)
@@ -809,10 +937,12 @@ class UpdaterApiTests(TestCase):
         self.assertIn("const PROGRESS", contents)
         self.assertIn("showProgress(run)", contents)
         self.assertIn("run.token === trackedRunToken", contents)
+        self.assertIn("modalRecheckButton", contents)
+        self.assertIn("reopenReviewAfterCheck", contents)
         # The Check button spins via the shared loading-button helper and a
         # successful run shows a green "Finish" affordance (the old misleading
         # "Update completed" root-status line was removed).
-        self.assertIn("startCheckSpinner()", contents)
+        self.assertIn("startCheckSpinner(button)", contents)
         self.assertIn("root.dataset.labelFinish", contents)
         self.assertNotIn("setRootStatus(message, 5000)", contents)
         self.assertNotIn("modal.hide()", contents)

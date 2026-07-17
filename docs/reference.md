@@ -17,9 +17,9 @@ Generated project baseline:
 - `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
-- a generated Docker baseline with `web`, `celery`, `dlux-updater`, `db`, `redis`, `nginx`, `pgadmin`, database backup, and internal `smtp-relay` services
+- a generated Docker baseline with `web`, `celery`, `dlux-updater`, `composer-updater` (+ least-privilege `docker-socket-proxy`), `db`, `redis`, `caddy` (active proxy; `nginx` fallback), `pgadmin`, database backup, and internal `smtp-relay` services
 - `requirements.txt` pinned to the generated stable `django-lux` release
-- a persistent `dlux_runtime` volume, project-owned process supervisor, and static nginx maintenance page
+- a persistent `dlux_runtime` volume, project-owned process supervisor, and a proxy-served maintenance/progress page
 
 Generated app scaffold baseline:
 - discovery-friendly `models.py`, `forms.py`, `filters.py`, `tables.py`, `views.py`, `urls.py`, `translations.py`, templates, and tests

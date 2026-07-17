@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Update in progress</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: #101827; color: #f8fafc; }
+    main { width: min(46rem, calc(100% - 2rem)); padding: 2rem; border: 1px solid #334155; border-radius: 1rem; background: #172033; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.28); }
+    h1 { margin: 0 0 0.5rem; font-size: clamp(1.4rem, 3vw, 2rem); }
+    p { color: #cbd5e1; line-height: 1.6; margin: 0.35rem 0 1rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.25rem 0; color: #cbd5e1; }
+    .pill { border: 1px solid #475569; border-radius: 999px; padding: 0.35rem 0.75rem; background: #0f172a; }
+    .progress { height: 0.8rem; overflow: hidden; border-radius: 999px; background: #0f172a; border: 1px solid #334155; }
+    .bar { width: 12%; min-width: 2rem; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #38bdf8, #22c55e); transition: width 300ms ease; }
+    .status { margin-top: 0.75rem; color: #e2e8f0; font-weight: 650; }
+    pre { max-height: 18rem; overflow: auto; padding: 1rem; border: 1px solid #334155; border-radius: 0.75rem; background: #0f172a; color: #dbeafe; white-space: pre-wrap; word-break: break-word; }
+    .muted { color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Application update in progress</h1>
+    <p>DjangoLux and composer are applying the verified image update. This page stays available while the application containers restart.</p>
+    <div class="meta">
+      <span class="pill" id="phase">Preparing</span>
+      <span class="pill muted" id="updated">Waiting for status...</span>
+    </div>
+    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12">
+      <div class="bar" id="bar"></div>
+    </div>
+    <div class="status" id="statusText">Starting update...</div>
+    <pre id="log" class="muted">Waiting for deployment log...</pre>
+  </main>
+  <script>
+    (function () {
+      "use strict";
+      var statusUrl = "/_update/status.json";
+      var logUrl = "/_update/log.txt";
+      var phaseEl = document.getElementById("phase");
+      var updatedEl = document.getElementById("updated");
+      var barEl = document.getElementById("bar");
+      var progressEl = document.querySelector(".progress");
+      var statusTextEl = document.getElementById("statusText");
+      var logEl = document.getElementById("log");
+      var sawProgress = false;
+      var readyCount = 0;
+      var recoveryTimer = null;
+      var percentByStatus = {
+        starting: 12,
+        preparing: 16,
+        pulling: 30,
+        recreating: 58,
+        restarting: 72,
+        migrating: 86,
+        ready: 100,
+        failed: 100
+      };
+
+      function label(value) {
+        return String(value || "maintenance").replace(/_/g, " ");
+      }
+
+      function scheduleRecoveryProbe() {
+        if (recoveryTimer !== null) return;
+        function probeRecovery() {
+          recoveryTimer = null;
+          fetch("/", { cache: "no-store" })
+            .then(function (response) {
+              if (response.ok) {
+                window.location.replace("/");
+                return;
+              }
+              recoveryTimer = window.setTimeout(probeRecovery, 2000);
+            })
+            .catch(function () {
+              recoveryTimer = window.setTimeout(probeRecovery, 2000);
+            });
+        }
+        recoveryTimer = window.setTimeout(probeRecovery, 1000);
+      }
+
+      function setStatus(doc) {
+        var status = String((doc && doc.status) || "maintenance");
+        var percent = percentByStatus[status] || 20;
+        sawProgress = sawProgress || status !== "ready";
+        phaseEl.textContent = label(status);
+        updatedEl.textContent = doc && doc.updated_at ? "Updated " + doc.updated_at : "Waiting for status...";
+        barEl.style.width = percent + "%";
+        progressEl.setAttribute("aria-valuenow", String(percent));
+        statusTextEl.textContent = doc && doc.error ? doc.error : "Current phase: " + label(status);
+        if (status === "failed") {
+          barEl.style.background = "#dc2626";
+          scheduleRecoveryProbe();
+        } else if (status === "ready") {
+          barEl.style.background = "#22c55e";
+          readyCount += 1;
+          if (sawProgress && readyCount >= 2) {
+            window.setTimeout(function () { window.location.href = "/"; }, 1500);
+          }
+        } else {
+          readyCount = 0;
+        }
+      }
+
+      function fetchStatus() {
+        fetch(statusUrl, { cache: "no-store" })
+          .then(function (response) { return response.ok ? response.json() : {}; })
+          .then(setStatus)
+          .catch(function () { setStatus({ status: "maintenance" }); });
+      }
+
+      function fetchLog() {
+        fetch(logUrl, { cache: "no-store" })
+          .then(function (response) { return response.ok ? response.text() : ""; })
+          .then(function (text) {
+            if (!text) return;
+            logEl.textContent = text;
+            logEl.classList.remove("muted");
+            logEl.scrollTop = logEl.scrollHeight;
+          })
+          .catch(function () {});
+      }
+
+      fetchStatus();
+      fetchLog();
+      window.setInterval(fetchStatus, 3000);
+      window.setInterval(fetchLog, 3000);
+    })();
+  </script>
+</body>
+</html>

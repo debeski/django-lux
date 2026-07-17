@@ -74,6 +74,7 @@
         const failedAck = modalElement?.querySelector('[data-dlux-update-failed-ack]');
         const failedText = modalElement?.querySelector('[data-dlux-update-failed-text]');
         const skipButton = modalElement?.querySelector('[data-dlux-update-skip]');
+        const modalRecheckButton = modalElement?.querySelector('[data-dlux-update-recheck]');
         const skippedWrap = root.querySelector('[data-dlux-skipped-wrap]');
         const skippedList = root.querySelector('[data-dlux-skipped-list]');
         const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
@@ -88,6 +89,8 @@
         let trackedRunToken = '';
         let rootStatusTimer = null;
         let checkHandle = null;
+        let checkBusy = false;
+        let reopenReviewAfterCheck = false;
         // Image-level (full container) update: not a DluxUpdateRun, so it is
         // tracked via the state endpoint's `image_update` object rather than a
         // run_url. The recreate takes this page into maintenance, so tracking is
@@ -115,6 +118,14 @@
 
         function imageActive(iu) {
             return Boolean(iu && iu.active);
+        }
+
+        function hasWheelUpdate(nextState) {
+            const s = nextState || state || {};
+            return Boolean(
+                s.latest_compatible && s.latest_version &&
+                s.latest_version !== s.active_version
+            );
         }
 
         function imageStatusLabel(status, deployStatus) {
@@ -151,15 +162,30 @@
             return String(ref).split('@')[0].replace(/:[^/:]+$/, '');
         }
 
-        // The "Check for updates" button spins via the shared loading-button
-        // helper while the check is in flight (replacing the old root status line).
-        function startCheckSpinner() {
-            if (checkButton && window.DluxLoadingButton && !checkHandle) {
-                checkHandle = window.DluxLoadingButton.start(checkButton);
+        // Check controls spin via the shared loading-button helper while the
+        // PyPI check is in flight (replacing the old root status line).
+        function startCheckSpinner(button) {
+            if (checkBusy) return;
+            checkBusy = true;
+            const target = button || checkButton;
+            if (target && window.DluxLoadingButton) {
+                checkHandle = window.DluxLoadingButton.start(target);
+            } else if (target) {
+                target.disabled = true;
             }
         }
         function stopCheckSpinner() {
             if (checkHandle) { checkHandle.stop(); checkHandle = null; }
+            checkBusy = false;
+            render(state);
+        }
+
+        function restoreReviewActionState() {
+            if (!reviewPanel || reviewPanel.hidden || !submit) return;
+            const ackRequired = failedWarning && !failedWarning.classList.contains('d-none');
+            submit.disabled = Boolean(ackRequired && failedAck && !failedAck.checked);
+            if (skipButton) skipButton.disabled = false;
+            if (modalRecheckButton) modalRecheckButton.disabled = false;
         }
 
         function setRootStatus(message, clearAfter = 0) {
@@ -378,10 +404,7 @@
             checked.textContent = state.last_checked_at
                 ? new Date(state.last_checked_at).toLocaleString()
                 : '—';
-            const updateAvailable = Boolean(
-                state.latest_compatible && state.latest_version &&
-                state.latest_version !== state.active_version
-            );
+            const updateAvailable = hasWheelUpdate(state);
             // Translated status line (replaces the old "in progress"/"completed"
             // root status): a check error, else a clear update-ready / up-to-date
             // message, else whatever reason the backend supplied.
@@ -440,7 +463,8 @@
             if (imageButton) imageButton.hidden = !imageAvailable;
             const running = Boolean(run?.active || state.active_run_token || imgActive);
             root.classList.toggle('is-running', running);
-            if (checkButton) checkButton.disabled = running || Boolean(checkHandle);
+            if (checkButton) checkButton.disabled = running || checkBusy;
+            if (modalRecheckButton) modalRecheckButton.disabled = running || checkBusy;
             if (reviewButton) reviewButton.disabled = running;
             if (imageButton) imageButton.disabled = running;
             if (rollbackButton) rollbackButton.disabled = running;
@@ -516,9 +540,26 @@
                 if (!TERMINAL.has(payload.run.status)) {
                     schedulePoll();
                 } else {
+                    const shouldReopenReview = Boolean(
+                        reopenReviewAfterCheck
+                        && payload.run.action === 'check'
+                        && payload.run.status === 'completed'
+                    );
+                    if (reopenReviewAfterCheck && payload.run.action === 'check') {
+                        reopenReviewAfterCheck = false;
+                    }
                     runUrl = '';
                     stopCheckSpinner(); // no-op unless a check spinner is active
                     await refreshState();
+                    if (shouldReopenReview) {
+                        if (hasWheelUpdate(state)) {
+                            openReview('apply');
+                        } else if (dismissButtons && dismissButtons[0]) {
+                            dismissButtons[0].click();
+                        }
+                    } else if (payload.run.action === 'check') {
+                        restoreReviewActionState();
+                    }
                 }
             } catch (_error) {
                 schedulePoll();
@@ -537,22 +578,41 @@
             return payload;
         }
 
-        checkButton?.addEventListener('click', async () => {
-            startCheckSpinner();
+        async function runCheck(button, options = {}) {
+            const reopenReview = Boolean(options.reopenReview);
+            if (checkBusy) return;
+            if (reopenReview) {
+                reopenReviewAfterCheck = true;
+                if (submit) submit.disabled = true;
+                if (skipButton) skipButton.disabled = true;
+            }
+            startCheckSpinner(button);
             try {
                 await queue(root.dataset.checkUrl, new FormData());
                 if (!runUrl) {
                     // Synchronous check: state is refreshed and we're done.
                     await refreshState();
                     stopCheckSpinner();
+                    if (reopenReviewAfterCheck) {
+                        reopenReviewAfterCheck = false;
+                        if (hasWheelUpdate(state)) {
+                            openReview('apply');
+                        } else if (dismissButtons && dismissButtons[0]) {
+                            dismissButtons[0].click();
+                        }
+                    }
                 }
                 // Async check (run_url present): the spinner is stopped when the
                 // tracked run reaches a terminal status in pollRun().
             } catch (requestError) {
+                reopenReviewAfterCheck = false;
                 stopCheckSpinner();
+                restoreReviewActionState();
                 showError(requestError.message);
             }
-        });
+        }
+
+        checkButton?.addEventListener('click', () => runCheck(checkButton));
 
         // Render release notes as short bullet highlights instead of the long
         // prose summary (which made the modal very tall). The generic
@@ -597,9 +657,18 @@
             } else if (isImage) {
                 title = root.dataset.labelImageTitle;
                 confirm = root.dataset.labelImageConfirm;
-                target = state.image_update_target || state.latest_version;
-                manifest = state.latest_manifest;
-                compatibility = state.image_update_reason || state.latest_reason || '';
+                // An image rebuild targets the PROJECT image's own version — never
+                // the DjangoLux wheel version. Prefer composer's published target
+                // (a v-version or short remote digest); if that is unavailable,
+                // fall back to the project's own current app version, NOT
+                // `latest_version` (that is the dlux wheel and reads as "update
+                // dlux" here). Likewise there is no per-project release manifest
+                // for an image rebuild, so don't surface the dlux wheel's notes.
+                const img = state.image || {};
+                const projVer = String(img.app_version || '').replace(/^v/, '').trim();
+                target = state.image_update_target || (projVer ? 'v' + projVer : '—');
+                manifest = null;
+                compatibility = state.image_update_reason || '';
             }
             modalElement.querySelector('[data-dlux-update-modal-title]').textContent = title;
             modalElement.querySelector('[data-dlux-update-submit]').textContent = confirm;
@@ -639,10 +708,15 @@
             if (skipButton) {
                 if (!isRollback && !isImage && target && String(target) !== String(state.active_version || '')) {
                     skipButton.dataset.skipVersion = String(target);
+                    skipButton.disabled = false;
                     skipButton.classList.remove('d-none');
                 } else {
                     skipButton.classList.add('d-none');
                 }
+            }
+            if (modalRecheckButton) {
+                modalRecheckButton.classList.toggle('d-none', isRollback || isImage);
+                modalRecheckButton.disabled = checkBusy;
             }
             reviewPanel.hidden = false;
             progressPanel.hidden = true;
@@ -675,6 +749,7 @@
             const v = skipButton.dataset.skipVersion;
             if (v) { postSkip(v, false); }
         });
+        modalRecheckButton?.addEventListener('click', () => runCheck(modalRecheckButton, { reopenReview: true }));
         reviewButton?.addEventListener('click', () => openReview('apply'));
         imageButton?.addEventListener('click', () => openReview('image'));
         rollbackButton?.addEventListener('click', () => openReview('rollback'));

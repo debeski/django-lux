@@ -1,16 +1,18 @@
 {
   "schema_version": 1,
-  "version": "1.4.8",
+  "version": "1.4.9",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Fixes a high-severity inline-updater outage where a failed or interrupted DjangoLux update could leave the site stuck behind the maintenance/update screen even after the runtime had healthily reverted to the baked image. reconcile() now lowers an orphaned maintenance flag once the runtime has demonstrably converged onto a healthy release and no run or image update still owns it, so a plain updater restart self-heals the outage. Adds a re-apply confirmation guard (the review modal warns and requires an explicit acknowledgment before re-installing a version whose most recent apply already failed) and a permanent skip: the admin can skip a version from the updater dialog so the check never offers it again (picking the latest non-skipped release instead) until un-skipped. Inline-safe: one backward-compatible, nullable AddField (skipped_versions) plus updater/view logic, templates, and tests.",
+  "summary": "Adds updater review re-checks, generated image-update Compose stabilization, and terminal image-handoff recovery. DjangoLux now consumes composer's token-matched exit acknowledgement when deploy status is unavailable, clears failed maintenance immediately, and generated maintenance pages return to the application automatically after recovery. Inline-safe: Python, template, JavaScript, scaffold, i18n, docs, and tests only; no migration.",
   "highlights": [
-    "Fixes the 'stuck on the update screen' outage: reconcile lowers an orphaned maintenance flag when the runtime is healthy on baked.",
-    "A failed/interrupted update that reverts to the baked image no longer 503s the whole site indefinitely.",
-    "A plain updater restart (compose restart/down-up) now self-heals a stuck maintenance flag.",
-    "New re-apply confirmation guard: warns and requires acknowledgment before re-installing a previously-failed version.",
-    "New permanent 'Skip this version' from the updater dialog: the check never offers a skipped version until you un-skip it."
+    "Adds a re-check icon inside the DjangoLux update review modal.",
+    "Repaints or closes the modal after the existing superuser-only check endpoint finishes.",
+    "Uses token-matched composer acknowledgements as an independent terminal handoff signal.",
+    "Returns generated maintenance pages to the application automatically after failed-update recovery.",
+    "Keeps generated composer-updater services on Composer latest while excluding the updater and socket gateway from update scope.",
+    "Sets COMPOSER_EXCLUDE_SERVICES=composer-updater,docker-socket-proxy in generated image-update scaffolds.",
+    "Enables Docker socket-proxy EVENTS=1 for Compose update progress."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.8"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.9"
 }

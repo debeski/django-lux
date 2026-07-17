@@ -27,6 +27,13 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Surface the baked DjangoLux version as an image label so an external updater
+# (composer's preflight version gate) can refuse to recreate onto an image
+# older than the deployment's active runtime version. Passed at build time
+# (CI derives it from the pinned requirement); empty locally = gate skipped.
+ARG DLUX_BAKED_VERSION=""
+LABEL org.{{ project_slug }}.dlux_baked_version="${DLUX_BAKED_VERSION}"
+
 # Copy the project files
 COPY . /app/
 

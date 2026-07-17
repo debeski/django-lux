@@ -868,10 +868,17 @@
                         <div class="text-danger small mt-2" data-dlux-update-error hidden></div>
                     </div>
                     <div class="modal-footer justify-content-between">
-                        <button type="button" class="btn btn-outline-secondary btn-sm d-none" data-dlux-update-skip
-                                title="{{ DLUX_STRINGS.dlux_update_skip_title|default:'Never offer this version again (you can un-skip it later)' }}">
-                            <i class="bi bi-slash-circle me-1"></i>{{ DLUX_STRINGS.dlux_update_skip|default:'Skip this version' }}
-                        </button>
+                        <span class="d-flex gap-2 align-items-center">
+                            <button type="button" class="btn btn-outline-secondary btn-sm d-none" data-dlux-update-recheck
+                                    title="{{ DLUX_STRINGS.dlux_update_recheck|default:'Re-check for newer release' }}"
+                                    aria-label="{{ DLUX_STRINGS.dlux_update_recheck|default:'Re-check for newer release' }}">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm d-none" data-dlux-update-skip
+                                    title="{{ DLUX_STRINGS.dlux_update_skip_title|default:'Never offer this version again (you can un-skip it later)' }}">
+                                <i class="bi bi-slash-circle me-1"></i>{{ DLUX_STRINGS.dlux_update_skip|default:'Skip this version' }}
+                            </button>
+                        </span>
                         <span class="d-flex gap-2 ms-auto">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-dlux-update-dismiss>{{ DLUX_STRINGS.btn_cancel|default:'Cancel' }}</button>
                             <button type="button" class="btn btn-primary" data-dlux-update-submit>{{ DLUX_STRINGS.dlux_update_confirm|default:'Apply update' }}</button>

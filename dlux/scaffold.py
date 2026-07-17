@@ -97,12 +97,15 @@ def create_project(project_name, destination=None):
         "project/tools/dlux_runtime_supervisor.py.tmpl": target_root / "tools" / "dlux_runtime_supervisor.py",
         "project/gunicorn.py.tmpl": target_root / "gunicorn.py",
         "project/requirements.txt.tmpl": target_root / "requirements.txt",
-        # nginx `envsubst` template: the official nginx image renders any
-        # /etc/nginx/templates/*.template file at startup (substituting
-        # ${NGINX_*} env vars) into /etc/nginx/conf.d/. The source carries both
-        # suffixes — `.template` (nginx) inside `.tmpl` (scaffold).
-        "project/.nginx/default.conf.template.tmpl": target_root / ".nginx" / "default.conf.template",
-        "project/.nginx/maintenance.html.tmpl": target_root / ".nginx" / "maintenance.html",
+        # Reverse proxy configs live in .proxy/ (proxy-agnostic) alongside the
+        # shared maintenance.html. Caddy is the active proxy; nginx is a
+        # commented-out fallback in compose.yml. The nginx `default.conf.template`
+        # relies on the official nginx image's envsubst startup rendering
+        # (${NGINX_*} → /etc/nginx/conf.d/), so it carries both suffixes —
+        # `.template` (nginx) inside `.tmpl` (scaffold).
+        "project/.proxy/Caddyfile.tmpl": target_root / ".proxy" / "Caddyfile",
+        "project/.proxy/default.conf.template.tmpl": target_root / ".proxy" / "default.conf.template",
+        "project/.proxy/maintenance.html.tmpl": target_root / ".proxy" / "maintenance.html",
         "project/start.sh.tmpl": target_root / "start.sh",
         "project/start.ps1.tmpl": target_root / "start.ps1",
         "project/README.md.tmpl": target_root / "README.md",
@@ -586,6 +589,10 @@ def enable_updater(project_root=None, *, apply=False, command_runner=subprocess.
         "tools/dlux_runtime_supervisor.py": _render_template(
             "project/tools/dlux_runtime_supervisor.py.tmpl", {},
         ),
+        # Legacy retrofit path: old projects use `.nginx/nginx.conf` (no /_update
+        # endpoints), so they get the simple auto-refresh maintenance page from
+        # the legacy `.nginx/` template — NOT the `.proxy/` polling progress page
+        # that new `create_project` output ships (which needs composer status).
         ".nginx/maintenance.html": _render_template(
             "project/.nginx/maintenance.html.tmpl", {},
         ),

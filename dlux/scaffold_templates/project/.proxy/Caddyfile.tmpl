@@ -1,0 +1,134 @@
+# ---------------------------------------------------------------------------
+# Caddy reverse proxy for the {{ project_title }} Django/DLux stack.
+#
+# Functionally mirrors ./.proxy/default.conf.template (the nginx fallback): same
+# static/media/pgadmin routing, the same /_update/status.json + /_update/log.txt
+# progress endpoints, the same always-200 /_edge-alive health probe, hybrid
+# /health behavior for planned maintenance, the same maintenance-flag 503
+# short-circuit, and the same maintenance progress page on 502/503/504.
+#
+# Default posture: plain HTTP on :80 with auto_https disabled (no ACME), so the
+# app sits behind your own TLS terminator / reverse proxy (or is used in local
+# dev), and it stays usable on an offline / air-gapped host. A front proxy may
+# health-check GET /_edge-alive or /health; /health proxies to Django normally
+# but answers proxy-local 200 while the dlux maintenance marker exists.
+#
+# To let Caddy terminate TLS itself instead: set CADDY_SITE_ADDRESS to your
+# hostname(s), remove the `auto_https off` global below, and publish :443 on the
+# caddy service (the host then needs outbound internet for ACME).
+#
+# Unlike nginx, Caddy re-resolves the `web` upstream per dial, so it reconnects
+# to a recreated container's new IP on its own — no `resolver` directive needed.
+# ---------------------------------------------------------------------------
+{
+	# TLS handled elsewhere by default; never attempt ACME here.
+	auto_https off
+}
+
+{$CADDY_SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# Mirrors nginx client_max_body_size ${NGINX_MAX_SIZE}.
+	request_body {
+		max_size {$CADDY_MAX_SIZE:10MB}
+	}
+
+	# Ordered routing (route preserves top-to-bottom order, unlike bare directives).
+	route {
+		# Never serve dlux DB backups over media.
+		# (nginx: location ^~ /media/dlux_backups/ { return 404; })
+		respond /media/dlux_backups/* 404
+
+		# Live composer/DLux update status + log for the maintenance progress
+		# page. Served straight off the shared dlux_runtime volume, independent
+		# of web, so polling keeps working while web is recreated.
+		# (nginx: location = /_update/status.json | = /_update/log.txt)
+		handle /_update/status.json {
+			root * /opt/dlux-runtime/state
+			rewrite * /deploy-status.json
+			header Cache-Control "no-store"
+			header X-Robots-Tag "noindex"
+			file_server
+		}
+		handle /_update/log.txt {
+			root * /opt/dlux-runtime/state
+			rewrite * /deploy-log.txt
+			header Cache-Control "no-store"
+			header X-Robots-Tag "noindex"
+			file_server
+		}
+
+		# Always-200 edge-liveness probe for a front proxy's health check. Never
+		# proxied to web, never gated by the maintenance flag, so the front proxy
+		# keeps this backend UP throughout an image update.
+		# (nginx: location = /_edge-alive { return 200 "ok\n"; })
+		handle /_edge-alive {
+			respond "ok" 200
+		}
+
+		# Static assets — immutable, cached one year. handle_path strips /static.
+		# (nginx: location /static/ { alias /app/staticfiles/; expires 1y; ... })
+		handle_path /static/* {
+			root * /app/staticfiles
+			header Cache-Control "public, max-age=31536000, immutable"
+			file_server
+		}
+
+		# Media files. (nginx: location /media/ { alias /app/media/; })
+		handle_path /media/* {
+			root * /app/media
+			file_server
+		}
+
+		# pgAdmin under /pgadmin4/ (served even during app maintenance, like nginx).
+		# (nginx: location /pgadmin4/ { proxy_pass http://pgadmin:80/; X-Script-Name })
+		handle_path /pgadmin4/* {
+			reverse_proxy pgadmin:80 {
+				header_up X-Script-Name /pgadmin4
+			}
+		}
+
+		# Hybrid health endpoint:
+		# - normal operation: proxy to Django's /health/
+		# - planned maintenance: proxy-local 200 so a front proxy keeps backend UP
+		# (nginx: location /health { proxy_pass http://$web_upstream/health/; })
+		handle /health* {
+			@maintenance_health file {
+				root /
+				try_files /opt/dlux-runtime/state/maintenance
+			}
+			respond @maintenance_health "ok" 200
+
+			rewrite * /health/
+			reverse_proxy web:8000
+		}
+
+		# Maintenance flag: dlux writes /opt/dlux-runtime/state/maintenance.
+		# Short-circuit the app route to 503 (static/media/pgadmin + /_update/*
+		# + /_edge-alive + /health above are already served); handle_errors
+		# renders the maintenance progress page.
+		# (nginx: if (-f /opt/dlux-runtime/state/maintenance) { return 503; })
+		@maintenance file {
+			root /
+			try_files /opt/dlux-runtime/state/maintenance
+		}
+		error @maintenance 503
+
+		# Primary application. Caddy re-resolves `web` per dial.
+		# (nginx: location / { proxy_pass http://$web_upstream; ... })
+		reverse_proxy web:8000
+	}
+
+	# Maintenance / upstream-down page.
+	# (nginx: error_page 502 503 504 =503 /dlux-maintenance.html)
+	handle_errors {
+		@down expression {http.error.status_code} in [502, 503, 504]
+		handle @down {
+			root * /usr/share/caddy/maintenance
+			rewrite * /maintenance.html
+			file_server {
+				status 503
+			}
+		}
+	}
+}

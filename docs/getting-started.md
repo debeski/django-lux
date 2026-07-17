@@ -45,8 +45,9 @@ python -m dlux startapp billing --register
 ```
 
 The generated project already includes a Docker baseline, a `config/celery.py`
-entrypoint, `celery` and `dlux-updater` services, a persistent `dlux_runtime`
-volume, nginx maintenance fallback, a `/health/` endpoint, a generated
+entrypoint, `celery`, `dlux-updater`, and `composer-updater` services, a
+persistent `dlux_runtime` volume, a Caddy proxy (nginx fallback) with a
+maintenance/progress page, a `/health/` endpoint, a generated
 `.secrets/.env` file with the bootstrap secret values, and baseline
 `django-cors-headers` / `django-csp` setup in `config/settings.py`.
 

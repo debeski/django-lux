@@ -9,10 +9,10 @@ Generated projects define a persistent `dlux_runtime` volume:
 - `releases/<version>/` contains retained `pip --target` wheel installations.
 - `state/active.json` atomically selects either the image package or one volume release.
 - `state/generation` tells the generated supervisor to gracefully restart Gunicorn and Celery.
-- `state/maintenance` tells nginx to serve the generated static HTTP 503 page.
+- `state/maintenance` tells the proxy (Caddy, or the nginx fallback) to serve the generated maintenance/progress page and short-circuit `/` to HTTP 503.
 - `state/updater-heartbeat` is the updater service health signal.
 
-The `dlux-updater` service uses the same `WEB_IMAGE` as `web` and `celery`. It mounts `dlux_runtime`, static files, media-backed system backups, and logs read/write. It joins the internal database/Redis network and the dedicated `dlux_update_egress` bridge, publishes no ports, and never mounts the Docker socket. `web`, `celery`, and nginx mount the runtime volume read-only. Web and Celery wait for the updater health check so the worker can reconstruct a missing volume from `DluxUpdateState` before application processes start.
+The `dlux-updater` service uses the same `WEB_IMAGE` as `web` and `celery`. It mounts `dlux_runtime`, static files, media-backed system backups, and logs read/write. It joins the internal database/Redis network and the dedicated `dlux_update_egress` bridge, publishes no ports, and never mounts the Docker socket. `web`, `celery`, and the proxy mount the runtime volume read-only. Web and Celery wait for the updater health check so the worker can reconstruct a missing volume from `DluxUpdateState` before application processes start.
 
 The project-owned `tools/dlux_runtime_supervisor.py` uses only the Python
 standard library. Before prepending a selected release directory to the child
@@ -120,7 +120,7 @@ The worker checks daily after startup jitter. Nothing is installed automatically
 
 1. Select **Check for updates**.
 2. Select **Review and update** only when the release passes every safety gate.
-3. Review the escaped release summary, compatibility result, target version, and maintenance notice.
+3. Review the escaped release summary, compatibility result, target version, and maintenance notice. If a release is already offered and you want to check whether a newer release has appeared, use the re-check icon in the review modal; it reuses the same superuser-only check endpoint and refreshes the modal target when the check completes.
 4. Confirm with the current password.
 
 If the target version's **most recent apply already failed** (or was auto-rolled-back), the review modal shows a red warning with the prior failure detail and requires an explicit "retry at my own responsibility" acknowledgment before the Apply button enables — so a version that just failed its health check isn't silently re-applied (for example by the daily availability re-offering it). A later successful apply of that version clears the warning.
@@ -161,6 +161,42 @@ whose version is lower than the currently deployed one), so the version shown is
 exactly the one the gate acts on. If composer can't read the label (older
 composer, private/unsupported registry, or a missing label), the row falls back
 to a short remote digest — nothing breaks.
+
+The **image-rebuild review dialog** (opened from the Application row's update
+arrow) reports the *project image's* target — `state.image_update_target` (the
+published target version or short remote digest), falling back to the project's
+own current app version when composer has not published a target. It never falls
+back to the DjangoLux wheel version, and it does not show the DjangoLux wheel's
+release highlights, because an image rebuild delivers the whole project image
+(app code plus whatever DjangoLux the image bakes), not an inline wheel upgrade.
+
+Generated Compose scaffolds run the resident `composer-updater` from
+`debeski/composer:latest` and set
+`COMPOSER_EXCLUDE_SERVICES=composer-updater,docker-socket-proxy`, so the watcher
+can run the full `composer -u` pull/gate/recreate/health/post-start path without
+targeting either the container supervising that run or the Docker API gateway it
+is using. The generated `docker-socket-proxy` also enables the Compose events API
+(`EVENTS=1`) along with containers/images/networks/volumes and exec/POST access,
+which keeps image-update progress observable through the least-privilege Docker
+gateway.
+
+The image handoff has two independent terminal signals. Composer publishes the
+live phase and terminal result in `state/deploy-status.json`, and its resident
+watcher records the exact request token plus child exit code in
+`state/image-update-request.json.ack`. DjangoLux accepts only an ack matching the
+active `DluxImageUpdate.token`; a non-zero result fails the image update and
+lowers maintenance immediately even if deploy status could not be written. A
+separate two-minute start deadline clears maintenance if Composer publishes
+neither a fresh phase nor a valid ack; once work has started, a hard one-hour
+deployment timeout remains as the final guard. Composer 1.1.11 also guarantees a token-matched `failed` status
+for any non-zero child exit and creates generated runtime overrides in system
+temporary storage, so read-only or host-owned project mounts require no added
+Linux capabilities.
+
+On terminal failure the generated maintenance page keeps the error visible while
+probing `/` every two seconds. As soon as the worker has lowered maintenance and
+the application responds successfully, the browser returns to `/` automatically
+instead of remaining on the 503 progress page.
 
 ## Release Verification Contract
 

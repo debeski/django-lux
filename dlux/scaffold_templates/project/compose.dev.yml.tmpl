@@ -18,7 +18,7 @@ services:
       - ./media/:/app/media/:rw
       - ./logs/:/app/logs:rw
 
-  nginx:
+  caddy:
     ports: !override
       - target: 80
         published: "90"
@@ -37,7 +37,7 @@ services:
     environment:
       BASE_URL: "http://localhost:90"
       DEBUG_STATUS: "True"
-      NGINX_PORT: "90"
+      CADDY_PORT: "90"
 
   celery:
     build: .

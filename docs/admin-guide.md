@@ -353,17 +353,23 @@ Backup generation flow:
 
 `client_max_body_size` limits request bodies (uploads), not the size of a backup response. Completed artifacts are streamed by Django through a permission-checked GET, so a large ZIP is not rejected by nginx's upload ceiling. Web, Celery, and nginx still need the same persistent media mount, and the proxy must allow a normal continuously streamed response.
 
-**Deployment requirement:** the backup prefix lives under media so containers can share it, but it must never be served directly. Block it at the reverse proxy, e.g. nginx:
+**Deployment requirement:** the backup prefix lives under media so containers can share it, but it must never be served directly. Block it at the reverse proxy. Generated projects ship both proxy configs in `.proxy/` and already include this guard before the general `/media/` handler — **Caddy** (the active default):
+
+```caddyfile
+respond /media/dlux_backups/* 404
+```
+
+…and the **nginx** fallback:
 
 ```nginx
-location /media/dlux_backups/ {
+location ^~ /media/dlux_backups/ {
     return 404;
 }
 ```
 
-New generated projects include this guard before the general `/media/` alias. Existing deployments must add it to their nginx configuration and reload/recreate nginx; installing a newer wheel cannot rewrite a project-owned reverse-proxy file.
+Existing deployments must add the guard to whichever proxy config they run and reload/recreate that proxy; installing a newer wheel cannot rewrite a project-owned reverse-proxy file.
 
-**Nginx config as an `envsubst` template.** Generated projects ship the reverse-proxy config as `.nginx/default.conf.template`, mounted into the official nginx image's template directory (`/etc/nginx/templates/`). At container start nginx runs `envsubst` and writes the rendered file to `/etc/nginx/conf.d/default.conf`. Two values are parameterized through the environment (set in `.secrets/.env`, with compose defaults): `NGINX_SERVER_NAME` (default `localhost`) and `NGINX_MAX_SIZE` — the `client_max_body_size` upload ceiling (default `10M`). `NGINX_ENVSUBST_FILTER: "NGINX_"` restricts substitution to `NGINX_*` variables so nginx's own runtime variables (`$host`, `$remote_addr`, `$scheme`, …) are preserved. To raise the form-upload limit, change `NGINX_MAX_SIZE` and recreate the nginx container — no file edit required.
+**Reverse proxy (`.proxy/`): Caddy by default, nginx fallback.** Generated projects ship two interchangeable proxy configs in `.proxy/` plus a shared `maintenance.html`. **Caddy** (`.proxy/Caddyfile`, the active `caddy` service) serves plain HTTP on `:80` with `auto_https off` — front it with your own TLS terminator, or set `CADDY_SITE_ADDRESS` to a hostname to let Caddy terminate TLS itself. Its published host port reads `CADDY_PORT`, then legacy `NGINX_PORT`, then `80`, and the upload ceiling is `CADDY_MAX_SIZE` (default `10MB`). The **nginx** fallback (`.proxy/default.conf.template`, a commented-out `nginx` service you can swap in) is mounted into the official nginx image's template directory (`/etc/nginx/templates/`); at container start nginx runs `envsubst` and writes `/etc/nginx/conf.d/default.conf`, parameterized by `NGINX_SERVER_NAME` (default `localhost`) and `NGINX_MAX_SIZE` (`client_max_body_size`, default `10M`), with `NGINX_ENVSUBST_FILTER: "NGINX_"` preserving nginx's own runtime variables (`$host`, `$remote_addr`, …). Both configs are **not** gated on `web`'s health and re-resolve the recreated `web` container (Caddy natively; nginx via a `resolver` directive), and both serve the composer update progress endpoints (`/_update/status.json`, `/_update/log.txt`), an always-200 `/_edge-alive` probe, and a hybrid `/health` that returns proxy-local `200` during maintenance — point a front proxy's health check at `/_edge-alive` or `/health`, never `/`. To raise the upload limit, change `CADDY_MAX_SIZE` (or `NGINX_MAX_SIZE`) and recreate the proxy — no file edit required.
 
 Downloads always go through the permission-checked Django view, which also enforces that only the requesting user can fetch their own backup. Dlux-owned transactional SMTP mail (OTP codes, registration, backup-related notifications) now applies a connection timeout (default 10s, override with `email_config['timeout']`) so an unreachable mail host fails fast instead of hanging the request.
 

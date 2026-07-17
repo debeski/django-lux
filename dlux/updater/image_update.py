@@ -27,8 +27,13 @@ from .service import _state_model, updates_enabled
 # How long to wait for composer to finish after hand-off before giving up and
 # clearing maintenance. Generous: a full pull + recreate + migrate can be slow.
 HANDOFF_TIMEOUT_SECONDS = 3600
+# A watcher should publish a fresh phase or terminal ack almost immediately.
+# Keep this separate from the full deployment timeout so a dead watcher cannot
+# hold the site in maintenance for an hour without ever starting work.
+HANDOFF_START_TIMEOUT_SECONDS = 120
 
 TRIGGER_FILENAME = "image-update-request.json"
+ACK_FILENAME = f"{TRIGGER_FILENAME}.ack"
 STATUS_FILENAME = "deploy-status.json"
 # Published by composer's `watch --availability-file` (composer has registry
 # egress; dlux/web is network-isolated). Drives "image update available".
@@ -57,6 +62,10 @@ def trigger_path(store=None):
     return _state_dir(store) / TRIGGER_FILENAME
 
 
+def ack_path(store=None):
+    return _state_dir(store) / ACK_FILENAME
+
+
 def status_path(store=None):
     return _state_dir(store) / STATUS_FILENAME
 
@@ -64,6 +73,19 @@ def status_path(store=None):
 def read_deploy_status(store=None):
     try:
         data = json.loads(status_path(store).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def read_composer_ack(store=None):
+    """Return composer's terminal token/exit-code acknowledgement, or {}.
+
+    This is an independent fallback to deploy-status.json: the resident watcher
+    writes it after every child exit, even if status publication itself fails.
+    """
+    try:
+        data = json.loads(ack_path(store).read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}

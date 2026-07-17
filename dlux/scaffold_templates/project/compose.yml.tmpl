@@ -14,7 +14,7 @@ x-environment:
   # Backup settings
   BACKUP_INTERVAL: "${BACKUP_INTERVAL:-680400}"
   # Web app settings (override these in compose.dev.yml or .env)
-  ALLOWED_HOSTS: "${ALLOWED_HOSTS:-web,nginx,localhost,127.0.0.1}"
+  ALLOWED_HOSTS: "${ALLOWED_HOSTS:-web,caddy,nginx,localhost,127.0.0.1}"
   ALLOWED_URLS: "${ALLOWED_URLS:-http://localhost:81}"
   BASE_URL: "${BASE_URL:-http://localhost}"
   DEBUG_STATUS: "${DEBUG_STATUS:-False}"
@@ -123,31 +123,78 @@ services:
       - dlux_update_egress
   # DjangoLux updater end
 
-  nginx:
-    image: nginx:latest
+  # ── Reverse proxy ──────────────────────────────────────────────────────────
+  # Two interchangeable proxies share ./.proxy/ (Caddyfile + default.conf.template
+  # + maintenance.html) and are functionally equivalent. Caddy is active; nginx is
+  # kept fully wired but commented out as a drop-in fallback. To switch back:
+  # comment out the `caddy:` service below and uncomment the `nginx:` block.
+  #
+  # Both re-resolve the recreated `web` container and are NOT gated on web health,
+  # so the maintenance progress page + /_update/* polling stay served during an
+  # image update. Caddy re-resolves natively; the nginx variant uses a `resolver`
+  # directive in default.conf.template for the same effect.
+
+  # nginx (fallback — uncomment to use instead of caddy):
+  # nginx:
+  #   image: nginx:latest
+  #   restart: always
+  #   ports:
+  #     - target: 80
+  #       published: "${NGINX_PORT:-80}"
+  #       protocol: tcp
+  #   environment:
+  #     NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-localhost}
+  #     NGINX_MAX_SIZE: ${NGINX_MAX_SIZE:-10M}
+  #     # Restrict envsubst to NGINX_*-prefixed vars only, so nginx's own runtime
+  #     # variables (host, remote_addr, scheme, ...) survive template rendering.
+  #     NGINX_ENVSUBST_FILTER: "NGINX_"
+  #   volumes:
+  #     - ./.proxy/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+  #     - static:/app/staticfiles:ro
+  #     - ./media/:/app/media:ro
+  #     - dlux_runtime:/opt/dlux-runtime:ro
+  #     - ./.proxy/maintenance.html:/usr/share/nginx/html/dlux-maintenance.html:ro
+  #   depends_on:
+  #     web:
+  #       condition: service_started
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "nginx -t || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 10s
+  #   networks:
+  #     - {{ project_slug }}_net
+  #     - {{ project_slug }}_internal
+
+  # caddy (active): plain HTTP on :80 with auto_https off (see .proxy/Caddyfile),
+  # so the app sits behind your own TLS terminator or is used in local dev. The
+  # published host port reads CADDY_PORT, then legacy NGINX_PORT, then 80, so a
+  # front proxy pointed at the old nginx host port keeps working after the swap.
+  # Point the front proxy's backend health check at GET /_edge-alive or /health.
+  caddy:
+    image: caddy:latest
     restart: always
     ports:
       - target: 80
-        published: "${NGINX_PORT:-80}"
+        published: "${CADDY_PORT:-${NGINX_PORT:-80}}"
         protocol: tcp
     environment:
-      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-localhost}
-      NGINX_MAX_SIZE: ${NGINX_MAX_SIZE:-10M}
-      # Restrict envsubst to NGINX_*-prefixed vars only, so nginx's own runtime
-      # variables (host, remote_addr, scheme, ...) survive template rendering.
-      NGINX_ENVSUBST_FILTER: "NGINX_"
+      CADDY_SITE_ADDRESS: "${CADDY_SITE_ADDRESS:-:80}"
+      CADDY_MAX_SIZE: "${CADDY_MAX_SIZE:-10MB}"
     volumes:
-      - ./.nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./.proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
       - static:/app/staticfiles:ro
       - ./media/:/app/media:ro
       - dlux_runtime:/opt/dlux-runtime:ro
-      - ./.nginx/maintenance.html:/usr/share/nginx/html/dlux-maintenance.html:ro
+      - ./.proxy/maintenance.html:/usr/share/caddy/maintenance/maintenance.html:ro
     depends_on:
       web:
-        condition: service_healthy
-        restart: true
+        condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "nginx -t || exit 1"]
+      test: ["CMD", "caddy", "validate", "--adapter", "caddyfile", "--config", "/etc/caddy/Caddyfile"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -168,6 +215,10 @@ services:
           gunicorn -c gunicorn.py {{ config_package }}.wsgi:application
       fi'
     entrypoint: ["/app/entrypoint.sh"]
+    post_start:
+      # Re-run migrations after the composer updater recreates web onto a new
+      # image, so a released image's migrations apply on recreate. Idempotent.
+      - command: python manage.py migrator
     volumes:
       - static:/app/staticfiles:rw
       - ./media/:/app/media:rw
@@ -290,12 +341,106 @@ services:
     networks:
       - {{ project_slug }}_internal
 
+  # Composer-as-updater start
+  # Least-privilege Docker API gateway. composer-updater talks to this instead
+  # of mounting the raw /var/run/docker.sock (which is host root). Only the API
+  # surface Compose needs (containers/images/networks/volumes/events/exec + POST) is
+  # enabled; everything else stays denied.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: always
+    # Hardening: block privilege escalation and drop all Linux capabilities.
+    # HAProxy here binds :2375 (>1024) and reads the socket as owner-root, so it
+    # needs no caps. Not published to the host; only reachable on _docker_proxy.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      EVENTS: 1
+      EXEC: 1
+      POST: 1
+      INFO: 1
+      PING: 1
+      VERSION: 1
+      # Everything else stays denied (default 0): BUILD, AUTH, SECRETS, SWARM, …
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - {{ project_slug }}_docker_proxy
+
+  # Resident image-level updater. Watches a trigger file (written by dlux's
+  # update engine) and runs a full `composer -u` on each request: pull →
+  # version gate (refuse an image older than the active runtime) → recreate →
+  # health → post_start (migrator). It checks the SAME image this project builds.
+  # The updater excludes itself (and the socket-proxy) from bulk update runs via
+  # COMPOSER_EXCLUDE_SERVICES so it never recreates itself mid-update; image :latest.
+  #
+  # NOTE: bring the project up from its root dir so ${PWD} is the host project
+  # path — composer runs `docker compose` against the host daemon, so it needs
+  # the project mounted at the identical absolute path for bind mounts
+  # (./media, ./logs, …) to resolve correctly.
+  composer-updater:
+    image: debeski/composer:latest
+    restart: unless-stopped
+    # Hardening: block privilege escalation and drop all Linux capabilities. It
+    # only issues Docker API calls over TCP to the socket-proxy and reads/writes
+    # dlux_runtime + the project dir; it needs no caps of its own.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    working_dir: "${PWD}"
+    command:
+      - watch
+      - --trigger-file
+      - /opt/dlux-runtime/state/image-update-request.json
+      - --status-file
+      - /opt/dlux-runtime/state/deploy-status.json
+      - --interval
+      - "5"
+      # Registry availability check → dlux reads image-available.json to offer
+      # an "application update" when a newer app image is published.
+      - --check-image
+      - ${WEB_IMAGE:-{{ project_image }}:latest}
+      - --availability-file
+      - /opt/dlux-runtime/state/image-available.json
+      - --check-interval
+      - "3600"
+    environment:
+      DOCKER_HOST: "tcp://docker-socket-proxy:2375"
+      WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:latest}"
+      # Version gate: compare the pulled image's baked DjangoLux label against
+      # the deployment's active runtime version (dlux active.json). The label is
+      # baked by the Dockerfile ARG/LABEL (empty locally = gate skipped).
+      COMPOSER_VERSION_LABEL: "org.{{ project_slug }}.dlux_baked_version"
+      COMPOSER_ACTIVE_VERSION_FILE: "/opt/dlux-runtime/state/active.json"
+      COMPOSER_ACTIVE_VERSION_KEY: "version"
+      COMPOSER_STATUS_FILE: "/opt/dlux-runtime/state/deploy-status.json"
+      COMPOSER_EXCLUDE_SERVICES: "composer-updater,docker-socket-proxy"
+    volumes:
+      - "${PWD}:${PWD}"
+      - dlux_runtime:/opt/dlux-runtime:rw
+    depends_on:
+      docker-socket-proxy:
+        condition: service_started
+    networks:
+      - dlux_update_egress
+      - {{ project_slug }}_docker_proxy
+  # Composer-as-updater end
+
 volumes:
   postgres_data:
   redis_data:
   pgadmin_data:
   static:
   dlux_runtime:
+  caddy_data:
+  caddy_config:
 
 networks:
   {{ project_slug }}_net:
@@ -304,3 +449,6 @@ networks:
     internal: true
   dlux_update_egress:
     driver: bridge
+  # Isolated path from composer-updater to the docker-socket-proxy only.
+  {{ project_slug }}_docker_proxy:
+    internal: true

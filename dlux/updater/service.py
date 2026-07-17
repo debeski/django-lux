@@ -980,18 +980,47 @@ class UpdateService:
     def _finalize_image_update(self, row):
         from django.utils.dateparse import parse_datetime
 
-        from .image_update import HANDOFF_TIMEOUT_SECONDS, read_deploy_status
+        from .image_update import (
+            HANDOFF_START_TIMEOUT_SECONDS,
+            HANDOFF_TIMEOUT_SECONDS,
+            read_composer_ack,
+            read_deploy_status,
+        )
 
         doc = read_deploy_status(self.store)
         dstatus = str(doc.get("status") or "")
+        ack = read_composer_ack(self.store)
+        ack_matches = str(ack.get("token") or "") == str(row.token)
+        try:
+            ack_exit_code = int(ack.get("exit_code")) if ack_matches else None
+        except (TypeError, ValueError):
+            ack_exit_code = None
         # composer rewrites deploy-status every run; only trust one written
         # at/after our hand-off so a stale 'ready' from a prior update is ignored.
-        fresh = True
+        fresh = row.handoff_at is None
         updated = parse_datetime(str(doc.get("updated_at") or ""))
         if updated is not None and row.handoff_at is not None:
             fresh = updated >= row.handoff_at
 
-        if fresh and dstatus == "ready":
+        status_failed = fresh and dstatus == "failed"
+        ack_failed = ack_matches and ack_exit_code not in (None, 0)
+        if status_failed or ack_failed:
+            error = ""
+            if status_failed or str(doc.get("request_token") or "") == str(row.token):
+                error = str(doc.get("error") or "").strip()
+            if not error:
+                error = (
+                    f"Composer update process exited with status {ack_exit_code}."
+                    if ack_exit_code is not None
+                    else "The image update failed."
+                )
+            self.store.set_maintenance(False)
+            self._fail_image_update(row, error)
+            return
+
+        status_ready = fresh and dstatus == "ready"
+        ack_ready = ack_matches and ack_exit_code == 0
+        if status_ready or ack_ready:
             baked = get_baked_version()
             target_ok = True
             try:
@@ -1003,15 +1032,18 @@ class UpdateService:
                 self.store.set_maintenance(False)
                 self._complete_image_update(row, baked)
                 return
-        elif fresh and dstatus == "failed":
-            self.store.set_maintenance(False)
-            self._fail_image_update(row, doc.get("error") or "The image update failed.")
-            return
 
         # Still in progress (or the target isn't live yet). Bail out and lift
         # maintenance only once the hand-off has clearly timed out.
         if row.handoff_at is not None:
             elapsed = (timezone.now() - row.handoff_at).total_seconds()
+            acknowledged = fresh or (ack_matches and ack_exit_code is not None)
+            if not acknowledged and elapsed > HANDOFF_START_TIMEOUT_SECONDS:
+                self.store.set_maintenance(False)
+                self._fail_image_update(
+                    row, "Composer did not acknowledge the image update request."
+                )
+                return
             if elapsed > HANDOFF_TIMEOUT_SECONDS:
                 self.store.set_maintenance(False)
                 self._fail_image_update(

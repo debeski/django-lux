@@ -111,13 +111,13 @@
 ### Generated Project Structure
 - **Config package** (`config/` instead of project name reuse)
 - **Docker baseline:** `.dockerignore`, `Dockerfile`, `compose.yml`, `compose.dev.yml`
-- **Nginx config:** `.nginx/default.conf.template` (nginx `envsubst` template — `${NGINX_SERVER_NAME}` / `${NGINX_MAX_SIZE}` filled at container start)
+- **Reverse proxy (`.proxy/`):** Caddy (`Caddyfile`, active default, plain HTTP `:80` + `auto_https off`) with an nginx fallback (`default.conf.template`, `envsubst` — `${NGINX_SERVER_NAME}` / `${NGINX_MAX_SIZE}`); both serve `/_update/*` progress, always-200 `/_edge-alive`, hybrid `/health`, and the maintenance page
 - **Entry scripts:** `entrypoint.sh`, `start.sh`, `start.ps1` (Windows path translation)
 - **Secrets:** `.secrets/.env` with Django, database, pgAdmin, admin, sender, and SMTP-relay bootstrap values
 - **Celery worker:** `config/celery.py` with Redis broker
 - **Health check:** `/health/` endpoint via `django-health-check`
 - **Security headers:** `django-cors-headers` + `django-csp` pre-wired
-- **Inline updater:** persistent versioned release volume, isolated update worker, restart supervisor, nginx maintenance page, and baked-package fallback
+- **Inline + image updater:** persistent versioned release volume, isolated update worker, restart supervisor, proxy-served maintenance/progress page, `composer-updater` image-level updates through a least-privilege `docker-socket-proxy`, and baked-package fallback
 
 ### Generated App Structure
 - `models.py` — with `ScopedModel` base import
@@ -775,6 +775,10 @@ notify("Payroll batch exported.", obj=batch, action="export", category="reports"
 - Web and Celery readiness/version checks retry within a bounded 120-second
   handshake; rebuilt-image activation clears stale degraded and maintenance
   markers left by a failed older bootstrap.
+- Image rebuild handoff is terminalized by both deploy status and a token-matched
+  Composer exit acknowledgement; either failure path clears maintenance, and the
+  proxy progress page automatically returns once `/` is healthy again. A
+  two-minute no-start deadline is distinct from the one-hour running-deploy limit.
 - Pre-switch failures leave the current release active. Post-switch failures
   restore the previous code pointer and static assets; database restore is never
   automatic because inline-safe migrations must remain backward compatible.
