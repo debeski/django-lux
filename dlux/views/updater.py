@@ -20,7 +20,7 @@ from ..updater.image_update import (
     queue_image_update,
     serialize_image_update,
 )
-from ..updater.service import get_ui_state, queue_run, serialize_run, updates_enabled
+from ..updater.service import get_ui_state, previous_apply_failure, queue_run, serialize_run, updates_enabled
 from ..utils import is_global_staff, log_audit_event
 
 
@@ -80,6 +80,9 @@ def dlux_update_state_view(request):
     # Application-image facts for the Updates card (app version, running/published
     # digest, last update + registry check time).
     state["image"] = image_status_summary()
+    # Re-apply guard: if the latest available wheel version already failed a
+    # previous apply, the review modal warns and requires an explicit ack.
+    state["latest_version_failure"] = previous_apply_failure(state.get("latest_version"))
     return JsonResponse({
         "ok": True,
         "state": state,
@@ -128,6 +131,30 @@ def dlux_update_check_view(request):
         details={"run_token": run.token},
     )
     return _queue_response(run)
+
+
+@login_required
+@csrf_protect
+@require_POST
+def dlux_update_skip_view(request):
+    """Permanently skip (or un-skip) a version so the update check never offers it.
+    Superuser-only; audited. The skip list is a state preference, so this works
+    even when inline apply itself is disabled."""
+    _require_superuser(request)
+    version = str(request.POST.get("version") or "").strip()
+    if not version:
+        return JsonResponse({"ok": False, "error": "No version specified."}, status=400)
+    unskip = str(request.POST.get("unskip") or "").strip().lower() in ("1", "true", "yes", "on")
+    from ..updater.service import set_version_skipped
+    state = set_version_skipped(version, skipped=not unskip)
+    log_audit_event(
+        request,
+        "dlux_update_unskip" if unskip else "dlux_update_skip",
+        "DLUX_UPDATE_SKIP",
+        model_name="DjangoLux updater",
+        details={"version": version, "unskip": unskip},
+    )
+    return JsonResponse({"ok": True, "state": state})
 
 
 def _password_guard(request):

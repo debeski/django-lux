@@ -549,6 +549,44 @@ class RuntimeStoreTests(TestCase):
             self.assertEqual(reconciled.degraded_reason, "")
             self.assertFalse(store.degraded_file.exists())
 
+    def test_reconcile_lowers_orphaned_maintenance_flag_when_healthy_on_baked(self):
+        # The production outage: a failed/interrupted update converged the app back
+        # onto the healthy baked image but left state/maintenance raised, so the site
+        # stayed 503'd behind the update screen with nothing running (and compose
+        # down/up couldn't clear it — the flag lives in the runtime volume). reconcile
+        # must lower the orphaned flag once the runtime is demonstrably healthy on
+        # baked and no run/image update still owns it.
+        state = DluxUpdateState.load()
+        state.active_version = __version__
+        state.active_run_token = ""
+        state.save()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.set_maintenance(True, token="failed-update")
+            self.assertTrue(store.maintenance_file.exists())
+            reconciled = UpdateService(store=store).reconcile()
+            self.assertEqual(reconciled.active_version, __version__)
+            self.assertFalse(
+                store.maintenance_file.exists(),
+                "reconcile must lower an orphaned maintenance flag on a healthy baked runtime",
+            )
+
+    def test_reconcile_keeps_maintenance_flag_while_a_run_owns_it(self):
+        # The safety net must never race an update that is legitimately mid-flight:
+        # while a run still owns the flag (active_run_token set), reconcile leaves it.
+        state = DluxUpdateState.load()
+        state.active_version = __version__
+        state.active_run_token = "in-flight-token"
+        state.save()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            store.set_maintenance(True, token="in-flight-token")
+            UpdateService(store=store).reconcile()
+            self.assertTrue(
+                store.maintenance_file.exists(),
+                "reconcile must not lower a maintenance flag a run still owns",
+            )
+
     def test_supervisor_bakes_version_from_running_code_manifest(self):
         # The supervisor must derive DLUX_BAKED_VERSION from dlux.__version__ (the
         # running code's manifest) so bind-mounted source checkouts — where the
@@ -578,6 +616,83 @@ class UpdaterApiTests(TestCase):
         system_settings.is_configured = True
         system_settings.save()
         DluxUpdateState.load()
+
+    def test_previous_apply_failure_flags_failed_version_until_it_succeeds(self):
+        from dlux.updater.service import previous_apply_failure
+        Run = DluxUpdateRun
+        self.assertIsNone(previous_apply_failure("1.4.7"))
+        Run.objects.create(
+            action=Run.ACTION_APPLY, target_version="1.4.7",
+            status=Run.STATUS_ROLLED_BACK, error="health check failed",
+        )
+        failure = previous_apply_failure("1.4.7")
+        self.assertIsNotNone(failure)
+        self.assertEqual(failure["version"], "1.4.7")
+        self.assertEqual(failure["status"], "rolled_back")
+        self.assertIn("health check", failure["error"])
+        # A later successful apply of the same version clears the warning.
+        Run.objects.create(action=Run.ACTION_APPLY, target_version="1.4.7", status=Run.STATUS_COMPLETED)
+        self.assertIsNone(previous_apply_failure("1.4.7"))
+        # An unrelated version is unaffected.
+        self.assertIsNone(previous_apply_failure("1.4.9"))
+
+    def test_state_endpoint_surfaces_latest_version_failure(self):
+        state = DluxUpdateState.load()
+        state.latest_version = "1.4.7"
+        state.save()
+        DluxUpdateRun.objects.create(
+            action=DluxUpdateRun.ACTION_APPLY, target_version="1.4.7",
+            status=DluxUpdateRun.STATUS_ROLLED_BACK, error="health check failed",
+        )
+        response = self.client.get(reverse("dlux_update_state"))
+        self.assertEqual(response.status_code, 200)
+        failure = json.loads(response.content)["state"]["latest_version_failure"]
+        self.assertIsNotNone(failure)
+        self.assertEqual(failure["version"], "1.4.7")
+
+    def test_skip_endpoint_adds_removes_and_clears_offered_latest(self):
+        state = DluxUpdateState.load()
+        state.active_version = "1.4.6"
+        state.latest_version = "1.4.7"
+        state.latest_compatible = True
+        state.save()
+        # Skip the currently-offered version.
+        resp = self.client.post(reverse("dlux_update_skip"), {"version": "1.4.7"})
+        self.assertEqual(resp.status_code, 200)
+        body = json.loads(resp.content)["state"]
+        self.assertEqual(body["skipped_versions"], ["1.4.7"])
+        self.assertEqual(body["latest_version"], "1.4.6")  # no longer offered
+        self.assertFalse(body["latest_compatible"])
+        # Un-skip.
+        resp = self.client.post(reverse("dlux_update_skip"), {"version": "1.4.7", "unskip": "true"})
+        self.assertEqual(json.loads(resp.content)["state"]["skipped_versions"], [])
+
+    def test_skip_endpoint_requires_superuser(self):
+        other = get_user_model().objects.create_user(username="plain", password="pw12345678")
+        client = Client()
+        client.force_login(other)
+        self.assertEqual(
+            client.post(reverse("dlux_update_skip"), {"version": "1.4.7"}).status_code, 403
+        )
+
+    def test_check_excludes_skipped_versions(self):
+        from dlux.updater.manifest import select_latest_candidate
+
+        def wheel(v):
+            return {
+                "filename": f"django_lux-{v}-py3-none-any.whl",
+                "hashes": {"sha256": "a" * 64},
+                "url": f"https://files.pythonhosted.org/packages/x/django_lux-{v}-py3-none-any.whl",
+                "requires-python": "",
+            }
+        index = {"files": [wheel("1.4.7"), wheel("1.4.8")]}
+        self.assertEqual(select_latest_candidate(index, "1.4.6").version, "1.4.8")
+        self.assertEqual(
+            select_latest_candidate(index, "1.4.6", skip_versions=["1.4.8"]).version, "1.4.7"
+        )
+        self.assertIsNone(
+            select_latest_candidate(index, "1.4.6", skip_versions=["1.4.7", "v1.4.8"])
+        )
 
     def test_runtime_health_requires_internal_probe_and_reports_version(self):
         self.assertEqual(Client().get(reverse("dlux_update_runtime_health")).status_code, 404)

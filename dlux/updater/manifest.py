@@ -94,11 +94,20 @@ def fetch_simple_index(*, opener=urllib.request.urlopen):
     return result
 
 
-def select_latest_candidate(index, current_version):
+def select_latest_candidate(index, current_version, skip_versions=None):
     try:
         current = Version(str(current_version))
     except InvalidVersion as exc:
         raise UpdaterError("The installed DjangoLux version is invalid.") from exc
+
+    # Versions the admin permanently skipped are never offered; compared on the
+    # canonical Version so "1.4.7"/"v1.4.7"/"1.4.7.0" all match.
+    skip = set()
+    for raw in (skip_versions or []):
+        try:
+            skip.add(Version(str(raw).lstrip("vV")))
+        except InvalidVersion:
+            continue
 
     candidates = []
     for item in index.get("files", []):
@@ -112,6 +121,8 @@ def select_latest_candidate(index, current_version):
         if canonicalize_name(distribution) != "django-lux":
             continue
         if version.is_prerelease or version.is_devrelease or version <= current:
+            continue
+        if version in skip:
             continue
         if {str(tag) for tag in tags} != {"py3-none-any"}:
             continue

@@ -70,6 +70,12 @@
         const progressStatus = modalElement?.querySelector('[data-dlux-update-progress-status]');
         const progressLog = modalElement?.querySelector('[data-dlux-update-progress-log]');
         const submit = modalElement?.querySelector('[data-dlux-update-submit]');
+        const failedWarning = modalElement?.querySelector('[data-dlux-update-failed-warning]');
+        const failedAck = modalElement?.querySelector('[data-dlux-update-failed-ack]');
+        const failedText = modalElement?.querySelector('[data-dlux-update-failed-text]');
+        const skipButton = modalElement?.querySelector('[data-dlux-update-skip]');
+        const skippedWrap = root.querySelector('[data-dlux-skipped-wrap]');
+        const skippedList = root.querySelector('[data-dlux-skipped-list]');
         const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
         const dismissAction = modalElement?.querySelector('[data-dlux-update-dismiss]');
         const dismissActionLabel = dismissAction ? dismissAction.textContent : '';
@@ -319,9 +325,54 @@
             scheduleImagePoll();
         }
 
+        async function postSkip(version, unskip) {
+            version = String(version || '').trim();
+            if (!root.dataset.skipUrl || !version) { return; }
+            const body = new FormData();
+            body.append('version', version);
+            if (unskip) { body.append('unskip', 'true'); }
+            try {
+                await jsonRequest(root.dataset.skipUrl, { method: 'POST', body });
+                // Close the review modal via its dismiss control (the codebase
+                // avoids calling the Bootstrap instance's hide directly).
+                if (!unskip && dismissButtons && dismissButtons[0]) { dismissButtons[0].click(); }
+                await refreshState();
+            } catch (exc) {
+                if (window.showToast) { window.showToast(exc.message || 'Request failed', 'error'); }
+            }
+        }
+
+        function renderSkipped(versions) {
+            if (!skippedWrap || !skippedList) { return; }
+            const list = Array.isArray(versions) ? versions.filter(Boolean) : [];
+            skippedList.innerHTML = '';
+            if (!list.length) { skippedWrap.classList.add('d-none'); return; }
+            const canManage = root.dataset.canManage === 'true';
+            const unskipLabel = root.dataset.labelUnskip || 'Un-skip';
+            list.forEach((version) => {
+                const chip = document.createElement('span');
+                chip.className = 'dlux-upd-skip-chip';
+                const label = document.createElement('span');
+                label.textContent = 'v' + String(version).replace(/^v/, '');
+                chip.appendChild(label);
+                if (canManage) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.textContent = '×';
+                    btn.title = unskipLabel;
+                    btn.setAttribute('aria-label', unskipLabel + ' v' + version);
+                    btn.addEventListener('click', () => postSkip(version, true));
+                    chip.appendChild(btn);
+                }
+                skippedList.appendChild(chip);
+            });
+            skippedWrap.classList.remove('d-none');
+        }
+
         function render(nextState, run) {
             state = nextState || state;
             if (!state) return;
+            renderSkipped(state.skipped_versions);
             active.textContent = state.active_version ? `v${state.active_version}` : '—';
             latest.textContent = state.latest_version ? `v${state.latest_version}` : '—';
             checked.textContent = state.last_checked_at
@@ -561,10 +612,44 @@
                     ? (root.dataset.imageMaintenanceNote || root.dataset.maintenanceNote || maintenanceEl.textContent)
                     : (root.dataset.maintenanceNote || maintenanceEl.textContent);
             }
+            // Re-apply guard: warn (and require an explicit acknowledgment) when
+            // re-installing a wheel version that already failed a previous apply.
+            // Only for a normal wheel apply — a rollback/image target is different.
+            const failure = (!isRollback && !isImage) ? (state.latest_version_failure || null) : null;
+            const requireAck = Boolean(
+                failure && failure.version && String(failure.version) === String(target)
+            );
+            if (failedWarning) {
+                if (requireAck) {
+                    const tpl = root.dataset.labelRetryFailed || 'Version {version} already failed to install{when}.';
+                    const whenStr = failure.at ? (' on ' + new Date(failure.at).toLocaleString()) : '';
+                    let msg = tpl
+                        .replace('{version}', 'v' + String(failure.version).replace(/^v/, ''))
+                        .replace('{when}', whenStr);
+                    if (failure.error) { msg += ' — ' + failure.error; }
+                    if (failedText) { failedText.textContent = msg; }
+                    if (failedAck) { failedAck.checked = false; }
+                    failedWarning.classList.remove('d-none');
+                } else {
+                    failedWarning.classList.add('d-none');
+                }
+            }
+            // "Skip this version" is only meaningful for a wheel apply of an
+            // actually-offered version (not a rollback/image target).
+            if (skipButton) {
+                if (!isRollback && !isImage && target && String(target) !== String(state.active_version || '')) {
+                    skipButton.dataset.skipVersion = String(target);
+                    skipButton.classList.remove('d-none');
+                } else {
+                    skipButton.classList.add('d-none');
+                }
+            }
             reviewPanel.hidden = false;
             progressPanel.hidden = true;
             submit.hidden = false;
-            submit.disabled = false;
+            // When a prior failure requires acknowledgment, the confirm button
+            // stays disabled until the operator ticks the "retry anyway" box.
+            submit.disabled = requireAck;
             password.disabled = false;
             dismissButtons.forEach((button) => { button.disabled = false; });
             if (dismissAction) {
@@ -577,6 +662,19 @@
             modal.show();
         }
 
+        if (failedAck) {
+            failedAck.addEventListener('change', () => {
+                // Gate the confirm button on the acknowledgment only while the
+                // prior-failure warning is actually shown.
+                if (failedWarning && !failedWarning.classList.contains('d-none')) {
+                    submit.disabled = !failedAck.checked;
+                }
+            });
+        }
+        skipButton?.addEventListener('click', () => {
+            const v = skipButton.dataset.skipVersion;
+            if (v) { postSkip(v, false); }
+        });
         reviewButton?.addEventListener('click', () => openReview('apply'));
         imageButton?.addEventListener('click', () => openReview('image'));
         rollbackButton?.addEventListener('click', () => openReview('rollback'));

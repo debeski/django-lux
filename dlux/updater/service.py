@@ -80,6 +80,7 @@ def serialize_state(state):
         "degraded": state.degraded,
         "degraded_reason": state.degraded_reason,
         "active_run_token": state.active_run_token,
+        "skipped_versions": list(state.skipped_versions or []),
     }
 
 
@@ -125,8 +126,73 @@ def get_ui_state():
             "degraded": False,
             "degraded_reason": "",
             "active_run_token": "",
+            "skipped_versions": [],
         }
     return serialize_state(state)
+
+
+def previous_apply_failure(version):
+    """If the most recent apply of ``version`` failed (or was auto-rolled-back),
+    return a small dict describing it, else None. Powers a re-apply confirmation
+    guard: the admin is warned that a version they're about to install already
+    failed once, but can still retry on their own responsibility (not a block).
+    A later successful apply of the same version clears the warning.
+    """
+    version = str(version or "").strip()
+    if not version:
+        return None
+    Run = _run_model()
+    run = (
+        Run.objects.filter(action=Run.ACTION_APPLY, target_version=version)
+        .order_by("-created_at")
+        .first()
+    )
+    if run is None or run.status not in (Run.STATUS_FAILED, Run.STATUS_ROLLED_BACK):
+        return None
+    when = run.completed_at or run.created_at
+    return {
+        "version": version,
+        "status": run.status,
+        "error": (run.error or "")[:500],
+        "at": when.isoformat() if when else None,
+    }
+
+
+def set_version_skipped(version, skipped=True):
+    """Add or remove a version from the permanent skip list. When skipping the
+    version currently offered as the latest update, clear the ``latest_*`` fields
+    so the UI stops offering it immediately (the next check then selects the
+    latest non-skipped release). Returns the refreshed UI state dict."""
+    version = str(version or "").strip()
+    if not version:
+        return get_ui_state()
+    state = _state_model().load()
+    skipped_list = list(state.skipped_versions or [])
+    changed = []
+    if skipped:
+        if version not in skipped_list:
+            skipped_list.append(version)
+            state.skipped_versions = skipped_list
+            changed.append("skipped_versions")
+        if state.latest_version == version:
+            baseline = state.active_version or state.baked_version
+            for field, value in {
+                "latest_version": baseline,
+                "latest_wheel_url": "",
+                "latest_wheel_sha256": "",
+                "latest_manifest": {},
+                "latest_compatible": False,
+                "latest_reason": "This version was skipped.",
+            }.items():
+                if getattr(state, field) != value:
+                    setattr(state, field, value)
+                    changed.append(field)
+    elif version in skipped_list:
+        state.skipped_versions = [v for v in skipped_list if v != version]
+        changed.append("skipped_versions")
+    if changed:
+        state.save(update_fields=list(dict.fromkeys(changed + ["updated_at"])))
+    return get_ui_state()
 
 
 def queue_run(action, username="", backup_mode=None):
@@ -293,6 +359,27 @@ class UpdateService:
                 changed.extend(["degraded", "degraded_reason"])
             if not state.degraded:
                 self.store.clear_degraded()
+            # Safety net for the "stuck on the update screen" outage: a healthy
+            # runtime must never sit behind a raised maintenance flag. A failed or
+            # interrupted update can converge the app back onto a healthy release
+            # (a successful restore, or the baked image) yet leave state/maintenance
+            # raised — notably the unsafe-recovery path in _handle_failure, which
+            # deliberately keeps the flag up while the app might be broken. Once the
+            # runtime is demonstrably healthy again, that flag is just a stale file
+            # 503-ing the whole site behind an "update in progress" screen with
+            # nothing running (and compose down/up can't clear it — it lives in the
+            # runtime volume). If we've healthily converged and no run or image
+            # update still owns the flag, lower it. The owner guards ensure we never
+            # race an update that is legitimately mid-flight.
+            if (
+                (restoration_succeeded or converged_on_baked)
+                and not state.degraded
+                and not state.active_run_token
+                and self.store.maintenance_file.exists()
+            ):
+                from .image_update import active_image_update
+                if active_image_update() is None:
+                    self.store.set_maintenance(False)
         if changed:
             state.save(update_fields=list(dict.fromkeys(changed + ["updated_at"])))
         return state
@@ -562,7 +649,7 @@ class UpdateService:
         state = _state_model().load()
         current = state.active_version or state.baked_version
         index = fetch_simple_index()
-        candidate = select_latest_candidate(index, current)
+        candidate = select_latest_candidate(index, current, skip_versions=state.skipped_versions)
         state.last_checked_at = timezone.now()
         state.last_check_error = ""
         if not candidate:
@@ -607,7 +694,9 @@ class UpdateService:
 
     def _verified_latest_candidate(self, state, run):
         index = fetch_simple_index()
-        candidate = select_latest_candidate(index, state.active_version or state.baked_version)
+        candidate = select_latest_candidate(
+            index, state.active_version or state.baked_version, skip_versions=state.skipped_versions
+        )
         if not candidate or candidate.version != state.latest_version:
             raise UpdaterError("The previously checked release is no longer the latest stable update.")
         if candidate.sha256 != state.latest_wheel_sha256 or candidate.url != state.latest_wheel_url:

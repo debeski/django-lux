@@ -213,6 +213,8 @@
                                  data-dlux-updater
                                  data-state-url="{% url 'dlux_update_state' %}"
                                  data-check-url="{% url 'dlux_update_check' %}"
+                                 data-skip-url="{% url 'dlux_update_skip' %}"
+                                 data-label-unskip="{{ DLUX_STRINGS.dlux_update_unskip|default:'Un-skip' }}"
                                  data-apply-url="{% url 'dlux_update_apply' %}"
                                  data-rollback-url="{% url 'dlux_update_rollback' %}"
                                  data-can-manage="{% if can_manage_dlux_updates %}true{% else %}false{% endif %}"
@@ -239,7 +241,8 @@
                                  data-label-image-confirm="{{ DLUX_STRINGS.dlux_update_image_confirm|default:'Rebuild and update' }}"
                                  data-label-image-started="{{ DLUX_STRINGS.dlux_update_image_started|default:'Image update started. The site will enter maintenance and return on the new version; this page may be briefly unavailable during the rebuild.' }}"
                                  data-image-maintenance-note="{{ DLUX_STRINGS.dlux_update_image_maintenance_notice|default:'This is a full image update: the application containers are pulled and recreated. The site enters maintenance and briefly becomes unavailable while the new version starts and migrations run.' }}"
-                                 data-maintenance-note="{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}">
+                                 data-maintenance-note="{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}"
+                                 data-label-retry-failed="{{ DLUX_STRINGS.dlux_update_retry_failed_note|default:'Heads up: version {version} already failed to install{when}. Re-applying it will most likely fail again unless the underlying cause was fixed.' }}">
                                 <div class="dlux-updater-rows">
                                     <div class="dlux-upd-row">
                                         <span class="dlux-upd-lead">
@@ -286,6 +289,10 @@
                                         <span class="dlux-upd-checked">{{ DLUX_STRINGS.dlux_update_last_check|default:'Last check' }}: <time data-dlux-update-checked>{{ dlux_update_state.last_checked_at|default:'—' }}</time> · {{ DLUX_STRINGS.dlux_update_image_label|default:'image' }} <time data-dlux-image-checked>—</time></span>
                                     </div>
                                     <div class="dlux-updater-run-status small mt-1" data-dlux-update-run-status hidden aria-live="polite"></div>
+                                    <div class="dlux-upd-skipped mt-2 d-none" data-dlux-skipped-wrap>
+                                        <span class="dlux-upd-skipped-label">{{ DLUX_STRINGS.dlux_update_skipped_label|default:'Skipped versions' }}:</span>
+                                        <span class="dlux-upd-skipped-list" data-dlux-skipped-list></span>
+                                    </div>
                                     <span data-dlux-update-latest hidden>{% if dlux_update_state.latest_version %}v{{ dlux_update_state.latest_version }}{% endif %}</span>
                                     {% if not dlux_update_state.enabled %}
                                     <div class="small text-muted mt-1">{{ DLUX_STRINGS.dlux_update_disabled|default:'Inline updates are not enabled for this deployment.' }}</div>
@@ -822,6 +829,13 @@
                 <div data-dlux-update-form role="group">
                     <div class="modal-body">
                         <div data-dlux-update-review-panel>
+                            <div class="alert alert-danger d-none" data-dlux-update-failed-warning role="alert">
+                                <div class="fw-semibold" data-dlux-update-failed-text></div>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="dluxUpdateFailedAck" data-dlux-update-failed-ack>
+                                    <label class="form-check-label" for="dluxUpdateFailedAck">{{ DLUX_STRINGS.dlux_update_retry_ack|default:'I understand this version already failed to install and want to retry it at my own responsibility.' }}</label>
+                                </div>
+                            </div>
                             <div class="alert alert-info">{{ DLUX_STRINGS.dlux_update_backup_guarantee|default:'A pre-update backup is created and verified before maintenance (unless you skip it below). If a backup is requested and fails, the operation stops.' }}</div>
                             <div class="alert alert-warning" data-dlux-update-maintenance>{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}</div>
                             <dl class="row mb-3">
@@ -853,9 +867,15 @@
                         </div>
                         <div class="text-danger small mt-2" data-dlux-update-error hidden></div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-dlux-update-dismiss>{{ DLUX_STRINGS.btn_cancel|default:'Cancel' }}</button>
-                        <button type="button" class="btn btn-primary" data-dlux-update-submit>{{ DLUX_STRINGS.dlux_update_confirm|default:'Apply update' }}</button>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-outline-secondary btn-sm d-none" data-dlux-update-skip
+                                title="{{ DLUX_STRINGS.dlux_update_skip_title|default:'Never offer this version again (you can un-skip it later)' }}">
+                            <i class="bi bi-slash-circle me-1"></i>{{ DLUX_STRINGS.dlux_update_skip|default:'Skip this version' }}
+                        </button>
+                        <span class="d-flex gap-2 ms-auto">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-dlux-update-dismiss>{{ DLUX_STRINGS.btn_cancel|default:'Cancel' }}</button>
+                            <button type="button" class="btn btn-primary" data-dlux-update-submit>{{ DLUX_STRINGS.dlux_update_confirm|default:'Apply update' }}</button>
+                        </span>
                     </div>
                 </div>
             </div>

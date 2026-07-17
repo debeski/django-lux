@@ -1261,6 +1261,11 @@ class DluxUpdateState(models.Model):
     degraded = models.BooleanField(default=False, verbose_name="Runtime Degraded")
     degraded_reason = models.TextField(blank=True, verbose_name="Runtime Degraded Reason")
     active_run_token = models.CharField(max_length=64, blank=True, db_index=True, verbose_name="Active Run Token")
+    # Versions the admin has chosen to permanently skip. The update check never
+    # offers a skipped version (it picks the latest non-skipped release instead),
+    # until the admin un-skips it. A list of canonical version strings. Nullable so
+    # the AddField stays inline-safe (readers coalesce None -> []).
+    skipped_versions = models.JSONField(default=list, blank=True, null=True, verbose_name="Skipped Versions")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
 
     class Meta:

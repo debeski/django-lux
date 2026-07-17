@@ -43,7 +43,14 @@ existed. (2) Once the runtime has converged back onto the baked image
 (`active == baked`), a lingering degraded flag from a transient failure is
 cleared, so a one-off degrade self-heals on the next reconcile. A degrade tied to
 a **present volume release** (for example a failed-rollback target that is still
-staged) deliberately stays sticky for operator review.
+staged) deliberately stays sticky for operator review. (3) Once the runtime has
+healthily converged onto a release (a successful restore, or the baked image) and
+no run or in-flight image update still owns it, reconcile also lowers an orphaned
+`state/maintenance` flag. A failed or interrupted update can revert the app to a
+healthy release yet leave that flag raised (the unsafe-recovery path keeps it up
+while the app might be broken); without this, the site would keep serving the 503
+maintenance page indefinitely — and because the flag lives in the runtime volume,
+`compose down/up` would not clear it. A plain updater restart now self-heals it.
 
 When an operator deliberately rebuilds the project image with a newer Dlux pin
 for an unsafe, dependency-changing, or bootstrap-changing release, the updater
@@ -115,6 +122,10 @@ The worker checks daily after startup jitter. Nothing is installed automatically
 2. Select **Review and update** only when the release passes every safety gate.
 3. Review the escaped release summary, compatibility result, target version, and maintenance notice.
 4. Confirm with the current password.
+
+If the target version's **most recent apply already failed** (or was auto-rolled-back), the review modal shows a red warning with the prior failure detail and requires an explicit "retry at my own responsibility" acknowledgment before the Apply button enables — so a version that just failed its health check isn't silently re-applied (for example by the daily availability re-offering it). A later successful apply of that version clears the warning.
+
+**Permanently skipping a version.** The review modal also offers **Skip this version**: skipping records the version in `DluxUpdateState.skipped_versions`, and the update check then never offers it again — it selects the latest *non-skipped* release instead — until you un-skip it. Skipped versions appear as chips in the Updates tile with an un-skip (×) control. Use this for a release that keeps failing to come up healthy on your deployment, or one you simply don't want. Skip/un-skip is a superuser-only, CSRF-protected, audited `POST /sys/api/dlux-update/skip/`.
 
 Apply and rollback are CSRF-protected POST operations and create audit events.
 After password confirmation, the review modal remains open as a progress view

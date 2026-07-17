@@ -1,15 +1,16 @@
 {
   "schema_version": 1,
-  "version": "1.4.7",
+  "version": "1.4.8",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Limits notification drawer background polling to active progress notifications and improves tabbed Options discoverability. The browser no longer performs a standing unread-badge poll; it refreshes on drawer/action use and runs the deduplicated 3s poll only while a locked progress notification exists. Tabbed Options now keeps Theme and Language as separate tabs even when card/compact layouts merge the small-choice controls. Inline-safe: template/static JavaScript/docs/tests only; no migration.",
+  "summary": "Fixes a high-severity inline-updater outage where a failed or interrupted DjangoLux update could leave the site stuck behind the maintenance/update screen even after the runtime had healthily reverted to the baked image. reconcile() now lowers an orphaned maintenance flag once the runtime has demonstrably converged onto a healthy release and no run or image update still owns it, so a plain updater restart self-heals the outage. Adds a re-apply confirmation guard (the review modal warns and requires an explicit acknowledgment before re-installing a version whose most recent apply already failed) and a permanent skip: the admin can skip a version from the updater dialog so the check never offers it again (picking the latest non-skipped release instead) until un-skipped. Inline-safe: one backward-compatible, nullable AddField (skipped_versions) plus updater/view logic, templates, and tests.",
   "highlights": [
-    "Removes the standing 15s unread-badge notification poll.",
-    "Runs deduped 3s polling only while a locked progress notification exists.",
-    "Keeps Theme and Language as separate tabs in tabbed Options style.",
-    "Preserves the small-choice Theme/Language merge for card and compact Options layouts."
+    "Fixes the 'stuck on the update screen' outage: reconcile lowers an orphaned maintenance flag when the runtime is healthy on baked.",
+    "A failed/interrupted update that reverts to the baked image no longer 503s the whole site indefinitely.",
+    "A plain updater restart (compose restart/down-up) now self-heals a stuck maintenance flag.",
+    "New re-apply confirmation guard: warns and requires acknowledgment before re-installing a previously-failed version.",
+    "New permanent 'Skip this version' from the updater dialog: the check never offers a skipped version until you un-skip it."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.7"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.8"
 }
