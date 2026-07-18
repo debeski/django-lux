@@ -6,6 +6,10 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.4.11
+- **Archive File Validation Errors Stay Visible**: Fixed `dlux/forms/crispy_file_field.html` hiding archive-widget field errors after an invalid dynamic-modal submission. Archive errors now render explicitly as `invalid-feedback d-block` with an alert role, so replacing the modal body cannot silently clear a browser file selection without explaining the rejected upload.
+- **Declarative Client File-Size Validation**: Archive widgets now honor an optional `data-max-file-bytes` input attribute. `file_field.js` applies native `setCustomValidity()`, marks the archive card invalid, and renders a localized inline `archive_file_too_large` message before submission when the selected file exceeds the declared project policy; server validation remains authoritative.
+
 ## v1.4.10
 - **Resized No-Wrap Cells Stay Inside Their Columns**: Added a resized-table body-cell overflow boundary in `tables.css`, so date/time values and other nowrap content truncate with an ellipsis instead of painting over neighboring values after a column is narrowed. Cells containing an in-cell `.dropdown-menu` remain overflow-visible so menu overlays are not clipped; unresized table behavior is unchanged.
 - **Contained Column Resizing And Visible Dividers**: Changed `tables.js` from additive pixel widths to fixed-footprint proportional `colgroup` widths. Dragging or keyboard-resizing one header now redistributes the remaining width across the other columns with an adaptive minimum instead of increasing `.dlux-data-table` beyond `.dlux-table-shell`; persisted widths remain responsive across viewport sizes and sticky-header mode no longer lets a widened table stretch `#mainContent`. Resize-enabled headers now show a subtle `--dlux-table-border-strong` divider before hover, with the existing primary-color focus/drag treatment retained.

@@ -6,6 +6,7 @@
     data-empty-meta="{{ DLUX_STRINGS.archive_file_empty_meta|default:'Drop a file here or use the actions.' }}"
     data-current-meta="{{ DLUX_STRINGS.archive_file_current_meta|default:'Current file on this record.' }}"
     data-selected-meta="{{ DLUX_STRINGS.archive_file_selected_meta|default:'Ready to save with this form.' }}"
+    data-too-large-template="{{ DLUX_STRINGS.archive_file_too_large|default:'File exceeds the maximum allowed size ({limit} MB).' }}"
     data-initial-name="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.display_name }}{% endif %}"
     data-initial-url="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.file_url }}{% endif %}"
     data-initial-icon="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.icon_class }}{% else %}bi bi-file-earmark-arrow-up-fill{% endif %}"
@@ -115,4 +116,5 @@
     {% endif %}
 
     <input type="{{ widget.type }}" name="{{ widget.name }}" data-archive-file-input="true"{% include "django/forms/widgets/attrs.html" %}>
+    <div class="invalid-feedback" role="alert" data-archive-file-client-error hidden></div>
 </div>

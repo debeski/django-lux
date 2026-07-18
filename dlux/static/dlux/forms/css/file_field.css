@@ -42,6 +42,12 @@
     outline: none;
 }
 
+.archive-file-field.is-invalid .archive-file-card,
+.is-invalid > .archive-file-field .archive-file-card {
+    border-color: var(--bs-danger, #dc3545);
+    box-shadow: 0 0 0 0.18rem rgba(220, 53, 69, 0.14);
+}
+
 .archive-file-topbar {
     display: flex;
     align-items: flex-start;

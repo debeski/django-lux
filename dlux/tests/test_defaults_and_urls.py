@@ -2,10 +2,12 @@ from dlux.tests.harness import setup_test_environment
 
 setup_test_environment()
 
+from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.test import Client, RequestFactory, SimpleTestCase, override_settings
 from django.template import Context, Template
+from django.template.loader import render_to_string
 from django.urls import clear_url_caches
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -21,7 +23,7 @@ import tempfile
 
 from dlux.system.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, TITLEBAR_ACTIONS_ORDER
 from dlux.context_processors import dlux_context
-from dlux.forms import SystemSettingsForm
+from dlux.forms import SystemSettingsForm, _build_archive_file_widget
 from dlux.models import SystemSettings
 from dlux.themes import get_theme_names
 from dlux.utils import (
@@ -54,6 +56,42 @@ class DluxDefaultRouteTests(SimpleTestCase):
         cache.clear()
         SystemSettings._default_manager.all().delete()
         super().setUp()
+
+    def test_archive_file_errors_are_visible_and_client_limit_is_rendered(self):
+        class UploadForm(forms.Form):
+            archive = forms.FileField(
+                widget=_build_archive_file_widget(
+                    field_label="Archive",
+                    attrs={"data-max-file-bytes": str(25 * 1024 * 1024)},
+                )
+            )
+
+            def clean_archive(self):
+                raise forms.ValidationError("The selected archive is too large.")
+
+        form = UploadForm(
+            data={},
+            files={"archive": SimpleUploadedFile("large.pdf", b"%PDF")},
+        )
+        self.assertFalse(form.is_valid())
+
+        html = render_to_string(
+            "dlux/forms/crispy_file_field.html",
+            {"field": form["archive"]},
+        )
+        self.assertIn('data-max-file-bytes="26214400"', html)
+        self.assertIn('class="invalid-feedback d-block"', html)
+        self.assertIn('data-archive-file-server-error', html)
+        self.assertIn("The selected archive is too large.", html)
+        self.assertIn('data-archive-file-client-error', html)
+
+        file_field_js = (
+            Path(__file__).resolve().parents[1]
+            / "static/dlux/forms/js/file_field.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("input.dataset.maxFileBytes", file_field_js)
+        self.assertIn("input.setCustomValidity(message)", file_field_js)
+        self.assertIn("syncArchiveFileValidation(widget)", file_field_js)
 
     @override_settings(DLUX_CONFIG={})
     def test_system_config_defaults_home_url_to_profile(self):

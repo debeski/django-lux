@@ -70,6 +70,36 @@
         widget.classList.toggle("has-file", state.mode !== "empty");
     }
 
+    function syncArchiveFileValidation(widget) {
+        const input = widget.querySelector('[data-archive-file-input="true"]');
+        const feedback = widget.querySelector("[data-archive-file-client-error]");
+        const card = widget.querySelector("[data-archive-file-drop]");
+        if (!input) return true;
+
+        const maxBytes = Number(input.dataset.maxFileBytes || 0);
+        const file = input.files && input.files.length ? input.files[0] : null;
+        let message = "";
+        if (file && Number.isFinite(maxBytes) && maxBytes > 0 && file.size > maxBytes) {
+            const limitMb = maxBytes / (1024 * 1024);
+            const limitLabel = Number.isInteger(limitMb) ? String(limitMb) : limitMb.toFixed(1);
+            const template = widget.dataset.tooLargeTemplate || "File exceeds the maximum allowed size ({limit} MB).";
+            message = template.replace("{limit}", limitLabel);
+        }
+
+        input.setCustomValidity(message);
+        widget.classList.toggle("is-invalid", Boolean(message));
+        if (card) {
+            if (message) card.setAttribute("aria-invalid", "true");
+            else card.removeAttribute("aria-invalid");
+        }
+        if (feedback) {
+            feedback.textContent = message;
+            feedback.hidden = !message;
+            feedback.classList.toggle("d-block", Boolean(message));
+        }
+        return !message;
+    }
+
     function assignDroppedFiles(input, files) {
         if (!input || !files || !files.length) return;
         try {
@@ -152,6 +182,7 @@
                 clearCheckbox.checked = false;
             }
             syncArchiveFileWidget(widget);
+            syncArchiveFileValidation(widget);
         });
 
         if (clearButton) {
@@ -163,10 +194,12 @@
                     clearCheckbox.checked = true;
                 }
                 syncArchiveFileWidget(widget);
+                syncArchiveFileValidation(widget);
             });
         }
 
         syncArchiveFileWidget(widget);
+        syncArchiveFileValidation(widget);
     }
 
     window.initArchiveFileFields = function (scope) {

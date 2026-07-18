@@ -908,7 +908,7 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 
 | Helper | Purpose |
 | --- | --- |
-| `build_archive_file_field('field_name', css_class='...')` | Render the Dlux custom file widget explicitly instead of relying on template shadowing. |
+| `build_archive_file_field('field_name', css_class='...')` | Render the Dlux custom file widget explicitly instead of relying on template shadowing. Field validation errors render visibly below the archive card; set `field.widget.attrs['data-max-file-bytes']` for immediate client size validation while retaining server-side validation. |
 | `build_settings_toggle_field(form, 'field_name', css_class='...')` | Render the shared setup/System Settings toggle-card control for boolean fields. |
 
 ### Alert Auto-Close Contract

@@ -2,9 +2,9 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Current source version: v1.4.10 in `dlux/release-manifest.json`; v1.4.9 exists as a git tag, so new work starts v1.4.10.
+- Current source version: unreleased v1.4.11 in `dlux/release-manifest.json`; v1.4.10 is tagged.
 - DjangoLux supplies settings/setup, auth/security, navigation, reports, backup, scaffolding, SSO hooks, tables, and updater; migration baseline remains `0010`.
-- Latest work: default-on resizable columns for shared Dlux tables; visible dividers, fixed-footprint proportional widths, and resized-cell ellipsis prevent viewport and nowrap-value overlap; no migration.
+- Latest work: archive-file validation stays visible after modal rerenders; optional `data-max-file-bytes` gives inline size errors; manifest notes kept release-level; no migration.
 - Runtime table renderer is centralized in `DluxTable` + `dlux/tables/table.html` + `tables.js`/`tables.css`; responsive proportions persist per table in browser `localStorage`.
 - Updater state uses `DluxUpdateState`/`DluxUpdateRun` plus `dlux_runtime`; generated proxy baseline is Caddy-default `.proxy/` with updater parity.
 
@@ -36,18 +36,21 @@
   - [ ] Browser-validate v1.2.13 anon public root with `show_sidebar_on_public` on; confirm `sidebar_items.html` degrades for AnonymousUser.
   - [ ] Browser-validate v1.4.10 table column resizing with sticky headers on/off and RTL/LTR.
 - **Priority 2:**
-  - [ ] Publish/tag v1.4.10 after release review.
+  - [ ] Publish/tag v1.4.11 after release review.
 - **Completed Recently:**
+  - [x] v1.4.11 archive-file validation visibility + declarative client size limit with concise release manifest notes; no migration.
   - [x] v1.4.10 resizable Dlux table columns: default-on toggle, visible dividers, fixed-footprint proportional rebalancing, nowrap-cell ellipsis, pointer+keyboard+RTL controls, responsive persistence, per-table opt-out, docs/changelog/manifest; no migration.
   - [x] v1.4.9 updater review re-check, Caddy `.proxy/` scaffold parity, Composer self-exclusion/events, image-dialog target fix, token-matched image-handoff ack recovery, and automatic maintenance-page return; no migration.
   - [x] v1.4.8 permanent skip-a-version and failed-version retry guard; migration `0010` for `DluxUpdateState.skipped_versions`.
   - [x] v1.4.7 alert auto-hide opt-in, no-op activity-log suppression, project image target/version badges, and notification progress-only polling.
 
 ### One-line info about last verified Tests:
+- 2026-07-18: v1.4.11 full suite GREEN: 835 tests; after manifest copy trim, JSON + validator GREEN.
 - 2026-07-18: full suite GREEN via `.venv/bin/python dlux/tests/test_all.py`: 834 tests; focused table 25 GREEN including resized nowrap-cell containment; migrations unchanged; manifest v1.4.10 valid; `git diff --check` clean.
 - 2026-07-18: live pointer/viewport browser validation unavailable; keep sticky on/off plus RTL/LTR drag check before release.
 
 ### One-line info about last time edited Docs:
+- 2026-07-18: reference/FEATURES document visible archive-file errors and `data-max-file-bytes`.
 - 2026-07-18: table docs specify visible dividers, proportional containment/persistence, and nowrap-cell ellipsis after resizing.
 
 ## Part 2: Global

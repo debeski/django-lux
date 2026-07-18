@@ -431,7 +431,7 @@ class Meta:
 ### Custom Widgets
 - `DluxChoiceSelectorWidget` — card/chip selector for single choice
 - `DluxMultipleChoiceSelectorWidget` — searchable multi-select with chips
-- `ArchiveFileInput` — file upload with preview (used for logo/favicon)
+- `ArchiveFileInput` — file upload with preview, visible server errors, and optional declarative `data-max-file-bytes` client validation (used for logo/favicon and project archives)
 - Shared crispy file/toggle helpers keep System Settings and setup widgets aligned without relying on app-order template shadowing
 
 ### Filter Helpers
