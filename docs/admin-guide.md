@@ -276,7 +276,7 @@ The most common admin-facing configuration tasks are:
 - changing the default language used before a user saves a personal preference
 - changing the default table density used before a user saves a personal preference
 - changing the default form density and default modal size (Themes & Typography)
-- toggling sticky table headers and zebra striping (Themes & Typography)
+- toggling sticky table headers, contained resizable table columns, and zebra striping (Themes & Typography); enabled resize handles appear as subtle header dividers and reallocate width without widening the page
 - updating the list of available languages
 - adding translation overrides without touching code
 - adjusting the global home URL used by the titlebar Home button

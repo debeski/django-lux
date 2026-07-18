@@ -391,6 +391,7 @@ class Meta:
     dlux_per_page = 20
     dlux_per_page_options = (10, 20, 50, 100)
     dlux_density = None  # 'dense' | 'balanced' | 'roomy'
+    dlux_resizable_columns = True
     dlux_table = True    # Use Dlux renderer
 ```
 
@@ -399,6 +400,7 @@ class Meta:
 - Auto-adoption of stock tables into Dlux template
 - Built-in pagination with per-page controls
 - Density picker in footer (unless locked)
+- Contained resizable columns with visible header dividers, nowrap-cell ellipsis, and responsive per-table browser persistence (unless globally disabled or `Meta.dlux_resizable_columns = False`)
 - Responsive scroll container
 - Empty state with theme tokens
 - Sort indicators with direction arrows

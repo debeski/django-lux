@@ -1,18 +1,19 @@
 {
   "schema_version": 1,
-  "version": "1.4.9",
+  "version": "1.4.10",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds updater review re-checks, generated image-update Compose stabilization, and terminal image-handoff recovery. DjangoLux now consumes composer's token-matched exit acknowledgement when deploy status is unavailable, clears failed maintenance immediately, and generated maintenance pages return to the application automatically after recovery. Inline-safe: Python, template, JavaScript, scaffold, i18n, docs, and tests only; no migration.",
+  "summary": "Adds globally-toggleable, default-on resizable columns for Dlux data tables. Table headers expose visible dividers backed by contained proportional colgroup widths; narrowed nowrap cells stay within their columns, widths persist per table in the browser, and pointer plus keyboard resizing remains RTL-aware. Inline-safe: Python, template, JavaScript, CSS, i18n, docs, and tests only; no migration.",
   "highlights": [
-    "Adds a re-check icon inside the DjangoLux update review modal.",
-    "Repaints or closes the modal after the existing superuser-only check endpoint finishes.",
-    "Uses token-matched composer acknowledgements as an independent terminal handoff signal.",
-    "Returns generated maintenance pages to the application automatically after failed-update recovery.",
-    "Keeps generated composer-updater services on Composer latest while excluding the updater and socket gateway from update scope.",
-    "Sets COMPOSER_EXCLUDE_SERVICES=composer-updater,docker-socket-proxy in generated image-update scaffolds.",
-    "Enables Docker socket-proxy EVENTS=1 for Compose update progress."
+    "Adds layout_config.resizable_table_columns, default on, to System Settings UI & Layout.",
+    "Emits data-dlux-table-resize on the base body so operators can disable resize handles globally.",
+    "Adds subtle visible dividers and colgroup-backed resize handles to the shared Dlux table template.",
+    "Redistributes resized width across other columns to keep tables contained within their parent at every viewport size.",
+    "Clips narrowed nowrap body-cell content with an ellipsis instead of allowing values to overlap neighboring columns.",
+    "Persists proportional widths per table in browser localStorage and supports double-click reset.",
+    "Supports RTL pointer deltas and keyboard resizing from focused resize handles.",
+    "Allows individual table classes to opt out with Meta.dlux_resizable_columns = False."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.9"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.10"
 }

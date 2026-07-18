@@ -397,6 +397,7 @@ def normalize_layout_config(value):
         'default_form_density': form_density,
         'default_modal_size': modal_size,
         'sticky_table_headers': bool(cfg.get('sticky_table_headers', True)),
+        'resizable_table_columns': bool(cfg.get('resizable_table_columns', True)),
         'zebra_striping': bool(cfg.get('zebra_striping', True)),
         'options_style': options_style,
         'footer_enabled': bool(footer_enabled),

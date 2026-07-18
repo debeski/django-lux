@@ -275,6 +275,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'default_form_density',
     'default_modal_size',
     'sticky_table_headers',
+    'resizable_table_columns',
     'zebra_striping',
     'options_style',
     'footer_enabled',

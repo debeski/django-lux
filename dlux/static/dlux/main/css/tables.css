@@ -71,6 +71,9 @@
 
 .dlux-table-shell {
     position: relative;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     border: 1px solid var(--dlux-table-border);
     border-radius: 1.35rem;
     background: var(--dlux-table-surface);
@@ -101,6 +104,9 @@
 }
 
 .dlux-table-scroll {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     background: var(--dlux-table-scroll-bg);
     overflow-x: auto;
     overflow-y: hidden;
@@ -143,6 +149,78 @@
     text-transform: uppercase;
     white-space: nowrap;
     border-bottom: 1px solid var(--dlux-table-border-strong);
+}
+
+.dlux-table-head-content {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-width: 0;
+    padding-inline-end: 0.45rem;
+}
+
+.dlux-table-resize-handle {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: -4px;
+    z-index: 5;
+    display: none;
+    width: 9px;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.dlux-table-resize-handle::after {
+    content: '';
+    position: absolute;
+    inset-block: 24%;
+    inset-inline-start: 4px;
+    width: 1px;
+    border-radius: 999px;
+    background: var(--dlux-table-border-strong);
+    transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+body[data-dlux-table-resize="on"] .dlux-table-shell[data-dlux-table-resizable="true"] .dlux-table-resize-handle {
+    display: block;
+}
+
+body[data-dlux-table-resize="on"] .dlux-table-shell[data-dlux-table-resizable="true"] .dlux-table-resize-handle:hover::after,
+body[data-dlux-table-resize="on"] .dlux-table-shell[data-dlux-table-resizable="true"] .dlux-table-resize-handle:focus-visible::after,
+body.dlux-table-resizing .dlux-table-resize-handle::after {
+    background: var(--bs-primary, var(--primal, #475569));
+    box-shadow: 0 0 0 2px rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+}
+
+body.dlux-table-resizing {
+    cursor: col-resize;
+    user-select: none;
+}
+
+body.dlux-table-resizing * {
+    cursor: col-resize !important;
+}
+
+.dlux-data-table.is-dlux-column-resized {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    table-layout: fixed;
+}
+
+.dlux-data-table.is-dlux-column-resized .dlux-table-head-content,
+.dlux-data-table.is-dlux-column-resized .dlux-table-sort-link,
+.dlux-data-table.is-dlux-column-resized .dlux-table-head-label {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dlux-data-table.is-dlux-column-resized > tbody > tr > :is(td, th):not(:has(.dropdown-menu)) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dlux-data-table > thead > tr:first-child > th:first-child {

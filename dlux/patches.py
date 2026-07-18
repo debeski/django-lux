@@ -5,6 +5,7 @@ ANY ModelForm / FilterSet / Table whose model inherits from ScopedModel
 gets automatic scope handling — zero developer effort required.
 """
 import copy
+import hashlib
 import json
 import logging
 
@@ -236,6 +237,29 @@ def _resolve_table_page_size(request, table, table_meta, explicit_default=None):
     if DEFAULT_TABLE_PAGE_SIZE in options:
         return DEFAULT_TABLE_PAGE_SIZE
     return options[0]
+
+
+def _resolve_table_column_resize_key(table, table_cls):
+    try:
+        model = getattr(getattr(table, '_meta', None), 'model', None)
+        model_label = f"{model._meta.app_label}.{model._meta.model_name}" if model is not None else ''
+    except Exception:
+        model_label = ''
+    try:
+        column_names = list(table.columns.names())
+    except Exception:
+        try:
+            column_names = [name for name, _column in table.columns.items()]
+        except Exception:
+            column_names = []
+    raw_key = '|'.join([
+        getattr(table_cls, '__module__', ''),
+        getattr(table_cls, '__qualname__', getattr(table_cls, '__name__', '')),
+        model_label,
+        getattr(table, 'prefix', '') or '',
+        ','.join(str(name) for name in column_names),
+    ])
+    return hashlib.sha1(raw_key.encode('utf-8')).hexdigest()[:20]
 
 
 def _should_enable_dlux_actions(table_meta):
@@ -608,6 +632,8 @@ def _patch_table_init():
         self.dlux_per_page_options = _resolve_table_page_size_options(table_cls)
         self.dlux_per_page_field = _resolve_table_per_page_field(self)
         self.dlux_per_page = _resolve_table_page_size(request, self, table_cls)
+        self.dlux_resizable_columns = _table_meta_value(table_cls, 'dlux_resizable_columns', True) is not False
+        self.dlux_column_resize_key = _resolve_table_column_resize_key(self, table_cls)
 
         if self.dlux_table_enabled:
             try:

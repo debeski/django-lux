@@ -257,6 +257,7 @@ def normalize_system_settings_import_payload(payload):
         'honeypot_enabled',
         'registration_require_consent',
         'sticky_table_headers',
+        'resizable_table_columns',
         'zebra_striping',
     ):
         if bool_field in normalized:

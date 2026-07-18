@@ -3,6 +3,7 @@ from dlux.tests.harness import setup_test_environment
 setup_test_environment()
 
 import json
+from pathlib import Path
 
 import django_tables2 as tables
 from django.contrib.auth import get_user_model
@@ -65,6 +66,13 @@ class ActionlessTable(DluxTable):
         model = User
         fields = ('username',)
         dlux_actions = False
+
+
+class NonResizableTable(DluxTable):
+    class Meta(DluxTable.Meta):
+        model = User
+        fields = ('username', 'email')
+        dlux_resizable_columns = False
 
 
 class ExtendedActionsTable(DluxTable):
@@ -179,6 +187,43 @@ class TableRenderingTests(TestCase):
 
         self.assertIn('dlux-table-shell', html)
         self.assertIn('data-dlux-table-density="roomy"', html)
+
+    def test_rendered_table_outputs_column_resize_markup(self):
+        table = UserTable(User.objects.filter(pk=self.user.pk), request=self._request())
+        template = Template('{% load django_tables2 %}{% render_table table %}')
+        html = template.render(Context({'table': table, 'request': self._request()}))
+
+        self.assertIn('data-dlux-table-resizable="true"', html)
+        self.assertRegex(html, r'data-dlux-table-key="[a-f0-9]{20}"')
+        self.assertIn('<col data-dlux-table-col="username">', html)
+        self.assertIn('data-dlux-table-resize-handle', html)
+        self.assertIn('tabindex="0"', html)
+
+    def test_table_meta_can_disable_column_resize_markup(self):
+        table = NonResizableTable(User.objects.filter(pk=self.user.pk), request=self._request())
+        template = Template('{% load django_tables2 %}{% render_table table %}')
+        html = template.render(Context({'table': table, 'request': self._request()}))
+
+        self.assertIn('data-dlux-table-resizable="false"', html)
+        self.assertNotIn('data-dlux-table-resize-handle', html)
+
+    def test_column_resize_assets_keep_resized_tables_contained(self):
+        static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main'
+        script = (static_root / 'js' / 'tables.js').read_text(encoding='utf-8')
+        stylesheet = (static_root / 'css' / 'tables.css').read_text(encoding='utf-8')
+
+        self.assertIn('function redistributeColumnWidths(', script)
+        self.assertIn("cols[index].style.width = `${(width / totalWidth) * 100}%`;", script)
+        self.assertNotIn("style.minWidth =", script)
+        self.assertIn('.dlux-data-table.is-dlux-column-resized {', stylesheet)
+        self.assertIn('table-layout: fixed;', stylesheet)
+        self.assertNotIn('var(--dlux-table-width', stylesheet)
+        self.assertIn('background: var(--dlux-table-border-strong);', stylesheet)
+        self.assertIn(
+            '.dlux-data-table.is-dlux-column-resized > tbody > tr > :is(td, th):not(:has(.dropdown-menu)) {',
+            stylesheet,
+        )
+        self.assertIn('text-overflow: ellipsis;', stylesheet)
 
     def test_rendered_table_outputs_dynamic_sort_querystring(self):
         request = self._request('page=3')

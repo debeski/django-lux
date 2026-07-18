@@ -195,6 +195,7 @@ class NewLayoutAndPublicRootKeysTests(SimpleTestCase):
         self.assertEqual(layout['default_form_density'], 'balanced')
         self.assertEqual(layout['default_modal_size'], 'standard')
         self.assertTrue(layout['sticky_table_headers'])
+        self.assertTrue(layout['resizable_table_columns'])
         self.assertTrue(layout['zebra_striping'])
 
     def test_normalize_layout_config_validates_choices_and_coerces_toggles(self):
@@ -202,11 +203,13 @@ class NewLayoutAndPublicRootKeysTests(SimpleTestCase):
             'default_form_density': 'bogus',
             'default_modal_size': 'bogus',
             'sticky_table_headers': 0,
+            'resizable_table_columns': '',
             'zebra_striping': '',
         })
         self.assertEqual(normalized['default_form_density'], 'balanced')
         self.assertEqual(normalized['default_modal_size'], 'standard')
         self.assertFalse(normalized['sticky_table_headers'])
+        self.assertFalse(normalized['resizable_table_columns'])
         self.assertFalse(normalized['zebra_striping'])
 
         valid = system_normalizers.normalize_layout_config({
@@ -265,6 +268,7 @@ class NewLayoutAndPublicRootKeysTests(SimpleTestCase):
             'default_form_density',
             'default_modal_size',
             'sticky_table_headers',
+            'resizable_table_columns',
             'zebra_striping',
             'public_root_theme',
             'public_root_title',

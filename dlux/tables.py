@@ -28,6 +28,7 @@ class DluxTable(tables.Table):
         dlux_actions = True
         dlux_per_page = DEFAULT_TABLE_PAGE_SIZE
         dlux_per_page_options = TABLE_PAGE_SIZE_OPTIONS
+        dlux_resizable_columns = True
 
     def get_dlux_record_name(self, record):
         if hasattr(record, 'get_full_name'):

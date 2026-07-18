@@ -994,11 +994,17 @@ To restyle without editing templates, override the CSS variables on `.dlux-foote
 `SystemSettings.layout_config` (no migration; all surface as `APP_CONFIG.appearance.*`
 and round-trip through export/import):
 
-- **Sticky table headers** (`sticky_table_headers`, default on) and **Zebra
-  striping** (`zebra_striping`, default on). `base.html` emits
-  `data-dlux-sticky-header` / `data-dlux-zebra` on `<body>`, and `tables.css`
-  scopes the sticky-`thead` and `nth-child` row-shading rules under
-  `body[data-dlux-sticky-header="on"]` / `body[data-dlux-zebra="on"]`.
+- **Sticky table headers** (`sticky_table_headers`, default on), **Resizable
+  table columns** (`resizable_table_columns`, default on), and **Zebra striping**
+  (`zebra_striping`, default on). `base.html` emits `data-dlux-sticky-header`,
+  `data-dlux-table-resize`, and `data-dlux-zebra` on `<body>`. `tables.css` and
+  `tables.js` scope sticky headers, visible resize dividers, browser-persisted
+  proportional column widths, and alternating row shading under those flags.
+  Resizing rebalances the other columns within a fixed table footprint, so a
+  widened column cannot stretch the main content or viewport. Narrowed nowrap
+  values are clipped with an ellipsis at their cell boundary instead of overlapping
+  neighboring values. Individual table classes can opt out with
+  `Meta.dlux_resizable_columns = False`.
 - **Default Form Density** (`default_form_density`: `dense` / `balanced` / `roomy`)
   is independent of table density. `body[data-dlux-form-density]` overrides the
   `--dlux-form-*` variables in `form_fields.css` (row gutter, label margin,

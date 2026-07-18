@@ -3,14 +3,22 @@
 <div
     class="dlux-table-shell"
     data-dlux-table-density="{{ table.dlux_density|default:'balanced' }}"
+    data-dlux-table-key="{{ table.dlux_column_resize_key|default:'' }}"
+    data-dlux-table-resizable="{% if table.dlux_resizable_columns %}true{% else %}false{% endif %}"
     {% if table.dlux_density_locked %}data-dlux-table-density-locked="true"{% endif %}
 >
     <div class="dlux-table-scroll">
         <table {{ table.attrs.as_html }}>
+            <colgroup>
+                {% for column in table.columns %}
+                <col data-dlux-table-col="{{ column.name }}">
+                {% endfor %}
+            </colgroup>
             <thead class="dlux-table-head">
                 <tr>
                     {% for column in table.columns %}
-                    <th {{ column.attrs.th.as_html }} scope="col">
+                    <th {{ column.attrs.th.as_html }} scope="col" data-dlux-table-col="{{ column.name }}">
+                        <span class="dlux-table-head-content">
                         {% if column.orderable %}
                         <a
                             href="{% dlux_querystring table.prefixed_order_by_field column.order_by_alias.next %}"
@@ -21,6 +29,18 @@
                         </a>
                         {% else %}
                         <span class="dlux-table-head-label">{{ column.header }}</span>
+                        {% endif %}
+                        </span>
+                        {% if table.dlux_resizable_columns %}
+                        <span
+                            class="dlux-table-resize-handle"
+                            data-dlux-table-resize-handle
+                            role="separator"
+                            aria-orientation="vertical"
+                            tabindex="0"
+                            aria-label="{{ DLUX_STRINGS.table_resize_column|default:'Resize column' }}"
+                            title="{{ DLUX_STRINGS.table_resize_column|default:'Resize column' }}"
+                        ></span>
                         {% endif %}
                     </th>
                     {% endfor %}

@@ -778,9 +778,16 @@ Common runtime feature flags in `get_system_config()`:
 - `default_modal_size` — Default width of the shared dynamic modal (`compact` →
   `modal-lg`, `standard` → `modal-xl`, `wide` → `modal-xl dlux-modal-wide`). The
   resolved class is `APP_CONFIG.appearance.modal_size_class`.
-- `sticky_table_headers` / `zebra_striping` — Toggle (default on) the sticky table
-  header row and alternating row shading; gated in `tables.css` via
-  `body[data-dlux-sticky-header]` / `body[data-dlux-zebra]` emitted from `base.html`.
+- `sticky_table_headers` / `resizable_table_columns` / `zebra_striping` — Toggle
+  (default on) the sticky table header row, draggable table-column resizing, and
+  alternating row shading; gated in `tables.css` / `tables.js` via
+  `body[data-dlux-sticky-header]`, `body[data-dlux-table-resize]`, and
+  `body[data-dlux-zebra]` emitted from `base.html`. Enabled headers show subtle
+  resize dividers. Dragging one divider redistributes the fixed table width across
+  the other columns, keeping the table inside its parent even with sticky headers;
+  proportional widths are stored per table in browser `localStorage` and can be
+  reset by double-clicking a resize handle. After resizing, nowrap body-cell values
+  such as dates truncate with an ellipsis rather than overlapping adjacent columns.
 - `options_style` — Layout of the Options page (`/sys/options/`): `cards` (default,
   rearrangeable card grid), `tabs` (one section at a time behind a generated tab
   strip — the Admin panel is the first tab), or `compact` (a dense single-page,

@@ -405,6 +405,7 @@ def build_config_groups(config, current_language=None):
                 MODAL_SIZE_CLASSES[DEFAULT_MODAL_SIZE],
             ),
             'sticky_table_headers': bool(config.get('sticky_table_headers', True)),
+            'resizable_table_columns': bool(config.get('resizable_table_columns', True)),
             'zebra_striping': bool(config.get('zebra_striping', True)),
             'options_style': config.get('options_style', DEFAULT_OPTIONS_STYLE),
             'footer_enabled': bool(config.get('footer_enabled', True)),
@@ -1030,12 +1031,16 @@ def get_system_config():
             )
         ):
             db_config['default_modal_size'] = sys_settings.default_modal_size
-        # sticky_table_headers / zebra_striping default True (False is meaningful);
+        # sticky_table_headers / resizable_table_columns / zebra_striping default
+        # True (False is meaningful);
         # gate like footer_enabled so toggling them does not clobber a settings-level
         # layout override on an unconfigured system.
         _sticky_headers = bool(getattr(sys_settings, 'sticky_table_headers', True))
         if _should_apply_db_override(_sticky_headers, bool(default_config.get('sticky_table_headers', True))):
             db_config['sticky_table_headers'] = _sticky_headers
+        _resizable_columns = bool(getattr(sys_settings, 'resizable_table_columns', True))
+        if _should_apply_db_override(_resizable_columns, bool(default_config.get('resizable_table_columns', True))):
+            db_config['resizable_table_columns'] = _resizable_columns
         _zebra_striping = bool(getattr(sys_settings, 'zebra_striping', True))
         if _should_apply_db_override(_zebra_striping, bool(default_config.get('zebra_striping', True))):
             db_config['zebra_striping'] = _zebra_striping

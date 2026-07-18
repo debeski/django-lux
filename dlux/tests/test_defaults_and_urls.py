@@ -1326,6 +1326,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("data-dlux-settings-toggle-field='show_sidebar_on_public'", html)
         self.assertIn("data-dlux-settings-toggle-field='honeypot_enabled'", html)
         self.assertIn("data-dlux-settings-toggle-field='sticky_table_headers'", html)
+        self.assertIn("data-dlux-settings-toggle-field='resizable_table_columns'", html)
         self.assertIn("data-dlux-settings-toggle-field='zebra_striping'", html)
         self.assertIn("data-dlux-email-toggle-field='email_config_use_tls'", html)
         self.assertIn("data-dlux-email-toggle-field='email_config_use_ssl'", html)
@@ -1469,7 +1470,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
                 'default_table_density': 'balanced',
                 'default_form_density': 'dense',
                 'default_modal_size': 'compact',
-                # sticky/zebra/honeypot omitted on a full form == toggled off
+                # sticky/resize/zebra/honeypot omitted on a full form == toggled off
                 'languages': '{}',
                 'translations_override': '{}',
                 'public_root': 'on',
@@ -1488,6 +1489,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(saved.default_form_density, 'dense')
         self.assertEqual(saved.default_modal_size, 'compact')
         self.assertFalse(saved.sticky_table_headers)
+        self.assertFalse(saved.resizable_table_columns)
         self.assertFalse(saved.zebra_striping)
         self.assertEqual(saved.public_root_theme, 'dark')
         self.assertEqual(saved.public_root_title, 'Welcome')
@@ -1516,6 +1518,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
                     'default_form_density': 'roomy',
                     'default_modal_size': 'wide',
                     'sticky_table_headers': False,
+                    'resizable_table_columns': False,
                     'zebra_striping': False,
                     'footer_enabled': True,
                 },
@@ -1531,6 +1534,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(saved.default_form_density, 'roomy')
         self.assertEqual(saved.default_modal_size, 'wide')
         self.assertFalse(saved.sticky_table_headers)
+        self.assertFalse(saved.resizable_table_columns)
         self.assertFalse(saved.zebra_striping)
 
     def test_public_root_setup_js_uses_single_form_scoped_controller(self):

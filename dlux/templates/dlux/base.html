@@ -96,7 +96,7 @@
     <script src="{% dlux_static 'dlux/main/js/confirm_password.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}
 
 </head>
-<body data-dlux-sticky-header="{{ APP_CONFIG.appearance.sticky_table_headers|yesno:'on,off' }}" data-dlux-zebra="{{ APP_CONFIG.appearance.zebra_striping|yesno:'on,off' }}" data-dlux-form-density="{{ user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density|default:'balanced' }}" data-dlux-modal-size="{{ user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size|default:'standard' }}">
+<body data-dlux-sticky-header="{{ APP_CONFIG.appearance.sticky_table_headers|yesno:'on,off' }}" data-dlux-table-resize="{{ APP_CONFIG.appearance.resizable_table_columns|yesno:'on,off' }}" data-dlux-zebra="{{ APP_CONFIG.appearance.zebra_striping|yesno:'on,off' }}" data-dlux-form-density="{{ user_preferences.form_density|default:APP_CONFIG.appearance.default_form_density|default:'balanced' }}" data-dlux-modal-size="{{ user_preferences.modal_size|default:APP_CONFIG.appearance.default_modal_size|default:'standard' }}">
 
     <!-- Title Bar -->
     {% block titlebar %}

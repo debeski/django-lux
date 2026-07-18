@@ -225,6 +225,7 @@ SYSTEM_SETTING_GROUPS = (
             _field('layout', 'default_form_density', default='balanced', widget='choice', legacy_flat=True),
             _field('layout', 'default_modal_size', default='standard', widget='choice', legacy_flat=True),
             _field('layout', 'sticky_table_headers', field_type='bool', default=True, widget='switch', legacy_flat=True),
+            _field('layout', 'resizable_table_columns', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('layout', 'zebra_striping', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('layout', 'options_style', default='cards', widget='choice', legacy_flat=True),
             _field('layout', 'footer_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),

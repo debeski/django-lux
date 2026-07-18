@@ -1878,14 +1878,17 @@
 
     function applyLayoutBodyPreview(form) {
         // Live-preview only the GLOBAL layout settings on the <body> behind the
-        // modal: sticky headers and zebra striping (admin-only, no per-user
-        // override). `default_form_density` and `default_modal_size` are the admin
+        // modal: sticky headers, column resizing, and zebra striping (admin-only,
+        // no per-user override). `default_form_density` and `default_modal_size` are the admin
         // DEFAULTS for those per-user preferences — previewing them here would
         // overwrite the editing admin's OWN resolved `data-dlux-form-density` /
         // `data-dlux-modal-size` (which reflect their personal Options choice),
         // making every modal snap to the global default. So they are NOT previewed.
         if (form.querySelector('[name="sticky_table_headers"]')) {
             document.body.dataset.dluxStickyHeader = readBooleanField(form, '#id_sticky_table_headers', true) ? 'on' : 'off';
+        }
+        if (form.querySelector('[name="resizable_table_columns"]')) {
+            document.body.dataset.dluxTableResize = readBooleanField(form, '#id_resizable_table_columns', true) ? 'on' : 'off';
         }
         if (form.querySelector('[name="zebra_striping"]')) {
             document.body.dataset.dluxZebra = readBooleanField(form, '#id_zebra_striping', true) ? 'on' : 'off';
@@ -3851,7 +3854,7 @@
             }
         });
 
-        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'prevent_multiple_active_sessions', 'public_root', 'public_root_split_enabled', 'show_titlebar_on_public', 'show_sidebar_on_public', 'public_registration_enabled', 'registration_throttle_enabled', 'honeypot_enabled', 'sticky_table_headers', 'zebra_striping', 'footer_enabled'].forEach((name) => {
+        ['allow_user_theme_override', 'allow_user_font_override', 'allow_user_language_override', 'email_2fa', 'prevent_multiple_active_sessions', 'public_root', 'public_root_split_enabled', 'show_titlebar_on_public', 'show_sidebar_on_public', 'public_registration_enabled', 'registration_throttle_enabled', 'honeypot_enabled', 'sticky_table_headers', 'resizable_table_columns', 'zebra_striping', 'footer_enabled'].forEach((name) => {
             if (Object.prototype.hasOwnProperty.call(settings, name)) {
                 setCheckboxField(form, name, settings[name]);
             }

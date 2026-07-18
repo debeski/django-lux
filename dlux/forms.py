@@ -2010,6 +2010,10 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         initial=True,
     )
+    resizable_table_columns = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
     zebra_striping = forms.BooleanField(
         required=False,
         initial=True,
@@ -2477,6 +2481,7 @@ class SystemSettingsForm(forms.ModelForm):
             'default_form_density',
             'default_modal_size',
             'sticky_table_headers',
+            'resizable_table_columns',
             'zebra_striping',
             'footer_enabled',
             'footer_text',
@@ -2768,6 +2773,11 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['sticky_table_headers'].help_text = s.get(
             'help_sys_sticky_table_headers',
             'Keep table header rows pinned to the top while scrolling long tables.',
+        )
+        self.fields['resizable_table_columns'].label = s.get('form_sys_resizable_table_columns', 'Resizable table columns')
+        self.fields['resizable_table_columns'].help_text = s.get(
+            'help_sys_resizable_table_columns',
+            'Let users drag table header edges to resize columns in Dlux data tables.',
         )
         self.fields['zebra_striping'].label = s.get('form_sys_zebra_striping', 'Zebra striping')
         self.fields['zebra_striping'].help_text = s.get(
@@ -3836,7 +3846,8 @@ class SystemSettingsForm(forms.ModelForm):
         _layout_initial_source = dict(_existing_layout) if isinstance(_existing_layout, dict) else {}
         for _layout_key in (
             'footer_enabled', 'footer_text', 'footer_link_text', 'footer_link_url',
-            'default_form_density', 'default_modal_size', 'sticky_table_headers', 'zebra_striping',
+            'default_form_density', 'default_modal_size', 'sticky_table_headers',
+            'resizable_table_columns', 'zebra_striping',
         ):
             if _layout_key not in _layout_initial_source and config.get(_layout_key) is not None:
                 _layout_initial_source[_layout_key] = config.get(_layout_key)
@@ -4964,8 +4975,9 @@ class SystemSettingsForm(forms.ModelForm):
                     css_class='mb-3'
                 ),
                 Row(
-                    build_settings_toggle_field(self, 'sticky_table_headers', css_class='col-12 col-lg-6'),
-                    build_settings_toggle_field(self, 'zebra_striping', css_class='col-12 col-lg-6'),
+                    build_settings_toggle_field(self, 'sticky_table_headers', css_class='col-12 col-lg-4'),
+                    build_settings_toggle_field(self, 'resizable_table_columns', css_class='col-12 col-lg-4'),
+                    build_settings_toggle_field(self, 'zebra_striping', css_class='col-12 col-lg-4'),
                     css_class='g-3 mb-3',
                 ),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('modal_settings_title', 'Modals')}</h6>"),
@@ -5237,6 +5249,9 @@ class SystemSettingsForm(forms.ModelForm):
 
     def clean_sticky_table_headers(self):
         return self._clean_preserved_toggle('sticky_table_headers', 8, True)
+
+    def clean_resizable_table_columns(self):
+        return self._clean_preserved_toggle('resizable_table_columns', 8, True)
 
     def clean_zebra_striping(self):
         return self._clean_preserved_toggle('zebra_striping', 8, True)
@@ -6152,6 +6167,10 @@ class SystemSettingsForm(forms.ModelForm):
             'sticky_table_headers': bool(layout_config.get(
                 'sticky_table_headers',
                 self.cleaned_data.get('sticky_table_headers', True),
+            )),
+            'resizable_table_columns': bool(layout_config.get(
+                'resizable_table_columns',
+                self.cleaned_data.get('resizable_table_columns', True),
             )),
             'zebra_striping': bool(layout_config.get(
                 'zebra_striping',

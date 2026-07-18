@@ -421,6 +421,8 @@ class SingletonModel(models.Model):
                     obj.default_modal_size = config.get('default_modal_size')
                 if hasattr(obj, 'sticky_table_headers') and 'sticky_table_headers' in config:
                     obj.sticky_table_headers = bool(config.get('sticky_table_headers'))
+                if hasattr(obj, 'resizable_table_columns') and 'resizable_table_columns' in config:
+                    obj.resizable_table_columns = bool(config.get('resizable_table_columns'))
                 if hasattr(obj, 'zebra_striping') and 'zebra_striping' in config:
                     obj.zebra_striping = bool(config.get('zebra_striping'))
                 if hasattr(obj, 'allowed_fonts') and isinstance(config.get('allowed_fonts'), (list, tuple, set)):

@@ -144,6 +144,7 @@ def default_layout_config():
         'default_form_density': DEFAULT_FORM_DENSITY,
         'default_modal_size': DEFAULT_MODAL_SIZE,
         'sticky_table_headers': True,
+        'resizable_table_columns': True,
         'zebra_striping': True,
         'options_style': DEFAULT_OPTIONS_STYLE,
         'footer_enabled': True,
