@@ -43,7 +43,12 @@ from dlux.updater.manifest import (
     verify_pypi_attestation,
 )
 from dlux.updater.runtime import RuntimeStore
-from dlux.updater.image_update import ack_path, read_composer_ack, status_path
+from dlux.updater.image_update import (
+    ack_path,
+    image_update_metadata,
+    read_composer_ack,
+    status_path,
+)
 from dlux.updater.health import runtime_probe_token
 from dlux.updater.release_check import (
     _changed_migrations,
@@ -612,6 +617,60 @@ class RuntimeStoreTests(TestCase):
         )
 
 
+class ImageAvailabilityMetadataTests(TestCase):
+    @staticmethod
+    def _write_availability(store, image):
+        payload = {
+            "available": True,
+            "images": [{
+                "image": "example/app:latest",
+                "local_digest": "sha256:old",
+                "remote_digest": "sha256:1234567890abcdef",
+                "update_available": True,
+                **image,
+            }],
+        }
+        (store.state_dir / "image-available.json").write_text(
+            json.dumps(payload), encoding="utf-8"
+        )
+
+    def test_manifest_version_and_notes_are_optional_display_metadata(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            self._write_availability(store, {
+                "version": "1.4.12",
+                "manifest": {
+                    "schema_version": 1,
+                    "version": "2026.7",
+                    "summary": "Project release",
+                    "highlights": ["New report", "Faster imports"],
+                },
+            })
+
+            metadata = image_update_metadata(store)
+
+        self.assertTrue(metadata["available"])
+        self.assertEqual(metadata["target"], "v2026.7")
+        self.assertEqual(metadata["runtime_target"], "v1.4.12")
+        self.assertEqual(metadata["manifest"]["highlights"], ["New report", "Faster imports"])
+
+    def test_invalid_manifest_falls_back_to_version_then_digest(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            self._write_availability(store, {
+                "version": "1.4.12",
+                "manifest": {"schema_version": 2, "version": "ignored"},
+            })
+            version_metadata = image_update_metadata(store)
+            self._write_availability(store, {})
+            digest_metadata = image_update_metadata(store)
+
+        self.assertEqual(version_metadata["target"], "v1.4.12")
+        self.assertEqual(version_metadata["manifest"], {})
+        self.assertEqual(digest_metadata["target"], "sha256:1234567890ab")
+        self.assertEqual(digest_metadata["runtime_target"], "sha256:1234567890ab")
+
+
 class ImageUpdateHandoffTests(TestCase):
     def _awaiting_row(self):
         return DluxImageUpdate.objects.create(
@@ -774,6 +833,27 @@ class UpdaterApiTests(TestCase):
         failure = json.loads(response.content)["state"]["latest_version_failure"]
         self.assertIsNotNone(failure)
         self.assertEqual(failure["version"], "1.4.7")
+
+    @mock.patch("dlux.views.updater.image_update_metadata")
+    def test_state_endpoint_surfaces_optional_project_image_manifest(self, metadata):
+        metadata.return_value = {
+            "available": True,
+            "target": "v2026.7",
+            "runtime_target": "v1.4.12",
+            "reason": "A new application image is available.",
+            "manifest": {
+                "schema_version": 1,
+                "version": "2026.7",
+                "highlights": ["New report"],
+            },
+        }
+
+        response = self.client.get(reverse("dlux_update_state"))
+
+        self.assertEqual(response.status_code, 200)
+        state = response.json()["state"]
+        self.assertEqual(state["image_update_target"], "v2026.7")
+        self.assertEqual(state["image_update_manifest"]["highlights"], ["New report"])
 
     def test_skip_endpoint_adds_removes_and_clears_offered_latest(self):
         state = DluxUpdateState.load()
@@ -939,6 +1019,8 @@ class UpdaterApiTests(TestCase):
         self.assertIn("run.token === trackedRunToken", contents)
         self.assertIn("modalRecheckButton", contents)
         self.assertIn("reopenReviewAfterCheck", contents)
+        self.assertIn("state.image_update_manifest || null", contents)
+        self.assertIn("allowSummaryFallback", contents)
         # The Check button spins via the shared loading-button helper and a
         # successful run shows a green "Finish" affordance (the old misleading
         # "Update completed" root-status line was removed).

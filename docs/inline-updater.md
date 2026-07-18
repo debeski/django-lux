@@ -149,26 +149,43 @@ DjangoLux the image was built with." When an inline wheel update has moved the
 running DjangoLux ahead of the image, the running `DjangoLux` row version and
 this baked badge differ.
 
-Detecting whether a **newer application image** is available is registry- and
-digest-driven (the `composer` service compares the running image digest against
-the remote tag and publishes availability); it does not require a project-side
-release manifest. When an update is available the row shows **`→ v<target>`** —
-the target image's version, which `composer` reads best-effort from the image's
-OCI `org.opencontainers.image.version` label (override with
-`COMPOSER_VERSION_LABEL`) and publishes in `image-available.json`. This is the
-**same label composer's version gate compares** to reject downgrades (an image
-whose version is lower than the currently deployed one), so the version shown is
-exactly the one the gate acts on. If composer can't read the label (older
-composer, private/unsupported registry, or a missing label), the row falls back
-to a short remote digest — nothing breaks.
+Detecting whether a **newer application image** is available remains registry-
+and digest-driven: `composer` compares the running image digest against the
+remote tag and publishes availability. Project metadata is never required.
+When an update exists, Composer reads the remote image config once and may also
+publish two independent optional fields in `image-available.json`:
+
+- `version`, from `COMPOSER_VERSION_LABEL`, remains the baked DjangoLux target
+  used by the generated version gate and image-update completion check.
+- `manifest`, from `COMPOSER_RELEASE_MANIFEST_LABEL` (default
+  `org.dlux.project.release-manifest`), may contain schema-1 `version`, `summary`,
+  up to eight `highlights`, and an HTTPS `release_url` for the project release.
+
+The Application row and review dialog prefer the project manifest's `version`
+for display, then the optional version label, then a short remote digest. Missing,
+malformed, empty, or unsupported manifest JSON is ignored; a missing version is
+also harmless. Neither can suppress a digest-detected update.
+
+The generated Dockerfile exposes an optional `DLUX_PROJECT_RELEASE_MANIFEST`
+build argument. CI can compact a project-owned JSON file and pass it while
+building, for example:
+
+```sh
+manifest_json="$(python -c 'import json; print(json.dumps(json.load(open("release-manifest.json")), separators=(",", ":")))')"
+docker build --build-arg DLUX_PROJECT_RELEASE_MANIFEST="$manifest_json" -t "$WEB_IMAGE" .
+```
+
+Projects may instead stamp the same `org.dlux.project.release-manifest` label
+through their image build tooling. Omitting the argument leaves the label empty
+and preserves digest/version-only behavior.
 
 The **image-rebuild review dialog** (opened from the Application row's update
-arrow) reports the *project image's* target — `state.image_update_target` (the
-published target version or short remote digest), falling back to the project's
-own current app version when composer has not published a target. It never falls
-back to the DjangoLux wheel version, and it does not show the DjangoLux wheel's
-release highlights, because an image rebuild delivers the whole project image
-(app code plus whatever DjangoLux the image bakes), not an inline wheel upgrade.
+arrow) reports the *project image's* target through `state.image_update_target`
+and renders `state.image_update_manifest` highlights (or its summary when no
+highlights exist). It falls back to the project's current app version only when
+Composer published no target metadata or digest. It never uses the DjangoLux
+wheel version or wheel release notes, because an image rebuild delivers the
+whole project image.
 
 Generated Compose scaffolds run the resident `composer-updater` from
 `debeski/composer:latest` and set

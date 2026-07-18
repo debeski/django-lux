@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "version": "1.4.11",
+  "version": "1.4.12",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Fixes archive-file validation feedback in dynamic modals and adds optional client-side file-size checks. Inline-safe; no migration.",
+  "summary": "Adds optional project release notes to registry-driven image update reviews. Inline-safe; no migration.",
   "highlights": [
-    "Archive widgets now keep validation feedback visible and can honor data-max-file-bytes limits."
+    "Project image updates can show optional release metadata while retaining version and digest fallbacks."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.11"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.12"
 }

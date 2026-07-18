@@ -418,6 +418,8 @@ services:
       # the deployment's active runtime version (dlux active.json). The label is
       # baked by the Dockerfile ARG/LABEL (empty locally = gate skipped).
       COMPOSER_VERSION_LABEL: "org.{{ project_slug }}.dlux_baked_version"
+      # Optional project release notes embedded in the remote image config.
+      COMPOSER_RELEASE_MANIFEST_LABEL: "org.dlux.project.release-manifest"
       COMPOSER_ACTIVE_VERSION_FILE: "/opt/dlux-runtime/state/active.json"
       COMPOSER_ACTIVE_VERSION_KEY: "version"
       COMPOSER_STATUS_FILE: "/opt/dlux-runtime/state/deploy-status.json"

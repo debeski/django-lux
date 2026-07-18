@@ -618,12 +618,16 @@
         // prose summary (which made the modal very tall). The generic
         // "Bug fixes and improvements" entry is ALWAYS appended last, even when
         // a release ships no curated highlights.
-        function renderReleaseNotes(container, manifest) {
+        function renderReleaseNotes(container, manifest, allowSummaryFallback = false) {
             if (!container) return;
             container.textContent = '';
             const list = document.createElement('ul');
             list.className = 'dlux-update-highlights mb-0';
-            const items = Array.isArray(manifest?.highlights) ? manifest.highlights : [];
+            const items = Array.isArray(manifest?.highlights) ? [...manifest.highlights] : [];
+            if (!items.length && allowSummaryFallback) {
+                const summary = String(manifest?.summary || '').trim();
+                if (summary) items.push(summary);
+            }
             items.forEach((text) => {
                 const clean = String(text || '').trim();
                 if (!clean) return;
@@ -662,18 +666,22 @@
                 // (a v-version or short remote digest); if that is unavailable,
                 // fall back to the project's own current app version, NOT
                 // `latest_version` (that is the dlux wheel and reads as "update
-                // dlux" here). Likewise there is no per-project release manifest
-                // for an image rebuild, so don't surface the dlux wheel's notes.
+                // dlux" here). An independently optional project-image manifest
+                // may supply its own display version and release notes.
                 const img = state.image || {};
                 const projVer = String(img.app_version || '').replace(/^v/, '').trim();
                 target = state.image_update_target || (projVer ? 'v' + projVer : '—');
-                manifest = null;
+                manifest = state.image_update_manifest || null;
                 compatibility = state.image_update_reason || '';
             }
             modalElement.querySelector('[data-dlux-update-modal-title]').textContent = title;
             modalElement.querySelector('[data-dlux-update-submit]').textContent = confirm;
             modalElement.querySelector('[data-dlux-update-target]').textContent = target;
-            renderReleaseNotes(modalElement.querySelector('[data-dlux-update-summary]'), manifest);
+            renderReleaseNotes(
+                modalElement.querySelector('[data-dlux-update-summary]'),
+                manifest,
+                isImage,
+            );
             modalElement.querySelector('[data-dlux-update-compatibility]').textContent = compatibility;
             const maintenanceEl = modalElement.querySelector('[data-dlux-update-maintenance]');
             if (maintenanceEl) {

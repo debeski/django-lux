@@ -100,34 +100,110 @@ def read_image_availability(store=None):
         return {}
 
 
+def _normalize_project_manifest(value):
+    """Return the display-safe subset of optional project release metadata."""
+    if not isinstance(value, dict):
+        return {}
+    schema_version = value.get("schema_version", 1)
+    if isinstance(schema_version, bool) or schema_version not in (1, "1"):
+        return {}
+
+    manifest = {"schema_version": 1}
+    version = value.get("version")
+    if isinstance(version, str) and version.strip():
+        manifest["version"] = version.strip()[:64]
+    summary = value.get("summary")
+    if isinstance(summary, str) and summary.strip():
+        manifest["summary"] = summary.strip()[:1000]
+    highlights = value.get("highlights")
+    if isinstance(highlights, list):
+        clean_highlights = []
+        for item in highlights[:8]:
+            if isinstance(item, str) and item.strip():
+                clean_highlights.append(item.strip()[:160])
+        if clean_highlights:
+            manifest["highlights"] = clean_highlights
+    release_url = value.get("release_url")
+    if isinstance(release_url, str):
+        release_url = release_url.strip()
+        if release_url.startswith("https://"):
+            manifest["release_url"] = release_url[:2048]
+    return manifest if len(manifest) > 1 else {}
+
+
+def _display_version(value):
+    version = str(value or "").strip()
+    if not version:
+        return ""
+    return version if version.lower().startswith("v") else f"v{version}"
+
+
+def image_update_metadata(store=None):
+    """Normalized metadata for the first available project image update.
+
+    Availability remains digest-driven. A project release manifest, the
+    configured version label, and the digest fallback are independently
+    optional. ``runtime_target`` deliberately excludes the project manifest's
+    version because image-update completion compares it with baked DjangoLux.
+    """
+    data = read_image_availability(store)
+    if not data.get("available"):
+        return {
+            "available": False,
+            "target": "",
+            "runtime_target": "",
+            "reason": "",
+            "manifest": {},
+        }
+
+    candidates = [
+        image for image in (data.get("images") or [])
+        if isinstance(image, dict) and image.get("update_available")
+    ]
+    if not candidates:
+        return {
+            "available": False,
+            "target": "",
+            "runtime_target": "",
+            "reason": "",
+            "manifest": {},
+        }
+
+    selected = next(
+        (image for image in candidates if _normalize_project_manifest(image.get("manifest"))),
+        None,
+    )
+    if selected is None:
+        selected = next(
+            (image for image in candidates if str(image.get("version") or "").strip()),
+            candidates[0],
+        )
+
+    manifest = _normalize_project_manifest(selected.get("manifest"))
+    version_target = _display_version(selected.get("version"))
+    digest_target = str(selected.get("remote_digest") or "")[:19]
+    runtime_target = version_target or digest_target
+    display_target = _display_version(manifest.get("version")) or runtime_target
+    return {
+        "available": True,
+        "target": display_target,
+        "runtime_target": runtime_target,
+        "reason": "A new application image is available.",
+        "manifest": manifest,
+    }
+
+
 def image_update_available(store=None):
     """(available, target, reason).
 
     Registry-driven: True when composer reports a newer application image than
     the one currently running (a changed remote tag digest). composer owns this
     check because it has registry egress; dlux/web is network-isolated and only
-    reads the published file. ``target`` is a short remote digest for display.
+    reads the published file. ``target`` prefers the optional project manifest
+    version, then the image version label, then a short remote digest.
     """
-    data = read_image_availability(store)
-    if not data.get("available"):
-        return False, "", ""
-    # Prefer the target image's own version (composer publishes it best-effort as
-    # ``version`` from the OCI version label); fall back to a short remote digest
-    # when the version isn't available, so this never breaks without composer's
-    # newer output.
-    target = ""
-    digest_fallback = ""
-    for image in data.get("images", []):
-        if not (isinstance(image, dict) and image.get("update_available")):
-            continue
-        version = str(image.get("version") or "").strip()
-        if version:
-            target = version if version.lower().startswith("v") else f"v{version}"
-            break
-        if not digest_fallback and image.get("remote_digest"):
-            digest_fallback = str(image["remote_digest"])[:19]  # sha256:xxxxxxxxxx
-    target = target or digest_fallback
-    return True, target, "A new application image is available."
+    metadata = image_update_metadata(store)
+    return metadata["available"], metadata["target"], metadata["reason"]
 
 
 def active_image_update():
@@ -205,8 +281,8 @@ def queue_image_update(username="", backup_mode=None):
     Run = _run_model()
     backup_mode = backup_mode if backup_mode in dict(Run.BACKUP_MODE_CHOICES) else Run.BACKUP_DATA
     state = _state_model().load()
-    available, target, _reason = image_update_available()
-    if not available:
+    metadata = image_update_metadata()
+    if not metadata["available"]:
         raise UpdaterError("No image-level DjangoLux update is available.")
     if state.active_run_token:
         raise UpdaterError("An inline DjangoLux update is already running.")
@@ -217,7 +293,7 @@ def queue_image_update(username="", backup_mode=None):
             raise UpdaterError("An image update is already in progress.")
         row = Image.objects.create(
             source_version=state.active_version or state.baked_version,
-            target_version=target,
+            target_version=metadata["runtime_target"],
             requested_by_username=str(username or "")[:150],
             backup_mode=backup_mode,
         )

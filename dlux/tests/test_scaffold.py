@@ -136,6 +136,8 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("compose.dev.yml", dockerignore_contents)
             self.assertIn("FROM python:3.14-slim", dockerfile_contents)
             self.assertIn('LABEL org.demo_project.dlux_baked_version=', dockerfile_contents)
+            self.assertIn('ARG DLUX_PROJECT_RELEASE_MANIFEST=""', dockerfile_contents)
+            self.assertIn('LABEL org.dlux.project.release-manifest=', dockerfile_contents)
             self.assertIn("name: demo_project", compose_contents)
             # Caddy is the active proxy; nginx is a commented-out drop-in fallback.
             self.assertIn("image: caddy:latest", compose_contents)
@@ -169,6 +171,7 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("image: debeski/composer:latest", compose_contents)
             self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-updater,docker-socket-proxy"', compose_contents)
             self.assertIn('COMPOSER_VERSION_LABEL: "org.demo_project.dlux_baked_version"', compose_contents)
+            self.assertIn('COMPOSER_RELEASE_MANIFEST_LABEL: "org.dlux.project.release-manifest"', compose_contents)
             self.assertIn("post_start:", compose_contents)
             self.assertIn('image: !reset null', compose_dev_contents)
             self.assertIn("celery:", compose_dev_contents)

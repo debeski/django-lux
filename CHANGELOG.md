@@ -6,6 +6,9 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.4.12
+- **Optional Project Image Release Manifest**: Extended registry-driven project image reviews to consume a normalized optional `manifest` from Composer's `image-available.json`, expose it as `state.image_update_manifest`, and render project highlights or a summary fallback in the image review dialog. Display targets prefer the project manifest version, then Composer's optional version label, then the remote digest, while `DluxImageUpdate.target_version` retains the version-label/digest target used by baked-version completion checks. Generated Docker/Compose scaffolds add the optional `DLUX_PROJECT_RELEASE_MANIFEST` build arg and `org.dlux.project.release-manifest` label; absent or malformed metadata leaves existing digest/version-only behavior unchanged. No migration.
+
 ## v1.4.11
 - **Archive File Validation Errors Stay Visible**: Fixed `dlux/forms/crispy_file_field.html` hiding archive-widget field errors after an invalid dynamic-modal submission. Archive errors now render explicitly as `invalid-feedback d-block` with an alert role, so replacing the modal body cannot silently clear a browser file selection without explaining the rejected upload.
 - **Declarative Client File-Size Validation**: Archive widgets now honor an optional `data-max-file-bytes` input attribute. `file_field.js` applies native `setCustomValidity()`, marks the archive card invalid, and renders a localized inline `archive_file_too_large` message before submission when the selected file exceeds the declared project policy; server validation remains authoritative.
