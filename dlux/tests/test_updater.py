@@ -55,7 +55,12 @@ from dlux.updater.release_check import (
     _previous_release_tag,
     validate_inline_migrations,
 )
-from dlux.updater.service import UpdateService, _sanitize, queue_run
+from dlux.updater.service import (
+    UpdateService,
+    _sanitize,
+    queue_daily_check_if_due,
+    queue_run,
+)
 
 
 def _newer_version(base=__version__):
@@ -785,6 +790,73 @@ class ImageUpdateHandoffTests(TestCase):
             self.assertEqual(row.status, row.STATUS_FAILED)
             self.assertIn("did not acknowledge", row.error)
             self.assertFalse(store.maintenance_file.exists())
+
+
+class AutoUpdateCheckSchedulingTests(TestCase):
+    """The background daily check is driven both by the isolated worker loop and,
+    reliably, by a Celery-beat task. Both funnel through queue_daily_check_if_due,
+    which must gate on enablement, an in-flight run, and the persisted interval."""
+
+    def setUp(self):
+        DluxUpdateState.load()
+
+    def _checks(self):
+        return DluxUpdateRun.objects.filter(action=DluxUpdateRun.ACTION_CHECK)
+
+    @override_settings(DLUX_INLINE_UPDATES_ENABLED=False)
+    def test_disabled_never_queues(self):
+        self.assertIsNone(queue_daily_check_if_due())
+        self.assertEqual(self._checks().count(), 0)
+
+    @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
+    def test_first_run_queues_a_check(self):
+        run = queue_daily_check_if_due()
+        self.assertIsNotNone(run)
+        self.assertEqual(run.action, DluxUpdateRun.ACTION_CHECK)
+        self.assertEqual(run.requested_by_username, "system")
+        self.assertEqual(self._checks().count(), 1)
+
+    @override_settings(DLUX_INLINE_UPDATES_ENABLED=True, DLUX_UPDATE_CHECK_INTERVAL=86400)
+    def test_recent_check_is_not_re_queued(self):
+        state = DluxUpdateState.load()
+        state.last_checked_at = timezone.now() - timedelta(hours=1)
+        state.save()
+        self.assertIsNone(queue_daily_check_if_due())
+        self.assertEqual(self._checks().count(), 0)
+
+    @override_settings(DLUX_INLINE_UPDATES_ENABLED=True, DLUX_UPDATE_CHECK_INTERVAL=86400)
+    def test_stale_check_is_re_queued(self):
+        state = DluxUpdateState.load()
+        state.last_checked_at = timezone.now() - timedelta(days=2)
+        state.save()
+        self.assertIsNotNone(queue_daily_check_if_due())
+        self.assertEqual(self._checks().count(), 1)
+
+    @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
+    def test_active_run_blocks_a_new_check(self):
+        state = DluxUpdateState.load()
+        state.active_run_token = "busy-token"
+        state.save()
+        self.assertIsNone(queue_daily_check_if_due())
+        self.assertEqual(self._checks().count(), 0)
+
+    def test_beat_schedule_registers_the_update_check(self):
+        from dlux.utils.settings import dlux_settings
+
+        scope = {}
+        dlux_settings(scope)
+        entry = scope["CELERY_BEAT_SCHEDULE"]["dlux-update-check"]
+        self.assertEqual(entry["task"], "dlux.tasks.dlux_update_check")
+        self.assertGreater(entry["schedule"], 0)
+
+    @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
+    def test_beat_task_enqueues_a_check(self):
+        from dlux.tasks import dlux_update_check_task
+
+        if dlux_update_check_task is None:
+            self.skipTest("Celery is not installed in this environment.")
+        dlux_update_check_task()
+        self.assertEqual(self._checks().count(), 1)
 
 
 @override_settings(DLUX_INLINE_UPDATES_ENABLED=True)

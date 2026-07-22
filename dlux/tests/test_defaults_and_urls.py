@@ -2053,6 +2053,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("state.values[name] = fields\n                        .filter((field) => field.checked)\n                        .map((field) => field.value);", contents)
         self.assertIn('if (Array.isArray(value)) {', contents)
         self.assertIn('const allowedValues = value.map((item) => String(item));', contents)
+
         self.assertIn('field.checked = allowedValues.includes(String(field.value));', contents)
         self.assertIn('const fieldsToDispatch = [];', contents)
         self.assertIn('fieldsToDispatch.forEach(({ field, input, change }) => {', contents)
@@ -2149,6 +2150,16 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('persistSetupFormState(form);', contents)
         self.assertIn("form.querySelectorAll('.dlux-btn-submit').forEach((button) => {", contents)
         self.assertIn('initSystemSetupStepValidation(root);', contents)
+
+    def test_branding_modal_syncs_visible_system_names_without_language_editor(self):
+        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
+        contents = script.read_text(encoding='utf-8')
+
+        self.assertIn('function syncSystemNamesField(form) {', contents)
+        self.assertIn("form.querySelector('[name=\"system_names\"]')", contents)
+        self.assertIn("input.addEventListener('input', () => syncSystemNamesField(form));", contents)
+        self.assertIn("form.addEventListener('submit', () => syncSystemNamesField(form));", contents)
+        self.assertIn('initSystemNamesEditor(root);\n        initLanguageCatalogEditor(root);', contents)
 
     def test_wizard_helper_reveals_server_hidden_steps(self):
         script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'wizard' / 'js' / 'main.js'

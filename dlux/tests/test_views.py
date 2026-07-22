@@ -559,6 +559,7 @@ class GeneralViewsTests(TestCase):
         self.assertTrue(payload['success'])
 
         settings_obj.refresh_from_db()
+        self.assertEqual(settings_obj.system_names, {'en': 'System', 'ar': 'System'})
         self.assertEqual(settings_obj.home_url, '/dashboard/')
         self.assertEqual(settings_obj.allowed_themes, ['dark', 'neon'])
         self.assertEqual(settings_obj.default_theme, 'dark')

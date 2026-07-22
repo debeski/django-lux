@@ -3176,8 +3176,8 @@
         if (!form || !row || row.dataset.bound === 'true') return;
         row.dataset.bound = 'true';
         row.querySelectorAll('[data-system-name-input]').forEach((input) => {
-            input.addEventListener('input', () => syncLanguageCatalog(form));
-            input.addEventListener('change', () => syncLanguageCatalog(form));
+            input.addEventListener('input', () => syncSystemNamesField(form));
+            input.addEventListener('change', () => syncSystemNamesField(form));
         });
     }
 
@@ -3206,6 +3206,25 @@
             }
         });
         return systemNames;
+    }
+
+    function syncSystemNamesField(form) {
+        if (!form) return;
+        const namesField = form.querySelector('[name="system_names"]');
+        if (namesField) namesField.value = JSON.stringify(readSystemNames(form));
+        applyImmediateSystemSettingsPreview(form);
+    }
+
+    function initSystemNamesEditor(root) {
+        root.querySelectorAll('[data-system-names-editor]').forEach((editor) => {
+            if (editor.dataset.bound === 'true') return;
+            editor.dataset.bound = 'true';
+            const form = editor.closest('form');
+            if (!form) return;
+            editor.querySelectorAll('[data-system-name-row]').forEach((row) => bindSystemNameRow(form, row));
+            form.addEventListener('submit', () => syncSystemNamesField(form));
+            syncSystemNamesField(form);
+        });
     }
 
     function ensureTranslationLanguageColumn(form, code, label) {
@@ -5244,6 +5263,7 @@
         initProfileBuilder(root);
         root.querySelectorAll('.dlux-setup-builder').forEach(initBuilder);
         root.querySelectorAll('[data-navbar-builder]').forEach(initNavbarBuilder);
+        initSystemNamesEditor(root);
         initLanguageCatalogEditor(root);
         initTranslationMatrixEditor(root);
         initSystemSetupEnterBehavior(root);

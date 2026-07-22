@@ -1,12 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.4.13",
+  "version": "1.4.14",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Improves project image update metadata, compact display, and resident updater reliability. Inline-safe; no migration.",
+  "summary": "Fixes Branding-modal system-name edits, adds a reliable Celery-beat trigger for the daily update check, and locks the update progress dialog while a run is in flight. Inline-safe; no migration.",
   "highlights": [
-    "Project release manifests now use a quote-safe base64 image-label transport."
+    "Branding-modal system names now synchronize into the saved SystemSettings value.",
+    "The daily update check now runs on a reliable Celery-beat schedule that survives updater-worker restarts.",
+    "The update progress dialog can no longer be dismissed while an inline update is running."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.13"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.14"
 }

@@ -207,6 +207,17 @@ def dlux_settings(scope):
             "schedule": 900.0,
         },
     )
+    # Reliable daily update-check trigger. The task itself is a cheap no-op when
+    # updates are disabled or the check is not yet due (it gates on the persisted
+    # last_checked_at against DLUX_UPDATE_CHECK_INTERVAL), so an hourly poll only
+    # enqueues a real check once the interval has elapsed.
+    beat_schedule.setdefault(
+        "dlux-update-check",
+        {
+            "task": "dlux.tasks.dlux_update_check",
+            "schedule": 3600.0,
+        },
+    )
     scope["CELERY_BEAT_SCHEDULE"] = beat_schedule
 
     message_tags = scope.get("MESSAGE_TAGS")

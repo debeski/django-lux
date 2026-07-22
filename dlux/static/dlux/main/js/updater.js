@@ -80,6 +80,19 @@
         const dismissButtons = modalElement?.querySelectorAll('[data-bs-dismiss="modal"]') || [];
         const dismissAction = modalElement?.querySelector('[data-dlux-update-dismiss]');
         const dismissActionLabel = dismissAction ? dismissAction.textContent : '';
+        // While a durable inline update (apply/rollback) is running, the progress
+        // dialog must not be dismissable: losing sight of an in-flight migration or
+        // health check is dangerous. Bootstrap's hide event is cancelable, so we
+        // veto Esc / backdrop / dismiss-button closes while locked, and release them
+        // the moment the run reaches a terminal state.
+        let modalLocked = false;
+        function setModalLocked(locked) {
+            modalLocked = Boolean(locked);
+            dismissButtons.forEach((button) => { button.disabled = modalLocked; });
+        }
+        modalElement?.addEventListener('hide.bs.modal', (event) => {
+            if (modalLocked) { event.preventDefault(); }
+        });
         let state = null;
         let currentAction = 'apply';
         let runUrl = '';
@@ -217,7 +230,7 @@
             progressPanel.hidden = false;
             submit.hidden = true;
             password.disabled = true;
-            dismissButtons.forEach((button) => { button.disabled = !terminal; });
+            setModalLocked(!terminal);
             // On a successful finish, turn the lone "Cancel" into a clear green
             // "Finish" so the result reads as success (not a dismissable error).
             const succeeded = terminal && (run.status === 'completed' || run.status === 'rolled_back');
@@ -256,7 +269,7 @@
             progressPanel.hidden = false;
             submit.hidden = true;
             if (password) password.disabled = true;
-            dismissButtons.forEach((button) => { button.disabled = false; });
+            setModalLocked(false);
             if (progressBar) {
                 progressBar.style.width = '100%';
                 progressBar.classList.add('progress-bar-animated');
@@ -338,7 +351,7 @@
             renderDeployProgress(doc, logText);
 
             if (st === 'failed') {
-                dismissButtons.forEach((button) => { button.disabled = false; });
+                setModalLocked(false);
                 return; // stop polling; operator dismisses
             }
             // Honor 'ready' only after real progress this session (ignore a stale
@@ -733,7 +746,7 @@
             // stays disabled until the operator ticks the "retry anyway" box.
             submit.disabled = requireAck;
             password.disabled = false;
-            dismissButtons.forEach((button) => { button.disabled = false; });
+            setModalLocked(false);
             if (dismissAction) {
                 dismissAction.textContent = dismissActionLabel;
                 dismissAction.classList.remove('btn-success');

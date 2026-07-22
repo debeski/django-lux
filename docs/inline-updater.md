@@ -116,12 +116,14 @@ corrected staging path.
 
 System Info at `/sys/options/` shows the installed version, latest verified stable version, last check, compatibility result, and any durable run status. Global Staff can read this data. Only superusers can check, apply, or roll back.
 
-The worker checks daily after startup jitter. Nothing is installed automatically. A superuser can:
+The daily check is enqueued automatically and processed by the isolated updater worker; nothing is installed automatically. Two independent triggers keep it reliable: a Celery-beat task (`dlux.tasks.dlux_update_check`, registered in `CELERY_BEAT_SCHEDULE` as `dlux-update-check`, hourly) and the worker's own loop after startup jitter. Both funnel through `queue_daily_check_if_due()`, which only enqueues a check once `DLUX_UPDATE_CHECK_INTERVAL` has elapsed since the last check, so the schedule survives updater-worker restarts instead of living solely in that worker's in-memory countdown. A superuser can:
 
 1. Select **Check for updates**.
 2. Select **Review and update** only when the release passes every safety gate.
 3. Review the escaped release summary, compatibility result, target version, and maintenance notice. If a release is already offered and you want to check whether a newer release has appeared, use the re-check icon in the review modal; it reuses the same superuser-only check endpoint and refreshes the modal target when the check completes.
 4. Confirm with the current password.
+
+Once an inline apply or rollback starts, the progress dialog is locked: backdrop clicks, the Esc key, and the dismiss/close controls are all disabled until the run reaches a terminal state (completed, failed, or rolled back), so the operator cannot accidentally close it and lose sight of an in-flight migration or health check. The dialog releases automatically the moment the run finishes, when the close control becomes a **Finish** button on success.
 
 If the target version's **most recent apply already failed** (or was auto-rolled-back), the review modal shows a red warning with the prior failure detail and requires an explicit "retry at my own responsibility" acknowledgment before the Apply button enables — so a version that just failed its health check isn't silently re-applied (for example by the daily availability re-offering it). A later successful apply of that version clears the warning.
 

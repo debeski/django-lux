@@ -6,6 +6,11 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.4.14
+- **Branding Modal System Names Persist**: Bound the standalone Branding editor directly to its hidden `system_names` field, so English and Arabic name edits reach `SystemSettings` even when the separate Languages step is absent. Inline-safe; no migration.
+- **Reliable Background Update Check**: Added a Celery-beat trigger (`dlux.tasks.dlux_update_check`, `CELERY_BEAT_SCHEDULE` entry `dlux-update-check`, hourly) that enqueues the daily check via `queue_daily_check_if_due`, so the schedule no longer lives solely in the isolated updater worker's in-memory countdown and survives worker restarts. The interval gate (`DLUX_UPDATE_CHECK_INTERVAL`) is unchanged. Inline-safe; no migration.
+- **Locked Update Progress Dialog**: Made the updater review modal non-dismissable while an inline apply/rollback is running — Esc, backdrop click, and dismiss buttons are vetoed until the run is terminal — so an in-flight migration/health check can't be closed away by accident.
+
 ## v1.4.13
 - **Quote-Safe Project Manifest Build Contract**: Updated the generated Dockerfile and updater documentation to pass optional project release manifests as `base64:<URL-safe-base64-JSON>` through `DLUX_PROJECT_RELEASE_MANIFEST`, preventing YAML/action/build-argument quote processing from corrupting JSON image labels. Composer retains raw-JSON compatibility; runtime digest/version fallbacks and the DjangoLux database schema are unchanged.
 - **Contained Compact Update Metadata**: Made the Updates tile rows wrap image names and complete version badges when a card narrows, with bounded ellipsis for an individually oversized badge, preventing baked and target version text from overlapping or escaping the card.

@@ -36,8 +36,18 @@ if shared_task is not None:
     def run_scheduled_system_backup_task():
         from .backup import run_scheduled_system_backup
         run_scheduled_system_backup()
+
+    @shared_task(name='dlux.tasks.dlux_update_check', ignore_result=True)
+    def dlux_update_check_task():
+        # Reliable, persistent trigger for the daily DjangoLux update check. The
+        # isolated updater worker still *processes* the queued check; this only
+        # enqueues one when due, so the schedule survives updater-worker restarts
+        # instead of living solely in that worker's in-memory countdown.
+        from .updater.service import queue_daily_check_if_due
+        queue_daily_check_if_due()
 else:  # pragma: no cover - celery not installed
     build_report_backup_task = None
     build_system_backup_task = None
     restore_system_backup_task = None
     run_scheduled_system_backup_task = None
+    dlux_update_check_task = None
