@@ -34,8 +34,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 ARG DLUX_BAKED_VERSION=""
 LABEL org.{{ project_slug }}.dlux_baked_version="${DLUX_BAKED_VERSION}"
 
-# Optional project release notes for the image-update review dialog. CI may
-# pass compact schema-1 JSON; an empty or malformed value is safely ignored.
+# Optional project release notes for the image-update review dialog. CI should
+# pass `base64:<URL-safe-base64-JSON>` so build-tool quoting cannot corrupt it.
 ARG DLUX_PROJECT_RELEASE_MANIFEST=""
 LABEL org.dlux.project.release-manifest="${DLUX_PROJECT_RELEASE_MANIFEST}"
 

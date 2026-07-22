@@ -147,7 +147,9 @@ DjangoLux framework version baked into that image
 packaged `dlux.__version__`), so the row reads as "project version + which
 DjangoLux the image was built with." When an inline wheel update has moved the
 running DjangoLux ahead of the image, the running `DjangoLux` row version and
-this baked badge differ.
+this baked badge differ. The row wraps the image name and complete version
+badges onto additional lines when an Options card is narrow, without allowing
+metadata to overlap or expand the card.
 
 Detecting whether a **newer application image** is available remains registry-
 and digest-driven: `composer` compares the running image digest against the
@@ -167,17 +169,18 @@ malformed, empty, or unsupported manifest JSON is ignored; a missing version is
 also harmless. Neither can suppress a digest-detected update.
 
 The generated Dockerfile exposes an optional `DLUX_PROJECT_RELEASE_MANIFEST`
-build argument. CI can compact a project-owned JSON file and pass it while
-building, for example:
+build argument. CI should encode compact JSON as a `base64:` URL-safe value so
+quotes and commas survive YAML, action inputs, and Docker build arguments:
 
 ```sh
-manifest_json="$(python -c 'import json; print(json.dumps(json.load(open("release-manifest.json")), separators=(",", ":")))')"
-docker build --build-arg DLUX_PROJECT_RELEASE_MANIFEST="$manifest_json" -t "$WEB_IMAGE" .
+manifest_label="$(python -c 'import base64,json; raw=json.dumps(json.load(open("release-manifest.json")),separators=(",", ":")).encode(); print("base64:"+base64.urlsafe_b64encode(raw).decode())')"
+docker build --build-arg DLUX_PROJECT_RELEASE_MANIFEST="$manifest_label" -t "$WEB_IMAGE" .
 ```
 
 Projects may instead stamp the same `org.dlux.project.release-manifest` label
-through their image build tooling. Omitting the argument leaves the label empty
-and preserves digest/version-only behavior.
+through their image build tooling. Composer accepts both the recommended
+`base64:` representation and legacy raw JSON. Omitting the argument leaves the
+label empty and preserves digest/version-only behavior.
 
 The **image-rebuild review dialog** (opened from the Application row's update
 arrow) reports the *project image's* target through `state.image_update_target`
@@ -209,6 +212,25 @@ deployment timeout remains as the final guard. Composer 1.1.11 also guarantees a
 for any non-zero child exit and creates generated runtime overrides in system
 temporary storage, so read-only or host-owned project mounts require no added
 Linux capabilities.
+
+Composer 1.1.15 removes the resident container's dependency on reopening the
+host secrets file. `start.sh`/`start.ps1` pass the selected mode-`0600` file to
+the one-shot Composer process through Docker `--env-file`; Composer's private
+runtime override then forwards those values and their key manifest only to
+`composer-updater`. Its watcher children validate and reuse the inherited
+environment for later image updates, without ACLs or added Linux capabilities.
+
+After installing Composer 1.1.15, recreate an existing resident updater once
+through the wrapper to establish that handoff:
+
+```sh
+./start.sh --update
+./start.sh -u composer-updater
+```
+
+Directly-created legacy updater containers retain the strict file fallback. An
+unreadable candidate still aborts before pull/recreate and reports mapped-UID ACL
+diagnostics rather than deploying through Compose's secret defaults.
 
 On terminal failure the generated maintenance page keeps the error visible while
 probing `/` every two seconds. As soon as the worker has lowered maintenance and

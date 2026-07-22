@@ -6,6 +6,11 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.4.13
+- **Quote-Safe Project Manifest Build Contract**: Updated the generated Dockerfile and updater documentation to pass optional project release manifests as `base64:<URL-safe-base64-JSON>` through `DLUX_PROJECT_RELEASE_MANIFEST`, preventing YAML/action/build-argument quote processing from corrupting JSON image labels. Composer retains raw-JSON compatibility; runtime digest/version fallbacks and the DjangoLux database schema are unchanged.
+- **Contained Compact Update Metadata**: Made the Updates tile rows wrap image names and complete version badges when a card narrows, with bounded ellipsis for an individually oversized badge, preventing baked and target version text from overlapping or escaping the card.
+- **Private Resident-Updater Secrets Handoff**: Updated generated Bash and PowerShell Composer wrappers to pass the selected plaintext env file through Docker `--env-file` with `COMPOSER_INHERITED_SECRET_KEYS`, allowing Composer 1.1.15+ to provision a hardened resident updater without reopening a mode-`0600` host bind mount.
+
 ## v1.4.12
 - **Optional Project Image Release Manifest**: Extended registry-driven project image reviews to consume a normalized optional `manifest` from Composer's `image-available.json`, expose it as `state.image_update_manifest`, and render project highlights or a summary fallback in the image review dialog. Display targets prefer the project manifest version, then Composer's optional version label, then the remote digest, while `DluxImageUpdate.target_version` retains the version-label/digest target used by baked-version completion checks. Generated Docker/Compose scaffolds add the optional `DLUX_PROJECT_RELEASE_MANIFEST` build arg and `org.dlux.project.release-manifest` label; absent or malformed metadata leaves existing digest/version-only behavior unchanged. No migration.
 

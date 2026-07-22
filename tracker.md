@@ -2,9 +2,9 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Current source version: unreleased v1.4.12 in `dlux/release-manifest.json`; v1.4.11 is tagged.
+- Current source version: unreleased v1.4.13 in `dlux/release-manifest.json`; v1.4.12 is tagged.
 - DjangoLux supplies settings/setup, auth/security, navigation, reports, backup, scaffolding, SSO hooks, tables, and updater; migration baseline remains `0010`.
-- Latest work: project image updates consume an optional registry-published release manifest with independent version and digest fallbacks; no migration.
+- Latest work: generated wrappers hand private env values to Composer 1.1.15+ resident updaters; compact metadata and quote-safe manifests remain in v1.4.13.
 - Runtime table renderer is centralized in `DluxTable` + `dlux/tables/table.html` + `tables.js`/`tables.css`; responsive proportions persist per table in browser `localStorage`.
 - Updater state uses `DluxUpdateState`/`DluxUpdateRun` plus `dlux_runtime`; generated proxy baseline is Caddy-default `.proxy/` with updater parity.
 
@@ -36,8 +36,11 @@
   - [ ] Browser-validate v1.2.13 anon public root with `show_sidebar_on_public` on; confirm `sidebar_items.html` degrades for AnonymousUser.
   - [ ] Browser-validate v1.4.10 table column resizing with sticky headers on/off and RTL/LTR.
 - **Priority 2:**
-  - [ ] Publish/tag v1.4.12 after release review; pair with app-composer v1.1.12+ for manifest publication.
+  - [ ] Publish/tag v1.4.13 after release review; pair with app-composer v1.1.13+ for quote-safe manifest decoding.
 - **Completed Recently:**
+  - [x] v1.4.13 generated wrappers pass private env files/key manifests into Composer 1.1.15+ resident updater creation; no ACL/migration.
+  - [x] v1.4.13 compact Updates tile containment: wrapping rows, break-safe image names, bounded baked/target badges, regression coverage, docs/changelog; no migration.
+  - [x] v1.4.13 quote-safe project manifest build contract in generated Dockerfile/docs; raw JSON remains Composer-compatible; no migration.
   - [x] v1.4.12 optional project image release manifest: normalized state/UI notes, display-version fallback chain, runtime-target separation, Docker/Compose scaffold labels, docs/changelog/tests; no migration.
   - [x] v1.4.11 archive-file validation visibility + declarative client size limit with concise release manifest notes; no migration.
   - [x] v1.4.10 resizable Dlux table columns: default-on toggle, visible dividers, fixed-footprint proportional rebalancing, nowrap-cell ellipsis, pointer+keyboard+RTL controls, responsive persistence, per-table opt-out, docs/changelog/manifest; no migration.
@@ -46,13 +49,14 @@
   - [x] v1.4.7 alert auto-hide opt-in, no-op activity-log suppression, project image target/version badges, and notification progress-only polling.
 
 ### One-line info about last verified Tests:
-- 2026-07-18: v1.4.12 full suite GREEN: 838 tests; migration drift check, manifest JSON/validator, and diff check GREEN.
+- 2026-07-22: v1.4.13 full suite GREEN: 839 tests including scaffold secrets handoff and compact updater-row containment; migration/manifest/diff checks GREEN; browser visual unavailable.
+- 2026-07-18: v1.4.12 full suite GREEN: 838 tests; migration drift, manifest validator, and diff check GREEN.
 - 2026-07-18: v1.4.11 full suite GREEN: 835 tests; manifest JSON + validator GREEN.
 - 2026-07-18: full suite GREEN via `.venv/bin/python dlux/tests/test_all.py`: 834 tests; focused table 25 GREEN including resized nowrap-cell containment; migrations unchanged; manifest v1.4.10 valid; `git diff --check` clean.
 - 2026-07-18: live pointer/viewport browser validation unavailable; keep sticky on/off plus RTL/LTR drag check before release.
 
 ### One-line info about last time edited Docs:
-- 2026-07-18: `docs/inline-updater.md` documents optional project image manifest labels/build args and version/digest fallbacks.
+- 2026-07-22: `docs/inline-updater.md` documents Composer 1.1.15 automatic private-secrets handoff and legacy ACL fallback.
 - 2026-07-18: table docs specify visible dividers, proportional containment/persistence, and nowrap-cell ellipsis after resizing.
 
 ## Part 2: Global

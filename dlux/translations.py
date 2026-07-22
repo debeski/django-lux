@@ -632,6 +632,7 @@ DLUX_STRINGS = {
         'database': 'قاعدة البيانات (Database)',
         'cache': 'التخزين المؤقت (Cache)',
         'tasks': 'خادم المهام (Tasks)',
+        'dlux_update_title': 'تحديثات النظام',
         'dlux_version': 'إصدار النظام (DjangoLux)',
         'dlux_update_installed': 'الإصدار المثبّت',
         'dlux_update_baked_label': 'دلوكس المدمج',

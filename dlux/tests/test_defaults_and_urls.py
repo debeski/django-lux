@@ -2764,6 +2764,25 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("const direction = window.getComputedStyle(targetCard).direction || document.documentElement.dir || 'ltr';", js_contents)
         self.assertIn('return event.clientX < midpoint;', js_contents)
 
+    def test_updates_tile_metadata_wraps_inside_narrow_cards(self):
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'options.css'
+        contents = css_path.read_text(encoding='utf-8')
+
+        row_rule = contents.split('.dlux-upd-row {', 1)[1].split('}', 1)[0]
+        lead_rule = contents.split('.dlux-upd-lead {', 1)[1].split('}', 1)[0]
+        name_rule = contents.split('.dlux-upd-name {', 1)[1].split('}', 1)[0]
+        baked_rule = contents.split('.dlux-upd-baked {', 1)[1].split('}', 1)[0]
+        target_rule = contents.split('.dlux-upd-target {', 1)[1].split('}', 1)[0]
+
+        self.assertIn('flex-wrap: wrap;', row_rule)
+        self.assertIn('flex-wrap: wrap;', lead_rule)
+        self.assertIn('min-width: 0;', lead_rule)
+        self.assertIn('overflow-wrap: anywhere;', name_rule)
+        self.assertIn('max-width: 100%;', baked_rule)
+        self.assertIn('text-overflow: ellipsis;', baked_rule)
+        self.assertIn('max-width: 100%;', target_rule)
+        self.assertIn('text-overflow: ellipsis;', target_rule)
+
     def test_profile_confirmation_script_submits_password_modal_on_enter(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'users' / 'profile.html'
         script_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'users' / 'js' / 'profile_2fa.js'

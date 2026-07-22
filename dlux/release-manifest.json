@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "version": "1.4.12",
+  "version": "1.4.13",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds optional project release notes to registry-driven image update reviews. Inline-safe; no migration.",
+  "summary": "Improves project image update metadata, compact display, and resident updater reliability. Inline-safe; no migration.",
   "highlights": [
-    "Project image updates can show optional release metadata while retaining version and digest fallbacks."
+    "Project release manifests now use a quote-safe base64 image-label transport."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.12"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.13"
 }

@@ -642,10 +642,18 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.6rem;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.6rem;
     min-width: 0;
 }
-.dlux-upd-lead { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.dlux-upd-lead {
+    display: flex;
+    align-items: center;
+    flex: 1 1 16rem;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.5rem;
+    min-width: 0;
+}
 .dlux-upd-ic {
     display: inline-flex;
     align-items: center;
@@ -670,18 +678,37 @@ button.dlux-upd-ic:hover { background: color-mix(in srgb, var(--primal) 20%, tra
 button.dlux-upd-ic--avail:hover { background: color-mix(in srgb, #d97706 26%, transparent); }
 .dlux-upd-ic--rollback { color: var(--title); background: transparent; font-size: 0.92rem; opacity: 0.65; }
 button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, var(--title) 9%, transparent); transform: none; }
-.dlux-upd-name { font-weight: 650; color: var(--title); }
-.dlux-upd-ver { color: color-mix(in srgb, var(--title) 78%, transparent); font-variant-numeric: tabular-nums; }
+.dlux-upd-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 650;
+    color: var(--title);
+}
+.dlux-upd-ver {
+    flex: none;
+    color: color-mix(in srgb, var(--title) 78%, transparent);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
 .dlux-upd-baked {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     font-size: 0.68rem;
     color: color-mix(in srgb, var(--title) 52%, transparent);
     font-variant-numeric: tabular-nums;
     border: 1px solid color-mix(in srgb, var(--title) 18%, transparent);
     border-radius: 0.5rem;
     padding: 0.02rem 0.4rem;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 .dlux-upd-target {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
     font-size: 0.72rem;
     color: #d97706;
     font-variant-numeric: tabular-nums;
@@ -689,6 +716,7 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     background: color-mix(in srgb, #d97706 12%, transparent);
     border-radius: 0.5rem;
     padding: 0.02rem 0.42rem;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 .dlux-upd-skipped { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
@@ -716,7 +744,15 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     opacity: 0.7;
 }
 .dlux-upd-skip-chip button:hover { opacity: 1; background: color-mix(in srgb, var(--title) 10%, transparent); }
-.dlux-upd-digest { font-size: 0.72rem; color: color-mix(in srgb, var(--title) 48%, transparent); overflow-wrap: anywhere; text-align: end; }
+.dlux-upd-digest {
+    min-width: 0;
+    max-width: 100%;
+    margin-inline-start: auto;
+    font-size: 0.72rem;
+    color: color-mix(in srgb, var(--title) 48%, transparent);
+    overflow-wrap: anywhere;
+    text-align: end;
+}
 .dlux-upd-ribbon {
     margin-top: 0.35rem;
     display: flex;
