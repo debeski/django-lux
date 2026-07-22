@@ -6,6 +6,12 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.4.15
+- **Consistent Active Navigation Crumb**: Removed the filled current-span treatment so a selected Navigation Root uses the same bold primal-color state as other active Nav Bar links.
+- **Configurable Navigation Root**: Added a pinned Navigation Root selector to the Nav Bar hierarchy editor with neutral, configured-homepage, and discovered-route choices. Selected pages become clickable breadcrumb boundaries that trim duplicate ancestors for themselves and descendants without reparenting the stored tree; history mode excludes the root URL. Existing navbar JSON normalizes to the neutral root. Inline-safe; no migration.
+- **Titlebar Language Switcher**: Added a `titlebar.show_language_switcher` option (Step 7 toggle) that renders a single titlebar button cycling through the available languages via `window.setLanguage`. It only surfaces at runtime, and its settings toggle is disabled, unless user language override is allowed and more than one language exists (mirrors `language_picker_enabled`).
+- **Update Dialog Running State**: Hid the review-only **Skip this version** and **Re-check** footer controls once an inline or image update is underway, keeping the locked progress dialog focused on the active run.
+
 ## v1.4.14
 - **Branding Modal System Names Persist**: Bound the standalone Branding editor directly to its hidden `system_names` field, so English and Arabic name edits reach `SystemSettings` even when the separate Languages step is absent. Inline-safe; no migration.
 - **Reliable Background Update Check**: Added a Celery-beat trigger (`dlux.tasks.dlux_update_check`, `CELERY_BEAT_SCHEDULE` entry `dlux-update-check`, hourly) that enqueues the daily check via `queue_daily_check_if_due`, so the schedule no longer lives solely in the isolated updater worker's in-memory countdown and survives worker restarts. The interval gate (`DLUX_UPDATE_CHECK_INTERVAL`) is unchanged. Inline-safe; no migration.

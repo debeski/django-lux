@@ -1,3 +1,5 @@
+from urllib.parse import urlsplit
+
 from django.urls import NoReverseMatch, reverse
 
 from .system.constants import DEFAULT_NAVBAR_MODE, NAVBAR_MODE_VALUES
@@ -170,14 +172,103 @@ def _runtime_to_crumb(raw_crumb, lang_code, dlux_strings):
     }
 
 
-def _root_crumb(dlux_strings):
+def _normalized_url_path(value):
+    try:
+        path = urlsplit(str(value or '').strip()).path
+    except (TypeError, ValueError):
+        return ''
+    if not path:
+        return ''
+    return path.rstrip('/') or '/'
+
+
+def _root_crumb(dlux_strings, *, label='', url='', url_name='', group_key='', current_path=''):
+    normalized_url = _normalized_url_path(url)
     return {
-        'label': dlux_strings.get('navbar_root', ''),
-        'url': '',
-        'clickable': False,
-        'url_name': '',
+        'label': label or dlux_strings.get('navbar_root', ''),
+        'url': url,
+        'clickable': bool(url) and normalized_url != _normalized_url_path(current_path),
+        'url_name': url_name,
         'kind': 'root',
+        'group_key': group_key,
     }
+
+
+def _configured_root_crumb(config, home_url, request_path, dlux_strings, catalog, catalog_lookup):
+    root_config = config.get('root') if isinstance(config.get('root'), dict) else {}
+    mode = root_config.get('mode', 'neutral')
+    if mode == 'neutral':
+        return _root_crumb(dlux_strings, current_path=request_path)
+
+    if mode == 'route':
+        url_name = str(root_config.get('url_name') or '').strip()
+        catalog_entry = catalog_lookup.get(url_name)
+        if not url_name or not catalog_entry:
+            return _root_crumb(dlux_strings, current_path=request_path)
+        url = str(catalog_entry.get('url') or '').strip()
+        if not url:
+            try:
+                url = reverse(url_name)
+            except NoReverseMatch:
+                return _root_crumb(dlux_strings, current_path=request_path)
+        return _root_crumb(
+            dlux_strings,
+            label=str(catalog_entry.get('label') or '').strip() or _humanize(url_name),
+            url=url,
+            url_name=url_name,
+            group_key=catalog_entry.get('group_key', ''),
+            current_path=request_path,
+        )
+
+    if mode == 'home':
+        url = str(home_url or '').strip()
+        if not url:
+            return _root_crumb(dlux_strings, current_path=request_path)
+        target_path = _normalized_url_path(url)
+        catalog_entry = next(
+            (
+                entry for entry in catalog
+                if _normalized_url_path(entry.get('url')) == target_path
+            ),
+            None,
+        )
+        return _root_crumb(
+            dlux_strings,
+            label=(
+                str((catalog_entry or {}).get('label') or '').strip()
+                or dlux_strings.get('navbar_home', '')
+                or dlux_strings.get('navbar_root', '')
+            ),
+            url=url,
+            url_name=str((catalog_entry or {}).get('url_name') or '').strip(),
+            group_key=(catalog_entry or {}).get('group_key', ''),
+            current_path=request_path,
+        )
+
+    return _root_crumb(dlux_strings, current_path=request_path)
+
+
+def _apply_root_boundary(root, trail, current_path):
+    crumbs = list(trail or [])
+    if crumbs and crumbs[0].get('kind') == 'root':
+        crumbs = crumbs[1:]
+    root_path = _normalized_url_path(root.get('url'))
+    if not root_path:
+        return [root, *crumbs]
+    if root_path == _normalized_url_path(current_path):
+        return [root]
+
+    root_url_name = str(root.get('url_name') or '').strip()
+    for index, crumb in enumerate(crumbs):
+        crumb_url_name = str(crumb.get('url_name') or '').strip()
+        name_match = bool(root_url_name and crumb_url_name == root_url_name)
+        path_match = (
+            crumb.get('kind') != 'manual'
+            and _normalized_url_path(crumb.get('url')) == root_path
+        )
+        if name_match or path_match:
+            return [root, *crumbs[index + 1:]]
+    return [root, *crumbs]
 
 
 def _system_crumb(dlux_strings):
@@ -258,9 +349,36 @@ def _with_system_group(root, crumbs, dlux_strings):
     return [root, *crumbs]
 
 
-def build_navbar_hierarchy_crumbs(request, navbar_config, lang_code, dlux_strings, runtime_crumbs=None):
+def build_navbar_hierarchy_crumbs(
+    request,
+    navbar_config,
+    lang_code,
+    dlux_strings,
+    runtime_crumbs=None,
+    home_url='',
+):
     config = normalize_navbar_config(navbar_config)
-    root = _root_crumb(dlux_strings)
+    request_path = getattr(request, 'path', '')
+    neutral_root = _root_crumb(dlux_strings, current_path=request_path)
+    catalog = discover_sidebar_catalog(lang_code=lang_code, include_system_items=True)
+    catalog_lookup = {}
+    for entry in catalog:
+        url_name = str(entry.get('url_name') or '').strip()
+        if url_name:
+            catalog_lookup[url_name] = entry
+            catalog_lookup.setdefault(_route_leaf(url_name), entry)
+    root = _configured_root_crumb(
+        config,
+        home_url,
+        request_path,
+        dlux_strings,
+        catalog,
+        catalog_lookup,
+    )
+
+    def finalize(trail):
+        return _apply_root_boundary(root, trail, request_path)
+
     explicit_crumbs = [
         crumb
         for crumb in (
@@ -270,20 +388,13 @@ def build_navbar_hierarchy_crumbs(request, navbar_config, lang_code, dlux_string
         if crumb
     ]
     if explicit_crumbs:
-        return [root, *explicit_crumbs]
+        return finalize([neutral_root, *explicit_crumbs])
 
     route_names = _route_candidates(request)
-    catalog = discover_sidebar_catalog(lang_code=lang_code, include_system_items=True)
-    catalog_lookup = {}
-    for entry in catalog:
-        url_name = str(entry.get('url_name') or '').strip()
-        if url_name:
-            catalog_lookup[url_name] = entry
-            catalog_lookup.setdefault(_route_leaf(url_name), entry)
     route_chain = _find_route_chain(config.get('hierarchy', {}).get('nodes'), set(route_names))
     if route_chain:
         chain_crumbs = [_node_to_crumb(node, lang_code, catalog_lookup) for node in route_chain]
-        return _with_system_group(root, chain_crumbs, dlux_strings)
+        return finalize(_with_system_group(neutral_root, chain_crumbs, dlux_strings))
 
     catalog_entry = None
     for name in route_names:
@@ -298,22 +409,22 @@ def build_navbar_hierarchy_crumbs(request, navbar_config, lang_code, dlux_string
         catalog_lookup,
     )
     if inferred_crumbs:
-        return _with_system_group(root, inferred_crumbs, dlux_strings)
+        return finalize(_with_system_group(neutral_root, inferred_crumbs, dlux_strings))
 
     fallback_label = str((catalog_entry or {}).get('label') or '').strip() or _humanize(fallback_name)
     if not fallback_label:
-        return [root]
+        return finalize([neutral_root])
     fallback_url = str((catalog_entry or {}).get('url') or '').strip()
     if not fallback_url and fallback_name:
         try:
             fallback_url = reverse(fallback_name)
         except NoReverseMatch:
             fallback_url = ''
-    return [
+    return finalize([
         *(
-            [root, _system_crumb(dlux_strings)]
+            [neutral_root, _system_crumb(dlux_strings)]
             if _is_system_route(fallback_name, catalog_entry)
-            else [root]
+            else [neutral_root]
         ),
         {
             'label': fallback_label,
@@ -323,4 +434,4 @@ def build_navbar_hierarchy_crumbs(request, navbar_config, lang_code, dlux_string
             'kind': 'fallback',
             'group_key': (catalog_entry or {}).get('group_key', ''),
         },
-    ]
+    ])

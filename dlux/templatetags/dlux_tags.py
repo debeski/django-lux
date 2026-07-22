@@ -115,6 +115,7 @@ def include_once(context, template_name):
 def dlux_navbar(context):
     request = context.get('request')
     navbar = context.get('navbar') or {}
+    app_config = context.get('APP_CONFIG') or {}
     if request is None or not navbar.get('enabled', False):
         return {'navbar_enabled': False}
 
@@ -124,6 +125,7 @@ def dlux_navbar(context):
         context.get('CURRENT_LANG', 'en'),
         context.get('DLUX_STRINGS') or {},
         runtime_crumbs=context.get('dlux_navbar_crumbs'),
+        home_url=app_config.get('home_url') or '',
     )
     page_crumb = hierarchy_crumbs[-1] if hierarchy_crumbs else {}
     return {

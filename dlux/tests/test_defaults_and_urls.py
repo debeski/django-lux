@@ -149,7 +149,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
         instance.allowed_fonts = ['cairo']
         instance.default_fonts = {'en': 'cairo'}
         instance.sidebar_config = {'enabled': False, 'entries': []}
-        instance.navbar_config = {'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}}
+        instance.navbar_config = {
+            'enabled': True,
+            'default_mode': 'history',
+            'root': {'mode': 'route', 'url_name': 'user_profile'},
+            'hierarchy': {'nodes': []},
+        }
         instance.save()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -166,6 +171,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(instance.default_fonts, {'en': 'cairo'})
         self.assertFalse(instance.sidebar_config['enabled'])
         self.assertTrue(instance.navbar_config['enabled'])
+        self.assertEqual(instance.navbar_config['root'], {'mode': 'route', 'url_name': 'user_profile'})
 
     def test_navbar_config_normalizes_defaults_and_nested_manual_labels(self):
         normalized = normalize_navbar_config({
@@ -187,6 +193,28 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertFalse(normalized['allow_user_mode_override'])
         self.assertEqual(normalized['hierarchy']['nodes'][0]['labels'], {'en': 'Documents'})
         self.assertEqual(normalized['hierarchy']['nodes'][0]['children'][0]['url_name'], 'documents:list')
+
+    def test_navbar_config_normalizes_root_modes_without_legacy_breakage(self):
+        self.assertEqual(
+            normalize_navbar_config({})['root'],
+            {'mode': 'neutral', 'url_name': ''},
+        )
+        self.assertEqual(
+            normalize_navbar_config({'root': {'mode': 'home', 'url_name': 'ignored'}})['root'],
+            {'mode': 'home', 'url_name': ''},
+        )
+        self.assertEqual(
+            normalize_navbar_config({'root': {'mode': 'route', 'url_name': 'archive:index'}})['root'],
+            {'mode': 'route', 'url_name': 'archive:index'},
+        )
+        self.assertEqual(
+            normalize_navbar_config({'root': {'mode': 'route', 'url_name': ''}})['root'],
+            {'mode': 'neutral', 'url_name': ''},
+        )
+        self.assertEqual(
+            normalize_navbar_config({'root': {'mode': 'unknown', 'url_name': 'archive:index'}})['root'],
+            {'mode': 'neutral', 'url_name': ''},
+        )
 
     def test_system_settings_import_accepts_runtime_config_aliases(self):
         imported = normalize_system_settings_import_payload({
@@ -503,6 +531,212 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertTrue(crumbs[1]['clickable'])
         self.assertEqual(crumbs[1]['url'], '/archive/')
 
+    def test_navbar_specific_root_trims_nested_ancestors_for_descendants(self):
+        request = RequestFactory().get('/archive/decrees/')
+        request.resolver_match = SimpleNamespace(view_name='archive:decree_list', url_name='decree_list')
+        config = {
+            'enabled': True,
+            'root': {'mode': 'route', 'url_name': 'archive:index'},
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'workspace',
+                    'labels': {'en': 'Workspace'},
+                    'children': [{
+                        'kind': 'route',
+                        'id': 'archive:index',
+                        'url_name': 'archive:index',
+                        'children': [{
+                            'kind': 'route',
+                            'id': 'archive:decree_list',
+                            'url_name': 'archive:decree_list',
+                        }],
+                    }],
+                }],
+            },
+        }
+        catalog = [
+            {'url_name': 'archive:index', 'label': 'Archive', 'url': '/archive/'},
+            {'url_name': 'archive:decree_list', 'label': 'Decrees', 'url': '/archive/decrees/'},
+        ]
+
+        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Archive', 'Decrees'])
+        self.assertEqual(crumbs[0]['url'], '/archive/')
+        self.assertTrue(crumbs[0]['clickable'])
+
+    def test_navbar_specific_root_page_renders_as_single_current_crumb(self):
+        request = RequestFactory().get('/archive/')
+        request.resolver_match = SimpleNamespace(view_name='archive:index', url_name='index')
+        config = {
+            'enabled': True,
+            'root': {'mode': 'route', 'url_name': 'archive:index'},
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'workspace',
+                    'labels': {'en': 'Workspace'},
+                    'children': [{
+                        'kind': 'route',
+                        'id': 'archive:index',
+                        'url_name': 'archive:index',
+                    }],
+                }],
+            },
+        }
+        catalog = [{'url_name': 'archive:index', 'label': 'Archive', 'url': '/archive/'}]
+
+        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Archive'])
+        self.assertFalse(crumbs[0]['clickable'])
+
+    def test_navbar_home_root_follows_configured_home_and_uses_route_label(self):
+        request = RequestFactory().get('/archive/decrees/')
+        request.resolver_match = SimpleNamespace(view_name='archive:decree_list', url_name='decree_list')
+        config = {
+            'enabled': True,
+            'root': {'mode': 'home'},
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'route',
+                    'id': 'archive:index',
+                    'url_name': 'archive:index',
+                    'children': [{
+                        'kind': 'route',
+                        'id': 'archive:decree_list',
+                        'url_name': 'archive:decree_list',
+                    }],
+                }],
+            },
+        }
+        catalog = [
+            {'url_name': 'archive:index', 'label': 'Archive', 'url': '/archive/'},
+            {'url_name': 'archive:decree_list', 'label': 'Decrees', 'url': '/archive/decrees/'},
+        ]
+
+        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(
+                request,
+                config,
+                'en',
+                {'navbar_root': 'Root', 'navbar_home': 'Home'},
+                home_url='/archive/',
+            )
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Archive', 'Decrees'])
+
+    def test_navbar_custom_home_root_uses_home_fallback_without_reparenting_other_branch(self):
+        request = RequestFactory().get('/documents/')
+        request.resolver_match = SimpleNamespace(view_name='documents:list', url_name='list')
+        config = {
+            'enabled': True,
+            'root': {'mode': 'home'},
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'library',
+                    'labels': {'en': 'Library'},
+                    'children': [{
+                        'kind': 'route',
+                        'id': 'documents:list',
+                        'url_name': 'documents:list',
+                    }],
+                }],
+            },
+        }
+        catalog = [{'url_name': 'documents:list', 'label': 'Documents', 'url': '/documents/'}]
+
+        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(
+                request,
+                config,
+                'en',
+                {'navbar_root': 'Root', 'navbar_home': 'Home'},
+                home_url='/custom-start/',
+            )
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Home', 'Library', 'Documents'])
+        self.assertEqual(crumbs[0]['url'], '/custom-start/')
+
+    def test_navbar_missing_specific_root_falls_back_to_neutral(self):
+        request = RequestFactory().get('/documents/')
+        request.resolver_match = SimpleNamespace(view_name='documents:list', url_name='list')
+        config = {
+            'enabled': True,
+            'root': {'mode': 'route', 'url_name': 'removed:index'},
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'route',
+                    'id': 'documents:list',
+                    'url_name': 'documents:list',
+                }],
+            },
+        }
+        catalog = [{'url_name': 'documents:list', 'label': 'Documents', 'url': '/documents/'}]
+
+        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Documents'])
+        self.assertFalse(crumbs[0]['clickable'])
+
+    def test_navbar_specific_root_trims_matching_runtime_crumb(self):
+        request = RequestFactory().get('/archive/records/7/')
+        request.resolver_match = SimpleNamespace(view_name='archive:record', url_name='record')
+        config = {
+            'enabled': True,
+            'root': {'mode': 'route', 'url_name': 'archive:index'},
+            'hierarchy': {'nodes': []},
+        }
+        catalog = [{'url_name': 'archive:index', 'label': 'Archive', 'url': '/archive/'}]
+
+        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(
+                request,
+                config,
+                'en',
+                {'navbar_root': 'Root'},
+                runtime_crumbs=[
+                    {'label': 'Archive', 'url': '/archive/'},
+                    {'label': 'Record 7', 'url': '/archive/records/7/'},
+                ],
+            )
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Archive', 'Record 7'])
+
+    def test_navbar_specific_root_preserves_an_unrelated_configured_branch(self):
+        request = RequestFactory().get('/documents/')
+        request.resolver_match = SimpleNamespace(view_name='documents:list', url_name='list')
+        config = {
+            'enabled': True,
+            'root': {'mode': 'route', 'url_name': 'archive:index'},
+            'hierarchy': {
+                'nodes': [{
+                    'kind': 'manual',
+                    'id': 'library',
+                    'labels': {'en': 'Library'},
+                    'children': [{
+                        'kind': 'route',
+                        'id': 'documents:list',
+                        'url_name': 'documents:list',
+                    }],
+                }],
+            },
+        }
+        catalog = [
+            {'url_name': 'archive:index', 'label': 'Archive', 'url': '/archive/'},
+            {'url_name': 'documents:list', 'label': 'Documents', 'url': '/documents/'},
+        ]
+
+        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+            crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
+
+        self.assertEqual([crumb['label'] for crumb in crumbs], ['Archive', 'Library', 'Documents'])
+
     def test_navbar_hierarchy_does_not_match_app_index_node_for_project_root(self):
         request = RequestFactory().get('/')
         request.resolver_match = SimpleNamespace(view_name='index', url_name='index')
@@ -644,10 +878,22 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("const HISTORY_KEY = 'dlux.navbar.history.v1';", navbar_js)
         self.assertIn('labels[language] = label;', navbar_js)
         self.assertIn('labelsByPath[normalizedPath(entry.path)]', navbar_js)
+        self.assertIn('trackCurrentPage(navbar, rootPath)', navbar_js)
+        self.assertIn('path === excludedPath', navbar_js)
         self.assertIn('trail.replaceChildren(fragment);', navbar_js)
         self.assertIn("entry.kind === 'item' && entry.url_name", setup_js)
+        self.assertIn("rootMode = ['neutral', 'home', 'route']", setup_js)
+        self.assertIn("value.startsWith('route:')", setup_js)
         self.assertNotIn("entry.kind === 'item' && entry.url_name && !entry.is_system", setup_js)
         self.assertNotIn('crumb.clickable && crumb.url && !isCurrent', navbar_js)
+
+    def test_navbar_builder_renders_pinned_root_selector(self):
+        form = SystemSettingsForm(instance=SystemSettings(is_configured=False), mode='setup')
+
+        self.assertIn('data-navbar-root-select', form.navbar_builder_html)
+        self.assertIn('value="neutral"', form.navbar_builder_html)
+        self.assertIn('value="home"', form.navbar_builder_html)
+        self.assertIn('Navigation Root', form.navbar_builder_html)
 
     def test_unconfigured_root_url_redirects_anonymous_to_login(self):
         response = Client().get('/')
@@ -831,6 +1077,29 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("data-action-key='auth'", form.titlebar_actions_order_html)
         self.assertIn('id="id_titlebar_user_hub_style"', str(form['titlebar_user_hub_style']))
         self.assertIn('data-dlux-selector-variant="toggle"', str(form['titlebar_user_hub_style']))
+
+    def test_titlebar_defaults_and_normalizer_include_language_switcher(self):
+        from dlux.system.defaults import default_titlebar_config
+        from dlux.system.normalizers import normalize_titlebar_config
+
+        self.assertIn('show_language_switcher', default_titlebar_config())
+        self.assertFalse(default_titlebar_config()['show_language_switcher'])
+        self.assertTrue(normalize_titlebar_config({'show_language_switcher': True})['show_language_switcher'])
+        self.assertFalse(normalize_titlebar_config({})['show_language_switcher'])
+
+    @override_settings(DLUX_CONFIG={'titlebar': {'show_language_switcher': True}})
+    def test_setup_form_language_switcher_enabled_when_switching_possible(self):
+        form = SystemSettingsForm(instance=SystemSettings(is_configured=False))
+
+        # Two catalog languages (en+ar) and override allowed by default → editable.
+        self.assertFalse(form.fields['titlebar_show_language_switcher'].disabled)
+        self.assertTrue(form.initial['titlebar_show_language_switcher'])
+
+    @override_settings(DLUX_CONFIG={'allow_user_language_override': False})
+    def test_setup_form_language_switcher_disabled_when_switching_not_allowed(self):
+        form = SystemSettingsForm(instance=SystemSettings(is_configured=False))
+
+        self.assertTrue(form.fields['titlebar_show_language_switcher'].disabled)
 
     @override_settings(DLUX_CONFIG={
         'titlebar': {
@@ -1272,6 +1541,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
                     'enabled': False,
                     'default_mode': 'hierarchy',
                     'allow_user_mode_override': False,
+                    'root': {'mode': 'route', 'url_name': 'archive:index'},
                     'hierarchy': {
                         'nodes': [{
                             'kind': 'manual',
@@ -1289,6 +1559,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertTrue(form.cleaned_data['navbar_config']['enabled'])
         self.assertEqual(form.cleaned_data['navbar_config']['default_mode'], 'history')
         self.assertTrue(form.cleaned_data['navbar_config']['allow_user_mode_override'])
+        self.assertEqual(
+            form.cleaned_data['navbar_config']['root'],
+            {'mode': 'route', 'url_name': 'archive:index'},
+        )
         self.assertEqual(form.cleaned_data['navbar_config']['hierarchy']['nodes'][0]['labels']['en'], 'Areas')
 
     def test_setup_form_import_does_not_override_when_processed_flag_set(self):
@@ -2241,6 +2515,15 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('.badge.text-bg-primary {', contents)
         self.assertIn('color: #fff !important;', contents)
 
+    def test_navbar_current_crumb_uses_unfilled_theme_color_treatment(self):
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'navbar.css'
+        contents = stylesheet.read_text(encoding='utf-8')
+
+        self.assertIn('.dlux-navbar__crumb.is-current {', contents)
+        self.assertIn('color: var(--primal);', contents)
+        self.assertIn('font-weight: 700;', contents)
+        self.assertNotIn('.dlux-navbar__crumb.is-current span', contents)
+
     def test_titlebar_login_round_uses_shared_shape_and_theme_selectors(self):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
         titlebar_css = (static_root / 'main' / 'css' / 'titlebar.css').read_text(encoding='utf-8')
@@ -2734,7 +3017,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertNotIn('name="ms_', html)
         self.assertNotIn('name="sidebarSystemItemsToggle-', html)
-        self.assertLess(len(re.findall(r'\sname=', html)), 200)
+        self.assertLess(len(re.findall(r'\sname=', html)), 210)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'options.css'

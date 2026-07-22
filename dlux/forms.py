@@ -2176,6 +2176,10 @@ class SystemSettingsForm(forms.ModelForm):
         choices=TITLEBAR_USER_HUB_STYLE_CHOICES,
         initial=TITLEBAR_USER_HUB_STYLE_DROPDOWN,
     )
+    titlebar_show_language_switcher = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
     titlebar_actions_order = forms.CharField(
         required=False,
         widget=forms.HiddenInput(),
@@ -2903,6 +2907,22 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['titlebar_show_home_button'].label = s.get('form_sys_titlebar_show_home_button', 'Show titlebar home button')
         self.fields['titlebar_home_shape'].label = s.get('form_sys_titlebar_home_shape', 'Titlebar buttons shape')
         self.fields['titlebar_user_hub_style'].label = s.get('form_sys_titlebar_user_hub_style', 'Titlebar and user hub style')
+        self.fields['titlebar_show_language_switcher'].label = s.get(
+            'form_sys_titlebar_show_language_switcher', 'Show titlebar language switcher')
+        # The switcher has nothing to cycle through unless user language override is
+        # allowed and at least two languages exist — disable the toggle in that case.
+        language_switching_possible = bool(
+            config.get('allow_user_language_override', True) and len(current_languages) > 1
+        )
+        if language_switching_possible:
+            self.fields['titlebar_show_language_switcher'].help_text = s.get(
+                'help_sys_titlebar_show_language_switcher',
+                'Show a single-button switcher in the titlebar that cycles through the available languages.')
+        else:
+            self.fields['titlebar_show_language_switcher'].disabled = True
+            self.fields['titlebar_show_language_switcher'].help_text = s.get(
+                'help_sys_titlebar_show_language_switcher_unavailable',
+                'Add a second language and allow user language override to enable the titlebar language switcher.')
         self.fields['titlebar_actions_order'].label = s.get('form_sys_titlebar_actions_order', 'Titlebar action order')
         self.fields['titlebar_title_align'].label = s.get('form_sys_titlebar_title_align', 'Title alignment')
         self.fields['titlebar_title_size'].label = s.get('form_sys_titlebar_title_size', 'Title size')
@@ -4026,6 +4046,8 @@ class SystemSettingsForm(forms.ModelForm):
             'user_hub_style',
             TITLEBAR_USER_HUB_STYLE_DROPDOWN,
         )
+        self.initial['titlebar_show_language_switcher'] = bool(
+            initial_titlebar_config.get('show_language_switcher', False))
         self.initial['titlebar_actions_order'] = _json_dump(
             normalize_titlebar_actions_order(initial_titlebar_config.get('actions_order')),
             ensure_ascii=False,
@@ -4840,6 +4862,7 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-4'),
                     build_settings_toggle_field(self, 'titlebar_show_logo', css_class='col-lg-6 col-xl-4'),
                     build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-6 col-xl-4'),
+                    build_settings_toggle_field(self, 'titlebar_show_language_switcher', css_class='col-lg-6 col-xl-4'),
                     css_class='g-3 mb-3'
                 ),
                 Row(
@@ -5773,6 +5796,7 @@ class SystemSettingsForm(forms.ModelForm):
                 )
             cleaned['titlebar_home_shape'] = titlebar.get('buttons_shape', titlebar.get('home_shape', 'circle'))
             cleaned['titlebar_user_hub_style'] = titlebar.get('user_hub_style', TITLEBAR_USER_HUB_STYLE_DROPDOWN)
+            cleaned['titlebar_show_language_switcher'] = bool(titlebar.get('show_language_switcher', False))
             cleaned['titlebar_actions_order'] = normalize_titlebar_actions_order(titlebar.get('actions_order'))
             cleaned['titlebar_title_align'] = titlebar.get('title_align', 'start')
             cleaned['titlebar_title_size'] = titlebar.get('title_size', 'md')
@@ -5998,6 +6022,7 @@ class SystemSettingsForm(forms.ModelForm):
             'buttons_shape': cleaned.get('titlebar_home_shape', 'circle'),
             'home_shape': cleaned.get('titlebar_home_shape', 'circle'),
             'user_hub_style': cleaned.get('titlebar_user_hub_style', TITLEBAR_USER_HUB_STYLE_DROPDOWN),
+            'show_language_switcher': bool(cleaned.get('titlebar_show_language_switcher', False)),
             'actions_order': cleaned.get('titlebar_actions_order') or list(TITLEBAR_ACTIONS_ORDER),
             'title_align': cleaned.get('titlebar_title_align', 'start'),
             'title_size': cleaned.get('titlebar_title_size', 'md'),

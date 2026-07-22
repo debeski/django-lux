@@ -384,6 +384,41 @@
   gap: 0.85rem;
 }
 
+.dlux-navbar-root-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.8fr);
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--dlux-setup-pane-border);
+}
+
+.dlux-navbar-root-control__label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.dlux-navbar-root-control__label > i {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+  color: var(--primal);
+  font-size: 1.05rem;
+}
+
+.dlux-navbar-root-control .form-select {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 991.98px) {
+  .dlux-navbar-root-control {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* The node inspector lives on its own full-width row above the tree/routes grid.
    Add Group is always shown; the selection-dependent actions appear inline after it
    once a node is inspected. Toggling only `d-none` (Bootstrap's none is !important)

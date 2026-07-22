@@ -61,6 +61,16 @@
                      data-global-search-results role="listbox" hidden></div>
             </div>
             {% endif %}
+            {% if titlebar.show_language_switcher and language_picker_enabled %}
+            <button type="button"
+                    class="dlux-titlebar-btn dlux-titlebar-action dlux-titlebar-lang-cycle no-print"
+                    data-dlux-lang-cycle
+                    data-lang-codes="{% for code, meta in languages.items %}{{ code }}{% if not forloop.last %},{% endif %}{% endfor %}"
+                    data-dlux-tooltip="{{ DLUX_STRINGS.titlebar_language_switch|default:'Switch language' }}"
+                    aria-label="{{ DLUX_STRINGS.titlebar_language_switch|default:'Switch language' }}">
+                <span class="dlux-titlebar-lang-cycle__code" data-dlux-lang-cycle-label>{{ CURRENT_LANG|upper }}</span>
+            </button>
+            {% endif %}
             <div class="titlebar__actions titlebar__actions--dropdown" data-titlebar-actions-group="dropdown">
                 {% include 'dlux/includes/notifications.html' %}
                 <a

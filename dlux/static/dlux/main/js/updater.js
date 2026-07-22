@@ -230,6 +230,10 @@
             progressPanel.hidden = false;
             submit.hidden = true;
             password.disabled = true;
+            // The re-check and skip actions belong to the review panel only; hide
+            // them once the run is underway (they live in the shared footer).
+            if (modalRecheckButton) modalRecheckButton.classList.add('d-none');
+            if (skipButton) skipButton.classList.add('d-none');
             setModalLocked(!terminal);
             // On a successful finish, turn the lone "Cancel" into a clear green
             // "Finish" so the result reads as success (not a dismissable error).
@@ -269,6 +273,8 @@
             progressPanel.hidden = false;
             submit.hidden = true;
             if (password) password.disabled = true;
+            if (modalRecheckButton) modalRecheckButton.classList.add('d-none');
+            if (skipButton) skipButton.classList.add('d-none');
             setModalLocked(false);
             if (progressBar) {
                 progressBar.style.width = '100%';

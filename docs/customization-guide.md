@@ -81,9 +81,12 @@ The stored `navbar` block is normalized to this shape:
     "enabled": False,
     "default_mode": "hierarchy",
     "allow_user_mode_override": True,
+    "root": {"mode": "neutral", "url_name": ""},
     "hierarchy": {"nodes": []},
 }
 ```
+
+`root.mode` accepts `neutral`, `home`, or `route`. Neutral preserves the non-clickable translated Root crumb. Home follows the current system `home_url` dynamically, including later administrator changes. Route uses the discovered route named by `root.url_name`; missing routes fall back to neutral. A configured page root is clickable away from that page and acts as a display boundary: ancestors and the duplicate selected-route crumb are omitted for that page and its descendants, but the stored hierarchy tree is never reparented. History mode also excludes the selected root URL from recent entries.
 
 Route nodes inherit discovered translated route labels unless the hierarchy editor gives them language-specific label overrides. Manual hierarchy nodes are useful for shared grouping labels such as a section or tab family; a manual node with no URL renders as text rather than a broken link.
 
@@ -116,6 +119,7 @@ The system config layer now also supports governed theme exposure and titlebar l
 - `allow_user_theme_override`: hides runtime theme pickers and ignores saved user theme preferences when false
 - `titlebar.show_logo`
 - `titlebar.show_home_button`
+- `titlebar.show_language_switcher`: shows a single titlebar button that cycles through the available languages; only surfaces when `allow_user_language_override` is on and more than one language exists (the settings toggle is disabled otherwise)
 - `titlebar.logo_treatment`: `none`, `plate`, `halo`, or `contrast`
 - `titlebar.logo_treatment_shape`: `soft`, `pill`, or `square` for the `plate` treatment
 - `titlebar.buttons_shape`: `circle`, `square`, or `squircle` for all titlebar action buttons; legacy `titlebar.home_shape` remains accepted as an alias

@@ -1205,10 +1205,17 @@
     function readNavbarBuilderConfig(rawConfig) {
         const config = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
         const hierarchy = config.hierarchy && typeof config.hierarchy === 'object' ? config.hierarchy : {};
+        const rawRoot = config.root && typeof config.root === 'object' ? config.root : {};
+        const rootMode = ['neutral', 'home', 'route'].includes(rawRoot.mode) ? rawRoot.mode : 'neutral';
+        const rootUrlName = rootMode === 'route' ? String(rawRoot.url_name || '').trim() : '';
         return {
             enabled: Boolean(config.enabled),
             default_mode: config.default_mode === 'history' ? 'history' : 'hierarchy',
             allow_user_mode_override: config.allow_user_mode_override !== false,
+            root: {
+                mode: rootMode === 'route' && !rootUrlName ? 'neutral' : rootMode,
+                url_name: rootMode === 'route' ? rootUrlName : '',
+            },
             hierarchy: {
                 nodes: (Array.isArray(hierarchy.nodes) ? hierarchy.nodes : [])
                     .map(normalizeNavbarBuilderNode)
@@ -1356,6 +1363,7 @@
         };
 
         const refs = {
+            rootSelect: builder.querySelector('[data-navbar-root-select]'),
             tree: builder.querySelector('[data-navbar-tree]'),
             routeList: builder.querySelector('[data-navbar-route-list]'),
             routeSearch: builder.querySelector('[data-navbar-route-search]'),
@@ -1383,6 +1391,40 @@
 
         function catalogEntry(urlName) {
             return catalog.find((entry) => entry.url_name === urlName);
+        }
+
+        function renderRootOptions() {
+            if (!refs.rootSelect) {
+                return;
+            }
+            refs.rootSelect.querySelectorAll('optgroup').forEach((group) => group.remove());
+            const routeGroup = document.createElement('optgroup');
+            routeGroup.label = t('navbar_root_specific_pages', 'Specific page');
+            const seen = new Set();
+            catalog.forEach((entry) => {
+                const urlName = String(entry.url_name || '').trim();
+                if (!urlName || seen.has(urlName)) {
+                    return;
+                }
+                seen.add(urlName);
+                const option = document.createElement('option');
+                option.value = `route:${urlName}`;
+                option.textContent = `${String(entry.label || urlName).trim()} (${urlName})`;
+                routeGroup.appendChild(option);
+            });
+            if (routeGroup.children.length) {
+                refs.rootSelect.appendChild(routeGroup);
+            }
+
+            const configured = state.config.root || { mode: 'neutral', url_name: '' };
+            const selectedValue = configured.mode === 'route'
+                ? `route:${configured.url_name || ''}`
+                : configured.mode;
+            const available = Array.from(refs.rootSelect.options).some((option) => option.value === selectedValue);
+            if (!available) {
+                state.config.root = { mode: 'neutral', url_name: '' };
+            }
+            refs.rootSelect.value = available ? selectedValue : 'neutral';
         }
 
         function nodeLabel(node) {
@@ -1546,6 +1588,7 @@
         }
 
         function renderAll() {
+            renderRootOptions();
             serialize();
             renderTree();
             renderRoutes();
@@ -1577,6 +1620,13 @@
         refs.routeSearch.addEventListener('input', () => {
             state.search = refs.routeSearch.value || '';
             renderRoutes();
+        });
+        refs.rootSelect?.addEventListener('change', () => {
+            const value = String(refs.rootSelect.value || 'neutral');
+            state.config.root = value.startsWith('route:')
+                ? { mode: 'route', url_name: value.slice(6) }
+                : { mode: value === 'home' ? 'home' : 'neutral', url_name: '' };
+            serialize();
         });
         refs.urlInput.addEventListener('input', () => {
             const selected = findNode(state.config.hierarchy.nodes, state.selectedId);

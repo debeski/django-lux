@@ -9,6 +9,20 @@
         </div>
     </div>
 
+    <div class="dlux-navbar-root-control">
+        <div class="dlux-navbar-root-control__label">
+            <i class="bi bi-house-door" aria-hidden="true"></i>
+            <span>
+                <label class="form-label fw-semibold mb-1" for="dlux-navbar-root-{{ mode }}">{{ DLUX_STRINGS.navbar_root_selector }}</label>
+                <small class="form-text d-block mt-0">{{ DLUX_STRINGS.navbar_root_selector_help }}</small>
+            </span>
+        </div>
+        <select id="dlux-navbar-root-{{ mode }}" class="form-select glass-input" data-navbar-root-select>
+            <option value="neutral">{{ DLUX_STRINGS.navbar_root_default_option }}</option>
+            <option value="home">{{ DLUX_STRINGS.navbar_root_home_option }}</option>
+        </select>
+    </div>
+
     <section class="dlux-navbar-builder__pane dlux-navbar-builder__inspector-row mb-3">
         <div class="d-flex flex-wrap align-items-center gap-2">
             <button type="button" class="btn btn-outline-primary btn-sm" data-navbar-add-manual>

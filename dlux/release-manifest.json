@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.4.14",
+  "version": "1.4.15",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Fixes Branding-modal system-name edits, adds a reliable Celery-beat trigger for the daily update check, and locks the update progress dialog while a run is in flight. Inline-safe; no migration.",
+  "summary": "Adds configurable Nav Bar roots, an optional titlebar language switcher, and a cleaner running-update dialog. Inline-safe; no migration.",
   "highlights": [
-    "Branding-modal system names now synchronize into the saved SystemSettings value.",
-    "The daily update check now runs on a reliable Celery-beat schedule that survives updater-worker restarts.",
-    "The update progress dialog can no longer be dismissed while an inline update is running."
+    "Nav Bar trails can keep a neutral root, follow the configured homepage, or begin at a selected application page.",
+    "An optional titlebar button cycles through the available languages when language switching is enabled.",
+    "Review-only update actions stay hidden while an update is running."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.14"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.15"
 }

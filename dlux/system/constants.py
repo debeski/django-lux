@@ -96,6 +96,8 @@ NAVBAR_MODE_CHOICES = (
     ('history', 'History'),
 )
 NAVBAR_MODE_VALUES = {value for value, _label in NAVBAR_MODE_CHOICES}
+DEFAULT_NAVBAR_ROOT_MODE = 'neutral'
+NAVBAR_ROOT_MODE_VALUES = {DEFAULT_NAVBAR_ROOT_MODE, 'home', 'route'}
 TITLEBAR_HOME_SHAPE_CHOICES = (
     ('circle', 'Circle'),
     ('square', 'Square'),

@@ -12,6 +12,7 @@ from .constants import (
     CLIENT_IP_MODE_VALUES,
     DEFAULT_LANGUAGE_CATALOG,
     DEFAULT_NAVBAR_MODE,
+    DEFAULT_NAVBAR_ROOT_MODE,
     DEFAULT_SECURITY_NUDGE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
@@ -31,6 +32,7 @@ from .constants import (
     PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
     PUBLIC_ROOT_TITLE_MAX_LENGTH,
     NAVBAR_MODE_VALUES,
+    NAVBAR_ROOT_MODE_VALUES,
     NOTIFICATION_FLASH_POSITIONS,
     NOTIFICATION_FLASH_SIZES,
     NOTIFICATION_FLASH_TEXT_SIZES,
@@ -516,6 +518,10 @@ def normalize_titlebar_config(titlebar_config):
     if user_hub_style in TITLEBAR_USER_HUB_STYLE_VALUES:
         normalized['user_hub_style'] = user_hub_style
 
+    normalized['show_language_switcher'] = bool(
+        config.get('show_language_switcher', normalized['show_language_switcher'])
+    )
+
     normalized['actions_order'] = normalize_titlebar_actions_order(config.get('actions_order'))
 
     global_search_mode = config.get('global_search_mode')
@@ -635,6 +641,17 @@ def normalize_navbar_config(navbar_config):
     normalized['allow_user_mode_override'] = bool(
         config.get('allow_user_mode_override', normalized['allow_user_mode_override'])
     )
+    root = config.get('root')
+    root = root if isinstance(root, dict) else {}
+    root_mode = str(root.get('mode') or DEFAULT_NAVBAR_ROOT_MODE).strip().lower()
+    root_url_name = str(root.get('url_name') or '').strip()[:255]
+    if root_mode not in NAVBAR_ROOT_MODE_VALUES or (root_mode == 'route' and not root_url_name):
+        root_mode = DEFAULT_NAVBAR_ROOT_MODE
+        root_url_name = ''
+    normalized['root'] = {
+        'mode': root_mode,
+        'url_name': root_url_name if root_mode == 'route' else '',
+    }
     hierarchy = config.get('hierarchy')
     hierarchy = hierarchy if isinstance(hierarchy, dict) else {}
     normalized['hierarchy'] = {

@@ -46,17 +46,21 @@
         }
     }
 
-    function trackCurrentPage(navbar) {
+    function trackCurrentPage(navbar, excludedPath) {
         const path = normalizedPath(navbar.dataset.navbarPath);
         const label = String(navbar.dataset.navbarLabel || '').trim();
-        if (!path || path === '/' || !label) {
-            return readHistory();
+        const existingEntries = readHistory().filter(
+            (entry) => !excludedPath || normalizedPath(entry.path) !== excludedPath
+        );
+        if (!path || path === '/' || path === excludedPath || !label) {
+            writeHistory(existingEntries);
+            return existingEntries;
         }
         const language = currentLanguage();
-        const existing = readHistory().find((entry) => normalizedPath(entry.path) === path) || {};
+        const existing = existingEntries.find((entry) => normalizedPath(entry.path) === path) || {};
         const labels = { ...(existing.labels || {}) };
         labels[language] = label;
-        const entries = readHistory().filter((entry) => normalizedPath(entry.path) !== path);
+        const entries = existingEntries.filter((entry) => normalizedPath(entry.path) !== path);
         entries.push({ path, label, labels });
         writeHistory(entries);
         return entries.slice(-HISTORY_LIMIT);
@@ -123,9 +127,10 @@
 
         function historyCrumbs() {
             const language = currentLanguage();
+            const rootPath = root.url ? normalizedPath(root.url) : '';
             return [
                 root,
-                ...trackCurrentPage(navbar).map((entry) => ({
+                ...trackCurrentPage(navbar, rootPath).map((entry) => ({
                     label: labelsByPath[normalizedPath(entry.path)] || (entry.labels && entry.labels[language]) || entry.label || entry.path,
                     url: entry.path,
                     clickable: true,

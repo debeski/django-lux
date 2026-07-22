@@ -98,6 +98,29 @@
         });
     };
 
+    // Mono titlebar switcher: one button that cycles to the next available
+    // language. The ordered codes are supplied by the template; the current one
+    // is read live from <html lang> so it stays correct after any switch.
+    function cycleLanguage(button) {
+        const codes = (button.dataset.langCodes || '')
+            .split(',').map((code) => code.trim()).filter(Boolean);
+        if (codes.length < 2) return;
+        const active = (document.documentElement.getAttribute('lang') || currentLang || codes[0]).split('-')[0];
+        let index = codes.indexOf(active);
+        if (index === -1) index = 0;
+        const next = codes[(index + 1) % codes.length];
+        if (next && next !== active && window.setLanguage) {
+            window.setLanguage(next);
+        }
+    }
+
+    document.addEventListener('click', function(event) {
+        const button = event.target.closest('[data-dlux-lang-cycle]');
+        if (!button) return;
+        event.preventDefault();
+        cycleLanguage(button);
+    });
+
     // Update active language indicator on options page (if present)
     function updateLanguageUI() {
         document.querySelectorAll('.lang-option').forEach(el => {

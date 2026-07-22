@@ -287,6 +287,18 @@
     cursor: pointer;
 }
 
+.titlebar .dlux-titlebar-lang-cycle {
+    margin-inline-end: 0.5rem;
+}
+
+.titlebar .dlux-titlebar-lang-cycle__code {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
 .titlebar[data-titlebar-buttons-shape="square"] .dlux-titlebar-action,
 .titlebar[data-titlebar-buttons-shape="square"] .dlux-titlebar-home,
 .titlebar[data-titlebar-buttons-shape="square"] .dlux-notifications__trigger,

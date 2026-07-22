@@ -8,6 +8,7 @@ from .constants import (
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_NAVBAR_MODE,
+    DEFAULT_NAVBAR_ROOT_MODE,
     DEFAULT_OPTIONS_STYLE,
     DEFAULT_SECURITY_NUDGE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -207,6 +208,10 @@ def default_titlebar_config():
         'logo_treatment': 'none',
         'logo_treatment_shape': 'soft',
         'user_hub_style': TITLEBAR_USER_HUB_STYLE_DROPDOWN,
+        # Optional single-button language switcher that cycles through the
+        # available languages. Only surfaces at runtime when language switching is
+        # actually possible (override allowed and more than one language).
+        'show_language_switcher': False,
         'actions_order': list(TITLEBAR_ACTIONS_ORDER),
         # Global search: 'always' (field shown), 'icon' (icon expands to field on
         # focus), or 'disabled'. include_data extends search from components to
@@ -235,6 +240,10 @@ def default_navbar_config():
         'enabled': False,
         'default_mode': DEFAULT_NAVBAR_MODE,
         'allow_user_mode_override': True,
+        'root': {
+            'mode': DEFAULT_NAVBAR_ROOT_MODE,
+            'url_name': '',
+        },
         'hierarchy': {'nodes': []},
     }
 
