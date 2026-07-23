@@ -206,6 +206,9 @@ def queue_run(action, username="", backup_mode=None):
     State.load()
     with transaction.atomic():
         state = State.objects.select_for_update().get(pk=1)
+        Image = apps.get_model("dlux", "DluxImageUpdate")
+        if Image.objects.filter(is_active=True).exists():
+            raise UpdaterError("An image update is already in progress.")
         if state.active_run_token:
             active = Run.objects.filter(token=state.active_run_token, is_active=True).first()
             if active:
@@ -927,7 +930,7 @@ class UpdateService:
     # --- image-level (full container) updates ---------------------------------
     # Separate from the inline wheel lifecycle above. Driven from the worker
     # loop via tick_image_update(); the actual pull/recreate is done by the
-    # external composer-updater, and finalized by reading its deploy-status.
+    # external Composer agent, and finalized by reading its deploy-status.
 
     def tick_image_update(self):
         """Advance the single active image update, if any. No-op otherwise.

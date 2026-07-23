@@ -6,6 +6,12 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.5.0
+- **Atomic Inline And Image Update Admission**: Serialized inline, local-image, and control-image queue admission on the locked `DluxUpdateState` row, preventing concurrent container recreation during inline migration and duplicate active image runs.
+- **Composer Agent Bridge**: Added atomic typed request/result/snapshot spooling with handled-request archival, `DluxImageUpdate.control_operation_id` correlation, shared local/central update locking, DLUX-finalized terminal results, and central data/full backup creation without remote restore.
+- **Agent Deployment Scaffold**: Replaced generated `composer-updater` with hardened `composer-agent`, a read-only identical-path project mount, `composer_agent_state`, and safe restart/exclusion lists; Composer 1.2 owns the guarded migration while `dlux enable-agent` remains a one-cycle forwarding alias.
+- **ASGI Control Integration**: Added configurable `DLUX_MIDDLEWARE` and setup-guard prefixes for machine APIs, plus UUID-safe native activity logging.
+
 ## v1.4.15
 - **Consistent Active Navigation Crumb**: Removed the filled current-span treatment so a selected Navigation Root uses the same bold primal-color state as other active Nav Bar links.
 - **Configurable Navigation Root**: Added a pinned Navigation Root selector to the Nav Bar hierarchy editor with neutral, configured-homepage, and discovered-route choices. Selected pages become clickable breadcrumb boundaries that trim duplicate ancestors for themselves and descendants without reparenting the stored tree; history mode excludes the root URL. Existing navbar JSON normalizes to the neutral root. Inline-safe; no migration.

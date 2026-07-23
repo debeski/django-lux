@@ -1,15 +1,18 @@
+import json
 import os
 import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from dlux import __version__
 from dlux.cli import main
-from dlux.scaffold import _register_app
+from dlux.scaffold import _register_app, create_project, enable_agent
 
 
 MANAGE_TEMPLATE = """#!/usr/bin/env python
@@ -130,7 +133,7 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("CADDY_PORT=", env_contents)
             self.assertIn("CADDY_SITE_ADDRESS=", env_contents)
             self.assertIn("CADDY_MAX_SIZE=", env_contents)
-            self.assertEqual(len([line for line in env_contents.splitlines() if line.strip()]), 18)
+            self.assertEqual(len([line for line in env_contents.splitlines() if line.strip()]), 20)
             self.assertIn("autorun.ini", gitignore_contents)
             self.assertIn("compose.yml", dockerignore_contents)
             self.assertIn("compose.dev.yml", dockerignore_contents)
@@ -159,17 +162,18 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("dlux_runtime:/opt/dlux-runtime:rw", compose_contents)
             self.assertIn("dlux_runtime:/opt/dlux-runtime:ro", compose_contents)
             self.assertIn("dlux_update_egress:", compose_contents)
-            # image-level updater: composer-updater reaches the daemon ONLY through
-            # the read-only least-privilege docker-socket-proxy (never a raw socket
-            # in an app container).
-            self.assertIn("composer-updater:", compose_contents)
+            self.assertIn("composer-agent:", compose_contents)
             self.assertIn("docker-socket-proxy:", compose_contents)
             self.assertIn("image: tecnativa/docker-socket-proxy:latest", compose_contents)
             self.assertIn("EVENTS: 1", compose_contents)
             self.assertIn("/var/run/docker.sock:/var/run/docker.sock:ro", compose_contents)
             self.assertIn("_docker_proxy:", compose_contents)
             self.assertIn("image: debeski/composer:latest", compose_contents)
-            self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-updater,docker-socket-proxy"', compose_contents)
+            self.assertIn('COMPOSER_AGENT_STATE_DIR: "/var/lib/composer-agent"', compose_contents)
+            self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-agent,docker-socket-proxy,db,redis,db-backup,pgadmin"', compose_contents)
+            self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"', compose_contents)
+            self.assertIn('- "${PWD}:${PWD}:ro"', compose_contents)
+            self.assertIn("composer_agent_state:/var/lib/composer-agent:rw", compose_contents)
             self.assertIn('COMPOSER_VERSION_LABEL: "org.demo_project.dlux_baked_version"', compose_contents)
             self.assertIn('COMPOSER_RELEASE_MANIFEST_LABEL: "org.dlux.project.release-manifest"', compose_contents)
             self.assertIn("post_start:", compose_contents)
@@ -215,6 +219,58 @@ class ScaffoldTests(unittest.TestCase):
             self.assertNotIn(b"\r\n", entrypoint_bytes)
             self.assertNotIn(b"\r\n", start_sh_bytes)
             self.assertTrue(start_sh_mode & 0o111)
+
+    def test_enable_agent_forwards_to_the_project_composer_wrapper(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = create_project("demo_project", Path(tmp_dir) / "demo_project")
+            result = {
+                "applied": True,
+                "files": ["compose.yml"],
+                "command": "docker compose up -d --force-recreate docker-socket-proxy composer-agent",
+                "backup_root": ".xpose/dlux-agent-bootstrap/example",
+                "warnings": [],
+            }
+            runner = mock.Mock(
+                return_value=SimpleNamespace(
+                    returncode=0,
+                    stdout=f"notice\n{json.dumps(result)}\n",
+                    stderr="",
+                )
+            )
+
+            forwarded = enable_agent(
+                target,
+                apply=True,
+                compose_file="compose.yml",
+                command_runner=runner,
+            )
+
+            self.assertEqual(forwarded, result)
+            self.assertEqual(
+                runner.call_args.args[0],
+                [
+                    str(target / "start.sh"),
+                    "enable-agent",
+                    "--apply",
+                    "--file",
+                    "compose.yml",
+                    "--json",
+                ],
+            )
+
+    def test_enable_agent_surfaces_composer_forwarding_failure(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = create_project("demo_project", Path(tmp_dir) / "demo_project")
+            runner = mock.Mock(
+                return_value=SimpleNamespace(
+                    returncode=2,
+                    stdout='{"error": "DjangoLux 1.5.0 is required"}\n',
+                    stderr="",
+                )
+            )
+
+            with self.assertRaisesRegex(Exception, "DjangoLux 1.5.0 is required"):
+                enable_agent(target, apply=True, command_runner=runner)
 
     def test_startapp_creates_expected_files(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

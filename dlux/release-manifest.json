@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.4.15",
+  "version": "1.5.0",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds configurable Nav Bar roots, an optional titlebar language switcher, and a cleaner running-update dialog. Inline-safe; no migration.",
+  "summary": "Adds the typed Composer agent bridge, control-operation correlation, central backup relay, and hardened agent scaffolding.",
   "highlights": [
-    "Nav Bar trails can keep a neutral root, follow the configured homepage, or begin at a selected application page.",
-    "An optional titlebar button cycles through the available languages when language switching is enabled.",
-    "Review-only update actions stay hidden while an update is running."
+    "Central and local image updates share the same durable DLUX queue, backup gate, maintenance flow, and lock.",
+    "Generated projects now run one outbound Composer agent with a private state volume and read-only project mount.",
+    "Typed snapshots and central backup creation relay approved metadata without remote restore or application secrets."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.4.15"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.0"
 }

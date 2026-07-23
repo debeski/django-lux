@@ -128,7 +128,10 @@ def dlux_settings(scope):
     session_middleware = "django.contrib.sessions.middleware.SessionMiddleware"
     common_middleware = "django.middleware.common.CommonMiddleware"
     locale_middleware = "django.middleware.locale.LocaleMiddleware"
-    dlux_middleware = "dlux.middleware.DluxMiddleware"
+    dlux_middleware = str(
+        scope.get("DLUX_MIDDLEWARE", "dlux.middleware.DluxMiddleware")
+        or "dlux.middleware.DluxMiddleware"
+    ).strip()
 
     if session_middleware in middleware and common_middleware in middleware:
         session_index = middleware.index(session_middleware)

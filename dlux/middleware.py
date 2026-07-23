@@ -41,6 +41,14 @@ class DluxMiddleware:
             getattr(settings, 'STATIC_URL', '/static/') or '/static/',
             getattr(settings, 'MEDIA_URL', '/media/') or '/media/',
         ]
+        configured_prefixes = getattr(settings, 'DLUX_SETUP_GUARD_ALLOWED_PREFIXES', ()) or ()
+        if isinstance(configured_prefixes, str):
+            configured_prefixes = (configured_prefixes,)
+        allowed_prefixes.extend(
+            str(prefix).strip()
+            for prefix in configured_prefixes
+            if str(prefix).strip().startswith('/')
+        )
 
         try:
             allowed_exact_paths.update({

@@ -8,6 +8,11 @@ from django.core.management.base import BaseCommand, CommandError
 
 from dlux import __version__
 from dlux.updater.service import UpdateService, queue_daily_check_if_due, updates_enabled
+from dlux.updater.agent_bridge import (
+    consume_agent_requests,
+    publish_agent_results,
+    publish_agent_snapshot,
+)
 
 
 class Command(BaseCommand):
@@ -55,8 +60,11 @@ class Command(BaseCommand):
                 self.stdout.write("Interrupted update recovered; restarting update worker.")
                 return
             if options["once"]:
+                consume_agent_requests(service)
                 service.process_next()
                 service.tick_image_update()
+                publish_agent_results(service.store)
+                publish_agent_snapshot(service.store, force=True)
                 return
 
             jitter = 0 if options["no_jitter"] else random.randint(0, 1800)
@@ -65,6 +73,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("DjangoLux update worker is ready."))
 
             while not stopping:
+                consume_agent_requests(service)
                 processed = service.process_next()
                 if service.restart_worker:
                     self.stdout.write("Active release changed; restarting update worker.")
@@ -72,6 +81,8 @@ class Command(BaseCommand):
                 # Advance any in-flight image-level update (composer hand-off).
                 # Independent of the inline run queue above.
                 service.tick_image_update()
+                publish_agent_results(service.store)
+                publish_agent_snapshot(service.store)
                 if not processed and updates_enabled() and time.monotonic() >= daily_check_after:
                     queue_daily_check_if_due()
                     daily_check_after = time.monotonic() + max(

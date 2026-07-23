@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from types import SimpleNamespace
 from unittest import mock
@@ -17,7 +18,8 @@ setup_test_environment()
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.test import Client, TestCase, override_settings
+from django.db import close_old_connections, connection
+from django.test import Client, TestCase, TransactionTestCase, override_settings, skipUnlessDBFeature
 from django.urls import reverse
 from django.utils import timezone
 
@@ -46,6 +48,7 @@ from dlux.updater.runtime import RuntimeStore
 from dlux.updater.image_update import (
     ack_path,
     image_update_metadata,
+    queue_image_update,
     read_composer_ack,
     status_path,
 )
@@ -674,6 +677,166 @@ class ImageAvailabilityMetadataTests(TestCase):
         self.assertEqual(version_metadata["manifest"], {})
         self.assertEqual(digest_metadata["target"], "sha256:1234567890ab")
         self.assertEqual(digest_metadata["runtime_target"], "sha256:1234567890ab")
+
+
+@override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
+class UpdateAdmissionTests(TestCase):
+    @staticmethod
+    def _write_availability(root):
+        store = RuntimeStore(root).ensure()
+        (store.state_dir / "image-available.json").write_text(
+            json.dumps({
+                "available": True,
+                "images": [{
+                    "image": "example/app:latest",
+                    "local_digest": "sha256:old",
+                    "remote_digest": "sha256:new",
+                    "update_available": True,
+                    "version": "9.1.0",
+                }],
+            }),
+            encoding="utf-8",
+        )
+
+    def setUp(self):
+        DluxUpdateState.load()
+
+    def test_image_update_rejects_an_active_inline_run(self):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
+            DLUX_UPDATE_RUNTIME_ROOT=temp_dir,
+        ):
+            self._write_availability(temp_dir)
+            queue_run(DluxUpdateRun.ACTION_CHECK, "inline-admin")
+
+            with self.assertRaisesRegex(UpdaterError, "inline DjangoLux update"):
+                queue_image_update("image-admin")
+
+        self.assertFalse(DluxImageUpdate.objects.exists())
+
+    def test_inline_run_rejects_an_active_image_update(self):
+        DluxImageUpdate.objects.create(requested_by_username="image-admin")
+
+        with self.assertRaisesRegex(UpdaterError, "image update"):
+            queue_run(DluxUpdateRun.ACTION_CHECK, "inline-admin")
+
+        self.assertFalse(DluxUpdateRun.objects.exists())
+
+    def test_second_image_update_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
+            DLUX_UPDATE_RUNTIME_ROOT=temp_dir,
+        ):
+            self._write_availability(temp_dir)
+            first = queue_image_update("first-admin")
+
+            with self.assertRaisesRegex(UpdaterError, "image update"):
+                queue_image_update("second-admin")
+
+        self.assertEqual(DluxImageUpdate.objects.get(), first)
+
+    def test_terminal_image_update_does_not_block_inline_admission(self):
+        DluxImageUpdate.objects.create(
+            status=DluxImageUpdate.STATUS_COMPLETED,
+            is_active=False,
+            requested_by_username="image-admin",
+        )
+
+        run = queue_run(DluxUpdateRun.ACTION_CHECK, "inline-admin")
+
+        self.assertTrue(run.is_active)
+
+    def test_previous_release_insert_uses_agent_field_database_defaults(self):
+        table = connection.ops.quote_name(DluxImageUpdate._meta.db_table)
+        now = timezone.now()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                INSERT INTO {table} (
+                    token, status, is_active, source_version, target_version,
+                    requested_by_username, backup_mode, backup_token, progress_log,
+                    error, created_at, handoff_at, completed_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                [
+                    "legacy-image-token",
+                    DluxImageUpdate.STATUS_PENDING,
+                    True,
+                    "1.4.15",
+                    "1.5.0",
+                    "legacy-admin",
+                    DluxImageUpdate.BACKUP_DATA,
+                    "",
+                    "",
+                    "",
+                    now,
+                    None,
+                    None,
+                ],
+            )
+
+        row = DluxImageUpdate.objects.get(token="legacy-image-token")
+        self.assertIsNone(row.control_operation_id)
+        self.assertEqual(row.request_source, "local")
+
+
+@override_settings(DLUX_INLINE_UPDATES_ENABLED=True)
+class UpdateAdmissionConcurrencyTests(TransactionTestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.settings_override = override_settings(
+            DLUX_UPDATE_RUNTIME_ROOT=self.temp_dir.name,
+        )
+        self.settings_override.enable()
+        DluxUpdateState.load()
+        UpdateAdmissionTests._write_availability(self.temp_dir.name)
+
+    def tearDown(self):
+        self.settings_override.disable()
+        self.temp_dir.cleanup()
+
+    @staticmethod
+    def _run_concurrently(*operations):
+        barrier = threading.Barrier(len(operations))
+        outcomes = []
+
+        def submit(operation):
+            close_old_connections()
+            try:
+                barrier.wait(timeout=5)
+                operation()
+                outcomes.append("accepted")
+            except UpdaterError:
+                outcomes.append("rejected")
+            except Exception as exc:
+                outcomes.append(exc)
+            finally:
+                close_old_connections()
+
+        threads = [threading.Thread(target=submit, args=(operation,)) for operation in operations]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+        return outcomes
+
+    @skipUnlessDBFeature("has_select_for_update")
+    def test_state_row_lock_serializes_two_image_requests(self):
+        outcomes = self._run_concurrently(
+            lambda: queue_image_update("first-admin"),
+            lambda: queue_image_update("second-admin"),
+        )
+
+        self.assertCountEqual(outcomes, ["accepted", "rejected"])
+        self.assertEqual(DluxImageUpdate.objects.count(), 1)
+
+    @skipUnlessDBFeature("has_select_for_update")
+    def test_state_row_lock_serializes_inline_and_image_requests(self):
+        outcomes = self._run_concurrently(
+            lambda: queue_run(DluxUpdateRun.ACTION_CHECK, "inline-admin"),
+            lambda: queue_image_update("image-admin"),
+        )
+
+        self.assertCountEqual(outcomes, ["accepted", "rejected"])
+        self.assertEqual(DluxUpdateRun.objects.count() + DluxImageUpdate.objects.count(), 1)
 
 
 class ImageUpdateHandoffTests(TestCase):

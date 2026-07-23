@@ -189,7 +189,7 @@ def dlux_update_apply_view(request):
 @csrf_protect
 @require_POST
 def dlux_update_image_view(request):
-    """Queue an image-level update. Executed by the external composer-updater;
+    """Queue an image-level update. Executed by the external Composer agent;
     dlux backs up, enters maintenance, hands off, and finalizes."""
     _require_superuser(request)
     if failure := _password_guard(request):

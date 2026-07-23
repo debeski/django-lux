@@ -341,17 +341,12 @@ services:
     networks:
       - {{ project_slug }}_internal
 
-  # Composer-as-updater start
-  # Least-privilege Docker API gateway. composer-updater talks to this instead
-  # of mounting the raw /var/run/docker.sock (which is host root). Only the API
-  # surface Compose needs (containers/images/networks/volumes/events/exec + POST) is
-  # enabled; everything else stays denied.
+  # DjangoLux Composer agent start
+  # Least-privilege Docker API gateway. composer-agent talks to this instead of
+  # mounting the raw /var/run/docker.sock (which is host root).
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     restart: always
-    # Hardening: block privilege escalation and drop all Linux capabilities.
-    # HAProxy here binds :2375 (>1024) and reads the socket as owner-root, so it
-    # needs no caps. Not published to the host; only reachable on _docker_proxy.
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -367,44 +362,32 @@ services:
       INFO: 1
       PING: 1
       VERSION: 1
-      # Everything else stays denied (default 0): BUILD, AUTH, SECRETS, SWARM, …
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - {{ project_slug }}_docker_proxy
 
-  # Resident image-level updater. Watches a trigger file (written by dlux's
-  # update engine) and runs a full `composer -u` on each request: pull →
-  # version gate (refuse an image older than the active runtime) → recreate →
-  # health → post_start (migrator). It checks the SAME image this project builds.
-  # The updater excludes itself (and the socket-proxy) from bulk update runs via
-  # COMPOSER_EXCLUDE_SERVICES so it never recreates itself mid-update; image :latest.
-  #
-  # NOTE: bring the project up from its root dir so ${PWD} is the host project
-  # path — composer runs `docker compose` against the host daemon, so it needs
-  # the project mounted at the identical absolute path for bind mounts
-  # (./media, ./logs, …) to resolve correctly.
-  composer-updater:
+  # One outbound-only deployment agent per project. DLUX remains responsible for
+  # backup, maintenance, monitoring, and durable application update state; the
+  # agent executes Composer operations and relays the typed runtime spool.
+  composer-agent:
     image: debeski/composer:latest
     restart: unless-stopped
-    # Hardening: block privilege escalation and drop all Linux capabilities. It
-    # only issues Docker API calls over TCP to the socket-proxy and reads/writes
-    # dlux_runtime + the project dir; it needs no caps of its own.
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     working_dir: "${PWD}"
     command:
-      - watch
+      - agent
       - --trigger-file
       - /opt/dlux-runtime/state/image-update-request.json
       - --status-file
       - /opt/dlux-runtime/state/deploy-status.json
+      - --bridge-dir
+      - /opt/dlux-runtime/state/agent
       - --interval
-      - "5"
-      # Registry availability check → dlux reads image-available.json to offer
-      # an "application update" when a newer app image is published.
+      - "2"
       - --check-image
       - ${WEB_IMAGE:-{{ project_image }}:latest}
       - --availability-file
@@ -414,26 +397,28 @@ services:
     environment:
       DOCKER_HOST: "tcp://docker-socket-proxy:2375"
       WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:latest}"
-      # Version gate: compare the pulled image's baked DjangoLux label against
-      # the deployment's active runtime version (dlux active.json). The label is
-      # baked by the Dockerfile ARG/LABEL (empty locally = gate skipped).
+      COMPOSER_CONTROL_URL: "${COMPOSER_CONTROL_URL:-}"
+      COMPOSER_ENROLLMENT_TOKEN: "${COMPOSER_ENROLLMENT_TOKEN:-}"
+      COMPOSER_AGENT_STATE_DIR: "/var/lib/composer-agent"
       COMPOSER_VERSION_LABEL: "org.{{ project_slug }}.dlux_baked_version"
-      # Optional project release notes embedded in the remote image config.
       COMPOSER_RELEASE_MANIFEST_LABEL: "org.dlux.project.release-manifest"
       COMPOSER_ACTIVE_VERSION_FILE: "/opt/dlux-runtime/state/active.json"
       COMPOSER_ACTIVE_VERSION_KEY: "version"
       COMPOSER_STATUS_FILE: "/opt/dlux-runtime/state/deploy-status.json"
-      COMPOSER_EXCLUDE_SERVICES: "composer-updater,docker-socket-proxy"
+      COMPOSER_WATCH_SELF_SERVICE: "composer-agent"
+      COMPOSER_EXCLUDE_SERVICES: "composer-agent,docker-socket-proxy,db,redis,db-backup,pgadmin"
+      COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"
     volumes:
-      - "${PWD}:${PWD}"
+      - "${PWD}:${PWD}:ro"
       - dlux_runtime:/opt/dlux-runtime:rw
+      - composer_agent_state:/var/lib/composer-agent:rw
     depends_on:
       docker-socket-proxy:
         condition: service_started
     networks:
       - dlux_update_egress
       - {{ project_slug }}_docker_proxy
-  # Composer-as-updater end
+  # DjangoLux Composer agent end
 
 volumes:
   postgres_data:
@@ -441,6 +426,7 @@ volumes:
   pgadmin_data:
   static:
   dlux_runtime:
+  composer_agent_state:
   caddy_data:
   caddy_config:
 
@@ -451,6 +437,6 @@ networks:
     internal: true
   dlux_update_egress:
     driver: bridge
-  # Isolated path from composer-updater to the docker-socket-proxy only.
+  # Isolated path from composer-agent to the docker-socket-proxy only.
   {{ project_slug }}_docker_proxy:
     internal: true

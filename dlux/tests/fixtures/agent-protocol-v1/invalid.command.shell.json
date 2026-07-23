@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "operation_id": "22222222-2222-4222-8222-222222222222",
+  "action": "shell",
+  "created_at": "2026-07-23T10:00:00Z",
+  "deadline_at": "2026-07-23T11:00:00Z",
+  "actor": {"id": "7", "display": "Fleet Admin"},
+  "payload": {"command": "id"}
+}

@@ -107,6 +107,7 @@
 | `python -m dlux startapp <name>` | Create DjangoLux-native app skeleton |
 | `python -m dlux startapp <name> --register` | Create app + auto-register in settings/URLs |
 | `python -m dlux enable-updater [--apply]` | Dry-run/apply the guarded one-time inline-updater bootstrap for an existing generated Compose project |
+| `./start.sh enable-agent [--apply]` | Composer-owned dry-run/apply migration from `composer-updater` to the outbound agent, with pre-write validation and `.xpose/` preservation |
 
 ### Generated Project Structure
 - **Config package** (`config/` instead of project name reuse)
@@ -117,7 +118,8 @@
 - **Celery worker:** `config/celery.py` with Redis broker
 - **Health check:** `/health/` endpoint via `django-health-check`
 - **Security headers:** `django-cors-headers` + `django-csp` pre-wired
-- **Inline + image updater:** persistent versioned release volume, isolated update worker, restart supervisor, proxy-served maintenance/progress page, `composer-updater` image-level updates through a least-privilege `docker-socket-proxy`, and baked-package fallback
+- **Inline + image updater:** persistent release/runtime volumes, isolated update worker, restart supervisor, proxy-served progress, and outbound `composer-agent` image deployment through a least-privilege `docker-socket-proxy`
+- **Typed fleet relay:** operation-correlated central image updates, data/full backup creation and inspection, canonical health/resource snapshots, and no remote restore surface
 
 ### Generated App Structure
 - `models.py` — with `ScopedModel` base import

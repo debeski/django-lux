@@ -210,6 +210,10 @@
     display: none;
 }
 
+.titlebar[data-titlebar-show-language-switcher="false"] .dlux-titlebar-lang-cycle {
+    display: none;
+}
+
 .titlebar[data-title-size="sm"] .titlebar__title {
     font-size: clamp(1rem, 1.2vw, 1.4rem);
 }

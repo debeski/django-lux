@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-07-23T10:02:00Z",
+  "project": {"name": "Example", "environment": "production"},
+  "versions": {"application": "2.4.0", "dlux": "1.5.0"},
+  "updates": {"status": "idle"},
+  "backup": {"status": "ready"},
+  "health": {"status": "healthy"},
+  "resources": {"cpu_percent": 12.5, "memory_percent": 44.0},
+  "agent": {"agent_version": "1.2.0", "protocol_versions": [1]}
+}

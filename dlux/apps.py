@@ -102,11 +102,12 @@ class DluxConfig(AppConfig):
         # Check Middleware
         new_path = 'dlux.middleware.DluxMiddleware'
         old_path = 'dlux.middleware.ActivityLogMiddleware'
+        configured_path = getattr(settings, 'DLUX_MIDDLEWARE', new_path)
         configured_middleware = getattr(settings, 'MIDDLEWARE', [])
         
-        if new_path not in configured_middleware and old_path not in configured_middleware:
+        if configured_path not in configured_middleware and old_path not in configured_middleware:
             warnings.warn(
-                f"\n⚠️  dlux: '{new_path}' not found in MIDDLEWARE.\n"
+                f"\n⚠️  dlux: '{configured_path}' not found in MIDDLEWARE.\n"
                 "   Activity logging will not work. Run 'python manage.py dlux_check' for details.",
                 UserWarning
             )

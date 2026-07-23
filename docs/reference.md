@@ -11,13 +11,18 @@ This page is the fast lookup sheet for common DjangoLux commands, routes, templa
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
 | `python -m dlux enable-updater` | Dry-run the guarded inline-updater bootstrap for an existing generated Compose project. |
 | `python -m dlux enable-updater --apply` | Preserve changed originals under `.xpose/`, apply idempotent updater wiring, validate with `docker compose config`, and print the one-time rebuild command. |
+| `./start.sh enable-agent` | Ask Composer 1.2+ to print the migration diff from `composer-updater` to one outbound-only `composer-agent`. |
+| `./start.sh enable-agent --apply` | Preserve `compose.yml` under `.xpose/dlux-agent-bootstrap/`, pre-validate, and atomically apply the agent/state-volume topology. |
+| `python -m dlux enable-agent` | Deprecated one-cycle compatibility forwarder to Composer's canonical command. |
+
+Agent-capable ASGI projects may set `DLUX_MIDDLEWARE` to a compatible middleware wrapper and `DLUX_SETUP_GUARD_ALLOWED_PREFIXES` to explicit machine API prefixes. The control panel uses these only for `/api/agent/v1/`; bearer authentication still applies at the endpoint.
 
 Generated project baseline:
 - `.secrets/.env` with scaffolded bootstrap secret values
 - `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
-- a generated Docker baseline with `web`, `celery`, `dlux-updater`, `composer-updater` (+ least-privilege `docker-socket-proxy`), `db`, `redis`, `caddy` (active proxy; `nginx` fallback), `pgadmin`, database backup, and internal `smtp-relay` services
+- a generated Docker baseline with `web`, `celery`, `dlux-updater`, outbound-only `composer-agent` (+ least-privilege `docker-socket-proxy`), `db`, `redis`, `caddy` (active proxy; `nginx` fallback), `pgadmin`, database backup, and internal `smtp-relay` services
 - `requirements.txt` pinned to the generated stable `django-lux` release
 - a persistent `dlux_runtime` volume, project-owned process supervisor, and a proxy-served maintenance/progress page
 

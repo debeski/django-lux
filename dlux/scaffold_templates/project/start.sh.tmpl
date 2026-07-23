@@ -9,15 +9,15 @@ if [[ $# -eq 1 && "${1:-}" == "--update" ]]; then
     # Show current version from image's VERSION file
     echo "=== Current Composer Version ==="
     docker run --rm --entrypoint cat debeski/composer:latest /app/VERSION 2>/dev/null || echo "  (not present locally)"
-    
+
     echo ""
     echo "Pulling latest composer image..."
     docker pull debeski/composer:latest
-    
+
     echo ""
     echo "=== Installed Version ==="
     docker run --rm --entrypoint cat debeski/composer:latest /app/VERSION
-    
+
     exit 0
 fi
 

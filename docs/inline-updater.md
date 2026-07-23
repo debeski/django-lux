@@ -192,12 +192,12 @@ Composer published no target metadata or digest. It never uses the DjangoLux
 wheel version or wheel release notes, because an image rebuild delivers the
 whole project image.
 
-Generated Compose scaffolds run the resident `composer-updater` from
-`debeski/composer:latest` and set
-`COMPOSER_EXCLUDE_SERVICES=composer-updater,docker-socket-proxy`, so the watcher
-can run the full `composer -u` pull/gate/recreate/health/post-start path without
-targeting either the container supervising that run or the Docker API gateway it
-is using. The generated `docker-socket-proxy` also enables the Compose events API
+Generated Compose scaffolds run one resident `composer-agent` from
+`debeski/composer:latest`. The agent preserves the local trigger/status/ack
+contract while adding a durable SQLite command queue, typed DLUX bridge, replay,
+and optional outbound control-plane connection. It excludes itself, the Docker
+gateway, and generated stateful services from full deployment runs. The generated
+`docker-socket-proxy` also enables the Compose events API
 (`EVENTS=1`) along with containers/images/networks/volumes and exec/POST access,
 which keeps image-update progress observable through the least-privilege Docker
 gateway.
@@ -215,24 +215,39 @@ for any non-zero child exit and creates generated runtime overrides in system
 temporary storage, so read-only or host-owned project mounts require no added
 Linux capabilities.
 
-Composer 1.1.15 removes the resident container's dependency on reopening the
+Composer 1.1.15 removed the resident container's dependency on reopening the
 host secrets file. `start.sh`/`start.ps1` pass the selected mode-`0600` file to
 the one-shot Composer process through Docker `--env-file`; Composer's private
 runtime override then forwards those values and their key manifest only to
-`composer-updater`. Its watcher children validate and reuse the inherited
+resident Composer service. Agent children validate and reuse the inherited
 environment for later image updates, without ACLs or added Linux capabilities.
 
-After installing Composer 1.1.15, recreate an existing resident updater once
-through the wrapper to establish that handoff:
+After pulling Composer 1.2.0, migrate a generated project from
+`composer-updater` with Composer's guarded bootstrap. The default prints the
+exact diff; `--apply` preserves the old Compose file under
+`.xpose/dlux-agent-bootstrap/`, applies the dedicated state volume and
+read-only project mount, then validates the candidate before writing:
 
 ```sh
 ./start.sh --update
-./start.sh -u composer-updater
+./start.sh enable-agent
+./start.sh enable-agent --apply
 ```
 
-Directly-created legacy updater containers retain the strict file fallback. An
-unreadable candidate still aborts before pull/recreate and reports mapped-UID ACL
-diagnostics rather than deploying through Compose's secret defaults.
+The deprecated `python -m dlux enable-agent` compatibility route forwards to
+Composer for one migration cycle.
+
+Set `COMPOSER_CONTROL_URL` to the public HTTPS control panel and provide a
+15-minute one-use `COMPOSER_ENROLLMENT_TOKEN` for first enrollment. The random
+bearer credential is then kept in `composer_agent_state`; DLUX and Composer share
+only typed operation/snapshot documents under
+`/opt/dlux-runtime/state/agent/`. The agent has no inbound listener and local
+DLUX-triggered updates keep working if the control plane is unavailable or the
+agent is revoked.
+
+The same typed bridge supports central data/full backup creation and relays up to
+ten recent approved backup summaries in the canonical snapshot. Backup artifacts
+and restore commands never cross the bridge; restore remains project-local.
 
 On terminal failure the generated maintenance page keeps the error visible while
 probing `/` every two seconds. As soon as the worker has lowered maintenance and
@@ -259,6 +274,8 @@ Any failed gate displays **Project image rebuild required** and does not expose 
 ## Apply and Rollback
 
 Apply re-fetches and re-verifies the wheel, installs it to isolated staging with `pip --target --no-deps`, completes and verifies a **data-only** Dlux system backup tagged with the `update` trigger, enables maintenance, runs candidate migrations and `collectstatic`, atomically switches the pointer, increments the generation, and verifies `/health/`, the active Dlux version in web, and the version reported by a live Celery worker. Web and Celery readiness/version probes retry within one bounded 120-second handshake so supervisor startup latency is not treated as failure. The review modal states this blocking backup guarantee; backup failure aborts before maintenance rather than merely warning the operator to create one manually.
+
+Inline and image-level queue admission share the locked `DluxUpdateState` row. An active image update blocks check/apply/rollback admission, an active inline run blocks image admission, and concurrent local/control image requests serialize before checking the single active image row.
 
 The pre-update backup excludes media blobs (`include_media=False`): it captures the database rows and migration state but not uploaded files, because an inline code/schema update never alters media on disk. This keeps the backup fast even on media-heavy deployments (a full media copy could take many minutes, defeating the point of a quick inline update). Restoring a data-only `.dlb` replaces the database and leaves existing media untouched, since the restore only rewrites the files its manifest lists. Manual and scheduled backups remain full (media + data).
 

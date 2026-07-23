@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from .scaffold import ScaffoldError, create_app, create_project, enable_updater
+from .scaffold import ScaffoldError, create_app, create_project, enable_agent, enable_updater
 
 
 def main(argv=None):
@@ -39,6 +39,22 @@ def main(argv=None):
         help="Apply the guarded changes (the default is a dry run)",
     )
 
+    agent_parser = subparsers.add_parser(
+        "enable-agent",
+        help="Replace the resident composer-updater with composer-agent",
+    )
+    agent_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply the guarded changes (the default is a dry run)",
+    )
+    agent_parser.add_argument("-f", "--file", help="Compose file relative to the project root")
+    agent_parser.add_argument(
+        "--allow-unverified-dlux",
+        action="store_true",
+        help="Forward Composer's explicit DjangoLux bridge-version override",
+    )
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -66,6 +82,26 @@ def main(argv=None):
             if result.get("backup_root"):
                 print(f"Backups: {result['backup_root']}")
             print(f"Rebuild and redeploy once: {result['command']}")
+        elif args.command == "enable-agent":
+            print(
+                "Deprecated: use './start.sh enable-agent' directly; "
+                "this DjangoLux command forwards to Composer v1.2.0+.",
+                file=sys.stderr,
+            )
+            result = enable_agent(
+                apply=args.apply,
+                compose_file=args.file or "",
+                allow_unverified_dlux=args.allow_unverified_dlux,
+            )
+            mode = "Applied" if result["applied"] else "Dry run"
+            files = ", ".join(result["files"]) if result["files"] else "no changes"
+            print(f"{mode}: {files}")
+            if result.get("backup_root"):
+                print(f"Backups: {result['backup_root']}")
+            if result.get("command"):
+                print(f"Redeploy once: {result['command']}")
+            else:
+                print("Agent topology is already enabled.")
         return 0
     except ScaffoldError as exc:
         print(f"Error: {exc}", file=sys.stderr)

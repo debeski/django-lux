@@ -1423,7 +1423,7 @@ class DluxUpdateRun(models.Model):
 
 class DluxImageUpdate(models.Model):
     """Image-level (full container) update request, executed by the external
-    composer-updater rather than the inline wheel worker.
+    Composer agent rather than the inline wheel worker.
 
     Deliberately SEPARATE from DluxUpdateRun so the battle-tested inline update
     worker/recovery state machine is never disturbed. Lifecycle is driven by
@@ -1463,6 +1463,19 @@ class DluxImageUpdate(models.Model):
         default=generate_report_backup_token,
         editable=False,
         verbose_name="Token",
+    )
+    control_operation_id = models.UUIDField(
+        null=True,
+        blank=True,
+        unique=True,
+        verbose_name="Control Operation ID",
+    )
+    request_source = models.CharField(
+        max_length=16,
+        choices=[('local', 'Local'), ('control', 'Control Plane')],
+        default='local',
+        db_default='local',
+        verbose_name="Request Source",
     )
     status = models.CharField(
         max_length=32,

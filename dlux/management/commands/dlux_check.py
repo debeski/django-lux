@@ -73,8 +73,9 @@ dlux_settings(globals())"""
         # ─────────────────────────────────────────────────
         new_path = 'dlux.middleware.DluxMiddleware'
         old_path = 'dlux.middleware.ActivityLogMiddleware'
+        configured_path = getattr(settings, 'DLUX_MIDDLEWARE', new_path)
         self.stdout.write('\n📋 MIDDLEWARE: ', ending='')
-        if new_path in settings.MIDDLEWARE or old_path in settings.MIDDLEWARE:
+        if configured_path in settings.MIDDLEWARE or old_path in settings.MIDDLEWARE:
             self.stdout.write(self.style.SUCCESS('✓ OK'))
         else:
             self.stdout.write(self.style.ERROR('✗ MISSING'))

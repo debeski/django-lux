@@ -1101,6 +1101,21 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertTrue(form.fields['titlebar_show_language_switcher'].disabled)
 
+    def test_language_switcher_uses_data_attribute_visibility_and_live_preview(self):
+        titlebar = Path('dlux/templates/dlux/includes/titlebar.html').read_text(encoding='utf-8')
+        css = Path('dlux/static/dlux/main/css/titlebar.css').read_text(encoding='utf-8')
+        setup_js = Path('dlux/static/dlux/main/js/system_setup.js').read_text(encoding='utf-8')
+
+        # Rendered like the other show_* toggles: always present when switching is
+        # possible, visibility driven by a data attribute + CSS (so the setup
+        # preview can flip it live), not by a conditional {% if %} on the button.
+        self.assertIn('data-titlebar-show-language-switcher=', titlebar)
+        self.assertIn('{% if language_picker_enabled %}', titlebar)
+        self.assertIn('dlux-titlebar-action dlux-titlebar-lang-cycle', titlebar)
+        self.assertIn('[data-titlebar-show-language-switcher="false"] .dlux-titlebar-lang-cycle', css)
+        self.assertIn('titlebar.dataset.titlebarShowLanguageSwitcher', setup_js)
+        self.assertIn("form.querySelector('#id_titlebar_show_language_switcher')", setup_js)
+
     @override_settings(DLUX_CONFIG={
         'titlebar': {
             'show_title': False,

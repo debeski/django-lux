@@ -14,6 +14,7 @@
     data-titlebar-show-title="{% if titlebar.show_title %}true{% else %}false{% endif %}"
     data-titlebar-show-logo="{% if titlebar.show_logo %}true{% else %}false{% endif %}"
     data-titlebar-show-home="{% if titlebar.show_home_button %}true{% else %}false{% endif %}"
+    data-titlebar-show-language-switcher="{% if titlebar.show_language_switcher %}true{% else %}false{% endif %}"
     data-titlebar-scope-name="{% if user.scope %}{{ user.scope.name }}{% endif %}"
     data-sidebar-collapse-mode="{{ sidebar.collapse_mode|default:'icons' }}"
 >
@@ -61,7 +62,7 @@
                      data-global-search-results role="listbox" hidden></div>
             </div>
             {% endif %}
-            {% if titlebar.show_language_switcher and language_picker_enabled %}
+            {% if language_picker_enabled %}
             <button type="button"
                     class="dlux-titlebar-btn dlux-titlebar-action dlux-titlebar-lang-cycle no-print"
                     data-dlux-lang-cycle

@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "operation_id": "11111111-1111-4111-8111-111111111111",
+  "sequence": 2,
+  "state": "running",
+  "observed_at": "2026-07-23T10:02:00Z",
+  "detail": {"phase": "composer_deploy", "message": "Recreating application services"}
+}

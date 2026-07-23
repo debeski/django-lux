@@ -1706,6 +1706,7 @@
         const showTitle = readBooleanField(form, '#id_titlebar_show_title', true);
         const showLogo = readBooleanField(form, '#id_titlebar_show_logo', true);
         const showHome = readBooleanField(form, '#id_titlebar_show_home_button', true);
+        const showLanguageSwitcher = readBooleanField(form, '#id_titlebar_show_language_switcher', false);
         const titleAlign = getNamedFieldValue(form, 'titlebar_title_align') || 'start';
         const titleSize = getNamedFieldValue(form, 'titlebar_title_size') || 'md';
         const height = getNamedFieldValue(form, 'titlebar_height') || 'balanced';
@@ -1740,6 +1741,7 @@
         titlebar.dataset.titlebarShowTitle = showTitle ? 'true' : 'false';
         titlebar.dataset.titlebarShowLogo = showLogo ? 'true' : 'false';
         titlebar.dataset.titlebarShowHome = showHome ? 'true' : 'false';
+        titlebar.dataset.titlebarShowLanguageSwitcher = showLanguageSwitcher ? 'true' : 'false';
         applyTitlebarActionOrderPreview(titlebar, actionOrder);
 
         titlebar.querySelectorAll('[data-titlebar-home]').forEach((homeButton) => {
@@ -5027,6 +5029,7 @@
             const showTitleToggle = form.querySelector('#id_titlebar_show_title');
             const showLogoToggle = form.querySelector('#id_titlebar_show_logo');
             const showHomeButtonToggle = form.querySelector('#id_titlebar_show_home_button');
+            const showLanguageSwitcherToggle = form.querySelector('#id_titlebar_show_language_switcher');
             if (!showTitleToggle || !showLogoToggle || !showHomeButtonToggle) {
                 return;
             }
@@ -5063,6 +5066,9 @@
             showTitleToggle.addEventListener('change', syncTitlebarDependencies);
             showLogoToggle.addEventListener('change', syncTitlebarDependencies);
             showHomeButtonToggle.addEventListener('change', syncTitlebarDependencies);
+            if (showLanguageSwitcherToggle) {
+                showLanguageSwitcherToggle.addEventListener('change', syncTitlebarDependencies);
+            }
             form.querySelectorAll('[name="titlebar_logo_treatment"]').forEach((input) => {
                 input.addEventListener('change', syncTitlebarDependencies);
             });

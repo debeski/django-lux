@@ -1,3 +1,5 @@
+import json
+import os
 import re
 import secrets
 import shutil
@@ -550,6 +552,62 @@ def _bootstrap_backup_root(project_root):
         suffix += 1
         destination = base / f"{stamp}-{suffix}"
     return destination
+
+
+def enable_agent(
+    project_root=None,
+    *,
+    apply=False,
+    compose_file="",
+    allow_unverified_dlux=False,
+    command_runner=subprocess.run,
+):
+    project_root = Path(project_root or Path.cwd()).resolve()
+    _resolve_project_files(project_root)
+    command = []
+    shell_wrapper = project_root / "start.sh"
+    powershell_wrapper = project_root / "start.ps1"
+    if os.name != "nt" and shell_wrapper.is_file():
+        command = [str(shell_wrapper), "enable-agent"]
+    elif os.name == "nt" and powershell_wrapper.is_file():
+        powershell = shutil.which("pwsh") or shutil.which("powershell")
+        if powershell:
+            command = [powershell, "-NoProfile", "-File", str(powershell_wrapper), "enable-agent"]
+    if not command:
+        composer = shutil.which("composer")
+        if composer:
+            command = [composer, "enable-agent", "--project-dir", str(project_root)]
+    if not command:
+        raise ScaffoldError(
+            "Composer v1.2.0+ is required; pull it through start.sh or install the composer command"
+        )
+    if apply:
+        command.append("--apply")
+    if compose_file:
+        command.extend(["--file", compose_file])
+    if allow_unverified_dlux:
+        command.append("--allow-unverified-dlux")
+    command.append("--json")
+    completed = command_runner(
+        command,
+        cwd=str(project_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    payload = None
+    for line in reversed(str(completed.stdout or "").splitlines()):
+        try:
+            candidate = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(candidate, dict):
+            payload = candidate
+            break
+    if completed.returncode != 0 or payload is None or payload.get("error"):
+        detail = (payload or {}).get("error") or str(completed.stderr or "").strip()
+        raise ScaffoldError(detail or "Composer enable-agent forwarding failed")
+    return payload
 
 
 def enable_updater(project_root=None, *, apply=False, command_runner=subprocess.run):

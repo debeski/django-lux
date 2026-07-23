@@ -1,4 +1,5 @@
 from django.apps import apps
+import uuid
 from types import SimpleNamespace
 from unittest.mock import mock_open, patch
 
@@ -159,6 +160,19 @@ class UtilsTests(TestCase):
         self.assertIn('project-task', scope['CELERY_BEAT_SCHEDULE'])
         self.assertIn('dlux-scheduled-system-backup-check', scope['CELERY_BEAT_SCHEDULE'])
 
+    def test_dlux_settings_accepts_an_explicit_compatible_middleware(self):
+        scope = {
+            'INSTALLED_APPS': [],
+            'MIDDLEWARE': ['django.contrib.auth.middleware.AuthenticationMiddleware'],
+            'TEMPLATES': [],
+            'DLUX_MIDDLEWARE': 'fleet.middleware.AgentApiBoundaryMiddleware',
+        }
+
+        dlux_settings(scope)
+
+        self.assertIn('fleet.middleware.AgentApiBoundaryMiddleware', scope['MIDDLEWARE'])
+        self.assertNotIn('dlux.middleware.DluxMiddleware', scope['MIDDLEWARE'])
+
     def test_get_secret_reads_docker_secret_first(self):
         with patch('builtins.open', mock_open(read_data='super-secret\n')):
             secret = get_secret('db_password', 'DB_PASSWORD')
@@ -249,6 +263,24 @@ class UtilsTests(TestCase):
         ).first()
         self.assertIsNotNone(log)
         self.assertEqual(log.object_id, self.user.pk)
+
+    def test_log_user_action_keeps_uuid_reference_out_of_integer_object_id(self):
+        from dlux.models import UserActivityLog
+
+        request = self.factory.get('/')
+        request.user = self.user
+        request.META['HTTP_USER_AGENT'] = 'TestAgent'
+        request.META['REMOTE_ADDR'] = '127.0.0.1'
+        instance = SimpleNamespace(
+            pk=uuid.uuid4(),
+            _meta=SimpleNamespace(verbose_name='UUID Record', label_lower='example.uuidrecord'),
+        )
+
+        log_user_action(request, 'UPDATE', instance=instance)
+
+        log = UserActivityLog.objects.filter(created_by=self.user, action='UPDATE').first()
+        self.assertIsNotNone(log)
+        self.assertIsNone(log.object_id)
 
     def test_log_user_action_with_details(self):
         """Test log_user_action with details dict."""

@@ -359,12 +359,20 @@ def log_user_action(request, action, instance=None, model_name=None, details=Non
         resolved_name = instance._meta.verbose_name if instance else None
         resolved_key = model_key or (instance._meta.label_lower if instance else None)
 
+    resolved_object_id = object_id if object_id is not None else (instance.pk if instance else None)
+    try:
+        resolved_object_id = int(resolved_object_id) if resolved_object_id is not None else None
+        if resolved_object_id is not None and not -(2 ** 31) <= resolved_object_id < 2 ** 31:
+            resolved_object_id = None
+    except (TypeError, ValueError):
+        resolved_object_id = None
+
     return ActivityLog.safe_log(
         user=user,
         action=action,
         model_name=resolved_name,
         model_key=resolved_key,
-        object_id=object_id if object_id is not None else (instance.pk if instance else None),
+        object_id=resolved_object_id,
         number=number or (getattr(instance, 'number', '') if instance else None),
         details=details,
         ip_address=get_client_ip(request),

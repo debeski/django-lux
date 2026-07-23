@@ -210,7 +210,8 @@ def log_save(sender, instance, created, **kwargs):
         model_name = instance._meta.verbose_name
         model_key = instance._meta.label_lower
         try:
-            obj_id = int(instance.pk) if instance.pk is not None else None
+            candidate_id = int(instance.pk) if instance.pk is not None else None
+            obj_id = candidate_id if candidate_id is not None and -(2 ** 31) <= candidate_id < 2 ** 31 else None
         except (ValueError, TypeError):
             obj_id = None
 

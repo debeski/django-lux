@@ -1,7 +1,7 @@
 """Image-level (full container) update path.
 
 Deliberately separate from the inline wheel updater (``service.py`` /
-``DluxUpdateRun``): image updates are executed by the external composer-updater
+``DluxUpdateRun``): image updates are executed by the external Composer agent
 container, which recreates the app containers — including this one. Routing that
 through the inline worker's durable-run recovery would false-fail every update
 (the worker is killed mid-run), so this keeps its own lightweight record and is
@@ -265,6 +265,8 @@ def serialize_image_update(row, *, store=None, include_log=False):
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "handoff_at": row.handoff_at.isoformat() if row.handoff_at else None,
         "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+        "control_operation_id": str(row.control_operation_id or ""),
+        "request_source": row.request_source,
     }
     if row.is_active:
         # Surface composer's live deploy status while an update is in flight.
@@ -274,34 +276,52 @@ def serialize_image_update(row, *, store=None, include_log=False):
     return result
 
 
-def queue_image_update(username="", backup_mode=None):
+def queue_image_update(
+    username="",
+    backup_mode=None,
+    *,
+    control_operation_id=None,
+    request_source="local",
+):
     if not updates_enabled():
         raise UpdaterError("Inline DjangoLux updates are disabled for this project.")
     Image = _image_model()
     Run = _run_model()
+    if control_operation_id:
+        existing = Image.objects.filter(control_operation_id=control_operation_id).first()
+        if existing is not None:
+            return existing
     backup_mode = backup_mode if backup_mode in dict(Run.BACKUP_MODE_CHOICES) else Run.BACKUP_DATA
-    state = _state_model().load()
     metadata = image_update_metadata()
     if not metadata["available"]:
         raise UpdaterError("No image-level DjangoLux update is available.")
-    if state.active_run_token:
-        raise UpdaterError("An inline DjangoLux update is already running.")
     from django.db import transaction
 
+    State = _state_model()
+    State.load()
     with transaction.atomic():
-        if Image.objects.select_for_update(skip_locked=True).filter(is_active=True).exists():
+        state = State.objects.select_for_update().get(pk=1)
+        if control_operation_id:
+            existing = Image.objects.filter(control_operation_id=control_operation_id).first()
+            if existing is not None:
+                return existing
+        if state.active_run_token:
+            raise UpdaterError("An inline DjangoLux update is already running.")
+        if Image.objects.filter(is_active=True).exists():
             raise UpdaterError("An image update is already in progress.")
         row = Image.objects.create(
             source_version=state.active_version or state.baked_version,
             target_version=metadata["runtime_target"],
             requested_by_username=str(username or "")[:150],
             backup_mode=backup_mode,
+            control_operation_id=control_operation_id,
+            request_source="control" if request_source == "control" else "local",
         )
     return row
 
 
 def write_composer_trigger(store, row):
-    """Atomically write the composer-updater trigger request onto the shared
+    """Atomically write the Composer agent trigger request onto the shared
     runtime volume. composer's `watch` picks up the changed token and runs a
     full `-uo` update."""
     path = trigger_path(store)
@@ -310,6 +330,8 @@ def write_composer_trigger(store, row):
         "target": row.target_version,
         "requested_at": timezone.now().isoformat(),
     }
+    if row.control_operation_id:
+        payload["operation_id"] = str(row.control_operation_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.tmp")
     tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
