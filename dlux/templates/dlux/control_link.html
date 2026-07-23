@@ -1,0 +1,83 @@
+{% extends "dlux/base.html" %}
+{% load dlux_tags %}
+
+{% block title %}{{ DLUX_STRINGS.control_link_title|default:"Control Panel" }}{% endblock %}
+
+{% block content %}
+<div class="container py-4" data-control-link data-status-url="{% url 'control_panel_status' %}">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-diagram-3 me-2"></i>{{ DLUX_STRINGS.control_link_title|default:"Control Panel" }}</h2>
+            <p class="text-muted mb-0">{{ DLUX_STRINGS.control_link_desc|default:"Pair this application with your central control panel — no .env editing or redeploy." }}</p>
+        </div>
+        <span class="badge fs-6 rounded-pill
+            {% if link.enrolled %}text-bg-success{% elif link.pending %}text-bg-warning{% else %}text-bg-secondary{% endif %}"
+            data-control-link-badge>
+            {% if link.enrolled %}{{ DLUX_STRINGS.control_link_connected|default:"Connected" }}
+            {% elif link.pending %}{{ DLUX_STRINGS.control_link_pending|default:"Pairing…" }}
+            {% else %}{{ DLUX_STRINGS.control_link_not_connected|default:"Not connected" }}{% endif %}
+        </span>
+    </div>
+
+    {% if not link.bridge_available %}
+        <div class="alert alert-warning">{{ DLUX_STRINGS.control_link_bridge_unavailable|default:"The agent runtime bridge is unavailable on this host." }}</div>
+    {% endif %}
+
+    {% if link.enrolled %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body p-4">
+            <dl class="row mb-0 small">
+                <dt class="col-sm-4 text-muted">{{ DLUX_STRINGS.control_link_url_label|default:"Control panel URL" }}</dt>
+                <dd class="col-sm-8 text-break">{{ link.control_url|default:"—" }}</dd>
+                <dt class="col-sm-4 text-muted">{{ DLUX_STRINGS.control_link_agent_id|default:"Agent ID" }}</dt>
+                <dd class="col-sm-8 text-break">{{ link.agent_id|default:"—" }}</dd>
+                <dt class="col-sm-4 text-muted">{{ DLUX_STRINGS.control_link_agent_version|default:"Agent version" }}</dt>
+                <dd class="col-sm-8">{{ link.agent_version|default:"—" }}</dd>
+                <dt class="col-sm-4 text-muted">{{ DLUX_STRINGS.control_link_enrolled_at|default:"Enrolled" }}</dt>
+                <dd class="col-sm-8">{{ link.enrolled_at|default:"—" }}</dd>
+                <dt class="col-sm-4 text-muted">{{ DLUX_STRINGS.control_link_last_contact|default:"Last contact" }}</dt>
+                <dd class="col-sm-8">{{ link.last_contact_at|default:"—" }}</dd>
+            </dl>
+        </div></div>
+        <p class="text-muted small">{{ DLUX_STRINGS.control_link_repair_hint|default:"To move this app to a different control panel, pair again below with a fresh token." }}</p>
+    {% endif %}
+
+    {% if link.pending %}
+        <div class="alert alert-warning d-flex align-items-center justify-content-between gap-3">
+            <span><span class="spinner-border spinner-border-sm me-2"></span>{{ DLUX_STRINGS.control_link_pending_note|default:"Waiting for the agent to redeem the pairing token…" }}</span>
+            <form method="post" action="{% url 'control_panel_cancel' %}" class="m-0">{% csrf_token %}
+                <button class="btn btn-sm btn-outline-secondary" type="submit">{{ DLUX_STRINGS.control_link_cancel|default:"Cancel" }}</button>
+            </form>
+        </div>
+    {% endif %}
+
+    {% if link.last_enroll.state == "error" %}
+        <div class="alert alert-danger"><strong>{{ DLUX_STRINGS.control_link_failed|default:"Last pairing failed:" }}</strong>
+            <span class="text-break">{{ link.last_enroll.error|default:"unknown error" }}</span></div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm rounded-4"><div class="card-body p-4">
+        <h5 class="mb-3">{% if link.enrolled %}{{ DLUX_STRINGS.control_link_repair_title|default:"Pair again" }}{% else %}{{ DLUX_STRINGS.control_link_connect_title|default:"Connect to control panel" }}{% endif %}</h5>
+        <form method="post" action="{% url 'control_panel_connect' %}">{% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label" for="control_url">{{ DLUX_STRINGS.control_link_url_label|default:"Control panel URL" }}</label>
+                <input class="form-control" type="url" id="control_url" name="control_url"
+                       value="{{ link.control_url }}" placeholder="https://panel.example.org" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="pairing_token">{{ DLUX_STRINGS.control_link_token_label|default:"One-use pairing token" }}</label>
+                <input class="form-control font-monospace" type="password" id="pairing_token" name="pairing_token"
+                       autocomplete="off" placeholder="{{ DLUX_STRINGS.control_link_token_hint|default:'Paste the token from the control panel' }}" required>
+                <div class="form-text">{{ DLUX_STRINGS.control_link_token_help|default:"Generate it in the control panel: Add application → Create enrollment token." }}</div>
+            </div>
+            <button class="btn btn-primary rounded-pill px-4" type="submit" {% if not link.bridge_available %}disabled{% endif %}>
+                <i class="bi bi-link-45deg me-1"></i>{{ DLUX_STRINGS.control_link_submit|default:"Pair" }}
+            </button>
+        </form>
+    </div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script src="{% dlux_static 'dlux/main/js/control_link.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+{% endblock %}

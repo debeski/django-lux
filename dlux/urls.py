@@ -156,6 +156,11 @@ urlpatterns = [
     path('sys/api/dlux-update/image/', views.dlux_update_image_view, name='dlux_update_image'),
     path('sys/api/dlux-update/rollback/', views.dlux_update_rollback_view, name='dlux_update_rollback'),
     path('sys/api/dlux-update/runs/<str:token>/', views.dlux_update_run_view, name='dlux_update_run'),
+    # Control Panel pairing (UI-driven agent enrollment)
+    path('sys/control-panel/', views.control_panel_page, name='control_panel'),
+    path('sys/control-panel/connect/', views.control_panel_connect_view, name='control_panel_connect'),
+    path('sys/control-panel/cancel/', views.control_panel_cancel_view, name='control_panel_cancel'),
+    path('sys/api/control-panel/status/', views.control_panel_status_view, name='control_panel_status'),
     # Dynamic Modal CRUD
     path('sys/modals/manager/<str:app_label>/<str:model_name>/<str:pk>/', views.DynamicModalManagerView.as_view(), name='modal_manager'),
     path('sys/modals/delete/<str:app_label>/<str:model_name>/<int:pk>/', views.DynamicModalDeleteView.as_view(), name='modal_delete'),

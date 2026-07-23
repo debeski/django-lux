@@ -326,6 +326,15 @@
                 </a>
                     </section>
                     {% endif %}
+                    {% if user.is_superuser %}
+                    <section class="dlux-admin-tile dlux-admin-tile--control-link">
+                        <h5 class="dlux-admin-tile-title"><i class="bi bi-diagram-3"></i> {{ DLUX_STRINGS.control_link_title|default:"Control Panel" }}</h5>
+                        <p class="text-muted small mb-3">{{ DLUX_STRINGS.control_link_tile_desc|default:"Pair this app with your central control panel." }}</p>
+                        <a class="btn btn-primary" href="{% url 'control_panel' %}">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>{{ DLUX_STRINGS.control_link_open|default:"Open" }}
+                        </a>
+                    </section>
+                    {% endif %}
                 </div>
                 {% if user.is_superuser %}
                 <div class="dlux-admin-panel-settings">

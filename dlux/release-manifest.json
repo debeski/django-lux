@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.5.0",
+  "version": "1.5.1",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds the typed Composer agent bridge, control-operation correlation, central backup relay, and hardened agent scaffolding.",
+  "summary": "Adds UI-driven Control Panel pairing so an app enrolls its agent from System Settings without .env editing or redeploy.",
   "highlights": [
-    "Central and local image updates share the same durable DLUX queue, backup gate, maintenance flow, and lock.",
-    "Generated projects now run one outbound Composer agent with a private state volume and read-only project mount.",
-    "Typed snapshots and central backup creation relay approved metadata without remote restore or application secrets."
+    "New superuser Control Panel tile: paste the panel URL and one-use token to pair the resident agent over the local bridge.",
+    "Pairing status (connected / pairing / failed) is read live from the agent's agent-status.json; env-var enrollment remains a fallback.",
+    "No schema change — the transient pairing token never touches the database."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.0"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.1"
 }

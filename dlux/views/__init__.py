@@ -144,3 +144,11 @@ from .updater import (
     dlux_update_runtime_health,
     dlux_update_state_view,
 )
+
+# Control Panel pairing tile
+from .control_link import (
+    control_panel_cancel_view,
+    control_panel_connect_view,
+    control_panel_page,
+    control_panel_status_view,
+)

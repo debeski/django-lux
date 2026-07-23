@@ -6,6 +6,9 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.5.1
+- **UI-Driven Control Panel Pairing**: Added a superuser *Control Panel* tile (`/sys/control-panel/`, linked from Options) to enroll the resident `composer-agent` with the central control panel by pasting the panel URL + a one-use token — no `.env` editing or redeploy. DjangoLux writes an `enroll-request.json` onto the shared agent bridge (`dlux/updater/control_link.py`), the agent redeems it, and the tile reads live connection state from the agent's `agent-status.json`. The transient pairing token is written only to the private runtime volume (never the database); a successful pairing auto-clears the request. Env-var enrollment (`COMPOSER_CONTROL_URL`/`COMPOSER_ENROLLMENT_TOKEN`) remains a headless fallback. New `control_panel*` routes/views, `control_link.js`, en+ar strings, and 4 tests. No migration.
+
 ## v1.5.0
 - **Atomic Inline And Image Update Admission**: Serialized inline, local-image, and control-image queue admission on the locked `DluxUpdateState` row, preventing concurrent container recreation during inline migration and duplicate active image runs.
 - **Composer Agent Bridge**: Added atomic typed request/result/snapshot spooling with handled-request archival, `DluxImageUpdate.control_operation_id` correlation, shared local/central update locking, DLUX-finalized terminal results, and central data/full backup creation without remote restore.
