@@ -7,6 +7,7 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 ## v1.5.4
+- **Generated Env Contract Regression**: Replaced the stale 20-line scaffold assertion with an exact 21-key contract after `BASE_URL`, `ALLOWED_URLS`, and `ALLOWED_HOSTS` replaced the two no-longer-generated enrollment keys. Generated docs now describe UI-first Control Panel pairing and the optional headless fallback. Runtime output is unchanged. No migration.
 - **Baked DjangoLux Version In Image Update Review**: `_normalize_project_manifest()` in `dlux/updater/image_update.py` passes through an optional `baked_dlux_version` (string, capped at 32 chars) from the project release-manifest label, reaching the UI via the existing `image_update_manifest` state. `updater.js` renders it as a `dlux-upd-baked` badge beside the target version in the review modal, reusing the `dlux_update_baked_label`/`dlux_update_baked_note` strings via new `data-label-baked-dlux`/`data-note-baked-dlux` attributes; absent on older images and on wheel apply/rollback. Display-only — the preflight version gate and image-update completion still compare the plain version label. Manifest stays `schema_version: 1`. No migration.
 
 ## v1.5.3

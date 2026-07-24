@@ -121,6 +121,9 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("PGADMIN_DEFAULT_EMAIL=", env_contents)
             self.assertIn("PGADMIN_DEFAULT_PASSWORD=", env_contents)
             self.assertIn("ADMIN_PASS=", env_contents)
+            self.assertIn("BASE_URL=", env_contents)
+            self.assertIn("ALLOWED_URLS=", env_contents)
+            self.assertIn("ALLOWED_HOSTS=", env_contents)
             self.assertIn("DEFAULT_FROM_EMAIL=", env_contents)
             self.assertIn("SMTP_RELAY_HOST=", env_contents)
             self.assertIn("SMTP_RELAY_PORT=", env_contents)
@@ -133,7 +136,36 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("CADDY_PORT=", env_contents)
             self.assertIn("CADDY_SITE_ADDRESS=", env_contents)
             self.assertIn("CADDY_MAX_SIZE=", env_contents)
-            self.assertEqual(len([line for line in env_contents.splitlines() if line.strip()]), 20)
+            env_keys = [
+                line.partition("=")[0]
+                for line in env_contents.splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(len(env_keys), len(set(env_keys)))
+            expected_env_keys = {
+                "DJANGO_SECRET_KEY",
+                "POSTGRES_USER",
+                "POSTGRES_PASSWORD",
+                "PGADMIN_DEFAULT_EMAIL",
+                "PGADMIN_DEFAULT_PASSWORD",
+                "ADMIN_PASS",
+                "BASE_URL",
+                "ALLOWED_URLS",
+                "ALLOWED_HOSTS",
+                "NGINX_PORT",
+                "NGINX_SERVER_NAME",
+                "NGINX_MAX_SIZE",
+                "CADDY_PORT",
+                "CADDY_SITE_ADDRESS",
+                "CADDY_MAX_SIZE",
+                "DEFAULT_FROM_EMAIL",
+                "SMTP_RELAY_HOST",
+                "SMTP_RELAY_PORT",
+                "SMTP_RELAY_USE_TLS",
+                "SMTP_RELAY_USER",
+                "SMTP_RELAY_PASSWORD",
+            }
+            self.assertEqual(set(env_keys), expected_env_keys)
             self.assertIn("autorun.ini", gitignore_contents)
             self.assertIn("compose.yml", dockerignore_contents)
             self.assertIn("compose.dev.yml", dockerignore_contents)
@@ -205,6 +237,10 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("django-health-check==3.20.0", requirements_contents)
             self.assertIn(".secrets/.env", readme_contents)
             self.assertIn("DJANGO_SECRET_KEY", readme_contents)
+            for env_key in expected_env_keys:
+                self.assertIn(f"- `{env_key}`", readme_contents)
+            self.assertNotIn("- `COMPOSER_CONTROL_URL`", readme_contents)
+            self.assertNotIn("- `COMPOSER_ENROLLMENT_TOKEN`", readme_contents)
             self.assertNotIn("env_file", readme_contents)
             self.assertTrue(entrypoint_mode & 0o111)
             self.assertIn("debeski/composer:latest", start_sh_contents)

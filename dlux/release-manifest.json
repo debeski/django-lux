@@ -4,10 +4,11 @@
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "The image update review dialog now shows the DjangoLux version baked into the target image, when the project's release manifest publishes it.",
+  "summary": "Repairs the generated project env-contract regression and aligns scaffold documentation with UI-first Composer pairing.",
   "highlights": [
-    "Image update review shows a baked dlux badge beside the target project version.",
-    "Project release manifests may publish an optional baked_dlux_version field."
+    "The startproject regression now verifies the exact 21-key generated env contract.",
+    "Generated docs list the URL and host keys that are actually emitted.",
+    "Composer enrollment is documented as UI-first, with manual env values retained as a headless fallback."
   ],
   "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.4"
 }
