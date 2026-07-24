@@ -45,6 +45,7 @@ from .system.registry import get_config_defaults, get_flat_config_fields
 import hashlib
 import io
 import secrets
+import uuid
 from datetime import timedelta
 from PIL import Image
 
@@ -1519,6 +1520,48 @@ class DluxImageUpdate(models.Model):
 
     def __str__(self):
         return f"Dlux image update {self.target_version or ''} ({self.status})"
+
+
+class DluxControlLinkRequest(models.Model):
+    """Queued Control Panel pairing action, applied by the update worker.
+
+    The web tier mounts the runtime volume read-only — the agent bridge is the
+    channel the Composer agent takes commands from, and the agent holds Docker
+    API access, so the application tier deliberately cannot write it. The
+    superuser's intent is recorded here instead, and
+    ``UpdateService.tick_control_link()`` performs the bridge write from the
+    worker, which owns the only read-write mount.
+
+    The worker deletes the row as soon as the bridge file is written, so the
+    one-use pairing token is at rest for at most one worker tick.
+    """
+
+    ACTION_ENROLL = 'enroll'
+    ACTION_CANCEL = 'cancel'
+    ACTION_CHOICES = [
+        (ACTION_ENROLL, 'Enroll'),
+        (ACTION_CANCEL, 'Cancel'),
+    ]
+
+    action = models.CharField(
+        max_length=16,
+        choices=ACTION_CHOICES,
+        default=ACTION_ENROLL,
+        verbose_name="Action",
+    )
+    operation_id = models.UUIDField(default=uuid.uuid4, editable=False, verbose_name="Operation ID")
+    control_url = models.CharField(max_length=500, blank=True, verbose_name="Control URL")
+    pairing_token = models.CharField(max_length=255, blank=True, verbose_name="Pairing Token")
+    error = models.TextField(blank=True, verbose_name="Error")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+
+    class Meta:
+        verbose_name = "Dlux Control Link Request"
+        verbose_name_plural = "Dlux Control Link Requests"
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Dlux control link {self.action} ({self.operation_id})"
 
 
 class PublicRegistration(models.Model):

@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.5.4",
+  "version": "1.5.5",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Repairs the generated project env-contract regression and aligns scaffold documentation with UI-first Composer pairing.",
+  "summary": "Fixes UI Control Panel pairing, which could not work on the read-only web mount, by queueing the request for the update worker to publish.",
   "highlights": [
-    "The startproject regression now verifies the exact 21-key generated env contract.",
-    "Generated docs list the URL and host keys that are actually emitted.",
-    "Composer enrollment is documented as UI-first, with manual env values retained as a headless fallback."
+    "Control Panel pairing is queued in the database and published by the update worker.",
+    "Pairing no longer fails on the read-only runtime mount used by the web tier.",
+    "The pairing tile reports queued requests immediately and surfaces worker-side failures."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.4"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.5"
 }

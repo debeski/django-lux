@@ -79,7 +79,9 @@ def control_panel_connect_view(request):
         messages.error(request, strings.get("control_link_missing_token",
                                              "Paste the one-use pairing token from the control panel."))
     else:
-        control_link.write_enroll_request(store, control_url, pairing_token)
+        # The web tier cannot write the agent bridge (read-only runtime mount);
+        # the update worker publishes this on its next tick.
+        control_link.queue_enroll_request(control_url, pairing_token)
         messages.success(request, strings.get("control_link_requested",
                                               "Pairing requested. The agent will connect shortly."))
     return redirect(reverse("control_panel"))
@@ -90,8 +92,6 @@ def control_panel_connect_view(request):
 @require_POST
 def control_panel_cancel_view(request):
     _require_superuser(request)
-    store = _store_or_none()
-    if store is not None:
-        control_link.clear_enroll_request(store)
+    control_link.queue_cancel_request()
     messages.success(request, get_strings().get("control_link_cancelled", "Pending pairing request cleared."))
     return redirect(reverse("control_panel"))

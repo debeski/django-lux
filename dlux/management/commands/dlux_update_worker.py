@@ -63,6 +63,7 @@ class Command(BaseCommand):
                 consume_agent_requests(service)
                 service.process_next()
                 service.tick_image_update()
+                service.tick_control_link()
                 publish_agent_results(service.store)
                 publish_agent_snapshot(service.store, force=True)
                 return
@@ -81,6 +82,9 @@ class Command(BaseCommand):
                 # Advance any in-flight image-level update (composer hand-off).
                 # Independent of the inline run queue above.
                 service.tick_image_update()
+                # Publish any Control Panel pairing request the read-only web
+                # tier queued for us.
+                service.tick_control_link()
                 publish_agent_results(service.store)
                 publish_agent_snapshot(service.store)
                 if not processed and updates_enabled() and time.monotonic() >= daily_check_after:

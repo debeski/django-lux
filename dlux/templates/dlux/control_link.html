@@ -50,6 +50,16 @@
         </div>
     {% endif %}
 
+    {% if link.queue_error %}
+        <div class="alert alert-danger d-flex align-items-center justify-content-between gap-3">
+            <span><strong>{{ DLUX_STRINGS.control_link_queue_failed|default:"The update worker could not publish the pairing request:" }}</strong>
+                <span class="text-break">{{ link.queue_error }}</span></span>
+            <form method="post" action="{% url 'control_panel_cancel' %}" class="m-0">{% csrf_token %}
+                <button class="btn btn-sm btn-outline-secondary" type="submit">{{ DLUX_STRINGS.control_link_cancel|default:"Cancel" }}</button>
+            </form>
+        </div>
+    {% endif %}
+
     {% if link.last_enroll.state == "error" %}
         <div class="alert alert-danger"><strong>{{ DLUX_STRINGS.control_link_failed|default:"Last pairing failed:" }}</strong>
             <span class="text-break">{{ link.last_enroll.error|default:"unknown error" }}</span></div>

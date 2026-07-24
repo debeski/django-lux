@@ -956,6 +956,52 @@ class UpdateService:
             self._fail_image_update(row, exc)
         return row
 
+    def tick_control_link(self):
+        """Apply queued Control Panel pairing actions onto the agent bridge.
+
+        The web tier records intent in ``DluxControlLinkRequest`` because its
+        runtime mount is read-only; this worker owns the only read-write mount.
+        An applied row is deleted immediately, so the one-use pairing token is at
+        rest for at most one tick. A failed row is kept with its token cleared so
+        the tile can surface the error.
+
+        Also retires a published request the agent has already confirmed, which
+        the read-only web tier cannot clean up itself.
+        """
+        from ..models import DluxControlLinkRequest
+        from . import control_link
+
+        applied = 0
+        for row in DluxControlLinkRequest.objects.filter(error="").order_by("created_at"):
+            try:
+                if row.action == DluxControlLinkRequest.ACTION_CANCEL:
+                    control_link.clear_enroll_request(self.store)
+                else:
+                    control_link.write_enroll_request(
+                        self.store,
+                        row.control_url,
+                        row.pairing_token,
+                        operation_id=row.operation_id,
+                    )
+            except Exception as exc:
+                row.pairing_token = ""
+                row.error = str(exc)[:500]
+                row.save(update_fields=["pairing_token", "error"])
+                continue
+            row.delete()
+            applied += 1
+
+        status = control_link.read_agent_status(self.store) or {}
+        published = control_link.read_enroll_request(self.store)
+        last = status.get("last_enroll") if isinstance(status.get("last_enroll"), dict) else {}
+        if (
+            published
+            and last.get("operation_id") == published.get("operation_id")
+            and last.get("state") == "ok"
+        ):
+            control_link.clear_enroll_request(self.store)
+        return applied
+
     def _begin_image_update(self, row):
         from .image_update import write_composer_trigger, write_deploy_status
 

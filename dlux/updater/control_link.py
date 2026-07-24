@@ -29,9 +29,13 @@ def _agent_status_path(store):
     return agent_bridge.bridge_root(store) / AGENT_STATUS_FILENAME
 
 
-def write_enroll_request(store, control_url, pairing_token):
-    """Atomically publish an enroll request for the agent; returns the operation id."""
-    operation_id = str(uuid.uuid4())
+def write_enroll_request(store, control_url, pairing_token, operation_id=None):
+    """Atomically publish an enroll request for the agent; returns the operation id.
+
+    Only the update worker may call this — the web tier's runtime mount is
+    read-only. Web-tier callers queue a ``DluxControlLinkRequest`` instead.
+    """
+    operation_id = str(operation_id or uuid.uuid4())
     agent_bridge.bridge_root(store).mkdir(parents=True, exist_ok=True)
     agent_bridge._atomic_json(
         _enroll_request_path(store),
@@ -61,6 +65,43 @@ def clear_enroll_request(store):
         pass
 
 
+def _request_model():
+    from django.apps import apps
+
+    return apps.get_model("dlux", "DluxControlLinkRequest")
+
+
+def queue_enroll_request(control_url, pairing_token):
+    """Record a pairing intent for the worker to publish; returns the operation id.
+
+    Called from the web tier, which cannot write the agent bridge itself. Any
+    earlier unapplied request is dropped so the newest submission wins.
+    """
+    model = _request_model()
+    model.objects.all().delete()
+    row = model.objects.create(
+        action=model.ACTION_ENROLL,
+        control_url=str(control_url or "").strip(),
+        pairing_token=str(pairing_token or "").strip(),
+    )
+    return str(row.operation_id)
+
+
+def queue_cancel_request():
+    """Drop any unapplied request and ask the worker to clear a published one."""
+    model = _request_model()
+    model.objects.all().delete()
+    model.objects.create(action=model.ACTION_CANCEL)
+
+
+def queued_request():
+    """The pending web-tier request the worker has not applied yet, or None."""
+    try:
+        return _request_model().objects.order_by("created_at").first()
+    except Exception:
+        return None
+
+
 def read_agent_status(store):
     try:
         value = json.loads(_agent_status_path(store).read_text(encoding="utf-8"))
@@ -70,35 +111,54 @@ def read_agent_status(store):
 
 
 def control_link_state(store):
-    """Combine the agent status file and any pending request into one view model.
+    """Combine the agent status file, the published request, and any queued
+    web-tier request into one view model.
 
-    Auto-clears a pending request once the agent has reported a successful
-    terminal result for that same ``operation_id`` (a failed result is kept so the
-    tile can surface the error until the operator retries or cancels)."""
+    Pure read: served by the web tier, which has no write access to the runtime
+    volume. A published request is treated as settled once the agent reports a
+    successful terminal result for the same ``operation_id`` (a failed result is
+    kept so the tile can surface the error until the operator retries or
+    cancels); the worker does the actual file cleanup in ``tick_control_link``.
+    """
     status = read_agent_status(store) or {}
-    pending = read_enroll_request(store)
+    published = read_enroll_request(store)
     last = status.get("last_enroll") if isinstance(status.get("last_enroll"), dict) else {}
 
     if (
-        pending
-        and last.get("operation_id") == pending.get("operation_id")
+        published
+        and last.get("operation_id") == published.get("operation_id")
         and last.get("state") == "ok"
     ):
-        clear_enroll_request(store)
-        pending = None
+        published = None
+
+    queued = queued_request()
+    queued_enroll = None
+    if queued is not None and queued.action == _request_model().ACTION_ENROLL:
+        queued_enroll = queued
+    pending = published or queued_enroll
+    pending_operation_id = ""
+    pending_control_url = ""
+    if published:
+        pending_operation_id = published.get("operation_id", "")
+        pending_control_url = published.get("control_url", "")
+    elif queued_enroll is not None:
+        pending_operation_id = str(queued_enroll.operation_id)
+        pending_control_url = queued_enroll.control_url
 
     return {
         "bridge_available": True,
+        "queued": queued is not None,
+        "queue_error": getattr(queued, "error", "") or "",
         "agent_status_present": bool(status),
         "enrolled": bool(status.get("enrolled")),
-        "control_url": status.get("control_url") or (pending or {}).get("control_url") or "",
+        "control_url": status.get("control_url") or pending_control_url or "",
         "agent_id": status.get("agent_id") or "",
         "agent_version": status.get("agent_version") or "",
         "enrolled_at": status.get("enrolled_at") or "",
         "last_contact_at": status.get("last_contact_at") or "",
         "revoked": bool(status.get("revoked")),
         "pending": bool(pending),
-        "pending_operation_id": (pending or {}).get("operation_id", ""),
+        "pending_operation_id": pending_operation_id,
         "last_enroll": {
             "operation_id": last.get("operation_id", ""),
             "state": last.get("state", ""),
