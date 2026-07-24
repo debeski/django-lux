@@ -1739,6 +1739,7 @@ services:
             dry = enable_updater(root)
             self.assertFalse(dry["applied"])
             self.assertIn("compose.yml", dry["files"])
+            self.assertIn(".nginx/maintenance.html", dry["files"])
             self.assertNotIn(UPDATER_COMPOSE_START := "# DjangoLux updater start", (root / "compose.yml").read_text())
             completed = SimpleNamespace(returncode=0, stdout="ok", stderr="")
             runner = mock.Mock(return_value=completed)
@@ -1748,6 +1749,11 @@ services:
             self.assertIn(UPDATER_COMPOSE_START, (root / "compose.yml").read_text())
             self.assertEqual((root / "requirements.txt").read_text().splitlines()[0], f"django-lux[updater]=={__version__}")
             self.assertTrue((root / "tools" / "dlux_runtime_supervisor.py").exists())
+            maintenance = (root / ".nginx" / "maintenance.html").read_text(encoding="utf-8")
+            nginx = (root / ".nginx" / "nginx.conf").read_text(encoding="utf-8")
+            self.assertIn('var statusUrl = "/_update/status.json"', maintenance)
+            self.assertIn("alias /opt/dlux-runtime/state/deploy-status.json;", nginx)
+            self.assertIn("alias /opt/dlux-runtime/state/deploy-log.txt;", nginx)
             self.assertTrue(Path(applied["backup_root"], "compose.yml").exists())
             self.assertIn(mock.call(
                 ["docker", "compose", "config"], cwd=str(root.resolve()), check=False,

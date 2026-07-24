@@ -4,11 +4,11 @@
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds a shared project-version helper that reads the version from a root release-manifest.json file.",
+  "summary": "Adds project manifest version discovery and repairs the legacy updater bootstrap after proxy template consolidation.",
   "highlights": [
     "dlux.utils.get_project_version(BASE_DIR) reads and trims the version from the project's release-manifest.json.",
     "The helper can default to settings.BASE_DIR and returns an empty string for missing or malformed manifests.",
-    "The existing get_app_version(__file__) VERSION-file helper remains unchanged."
+    "Legacy enable-updater output reuses the shared maintenance page and exposes its read-only nginx status and log routes."
   ],
   "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.3"
 }

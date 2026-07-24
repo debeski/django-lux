@@ -511,35 +511,56 @@ def _enable_updater_dev_compose(contents):
 
 
 def _enable_updater_nginx(contents):
-    if "dlux-maintenance.html" in contents:
+    if "dlux-maintenance.html" in contents and "/_update/status.json" in contents:
         return contents
+    if "dlux-maintenance.html" not in contents:
+        contents = _replace_once(
+            contents,
+            "    client_max_body_size 5M;\n",
+            "    client_max_body_size 5M;\n"
+            "    error_page 502 503 504 =503 /dlux-maintenance.html;\n\n"
+            "    location = /dlux-maintenance.html {\n"
+            "        root /usr/share/nginx/html;\n"
+            "        internal;\n"
+            "    }\n",
+            "nginx server",
+        )
     contents = _replace_once(
         contents,
-        "    client_max_body_size 5M;\n",
-        "    client_max_body_size 5M;\n"
-        "    error_page 502 503 504 =503 /dlux-maintenance.html;\n\n"
-        "    location = /dlux-maintenance.html {\n"
-        "        root /usr/share/nginx/html;\n"
-        "        internal;\n"
-        "    }\n",
-        "nginx server",
+        "    location / {\n",
+        "    location = /_update/status.json {\n"
+        "        alias /opt/dlux-runtime/state/deploy-status.json;\n"
+        "        default_type application/json;\n"
+        "        add_header Cache-Control \"no-store\";\n"
+        "        add_header X-Robots-Tag \"noindex\";\n"
+        "    }\n\n"
+        "    location = /_update/log.txt {\n"
+        "        alias /opt/dlux-runtime/state/deploy-log.txt;\n"
+        "        default_type text/plain;\n"
+        "        add_header Cache-Control \"no-store\";\n"
+        "        add_header X-Robots-Tag \"noindex\";\n"
+        "    }\n\n"
+        "    location / {\n",
+        "nginx update status endpoints",
     )
-    contents = _replace_once(
-        contents,
-        "    location / {\n        proxy_pass http://web:8000;\n",
-        "    location / {\n"
-        "        if (-f /opt/dlux-runtime/state/maintenance) { return 503; }\n"
-        "        proxy_pass http://web:8000;\n",
-        "nginx web proxy",
-    )
-    contents = _replace_once(
-        contents,
-        "    location /health {\n        proxy_pass http://web:8000/health/;\n",
-        "    location /health {\n"
-        "        if (-f /opt/dlux-runtime/state/maintenance) { return 503; }\n"
-        "        proxy_pass http://web:8000/health/;\n",
-        "nginx health proxy",
-    )
+    if "location / {\n        if (-f /opt/dlux-runtime/state/maintenance)" not in contents:
+        contents = _replace_once(
+            contents,
+            "    location / {\n        proxy_pass http://web:8000;\n",
+            "    location / {\n"
+            "        if (-f /opt/dlux-runtime/state/maintenance) { return 503; }\n"
+            "        proxy_pass http://web:8000;\n",
+            "nginx web proxy",
+        )
+    if "location /health {\n        if (-f /opt/dlux-runtime/state/maintenance)" not in contents:
+        contents = _replace_once(
+            contents,
+            "    location /health {\n        proxy_pass http://web:8000/health/;\n",
+            "    location /health {\n"
+            "        if (-f /opt/dlux-runtime/state/maintenance) { return 503; }\n"
+            "        proxy_pass http://web:8000/health/;\n",
+            "nginx health proxy",
+        )
     return contents
 
 
@@ -647,12 +668,8 @@ def enable_updater(project_root=None, *, apply=False, command_runner=subprocess.
         "tools/dlux_runtime_supervisor.py": _render_template(
             "project/tools/dlux_runtime_supervisor.py.tmpl", {},
         ),
-        # Legacy retrofit path: old projects use `.nginx/nginx.conf` (no /_update
-        # endpoints), so they get the simple auto-refresh maintenance page from
-        # the legacy `.nginx/` template — NOT the `.proxy/` polling progress page
-        # that new `create_project` output ships (which needs composer status).
         ".nginx/maintenance.html": _render_template(
-            "project/.nginx/maintenance.html.tmpl", {},
+            "project/.proxy/maintenance.html.tmpl", {},
         ),
     }
     for relative, content in additions.items():

@@ -106,7 +106,7 @@ python -m dlux enable-updater          # dry run
 python -m dlux enable-updater --apply  # guarded apply
 ```
 
-The command accepts only recognized generated layouts. It refuses ambiguous/custom Compose structures, makes timestamped copies of every modified file under `.xpose/dlux-updater-bootstrap/`, applies idempotent marked changes, updates the exact `django-lux` requirements pin to the repaired bootstrap version, and runs `docker compose config`. It prints the single image rebuild/redeploy command required to activate the infrastructure. Re-running the command is safe.
+The command accepts only recognized generated layouts. It refuses ambiguous/custom Compose structures, makes timestamped copies of every modified file under `.xpose/dlux-updater-bootstrap/`, applies idempotent marked changes, updates the exact `django-lux` requirements pin to the repaired bootstrap version, and runs `docker compose config`. Legacy projects keep their generated `.nginx/maintenance.html` destination, but its content now comes from the shared `.proxy/maintenance.html` scaffold; the retrofit also exposes the page's read-only `/_update/status.json` and `/_update/log.txt` runtime endpoints. It prints the single image rebuild/redeploy command required to activate the infrastructure. Re-running the command is safe.
 
 The repaired bootstrap itself is installed by that rebuild. Version v1.2.5 is
 the first manifest-approved release that can be applied inline through the
