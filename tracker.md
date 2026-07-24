@@ -29,6 +29,7 @@
 ### Current Project's Unsolved Known Bugs:
 - Fallback file/download redirects remain a high-risk-deployment review point; `_safe_referer()` currently enforces allowed hosts.
 - Legacy `switch_pos` v1.2.4 deployments may stay degraded until v1.2.13+ reconcile clears or operator resets runtime flags.
+- A stale pre-exclusion `composer-updater` can recreate its own Docker socket proxy during the first 1.5.x app-image update and lose `DOCKER_HOST`; update Composer and migrate the verified legacy block with `enable-agent` before retrying.
 
 ### Incomplete Tasks:
 - **Priority 1:**

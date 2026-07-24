@@ -218,15 +218,20 @@ def active_image_update():
 
 def app_version():
     """The deployed application's own version (distinct from the DjangoLux
-    framework version). Prefers the ``DLUX_APP_VERSION`` setting; otherwise
-    auto-reads a ``VERSION`` file at the project root (``BASE_DIR``)."""
+    framework version). Prefers the ``DLUX_APP_VERSION`` setting, then a
+    ``VERSION`` file at the project root (``BASE_DIR``), then that project's
+    ``release-manifest.json`` — so a project whose version lives only in the
+    manifest still reports one instead of going blank."""
     configured = str(getattr(settings, "DLUX_APP_VERSION", "") or "").strip()
     if configured:
         return configured
     try:
         return (Path(settings.BASE_DIR) / "VERSION").read_text(encoding="utf-8").strip()
     except (OSError, ValueError, TypeError):
-        return ""
+        pass
+    from ..utils.settings import get_project_version
+
+    return get_project_version()
 
 
 def image_status_summary(store=None):

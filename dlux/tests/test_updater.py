@@ -47,6 +47,7 @@ from dlux.updater.manifest import (
 from dlux.updater.runtime import RuntimeStore
 from dlux.updater.image_update import (
     ack_path,
+    app_version,
     image_update_metadata,
     queue_image_update,
     read_composer_ack,
@@ -623,6 +624,42 @@ class RuntimeStoreTests(TestCase):
             rendered.index("from dlux import __version__"),
             rendered.index('importlib.metadata.version("django-lux")'),
         )
+
+
+class AppVersionSourceTests(TestCase):
+    """The Updates card must still report a version for a project that keeps its
+    version only in release-manifest.json (no root VERSION file)."""
+
+    def test_manifest_is_used_when_no_setting_or_version_file_exists(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "release-manifest.json").write_text(
+                json.dumps({"schema_version": 1, "version": "0.1.3"}), encoding="utf-8"
+            )
+            with override_settings(BASE_DIR=root, DLUX_APP_VERSION=""):
+                self.assertEqual(app_version(), "0.1.3")
+
+    def test_version_file_still_wins_over_the_manifest(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "VERSION").write_text("2.0.0\n", encoding="utf-8")
+            (root / "release-manifest.json").write_text(
+                json.dumps({"schema_version": 1, "version": "0.1.3"}), encoding="utf-8"
+            )
+            with override_settings(BASE_DIR=root, DLUX_APP_VERSION=""):
+                self.assertEqual(app_version(), "2.0.0")
+
+    def test_explicit_setting_wins_over_both(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "VERSION").write_text("2.0.0\n", encoding="utf-8")
+            with override_settings(BASE_DIR=root, DLUX_APP_VERSION="9.9.9"):
+                self.assertEqual(app_version(), "9.9.9")
+
+    def test_missing_everything_returns_empty(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with override_settings(BASE_DIR=Path(temp_dir), DLUX_APP_VERSION=""):
+                self.assertEqual(app_version(), "")
 
 
 class ImageAvailabilityMetadataTests(TestCase):

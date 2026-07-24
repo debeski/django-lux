@@ -1,16 +1,13 @@
 {
   "schema_version": 1,
-  "version": "1.5.6",
+  "version": "1.5.7",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Moves Control Panel pairing into Admin commands and refreshes the page with native DjangoLux fields, status, and feedback.",
+  "summary": "The Updates card now reports an application version for projects that keep their version in release-manifest.json instead of a VERSION file.",
   "highlights": [
-    "Rejected HTTP control-panel URLs now display the HTTPS validation error.",
-    "Accepted pairing and cancellation actions display native DjangoLux flash feedback.",
-    "Pairing feedback no longer depends on the disabled-by-default legacy Django message bridge.",
-    "The Control Panel launcher now lives in Admin commands instead of the Options card grid.",
-    "The pairing page now uses responsive DjangoLux form, connection, and bridge-status surfaces."
+    "The application version falls back to release-manifest.json when no VERSION file is present.",
+    "Existing DLUX_APP_VERSION and VERSION-file precedence is unchanged."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.6"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.7"
 }

@@ -6,6 +6,9 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.5.7
+- **Manifest Fallback For The Application Version**: `app_version()` now falls back to `get_project_version()` when neither `DLUX_APP_VERSION` nor a root `VERSION` file is present, so the Updates card still reports a version for projects that moved their version into `release-manifest.json`. Existing setting and `VERSION`-file precedence is unchanged. No migration.
+
 ## v1.5.6
 - **Control Panel Pairing Feedback Is Visible**: Replaced `/sys/control-panel/` connect/cancel Django messages with native `notify` flashes, so rejected HTTP URLs show the HTTPS validation error and accepted requests show confirmation even when the legacy Django-message bridge is disabled. Added rejected/accepted regression coverage. No migration.
 - **Control Panel Pairing UI**: Moved the Control Panel launcher from the Options admin-card grid into Admin commands beside password/data reset, and rebuilt `/sys/control-panel/` with Dlux fields, status surfaces, responsive connection details, and an explicit polling hook. No migration.
