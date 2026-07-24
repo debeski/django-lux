@@ -25,6 +25,37 @@ class Command(BaseCommand):
         # Check if the app path starts with BASE_DIR
         return app_config.path.startswith(str(settings.BASE_DIR)) and 'site-packages' not in app_config.path
 
+    def bootstrap_system_settings(self):
+        from dlux.utils import (
+            SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED,
+            SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED,
+            bootstrap_system_settings_config_json,
+            resolve_system_settings_config_json_path,
+        )
+
+        config_path = resolve_system_settings_config_json_path()
+        display_path = str(config_path or 'BASE_DIR/config.json')
+        self.stdout.write("Checking first-launch System Settings configuration...")
+        try:
+            status, _, _ = bootstrap_system_settings_config_json(config_path)
+        except ValueError as exc:
+            self.stdout.write(self.style.WARNING(
+                f"Invalid first-launch config at {display_path}: {exc} Manual setup remains available."
+            ))
+            return 'invalid'
+
+        if status == SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED:
+            self.stdout.write(self.style.SUCCESS(
+                f"Applied first-launch System Settings from {display_path}."
+            ))
+        elif status == SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED:
+            self.stdout.write("System Settings are already configured; first-launch import skipped.")
+        else:
+            self.stdout.write(
+                f"No first-launch config found at {display_path}; manual setup remains available."
+            )
+        return status
+
     def handle(self, *args, **options):
         specified_app = options['app']
         force_mm = options['make_migrations']
@@ -118,6 +149,9 @@ class Command(BaseCommand):
             self.stderr.write("Common causes: database unavailable, migration conflicts, or invalid SQL.")
             self.stderr.write("Run 'python manage.py migrate --verbosity 2' for more details.")
             raise
+
+        if apps.is_installed('dlux'):
+            self.bootstrap_system_settings()
 
         # Create superuser if it doesn't exist
         User = get_user_model()

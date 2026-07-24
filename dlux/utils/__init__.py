@@ -198,14 +198,19 @@ from .activity_log import (
     translate_activity_log_model_name,
 )
 from .import_export import (
+    SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED,
+    SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED,
+    SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_MISSING,
     SYSTEM_SETTINGS_EXPORT_FIELDS,
     SYSTEM_SETTINGS_EXPORT_FORMAT,
     SYSTEM_SETTINGS_EXPORT_VERSION,
     _field_file_name,
     apply_system_settings_import,
+    bootstrap_system_settings_config_json,
     export_system_settings_payload,
     load_system_settings_config_json,
     normalize_system_settings_import_payload,
+    resolve_system_settings_config_json_path,
 )
 
 __all__ = [
@@ -216,6 +221,9 @@ __all__ = [
     "CLIENT_IP_MODE_VALUES",
     "CLIENT_IP_MODE_X_FORWARDED_FOR",
     "CLIENT_IP_MODE_X_REAL_IP",
+    "SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED",
+    "SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED",
+    "SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_MISSING",
     "DEFAULT_LANGUAGE_CATALOG",
     "DLUX_INTERNAL_SMTP_RELAY_HOST",
     "DLUX_INTERNAL_SMTP_RELAY_PORT",
@@ -263,6 +271,7 @@ __all__ = [
     "_totp_secret_seed",
     "advanced_filter_helper",
     "apply_system_settings_import",
+    "bootstrap_system_settings_config_json",
     "build_config_groups",
     "can_manage_group_preset",
     "can_manage_target_user",
@@ -347,6 +356,7 @@ __all__ = [
     "normalize_system_names",
     "normalize_theme_config",
     "normalize_system_settings_import_payload",
+    "resolve_system_settings_config_json_path",
     "normalize_titlebar_config",
     "normalize_typography_config",
     "resolve_detail_field_label",

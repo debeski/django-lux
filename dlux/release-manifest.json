@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.5.1",
+  "version": "1.5.2",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds UI-driven Control Panel pairing so an app enrolls its agent from System Settings without .env editing or redeploy.",
+  "summary": "Makes first-launch config.json bootstrap deterministic during migrator startup instead of depending on the first setup-page request.",
   "highlights": [
-    "New superuser Control Panel tile: paste the panel URL and one-use token to pair the resident agent over the local bridge.",
-    "Pairing status (connected / pairing / failed) is read live from the agent's agent-status.json; env-var enrollment remains a fallback.",
-    "No schema change — the transient pairing token never touches the database."
+    "migrator applies a valid BASE_DIR/config.json immediately after database migrations and before web readiness.",
+    "The setup view remains a row-locked fallback, while missing, invalid, and already-configured outcomes are logged explicitly.",
+    "No schema change; existing configured systems continue to ignore config.json."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.1"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.2"
 }

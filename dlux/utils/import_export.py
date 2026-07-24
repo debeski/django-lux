@@ -17,7 +17,7 @@ from django import forms
 from django.apps import apps
 from django.conf import settings
 from django.contrib.messages import constants as messages
-from django.db import models as dj_models
+from django.db import models as dj_models, transaction
 from django.db.models import ManyToManyRel, Q
 from django.db.models.fields.files import FieldFile
 from django.db.models.fields.related import ManyToManyField
@@ -83,6 +83,10 @@ SYSTEM_SETTINGS_EXPORT_FORMAT = 'django-lux.system-settings'
 SYSTEM_SETTINGS_EXPORT_VERSION = 1
 
 SYSTEM_SETTINGS_EXPORT_FIELDS = get_exportable_settings()
+
+SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED = 'applied'
+SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED = 'configured'
+SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_MISSING = 'missing'
 
 # System Import Export - Helper extracts portable names from file fields.
 def _field_file_name(value):
@@ -343,16 +347,22 @@ def apply_system_settings_import(
         instance.save()
     return instance
 
-# System Import Export - Function loads first-launch config.json settings.
-def load_system_settings_config_json(path=None):
-    """Load and normalize BASE_DIR/config.json for first-launch setup bootstrapping."""
+# System Import Export - Function resolves the first-launch config.json path.
+def resolve_system_settings_config_json_path(path=None):
     if path is None:
         base_dir = getattr(settings, 'BASE_DIR', None)
         if not base_dir:
             return None
-        config_path = Path(base_dir) / 'config.json'
-    else:
-        config_path = Path(path)
+        return Path(base_dir) / 'config.json'
+    return Path(path)
+
+
+# System Import Export - Function loads first-launch config.json settings.
+def load_system_settings_config_json(path=None):
+    """Load and normalize BASE_DIR/config.json for first-launch setup bootstrapping."""
+    config_path = resolve_system_settings_config_json_path(path)
+    if config_path is None:
+        return None
     if not config_path.exists():
         return None
     if not config_path.is_file():
@@ -362,3 +372,28 @@ def load_system_settings_config_json(path=None):
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("config.json is not valid JSON.") from exc
     return normalize_system_settings_import_payload(payload)
+
+
+def bootstrap_system_settings_config_json(path=None):
+    """Apply first-launch config.json once against the authoritative singleton row."""
+    config_path = resolve_system_settings_config_json_path(path)
+    SystemSettings = apps.get_model('dlux', 'SystemSettings')
+    cached_instance = SystemSettings.load()
+
+    with transaction.atomic():
+        instance = (
+            SystemSettings._default_manager
+            .select_for_update()
+            .get(pk=cached_instance.pk)
+        )
+        if getattr(instance, 'is_configured', False):
+            return SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED, config_path, instance
+
+        imported_settings = load_system_settings_config_json(config_path)
+        if imported_settings is None:
+            return SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_MISSING, config_path, instance
+        if not imported_settings:
+            raise ValueError("config.json contains no supported System Settings keys.")
+
+        apply_system_settings_import(instance, imported_settings, mark_configured=True)
+        return SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED, config_path, instance

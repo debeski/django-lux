@@ -34,13 +34,14 @@ from dlux.system.constants import DEFAULT_HOME_URL
 from dlux.notifications import notify
 from dlux.translations import get_current_language_code, get_strings
 from dlux.utils import (
-    apply_system_settings_import,
+    SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED,
+    SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED,
+    bootstrap_system_settings_config_json,
     export_system_settings_payload,
     get_email_service_status,
     get_system_config,
     send_dlux_mail,
     is_global_staff,
-    load_system_settings_config_json,
     normalize_language_catalog,
     normalize_system_names,
 )
@@ -974,7 +975,7 @@ def system_setup_view(request):
     if request.method != 'POST':
         strings = get_strings()
         try:
-            imported_settings = load_system_settings_config_json()
+            bootstrap_status, _, _ = bootstrap_system_settings_config_json()
         except ValueError as exc:
             logger.warning("Ignoring invalid first-launch config.json: %s", exc)
             notify.warning(
@@ -987,14 +988,15 @@ def system_setup_view(request):
                 category='system',
             )
         else:
-            if imported_settings:
-                apply_system_settings_import(instance, imported_settings, mark_configured=True)
+            if bootstrap_status == SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_APPLIED:
                 notify.success(
                     strings.get('system_setup_config_auto_loaded', 'System setup loaded from config.json.'),
                     request=request,
                     action='system_setup_import_loaded',
                     category='system',
                 )
+                return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
+            if bootstrap_status == SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED:
                 return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
 
     config = get_system_config()

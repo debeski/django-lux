@@ -326,7 +326,7 @@ Internally those values are stored in grouped JSON fields on `SystemSettings`, b
 
 Logo and favicon values are exported as stored file names only. The JSON file does not embed binary media content, so those media files must already exist in the target environment if you want the imported file names to resolve.
 
-For shipped starter projects, place an exported payload or direct settings dict at `BASE_DIR/config.json`. Dlux reads that file only while `SystemSettings.is_configured` is still false and only from the setup view. A valid file bootstraps the singleton, marks setup complete, and redirects to the effective home URL; after setup has completed, the file is ignored until the project is reset to a fresh unconfigured state.
+For shipped starter projects, place an exported payload or direct settings dict at `BASE_DIR/config.json`. On an unconfigured system, `python manage.py migrator` applies the file immediately after database migrations, before the web service becomes ready. The setup view repeats the same row-locked check as a fallback for deployments that do not use `migrator`. A valid file bootstraps the singleton and marks setup complete; missing or invalid files leave manual setup available and produce an explicit migrator outcome. After setup has completed, the file is ignored until the project is reset to a fresh unconfigured state.
 
 ## Sections and Generated Components
 

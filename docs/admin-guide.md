@@ -93,7 +93,7 @@ Superusers can export the current setup from the Options System Settings card. T
 
 The database stores most of those values in grouped `SystemSettings` JSON fields (`auth_config`, `registration_config`, `public_root_config`, `language_config`, `theme_config`, `typography_config`, `layout_config`, and related UI configs), but exports remain flat and imports accept both flat keys and grouped aliases. The `dlux.system` registry is the canonical internal source for those group constants, defaults, normalizers, legacy aliases, export/import field coverage, and simple scalar form packing. The `dlux.models.default_*_config` wrappers must remain importable because published migrations `0001`/`0002` serialize those callable paths. Translation exports include only `translations_override` edits, not the full merged translation catalog.
 
-On a fresh, unconfigured project, Dlux also checks `BASE_DIR/config.json` when `/sys/setup/` is opened by a superuser. A valid exported payload or direct settings dict is applied once, marks setup complete, and redirects to the configured home URL. Invalid JSON is ignored with a setup warning, and already configured systems never treat `config.json` as a live settings layer.
+On a fresh, unconfigured project, `python manage.py migrator` checks `BASE_DIR/config.json` immediately after database migrations and applies a valid exported payload or direct settings dict before web readiness. `/sys/setup/` performs the same row-locked check as a fallback when startup does not use `migrator`. Missing or invalid files leave manual setup available and are reported by the migrator; already configured systems never treat `config.json` as a live settings layer.
 
 ## Sidebar Builder and Runtime Navigation
 
