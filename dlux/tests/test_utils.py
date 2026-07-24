@@ -1,5 +1,8 @@
 from django.apps import apps
+import json
+import tempfile
 import uuid
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import mock_open, patch
 
@@ -16,7 +19,7 @@ from dlux.system.constants import DEFAULT_TABLE_DENSITY
 from dlux.utils import (
     get_system_config, is_staff, is_superuser, get_client_ip,
     log_user_action, is_scope_enabled, _normalize_asset_url,
-    get_secret, dlux_settings, _build_generic_detail_context,
+    get_secret, get_project_version, dlux_settings, _build_generic_detail_context,
     get_user_management_tier_state, get_user_management_tier_state_for_user,
     is_central_staff, is_global_staff, user_can_view_user_directory,
     get_profile_totp_secret, set_profile_totp_state,
@@ -192,9 +195,6 @@ class UtilsTests(TestCase):
         self.assertIsNone(secret)
 
     def test_version_helpers_read_from_release_manifest(self):
-        import json
-        from pathlib import Path
-
         manifest = json.loads(
             Path(__file__).resolve().parents[1]
             .joinpath('release-manifest.json').read_text(encoding='utf-8')
@@ -203,6 +203,30 @@ class UtilsTests(TestCase):
 
         self.assertEqual(get_version(), expected)
         self.assertEqual(__version__, expected)
+
+    def test_get_project_version_reads_manifest_from_explicit_or_configured_base_dir(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            (project_root / 'release-manifest.json').write_text(
+                json.dumps({'schema_version': 1, 'version': ' 2.4.6 '}),
+                encoding='utf-8',
+            )
+
+            self.assertEqual(get_project_version(project_root), '2.4.6')
+            with override_settings(BASE_DIR=project_root):
+                self.assertEqual(get_project_version(), '2.4.6')
+
+    def test_get_project_version_returns_empty_for_missing_or_malformed_manifest(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+            self.assertEqual(get_project_version(project_root), '')
+
+            manifest_path = project_root / 'release-manifest.json'
+            manifest_path.write_text('{invalid', encoding='utf-8')
+            self.assertEqual(get_project_version(project_root), '')
+
+            manifest_path.write_text(json.dumps(['not', 'an', 'object']), encoding='utf-8')
+            self.assertEqual(get_project_version(project_root), '')
 
     def test_set_profile_totp_state_persists_secret_without_full_model_save(self):
         profile = self.user.profile

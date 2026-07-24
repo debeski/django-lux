@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.5.2",
+  "version": "1.5.3",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Makes first-launch config.json bootstrap deterministic during migrator startup instead of depending on the first setup-page request.",
+  "summary": "Adds a shared project-version helper that reads the version from a root release-manifest.json file.",
   "highlights": [
-    "migrator applies a valid BASE_DIR/config.json immediately after database migrations and before web readiness.",
-    "The setup view remains a row-locked fallback, while missing, invalid, and already-configured outcomes are logged explicitly.",
-    "No schema change; existing configured systems continue to ignore config.json."
+    "dlux.utils.get_project_version(BASE_DIR) reads and trims the version from the project's release-manifest.json.",
+    "The helper can default to settings.BASE_DIR and returns an empty string for missing or malformed manifests.",
+    "The existing get_app_version(__file__) VERSION-file helper remains unchanged."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.2"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.3"
 }

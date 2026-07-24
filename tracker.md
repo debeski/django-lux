@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Current source version: unreleased v1.5.2 in `dlux/release-manifest.json`; v1.5.1 is tagged and published.
+- Current source version: unreleased v1.5.3 in `dlux/release-manifest.json`; v1.5.2 is tagged and published.
 - DjangoLux includes the typed Composer agent bridge, migration `0011`, and state-row-serialized inline/image admission.
 - Generated projects emit one hardened `composer-agent`; Composer owns legacy migration and `dlux enable-agent` is a one-cycle forwarder.
 - First-launch `BASE_DIR/config.json` bootstrap runs during `migrator` after migrations; the setup GET retains the same row-locked fallback.
@@ -38,6 +38,7 @@
   - [ ] Browser-validate v1.2.13 anon public root with `show_sidebar_on_public` on; confirm `sidebar_items.html` degrades for AnonymousUser.
   - [ ] Browser-validate v1.4.10 table column resizing with sticky headers on/off and RTL/LTR.
 - **Completed Recently:**
+  - [x] v1.5.3 shared `get_project_version(base_dir)` reads root `release-manifest.json`; optional `settings.BASE_DIR` default and safe empty fallback; no migration.
   - [x] v1.5.2 deterministic first-launch config: `migrator` applies `BASE_DIR/config.json` after migrations under the singleton lock; setup GET remains fallback with explicit outcomes.
   - [x] v1.5.0 atomic update admission: inline/local/control image queues serialize on `DluxUpdateState`; PostgreSQL contention and live v1.4.15 apply/rollback verified.
   - [x] v1.5.0: moved canonical agent scaffold migration into Composer 1.2; retained a thin wrapper-aware DLUX compatibility forwarder.
@@ -52,18 +53,17 @@
   - [x] v1.4.13 generated wrappers pass private env files/key manifests into Composer 1.1.15+ resident updater creation; no ACL/migration.
   - [x] v1.4.13 compact Updates tile containment: wrapping rows, break-safe image names, bounded baked/target badges, regression coverage, docs/changelog; no migration.
   - [x] v1.4.13 quote-safe project manifest build contract in generated Dockerfile/docs; raw JSON remains Composer-compatible; no migration.
-  - [x] v1.4.12 optional project image release manifest: normalized state/UI notes, display-version fallback chain, runtime-target separation, Docker/Compose scaffold labels, docs/changelog/tests; no migration.
 
 ### One-line info about last verified Tests:
-- 2026-07-24: full suite GREEN: 887 tests (2 PostgreSQL-only skips) with the user-removed nginx template supplied from HEAD in memory; release, migration, compile, JSON, and diff checks GREEN.
+- 2026-07-24: full suite GREEN: 889 tests (2 PostgreSQL-only skips) with the legacy nginx fixture supplied from v1.5.1 in memory; v1.5.3 release, migration, compile, JSON, and diff checks GREEN.
 - 2026-07-23: PostgreSQL 17 contention GREEN: simultaneous image/image and inline/image admission each produced exactly one accepted run.
 - 2026-07-23: isolated Docker v1.4.15→v1.5.0 apply/rollback GREEN: backups, migration 0011, static, web/Celery/updater versions/health, and old-ORM insert default.
 - 2026-07-23: v1.4.15 full suite GREEN: 861 tests (1 skipped, Celery absent); titlebar language-switcher preview/data-attribute test; browser unavailable.
 - 2026-07-24: exact `archive:latest` + v1.5.2 source full `migrator` GREEN: baked `/app/config.json` applied before HTTP; DB held configured Archive names, `/`, and Arabic.
 
 ### One-line info about last time edited Docs:
+- 2026-07-24: updater docs show `get_project_version(BASE_DIR)` for manifest-only project versioning without a duplicate `VERSION` file.
 - 2026-07-24: setup docs specify migrator-time `config.json` bootstrap, locked setup-view fallback, and explicit missing/invalid outcomes.
-- 2026-07-23: agent/inline docs specify state-row-serialized inline/image admission; Composer 1.2 remains the sole migration owner.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

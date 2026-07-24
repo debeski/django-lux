@@ -265,3 +265,28 @@ def get_app_version(calling_file_path: str) -> str:
             return f.read().strip()
     except FileNotFoundError:
         return "unknown"
+
+
+def get_project_version(base_dir=None) -> str:
+    """Read the project version from ``<base_dir>/release-manifest.json``.
+
+    ``base_dir`` defaults to Django's configured ``BASE_DIR`` when available.
+    Missing, malformed, or non-object manifests return an empty string.
+    """
+    if base_dir is None:
+        try:
+            base_dir = getattr(settings, "BASE_DIR", None)
+        except Exception:
+            return ""
+    if not base_dir:
+        return ""
+
+    try:
+        manifest = json.loads(
+            (Path(base_dir) / "release-manifest.json").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError, TypeError):
+        return ""
+    if not isinstance(manifest, dict):
+        return ""
+    return str(manifest.get("version") or "").strip()

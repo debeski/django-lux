@@ -6,6 +6,9 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.5.3
+- **Project Manifest Version Helper**: Added `dlux.utils.get_project_version(base_dir)` to read a project's version from root `release-manifest.json`, with `settings.BASE_DIR` as the optional default and an empty-string fallback for missing or malformed manifests. The existing `get_app_version(__file__)` `VERSION`-file helper is unchanged. No migration.
+
 ## v1.5.2
 - **Deterministic First-Launch Config Bootstrap**: `migrator` now applies a valid `BASE_DIR/config.json` under a locked `SystemSettings` row immediately after migrations, before web readiness. The setup view remains a fallback, and startup logs applied, missing, invalid, or already-configured outcomes. No migration.
 

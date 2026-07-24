@@ -141,9 +141,21 @@ an idle card does not repeat the latest historical check as an active/completed
 operation, while actionable failure details remain visible.
 
 The **Application** row shows the deployed project's own version, taken from
-`settings.DLUX_APP_VERSION` (else a `VERSION` file at `BASE_DIR`). Set one of
-those to surface your project's version — the value is shown next to the running
-image name/digest. After it, a small **`DjangoLux v<baked>`** badge shows the
+`settings.DLUX_APP_VERSION` (else a `VERSION` file at `BASE_DIR`). Projects that
+use a root `release-manifest.json` as their single version source can configure
+it without a duplicate `VERSION` file:
+
+```python
+from dlux.utils import get_project_version
+
+DLUX_APP_VERSION = get_project_version(BASE_DIR)
+```
+
+`get_project_version()` also defaults to the configured `settings.BASE_DIR`
+when called after Django settings initialization. It returns an empty string
+when the manifest is missing, malformed, not a JSON object, or has no version.
+The value is shown next to the running image name/digest. After it, a small
+**`DjangoLux v<baked>`** badge shows the
 DjangoLux framework version baked into that image
 (`dlux_update_state.baked_version` = `DLUX_BAKED_VERSION`, falling back to the
 packaged `dlux.__version__`), so the row reads as "project version + which

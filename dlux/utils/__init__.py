@@ -102,6 +102,7 @@ from .settings import (
     _insert_middleware_once,
     dlux_settings,
     get_app_version,
+    get_project_version,
     get_secret,
 )
 from .discovery import (
@@ -304,6 +305,7 @@ __all__ = [
     "export_system_settings_payload",
     "filter_context_actions",
     "get_app_version",
+    "get_project_version",
     "get_class_from_string",
     "get_client_ip",
     "get_default_section_model",
