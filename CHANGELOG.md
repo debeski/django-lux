@@ -6,6 +6,9 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.5.4
+- **Baked DjangoLux Version In Image Update Review**: `_normalize_project_manifest()` in `dlux/updater/image_update.py` passes through an optional `baked_dlux_version` (string, capped at 32 chars) from the project release-manifest label, reaching the UI via the existing `image_update_manifest` state. `updater.js` renders it as a `dlux-upd-baked` badge beside the target version in the review modal, reusing the `dlux_update_baked_label`/`dlux_update_baked_note` strings via new `data-label-baked-dlux`/`data-note-baked-dlux` attributes; absent on older images and on wheel apply/rollback. Display-only — the preflight version gate and image-update completion still compare the plain version label. Manifest stays `schema_version: 1`. No migration.
+
 ## v1.5.3
 - **Project Manifest Version Helper**: Added `dlux.utils.get_project_version(base_dir)` to read a project's version from root `release-manifest.json`, with `settings.BASE_DIR` as the optional default and an empty-string fallback for missing or malformed manifests. The existing `get_app_version(__file__)` `VERSION`-file helper is unchanged. No migration.
 - **Legacy Updater Bootstrap Repair**: Reused the maintained `.proxy/maintenance.html` scaffold for legacy `.nginx/maintenance.html` output and added its status/log routes to the retrofitted nginx config, replacing the removed template reference. No migration.

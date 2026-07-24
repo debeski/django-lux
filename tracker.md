@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Current source version: unreleased v1.5.3 in `dlux/release-manifest.json`; v1.5.2 is tagged and published.
+- Current source version: unreleased v1.5.4 in `dlux/release-manifest.json`; v1.5.3 is tagged and published.
 - DjangoLux includes the typed Composer agent bridge, migration `0011`, and state-row-serialized inline/image admission.
 - Generated projects emit one hardened `composer-agent`; Composer owns legacy migration and `dlux enable-agent` is a one-cycle forwarder.
 - First-launch `BASE_DIR/config.json` bootstrap runs during `migrator` after migrations; the setup GET retains the same row-locked fallback.
@@ -62,8 +62,8 @@
 - 2026-07-24: exact `archive:latest` + v1.5.2 source full `migrator` GREEN: baked `/app/config.json` applied before HTTP; DB held configured Archive names, `/`, and Arabic.
 
 ### One-line info about last time edited Docs:
+- 2026-07-24: root README showcases three DjangoLux projects and documents Composer's deployment role, ownership boundaries, commands, and verified public links.
 - 2026-07-24: updater docs cover manifest-only project versioning and the repaired legacy nginx maintenance/status scaffold.
-- 2026-07-24: setup docs specify migrator-time `config.json` bootstrap, locked setup-view fallback, and explicit missing/invalid outcomes.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

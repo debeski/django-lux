@@ -19,6 +19,40 @@ DjangoLux is an extensive UX/UI framework for Django — a complete, design-firs
 
 Think of it as a cohesive foundation rather than a themed admin shell — instead of assembling auth, theming, tables, forms, navigation, and auditing yourself, you get them wired together and configurable at runtime, so you can focus on your app's actual features. The package keeps the landing README short; long-form operating and integration guidance lives at [`docs/`](docs/README.md).
 
+## Built with DjangoLux
+
+DjangoLux powers complete products as well as reusable application foundations. These projects show the framework across business workflows, fleet operations, and content-driven applications:
+
+| Project | What it showcases |
+|:--|:--|
+| [**Switch POS**](https://github.com/debeski/Sales-CRM)<br><sub>Sales CRM · POS · Catalog · Finance</sub> | A centralized sales system covering product catalogs, inventory, hybrid-currency pricing, invoices, finance, and role-controlled sales workflows. It demonstrates DjangoLux as the foundation for a substantial day-to-day business application. |
+| [**DLUX Control Plane**](https://github.com/debeski/dlux-panel)<br><sub>Fleet management · Secure operations · Deployment</sub> | A scoped control plane for monitoring and safely operating fleets of DjangoLux Compose deployments through outbound agents. It showcases enrollment, typed operational commands, update orchestration, audit history, and security-focused administration. |
+| **dHub**<br><sub>Portfolio · Document archive · Public and scoped content</sub><br>[Container image](https://hub.docker.com/r/debeski/dhub) | A combined public portfolio and scoped document archive. It demonstrates public-facing pages alongside protected document workflows, runtime customization, Caddy deployment, verified updates, and project-level release automation. |
+
+Each project is a working example of DjangoLux conventions applied to a different product shape. Explore the public source and artifacts to see how the shared UI, permissions, scoping, configuration, deployment, and update architecture extend into project-owned features.
+
+## Composer — Deployment and Operations Layer
+
+For generated Compose deployments, [**Composer**](https://github.com/debeski/composer) is DjangoLux's containerized operations companion. It resolves deployment secrets, starts and updates the stack, runs service and Django management commands, waits for health checks, and publishes atomic deployment status and logs without requiring a local Python or Compose toolchain.
+
+The resident `composer-agent` extends that local workflow with registry image discovery, guarded container recreation through a constrained `docker-socket-proxy`, durable operation replay, and an optional outbound-only connection to the DLUX Control Plane. The responsibilities remain deliberately separated:
+
+| DjangoLux | Composer | DLUX Control Plane |
+|:--|:--|:--|
+| Owns application policy: backups, maintenance, update admission and locking, migration safety, permissions, and final application state. | Owns container execution: secret handoff, registry checks, constrained Compose lifecycle, health verification, deployment status, and durable agent relay. | Owns fleet coordination: enrollment, authorization, typed command routing, batches, audit history, and relayed snapshots. |
+
+DjangoLux decides whether an application operation may proceed; Composer performs the corresponding container work. The agent has no inbound listener, and its remote surface accepts only typed, allowlisted operations—never arbitrary shell access, destructive stack commands, database restarts, or remote backup restoration. Local DjangoLux operations continue when the Control Plane is unavailable.
+
+Generated projects include `start.sh` and `start.ps1` wrappers plus the resident agent:
+
+```bash
+./start.sh             # start the production stack
+./start.sh -d          # start with the development override
+./start.sh --update    # pull and safely recreate updated services
+```
+
+[Composer source](https://github.com/debeski/composer) · [Docker image](https://hub.docker.com/r/debeski/composer) · [DjangoLux integration guide](docs/inline-updater.md#deployment-architecture)
+
 ## What DjangoLux gives you
 
 - A complete, themeable design system on Bootstrap 5: multiple built-in themes with a shared theme registry, full RTL/LTR and multilingual rendering, custom font management, responsive layouts, reusable components (tables, forms, modals, selectors, sidebar, navbar, titlebar global search, tutorials), and theme/language/direction-aware surfaces — all driven by a single `dlux` token vocabulary.

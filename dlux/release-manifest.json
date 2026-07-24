@@ -1,14 +1,13 @@
 {
   "schema_version": 1,
-  "version": "1.5.3",
+  "version": "1.5.4",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds project manifest version discovery and repairs the legacy updater bootstrap after proxy template consolidation.",
+  "summary": "The image update review dialog now shows the DjangoLux version baked into the target image, when the project's release manifest publishes it.",
   "highlights": [
-    "dlux.utils.get_project_version(BASE_DIR) reads and trims the version from the project's release-manifest.json.",
-    "The helper can default to settings.BASE_DIR and returns an empty string for missing or malformed manifests.",
-    "Legacy enable-updater output reuses the shared maintenance page and exposes its read-only nginx status and log routes."
+    "Image update review shows a baked dlux badge beside the target project version.",
+    "Project release manifests may publish an optional baked_dlux_version field."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.3"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.4"
 }

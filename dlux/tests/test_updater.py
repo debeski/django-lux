@@ -662,6 +662,38 @@ class ImageAvailabilityMetadataTests(TestCase):
         self.assertEqual(metadata["runtime_target"], "v1.4.12")
         self.assertEqual(metadata["manifest"]["highlights"], ["New report", "Faster imports"])
 
+    def test_manifest_baked_dlux_version_is_display_metadata(self):
+        """The candidate image's baked DjangoLux version reaches the review dialog
+        without disturbing the target the completion check compares against."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            self._write_availability(store, {
+                "version": "1.4.12",
+                "manifest": {
+                    "schema_version": 1,
+                    "version": "0.1.2",
+                    "baked_dlux_version": "1.5.3",
+                },
+            })
+
+            metadata = image_update_metadata(store)
+
+        self.assertEqual(metadata["manifest"]["baked_dlux_version"], "1.5.3")
+        self.assertEqual(metadata["target"], "v0.1.2")
+        self.assertEqual(metadata["runtime_target"], "v1.4.12")
+
+    def test_manifest_without_baked_dlux_version_omits_it(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            self._write_availability(store, {
+                "version": "1.4.12",
+                "manifest": {"schema_version": 1, "version": "0.1.2"},
+            })
+
+            metadata = image_update_metadata(store)
+
+        self.assertNotIn("baked_dlux_version", metadata["manifest"])
+
     def test_invalid_manifest_falls_back_to_version_then_digest(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()

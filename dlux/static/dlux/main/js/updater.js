@@ -696,6 +696,24 @@
             modalElement.querySelector('[data-dlux-update-modal-title]').textContent = title;
             modalElement.querySelector('[data-dlux-update-submit]').textContent = confirm;
             modalElement.querySelector('[data-dlux-update-target]').textContent = target;
+            // The DjangoLux version baked into the target image, when the project's
+            // release manifest published it. Absent on older images and on wheel
+            // apply/rollback, where the target IS a dlux version.
+            const bakedEl = modalElement.querySelector('[data-dlux-update-baked]');
+            if (bakedEl) {
+                const baked = isImage
+                    ? String(manifest?.baked_dlux_version || '').replace(/^v/, '').trim()
+                    : '';
+                if (baked) {
+                    const label = root.dataset.labelBakedDlux || 'baked dlux';
+                    bakedEl.textContent = label + ' v' + baked;
+                    bakedEl.title = root.dataset.noteBakedDlux || '';
+                    bakedEl.hidden = false;
+                } else {
+                    bakedEl.textContent = '';
+                    bakedEl.hidden = true;
+                }
+            }
             renderReleaseNotes(
                 modalElement.querySelector('[data-dlux-update-summary]'),
                 manifest,

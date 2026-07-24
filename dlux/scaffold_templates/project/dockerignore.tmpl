@@ -6,46 +6,52 @@ __pycache__/
 desktop.ini
 autorun.ini
 
+
 # Ignore Docker-related files
 Dockerfile
+dockerfile
 compose.yml
 compose.dev.yml
 docker-compose.yml
 
-# Ignore git-related files
+# Ignore Git-related files
 .git/
+.github/
 .gitignore
 .gitattributes
 
-# Ignore app directories
+# Ignore useless directories
 logs/
 media/
 staticfiles/
 imports/
-backups/
 .backups/
-secrets/
-.secrets/
 venv/
 .venv/
 dist/
 *.egg-info/
 build/
-.agents/
-.xpose/
-.claude/
-.codex
 .proxy/
-.github/
+/docs/
+.pytest*/
+.ruff_cache/
+/.sonar/
+/scratch/
+/tests/
 
-# Ignore celery-related files
+# Ignore Celery-related files
 celerybeat-*
 
-# Ignore sensitive secrets
+# Ignore sensetive files and secrets
 .env
 .key
 secrets.enc
 start.sh
 start.ps1
-db.sqlite3
 tracker.md
+.secrets/
+.xpose/
+.agents
+.claude
+.codex
+db.sqlite3

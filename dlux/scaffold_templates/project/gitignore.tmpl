@@ -6,28 +6,30 @@
 desktop.ini
 autorun.ini
 
-
-# Ignore app directories
-logs/
-media/
-staticfiles/
-imports/
-backups/
-.backups/
-secrets/
-.secrets/
-venv/
-.venv/
-dist/
+# Ignore useless directories
+/logs/
+/media/
+/staticfiles/
+/imports/
+/.backups/
+/venv/
+/.venv/
+/dist/
 *.egg-info/
-build/
-.agents/
-.xpose/
-.codex
+/build/
+/scratch/
+.pytest*/
+.ruff_cache/
 
-# Ignore celery-related files
+# Ignore Celery-related files
 celerybeat-*
 
-# Ignore Sensetive Secrets
+# Ignore sensetive files and secrets
 .env
 .key
+.secrets/
+.xpose/
+.agents
+.claude
+.codex
+db.sqlite3

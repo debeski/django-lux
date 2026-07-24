@@ -234,6 +234,8 @@
                                  data-label-uptodate="{{ DLUX_STRINGS.dlux_update_up_to_date|default:'DjangoLux is up to date.' }}"
                                  data-label-finish="{{ DLUX_STRINGS.dlux_update_finish|default:'Finish' }}"
                                  data-label-generic-changes="{{ DLUX_STRINGS.dlux_update_generic_changes|default:'Bug fixes and improvements' }}"
+                                 data-label-baked-dlux="{{ DLUX_STRINGS.dlux_update_baked_label|default:'baked dlux' }}"
+                                 data-note-baked-dlux="{{ DLUX_STRINGS.dlux_update_baked_note|default:'DjangoLux version baked into this image' }}"
                                  data-image-url="{% url 'dlux_update_image' %}"
                                  data-deploy-status-url="{{ DLUX_DEPLOY_STATUS_URL|default:'/_update/status.json' }}"
                                  data-deploy-log-url="{{ DLUX_DEPLOY_LOG_URL|default:'/_update/log.txt' }}"
@@ -849,7 +851,8 @@
                             <div class="alert alert-warning" data-dlux-update-maintenance>{{ DLUX_STRINGS.dlux_update_maintenance_notice|default:'The project will briefly enter maintenance mode while migrations, static assets, and process restarts complete.' }}</div>
                             <dl class="row mb-3">
                                 <dt class="col-4">{{ DLUX_STRINGS.dlux_update_target|default:'Target version' }}</dt>
-                                <dd class="col-8 font-monospace" data-dlux-update-target></dd>
+                                <dd class="col-8 font-monospace"><span data-dlux-update-target></span>
+                                    <span class="dlux-upd-baked" data-dlux-update-baked hidden></span></dd>
                                 <dt class="col-4">{{ DLUX_STRINGS.dlux_update_summary|default:'Release summary' }}</dt>
                                 <dd class="col-8" data-dlux-update-summary></dd>
                                 <dt class="col-4">{{ DLUX_STRINGS.dlux_update_compatibility|default:'Compatibility' }}</dt>

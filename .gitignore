@@ -5,38 +5,31 @@
 **/.DS_Store
 desktop.ini
 autorun.ini
-.codex
 
-# Ignore app directories
+# Ignore useless directories
 /logs/
 /media/
 /staticfiles/
 /imports/
-/backups/
 /.backups/
-/secrets/
-/.secrets/
 /venv/
 /.venv/
 /dist/
-/.dist/
 *.egg-info/
 /build/
-/.build/
-/codex/
-/.codex/
-/agents/
-/.agents/
-/.xpose/
-/.sonar/
 /scratch/
-.claude/
 .pytest*/
 .ruff_cache/
 
-# Ignore celery-related files
+# Ignore Celery-related files
 celerybeat-*
 
-# Ignore Sensetive Secrets
+# Ignore sensetive files and secrets
 .env
 .key
+.secrets/
+.xpose/
+.agents
+.claude
+.codex
+db.sqlite3

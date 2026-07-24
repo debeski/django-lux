@@ -112,6 +112,12 @@ def _normalize_project_manifest(value):
     version = value.get("version")
     if isinstance(version, str) and version.strip():
         manifest["version"] = version.strip()[:64]
+    # The DjangoLux version baked into the candidate image, as published by the
+    # project's release manifest. Display-only: the preflight version gate and
+    # image-update completion keep using the plain version label.
+    baked_dlux_version = value.get("baked_dlux_version")
+    if isinstance(baked_dlux_version, str) and baked_dlux_version.strip():
+        manifest["baked_dlux_version"] = baked_dlux_version.strip()[:32]
     summary = value.get("summary")
     if isinstance(summary, str) and summary.strip():
         manifest["summary"] = summary.strip()[:1000]
