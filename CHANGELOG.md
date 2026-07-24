@@ -6,6 +6,10 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.5.6
+- **Control Panel Pairing Feedback Is Visible**: Replaced `/sys/control-panel/` connect/cancel Django messages with native `notify` flashes, so rejected HTTP URLs show the HTTPS validation error and accepted requests show confirmation even when the legacy Django-message bridge is disabled. Added rejected/accepted regression coverage. No migration.
+- **Control Panel Pairing UI**: Moved the Control Panel launcher from the Options admin-card grid into Admin commands beside password/data reset, and rebuilt `/sys/control-panel/` with Dlux fields, status surfaces, responsive connection details, and an explicit polling hook. No migration.
+
 ## v1.5.5
 - **Control Panel Pairing Runs Through The Update Worker**: The connect/cancel views wrote `enroll-request.json` inline, but `web` mounts the runtime volume read-only, so every real pairing attempt raised a read-only-filesystem error. New `DluxControlLinkRequest` model queues the intent and `UpdateService.tick_control_link()` publishes it from the worker (the only read-write mount), deleting the row on success so the one-use token is at rest for at most one tick and keeping it with a cleared token plus `error` on failure. `control_link_state()` is now a pure read that also reports queued requests, so the tile shows "pending" immediately; the worker retires confirmed requests. New `control_link_queue_failed` string (en/ar) surfaces worker-side failures. Migration `0012_dluxcontrollinkrequest` is a single inline-safe `CreateModel`.
 

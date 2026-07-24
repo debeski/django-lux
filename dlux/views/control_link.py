@@ -1,7 +1,5 @@
-import json
 from urllib.parse import urlparse
 
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
@@ -10,6 +8,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
+from ..notifications import notify
 from ..translations import get_strings
 from ..updater import control_link
 from ..updater.service import runtime_store
@@ -70,20 +69,48 @@ def control_panel_connect_view(request):
     store = _store_or_none()
 
     if store is None:
-        messages.error(request, strings.get("control_link_bridge_unavailable",
-                                             "The agent runtime bridge is unavailable on this host."))
+        notify.error(
+            strings.get("control_link_bridge_unavailable",
+                        "The agent runtime bridge is unavailable on this host."),
+            request=request,
+            action="control_panel_pair",
+            category="control_panel",
+            persist=False,
+            flash=True,
+        )
     elif not _valid_control_url(control_url):
-        messages.error(request, strings.get("control_link_bad_url",
-                                             "Enter a valid https:// control panel URL."))
+        notify.error(
+            strings.get("control_link_bad_url",
+                        "Enter a valid https:// control panel URL."),
+            request=request,
+            action="control_panel_pair",
+            category="control_panel",
+            persist=False,
+            flash=True,
+        )
     elif not pairing_token:
-        messages.error(request, strings.get("control_link_missing_token",
-                                             "Paste the one-use pairing token from the control panel."))
+        notify.error(
+            strings.get("control_link_missing_token",
+                        "Paste the one-use pairing token from the control panel."),
+            request=request,
+            action="control_panel_pair",
+            category="control_panel",
+            persist=False,
+            flash=True,
+        )
     else:
         # The web tier cannot write the agent bridge (read-only runtime mount);
         # the update worker publishes this on its next tick.
         control_link.queue_enroll_request(control_url, pairing_token)
-        messages.success(request, strings.get("control_link_requested",
-                                              "Pairing requested. The agent will connect shortly."))
+        notify.success(
+            strings.get("control_link_requested",
+                        "Pairing requested. The agent will connect shortly."),
+            request=request,
+            action="control_panel_pair",
+            category="control_panel",
+            persist=False,
+            flash=True,
+        )
     return redirect(reverse("control_panel"))
 
 
@@ -93,5 +120,12 @@ def control_panel_connect_view(request):
 def control_panel_cancel_view(request):
     _require_superuser(request)
     control_link.queue_cancel_request()
-    messages.success(request, get_strings().get("control_link_cancelled", "Pending pairing request cleared."))
+    notify.success(
+        get_strings().get("control_link_cancelled", "Pending pairing request cleared."),
+        request=request,
+        action="control_panel_pair_cancel",
+        category="control_panel",
+        persist=False,
+        flash=True,
+    )
     return redirect(reverse("control_panel"))

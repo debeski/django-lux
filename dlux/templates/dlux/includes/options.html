@@ -26,7 +26,15 @@
                         {% if user.is_superuser %}
                         <div class="dlux-admin-command-launcher" data-admin-command-launcher>
                             <div class="dlux-admin-command-rail" data-admin-command-rail>
-                                <button class="dlux-admin-command-chip"
+                                <a class="dlux-admin-command-chip"
+                                   href="{% url 'control_panel' %}"
+                                   data-control-panel-open
+                                   data-dlux-tooltip="{{ DLUX_STRINGS.control_link_tile_desc|default:'Pair this app with your central control panel.' }}"
+                                   aria-label="{{ DLUX_STRINGS.control_link_title|default:'Control Panel' }}">
+                                    <i class="bi bi-diagram-3"></i>
+                                    <span>{{ DLUX_STRINGS.control_link_title|default:'Control Panel' }}</span>
+                                </a>
+                                <button class="dlux-admin-command-chip dlux-admin-command-chip--danger"
                                         type="button"
                                         data-force-pass-change-open
                                         data-url="{% url 'dlux_force_pass_change_all' %}"
@@ -326,15 +334,6 @@
                    href="{% url 'system_backup_page' %}">
                     <i class="bi bi-box-arrow-up-right me-1"></i>{{ DLUX_STRINGS.sysbackup_open }}
                 </a>
-                    </section>
-                    {% endif %}
-                    {% if user.is_superuser %}
-                    <section class="dlux-admin-tile dlux-admin-tile--control-link">
-                        <h5 class="dlux-admin-tile-title"><i class="bi bi-diagram-3"></i> {{ DLUX_STRINGS.control_link_title|default:"Control Panel" }}</h5>
-                        <p class="text-muted small mb-3">{{ DLUX_STRINGS.control_link_tile_desc|default:"Pair this app with your central control panel." }}</p>
-                        <a class="btn btn-primary" href="{% url 'control_panel' %}">
-                            <i class="bi bi-box-arrow-up-right me-1"></i>{{ DLUX_STRINGS.control_link_open|default:"Open" }}
-                        </a>
                     </section>
                     {% endif %}
                 </div>

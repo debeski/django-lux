@@ -32,6 +32,22 @@ class ControlLinkTests(TestCase):
         self.client.force_login(self.user)
         self.assertEqual(self.client.get(reverse("control_panel")).status_code, 403)
 
+    def test_page_renders_native_layout_fields_and_polling_contract(self):
+        self.client.force_login(self.admin)
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
+            DLUX_UPDATE_RUNTIME_ROOT=temp_dir
+        ):
+            RuntimeStore(temp_dir).ensure()
+            response = self.client.get(reverse("control_panel"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "dlux/main/css/control_link.css")
+        self.assertContains(response, 'class="dlux-form dlux-control-form"')
+        self.assertContains(response, "data-control-link")
+        self.assertContains(response, "data-control-link-badge")
+        self.assertContains(response, "dlux-control-card--status")
+        self.assertContains(response, "HTTPS required")
+
     def test_pairing_is_queued_by_web_then_published_by_the_worker(self):
         self.client.force_login(self.admin)
         with tempfile.TemporaryDirectory() as temp_dir, override_settings(
@@ -57,6 +73,10 @@ class ControlLinkTests(TestCase):
             status = self.client.get(reverse("control_panel_status")).json()["link"]
             self.assertTrue(status["pending"])
             self.assertEqual(status["pending_operation_id"], str(row.operation_id))
+            self.assertContains(
+                self.client.get(reverse("control_panel")),
+                "data-control-link-pending",
+            )
 
             # The worker publishes it and consumes the row.
             self.assertEqual(UpdateService(store=store).tick_control_link(), 1)
@@ -132,12 +152,35 @@ class ControlLinkTests(TestCase):
             DLUX_UPDATE_RUNTIME_ROOT=temp_dir
         ):
             store = RuntimeStore(temp_dir).ensure()
-            self.client.post(reverse("control_panel_connect"), {
-                "control_url": "ftp://nope",
+            response = self.client.post(reverse("control_panel_connect"), {
+                "control_url": "http://panel.example.org",
                 "pairing_token": "abcd.longsecret",
-            })
+            }, follow=True)
             self.assertFalse(DluxControlLinkRequest.objects.exists())
             self.assertIsNone(control_link.read_enroll_request(store))
+            self.assertContains(response, "Enter a valid https:// control panel URL.")
+            self.assertEqual(
+                response.context["dlux_flash_notifications"][0]["level"],
+                "error",
+            )
+
+    def test_accepted_pairing_uses_native_flash_when_legacy_bridge_is_disabled(self):
+        self.client.force_login(self.admin)
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
+            DLUX_UPDATE_RUNTIME_ROOT=temp_dir
+        ):
+            RuntimeStore(temp_dir).ensure()
+            response = self.client.post(reverse("control_panel_connect"), {
+                "control_url": "https://panel.example.org",
+                "pairing_token": "abcd.longsecret",
+            }, follow=True)
+
+            self.assertContains(response, "Pairing requested. The agent will connect shortly.")
+            self.assertEqual(
+                response.context["dlux_flash_notifications"][0]["level"],
+                "success",
+            )
+            self.assertTrue(DluxControlLinkRequest.objects.exists())
 
     def test_cancel_queues_removal_and_the_worker_clears_the_bridge(self):
         self.client.force_login(self.admin)

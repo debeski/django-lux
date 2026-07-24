@@ -878,7 +878,7 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
 }
 
 .dlux-admin-command-launcher.is-open .dlux-admin-command-rail {
-    max-width: min(72vw, 28rem);
+    max-width: min(82vw, 42rem);
     opacity: 1;
     pointer-events: auto;
     transform: translateX(0);
@@ -892,27 +892,36 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     max-width: 12rem;
     padding: 0.42rem 0.68rem;
     border-radius: 999px;
-    background: rgba(var(--bs-danger-rgb, 220, 53, 69), 0.1);
-    color: var(--bs-danger, #dc3545);
+    background: rgba(var(--primal-rgb), 0.1);
+    color: var(--primal);
     font-size: 0.82rem;
     font-weight: 740;
     line-height: 1.1;
+    text-decoration: none;
     white-space: nowrap;
-    box-shadow: inset 0 0 0 1px rgba(var(--bs-danger-rgb, 220, 53, 69), 0.18);
+    box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.18);
 }
 
 .dlux-admin-command-chip:hover,
 .dlux-admin-command-chip:focus-visible {
-    background: var(--bs-danger, #dc3545);
-    color: #fff;
+    background: var(--primal);
+    color: var(--inverted, #fff);
     transform: translateY(-1px);
+    text-decoration: none;
 }
 
-/* Destructive commands (e.g. Reset data) read as danger even at rest. */
 .dlux-admin-command-chip--danger {
-    border-color: rgba(var(--bs-danger-rgb, 220, 53, 69), 0.45);
+    background: rgba(var(--bs-danger-rgb, 220, 53, 69), 0.1);
     color: var(--bs-danger, #dc3545);
+    box-shadow: inset 0 0 0 1px rgba(var(--bs-danger-rgb, 220, 53, 69), 0.18);
 }
+
+.dlux-admin-command-chip--danger:hover,
+.dlux-admin-command-chip--danger:focus-visible {
+    background: var(--bs-danger, #dc3545);
+    color: #fff;
+}
+
 .dlux-admin-command-chip--danger .bi {
     color: inherit;
 }

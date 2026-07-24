@@ -70,8 +70,11 @@ class GeneralViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-admin-command-launcher')
+        self.assertContains(response, 'data-control-panel-open')
+        self.assertContains(response, reverse('control_panel'), count=1)
         self.assertContains(response, 'data-force-pass-change-open')
         self.assertContains(response, reverse('dlux_force_pass_change_all'))
+        self.assertNotContains(response, 'dlux-admin-tile--control-link')
 
     def test_force_password_change_all_requires_superuser(self):
         regular = User.objects.create_user(

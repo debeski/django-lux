@@ -6,11 +6,18 @@ DjangoLux remains the authority for backups, maintenance, monitoring, inline upd
 
 New scaffolds include `dlux-updater`, `composer-agent`, and `docker-socket-proxy`. The agent mounts the project at the identical host path read-only, `dlux_runtime` read/write, and `composer_agent_state` read/write. It runs with all capabilities dropped and `no-new-privileges`, joins only the update-egress and isolated Docker-proxy networks, and reaches Docker through the restricted proxy.
 
-The normal enrollment path is the superuser Control Panel tile. Headless
-deployments may instead configure these optional bootstrap values manually:
+The normal enrollment path is **Options → Admin panel → Admin commands → Control
+Panel**. The dedicated page shows bridge availability and live pairing state,
+and uses the native DjangoLux form and notification system. Headless deployments
+may instead configure these optional bootstrap values manually:
 
 - `COMPOSER_CONTROL_URL`: public HTTPS base URL of the DLUX control panel; leave empty for local-only operation.
 - `COMPOSER_ENROLLMENT_TOKEN`: one-use token created by the panel and valid for 15 minutes.
+
+The UI rejects non-local `http://` control-panel URLs because enrollment returns
+long-lived agent credentials. Validation and pairing status use native DjangoLux
+flash notifications and do not depend on the optional legacy Django-message
+bridge.
 - `COMPOSER_AGENT_STATE_DIR`: `/var/lib/composer-agent` in generated deployments.
 
 The enrollment secret is persisted in the dedicated state volume. Local DLUX-triggered updates keep working during control-plane outages and after remote revocation.

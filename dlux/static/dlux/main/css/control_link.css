@@ -1,0 +1,330 @@
+.dlux-control-page {
+    width: min(100%, 74rem);
+    margin: 0 auto;
+    padding: 1rem 0 2.5rem;
+}
+
+.dlux-control-hero,
+.dlux-control-card {
+    border: 1px solid rgba(var(--primal-rgb), 0.14);
+    background:
+        radial-gradient(circle at 8% 0%, rgba(var(--primal-rgb), 0.12), transparent 34%),
+        color-mix(in srgb, var(--table-row, #fff) 96%, transparent);
+    box-shadow: 0 22px 50px -38px rgba(var(--primal-rgb), 0.52);
+}
+
+.dlux-control-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 1rem;
+    padding: clamp(1.35rem, 3vw, 2.25rem);
+    border-radius: 1.5rem;
+    overflow: hidden;
+}
+
+.dlux-control-hero-copy {
+    min-width: 0;
+}
+
+.dlux-control-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.85rem;
+    color: var(--primal);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.dlux-control-heading {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.dlux-control-heading-icon,
+.dlux-control-card-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    color: var(--primal);
+    background: rgba(var(--primal-rgb), 0.1);
+    box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.15);
+}
+
+.dlux-control-heading-icon {
+    width: 3.8rem;
+    height: 3.8rem;
+    border-radius: 1.2rem;
+    font-size: 1.55rem;
+}
+
+.dlux-control-heading h1 {
+    margin: 0 0 0.3rem;
+    color: var(--title);
+    font-size: clamp(1.65rem, 4vw, 2.35rem);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+}
+
+.dlux-control-heading p,
+.dlux-control-card-heading p {
+    margin: 0;
+    color: var(--text);
+    line-height: 1.55;
+}
+
+.dlux-control-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex: 0 0 auto;
+    padding: 0.62rem 0.9rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    background: color-mix(in srgb, currentColor 8%, var(--table-row, #fff));
+    font-size: 0.82rem;
+    font-weight: 760;
+    white-space: nowrap;
+}
+
+.dlux-control-state--connected {
+    color: var(--bs-success, #198754);
+}
+
+.dlux-control-state--pending {
+    color: #9a6700;
+}
+
+.dlux-control-state--offline {
+    color: var(--text);
+}
+
+.dlux-control-state-dot {
+    width: 0.56rem;
+    height: 0.56rem;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 0.2rem color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.dlux-control-state--pending .dlux-control-state-dot {
+    animation: dlux-control-pulse 1.6s ease-in-out infinite;
+}
+
+.dlux-control-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: 1rem;
+}
+
+.dlux-control-notice--action {
+    justify-content: space-between;
+}
+
+.dlux-control-notice-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.dlux-control-notice form {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.dlux-control-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.85fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.dlux-control-card {
+    padding: clamp(1.25rem, 3vw, 1.8rem);
+    border-radius: 1.35rem;
+}
+
+.dlux-control-card--status {
+    position: sticky;
+    top: 1rem;
+}
+
+.dlux-control-card-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin-bottom: 1.5rem;
+}
+
+.dlux-control-card-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.9rem;
+    font-size: 1.1rem;
+}
+
+.dlux-control-card-heading h2 {
+    margin: 0 0 0.2rem;
+    color: var(--title);
+    font-size: 1.05rem;
+    font-weight: 780;
+}
+
+.dlux-control-card-heading p {
+    font-size: 0.83rem;
+}
+
+.dlux-control-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.dlux-control-input {
+    position: relative;
+}
+
+.dlux-control-input > i {
+    position: absolute;
+    z-index: 1;
+    inset-inline-start: 1rem;
+    top: 50%;
+    color: color-mix(in srgb, var(--text) 72%, var(--primal));
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.dlux-control-input .form-control {
+    padding-inline-start: 2.65rem;
+}
+
+.dlux-control-form .form-text {
+    margin: 0.45rem 0 0;
+    color: var(--text);
+    line-height: 1.45;
+}
+
+.dlux-control-submit {
+    gap: 0.5rem;
+    min-width: 8rem;
+}
+
+.dlux-control-details {
+    display: grid;
+    gap: 0;
+    margin: 0;
+}
+
+.dlux-control-details > div {
+    display: grid;
+    grid-template-columns: minmax(7rem, 0.8fr) minmax(0, 1.2fr);
+    gap: 0.9rem;
+    padding: 0.9rem 0;
+    border-top: 1px solid rgba(var(--primal-rgb), 0.11);
+}
+
+.dlux-control-details > div:first-child {
+    padding-top: 0;
+    border-top: 0;
+}
+
+.dlux-control-details dt {
+    color: var(--text);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.dlux-control-details dd {
+    margin: 0;
+    color: var(--title);
+    font-size: 0.83rem;
+    font-weight: 700;
+    text-align: end;
+}
+
+.dlux-control-details dd i {
+    margin-inline-end: 0.25rem;
+}
+
+@keyframes dlux-control-pulse {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.48;
+        transform: scale(0.82);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .dlux-control-page {
+        padding-top: 0.25rem;
+    }
+
+    .dlux-control-hero {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 1.15rem;
+    }
+
+    .dlux-control-state {
+        align-self: flex-start;
+    }
+
+    .dlux-control-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dlux-control-card--status {
+        position: static;
+    }
+}
+
+@media (max-width: 479.98px) {
+    .dlux-control-heading {
+        align-items: flex-start;
+    }
+
+    .dlux-control-heading-icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 1rem;
+        font-size: 1.2rem;
+    }
+
+    .dlux-control-notice--action {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .dlux-control-notice form,
+    .dlux-control-notice button {
+        width: 100%;
+    }
+
+    .dlux-control-details > div {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.2rem;
+    }
+
+    .dlux-control-details dd {
+        text-align: start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dlux-control-state--pending .dlux-control-state-dot {
+        animation: none;
+    }
+}
