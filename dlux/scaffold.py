@@ -4,6 +4,7 @@ import re
 import secrets
 import shutil
 import subprocess
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 import stat
@@ -24,6 +25,52 @@ def _normalize_identifier(raw_name, label):
     if not normalized or not normalized.isidentifier():
         raise ScaffoldError(f"{label} must be a valid Python identifier")
     return normalized
+
+
+def split_image_reference(reference, default_tag="latest"):
+    """Split ``name[:tag]`` into ``(name, tag)``.
+
+    Registry hosts may carry a port (``registry:5000/team/app``), so only a colon
+    after the final slash is a tag separator.
+    """
+    value = str(reference or "").strip().rstrip("/")
+    if not value:
+        raise ScaffoldError("Docker image name must not be empty")
+    head, _, tail = value.rpartition("/")
+    if ":" in tail:
+        name_tail, _, tag = tail.rpartition(":")
+        if not name_tail:
+            raise ScaffoldError(f"Invalid Docker image reference: {reference!r}")
+        name = f"{head}/{name_tail}" if head else name_tail
+        tag = tag.strip() or default_tag
+    else:
+        name = value
+        tag = default_tag
+    if any(char.isspace() for char in name) or any(char.isspace() for char in tag):
+        raise ScaffoldError(f"Invalid Docker image reference: {reference!r}")
+    return name, tag
+
+
+def _normalize_repo_slug(repo):
+    """``owner/name`` for the release URL, or '' when the project has no remote yet."""
+    value = str(repo or "").strip().strip("/")
+    if not value:
+        return ""
+    value = re.sub(r"^(?:https?://)?(?:www\.)?github\.com/", "", value)
+    value = re.sub(r"\.git$", "", value)
+    if value.count("/") != 1 or not all(part.strip() for part in value.split("/")):
+        raise ScaffoldError(f"GitHub repository must be 'owner/name', got {repo!r}")
+    return value
+
+
+def _prompt(label, default, *, enabled):
+    if not enabled:
+        return default
+    try:
+        answer = input(f"{label} [{default or 'skip'}]: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return default
+    return answer or default
 
 
 def _render_template(template_name, context):
@@ -65,11 +112,38 @@ def _camel_case(name):
     return "".join(part.capitalize() for part in name.split("_"))
 
 
-def create_project(project_name, destination=None):
+def create_project(project_name, destination=None, image=None, repo=None, interactive=None):
+    """Scaffold a project.
+
+    ``image`` is the Docker reference the deployment pulls and the release
+    workflow pushes (``name`` or ``name:tag``); ``repo`` is the ``owner/name``
+    GitHub slug used for the release URL. Both are prompted for on a TTY when
+    omitted, because leaving the image as the bare project name produces a
+    reference that exists in no registry — update discovery then silently never
+    fires.
+    """
     normalized_project_name = _normalize_identifier(project_name, "project_name")
     config_package = "config"
     target_root = Path(destination) if destination else Path(normalized_project_name)
     target_root = target_root.resolve()
+
+    if interactive is None:
+        interactive = sys.stdin.isatty() and (image is None or repo is None)
+    if interactive:
+        print(f"Configuring release settings for {project_name} (press Enter to accept).")
+    image = _prompt(
+        "Docker image (name[:tag])",
+        image or normalized_project_name.lower(),
+        enabled=interactive and image is None,
+    )
+    repo = _prompt(
+        "GitHub repository (owner/name, blank to skip)",
+        repo or "",
+        enabled=interactive and repo is None,
+    )
+
+    project_image, project_image_tag = split_image_reference(image)
+    github_repo = _normalize_repo_slug(repo)
 
     _prepare_root(target_root)
 
@@ -79,7 +153,11 @@ def create_project(project_name, destination=None):
         "config_package": config_package,
         "project_title": normalized_project_name.replace("_", " ").title(),
         "project_slug": normalized_project_name,
-        "project_image": normalized_project_name.lower(),
+        "project_image": project_image,
+        "project_image_tag": project_image_tag,
+        # A visible placeholder rather than an empty segment: the release
+        # workflow's validator then fails loudly with the URL it expects.
+        "github_repo": github_repo or "OWNER/REPO",
         "dlux_version": __version__,
         "generated_date": date.today().isoformat(),
         "secret_key": secrets.token_urlsafe(38),
@@ -99,6 +177,11 @@ def create_project(project_name, destination=None):
         "project/tools/dlux_runtime_supervisor.py.tmpl": target_root / "tools" / "dlux_runtime_supervisor.py",
         "project/gunicorn.py.tmpl": target_root / "gunicorn.py",
         "project/requirements.txt.tmpl": target_root / "requirements.txt",
+        "project/release-manifest.json.tmpl": target_root / "release-manifest.json",
+        "project/.github/workflows/release.yml.tmpl": target_root / ".github" / "workflows" / "release.yml",
+        "project/tools/validate_project_release_manifest.py.tmpl": (
+            target_root / "tools" / "validate_project_release_manifest.py"
+        ),
         # Reverse proxy configs live in .proxy/ (proxy-agnostic) alongside the
         # shared maintenance.html. Caddy is the active proxy; nginx is a
         # commented-out fallback in compose.yml. The nginx `default.conf.template`
@@ -330,6 +413,8 @@ def _updater_service_block(project_slug):
   dlux-updater:
     image: ${{WEB_IMAGE:-{project_slug.lower()}:latest}}
     restart: always
+    labels:
+      org.dlux.restart: "protected"
     command: ["python", "-m", "tools.dlux_runtime_supervisor", "--no-watch", "--", "bash", "-c", "python manage.py migrator && exec python manage.py dlux_update_worker"]
     entrypoint: ["/app/entrypoint.sh"]
     volumes:

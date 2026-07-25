@@ -8,7 +8,7 @@ from pathlib import Path
 import logging
 from urllib.parse import urlparse
 from csp.constants import SELF, UNSAFE_EVAL, UNSAFE_INLINE
-from dlux.utils import get_secret, dlux_settings
+from dlux.utils import get_project_version, get_secret, dlux_settings
 
 
 WSGI_APPLICATION = "{{ config_package }}.wsgi.application"
@@ -23,6 +23,9 @@ ALLOWED_URLS = [
     if url.strip()
 ]
 ROOT_URLCONF = "{{ config_package }}.urls"
+# The Updates card reports this project's own version. release-manifest.json is
+# the single source; the release workflow validates it against the pushed tag.
+DLUX_APP_VERSION = get_project_version(BASE_DIR)
 
 SECRET_KEY = get_secret("DJANGO_SECRET_KEY", "DJANGO_SECRET_KEY") or "insecure-temporary-dev-only-key-change-me-now"
 DEBUG = os.getenv("DEBUG_STATUS", "True").lower() == "true"

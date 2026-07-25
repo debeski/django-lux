@@ -800,7 +800,7 @@ See [Verified Inline Updater](inline-updater.md) for the deployment and release 
 | Command | Purpose |
 |---------|---------|
 | `dlux_setup` | Create migrations, apply migrations, run checks |
-| `dlux_check` | Validate settings, apps, middleware, URLs, Crispy |
+| `dlux_doctor` | Deployment doctor: settings, URLs, database, migrations, services, static, production safety |
 | `dlux_settings` | Inspect, unconfigure, reset, delete, export, and import the System Settings singleton |
 | `dlux_prune_activity_log [--dry-run]` | Apply configured per-category retention windows |
 | `dlux_migrate_from_microsys [--yes]` | Preview/apply the supported Microsys 2.4.1 database relabel |

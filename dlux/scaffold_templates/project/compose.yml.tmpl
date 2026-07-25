@@ -3,7 +3,7 @@ name: {{ project_slug }}
 x-environment:
   # Database settings
   &de
-  WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:latest}"
+  WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}"
   POSTGRES_DB: "${POSTGRES_DB:-{{ project_slug }}_db}"
   POSTGRES_PORT: "5432"
   POSTGRES_HOST: "db"
@@ -11,8 +11,6 @@ x-environment:
   REDIS_URL_DB: "redis://redis:6379/1"
   CELERY_BROKER_URL: "redis://redis:6379/2"
   CELERY_RESULT_BACKEND: "redis://redis:6379/3"
-  # Backup settings
-  BACKUP_INTERVAL: "${BACKUP_INTERVAL:-680400}"
   # Web app settings (override these in compose.dev.yml or .env)
   ALLOWED_HOSTS: "${ALLOWED_HOSTS:-web,caddy,nginx,localhost,127.0.0.1}"
   ALLOWED_URLS: "${ALLOWED_URLS:-http://localhost:81}"
@@ -34,6 +32,8 @@ services:
   db:
     image: postgres:17
     restart: always
+    labels:
+      org.dlux.restart: "protected"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
@@ -46,11 +46,13 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - {{ project_slug }}_internal
+      - internal
 
   redis:
     image: redis:7
     restart: always
+    labels:
+      org.dlux.restart: "protected"
     command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "500mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis_data:/data
@@ -60,11 +62,18 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - {{ project_slug }}_internal
+      - internal
 
   smtp-relay:
-    image: ${WEB_IMAGE:-{{ project_image }}:latest}
+    image: ${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}
     restart: always
+    # org.dlux.restart tells Composer whether it may restart a service during a
+    # deploy/recovery, so it classifies from labels instead of a hardcoded name
+    # list. "safe" = stateless / owns no in-flight operation; "protected" = holds
+    # state, is a data store, or manages its own lifecycle. smtp-relay is a
+    # stateless relay: safe.
+    labels:
+      org.dlux.restart: "safe"
     entrypoint: []
     command: ["python", "-m", "tools.smtp_relay"]
     environment:
@@ -87,13 +96,17 @@ services:
       retries: 3
       start_period: 5s
     networks:
-      - {{ project_slug }}_net
-      - {{ project_slug }}_internal
+      - egress
+      - internal
 
   # DjangoLux updater start
   dlux-updater:
-    image: ${WEB_IMAGE:-{{ project_image }}:latest}
+    image: ${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}
     restart: always
+    # Protected: owns durable inline-update state and restarts itself on a
+    # generation bump; an external restart mid-update is unsafe.
+    labels:
+      org.dlux.restart: "protected"
     command: ["python", "-m", "tools.dlux_runtime_supervisor", "--no-watch", "--", "bash", "-c", "python manage.py migrator && exec python manage.py dlux_update_worker"]
     entrypoint: ["/app/entrypoint.sh"]
     volumes:
@@ -119,8 +132,8 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - {{ project_slug }}_internal
-      - dlux_update_egress
+      - egress
+      - internal
   # DjangoLux updater end
 
   # ── Reverse proxy ──────────────────────────────────────────────────────────
@@ -138,6 +151,8 @@ services:
   # nginx:
   #   image: nginx:latest
   #   restart: always
+  #   labels:
+  #     org.dlux.restart: "safe"
   #   ports:
   #     - target: 80
   #       published: "${NGINX_PORT:-80}"
@@ -164,8 +179,8 @@ services:
   #     retries: 3
   #     start_period: 10s
   #   networks:
-  #     - {{ project_slug }}_net
-  #     - {{ project_slug }}_internal
+  #     - frontend
+  #     - internal
 
   # caddy (active): plain HTTP on :80 with auto_https off (see .proxy/Caddyfile),
   # so the app sits behind your own TLS terminator or is used in local dev. The
@@ -175,6 +190,8 @@ services:
   caddy:
     image: caddy:latest
     restart: always
+    labels:
+      org.dlux.restart: "safe"
     ports:
       - target: 80
         published: "${CADDY_PORT:-${NGINX_PORT:-80}}"
@@ -200,12 +217,14 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - {{ project_slug }}_net
-      - {{ project_slug }}_internal
+      - frontend
+      - internal
 
   web:
-    image: ${WEB_IMAGE:-{{ project_image }}:latest}
+    image: ${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}
     restart: always
+    labels:
+      org.dlux.restart: "safe"
     command: >
       python -m tools.dlux_runtime_supervisor -- bash -c ' if [ "$$DEBUG_STATUS" = "True" ]; then
           echo "Starting in DEBUG mode with Django development server..."
@@ -218,7 +237,12 @@ services:
     post_start:
       # Re-run migrations after the composer updater recreates web onto a new
       # image, so a released image's migrations apply on recreate. Idempotent.
-      - command: python manage.py migrator
+      # Must run under the runtime supervisor (like dlux-updater's migrator), so
+      # its collectstatic uses the SAME runtime-active DjangoLux release gunicorn
+      # serves templates from. Run raw, it collects from the baked image instead,
+      # and — running last on recreate — overwrites the correct static with a
+      # version-mismatched set (stale CSS/JS against newer templates).
+      - command: python -m tools.dlux_runtime_supervisor --no-watch -- python manage.py migrator
     volumes:
       - static:/app/staticfiles:rw
       - ./media/:/app/media:rw
@@ -247,11 +271,13 @@ services:
       dlux-updater:
         condition: service_healthy
     networks:
-      - {{ project_slug }}_internal
+      - internal
 
   celery:
-    image: ${WEB_IMAGE:-{{ project_image }}:latest}
+    image: ${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}
     restart: always
+    labels:
+      org.dlux.restart: "safe"
     command: ["python", "-m", "tools.dlux_runtime_supervisor", "--", "python", "-m", "celery", "-A", "{{ config_package }}", "worker", "-B", "--loglevel=info"]
     entrypoint: ["/app/entrypoint.sh"]
     volumes:
@@ -279,67 +305,7 @@ services:
       dlux-updater:
         condition: service_healthy
     networks:
-      - {{ project_slug }}_internal
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    restart: unless-stopped
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@local.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80').read()"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - {{ project_slug }}_internal
-
-  db-backup:
-    image: postgres:17
-    restart: always
-    command: >
-      bash -c ' while true; do
-          export PGPASSWORD=$$POSTGRES_PASSWORD
-          backup_file="/.backups/backup_$$(date +%Y-%m-%d_%H-%M-%S).pgdump"
-          echo "Starting backup: $$backup_file"
-          attempts=0
-          max_attempts=5
-          until pg_dump -Fc -h $$POSTGRES_HOST -U $$POSTGRES_USER $$POSTGRES_DB -f $$backup_file || [ $$attempts -ge $$max_attempts ]; do
-              echo "pg_dump failed, retrying..."
-              attempts=$$((attempts+1))
-              sleep 5
-          done
-          if [ $$attempts -ge $$max_attempts ]; then
-              echo "Backup failed after $$attempts attempts" >&2
-              rm -f $$backup_file
-          else
-              echo "Backup successful: $$backup_file"
-              cd /.backups && ls -tp *.pgdump | grep -v "/$$" | tail -n +4 | xargs -I {} rm -- {}
-          fi
-          sleep $$BACKUP_INTERVAL
-      done'
-    volumes:
-      - ./.backups/:/.backups:rw
-    environment:
-      <<: *de
-      POSTGRES_USER: ${POSTGRES_USER:-admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin_pass}
-    healthcheck:
-      test: ["CMD-SHELL", "[ -d /.backups ] || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - {{ project_slug }}_internal
+      - internal
 
   # DjangoLux Composer agent start
   # Least-privilege Docker API gateway. composer-agent talks to this instead of
@@ -347,6 +313,8 @@ services:
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     restart: always
+    labels:
+      org.dlux.restart: "protected"
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -365,7 +333,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - {{ project_slug }}_docker_proxy
+      - docker_proxy
 
   # One outbound-only deployment agent per project. DLUX remains responsible for
   # backup, maintenance, monitoring, and durable application update state; the
@@ -373,6 +341,10 @@ services:
   composer-agent:
     image: debeski/composer:latest
     restart: unless-stopped
+    # Protected: manages its own lifecycle (COMPOSER_WATCH_SELF_SERVICE); Composer
+    # must never externally restart the agent driving the deploy.
+    labels:
+      org.dlux.restart: "protected"
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -389,14 +361,14 @@ services:
       - --interval
       - "2"
       - --check-image
-      - ${WEB_IMAGE:-{{ project_image }}:latest}
+      - ${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}
       - --availability-file
       - /opt/dlux-runtime/state/image-available.json
       - --check-interval
       - "3600"
     environment:
       DOCKER_HOST: "tcp://docker-socket-proxy:2375"
-      WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:latest}"
+      WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}"
       COMPOSER_CONTROL_URL: "${COMPOSER_CONTROL_URL:-}"
       COMPOSER_ENROLLMENT_TOKEN: "${COMPOSER_ENROLLMENT_TOKEN:-}"
       COMPOSER_AGENT_STATE_DIR: "/var/lib/composer-agent"
@@ -406,7 +378,7 @@ services:
       COMPOSER_ACTIVE_VERSION_KEY: "version"
       COMPOSER_STATUS_FILE: "/opt/dlux-runtime/state/deploy-status.json"
       COMPOSER_WATCH_SELF_SERVICE: "composer-agent"
-      COMPOSER_EXCLUDE_SERVICES: "composer-agent,docker-socket-proxy,db,redis,db-backup,pgadmin"
+      COMPOSER_EXCLUDE_SERVICES: "composer-agent,docker-socket-proxy,db,redis"
       COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"
     volumes:
       - "${PWD}:${PWD}:ro"
@@ -416,14 +388,13 @@ services:
       docker-socket-proxy:
         condition: service_started
     networks:
-      - dlux_update_egress
-      - {{ project_slug }}_docker_proxy
+      - egress
+      - docker_proxy
   # DjangoLux Composer agent end
 
 volumes:
   postgres_data:
   redis_data:
-  pgadmin_data:
   static:
   dlux_runtime:
   composer_agent_state:
@@ -431,12 +402,19 @@ volumes:
   caddy_config:
 
 networks:
-  {{ project_slug }}_net:
+  # Published ingress only (caddy). Bridge so the host can reach the app and
+  # Caddy can reach Let's Encrypt (ACME) when automatic HTTPS is turned on.
+  frontend:
     driver: bridge
-  {{ project_slug }}_internal:
+  # Outbound internet for the narrow set of services that need it: smtp-relay
+  # (→ your SMTP provider), dlux-updater (→ PyPI), composer-agent (→ registry).
+  # Separate from `frontend` so the internet-facing proxy shares no network with
+  # them; nothing may sit on both.
+  egress:
+    driver: bridge
+  # Inter-service traffic with NO internet access — db, redis, web, celery, …
+  internal:
     internal: true
-  dlux_update_egress:
-    driver: bridge
   # Isolated path from composer-agent to the docker-socket-proxy only.
-  {{ project_slug }}_docker_proxy:
+  docker_proxy:
     internal: true

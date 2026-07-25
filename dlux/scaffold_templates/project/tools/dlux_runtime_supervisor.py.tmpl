@@ -34,12 +34,15 @@ def baked_version():
         return ""
 
 
-def runtime_environment(root):
-    env = os.environ.copy()
-    if not env.get("DLUX_BAKED_VERSION"):
-        version = baked_version()
-        if version:
-            env["DLUX_BAKED_VERSION"] = version
+def resolve_release(root):
+    """Return the runtime-active volume release directory, or ``None`` to use the
+    baked image package.
+
+    Single source of truth for "which DjangoLux is active": consumed both here
+    (to build the child ``PYTHONPATH``) and by the project ``manage.py`` (to keep
+    every management command — collectstatic above all — on the same release the
+    web process serves templates from). Missing/corrupt state falls back to baked.
+    """
     active_file = root / "state" / "active.json"
     try:
         payload = json.loads(active_file.read_text(encoding="utf-8"))
@@ -48,11 +51,22 @@ def runtime_environment(root):
         release = (root / "releases" / version).resolve()
         release.relative_to((root / "releases").resolve())
         if source == "volume" and release.is_dir():
-            current = env.get("PYTHONPATH", "")
-            env["PYTHONPATH"] = f"{release}{os.pathsep}{current}" if current else str(release)
+            return release
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        # Missing or corrupt runtime state deliberately falls back to the image package.
         pass
+    return None
+
+
+def runtime_environment(root):
+    env = os.environ.copy()
+    if not env.get("DLUX_BAKED_VERSION"):
+        version = baked_version()
+        if version:
+            env["DLUX_BAKED_VERSION"] = version
+    release = resolve_release(root)
+    if release is not None:
+        current = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = f"{release}{os.pathsep}{current}" if current else str(release)
     return env
 
 

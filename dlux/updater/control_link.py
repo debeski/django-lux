@@ -154,6 +154,10 @@ def control_link_state(store):
         "control_url": status.get("control_url") or pending_control_url or "",
         "agent_id": status.get("agent_id") or "",
         "agent_version": status.get("agent_version") or "",
+        # The resident composer-agent binary's own version (composer >= 1.2.5),
+        # distinct from the deployer composer that ./start.sh runs. Falls back to
+        # the legacy agent_version for agents that predate the split.
+        "composer_version": status.get("composer_version") or status.get("agent_version") or "",
         "enrolled_at": status.get("enrolled_at") or "",
         "last_contact_at": status.get("last_contact_at") or "",
         "revoked": bool(status.get("revoked")),

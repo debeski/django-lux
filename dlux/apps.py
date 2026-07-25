@@ -108,7 +108,7 @@ class DluxConfig(AppConfig):
         if configured_path not in configured_middleware and old_path not in configured_middleware:
             warnings.warn(
                 f"\n⚠️  dlux: '{configured_path}' not found in MIDDLEWARE.\n"
-                "   Activity logging will not work. Run 'python manage.py dlux_check' for details.",
+                "   Activity logging will not work. Run 'python manage.py dlux_doctor' for details.",
                 UserWarning
             )
 
@@ -127,6 +127,6 @@ class DluxConfig(AppConfig):
         if not context_ok:
             warnings.warn(
                 f"\n⚠️  dlux: '{context_proc}' not found in TEMPLATES context_processors.\n"
-                "   Sidebar and branding will not work. Run 'python manage.py dlux_check' for details.",
+                "   Sidebar and branding will not work. Run 'python manage.py dlux_doctor' for details.",
                 UserWarning
             )

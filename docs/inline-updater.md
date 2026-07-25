@@ -12,7 +12,7 @@ Generated projects define a persistent `dlux_runtime` volume:
 - `state/maintenance` tells the proxy (Caddy, or the nginx fallback) to serve the generated maintenance/progress page and short-circuit `/` to HTTP 503.
 - `state/updater-heartbeat` is the updater service health signal.
 
-The `dlux-updater` service uses the same `WEB_IMAGE` as `web` and `celery`. It mounts `dlux_runtime`, static files, media-backed system backups, and logs read/write. It joins the internal database/Redis network and the dedicated `dlux_update_egress` bridge, publishes no ports, and never mounts the Docker socket. `web`, `celery`, and the proxy mount the runtime volume read-only. Web and Celery wait for the updater health check so the worker can reconstruct a missing volume from `DluxUpdateState` before application processes start.
+The `dlux-updater` service uses the same `WEB_IMAGE` as `web` and `celery`. It mounts `dlux_runtime`, static files, media-backed system backups, and logs read/write. It joins the `internal` database/Redis network and the shared `egress` bridge (named `dlux_update_egress` in projects scaffolded before v1.5.8), publishes no ports, and never mounts the Docker socket. `web`, `celery`, and the proxy mount the runtime volume read-only. Web and Celery wait for the updater health check so the worker can reconstruct a missing volume from `DluxUpdateState` before application processes start.
 
 The project-owned `tools/dlux_runtime_supervisor.py` uses only the Python
 standard library. Before prepending a selected release directory to the child
@@ -29,6 +29,21 @@ forwards termination signals, and bounds graceful shutdown before restarting on 
 generation change. (The supervisor lives in the generated project's `tools/`, so
 existing deployments adopt this on the next image rebuild / `enable-updater`
 re-copy.)
+
+Because template rendering resolves against the runtime-active release, every
+`collectstatic` must too — otherwise the served static (CSS/JS) is from a
+different DjangoLux version than the templates, producing unstyled pages and
+dead JS controls (a symptom seen as an unstyled Control Panel and a titlebar
+language switcher that will not style, hide, or switch). This is enforced at the
+source: generated `manage.py` calls `_activate_runtime_release()` before Django
+loads, which resolves the same active release the supervisor uses (via the
+shared `resolve_release()` helper) and puts it on the path. So **any** way a
+management command is launched — `dlux-updater`'s supervised startup migrator,
+the `web` service's `post_start` migrator, or an operator running `collectstatic`
+in a shell — imports the same version the web process serves templates from. The
+`web` post_start migrator also runs under
+`dlux_runtime_supervisor --no-watch` for defense in depth. Existing deployments
+adopt this on the next image rebuild.
 
 If an empty/corrupt volume cannot be reconstructed from the database's verified active-release metadata, the updater writes `state/degraded`, preserves that metadata for retry, and fails its bootstrap health check. Web and Celery therefore do not start against a silently downgraded package. A successful reconstruction (or the updater container's baked migrator repairing an already-restored pointer/static tree) clears and archives the degraded marker.
 
@@ -135,7 +150,21 @@ with the current phase, percentage meter, and bounded durable run log. It
 disables dismissal while the run is active and keeps terminal failure details
 visible. Run progress is stored in `DluxUpdateRun`, so closing the browser or
 losing the connection during a restart does not lose the result; reopening the
-page reconnects to an active apply/rollback run. A successful update exposes
+page reconnects to an active apply/rollback run.
+
+The run's own status API is served by `web`, which the proxy short-circuits to
+HTTP 503 the instant the `state/maintenance` flag is written — so the phases
+from `maintenance` through `verifying_health` are unreachable to a browser
+polling `web` directly, and the modal would otherwise freeze on the last
+pre-maintenance phase (the pre-update backup, ~52%) and then jump straight to
+100% once `web` returns. To keep the meter honest, the worker mirrors every
+inline phase and the log tail to `state/deploy-status.json` and
+`state/deploy-log.txt` — the same proxy-served files (`/_update/status.json`,
+`/_update/log.txt`) that survive maintenance. When its direct poll hits the 503,
+the modal reads the mirror (matched by run token) and keeps advancing; `web`
+still owns the terminal handling once it is reachable again. The full-page
+maintenance view polls the same files, so a hard refresh mid-update shows the
+live phase too. A successful update exposes
 **Roll back to previous version**. Successful completion is a transient status;
 an idle card does not repeat the latest historical check as an active/completed
 operation, while actionable failure details remain visible.
@@ -279,7 +308,7 @@ Before an Update button is allowed, the worker verifies:
 - manifest schema/version and `inline_safe=true`;
 - updater-schema and Python-version compatibility;
 - an unchanged DjangoLux dependency contract, with every requirement already installed and satisfied;
-- candidate `check`, `dlux_check`, and migration-plan subprocesses with the staged release first on `PYTHONPATH`.
+- candidate `check` (required), an advisory `dlux_doctor --group settings --group urls` wiring check (non-fatal — at preflight the target's migrations are unapplied and its static uncollected, so the full doctor's deep checks would report expected errors), and a migration-plan subprocess, all with the staged release first on `PYTHONPATH`.
 
 Any failed gate displays **Project image rebuild required** and does not expose the inline Update action. Release CI permits `inline_safe=true` only when Dlux migration changes contain `CreateModel`, `AddIndex`, or nullable/defaulted `AddField` operations.
 

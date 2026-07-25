@@ -213,3 +213,64 @@ class ControlLinkTests(TestCase):
                 })
             row = DluxControlLinkRequest.objects.get()
             self.assertEqual(row.pairing_token, "second.secret")
+
+
+class AgentComposerVersionTests(TestCase):
+    """The resident composer-agent reports its own version. DLUX prefers the new
+    `composer_version` field, falling back to legacy `agent_version` for agents
+    that predate the split (composer < 1.2.5)."""
+
+    def _state_for(self, temp_dir, status):
+        store = RuntimeStore(temp_dir).ensure()
+        agent_dir = store.state_dir / "agent"
+        agent_dir.mkdir(parents=True, exist_ok=True)
+        (agent_dir / "agent-status.json").write_text(json.dumps(status), encoding="utf-8")
+        return control_link.control_link_state(store)
+
+    def test_prefers_composer_version_field(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = self._state_for(temp_dir, {
+                "schema_version": 1, "enrolled": True,
+                "agent_version": "0.9.0", "composer_version": "1.2.5",
+            })
+            self.assertEqual(state["composer_version"], "1.2.5")
+            self.assertEqual(state["agent_version"], "0.9.0")
+
+    def test_falls_back_to_agent_version_for_older_agents(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = self._state_for(temp_dir, {
+                "schema_version": 1, "enrolled": True, "agent_version": "1.2.4",
+            })
+            self.assertEqual(state["composer_version"], "1.2.4")
+
+    def test_empty_when_neither_is_reported(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state = self._state_for(temp_dir, {"schema_version": 1, "enrolled": True})
+            self.assertEqual(state["composer_version"], "")
+
+    def test_diagnostics_card_shows_both_deployer_and_agent_versions(self):
+        from unittest import mock
+
+        admin = User.objects.create_superuser("v-admin", "v@example.com", "pw12345!x")
+        settings = SystemSettings.load()
+        settings.is_configured = True
+        settings.save()
+        client = Client()
+        client.force_login(admin)
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
+            DLUX_UPDATE_RUNTIME_ROOT=temp_dir
+        ), mock.patch.dict(os.environ, {"COMPOSER_VERSION": "1.2.5-deployer"}):
+            store = RuntimeStore(temp_dir).ensure()
+            agent_dir = store.state_dir / "agent"
+            agent_dir.mkdir(parents=True, exist_ok=True)
+            (agent_dir / "agent-status.json").write_text(
+                json.dumps({"schema_version": 1, "enrolled": True, "composer_version": "1.2.5-agent"}),
+                encoding="utf-8",
+            )
+            response = client.get(reverse("options_view"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Composer (deployer)")
+        self.assertContains(response, "1.2.5-deployer")
+        self.assertContains(response, "Composer (agent)")
+        self.assertContains(response, "1.2.5-agent")

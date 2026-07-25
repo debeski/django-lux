@@ -135,7 +135,12 @@ class Command(BaseCommand):
         # Step 3: Run configuration check
         if not options['skip_check']:
             self.stdout.write('\n')
-            call_command('dlux_check')
+            # dlux_doctor sys.exit()s with its status code (for CLI/CI); swallow
+            # that here so a non-zero doctor result does not abort setup.
+            try:
+                call_command('dlux_doctor')
+            except SystemExit:
+                pass
 
         self.stdout.write('\n' + '=' * 40)
         self.stdout.write(self.style.SUCCESS('\n✅ DjangoLux setup complete!\n'))

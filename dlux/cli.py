@@ -17,6 +17,23 @@ def main(argv=None):
     )
     startproject_parser.add_argument("project_name")
     startproject_parser.add_argument("destination", nargs="?")
+    startproject_parser.add_argument(
+        "--image",
+        help=(
+            "Docker image the deployment pulls and the release workflow pushes, "
+            "as name[:tag] (e.g. acme/billing:latest). Defaults to the project name, "
+            "which exists in no registry — set this so update discovery works"
+        ),
+    )
+    startproject_parser.add_argument(
+        "--repo",
+        help="GitHub repository as owner/name, used for the release URL",
+    )
+    startproject_parser.add_argument(
+        "--no-input",
+        action="store_true",
+        help="Never prompt; use --image/--repo values or their defaults",
+    )
 
     startapp_parser = subparsers.add_parser(
         "startapp",
@@ -66,6 +83,9 @@ def main(argv=None):
             project_root = create_project(
                 project_name=args.project_name,
                 destination=args.destination,
+                image=args.image,
+                repo=args.repo,
+                interactive=False if args.no_input else None,
             )
             print(f"Created project scaffold at {project_root}")
         elif args.command == "startapp":

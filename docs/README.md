@@ -23,6 +23,7 @@ Use the sections below based on what you are trying to do.
 - [Data & Privacy](data-privacy.md) for the personal data DjangoLux stores, transparency vs. consent, retention, and the privacy-notice / consent operator controls.
 - [Optional SSO Packages](sso.md) for the separate OIDC provider plugin and client SDK.
 - [Verified Inline Updater](inline-updater.md) for generated-Compose deployment, bootstrap, release verification, maintenance, and rollback behavior.
+- [Deployment Doctor](doctor.md) for diagnosing a deployment, the JSON report contract Composer consumes, and the remediation safety tiers.
 
 ## I am Integrating DjangoLux into a Django Project
 
@@ -34,6 +35,7 @@ Use the sections below based on what you are trying to do.
 - [Features](FEATURES.md) — complete feature inventory covering every capability from scaffolding to security, tables, themes, and UI infrastructure.
 - [Reference](reference.md) for management commands, endpoints, template tags, helper utilities, and codebase entry points.
 - [Verified Inline Updater](inline-updater.md) for updater settings, volume state, safety gates, and operator recovery.
+- [Deployment Doctor](doctor.md) for the check groups, report schema, and exit codes.
 - [Conceptual Codebase Report](conceptual-codebase-report.md) for a concept-first map of the runtime algorithms, state layers, and subsystem relationships.
 - [DSRP-1 Security Standard](security-dsrp-1.md) for the core backend authorization contract and the no-inline runtime asset policy.
 - [Customization Guide](customization-guide.md#universal-fetcher-and-excel-export) for download/export helpers.

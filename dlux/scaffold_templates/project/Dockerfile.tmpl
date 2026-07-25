@@ -43,7 +43,7 @@ LABEL org.dlux.project.release-manifest="${DLUX_PROJECT_RELEASE_MANIFEST}"
 COPY . /app/
 
 # Create directories for volumes
-RUN mkdir -p /app/.backups /app/imports /app/logs /app/media /app/staticfiles
+RUN mkdir -p /app/imports /app/logs /app/media /app/staticfiles
 
 # Make entrypoint script executable
 RUN chmod +x /app/entrypoint.sh

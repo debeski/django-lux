@@ -176,7 +176,7 @@ The helper currently:
 
 The helper intentionally does not set cookie names or a generic `BASE_URL`. Those remain host-project concerns.
 
-If you need a nonstandard stack, you can still wire those settings manually, but the helper is the supported default path and the one `dlux_setup` / `dlux_check` now target.
+If you need a nonstandard stack, you can still wire those settings manually, but the helper is the supported default path and the one `dlux_setup` / `dlux_doctor` now target.
 
 ## Translation Workflow
 

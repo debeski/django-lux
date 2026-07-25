@@ -1049,9 +1049,9 @@ the database. See [Verified Inline Updater](inline-updater.md).
 ## 45. Management Commands
 
 `dlux_setup` appends the recommended settings helper if missing, optionally runs
-makemigrations/migrate for Dlux, and runs `dlux_check`.
+makemigrations/migrate for Dlux, and runs `dlux_doctor`.
 
-`dlux_check` validates installed app presence/order, middleware, context
+`dlux_doctor` validates installed app presence/order, middleware, context
 processor, URLs, Crispy settings, and settings helper wiring. It prints concrete
 snippets for missing pieces.
 

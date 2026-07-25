@@ -158,13 +158,20 @@ What it does:
 
 - runs `makemigrations dlux` unless `--no-migrate` is used
 - runs `migrate dlux` unless `--no-migrate` is used
-- runs `dlux_check` unless `--skip-check` is used
+- runs `dlux_doctor` unless `--skip-check` is used
 
 Useful follow-up command:
 
 ```bash
-python manage.py dlux_check
+python manage.py dlux_doctor
 ```
+
+`dlux_doctor` is the deployment doctor. It reports on settings wiring, URL
+mounting, database reachability, pending migrations, cache and SMTP round-trips,
+collected static files, and production-safety settings, and exits 1 when any
+check fails — so it works in CI. `--apply` runs the safe fixes it found;
+database-mutating fixes additionally require `--allow-stateful`. See
+[reference.md](reference.md) for the full flag list.
 
 Useful scaffold commands:
 
@@ -206,7 +213,7 @@ After setup, the same configuration stays editable from the superuser System Set
 - You can log in through `/accounts/login/`.
 - The first superuser reaches `/sys/setup/` on a fresh install.
 - If your project has a public `/` page, it is redirected into setup/login before configuration and behaves normally again after setup.
-- `python manage.py dlux_check` reports the core configuration as valid.
+- `python manage.py dlux_doctor` reports the core configuration as valid.
 - `/sys/options/` loads after setup.
 
 ## Next Reads

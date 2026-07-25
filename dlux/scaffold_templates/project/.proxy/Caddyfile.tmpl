@@ -2,7 +2,7 @@
 # Caddy reverse proxy for the {{ project_title }} Django/DLux stack.
 #
 # Functionally mirrors ./.proxy/default.conf.template (the nginx fallback): same
-# static/media/pgadmin routing, the same /_update/status.json + /_update/log.txt
+# static/media routing, the same /_update/status.json + /_update/log.txt
 # progress endpoints, the same always-200 /_edge-alive health probe, hybrid
 # /health behavior for planned maintenance, the same maintenance-flag 503
 # short-circuit, and the same maintenance progress page on 502/503/504.
@@ -80,14 +80,6 @@
 			file_server
 		}
 
-		# pgAdmin under /pgadmin4/ (served even during app maintenance, like nginx).
-		# (nginx: location /pgadmin4/ { proxy_pass http://pgadmin:80/; X-Script-Name })
-		handle_path /pgadmin4/* {
-			reverse_proxy pgadmin:80 {
-				header_up X-Script-Name /pgadmin4
-			}
-		}
-
 		# Hybrid health endpoint:
 		# - normal operation: proxy to Django's /health/
 		# - planned maintenance: proxy-local 200 so a front proxy keeps backend UP
@@ -104,7 +96,7 @@
 		}
 
 		# Maintenance flag: dlux writes /opt/dlux-runtime/state/maintenance.
-		# Short-circuit the app route to 503 (static/media/pgadmin + /_update/*
+		# Short-circuit the app route to 503 (static/media + /_update/*
 		# + /_edge-alive + /health above are already served); handle_errors
 		# renders the maintenance progress page.
 		# (nginx: if (-f /opt/dlux-runtime/state/maintenance) { return 503; })

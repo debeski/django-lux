@@ -591,6 +591,37 @@ class UpdateService:
         if message:
             run.append_log(message)
         run.save(update_fields=["status", "progress_log"])
+        self._mirror_inline_progress(run)
+
+    def _mirror_inline_progress(self, run):
+        """Mirror an inline apply/rollback run's phase to the proxy-served
+        deploy-status.json / deploy-log.txt on the shared volume.
+
+        The run's own status API is served by ``web``, which the proxy walls off
+        with a 503 the moment the maintenance flag is written — so every phase
+        from ``maintenance`` through ``verifying_health`` is invisible to the
+        browser polling web. These two files are served straight off the volume
+        by the proxy (which stays up), so the live modal and the full-page
+        maintenance view keep advancing. Best-effort: a mirror failure must never
+        derail the update itself.
+        """
+        Run = _run_model()
+        if run.action not in (Run.ACTION_APPLY, Run.ACTION_ROLLBACK):
+            return
+        try:
+            from .image_update import write_deploy_log, write_deploy_status
+
+            write_deploy_status(
+                self.store,
+                run.status,
+                kind="inline",
+                run_token=run.token,
+                action=run.action,
+                error=str(run.error or "")[:1000],
+            )
+            write_deploy_log(self.store, run.progress_log)
+        except Exception:
+            logger.warning("Failed to mirror inline update progress to the shared volume.", exc_info=True)
 
     def _complete(self, run, *, report=None, status=None):
         status = status or run.STATUS_COMPLETED
@@ -603,6 +634,10 @@ class UpdateService:
             if state.active_run_token == run.token:
                 state.active_run_token = ""
                 state.save(update_fields=["active_run_token", "updated_at"])
+        # Publish the terminal phase to the shared volume too, so a browser still
+        # behind the maintenance wall sees the run finish rather than freezing on
+        # the last phase before web became reachable again.
+        self._mirror_inline_progress(run)
         # The runtime is now durably on the new release — let admins know.
         if run.action == run.ACTION_APPLY and status == run.STATUS_COMPLETED:
             self._notify_admins_app_updated(run)
@@ -740,7 +775,7 @@ class UpdateService:
         self._transition(run, run.STATUS_PREFLIGHT, "Running project checks and migration planning with the candidate release.")
         candidate_env = self.store.python_env_for(candidate_path)
         self._run_manage(["check"], candidate_env, run)
-        self._run_manage(["dlux_check"], candidate_env, run)
+        self._doctor_preflight(candidate_env, run)
         self._run_manage(["migrate", "--plan"], candidate_env, run)
 
         self._transition(run, run.STATUS_BACKING_UP, self._backup_phase_message(run, "pre-update"))
@@ -818,7 +853,7 @@ class UpdateService:
         env = self.store.python_env_for(previous_path) if source == "volume" else self._image_env()
         self._transition(run, run.STATUS_PREFLIGHT, f"Checking rollback target DjangoLux {target}.")
         self._run_manage(["check"], env, run)
-        self._run_manage(["dlux_check"], env, run)
+        self._doctor_preflight(env, run)
         self._transition(run, run.STATUS_BACKING_UP, self._backup_phase_message(run, "pre-rollback"))
         backup = self._create_backup(run)
         if backup is not None:
@@ -1174,7 +1209,7 @@ class UpdateService:
             raise UpdaterError("The generated project's manage.py could not be found.")
         return path
 
-    def _run_manage(self, args, env, run, *, timeout=300):
+    def _run_manage(self, args, env, run, *, timeout=300, required=True):
         command = [sys.executable, str(self._manage_py()), *args]
         completed = self.command_runner(
             command,
@@ -1189,9 +1224,29 @@ class UpdateService:
         if output:
             run.append_log(output)
             run.save(update_fields=["progress_log"])
-        if completed.returncode != 0:
+        if completed.returncode != 0 and required:
             raise UpdaterError(f"Updater command failed: {' '.join(args)}")
         return completed
+
+    def _doctor_preflight(self, env, run):
+        """Advisory dlux wiring check for the target release, scoped to the
+        settings/urls groups only.
+
+        Deliberately NOT the full doctor and NOT fatal: at preflight the target's
+        migrations are unapplied and its static is uncollected (both run later in
+        the flow), so the deep doctor checks would report expected "errors" and
+        abort the update. The candidate is a released version whose settings.py is
+        unchanged, so wiring is confirmation, not a gate — Django's own `check`
+        (run just before, and required) is the hard gate. `--group` keeps the
+        report to the wiring checks; a target too old to know the flag simply logs
+        and is ignored, since this is non-fatal.
+        """
+        self._run_manage(
+            ["dlux_doctor", "--group", "settings", "--group", "urls"],
+            env,
+            run,
+            required=False,
+        )
 
     def _verify_health(self, expected_version, env):
         deadline = time.monotonic() + 120
@@ -1309,3 +1364,5 @@ class UpdateService:
                 self.store.set_degraded(message)
                 self.restart_worker = True
             state.save()
+        # Surface a failure that struck while the maintenance flag was up.
+        self._mirror_inline_progress(run)

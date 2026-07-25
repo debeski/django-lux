@@ -4,7 +4,22 @@ DjangoLux remains the authority for backups, maintenance, monitoring, inline upd
 
 ## Generated topology
 
-New scaffolds include `dlux-updater`, `composer-agent`, and `docker-socket-proxy`. The agent mounts the project at the identical host path read-only, `dlux_runtime` read/write, and `composer_agent_state` read/write. It runs with all capabilities dropped and `no-new-privileges`, joins only the update-egress and isolated Docker-proxy networks, and reaches Docker through the restricted proxy.
+New scaffolds include `dlux-updater`, `composer-agent`, and `docker-socket-proxy`. The agent mounts the project at the identical host path read-only, `dlux_runtime` read/write, and `composer_agent_state` read/write. It runs with all capabilities dropped and `no-new-privileges`, joins only the `egress` and isolated `docker_proxy` networks, and reaches Docker through the restricted proxy.
+
+Generated Compose files declare four networks (Compose prefixes each with the
+project name, so they never collide across projects):
+
+| Network | Type | Members | Purpose |
+| --- | --- | --- | --- |
+| `frontend` | bridge | `caddy` | Published ingress and ACME. Only service with `ports:`. |
+| `egress` | bridge | `smtp-relay`, `dlux-updater`, `composer-agent` | Outbound internet for the services that need it. |
+| `internal` | `internal: true` | `db`, `redis`, `web`, `celery` | Inter-service traffic with no internet route. |
+| `docker_proxy` | `internal: true` | `composer-agent`, `docker-socket-proxy` | Sole path to the Docker API. |
+
+`frontend` and `egress` are deliberately separate bridges: Docker blocks
+forwarding between them, so a compromised public edge has no L2 route to the
+updater or the agent. Attaching one service to both collapses that boundary —
+`ComposeNetworkTopologyTests` enforces it.
 
 The normal enrollment path is **Options → Admin panel → Admin commands → Control
 Panel**. The dedicated page shows bridge availability and live pairing state,
@@ -30,6 +45,7 @@ The shared spool lives under `/opt/dlux-runtime/state/agent/`:
 - `results/<operation-id>.json`: durable phase/final result.
 - `processed/<operation-id>.json`: handled request archive so the bounded consumer queue keeps advancing.
 - `snapshot.json`: current approved versions, image-update state, backup summary/history, database/maintenance health, and resource facts.
+- `agent-status.json`: enrollment state plus the resident agent's own `composer_version` (composer >= 1.2.5; legacy `agent_version` is the fallback). DLUX shows this as **Composer (agent)** on the System Diagnostics card and the Control Panel pairing page, distinct from **Composer (deployer)** — the `COMPOSER_VERSION` of the image `./start.sh` runs. The two images pull independently, so they can differ.
 
 Documents are atomic, schema-versioned, and capped at 64 KiB. They exclude credentials, environment dumps, application secrets, unrestricted logs, backup artifacts, and restore instructions.
 

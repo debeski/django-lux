@@ -1,13 +1,16 @@
 {
   "schema_version": 1,
-  "version": "1.5.7",
+  "version": "1.5.8",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "The Updates card now reports an application version for projects that keep their version in release-manifest.json instead of a VERSION file.",
+  "summary": "Generated projects now ship a working release pipeline and take an explicit Docker image and GitHub repository at scaffold time.",
   "highlights": [
-    "The application version falls back to release-manifest.json when no VERSION file is present.",
-    "Existing DLUX_APP_VERSION and VERSION-file precedence is unchanged."
+    "startproject generates a release manifest, GitHub release workflow, and manifest validator.",
+    "startproject takes --image and --repo, prompting for both on a terminal.",
+    "WEB_IMAGE is written to .secrets/.env as the single source for every compose image reference.",
+    "Generated images now carry the release-manifest label, so update dialogs show the version and highlights.",
+    "Generated settings report the project version from release-manifest.json."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.7"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.8"
 }

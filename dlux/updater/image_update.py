@@ -359,3 +359,21 @@ def write_deploy_status(store, status, **extra):
     tmp = path.with_name(f".{path.name}.tmp")
     tmp.write_text(json.dumps(payload) + "\n", encoding="utf-8")
     os.replace(tmp, path)
+
+
+LOG_FILENAME = "deploy-log.txt"
+
+
+def log_path(store=None):
+    return _state_dir(store) / LOG_FILENAME
+
+
+def write_deploy_log(store, text):
+    """Publish a progress-log tail to the proxy-served deploy-log.txt. Used by the
+    inline updater to keep its log visible while the maintenance flag walls off
+    web; composer writes this file itself during image updates."""
+    path = log_path(store)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(str(text or "") + "\n", encoding="utf-8")
+    os.replace(tmp, path)

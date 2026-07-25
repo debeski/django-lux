@@ -22,7 +22,7 @@ Generated project baseline:
 - `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
-- a generated Docker baseline with `web`, `celery`, `dlux-updater`, outbound-only `composer-agent` (+ least-privilege `docker-socket-proxy`), `db`, `redis`, `caddy` (active proxy; `nginx` fallback), `pgadmin`, database backup, and internal `smtp-relay` services
+- a generated Docker baseline with `web`, `celery`, `dlux-updater`, outbound-only `composer-agent` (+ least-privilege `docker-socket-proxy`), `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal `smtp-relay` services
 - `requirements.txt` pinned to the generated stable `django-lux` release
 - a persistent `dlux_runtime` volume, project-owned process supervisor, and a proxy-served maintenance/progress page
 
@@ -39,7 +39,14 @@ Generated app scaffold baseline:
 | `python manage.py dlux_setup --skip-check` | Skip the validation pass after setup. |
 | `python manage.py dlux_setup --no-migrate` | Skip `makemigrations` and `migrate`. |
 | `python manage.py dlux_setup --skip-configure` | Do not append the `dlux_settings(globals())` helper to the active settings module. |
-| `python manage.py dlux_check` | Validate apps, middleware, context processors, URLs, and Crispy settings. |
+| `python manage.py dlux_doctor` | Run the deployment doctor: settings wiring, URLs, database, migrations, cache, SMTP, static files, and production-safety checks. Exits 1 when any check fails. |
+| `python manage.py dlux_doctor --format json` | Emit the machine-readable report Composer consumes. |
+| `python manage.py dlux_doctor --group security` | Limit to one group (`settings`, `urls`, `database`, `services`, `static`, `security`, `packages`); repeatable. |
+| `python manage.py dlux_doctor --strict` | Exit 1 on warnings as well as errors. |
+| `python manage.py dlux_doctor --apply` | Apply the safe fixes for failing checks (for example `collectstatic`). |
+| `python manage.py dlux_doctor --apply --allow-stateful` | Also run fixes that mutate the database (`migrator`). |
+| `python manage.py dlux_check` | Deprecated alias for `dlux_doctor`; warns on stderr and delegates. |
+| `python manage.py dlux_stack_contract` | Print the stack contract (services/networks/mounts/env) as JSON, version-stamped; Composer's drift-diff execs this. |
 | `python manage.py dlux_settings status` | Inspect the `SystemSettings` singleton without creating it. |
 | `python manage.py dlux_settings configure` | Mark the singleton configured without replacing its values. |
 | `python manage.py dlux_settings unconfigure` | Preserve settings but mark setup incomplete so `/sys/setup/` opens again. |

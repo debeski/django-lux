@@ -55,7 +55,14 @@
         restarting: 72,
         migrating: 86,
         ready: 100,
-        failed: 100
+        failed: 100,
+        backing_up: 52,
+        maintenance: 60,
+        collecting_static: 78,
+        switching: 86,
+        verifying_health: 96,
+        completed: 100,
+        rolled_back: 100
       };
 
       function label(value) {
@@ -93,7 +100,7 @@
         if (status === "failed") {
           barEl.style.background = "#dc2626";
           scheduleRecoveryProbe();
-        } else if (status === "ready") {
+        } else if (status === "ready" || status === "completed" || status === "rolled_back") {
           barEl.style.background = "#22c55e";
           readyCount += 1;
           if (sawProgress && readyCount >= 2) {

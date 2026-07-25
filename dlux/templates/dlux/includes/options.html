@@ -106,8 +106,14 @@
                             </div>
                             {% if composer_version %}
                             <div class="dlux-admin-stat">
-                                <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.composer_version }}</span>
+                                <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.composer_deployer_version }}</span>
                                 <span class="dlux-admin-stat-value font-monospace">{{ composer_version }}</span>
+                            </div>
+                            {% endif %}
+                            {% if composer_agent_version %}
+                            <div class="dlux-admin-stat">
+                                <span class="dlux-admin-stat-label">{{ DLUX_STRINGS.composer_agent_version }}</span>
+                                <span class="dlux-admin-stat-value font-monospace">{{ composer_agent_version }}</span>
                             </div>
                             {% endif %}
                         </div>

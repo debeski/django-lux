@@ -1,5 +1,7 @@
 import json
 import os
+import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -12,7 +14,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from dlux import __version__
 from dlux.cli import main
-from dlux.scaffold import _register_app, create_project, enable_agent
+from dlux.scaffold import (
+    ScaffoldError,
+    _register_app,
+    create_project,
+    enable_agent,
+    split_image_reference,
+)
 
 
 MANAGE_TEMPLATE = """#!/usr/bin/env python
@@ -95,7 +103,12 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("from .celery import app as celery_app", config_init_contents)
             self.assertIn('os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")', celery_contents)
             self.assertIn('app = Celery("demo_project")', celery_contents)
-            self.assertIn("from dlux.utils import get_secret, dlux_settings", settings_contents)
+            settings_import = re.search(
+                r"^from dlux\.utils import (.+)$", settings_contents, re.MULTILINE
+            )
+            self.assertIsNotNone(settings_import)
+            imported = {name.strip() for name in settings_import.group(1).split(",")}
+            self.assertLessEqual({"get_secret", "dlux_settings", "get_project_version"}, imported)
             self.assertIn('SECRET_KEY = get_secret("DJANGO_SECRET_KEY", "DJANGO_SECRET_KEY")', settings_contents)
             self.assertIn("dlux_settings(globals())", settings_contents)
             self.assertIn('"ENGINE": "django.db.backends.postgresql"', settings_contents)
@@ -118,8 +131,7 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("DJANGO_SECRET_KEY=", env_contents)
             self.assertIn("POSTGRES_USER=", env_contents)
             self.assertIn("POSTGRES_PASSWORD=", env_contents)
-            self.assertIn("PGADMIN_DEFAULT_EMAIL=", env_contents)
-            self.assertIn("PGADMIN_DEFAULT_PASSWORD=", env_contents)
+            self.assertNotIn("PGADMIN", env_contents)
             self.assertIn("ADMIN_PASS=", env_contents)
             self.assertIn("BASE_URL=", env_contents)
             self.assertIn("ALLOWED_URLS=", env_contents)
@@ -144,10 +156,9 @@ class ScaffoldTests(unittest.TestCase):
             self.assertEqual(len(env_keys), len(set(env_keys)))
             expected_env_keys = {
                 "DJANGO_SECRET_KEY",
+                "WEB_IMAGE",
                 "POSTGRES_USER",
                 "POSTGRES_PASSWORD",
-                "PGADMIN_DEFAULT_EMAIL",
-                "PGADMIN_DEFAULT_PASSWORD",
                 "ADMIN_PASS",
                 "BASE_URL",
                 "ALLOWED_URLS",
@@ -193,22 +204,36 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn('DLUX_INLINE_UPDATES_ENABLED: "True"', compose_contents)
             self.assertIn("dlux_runtime:/opt/dlux-runtime:rw", compose_contents)
             self.assertIn("dlux_runtime:/opt/dlux-runtime:ro", compose_contents)
-            self.assertIn("dlux_update_egress:", compose_contents)
+            self.assertIn("  egress:", compose_contents)
             self.assertIn("composer-agent:", compose_contents)
             self.assertIn("docker-socket-proxy:", compose_contents)
             self.assertIn("image: tecnativa/docker-socket-proxy:latest", compose_contents)
             self.assertIn("EVENTS: 1", compose_contents)
             self.assertIn("/var/run/docker.sock:/var/run/docker.sock:ro", compose_contents)
-            self.assertIn("_docker_proxy:", compose_contents)
+            self.assertIn("  docker_proxy:", compose_contents)
             self.assertIn("image: debeski/composer:latest", compose_contents)
             self.assertIn('COMPOSER_AGENT_STATE_DIR: "/var/lib/composer-agent"', compose_contents)
-            self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-agent,docker-socket-proxy,db,redis,db-backup,pgadmin"', compose_contents)
+            self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-agent,docker-socket-proxy,db,redis"', compose_contents)
             self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"', compose_contents)
+            # db-backup (superseded by DjangoLux system backups) and pgadmin are
+            # no longer part of the default stack.
+            self.assertNotIn("db-backup:", compose_contents)
+            self.assertNotIn("pgadmin", compose_contents)
+            self.assertNotIn("BACKUP_INTERVAL", compose_contents)
             self.assertIn('- "${PWD}:${PWD}:ro"', compose_contents)
             self.assertIn("composer_agent_state:/var/lib/composer-agent:rw", compose_contents)
             self.assertIn('COMPOSER_VERSION_LABEL: "org.demo_project.dlux_baked_version"', compose_contents)
             self.assertIn('COMPOSER_RELEASE_MANIFEST_LABEL: "org.dlux.project.release-manifest"', compose_contents)
             self.assertIn("post_start:", compose_contents)
+            # The post_start migrator must run under the runtime supervisor so its
+            # collectstatic uses the same runtime-active DjangoLux release gunicorn
+            # serves templates from; run raw it collects from the baked image and,
+            # running last on recreate, leaves version-mismatched static.
+            self.assertIn(
+                "- command: python -m tools.dlux_runtime_supervisor --no-watch -- python manage.py migrator",
+                compose_contents,
+            )
+            self.assertNotIn("- command: python manage.py migrator\n", compose_contents)
             self.assertIn('image: !reset null', compose_dev_contents)
             self.assertIn("celery:", compose_dev_contents)
             self.assertIn('published: "90"', compose_dev_contents)
@@ -372,6 +397,393 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("# DjangoLux generated apps start", settings_contents)
             self.assertEqual(urls_contents.count('namespace="inventory"'), 1)
             self.assertIn("from django.urls import include, path", urls_contents)
+
+
+class ComposeNetworkTopologyTests(unittest.TestCase):
+    """The generated Compose file segregates traffic into four networks. Substring
+    assertions cannot catch a service attached to the wrong one, so parse the
+    service -> networks map and assert it against the stack contract — the same
+    spec Composer's drift-diff checks a deployed compose.yml against."""
+
+    def setUp(self):
+        from dlux import stack_contract
+
+        self.contract = stack_contract.load_contract()
+        self.stack_contract = stack_contract
+        self.EGRESS_SERVICES = set(self.contract["invariants"]["egress_services"])
+        self.INTERNAL_ONLY_SERVICES = set(self.contract["invariants"]["internal_only_services"])
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        target = create_project(
+            "demo_project", Path(self._tmp.name) / "demo_project", image="acme/demo"
+        )
+        self.compose = (target / "compose.yml").read_text(encoding="utf-8")
+        self.attachments = self._parse_service_networks(self.compose)
+
+    def test_scaffold_matches_the_stack_contract(self):
+        """One assertion covering the whole service -> network map, so the
+        scaffold and Composer's drift-diff are checked against the same source."""
+        self.assertEqual(self.stack_contract.diff_attachments(self.contract, self.attachments), [])
+
+    @staticmethod
+    def _parse_service_networks(compose):
+        """{service: {networks}} for the active (uncommented) services."""
+        body = compose.partition("\nservices:\n")[2].partition("\nvolumes:\n")[0]
+        attachments = {}
+        service = None
+        in_networks = False
+        for line in body.splitlines():
+            header = re.match(r"^  ([A-Za-z][\w-]*):\s*$", line)
+            if header:
+                service = header.group(1)
+                attachments[service] = set()
+                in_networks = False
+            elif re.match(r"^    \S", line):
+                in_networks = line.strip() == "networks:"
+            elif in_networks and service:
+                item = re.match(r"^      - (\S+)\s*$", line)
+                if item:
+                    attachments[service].add(item.group(1))
+        return attachments
+
+    @staticmethod
+    def _parse_restart_labels(compose):
+        """{service: 'safe'|'protected'} from each service's org.dlux.restart label."""
+        body = compose.partition("\nservices:\n")[2].partition("\nvolumes:\n")[0]
+        service = None
+        labels = {}
+        for line in body.splitlines():
+            header = re.match(r"^  ([A-Za-z][\w-]*):\s*$", line)
+            if header:
+                service = header.group(1)
+                continue
+            match = re.match(r'^\s+org\.dlux\.restart:\s*"(safe|protected)"\s*$', line)
+            if match and service:
+                labels[service] = match.group(1)
+        return labels
+
+    def test_restart_labels_match_the_contract(self):
+        expected = {name: spec["restart"] for name, spec in self.contract["services"].items()}
+        self.assertEqual(self._parse_restart_labels(self.compose), expected)
+
+    def test_safe_restart_label_matches_the_composer_restart_env(self):
+        """The label is the new source of truth; it must agree with the existing
+        COMPOSER_AGENT_RESTART_SERVICES env so the two never drift while Composer
+        migrates from the hardcoded list to reading labels."""
+        env_line = re.search(r'COMPOSER_AGENT_RESTART_SERVICES:\s*"([^"]*)"', self.compose)
+        self.assertIsNotNone(env_line)
+        env_restart = {s for s in env_line.group(1).split(",") if s}
+        safe = {name for name, cls in self._parse_restart_labels(self.compose).items() if cls == "safe"}
+        self.assertEqual(safe, env_restart)
+
+    def test_declared_networks_are_exactly_the_four_standard_ones(self):
+        declared = set(
+            re.findall(
+                r"^  ([a-z_]+):$", self.compose.partition("\nnetworks:\n")[2], re.MULTILINE
+            )
+        )
+        self.assertEqual(declared, set(self.contract["networks"]))
+        for name, spec in self.contract["networks"].items():
+            if spec.get("internal"):
+                self.assertIn(f"  {name}:\n    internal: true", self.compose)
+
+    def test_every_service_is_attached_to_a_declared_network(self):
+        declared = set(self.contract["networks"])
+        for service, networks in self.attachments.items():
+            self.assertTrue(networks, f"{service} joins no network")
+            self.assertLessEqual(networks, declared, service)
+
+    def test_only_the_proxy_is_on_frontend_and_publishes_ports(self):
+        on_frontend = {s for s, n in self.attachments.items() if "frontend" in n}
+        self.assertEqual(on_frontend, set(self.contract["invariants"]["ingress_services"]))
+        body = self.compose.partition("\nservices:\n")[2].partition("\nvolumes:\n")[0]
+        service = None
+        publishing = set()
+        for line in body.splitlines():
+            header = re.match(r"^  ([A-Za-z][\w-]*):\s*$", line)
+            if header:
+                service = header.group(1)
+            elif line.strip() == "ports:" and service:
+                publishing.add(service)
+        expected_publishers = {
+            name for name, spec in self.contract["services"].items() if spec.get("publishes_ports")
+        }
+        self.assertEqual(publishing, expected_publishers)
+
+    def test_frontend_and_egress_stay_disjoint(self):
+        """The two bridges only buy isolation while no service bridges them."""
+        self.assertTrue(self.contract["invariants"]["frontend_egress_disjoint"])
+        for service, networks in self.attachments.items():
+            self.assertFalse({"frontend", "egress"} <= networks, service)
+
+    def test_egress_is_limited_to_services_that_need_the_internet(self):
+        on_egress = {s for s, n in self.attachments.items() if "egress" in n}
+        self.assertEqual(on_egress, self.EGRESS_SERVICES)
+
+    def test_application_services_have_no_internet_route(self):
+        for service in self.INTERNAL_ONLY_SERVICES:
+            self.assertEqual(self.attachments[service], {"internal"}, service)
+
+    def test_docker_proxy_path_is_isolated(self):
+        self.assertEqual(self.attachments["docker-socket-proxy"], {"docker_proxy"})
+        self.assertEqual(self.attachments["composer-agent"], {"egress", "docker_proxy"})
+        socket = self.contract["invariants"]["docker_socket"]
+        # The socket proxy is the agent's only Docker route; a raw socket mount
+        # on any other service would hand it host root.
+        mounts = re.findall(r"^\s+- /var/run/docker\.sock:.*$", self.compose, re.MULTILINE)
+        self.assertEqual(len(mounts), len(socket["allowed_services"]))
+        self.assertTrue(mounts[0].endswith(f":{socket['access']}"), mounts[0])
+
+    def test_runtime_volume_read_write_split_matches_the_contract(self):
+        """dlux_runtime is read/write only for the updater and agent; every other
+        mount is read-only, so a compromised web/proxy cannot rewrite the active
+        release pointer or staged wheels."""
+        rule = self.contract["invariants"]["runtime_volume"]
+        volume = rule["volume"]
+        body = self.compose.partition("\nservices:\n")[2].partition("\nvolumes:\n")[0]
+        service = None
+        rw, ro = set(), set()
+        for line in body.splitlines():
+            header = re.match(r"^  ([A-Za-z][\w-]*):\s*$", line)
+            if header:
+                service = header.group(1)
+                continue
+            mount = re.match(rf"^\s+- {volume}:/opt/dlux-runtime:(rw|ro)\s*$", line)
+            if mount and service:
+                (rw if mount.group(1) == "rw" else ro).add(service)
+        self.assertEqual(rw, set(rule["read_write_services"]))
+        self.assertEqual(ro, set(rule["read_only_services"]))
+
+    def test_contract_env_keys_and_volumes_match_the_scaffold(self):
+        env = (Path(self._tmp.name) / "demo_project" / ".secrets" / ".env").read_text(encoding="utf-8")
+        env_keys = {line.partition("=")[0] for line in env.splitlines() if "=" in line and not line.startswith("#")}
+        self.assertEqual(set(self.contract["env_keys"]), env_keys)
+        declared_volumes = set(re.findall(
+            r"^  ([a-z_]+):$", self.compose.partition("\nvolumes:\n")[2].partition("\nnetworks:\n")[0], re.MULTILINE
+        ))
+        self.assertEqual(set(self.contract["volumes"]), declared_volumes)
+
+
+class StackContractTests(unittest.TestCase):
+    """The contract is the shared spec; its diff helper is what Composer mirrors,
+    so its behaviour is pinned here."""
+
+    def setUp(self):
+        from dlux import stack_contract
+
+        self.stack_contract = stack_contract
+        self.contract = stack_contract.load_contract()
+
+    def _expected_attachments(self):
+        return {name: set(spec["networks"]) for name, spec in self.contract["services"].items()}
+
+    def test_load_stamps_the_running_version(self):
+        from dlux import __version__
+
+        self.assertEqual(self.contract["dlux_version"], __version__)
+        self.assertEqual(self.contract["schema_version"], 1)
+
+    def test_contract_is_internally_consistent(self):
+        declared = set(self.contract["networks"])
+        for name, spec in self.contract["services"].items():
+            self.assertLessEqual(set(spec["networks"]), declared, name)
+        inv = self.contract["invariants"]
+        # The role lists must agree with the per-service network map.
+        egress = {n for n, s in self.contract["services"].items() if "egress" in s["networks"]}
+        internal_only = {n for n, s in self.contract["services"].items() if s["networks"] == ["internal"]}
+        self.assertEqual(set(inv["egress_services"]), egress)
+        self.assertEqual(set(inv["internal_only_services"]), internal_only)
+        # Every service declares a restart class, and the restart invariant lists
+        # agree with the per-service classes.
+        for name, spec in self.contract["services"].items():
+            self.assertIn(spec.get("restart"), {"safe", "protected"}, name)
+        safe = {n for n, s in self.contract["services"].items() if s["restart"] == "safe"}
+        protected = {n for n, s in self.contract["services"].items() if s["restart"] == "protected"}
+        self.assertEqual(set(inv["restart"]["safe"]), safe)
+        self.assertEqual(set(inv["restart"]["protected"]), protected)
+        self.assertEqual(inv["restart"]["label"], "org.dlux.restart")
+
+    def test_diff_is_empty_when_the_map_matches(self):
+        self.assertEqual(
+            self.stack_contract.diff_attachments(self.contract, self._expected_attachments()), []
+        )
+
+    def test_diff_flags_a_misattached_service(self):
+        bad = self._expected_attachments()
+        bad["web"] = {"egress", "internal"}
+        drift = self.stack_contract.diff_attachments(self.contract, bad)
+        self.assertTrue(any("web" in line for line in drift))
+
+    def test_diff_flags_a_missing_service(self):
+        bad = self._expected_attachments()
+        del bad["composer-agent"]
+        drift = self.stack_contract.diff_attachments(self.contract, bad)
+        self.assertTrue(any("composer-agent" in line and "missing" in line for line in drift))
+
+    def test_diff_flags_an_undeclared_network(self):
+        bad = self._expected_attachments()
+        bad["web"] = {"internal", "rogue_net"}
+        drift = self.stack_contract.diff_attachments(self.contract, bad)
+        self.assertTrue(any("rogue_net" in line for line in drift))
+
+    def test_diff_flags_a_sidecar_bridging_frontend_and_egress(self):
+        """Even a project's own extra service must not collapse ingress/egress
+        isolation by joining both public bridges."""
+        bad = self._expected_attachments()
+        bad["my-sidecar"] = {"frontend", "egress"}
+        drift = self.stack_contract.diff_attachments(self.contract, bad)
+        self.assertTrue(any("my-sidecar" in line and "disjoint" in line for line in drift))
+
+    def test_diff_ignores_extra_services(self):
+        """A project may run its own sidecars; only contract services are checked."""
+        extended = self._expected_attachments()
+        extended["my-worker"] = {"internal"}
+        self.assertEqual(self.stack_contract.diff_attachments(self.contract, extended), [])
+
+    def test_removed_services_are_listed(self):
+        removed = self.contract["removed_services"]
+        self.assertIn("db-backup", removed)
+        self.assertIn("pgadmin", removed)
+        # A removed service must not also be a live service.
+        self.assertFalse(set(removed) & set(self.contract["services"]))
+
+    def test_removed_services_present_flags_leftovers(self):
+        advisories = self.stack_contract.removed_services_present(
+            self.contract, ["web", "db", "pgadmin", "db-backup", "my-worker"]
+        )
+        self.assertEqual(len(advisories), 2)
+        self.assertTrue(any("pgadmin" in a for a in advisories))
+        self.assertTrue(any("db-backup" in a for a in advisories))
+        # A project's own sidecar is not a removed service, so it isn't flagged.
+        self.assertFalse(any("my-worker" in a for a in advisories))
+
+    def test_removed_services_present_is_empty_for_a_current_stack(self):
+        self.assertEqual(
+            self.stack_contract.removed_services_present(self.contract, list(self.contract["services"])),
+            [],
+        )
+
+
+class ProjectReleaseScaffoldTests(unittest.TestCase):
+    """A generated project must be releasable without hand-rolling the pipeline,
+    and must not default to an image reference that exists in no registry
+    without saying so."""
+
+    def _project(self, tmp_dir, **kwargs):
+        return create_project("demo_project", Path(tmp_dir) / "demo_project", **kwargs)
+
+    def test_release_pipeline_is_generated(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = self._project(tmp_dir, image="acme/demo", repo="acme/demo-app")
+            self.assertTrue((target / "release-manifest.json").exists())
+            self.assertTrue((target / ".github" / "workflows" / "release.yml").exists())
+            self.assertTrue((target / "tools" / "validate_project_release_manifest.py").exists())
+
+            workflow = (target / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+            self.assertIn("IMAGE: acme/demo", workflow)
+            self.assertIn("python3 tools/validate_project_release_manifest.py", workflow)
+            self.assertIn("DLUX_BAKED_VERSION=", workflow)
+            self.assertIn("DLUX_PROJECT_RELEASE_MANIFEST=", workflow)
+            # GitHub expression syntax must survive scaffold rendering.
+            self.assertIn("${{ secrets.DOCKERHUB_TOKEN }}", workflow)
+
+    def test_image_option_drives_every_reference(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = self._project(tmp_dir, image="acme/demo:stable", repo="acme/demo-app")
+
+            env = (target / ".secrets" / ".env").read_text(encoding="utf-8")
+            self.assertIn("WEB_IMAGE=acme/demo:stable", env)
+
+            compose = (target / "compose.yml").read_text(encoding="utf-8")
+            self.assertNotIn("demo_project:latest", compose)
+            self.assertEqual(compose.count("acme/demo:stable"), 7)
+
+            workflow = (target / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+            self.assertIn("${{ env.IMAGE }}:stable", workflow)
+
+    def test_repo_option_sets_the_release_url(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = self._project(
+                tmp_dir, image="acme/demo", repo="https://github.com/acme/demo-app.git"
+            )
+            manifest = json.loads((target / "release-manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                manifest["release_url"],
+                "https://github.com/acme/demo-app/releases/tag/v0.1.0",
+            )
+            self.assertEqual(manifest["schema_version"], 1)
+            self.assertEqual(manifest["version"], "0.1.0")
+
+    def test_omitted_repo_leaves_an_obvious_placeholder(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = self._project(tmp_dir, image="acme/demo")
+            manifest = json.loads((target / "release-manifest.json").read_text(encoding="utf-8"))
+            self.assertIn("OWNER/REPO", manifest["release_url"])
+            self.assertNotIn("github.com//", manifest["release_url"])
+
+    def test_settings_reports_the_version_from_the_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = self._project(tmp_dir, image="acme/demo")
+            settings = (target / "config" / "settings.py").read_text(encoding="utf-8")
+            self.assertIn("get_project_version", settings)
+            self.assertIn("DLUX_APP_VERSION = get_project_version(BASE_DIR)", settings)
+
+    def test_generated_validator_accepts_its_own_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = self._project(tmp_dir, image="acme/demo", repo="acme/demo-app")
+            output = target / "gh-output.txt"
+            completed = subprocess.run(
+                [sys.executable, "tools/validate_project_release_manifest.py"],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "GITHUB_REF_NAME": "v0.1.0",
+                    "GITHUB_REPOSITORY": "acme/demo-app",
+                    "GITHUB_OUTPUT": str(output),
+                },
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr or completed.stdout)
+            emitted = output.read_text(encoding="utf-8")
+            self.assertIn("label=base64:", emitted)
+            self.assertIn(f"dlux_version={__version__}", emitted)
+
+    def test_generated_validator_rejects_a_mismatched_tag(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = self._project(tmp_dir, image="acme/demo", repo="acme/demo-app")
+            completed = subprocess.run(
+                [sys.executable, "tools/validate_project_release_manifest.py"],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "GITHUB_REF_NAME": "v9.9.9",
+                    "GITHUB_REPOSITORY": "acme/demo-app",
+                },
+            )
+            self.assertEqual(completed.returncode, 1)
+            self.assertIn("version mismatch", completed.stdout)
+
+    def test_image_reference_parsing(self):
+        self.assertEqual(split_image_reference("app"), ("app", "latest"))
+        self.assertEqual(split_image_reference("acme/app:stable"), ("acme/app", "stable"))
+        # A colon before the final slash is a registry port, not a tag.
+        self.assertEqual(
+            split_image_reference("registry:5000/acme/app"),
+            ("registry:5000/acme/app", "latest"),
+        )
+        self.assertEqual(
+            split_image_reference("registry:5000/acme/app:v2"),
+            ("registry:5000/acme/app", "v2"),
+        )
+        with self.assertRaises(ScaffoldError):
+            split_image_reference("")
+
+    def test_repo_slug_validation(self):
+        with self.assertRaises(ScaffoldError):
+            create_project("demo_project", "/tmp/never-created", repo="not-a-slug")
 
 
 if __name__ == "__main__":

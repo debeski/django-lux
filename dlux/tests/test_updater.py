@@ -51,6 +51,7 @@ from dlux.updater.image_update import (
     image_update_metadata,
     queue_image_update,
     read_composer_ack,
+    read_deploy_status,
     status_path,
 )
 from dlux.updater.health import runtime_probe_token
@@ -623,6 +624,96 @@ class RuntimeStoreTests(TestCase):
         self.assertLess(
             rendered.index("from dlux import __version__"),
             rendered.index('importlib.metadata.version("django-lux")'),
+        )
+
+
+class ManageRuntimeReleaseTests(TestCase):
+    """Every management command — collectstatic above all — must import the same
+    runtime-active DjangoLux release the web process serves templates from, no
+    matter how manage.py is launched. Otherwise collectstatic writes one
+    version's static against another version's templates (unstyled pages, dead
+    JS). manage.py resolves the release itself, before Django loads."""
+
+    def _project(self, temp_dir, *, source, version="9.9.9"):
+        """Render manage.py + supervisor into a temp project with a fake release
+        whose only content is a sentinel package, so an import proves which path
+        was activated without needing Django installed into the release."""
+        from dlux.scaffold import _render_template
+
+        root = Path(temp_dir)
+        (root / "tools").mkdir()
+        (root / "tools" / "dlux_runtime_supervisor.py").write_text(
+            _render_template("project/tools/dlux_runtime_supervisor.py.tmpl", {}), encoding="utf-8"
+        )
+        (root / "manage.py").write_text(
+            _render_template(
+                "project/manage.py.tmpl",
+                {"dlux_version": "0.0.0", "project_name": "demo", "generated_date": "2026-01-01",
+                 "config_package": "config"},
+            ),
+            encoding="utf-8",
+        )
+        runtime = root / "runtime"
+        release = runtime / "releases" / version
+        (release / "sentinel_release_pkg").mkdir(parents=True)
+        (release / "sentinel_release_pkg" / "__init__.py").write_text("MARKER = 'release'\n", encoding="utf-8")
+        (runtime / "state").mkdir(parents=True)
+        (runtime / "state" / "active.json").write_text(
+            json.dumps({"version": version, "source": source, "generation": 0}), encoding="utf-8"
+        )
+        return root, runtime, release
+
+    def _run(self, root, runtime):
+        script = (
+            "import manage; manage._activate_runtime_release()\n"
+            "try:\n"
+            "    import sentinel_release_pkg as p; print('RELEASE:' + p.__file__)\n"
+            "except ImportError:\n"
+            "    print('BAKED')\n"
+        )
+        completed = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            env={**os.environ, "DLUX_UPDATE_RUNTIME_ROOT": str(runtime), "PYTHONPATH": str(root)},
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        return completed.stdout.strip()
+
+    def test_volume_release_is_activated(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root, runtime, release = self._project(temp_dir, source="volume")
+            output = self._run(root, runtime)
+            self.assertTrue(output.startswith("RELEASE:"), output)
+            self.assertIn(str(release), output)
+
+    def test_image_source_uses_the_baked_package(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root, runtime, _ = self._project(temp_dir, source="image")
+            self.assertEqual(self._run(root, runtime), "BAKED")
+
+    def test_missing_runtime_state_falls_back_to_baked(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root, runtime, _ = self._project(temp_dir, source="volume")
+            (runtime / "state" / "active.json").unlink()
+            self.assertEqual(self._run(root, runtime), "BAKED")
+
+    def test_manage_template_activates_before_importing_django(self):
+        from dlux.scaffold import _render_template
+
+        rendered = _render_template(
+            "project/manage.py.tmpl",
+            {"dlux_version": "1.0.0", "project_name": "demo", "generated_date": "2026-01-01",
+             "config_package": "config"},
+        )
+        self.assertIn("_activate_runtime_release()", rendered)
+        self.assertIn("from dlux_runtime_supervisor import baked_version, resolve_release", rendered)
+        # Resolution must precede the Django import, or the baked package is
+        # already bound by the time the release is added to the path.
+        self.assertLess(
+            rendered.index("_activate_runtime_release()"),
+            rendered.index("execute_from_command_line"),
         )
 
 
@@ -1839,3 +1930,153 @@ services:
             (root / "manage.py").write_text('os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")\n', encoding="utf-8")
             with self.assertRaises(ScaffoldError):
                 enable_updater(root)
+
+
+class InlineDoctorPreflightTests(TestCase):
+    """The inline apply/rollback preflight runs a dlux wiring check against the
+    target release. It must be scoped to the wiring groups and never abort the
+    update: at preflight the target's migrations are unapplied and its static is
+    uncollected, so the full doctor would exit non-zero on that expected state."""
+
+    def setUp(self):
+        DluxUpdateState.load()
+
+    def _service_and_run(self, temp_dir, returncode):
+        import types
+
+        calls = []
+
+        def runner(cmd, **kwargs):
+            calls.append(cmd)
+            return types.SimpleNamespace(returncode=returncode, stdout="", stderr="pending migrations")
+
+        store = RuntimeStore(temp_dir).ensure()
+        service = UpdateService(store=store, command_runner=runner)
+        service._manage_py = lambda: Path(temp_dir) / "manage.py"
+        run = DluxUpdateRun.objects.create(
+            action=DluxUpdateRun.ACTION_APPLY,
+            status=DluxUpdateRun.STATUS_PREFLIGHT,
+            requested_by_username="inline-admin",
+            token="preflight-run",
+        )
+        return service, run, calls
+
+    def test_preflight_is_scoped_to_wiring_groups_and_uses_dlux_doctor(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service, run, calls = self._service_and_run(temp_dir, returncode=0)
+            service._doctor_preflight({"PYTHONPATH": "x"}, run)
+            cmd = calls[-1]
+            self.assertIn("dlux_doctor", cmd)
+            self.assertEqual(cmd.count("--group"), 2)
+            self.assertIn("settings", cmd)
+            self.assertIn("urls", cmd)
+            self.assertNotIn("dlux_check", cmd)
+
+    def test_preflight_does_not_abort_when_the_doctor_exits_non_zero(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service, run, _ = self._service_and_run(temp_dir, returncode=1)
+            # Must not raise: expected pending-migration/uncollected-static state
+            # at preflight would otherwise abort every inline update.
+            service._doctor_preflight({"PYTHONPATH": "x"}, run)
+
+    def test_required_command_still_aborts_on_failure(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            service, run, _ = self._service_and_run(temp_dir, returncode=1)
+            with self.assertRaises(UpdaterError):
+                service._run_manage(["check"], {"PYTHONPATH": "x"}, run)
+
+
+class InlineProgressMirrorTests(TestCase):
+    """During inline maintenance the proxy 503s web, so the run's own status API
+    is unreachable and the modal froze. The worker must mirror each phase to the
+    proxy-served deploy-status.json / deploy-log.txt, which survive maintenance."""
+
+    def setUp(self):
+        DluxUpdateState.load()
+
+    def _run(self, action=None):
+        action = action or DluxUpdateRun.ACTION_APPLY
+        return DluxUpdateRun.objects.create(
+            action=action,
+            status=DluxUpdateRun.STATUS_QUEUED,
+            requested_by_username="inline-admin",
+            token=f"run-{action}",
+        )
+
+    def test_transition_mirrors_phase_to_the_shared_volume(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            service = UpdateService(store=store)
+            run = self._run()
+            service._transition(run, DluxUpdateRun.STATUS_MAINTENANCE, "Entering maintenance mode.")
+
+            doc = read_deploy_status(store)
+            self.assertEqual(doc["kind"], "inline")
+            self.assertEqual(doc["status"], "maintenance")
+            self.assertEqual(doc["run_token"], run.token)
+            self.assertEqual(doc["action"], DluxUpdateRun.ACTION_APPLY)
+            log = (store.state_dir / "deploy-log.txt").read_text(encoding="utf-8")
+            self.assertIn("Entering maintenance mode.", log)
+
+    def test_each_maintenance_phase_is_published(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            service = UpdateService(store=store)
+            run = self._run()
+            for status in (
+                DluxUpdateRun.STATUS_MAINTENANCE,
+                DluxUpdateRun.STATUS_MIGRATING,
+                DluxUpdateRun.STATUS_COLLECTING_STATIC,
+                DluxUpdateRun.STATUS_SWITCHING,
+                DluxUpdateRun.STATUS_VERIFYING_HEALTH,
+            ):
+                service._transition(run, status, f"phase {status}")
+                self.assertEqual(read_deploy_status(store)["status"], status)
+
+    def test_complete_publishes_the_terminal_phase(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            service = UpdateService(store=store)
+            run = self._run()
+            run.append_log("DjangoLux 9.9.9 is active and healthy.")
+            service._complete(run, report={"active_version": "9.9.9"})
+
+            doc = read_deploy_status(store)
+            self.assertEqual(doc["status"], DluxUpdateRun.STATUS_COMPLETED)
+            self.assertEqual(doc["kind"], "inline")
+            log = (store.state_dir / "deploy-log.txt").read_text(encoding="utf-8")
+            self.assertIn("active and healthy", log)
+
+    def test_failure_during_maintenance_is_published(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            service = UpdateService(store=store)
+            run = self._run()
+            run.status = DluxUpdateRun.STATUS_MIGRATING
+            run.save(update_fields=["status"])
+            service._handle_failure(run, RuntimeError("migration blew up"))
+
+            doc = read_deploy_status(store)
+            self.assertEqual(doc["status"], DluxUpdateRun.STATUS_FAILED)
+            self.assertEqual(doc["kind"], "inline")
+            self.assertTrue(doc["error"])
+
+    def test_check_runs_do_not_mirror(self):
+        """A background check must never touch the shared progress file — it is
+        not a user-visible maintenance operation and would confuse the modal."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            service = UpdateService(store=store)
+            run = self._run(action=DluxUpdateRun.ACTION_CHECK)
+            service._transition(run, DluxUpdateRun.STATUS_VERIFYING, "verifying")
+            self.assertFalse(status_path(store).exists())
+
+    def test_mirror_failure_never_derails_the_transition(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            service = UpdateService(store=store)
+            run = self._run()
+            with mock.patch("dlux.updater.image_update.write_deploy_status", side_effect=OSError("disk full")):
+                service._transition(run, DluxUpdateRun.STATUS_SWITCHING, "switching")
+            run.refresh_from_db()
+            self.assertEqual(run.status, DluxUpdateRun.STATUS_SWITCHING)

@@ -347,6 +347,9 @@
                 const response = await fetch(deployStatusUrl, { headers: { Accept: 'application/json' }, cache: 'no-store' });
                 if (response.ok) doc = await response.json();
             } catch (_error) { /* web/proxy briefly unreachable — keep polling */ }
+            // An inline update writes the same file with a different vocabulary;
+            // never let a lingering inline doc drive the image progress bar.
+            if (doc && doc.kind === 'inline') doc = null;
             try {
                 const logResponse = await fetch(deployLogUrl, { cache: 'no-store' });
                 if (logResponse.ok) logText = (await logResponse.text()).trim();
@@ -551,6 +554,39 @@
             pollTimer = window.setTimeout(pollRun, 1500);
         }
 
+        // Inline apply/rollback runs report through a web endpoint (runUrl), but
+        // the proxy walls web off with a 503 the moment the maintenance flag is
+        // written — so every phase from `maintenance` to `verifying_health` is
+        // invisible to this poll and the modal would freeze on the last
+        // pre-maintenance phase until web returns. The worker also mirrors those
+        // phases to the proxy-served deploy-status.json / log (which survive
+        // maintenance); read them so the modal keeps advancing. web still owns
+        // the terminal handling — this only keeps the UI honest in between.
+        async function pollInlineMirror() {
+            if (!trackedRunToken) return;
+            let doc = null;
+            try {
+                const response = await fetch(deployStatusUrl, { cache: 'no-store', credentials: 'same-origin' });
+                if (response.ok) doc = await response.json();
+            } catch (_error) {
+                return;
+            }
+            if (!doc || doc.kind !== 'inline' || doc.run_token !== trackedRunToken) return;
+            let logText = '';
+            try {
+                const logResponse = await fetch(deployLogUrl, { cache: 'no-store', credentials: 'same-origin' });
+                if (logResponse.ok) logText = await logResponse.text();
+            } catch (_error) { /* log tail is best-effort */ }
+            render(state, {
+                token: doc.run_token,
+                action: doc.action,
+                status: doc.status,
+                progress_log: logText,
+                error: doc.error || '',
+                active: !TERMINAL.has(doc.status),
+            });
+        }
+
         async function pollRun() {
             if (!runUrl) return;
             try {
@@ -581,6 +617,9 @@
                     }
                 }
             } catch (_error) {
+                // web unreachable — most likely the maintenance 503. Advance the
+                // modal from the proxy-served mirror, then keep polling web.
+                await pollInlineMirror();
                 schedulePoll();
             }
         }
