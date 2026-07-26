@@ -32,9 +32,21 @@ pip install git+https://github.com/debeski/django-lux.git
 If you are starting a brand-new project, use the DjangoLux scaffold instead of raw Django defaults:
 
 ```bash
-python -m dlux startproject myproject
+python -m dlux startproject myproject --image acme/myproject --repo acme/myproject
 cd myproject
 ```
+
+`startproject` prompts on a terminal for the two release settings (press Enter to
+accept the default):
+
+- `--image name[:tag]` — the Docker image the deployment pulls and the generated
+  release workflow pushes; written to `.secrets/.env` as `WEB_IMAGE`. Defaults to
+  the bare project name, which exists in no registry, so image-update discovery
+  never fires unless you set it.
+- `--repo owner/name` — the GitHub repository (or a full GitHub URL) for the
+  release URL in `release-manifest.json`. Optional; blank leaves an `OWNER/REPO`
+  placeholder.
+- `--no-input` — never prompt (CI); use the flag values or their defaults.
 
 For new apps inside a DjangoLux project:
 
@@ -48,8 +60,10 @@ The generated project already includes a Docker baseline, a `config/celery.py`
 entrypoint, `celery`, `dlux-updater`, and outbound-only `composer-agent` services,
 persistent `dlux_runtime` and private agent-state volumes, a Caddy proxy (nginx fallback) with a
 maintenance/progress page, a `/health/` endpoint, a generated
-`.secrets/.env` file with the bootstrap secret values, and baseline
-`django-cors-headers` / `django-csp` setup in `config/settings.py`.
+`.secrets/.env` file with the bootstrap secret values, baseline
+`django-cors-headers` / `django-csp` setup in `config/settings.py`, and a
+tag-driven release pipeline (`release-manifest.json`,
+`.github/workflows/release.yml`, and `tools/validate_project_release_manifest.py`).
 
 The scaffold pins `django-lux[updater]` and enables verified inline updates.
 Hand-wired and non-Compose projects remain updater-disabled by default. Existing
@@ -60,6 +74,31 @@ Deployments with the former resident updater migrate with a dry run of
 reviewing the diff. Pull Composer 1.2.0 first with `./start.sh --update`.
 See [Composer Agent Integration](composer-agent.md) for enrollment, volumes,
 security boundaries, and the typed DLUX bridge.
+
+### Behind a Front Proxy / TLS Terminator
+
+The scaffold's Caddy (and the nginx fallback) listens on plain HTTP and expects
+a front proxy or TLS terminator (pfSense/HAProxy, another nginx, a cloud load
+balancer) in production. Caddy trusts private-range upstreams
+(`servers { trusted_proxies static private_ranges }`), and the nginx fallback
+appends to `X-Forwarded-For` and passes an incoming `X-Forwarded-Proto`
+through — so forwarded headers from the front hop reach Django instead of
+being replaced. The front proxy must do its half:
+
+- **Overwrite `X-Forwarded-Proto`** on the TLS frontend (HAProxy:
+  `http-request set-header X-Forwarded-Proto https`; in pfSense's HAProxy
+  package: frontend action *http-request header set*, name
+  `X-Forwarded-Proto`, fmt `https`, no condition). Use *set*, not *add*, so
+  clients cannot spoof it.
+- **Append the real client IP to `X-Forwarded-For`** (HAProxy:
+  `option forwardfor`; in pfSense: the frontend's "Use 'forwardfor' option"
+  checkbox).
+
+With both in place, the chain arriving at Django is `client_ip, front_proxy_ip`
+and dlux's default `client_ip_config` (`x_forwarded_for` mode,
+`trusted_proxy_hops = 1`) resolves the real client IP — required for correct
+per-IP login lockout, registration/2FA throttling, and audit-log attribution.
+Without them, every visitor appears as the front proxy's address.
 
 ## Minimum Django Configuration
 
@@ -176,7 +215,7 @@ database-mutating fixes additionally require `--allow-stateful`. See
 Useful scaffold commands:
 
 ```bash
-python -m dlux startproject myproject
+python -m dlux startproject myproject --image acme/myproject --repo acme/myproject
 python -m dlux startapp billing --register
 ```
 

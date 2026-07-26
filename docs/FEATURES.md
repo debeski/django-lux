@@ -103,7 +103,7 @@
 ### CLI Commands
 | Command | Description |
 |---------|-------------|
-| `python -m dlux startproject <name>` | Create new DjangoLux-ready Django project |
+| `python -m dlux startproject <name> [--image name:tag] [--repo owner/name] [--no-input]` | Create new DjangoLux-ready Django project; prompts for image/repo on a TTY |
 | `python -m dlux startapp <name>` | Create DjangoLux-native app skeleton |
 | `python -m dlux startapp <name> --register` | Create app + auto-register in settings/URLs |
 | `python -m dlux enable-updater [--apply]` | Dry-run/apply the guarded one-time inline-updater bootstrap for an existing generated Compose project |

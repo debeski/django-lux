@@ -1003,7 +1003,7 @@ The `dlux` CLI creates two kinds of artifacts.
 - entry/start scripts
 - SMTP relay helper
 - `dlux-updater` service and `dlux_runtime` volume
-- project-owned runtime supervisor and nginx maintenance page
+- project-owned runtime supervisor and Caddy/nginx maintenance page
 - docs and tests
 - requirements pinned to the current `django-lux[updater]` version
 

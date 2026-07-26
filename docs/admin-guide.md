@@ -221,7 +221,7 @@ Inline update note:
 
 - `v1.2.7` is the current repaired updater baseline and requires one normal project-image rebuild; it also clears stale degraded/maintenance markers left by the v1.2.4-v1.2.6 Celery-startup race
 - after that rebuild, only releases that pass the official PyPI hash, attestation, dependency, Python, manifest, migration, and candidate-preflight gates show **Review and update**
-- the confirm-update modal offers a pre-update backup choice — **Quick (data-only, default)**, **Full (database + media)**, or **Skip** — persisted on `DluxUpdateRun.backup_mode`; when a backup is requested it is created and verified before briefly enabling the nginx maintenance page (progress persists across browser disconnects) and a backup failure stops the update, while Quick excludes uploaded media (an inline update never alters media on disk) and Skip proceeds with no backup
+- the confirm-update modal offers a pre-update backup choice — **Quick (data-only, default)**, **Full (database + media)**, or **Skip** — persisted on `DluxUpdateRun.backup_mode`; when a backup is requested it is created and verified before briefly enabling the maintenance page (progress persists across browser disconnects) and a backup failure stops the update, while Quick excludes uploaded media (an inline update never alters media on disk) and Skip proceeds with no backup
 - **Roll back to previous version** switches code and static assets without reversing migrations or automatically restoring the database
 - candidate and rollback web/Celery health/version probes retry for a bounded 120 seconds, allowing normal process-supervisor startup latency
 - see [Verified Inline Updater](inline-updater.md) for deployment/bootstrap and recovery details

@@ -100,15 +100,21 @@ pip install git+https://github.com/debeski/django-lux.git
 ## Scaffold a New Project or App
 
 ```bash
-python -m dlux startproject myproject
+python -m dlux startproject myproject --image acme/myproject --repo acme/myproject
 cd myproject
 python -m dlux startapp billing --register
 ```
 
 `python -m dlux startproject` creates a new Django project already wired for DjangoLux. `python -m dlux startapp` creates a DjangoLux-native app skeleton with models, forms, filters, tables, translations, templates, tests, and optional project registration.
 
-Generated projects also include a baseline Docker stack with `compose.yml`, `compose.dev.yml`, a `config/celery.py` worker entrypoint, a `/health/` endpoint via `django-health-check`, and the verified `dlux-updater` service with its persistent runtime volume and nginx maintenance fallback.
-They also generate `.secrets/.env` with the bootstrap secrets used by the standard decrypter/startup flow.
+`startproject` takes two release settings, and on a terminal it **prompts** for them (press Enter to accept the default):
+
+- `--image name[:tag]` — the Docker image the deployment pulls and the generated release workflow pushes (e.g. `acme/myproject:latest`). It is written to `.secrets/.env` as `WEB_IMAGE`, the single value every `compose.yml` reference defers to. It defaults to the bare project name, which exists in no registry — set it, or the updater's image-digest check silently never reports an update.
+- `--repo owner/name` — the GitHub repository (a full `https://github.com/owner/name` URL is also accepted), used for the release URL in `release-manifest.json`. Optional; left blank it writes an obvious `OWNER/REPO` placeholder.
+- `--no-input` — never prompt; use the flag values or their defaults (for CI/non-interactive use).
+
+Generated projects include a baseline Docker stack — `compose.yml`, `compose.dev.yml`, a `config/celery.py` worker entrypoint, a `/health/` endpoint via `django-health-check`, the verified `dlux-updater` and outbound-only `composer-agent` services with a persistent runtime volume, and a Caddy reverse proxy (nginx fallback) with a maintenance/progress page — plus a tag-driven release pipeline: `release-manifest.json`, a `.github/workflows/release.yml` that builds and pushes `--image` and bakes the version labels, and `tools/validate_project_release_manifest.py`.
+They also generate `.secrets/.env` with the bootstrap secrets used by the standard startup flow.
 The scaffolded settings baseline now also includes `django-cors-headers` and `django-csp` with their apps, middleware, and starter CORS/CSP policy settings.
 
 Inline updates are enabled only by the recognized generated Compose baseline.

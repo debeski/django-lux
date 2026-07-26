@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "version": "1.5.8",
+  "version": "1.5.9",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Generated projects now ship a working release pipeline and take an explicit Docker image and GitHub repository at scaffold time.",
+  "summary": "Adds the deployment doctor (dlux_doctor) and a machine-readable stack contract for Composer's check, drops the redundant db-backup and pgadmin services, and fixes several inline-update issues (version-mismatched static, preflight aborts, and frozen progress).",
   "highlights": [
-    "startproject generates a release manifest, GitHub release workflow, and manifest validator.",
-    "startproject takes --image and --repo, prompting for both on a terminal.",
-    "WEB_IMAGE is written to .secrets/.env as the single source for every compose image reference.",
-    "Generated images now carry the release-manifest label, so update dialogs show the version and highlights.",
-    "Generated settings report the project version from release-manifest.json."
+    "New dlux_doctor deployment doctor (settings, DB, migrations, services, static, security) with a --format json report that Composer's check --deep consumes; dlux_check is a deprecated alias.",
+    "New dlux_stack_contract command and stack_contract.json spec so Composer's check can flag network-topology drift and removed services.",
+    "Dropped the db-backup service (superseded by DjangoLux system backups) and pgadmin from the default stack.",
+    "Every compose service now carries an org.dlux.restart safe/protected label for restart classification.",
+    "Fixed stale/version-mismatched static after an inline update, an inline-update preflight abort, and the progress modal freezing during maintenance."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.8"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.9"
 }

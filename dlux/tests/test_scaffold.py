@@ -247,11 +247,18 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("location = /_edge-alive", nginx_contents)
             self.assertIn("dlux-maintenance.html", nginx_contents)
             self.assertIn("/opt/dlux-runtime/state/maintenance", nginx_contents)
+            # Front-proxy header handling: nginx passes an incoming
+            # X-Forwarded-Proto through and appends to X-Forwarded-For.
+            self.assertIn("map $http_x_forwarded_proto $forwarded_proto", nginx_contents)
+            self.assertIn("proxy_set_header X-Forwarded-Proto $forwarded_proto;", nginx_contents)
+            self.assertIn("proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;", nginx_contents)
             # Caddy mirror of the same routing.
             self.assertIn("reverse_proxy web:8000", caddy_contents)
             self.assertIn("handle /_update/status.json", caddy_contents)
             self.assertIn("/_edge-alive", caddy_contents)
             self.assertIn("handle_errors", caddy_contents)
+            # Caddy equivalent of the front-proxy header handling.
+            self.assertIn("trusted_proxies static private_ranges", caddy_contents)
             self.assertIn("scheduleRecoveryProbe", maintenance_contents)
             self.assertIn('fetch("/", { cache: "no-store" })', maintenance_contents)
             self.assertIn('window.location.replace("/")', maintenance_contents)

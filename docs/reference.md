@@ -6,7 +6,9 @@ This page is the fast lookup sheet for common DjangoLux commands, routes, templa
 
 | Command | Purpose |
 | --- | --- |
-| `python -m dlux startproject myproject` | Create a new DjangoLux-ready Django project. |
+| `python -m dlux startproject myproject` | Create a new DjangoLux-ready Django project (prompts for image/repo on a TTY). |
+| `python -m dlux startproject myproject --image acme/app:tag --repo acme/app` | Set the Docker image (written to `.secrets/.env` as `WEB_IMAGE`) and the GitHub repo for the release URL non-interactively. |
+| `python -m dlux startproject myproject --no-input` | Scaffold without prompting; use `--image`/`--repo` values or their defaults (CI). |
 | `python -m dlux startapp billing` | Create a new DjangoLux-native app in the current project. |
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
 | `python -m dlux enable-updater` | Dry-run the guarded inline-updater bootstrap for an existing generated Compose project. |
@@ -772,6 +774,13 @@ Common runtime feature flags in `get_system_config()`:
 - `client_ip_config` — Centralized Client IP resolution configuration. Supports
   `mode` (`auto`, `x_forwarded_for`, `remote_addr`, `x_real_ip`, `cloudflare`,
   or `custom`), `trusted_proxy_hops` (0–8), and `custom_header` for custom mode.
+  Resolution is only as good as the proxy chain feeding it: each proxy hop must
+  append the client to `X-Forwarded-For` (the scaffold's Caddy trusts
+  private-range upstreams; a front terminator needs e.g. HAProxy
+  `option forwardfor`), and `trusted_proxy_hops` must equal the number of
+  trusted hops that append — the scaffold default of `1` matches one front
+  proxy ahead of the bundled Caddy/nginx. See
+  [Getting Started → Behind a Front Proxy](getting-started.md#behind-a-front-proxy--tls-terminator).
 - `public_root_theme` — Fixed theme applied to anonymous visitors on the public
   root (`public_root_config.public_root_theme`, blank = inherit the normal theme).
   Its stylesheet is emitted even if it is not in the normally-allowed theme set.

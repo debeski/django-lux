@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Current source version: unreleased v1.5.6 in `dlux/release-manifest.json`; v1.5.5 is tagged and published.
+- Current source version: unreleased v1.5.9 in `dlux/release-manifest.json`. v1.5.8 is tagged/published but its PyPI wheel predates this session's work (doctor, stack contract, service removals) — that all folded into v1.5.9, which must be tagged+released so deployments can inline-update to it. NEVER append to an already-published version; check `git tag` first.
 - DjangoLux includes the typed Composer agent bridge, migration `0011`, and state-row-serialized inline/image admission.
 - Generated projects emit one hardened `composer-agent`; Composer owns legacy migration and `dlux enable-agent` is a one-cycle forwarder.
 - First-launch `BASE_DIR/config.json` bootstrap runs during `migrator` after migrations; the setup GET retains the same row-locked fallback.
@@ -43,6 +43,7 @@
   - [ ] Browser-validate v1.4.10 table column resizing with sticky headers on/off and RTL/LTR.
   - [ ] Browser-validate the v1.5.6 Control Panel Admin-command rail and pairing page at desktop/mobile widths; in-app browser was unavailable during implementation.
 - **Completed Recently:**
+  - [x] v1.5.9 scaffold proxies forward real client identity: Caddyfile `trusted_proxies static private_ranges`; nginx XFP passthrough `map` (`$forwarded_proto`); scaffold tests assert both; documented in getting-started ("Behind a Front Proxy", incl. pfSense/HAProxy mapping) + `client_ip_config` reference.
   - [x] v1.5.8 doctor/contract audit: live-verified contract == current scaffold (services/networks/restart labels/volumes/env all match; doctor has no stale service refs). Added frontend↔egress bridging detection to `diff_attachments()` (catches sidecars collapsing ingress/egress isolation). +1 test.
   - [x] v1.5.8 dropped `db-backup` (redundant with DLUX scheduled/pre-update/on-demand backups) + `pgadmin` from the scaffold: removed services, `BACKUP_INTERVAL`, `pgadmin_data`, PGADMIN env (22→20 keys), `/pgadmin4/` proxy routes (Caddy+nginx), `.backups` mkdir/ignores, trimmed `COMPOSER_EXCLUDE_SERVICES`. Contract gains `removed_services` + `removed_services_present()` so composer check flags leftovers on existing deployments. +3 tests.
   - [x] v1.5.8 per-service `org.dlux.restart` labels (safe/protected) on all 11 services so Composer classifies restarts from labels not a hardcoded list; safe set == `COMPOSER_AGENT_RESTART_SERVICES` (test-guarded); recorded in `stack_contract.json` + `restart` invariant. Replaces the abandoned smtp-relay/dlux-updater merge — services stay separate, now self-describing. +2 tests.
@@ -66,9 +67,8 @@
   - [x] v1.4.15 updater running state hides review-only Skip/Re-check controls.
   - [x] v1.4.14 reliable background update check: Celery-beat `dlux-update-check` (hourly) enqueues via `queue_daily_check_if_due`; worker loop retained as fallback; 7 scheduling tests; docs/changelog/manifest; no migration.
   - [x] v1.4.14 updater review modal locked (Esc/backdrop/dismiss vetoed via `hide.bs.modal`) while inline apply/rollback runs; releases on terminal status; no migration.
-  - [x] v1.4.14 Branding-modal name inputs synchronize directly into `system_names` without requiring the Languages editor; no migration.
-
 ### One-line info about last verified Tests:
+- 2026-07-26: `dlux.tests.test_scaffold` GREEN via Django runner after proxy-template changes (trusted_proxies + XFP map assertions included).
 - 2026-07-25: v1.5.8 full suite GREEN: 981 tests (2 PostgreSQL-only skips); live contract-vs-scaffold audit CLEAN across all 6 dimensions; frontend/egress bridging diff test GREEN.
 - 2026-07-24: v1.5.8 full suite GREEN: 945 tests; 29 doctor tests + 7 `ComposeNetworkTopologyTests` GREEN.
 - 2026-07-24: `docker compose config` on a rendered scaffold GREEN (docker 29.6.1); attachments match the four-network map.
@@ -76,8 +76,8 @@
 - 2026-07-23: isolated Docker v1.4.15→v1.5.0 apply/rollback GREEN: backups, migration 0011, static, versions/health, old-ORM insert default.
 
 ### One-line info about last time edited Docs:
-- 2026-07-25: `docs/composer-agent.md` documents `agent-status.json` composer_version + deployer-vs-agent split; doctor docs renamed to `dlux_doctor`; `docs/reference.md` notes the `dlux_check` alias.
-- 2026-07-25: `docs/inline-updater.md` covers the maintenance-503 progress mirror, the scoped/non-fatal doctor preflight, and the manage.py runtime-release resolution.
+- 2026-07-26: getting-started gains "Behind a Front Proxy / TLS Terminator" (XFP set-header + forwardfor, pfSense field mapping); `client_ip_config` reference notes proxy-chain requirements.
+- 2026-07-25: documented scaffold `--image`/`--repo`/`--no-input` + prompting + release pipeline across README/getting-started/reference/FEATURES/generated-README; fixed stale "nginx maintenance" wording (Caddy is active) and dropped pgAdmin from generated README.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:

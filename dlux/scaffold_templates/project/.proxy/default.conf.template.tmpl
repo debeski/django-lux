@@ -8,6 +8,19 @@ gzip_proxied any;
 gzip_comp_level 7;
 gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 
+# Preserve the scheme reported by a front proxy / TLS terminator (pfSense/
+# HAProxy, another nginx, a cloud LB, ...): pass an incoming X-Forwarded-Proto
+# through, fall back to this server's own scheme for direct clients. Without
+# this, `$scheme` on the plain-HTTP listener stomps the terminator's `https`
+# and Django never detects secure requests. X-Forwarded-For needs no such
+# handling: `$proxy_add_x_forwarded_for` below already appends the peer to the
+# incoming chain, which dlux's default `trusted_proxy_hops = 1` resolves to the
+# real client IP — the front proxy must append it (HAProxy `option forwardfor`).
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}
+
 server {
     listen 80;
     server_name ${NGINX_SERVER_NAME};
@@ -75,7 +88,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
