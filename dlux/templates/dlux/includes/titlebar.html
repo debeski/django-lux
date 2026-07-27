@@ -55,7 +55,9 @@
                            placeholder="{{ DLUX_STRINGS.global_search_placeholder|default:'Search…' }}"
                            aria-label="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}"
                            role="combobox" aria-expanded="false" aria-autocomplete="list"
-                           aria-controls="dlux-global-search-results" autocomplete="off" dir="auto">
+                           aria-controls="dlux-global-search-results" dir="auto"
+                           autocomplete="off" name="dlux-global-search"
+                           data-1p-ignore data-lpignore="true" data-form-type="other">
                     <span class="dlux-global-search__hint" aria-hidden="true">Ctrl K</span>
                 </div>
                 <div class="dlux-global-search__results" id="dlux-global-search-results"

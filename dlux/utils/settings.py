@@ -184,7 +184,7 @@ def dlux_settings(scope):
     scope.setdefault("CRISPY_ALLOWED_TEMPLATE_PACKS", "bootstrap5")
     scope.setdefault("CRISPY_TEMPLATE_PACK", "bootstrap5")
     scope.setdefault("LANGUAGE_CODE", "ar")
-    scope.setdefault("TIME_ZONE", "Etc/GMT-2")
+    scope.setdefault("TIME_ZONE", os.getenv("TIME_ZONE", "UTC"))
     scope.setdefault("USE_I18N", True)
     scope.setdefault("USE_TZ", True)
     scope.setdefault("DEFAULT_CHARSET", "utf-8")

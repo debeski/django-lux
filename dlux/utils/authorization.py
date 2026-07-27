@@ -140,6 +140,45 @@ def user_can_download_backup(user):
         return False
     return user.has_perm('dlux.download_backup')
 
+# The four audit columns surfaced by the `show_audit_fields` setting. deleted_at /
+# deleted_by belong to the separate soft-delete visibility path, not this set.
+AUDIT_FIELD_NAMES = ('created_by', 'created_at', 'updated_by', 'updated_at')
+
+
+def user_can_view_audit_fields(user):
+    """Whether this user may see audit columns. Superuser always; otherwise the
+    explicit `dlux.view_audit_fields` permission."""
+    if not user or not getattr(user, 'is_authenticated', False):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    return user.has_perm('dlux.view_audit_fields')
+
+
+def audit_fields_visible(user=None):
+    """Audit columns show only when the `show_audit_fields` setting is on AND the
+    viewer is permitted. Falls back to the thread-local request user, so table and
+    detail builders that have no request can still gate correctly per request."""
+    if user is None:
+        from ..middleware import get_current_user
+        user = get_current_user()
+    if not user_can_view_audit_fields(user):
+        return False
+    from .config import get_system_config
+    return bool(get_system_config().get('show_audit_fields', False))
+
+
+def soft_deleted_visible(user=None):
+    """Soft-deleted rows are listed only when the `show_soft_deleted` setting is on
+    AND the viewer is a superadmin (a hard security gate — never widened here)."""
+    if user is None:
+        from ..middleware import get_current_user
+        user = get_current_user()
+    if not user or not getattr(user, 'is_superuser', False):
+        return False
+    from .config import get_system_config
+    return bool(get_system_config().get('show_soft_deleted', False))
+
 # Authorization - Function checks section view access.
 def user_has_section_view_permission(user):
     if not user or not getattr(user, 'is_authenticated', False):

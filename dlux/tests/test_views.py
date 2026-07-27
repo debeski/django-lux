@@ -372,17 +372,14 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '?step=0')
-        self.assertContains(response, '?step=1')
-        self.assertContains(response, '?step=2')
-        self.assertContains(response, '?step=3')
-        self.assertContains(response, '?step=4')
-        self.assertContains(response, '?step=5')
-        self.assertContains(response, '?step=6')
+        for step in range(13):
+            self.assertContains(response, f'?step={step}"')
         self.assertContains(response, reverse('system_settings_export'))
         self.assertContains(response, 'dlux-admin-settings-grid')
         self.assertContains(response, 'dlux-system-settings-tile')
         self.assertContains(response, 'data-dlux-tooltip="System names, logo, favicon, and home route."')
+        self.assertContains(response, 'data-modal-title="Themes &amp; Typography"')
+        self.assertContains(response, 'data-modal-title="Layout"')
 
     def test_options_view_uses_shared_selector_markup_for_font_picker(self):
         response = self.client.get(reverse('options_view'))
@@ -448,6 +445,18 @@ class GeneralViewsTests(TestCase):
         payload = json.loads(response.content)
         self.assertIn('data-dlux-wizard-initial-step="6"', payload['html'])
         self.assertIn('?step=6', payload['html'])
+        self.assertIn('dlux-btn-submit', payload['html'])
+
+    def test_system_settings_modal_honors_final_wizard_step(self):
+        response = self.client.get(
+            reverse('modal_manager', args=['dlux', 'SystemSettings', 1]) + '?step=12',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertIn('data-dlux-wizard-initial-step="12"', payload['html'])
+        self.assertIn('Step 13: Backups', payload['html'])
         self.assertIn('dlux-btn-submit', payload['html'])
 
     def test_system_settings_export_downloads_setup_payload_for_superuser(self):
@@ -690,6 +699,9 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, 'data-dlux-wizard-step-nav')
         self.assertContains(response, 'data-dlux-wizard-step-target="0"')
         self.assertContains(response, 'data-dlux-wizard-step-target="6"')
+        self.assertContains(response, 'data-dlux-wizard-step-target="12"')
+        self.assertContains(response, 'الالوان')
+        self.assertContains(response, 'المظهر')
         self.assertContains(response, 'aria-label="التنقل بين خطوات التهيئة"')
         self.assertContains(response, 'dlux-setup-step-nav__bullet')
         self.assertContains(response, 'data-language-default value="en" checked')

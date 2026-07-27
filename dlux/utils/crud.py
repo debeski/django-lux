@@ -192,9 +192,11 @@ def _build_generic_detail_context(instance, request=None):
 
     fields_data = []
     
-    # Audit fields and passwords shouldn't generally be shown in generic detail views
+    # Audit fields are rendered as a dedicated grouped block by the
+    # {% dlux_audit_trail %} tag (gated by the show_audit_fields setting +
+    # view_audit_fields permission), so they stay out of the flat field loop.
     exclude_fields = ['password', 'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by']
-    
+
     if not is_scope_enabled():
         exclude_fields.append('scope')
 
@@ -328,7 +330,10 @@ def _build_generic_table_class(model):
     else:
         raw_exclude = list(raw_exclude)
 
-    # Default exclusions for audit fields
+    # Audit + soft-delete columns are excluded by default. When a viewer is
+    # permitted, the patched Table.__init__ ADDS them back via extra_columns —
+    # that path works uniformly for auto-tables and for project tables that
+    # declare an explicit Meta.fields (which never list audit columns).
     audit_fields = ['created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by']
     raw_exclude.extend([f for f in audit_fields if f not in raw_exclude])
 

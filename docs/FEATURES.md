@@ -42,11 +42,13 @@
 - **Override-only translations:** `language_config.translations_override` stores only admin/dev overrides, never the merged discovered translation catalog.
 
 ### First-Launch Setup Wizard
-- **12-step wizard:** Identity → Localization → Access and security → Login Page → Sidebar → Nav Bar → UI and Layout → Notifications → Appearance and Typography → Logging → Profile Page → Backups
+- **13-step wizard:** Identity → Localization → Access and security → Login Page → Sidebar → Nav Bar → Titlebar → Notifications → Themes and Typography → Layout → Logging → Profile Page → Backups
 - **Step 3 routing controls** for the main Home URL plus optional anonymous public-root split when public root access is enabled
 - **Step 4 Login Page** controls login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message
 - **Step 7 Titlebar** includes titlebar button-shape controls, Dropdown vs Titlebar Actions user-hub layout, and orderable titlebar actions
 - **Step 8 Notifications** is a dedicated step (notifications were split out of the Titlebar step) with a top-level `notifications_enabled` master toggle — like the sidebar/nav-bar enablement switches — gating flash/drawer/badge/bridge/email and automatic CRUD controls; when off, the whole notification subsystem (including `notify(...)`) is suppressed
+- **Step 9 Themes and Typography** contains only theme, colour, and font controls; **Step 10 Layout** owns table, form, modal, Options-page, and record-visibility controls
+- **Category-owned public-root controls** appear only while public root access is enabled: identity metadata in Identity, public sidebar visibility in Sidebar, public titlebar visibility in Titlebar, and the public theme in Themes and Typography
 - **Setup import/export path** for reusing System Settings payloads across environments
 - **Setup language gate** on first launch accepts either built-in English or Arabic and chooses only the setup UI language/direction before the wizard renders; the persisted system default language remains an editable Localization setting and may be different
 - **Live preview** for theme, sidebar, titlebar, and notification drawer/flash presentation changes
@@ -60,11 +62,13 @@
 
 ### Options View (`/sys/options/`)
 - Split System Settings modal entrypoints (Branding, Languages, Access & Security,
-  Login Page, Sidebar, Nav Bar, UI & Layout, Notifications, Appearance, Logging,
-  Profile Page, and Backups)
+  Login Page, Sidebar, Nav Bar, Titlebar, Notifications, Themes & Typography,
+  Layout, Logging, Profile Page, and Backups)
 - Theme picker with live preview
 - Language picker (when enabled)
 - Table density picker
+- **Audit-field visibility** (Layout): show `created_by/at` + `updated_by/at` in every table (added as columns, so custom tables with explicit `Meta.fields` get them too) and via the reusable `{% dlux_audit_trail object %}` detail block, gated per viewer by the `dlux.view_audit_fields` permission
+- **Soft-delete visibility** (Layout): superadmin-only review mode where `ScopedManager` stops hiding soft-deleted rows, so they appear in every list transparently (no view change); uniqueness validation and related pickers stay soft-delete-free via `force_hide_deleted()`
 - System diagnostics (privileged-only)
 - User preferences panel
 - Draggable card layout with browser-persisted ordering
@@ -462,7 +466,7 @@ every log with a `category`:
 - `details` — JSON diff of changes
 - `created_by`, `created_at` — inherited from ScopedModel
 
-### Configurable logging (`log_config`, setup Step 10)
+### Configurable logging (`log_config`, setup Step 11)
 - Master switch plus per-section (`user`/`system`) enable, default create/update/delete
   toggles, retention days, and a per-model + per-action include/exclude grid.
 - Replaces the old hardcoded exclusion list with config-driven gating over a non-toggleable
@@ -537,7 +541,8 @@ ActivityLog.safe_log(
 - External modal loader asset shipped with CSP nonce support in the shared base layout
 - **Responsive sizing**: centered `modal-xl` at ≥1200px, full-screen below 1200px (split-screen / laptop friendly)
 - **Sticky header + footer, scrolling body** (`modal-dialog-scrollable`): the title/close row and the action bar stay pinned while only the content scrolls, with a themed thin scrollbar
-- **Action-bar relocation**: the standard action bar (`.dlux-form-actions` / `.dlux-setup-wizard-actions` / `.dlux-modal-form-actions`) is auto-moved into the pinned footer with form association preserved via the `form=` attribute; multi-step wizard bars (with prev/next) are left in place for the wizard controller, and table/detail/dev-custom views simply keep a hidden footer
+- **Single modal chrome**: AJAX fragments provide body content while the shared shell owns the title, scrolling body, and footer; legacy fragments containing `.modal-header` / `.modal-body` / `.modal-footer` are normalized automatically, promoting the embedded title and retaining non-title context
+- **Action-bar relocation**: the standard action bar (`.dlux-form-actions` / `.dlux-setup-wizard-actions` / `.dlux-modal-form-actions`) is auto-moved into the pinned footer with form association preserved via the `form=` attribute, including multi-step wizard controls; table/detail views simply keep a hidden footer
 - **Dev opt-in footer pinning**: add `data-dlux-modal-footer` to any container in a custom modal template / options view to have it pinned into the sticky footer (takes priority over the built-in bars). Submit buttons inside it are auto-associated to the modal form via `form=`; for custom buttons that need their own JS, bind via document-level delegation since the element is moved out of the modal body
 
 ### AJAX Endpoints

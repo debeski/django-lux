@@ -78,6 +78,17 @@ OPTIONS_STYLE_CHOICES = (
     ('compact', 'Compact'),
 )
 OPTIONS_STYLE_VALUES = {value for value, _label in OPTIONS_STYLE_CHOICES}
+# Table row-actions trigger style (layout_config.row_actions_style): right-click/
+# long-press context menu (default, unchanged behavior), a dedicated three-dot
+# actions column, or both. Distinct from the per-table `dlux_actions` Meta flag,
+# which gates whether row actions are wired at all.
+DEFAULT_ROW_ACTIONS_STYLE = 'context'
+ROW_ACTIONS_STYLE_CHOICES = (
+    (DEFAULT_ROW_ACTIONS_STYLE, 'Context menu'),
+    ('column', 'Actions column'),
+    ('both', 'Both'),
+)
+ROW_ACTIONS_STYLE_VALUES = {value for value, _label in ROW_ACTIONS_STYLE_CHOICES}
 # Max length of the optional global footer copyright/credit line (layout_config).
 LAYOUT_FOOTER_TEXT_MAX_LENGTH = 300
 # Max lengths for the optional public-root SEO overrides (public_root_config).
@@ -279,7 +290,10 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'sticky_table_headers',
     'resizable_table_columns',
     'zebra_striping',
+    'show_audit_fields',
+    'show_soft_deleted',
     'options_style',
+    'row_actions_style',
     'footer_enabled',
     'footer_text',
     'footer_link_text',

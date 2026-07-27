@@ -58,6 +58,7 @@ The generated `.secrets/.env` includes only these bootstrap values:
 - `BASE_URL`
 - `ALLOWED_URLS`
 - `ALLOWED_HOSTS`
+- `TIME_ZONE`
 - `NGINX_PORT`
 - `NGINX_SERVER_NAME`
 - `NGINX_MAX_SIZE`
@@ -72,7 +73,9 @@ The generated `.secrets/.env` includes only these bootstrap values:
 - `SMTP_RELAY_PASSWORD`
 
 The URL and host values define the generated project's public origin, additional
-trusted origins, and accepted hostnames. The proxy values configure the Caddy
+trusted origins, and accepted hostnames. `TIME_ZONE` takes an IANA name (e.g.
+`Africa/Tripoli`) and drives Django and Celery time handling; it defaults to
+`UTC`. The proxy values configure the Caddy
 default and nginx fallback. The SMTP relay values are bootstrap/fallback values.
 For the normal UI-first path, open System Setup step 3, choose delivery path
 `Internal SMTP relay`, choose secret storage `Encrypted database secret`, and

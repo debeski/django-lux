@@ -1,16 +1,17 @@
 {
   "schema_version": 1,
-  "version": "1.5.9",
+  "version": "1.5.10",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Adds the deployment doctor (dlux_doctor) and a machine-readable stack contract for Composer's check, drops the redundant db-backup and pgadmin services, and fixes several inline-update issues (version-mismatched static, preflight aborts, and frozen progress).",
+  "summary": "Improves dynamic-modal chrome and persistent actions, and surfaces disconnected or revoked Control Panel links.",
   "highlights": [
-    "New dlux_doctor deployment doctor (settings, DB, migrations, services, static, security) with a --format json report that Composer's check --deep consumes; dlux_check is a deprecated alias.",
-    "New dlux_stack_contract command and stack_contract.json spec so Composer's check can flag network-topology drift and removed services.",
-    "Dropped the db-backup service (superseded by DjangoLux system backups) and pgadmin from the default stack.",
-    "Every compose service now carries an org.dlux.restart safe/protected label for restart classification.",
-    "Fixed stale/version-mismatched static after an inline update, an inline-update preflight abort, and the progress modal freezing during maintenance."
+    "New 'Disconnected' state and warning banner on the Control Panel, distinct from a never-configured one, naming the control URL and whether it was revoked.",
+    "The update worker posts a one-time warning notification to superadmins when a connected deployment is disconnected or revoked (re-armed on reconnect).",
+    "control_link_state() exposes a derived connection_status (connected/pending/disconnected/unconfigured).",
+    "Dynamic modals now show one shell title and keep submit, cancel, and wizard controls in the visible footer.",
+    "Fixed the global footer overlapping modal action bars (submit buttons) — it now steps out while any modal is open.",
+    "New UI & Layout toggles: show audit fields (created/updated by/at) in every table and via the new {% dlux_audit_trail %} detail block (gated by the view_audit_fields permission), and show soft-deleted entries (superadmin only)."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.9"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.10"
 }

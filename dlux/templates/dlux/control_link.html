@@ -25,18 +25,36 @@
                 </div>
             </div>
         </div>
-        <span class="dlux-control-state {% if link.enrolled %}dlux-control-state--connected{% elif link.pending %}dlux-control-state--pending{% else %}dlux-control-state--offline{% endif %}"
+        <span class="dlux-control-state {% if link.connection_status == 'connected' %}dlux-control-state--connected{% elif link.connection_status == 'pending' %}dlux-control-state--pending{% else %}dlux-control-state--offline{% endif %}"
               data-control-link-badge>
             <span class="dlux-control-state-dot"></span>
-            {% if link.enrolled %}
+            {% if link.connection_status == 'connected' %}
                 {{ DLUX_STRINGS.control_link_connected|default:"Connected" }}
-            {% elif link.pending %}
+            {% elif link.connection_status == 'pending' %}
                 {{ DLUX_STRINGS.control_link_pending|default:"Pairing…" }}
+            {% elif link.connection_status == 'disconnected' %}
+                {{ DLUX_STRINGS.control_link_disconnected_badge|default:"Disconnected" }}
             {% else %}
                 {{ DLUX_STRINGS.control_link_not_connected|default:"Not connected" }}
             {% endif %}
         </span>
     </section>
+
+    {% if link.connection_status == 'disconnected' %}
+    <div class="alert alert-warning dlux-control-notice" role="alert" data-control-link-disconnected>
+        <i class="bi bi-plug-fill"></i>
+        <span>
+            {% if link.revoked %}
+                <strong>{{ DLUX_STRINGS.control_link_revoked_title|default:"Control Panel access was revoked." }}</strong>
+                {{ DLUX_STRINGS.control_link_revoked_note|default:"The control panel revoked this deployment's enrollment. Local updates still work; pair again below to reconnect." }}
+            {% else %}
+                <strong>{{ DLUX_STRINGS.control_link_disconnected_title|default:"Disconnected from the control panel." }}</strong>
+                {{ DLUX_STRINGS.control_link_disconnected_note|default:"This deployment was connected but is no longer. Pair again below to reconnect." }}
+            {% endif %}
+            {% if link.control_url %}<span class="text-break">({{ link.control_url }})</span>{% endif %}
+        </span>
+    </div>
+    {% endif %}
 
     {% if not link.bridge_available %}
     <div class="alert alert-warning dlux-control-notice" role="alert">

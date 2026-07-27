@@ -5,6 +5,12 @@ this package). Every public name is re-exported here so existing
 ``from dlux.utils import X`` and ``dlux.utils.X`` call sites keep working.
 """
 
+from .arabic import (
+    ARABIC_EQUIVALENCE_GROUPS,
+    arabic_search_pattern,
+    arabic_search_q,
+    normalize_arabic,
+)
 from .common import (
     DEFAULT_LANGUAGE_CATALOG,
     SENSITIVE_ACTIVITY_MASK,
@@ -165,6 +171,10 @@ from .twofactor import (
     set_profile_totp_state,
 )
 from .authorization import (
+    AUDIT_FIELD_NAMES,
+    audit_fields_visible,
+    soft_deleted_visible,
+    user_can_view_audit_fields,
     user_can_download_backup,
     user_can_view_activity_log,
     user_can_view_reports,
@@ -215,6 +225,10 @@ from .import_export import (
 )
 
 __all__ = [
+    "ARABIC_EQUIVALENCE_GROUPS",
+    "arabic_search_pattern",
+    "arabic_search_q",
+    "normalize_arabic",
     "CLIENT_IP_MODE_AUTO",
     "CLIENT_IP_MODE_CLOUDFLARE",
     "CLIENT_IP_MODE_CUSTOM",
@@ -381,6 +395,10 @@ __all__ = [
     "toggle_sidebar",
     "translate_activity_log_model_name",
     "translate_choices",
+    "AUDIT_FIELD_NAMES",
+    "audit_fields_visible",
+    "soft_deleted_visible",
+    "user_can_view_audit_fields",
     "user_can_download_backup",
     "user_can_view_activity_log",
     "user_can_view_reports",

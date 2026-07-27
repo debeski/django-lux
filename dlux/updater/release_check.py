@@ -8,7 +8,10 @@ import subprocess
 from .manifest import validate_local_release_manifest
 
 
-ALLOWED_MIGRATION_OPERATIONS = frozenset({"CreateModel", "AddField", "AddIndex"})
+# AlterModelOptions is metadata-only (permissions, ordering, verbose_name, ...) —
+# it makes no schema change, and permission rows are synced by the post_migrate
+# signal the inline updater's `migrate` step triggers. So it is inline-safe.
+ALLOWED_MIGRATION_OPERATIONS = frozenset({"CreateModel", "AddField", "AddIndex", "AlterModelOptions"})
 
 
 def _previous_release_tag(current_tag):

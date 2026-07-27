@@ -10,6 +10,7 @@ from .constants import (
     DEFAULT_NAVBAR_MODE,
     DEFAULT_NAVBAR_ROOT_MODE,
     DEFAULT_OPTIONS_STYLE,
+    DEFAULT_ROW_ACTIONS_STYLE,
     DEFAULT_SECURITY_NUDGE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
     DEFAULT_SIDEBAR_DENSITY,
@@ -147,7 +148,16 @@ def default_layout_config():
         'sticky_table_headers': True,
         'resizable_table_columns': True,
         'zebra_striping': True,
+        # Show the audit columns (created_by/at, updated_by/at) in tables and
+        # auto-CRUD detail views — additionally gated by the `view_audit_fields`
+        # permission per viewer. Show soft-deleted rows (deleted_at set) in lists
+        # — additionally gated to superadmins. Both default off.
+        'show_audit_fields': False,
+        'show_soft_deleted': False,
         'options_style': DEFAULT_OPTIONS_STYLE,
+        # Table row-actions trigger: 'context' (right-click/long-press menu),
+        # 'column' (dedicated three-dot column), or 'both'.
+        'row_actions_style': DEFAULT_ROW_ACTIONS_STYLE,
         'footer_enabled': True,
         'footer_text': '',
         'footer_link_text': '',

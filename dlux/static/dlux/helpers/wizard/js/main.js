@@ -29,13 +29,28 @@
         window.__dluxPrepareWizardContainer(container);
     }
 
+    function controlFor(container, selector) {
+        const localControl = container.querySelector(selector);
+        if (localControl) {
+            return localControl;
+        }
+        const form = resolveWizardForm(container);
+        if (!form || !form.id) {
+            return null;
+        }
+        const escapedId = window.CSS && typeof window.CSS.escape === 'function'
+            ? window.CSS.escape(form.id)
+            : form.id.replace(/["\\]/g, '\\$&');
+        return document.querySelector(`${selector}[form="${escapedId}"]`);
+    }
+
     function initWizard(container) {
         const steps = container.querySelectorAll('.wizard-step');
         if (steps.length < 2) return;
 
-        const btnNext = container.querySelector('.dlux-btn-next');
-        const btnPrev = container.querySelector('.dlux-btn-prev');
-        const btnSubmit = container.querySelector('.dlux-btn-submit');
+        const btnNext = controlFor(container, '.dlux-btn-next');
+        const btnPrev = controlFor(container, '.dlux-btn-prev');
+        const btnSubmit = controlFor(container, '.dlux-btn-submit');
         const stepNavItems = Array.from(container.querySelectorAll('[data-dlux-wizard-step-target]'));
 
         if (!btnNext || !btnPrev || !btnSubmit) return;

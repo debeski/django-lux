@@ -128,6 +128,9 @@ def export_system_settings_payload(instance=None):
         elif field_name == 'options_style':
             # JSON-only layout key (no legacy column): export from layout_config.
             value = layout_export.get('options_style')
+        elif field_name == 'row_actions_style':
+            # JSON-only layout key: export from layout_config.
+            value = layout_export.get('row_actions_style')
         else:
             value = getattr(instance, field_name, None)
         if field_name in {'logo', 'favicon'}:
@@ -333,6 +336,11 @@ def apply_system_settings_import(
             # JSON-only layout key (no legacy column): route into layout_config.
             layout = dict(getattr(instance, 'layout_config', None) or {})
             layout['options_style'] = value
+            instance.layout_config = normalize_layout_config(layout)
+        elif field_name == 'row_actions_style':
+            # JSON-only layout key: route into layout_config (normalizer validates).
+            layout = dict(getattr(instance, 'layout_config', None) or {})
+            layout['row_actions_style'] = value
             instance.layout_config = normalize_layout_config(layout)
         elif field_name == 'auth_config' and isinstance(value, dict):
             instance.auth_config = normalize_auth_config(value)

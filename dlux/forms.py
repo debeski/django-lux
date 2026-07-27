@@ -42,6 +42,9 @@ from .system.constants import (
     OPTIONS_STYLE_CHOICES,
     OPTIONS_STYLE_VALUES,
     DEFAULT_OPTIONS_STYLE,
+    ROW_ACTIONS_STYLE_CHOICES,
+    ROW_ACTIONS_STYLE_VALUES,
+    DEFAULT_ROW_ACTIONS_STYLE,
     PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
     PUBLIC_ROOT_TITLE_MAX_LENGTH,
     REGISTRATION_ACTIVATION_CHOICES,
@@ -1969,7 +1972,7 @@ class SystemSettingsForm(forms.ModelForm):
         initial=True,
     )
     # Stored inside profile_config, but surfaced as a standalone toggle next to
-    # the Home URL field (Step 3) rather than in the profile builder (Step 11).
+    # the Home URL field (Step 3) rather than in the profile builder (Step 12).
     allow_user_home_url = forms.BooleanField(
         required=False,
         initial=False,
@@ -2006,6 +2009,11 @@ class SystemSettingsForm(forms.ModelForm):
         choices=OPTIONS_STYLE_CHOICES,
         widget=forms.HiddenInput(),
     )
+    row_actions_style = forms.ChoiceField(
+        required=False,
+        choices=ROW_ACTIONS_STYLE_CHOICES,
+        widget=forms.HiddenInput(),
+    )
     sticky_table_headers = forms.BooleanField(
         required=False,
         initial=True,
@@ -2017,6 +2025,14 @@ class SystemSettingsForm(forms.ModelForm):
     zebra_striping = forms.BooleanField(
         required=False,
         initial=True,
+    )
+    show_audit_fields = forms.BooleanField(
+        required=False,
+        initial=False,
+    )
+    show_soft_deleted = forms.BooleanField(
+        required=False,
+        initial=False,
     )
     footer_enabled = forms.BooleanField(
         required=False,
@@ -2487,6 +2503,8 @@ class SystemSettingsForm(forms.ModelForm):
             'sticky_table_headers',
             'resizable_table_columns',
             'zebra_striping',
+            'show_audit_fields',
+            'show_soft_deleted',
             'footer_enabled',
             'footer_text',
             'footer_link_text',
@@ -2588,7 +2606,7 @@ class SystemSettingsForm(forms.ModelForm):
                 parsed_step = int(raw_step)
             except (TypeError, ValueError):
                 parsed_step = None
-            if parsed_step in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
+            if parsed_step in range(13):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
         if self.mode != 'setup' and self.single_step_mode:
@@ -2773,6 +2791,16 @@ class SystemSettingsForm(forms.ModelForm):
             ('tabs', s.get('options_style_tabs', 'Tabs')),
             ('compact', s.get('options_style_compact', 'Compact')),
         )
+        self.fields['row_actions_style'].label = s.get('form_sys_row_actions_style', 'Table row actions')
+        self.fields['row_actions_style'].help_text = s.get(
+            'help_sys_row_actions_style',
+            'How row actions are triggered in tables: a right-click / long-press context menu, a dedicated three-dot actions column, or both.',
+        )
+        self.fields['row_actions_style'].choices = (
+            (DEFAULT_ROW_ACTIONS_STYLE, s.get('row_actions_context', 'Context menu')),
+            ('column', s.get('row_actions_column', 'Actions column')),
+            ('both', s.get('row_actions_both', 'Both')),
+        )
         self.fields['sticky_table_headers'].label = s.get('form_sys_sticky_table_headers', 'Sticky table headers')
         self.fields['sticky_table_headers'].help_text = s.get(
             'help_sys_sticky_table_headers',
@@ -2787,6 +2815,16 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['zebra_striping'].help_text = s.get(
             'help_sys_zebra_striping',
             'Alternate row background shading in tables for easier scanning.',
+        )
+        self.fields['show_audit_fields'].label = s.get('form_sys_show_audit_fields', 'Show audit fields')
+        self.fields['show_audit_fields'].help_text = s.get(
+            'help_sys_show_audit_fields',
+            'Show created/updated by and at columns in tables and detail views. Only users with the "view audit fields" permission see them.',
+        )
+        self.fields['show_soft_deleted'].label = s.get('form_sys_show_soft_deleted', 'Show soft-deleted entries')
+        self.fields['show_soft_deleted'].help_text = s.get(
+            'help_sys_show_soft_deleted',
+            'List entries that were soft-deleted (a deletion timestamp is set). Superadmins only.',
         )
         self.fields['footer_text'].label = s.get('form_sys_footer_text', "Footer text")
         self.fields['footer_text'].help_text = s.get(
@@ -3459,6 +3497,26 @@ class SystemSettingsForm(forms.ModelForm):
             ),
         )
         _bind_choice_selector_widget(
+            self.fields['row_actions_style'],
+            DluxChoiceSelectorWidget(
+                variant='toggle',
+                option_meta={
+                    'context': {
+                        'icon': 'bi-menu-button-wide',
+                        'description': s.get('row_actions_context_desc', 'Right-click (or long-press on touch) any row.'),
+                    },
+                    'column': {
+                        'icon': 'bi-three-dots-vertical',
+                        'description': s.get('row_actions_column_desc', 'A three-dot menu button in a dedicated last column.'),
+                    },
+                    'both': {
+                        'icon': 'bi-ui-checks',
+                        'description': s.get('row_actions_both_desc', 'Both the context menu and the actions column.'),
+                    },
+                },
+            ),
+        )
+        _bind_choice_selector_widget(
             self.fields['titlebar_global_search_mode'],
             DluxChoiceSelectorWidget(
                 variant='toggle',
@@ -3867,7 +3925,7 @@ class SystemSettingsForm(forms.ModelForm):
         for _layout_key in (
             'footer_enabled', 'footer_text', 'footer_link_text', 'footer_link_url',
             'default_form_density', 'default_modal_size', 'sticky_table_headers',
-            'resizable_table_columns', 'zebra_striping',
+            'resizable_table_columns', 'zebra_striping', 'show_audit_fields', 'show_soft_deleted',
         ):
             if _layout_key not in _layout_initial_source and config.get(_layout_key) is not None:
                 _layout_initial_source[_layout_key] = config.get(_layout_key)
@@ -4327,7 +4385,7 @@ class SystemSettingsForm(forms.ModelForm):
                     for a in _item.get('actions') or ('create', 'update', 'delete')
                 ]
 
-        self.log_builder_html = self._step_render(9,
+        self.log_builder_html = self._step_render(10,
             'dlux/includes/log_builder.html',
             {
                 'log_config_json': _json_dump(initial_log_config, ensure_ascii=False),
@@ -4347,7 +4405,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'DLUX_STRINGS': s,
             },
         )
-        self.profile_builder_html = self._step_render(10,
+        self.profile_builder_html = self._step_render(11,
             'dlux/includes/profile_builder.html',
             {
                 'profile_config_json': _json_dump(initial_profile_config, ensure_ascii=False),
@@ -4432,6 +4490,17 @@ class SystemSettingsForm(forms.ModelForm):
             ),
             Div(
                 *step_1_fields,
+                Div(
+                    HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'>{s.get('public_root_identity_settings_title', 'Public Root Identity')}</h6>"),
+                    Row(
+                        Div(Field('public_root_title', dir='auto'), css_class='col-lg-12'),
+                        Div(Field('public_root_meta_description', dir='auto'), css_class='col-lg-12'),
+                        css_class='g-3 mb-3',
+                    ),
+                    css_class=f"dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                    data_public_root_dependent='true',
+                    aria_hidden='false' if self.initial.get('public_root', False) else 'true',
+                ),
                 # Footer lives in Identity — it's branding/credit copy for every page.
                 HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'>{s.get('footer_settings_title', 'Footer')}</h6>"),
                 Row(
@@ -4627,48 +4696,6 @@ class SystemSettingsForm(forms.ModelForm):
                     ),
                 ),
                 Row(
-                    build_settings_toggle_field(
-                        self,
-                        'show_titlebar_on_public',
-                        css_class=f"col-lg-6 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
-                        attrs={
-                            'data_public_root_dependent': 'true',
-                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
-                        },
-                    ),
-                    build_settings_toggle_field(
-                        self,
-                        'show_sidebar_on_public',
-                        css_class=f"col-lg-6 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
-                        attrs={
-                            'data_public_root_dependent': 'true',
-                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
-                        },
-                    ),
-                    css_class='g-3 mb-3',
-                ),
-                Row(
-                    Div(
-                        Field('public_root_theme'),
-                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
-                        data_public_root_dependent='true',
-                        aria_hidden='false' if self.initial.get('public_root', False) else 'true',
-                    ),
-                    Div(
-                        Field('public_root_title', dir='auto'),
-                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
-                        data_public_root_dependent='true',
-                        aria_hidden='false' if self.initial.get('public_root', False) else 'true',
-                    ),
-                    Div(
-                        Field('public_root_meta_description', dir='auto'),
-                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
-                        data_public_root_dependent='true',
-                        aria_hidden='false' if self.initial.get('public_root', False) else 'true',
-                    ),
-                    css_class='g-3 mb-3',
-                ),
-                Row(
                     build_settings_toggle_field(self, 'public_registration_enabled', css_class='col-lg-12'),
                     css_class='g-3 mb-3',
                 ),
@@ -4818,6 +4845,18 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(self, 'sidebar_allow_user_density', css_class='col-lg-6'),
                     css_class='g-3 mb-3',
                 ),
+                Row(
+                    build_settings_toggle_field(
+                        self,
+                        'show_sidebar_on_public',
+                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        attrs={
+                            'data_public_root_dependent': 'true',
+                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
+                        },
+                    ),
+                    css_class='g-3 mb-3',
+                ),
                 HTML(
                     f"<div class='alert alert-warning small mb-3{' d-none' if self.initial.get('sidebar_enable_toolbar', True) else ''}' "
                     f"data-sidebar-toolbar-note>"
@@ -4864,6 +4903,18 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-6 col-xl-4'),
                     build_settings_toggle_field(self, 'titlebar_show_language_switcher', css_class='col-lg-6 col-xl-4'),
                     css_class='g-3 mb-3'
+                ),
+                Row(
+                    build_settings_toggle_field(
+                        self,
+                        'show_titlebar_on_public',
+                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        attrs={
+                            'data_public_root_dependent': 'true',
+                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
+                        },
+                    ),
+                    css_class='g-3 mb-3',
                 ),
                 Row(
                     Div(Field('titlebar_title_align'), css_class='col-lg-6'),
@@ -4979,22 +5030,28 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     build_settings_toggle_field(self, 'allow_user_theme_override', css_class='col-12')
                 ),
+                Row(
+                    Div(
+                        Field('public_root_theme'),
+                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        data_public_root_dependent='true',
+                        aria_hidden='false' if self.initial.get('public_root', False) else 'true',
+                    ),
+                    css_class='g-3 mb-3',
+                ),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('typography_settings_title', 'Typography Settings')}</h6>"),
                 HTML(self.font_picker_html),
                 # Field('allowed_fonts'),
                 build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
                 HTML(self.language_fonts_editor_html),
                 Field('default_fonts'),
-                # ── UI & Layout group: tables, forms, modals, and the Options page,
-                # visually separated from the Themes & Typography group above. ──
-                HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'><i class='bi bi-window-stack me-2'></i>{s.get('ui_layout_group_title', 'UI &amp; Layout')}</h6>"),
+                css_class=_step_css_class(8),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step10', 'Step 10: Layout')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
                 Row(
                     Div(Field('default_table_density'), css_class='col'),
-                    css_class='mb-3'
-                ),
-                Row(
-                    Div(Field('default_form_density'), css_class='col'),
                     css_class='mb-3'
                 ),
                 Row(
@@ -5002,6 +5059,21 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(self, 'resizable_table_columns', css_class='col-12 col-lg-4'),
                     build_settings_toggle_field(self, 'zebra_striping', css_class='col-12 col-lg-4'),
                     css_class='g-3 mb-3',
+                ),
+                Row(
+                    Div(Field('row_actions_style'), css_class='col'),
+                    css_class='mb-3'
+                ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('record_visibility_settings_title', 'Record Visibility')}</h6>"),
+                Row(
+                    build_settings_toggle_field(self, 'show_audit_fields', css_class='col-12 col-lg-6'),
+                    build_settings_toggle_field(self, 'show_soft_deleted', css_class='col-12 col-lg-6'),
+                    css_class='g-3 mb-3',
+                ),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('forms_settings_title', 'Forms')}</h6>"),
+                Row(
+                    Div(Field('default_form_density'), css_class='col'),
+                    css_class='mb-3'
                 ),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('modal_settings_title', 'Modals')}</h6>"),
                 Row(
@@ -5013,24 +5085,24 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('options_style'), css_class='col'),
                     css_class='mb-3'
                 ),
-                css_class=_step_css_class(8),
-            ),
-            Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step10', 'Step 10: Logging')}</span></div>"),
-                HTML(f"<h6 class='fw-bold my-3'>{s.get('log_settings_title', 'Activity Logging')}</h6>"),
-                HTML(self.log_builder_html),
-                Field('log_config'),
                 css_class=_step_css_class(9),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step11', 'Step 11: Profile Page')}</span></div>"),
-                HTML(f"<h6 class='fw-bold my-3'>{s.get('profile_settings_title', 'Profile Page & Onboarding')}</h6>"),
-                HTML(self.profile_builder_html),
-                Field('profile_config'),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step11', 'Step 11: Logging')}</span></div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('log_settings_title', 'Activity Logging')}</h6>"),
+                HTML(self.log_builder_html),
+                Field('log_config'),
                 css_class=_step_css_class(10),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step12', 'Step 12: Backups')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step12', 'Step 12: Profile Page')}</span></div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('profile_settings_title', 'Profile Page & Onboarding')}</h6>"),
+                HTML(self.profile_builder_html),
+                Field('profile_config'),
+                css_class=_step_css_class(11),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step13', 'Step 13: Backups')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('backup_settings_title', 'System Backup Policy')}</h6>"),
                 HTML(f"<div class='alert alert-info'>{s.get('backup_settings_update_notice', 'Inline updates and rollbacks always create and verify a full system backup before maintenance. An update is stopped if that backup fails.')}</div>"),
                 build_settings_toggle_field(self, 'backup_scheduled_enabled', css_class='col-12'),
@@ -5042,7 +5114,7 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 Field('backup_auto_export_target', css_class='form-control font-monospace', dir='ltr'),
                 Field('backup_config'),
-                css_class=_step_css_class(11),
+                css_class=_step_css_class(12),
             ),
             FormActions(
                 HTML(
@@ -5193,7 +5265,7 @@ class SystemSettingsForm(forms.ModelForm):
         return value
 
     def clean_footer_text(self):
-        # Footer text lives in the Themes & Typography step. A single-step modal
+        # Footer text lives in the Identity step. A single-step modal
         # post that does not own that step omits the field — preserve the stored
         # value instead of clearing it.
         if self.is_bound and self.mode != 'setup' and self.single_step_mode and 'footer_text' not in self.data:
@@ -5205,7 +5277,7 @@ class SystemSettingsForm(forms.ModelForm):
         return str(value or '').strip()[:LAYOUT_FOOTER_TEXT_MAX_LENGTH].rstrip()
 
     def _clean_preserved_footer_string(self, field_name):
-        # Footer text inputs live in the Themes & Typography step; a single-step
+        # Footer text inputs live in the Identity step; a single-step
         # modal save of another step omits them, so keep the stored value.
         if self.is_bound and self.mode != 'setup' and self.single_step_mode and field_name not in self.data:
             value = getattr(self.instance, field_name, None)
@@ -5271,22 +5343,31 @@ class SystemSettingsForm(forms.ModelForm):
         return str(value or '').strip()[:max_length].rstrip()
 
     def clean_sticky_table_headers(self):
-        return self._clean_preserved_toggle('sticky_table_headers', 8, True)
+        return self._clean_preserved_toggle('sticky_table_headers', 9, True)
 
     def clean_resizable_table_columns(self):
-        return self._clean_preserved_toggle('resizable_table_columns', 8, True)
+        return self._clean_preserved_toggle('resizable_table_columns', 9, True)
 
     def clean_zebra_striping(self):
-        return self._clean_preserved_toggle('zebra_striping', 8, True)
+        return self._clean_preserved_toggle('zebra_striping', 9, True)
+
+    def clean_show_audit_fields(self):
+        return self._clean_preserved_toggle('show_audit_fields', 9, False)
+
+    def clean_show_soft_deleted(self):
+        return self._clean_preserved_toggle('show_soft_deleted', 9, False)
 
     def clean_default_form_density(self):
-        return self._clean_preserved_choice('default_form_density', 8, FORM_DENSITY_VALUES, DEFAULT_FORM_DENSITY)
+        return self._clean_preserved_choice('default_form_density', 9, FORM_DENSITY_VALUES, DEFAULT_FORM_DENSITY)
 
     def clean_default_modal_size(self):
-        return self._clean_preserved_choice('default_modal_size', 8, MODAL_SIZE_VALUES, DEFAULT_MODAL_SIZE)
+        return self._clean_preserved_choice('default_modal_size', 9, MODAL_SIZE_VALUES, DEFAULT_MODAL_SIZE)
 
     def clean_options_style(self):
-        return self._clean_preserved_choice('options_style', 8, OPTIONS_STYLE_VALUES, DEFAULT_OPTIONS_STYLE)
+        return self._clean_preserved_choice('options_style', 9, OPTIONS_STYLE_VALUES, DEFAULT_OPTIONS_STYLE)
+
+    def clean_row_actions_style(self):
+        return self._clean_preserved_choice('row_actions_style', 9, ROW_ACTIONS_STYLE_VALUES, DEFAULT_ROW_ACTIONS_STYLE)
 
     def clean_honeypot_enabled(self):
         return self._clean_preserved_toggle('honeypot_enabled', 2, True)
@@ -5304,17 +5385,17 @@ class SystemSettingsForm(forms.ModelForm):
         return self._clean_preserved_text('privacy_notice_text', 2, 500)
 
     def clean_show_titlebar_on_public(self):
-        return self._clean_preserved_toggle('show_titlebar_on_public', 2, False)
+        return self._clean_preserved_toggle('show_titlebar_on_public', 6, False)
 
     def clean_show_sidebar_on_public(self):
-        return self._clean_preserved_toggle('show_sidebar_on_public', 2, False)
+        return self._clean_preserved_toggle('show_sidebar_on_public', 4, False)
 
     def clean_public_root_title(self):
-        return self._clean_preserved_text('public_root_title', 2, PUBLIC_ROOT_TITLE_MAX_LENGTH)
+        return self._clean_preserved_text('public_root_title', 0, PUBLIC_ROOT_TITLE_MAX_LENGTH)
 
     def clean_public_root_meta_description(self):
         return self._clean_preserved_text(
-            'public_root_meta_description', 2, PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH
+            'public_root_meta_description', 0, PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH
         )
 
     def clean_public_root_theme(self):
@@ -5323,7 +5404,7 @@ class SystemSettingsForm(forms.ModelForm):
         valid = {''} | {value for value, _, _ in get_theme_choices()}
         if (
             self.is_bound and self.mode != 'setup' and self.single_step_mode
-            and self.single_step_index != 2 and 'public_root_theme' not in self.data
+            and self.single_step_index != 8 and 'public_root_theme' not in self.data
         ):
             value = getattr(self.instance, 'public_root_theme', '') or self.initial.get('public_root_theme', '')
         else:
@@ -5910,7 +5991,7 @@ class SystemSettingsForm(forms.ModelForm):
         profile = cleaned.get('profile_config')
         if isinstance(profile, dict):
             # allow_user_home_url is edited as a standalone Step 3 toggle (next to
-            # Home URL), not in the Step 11 profile builder — fold it back into
+            # Home URL), not in the Step 12 profile builder — fold it back into
             # profile_config before normalizing/saving.
             if 'allow_user_home_url' in self.fields:
                 profile['allow_user_home_url'] = bool(cleaned.get('allow_user_home_url'))
@@ -5923,7 +6004,7 @@ class SystemSettingsForm(forms.ModelForm):
             'backup_auto_export_target',
         ))
         existing_backup = normalize_backup_config(getattr(self.instance, 'backup_config', None) or {})
-        if self.is_bound and self.mode != 'setup' and self.single_step_mode and self.single_step_index != 11 and not backup_fields_posted:
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and self.single_step_index != 12 and not backup_fields_posted:
             cleaned['backup_config'] = existing_backup
         else:
             submitted_backup = cleaned.get('backup_config')
@@ -6177,6 +6258,7 @@ class SystemSettingsForm(forms.ModelForm):
             # options_style is a JSON-only layout key (no legacy column); pass it
             # flat so apply_system_settings_import routes it into layout_config.
             'options_style': layout_config.get('options_style', DEFAULT_OPTIONS_STYLE),
+            'row_actions_style': layout_config.get('row_actions_style', DEFAULT_ROW_ACTIONS_STYLE),
             'default_table_density': layout_config.get(
                 'default_table_density',
                 self.cleaned_data.get('default_table_density', DEFAULT_TABLE_DENSITY),
@@ -6200,6 +6282,14 @@ class SystemSettingsForm(forms.ModelForm):
             'zebra_striping': bool(layout_config.get(
                 'zebra_striping',
                 self.cleaned_data.get('zebra_striping', True),
+            )),
+            'show_audit_fields': bool(layout_config.get(
+                'show_audit_fields',
+                self.cleaned_data.get('show_audit_fields', False),
+            )),
+            'show_soft_deleted': bool(layout_config.get(
+                'show_soft_deleted',
+                self.cleaned_data.get('show_soft_deleted', False),
             )),
             'footer_enabled': bool(layout_config.get(
                 'footer_enabled',

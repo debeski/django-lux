@@ -252,7 +252,9 @@ def core_models_view(request):
         if not getattr(form.helper, "inputs", None):
             form.helper.add_input(Submit("submit", save_label, css_class="btn btn-primary rounded-pill"))
 
-    # Create filter and queryset
+    # Soft-deleted rows are handled by the scoped manager itself: it includes
+    # them transparently while a superadmin has the "show soft-deleted" review
+    # mode on, and hides them otherwise. No view-level branch needed.
     queryset = selected_model._default_manager.all()
     if FilterClass:
         filter_obj = FilterClass(request.GET or None, queryset=queryset)
@@ -985,7 +987,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             return None
 
-        if 0 <= step <= 8:
+        if 0 <= step <= 12:
             return step
         return None
 

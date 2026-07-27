@@ -17,12 +17,35 @@ from . import agent_bridge
 
 ENROLL_REQUEST_FILENAME = "enroll-request.json"
 AGENT_STATUS_FILENAME = "agent-status.json"
+# Worker-private dedup marker for the disconnect notification. Kept out of the
+# agent bridge dir (the composer-agent never touches it) — it just records the
+# last connection the worker witnessed so a revoke/disconnect alerts admins once.
+LINK_NOTICE_FILENAME = "control-link-notice.json"
 
 _TERMINAL_ENROLL_STATES = ("ok", "error")
 
 
 def _enroll_request_path(store):
     return agent_bridge.bridge_root(store) / ENROLL_REQUEST_FILENAME
+
+
+def _link_notice_path(store):
+    return store.state_dir / LINK_NOTICE_FILENAME
+
+
+def read_link_notice(store):
+    try:
+        value = json.loads(_link_notice_path(store).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def write_link_notice(store, data):
+    """Worker-only (read-write runtime mount). Atomic so a crash mid-write leaves
+    the previous marker intact rather than a truncated file."""
+    store.state_dir.mkdir(parents=True, exist_ok=True)
+    agent_bridge._atomic_json(_link_notice_path(store), data)
 
 
 def _agent_status_path(store):
@@ -145,13 +168,31 @@ def control_link_state(store):
         pending_operation_id = str(queued_enroll.operation_id)
         pending_control_url = queued_enroll.control_url
 
+    enrolled = bool(status.get("enrolled"))
+    revoked = bool(status.get("revoked"))
+    control_url = status.get("control_url") or pending_control_url or ""
+    connected = enrolled and not revoked
+    # Distinguish "was connected, now disconnected" (a control_url is on record
+    # but the agent is not currently enrolled, or the control plane revoked it)
+    # from "never configured" — the template renders and alerts on them
+    # differently, and only the former warrants a warning.
+    if pending:
+        connection_status = "pending"
+    elif connected:
+        connection_status = "connected"
+    elif control_url:
+        connection_status = "disconnected"
+    else:
+        connection_status = "unconfigured"
+
     return {
         "bridge_available": True,
         "queued": queued is not None,
         "queue_error": getattr(queued, "error", "") or "",
         "agent_status_present": bool(status),
-        "enrolled": bool(status.get("enrolled")),
-        "control_url": status.get("control_url") or pending_control_url or "",
+        "enrolled": enrolled,
+        "connection_status": connection_status,
+        "control_url": control_url,
         "agent_id": status.get("agent_id") or "",
         "agent_version": status.get("agent_version") or "",
         # The resident composer-agent binary's own version (composer >= 1.2.5),

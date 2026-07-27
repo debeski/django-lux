@@ -426,6 +426,10 @@ class SingletonModel(models.Model):
                     obj.resizable_table_columns = bool(config.get('resizable_table_columns'))
                 if hasattr(obj, 'zebra_striping') and 'zebra_striping' in config:
                     obj.zebra_striping = bool(config.get('zebra_striping'))
+                if hasattr(obj, 'show_audit_fields') and 'show_audit_fields' in config:
+                    obj.show_audit_fields = bool(config.get('show_audit_fields'))
+                if hasattr(obj, 'show_soft_deleted') and 'show_soft_deleted' in config:
+                    obj.show_soft_deleted = bool(config.get('show_soft_deleted'))
                 if hasattr(obj, 'allowed_fonts') and isinstance(config.get('allowed_fonts'), (list, tuple, set)):
                     obj.allowed_fonts = list(config.get('allowed_fonts'))
                 if hasattr(obj, 'default_fonts') and isinstance(config.get('default_fonts'), dict):
@@ -623,6 +627,14 @@ class ScopedModel(models.Model):
     def hard_delete(self, using=None, keep_parents=False):
         """Permanently remove from database (escape hatch)."""
         super().delete(using=using, keep_parents=keep_parents)
+
+    def validate_unique(self, exclude=None):
+        """Uniqueness must ignore soft-deleted rows even while a superadmin is in
+        the "show soft-deleted" review mode — otherwise a deleted row could
+        falsely block reusing its unique value."""
+        from .managers import force_hide_deleted
+        with force_hide_deleted():
+            super().validate_unique(exclude=exclude)
 
 
 class DluxNotification(ScopedModel):
@@ -864,6 +876,7 @@ class Profile(ScopedModel):
             ("manage_staff", "Can manage staff"),
             ("manage_scopes", "Can manage scopes and all users"),
             ("view_reports", "Can view reports"),
+            ("view_audit_fields", "Can view audit fields (created/updated by/at) in tables and detail views"),
             ("download_backup", "Can download backup"),
         ]
 

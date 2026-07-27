@@ -576,6 +576,8 @@ Use `filter_context_actions()` on the backend when actions should disappear for 
 
 For system-managed tables, context-menu integration is part of the normal ecosystem: section tables, user flows, and dynamic modal actions already build on the same model.
 
+The System Settings **Layout → Table row actions** setting (`layout_config.row_actions_style`) controls how these row actions are triggered globally: `context` (default, right-click / long-press), `column` (a dedicated three-dot column, `.dlux-row-actions-trigger`), or `both`. The button-triggered menu reuses the very same `data-dlux-actions` payload, so custom tables get the actions column for free without changing how you declare actions. See [reference.md](reference.md) → `row_actions_style`.
+
 ## Loading Buttons
 
 DjangoLux ships one reusable spinner-in-button primitive (`window.DluxLoadingButton`, loaded globally from `dlux/base.html`) so you never hand-roll the disable/spinner/restore dance again. It works on `<button>` and any clickable element, sets `aria-busy`, shows a Bootstrap `spinner-border-sm`, and restores the original content when done. By default it preserves the button's layout **in place** — it swaps a leading icon (e.g. dlux's `<i class="bi bi-save …">`) for the spinner and keeps the text, so icon-beside-text buttons don't reflow; pass an explicit `label` (or use task-polling, which streams status text) to switch to content-replace mode instead. Styling lives in `dlux/helpers/loading_button/css/main.css` (busy/done/error states, reduced-motion aware). There are four ways to use it:
@@ -961,7 +963,7 @@ The same helper layer also fits well with fetch/export and context-menu-driven w
 
 `dlux/base.html` renders a faint, very small footer pinned to the bottom of the viewport — intended for a copyright notice, a short description, or a credit line. Its colors derive from the active theme (so it flips correctly on dark themes), it is semi-transparent with a backdrop blur, `pointer-events:none` so it never blocks clicks on the content behind it, and it sits below the sidebar/navbar and Bootstrap modals/offcanvas.
 
-**Turning it off.** Leaving the Footer text blank does *not* hide it — it falls back to the default line. To remove the built-in footer entirely, switch off **Show page footer** in *System Settings → Themes & Typography → Footer* (`layout_config.footer_enabled`). That toggle gates only the built-in footer; a dev `custom_footer.html` partial or a `footer` block override is explicit code and always renders regardless.
+**Turning it off.** Leaving the Footer text blank does *not* hide it — it falls back to the default line. To remove the built-in footer entirely, switch off **Show page footer** in *System Settings → Identity → Footer* (`layout_config.footer_enabled`). That toggle gates only the built-in footer; a dev `custom_footer.html` partial or a `footer` block override is explicit code and always renders regardless.
 
 By default it shows `© <current year> <system display name>`. The content resolves in this order (most specific wins):
 
@@ -984,7 +986,7 @@ By default it shows `© <current year> <system display name>`. The content resol
    <span class="dlux-footer__text">&copy; {% now "Y" %} Acme Corp · All rights reserved</span>
    ```
 
-3. **System Settings (no code, admin-editable)** — in *System Settings → Themes & Typography → Footer*: **Show page footer** (on/off), **Footer text**, and an optional **Footer link text** + **Footer link URL**. Stored on `SystemSettings.layout_config` (`footer_enabled` / `footer_text` / `footer_link_text` / `footer_link_url`) and surfaced as `APP_CONFIG.appearance.*`; all participate in System Settings export/import. The footer text is HTML-escaped (plain text + Unicode symbols like `©`, not markup). The link URL is scheme-validated server-side — only `http(s)://`, `mailto:`, or a root-relative `/path` is kept; anything else (or a blank URL) renders no link. The link label falls back to the URL when **Footer link text** is blank. This is the recommended place for a per-deployment copyright/credit line and a single link, without touching templates.
+3. **System Settings (no code, admin-editable)** — in *System Settings → Identity → Footer*: **Show page footer** (on/off), **Footer text**, and an optional **Footer link text** + **Footer link URL**. Stored on `SystemSettings.layout_config` (`footer_enabled` / `footer_text` / `footer_link_text` / `footer_link_url`) and surfaced as `APP_CONFIG.appearance.*`; all participate in System Settings export/import. The footer text is HTML-escaped (plain text + Unicode symbols like `©`, not markup). The link URL is scheme-validated server-side — only `http(s)://`, `mailto:`, or a root-relative `/path` is kept; anything else (or a blank URL) renders no link. The link label falls back to the URL when **Footer link text** is blank. This is the recommended place for a per-deployment copyright/credit line and a single link, without touching templates.
 
 4. **Code fallback** — set `footer_text` in your project `DLUX_STRINGS` for a translated default when no admin value is configured.
 
@@ -994,7 +996,7 @@ To restyle without editing templates, override the CSS variables on `.dlux-foote
 
 ### Appearance Toggles (Tables, Forms, Modals)
 
-*System Settings → Themes & Typography* exposes layout toggles stored on
+*System Settings → Layout* exposes layout toggles stored on
 `SystemSettings.layout_config` (no migration; all surface as `APP_CONFIG.appearance.*`
 and round-trip through export/import):
 
@@ -1020,16 +1022,19 @@ and round-trip through export/import):
 
 ### Public Root Appearance and SEO
 
-*System Settings → Security* (under Home & Public Root) controls how the public
-root renders for **anonymous** visitors (`SystemSettings.public_root_config`):
+**Enable public root access** in *System Settings → Access & Security* is the master
+switch for the anonymous public-root controls (`SystemSettings.public_root_config`).
+While enabled, each control appears in its canonical category:
 
 - **Public root theme** (`public_root_theme`, blank = inherit) forces a fixed
-  theme for anonymous public-root visitors regardless of the system default.
+  theme for anonymous public-root visitors regardless of the system default
+  (*Themes & Typography*).
 - **Public root page title** / **meta description** (`public_root_title`,
   `public_root_meta_description`) emit a custom `<title>` and
-  `<meta name="description">` only on the anonymous public index.
-- **Show titlebar on public root** / **Show sidebar on public root**
-  (`show_titlebar_on_public`, `show_sidebar_on_public`, both default **off**).
+  `<meta name="description">` only on the anonymous public index (*Identity*).
+- **Show titlebar on public root** (`show_titlebar_on_public`, *Titlebar*) and
+  **Show sidebar on public root** (`show_sidebar_on_public`, *Sidebar*) both
+  default **off**.
   These replace the deprecated `titlebar_config.hide_on_public_unauthenticated_index`
   (legacy values migrate, inverted) and the old hardcoded behavior that hid the
   sidebar from every unauthenticated user. The shared `_is_public_index()` context

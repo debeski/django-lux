@@ -1,0 +1,35 @@
+{% if visible %}
+<hr class="my-4">
+<h6 class="fw-bold mb-3 text-secondary">
+    <i class="bi bi-clock-history me-1"></i> {{ DLUX_STRINGS.audit_trail_title|default:"Record history" }}
+</h6>
+<div class="row g-3 px-1 dlux-audit-trail">
+    {% if instance.created_at %}
+    <div class="col-12 col-md-6">
+        <div class="info-label text-muted small fw-bold text-uppercase tracking-wider mb-1">{{ DLUX_STRINGS.audit_created_by|default:"Created by" }}</div>
+        <div class="info-value text-dark">
+            {% if instance.created_by %}{{ instance.created_by.get_full_name|default:instance.created_by.username }}{% else %}—{% endif %}
+            <span class="text-muted small d-block">{{ instance.created_at|date:"Y-m-d H:i" }}</span>
+        </div>
+    </div>
+    {% endif %}
+    {% if instance.updated_at and instance.updated_at != instance.created_at %}
+    <div class="col-12 col-md-6">
+        <div class="info-label text-muted small fw-bold text-uppercase tracking-wider mb-1">{{ DLUX_STRINGS.audit_updated_by|default:"Last edited by" }}</div>
+        <div class="info-value text-dark">
+            {% if instance.updated_by %}{{ instance.updated_by.get_full_name|default:instance.updated_by.username }}{% else %}—{% endif %}
+            <span class="text-muted small d-block">{{ instance.updated_at|date:"Y-m-d H:i" }}</span>
+        </div>
+    </div>
+    {% endif %}
+    {% if show_deleted and instance.deleted_at %}
+    <div class="col-12 col-md-6">
+        <div class="info-label text-danger small fw-bold text-uppercase tracking-wider mb-1">{{ DLUX_STRINGS.audit_deleted_by|default:"Deleted by" }}</div>
+        <div class="info-value text-danger">
+            {% if instance.deleted_by %}{{ instance.deleted_by.get_full_name|default:instance.deleted_by.username }}{% else %}—{% endif %}
+            <span class="small d-block">{{ instance.deleted_at|date:"Y-m-d H:i" }}</span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}

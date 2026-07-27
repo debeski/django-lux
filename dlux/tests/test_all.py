@@ -32,6 +32,7 @@ TEST_LABELS = [
     'dlux.tests.test_password_reset',
     'dlux.tests.test_dlux_setup',
     'dlux.tests.test_doctor',
+    'dlux.tests.test_audit_visibility',
     'dlux.tests.test_migrator',
     'dlux.tests.test_sidebar_discovery',
     'dlux.tests.test_signals',

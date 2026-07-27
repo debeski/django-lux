@@ -17,6 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import call, patch
 from pathlib import Path
 from io import StringIO
+from html.parser import HTMLParser
 import json
 import re
 import tempfile
@@ -47,6 +48,65 @@ def _assert_versioned_static_asset(testcase, contents, asset_path):
     # appends ?v=<DjangoLux version> at render) or a legacy {% static %}?v=DATE ref.
     p = re.escape(asset_path)
     testcase.assertRegex(contents, rf"(dlux_static\s+['\"]{p}['\"]|{p}[^\n]*\?v=)")
+
+
+class _WizardStepFieldParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.div_depth = 0
+        self.active_step_depth = None
+        self.steps = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == 'div':
+            self.div_depth += 1
+            if 'wizard-step' in set(str(attrs.get('class') or '').split()):
+                self.active_step_depth = self.div_depth
+                self.steps.append(set())
+        if self.active_step_depth is not None and tag in {'input', 'select', 'textarea'}:
+            name = attrs.get('name')
+            if name:
+                self.steps[-1].add(name)
+
+    def handle_endtag(self, tag):
+        if tag != 'div':
+            return
+        if self.active_step_depth == self.div_depth:
+            self.active_step_depth = None
+        self.div_depth -= 1
+
+
+def _wizard_step_field_names(html):
+    parser = _WizardStepFieldParser()
+    parser.feed(html)
+    return parser.steps
+
+
+class _PublicRootDependentFieldParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.div_stack = []
+        self.fields = set()
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == 'div':
+            self.div_stack.append(attrs.get('data-public-root-dependent') == 'true')
+        if tag in {'input', 'select', 'textarea'} and any(self.div_stack):
+            name = attrs.get('name')
+            if name:
+                self.fields.add(name)
+
+    def handle_endtag(self, tag):
+        if tag == 'div':
+            self.div_stack.pop()
+
+
+def _public_root_dependent_field_names(html):
+    parser = _PublicRootDependentFieldParser()
+    parser.feed(html)
+    return parser.fields
 
 
 class DluxDefaultRouteTests(SimpleTestCase):
@@ -1634,6 +1694,54 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('<fieldset aria-describedby="id_default_table_density_helptext">', html)
         self.assertNotIn('<fieldset> <legend', html)
 
+    def test_system_settings_fields_belong_to_their_canonical_steps(self):
+        form = SystemSettingsForm(
+            instance=SystemSettings(is_configured=False),
+            mode='setup',
+        )
+
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+        steps = _wizard_step_field_names(html)
+
+        self.assertEqual(len(steps), 13)
+        self.assertLessEqual(
+            {'default_theme', 'allowed_themes', 'allow_user_theme_override', 'allowed_fonts',
+             'allow_user_font_override', 'default_fonts', 'public_root_theme'},
+            steps[8],
+        )
+        self.assertLessEqual(
+            {'default_table_density', 'default_form_density', 'default_modal_size',
+             'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
+             'show_audit_fields', 'show_soft_deleted', 'options_style'},
+            steps[9],
+        )
+        self.assertTrue(
+            steps[8].isdisjoint({
+                'default_table_density', 'default_form_density', 'default_modal_size',
+                'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
+                'show_audit_fields', 'show_soft_deleted', 'options_style',
+            })
+        )
+        self.assertLessEqual({'public_root_title', 'public_root_meta_description'}, steps[0])
+        self.assertIn('show_sidebar_on_public', steps[4])
+        self.assertIn('show_titlebar_on_public', steps[6])
+        self.assertNotIn('public_root_theme', steps[2])
+        self.assertNotIn('show_sidebar_on_public', steps[2])
+        self.assertNotIn('show_titlebar_on_public', steps[2])
+        self.assertNotIn('public_root_title', steps[2])
+        self.assertNotIn('public_root_meta_description', steps[2])
+        self.assertLessEqual(
+            {
+                'public_root_title',
+                'public_root_meta_description',
+                'public_root_split_enabled',
+                'show_sidebar_on_public',
+                'show_titlebar_on_public',
+                'public_root_theme',
+            },
+            _public_root_dependent_field_names(html),
+        )
+
     def test_crispy_setup_render_uses_shared_toggle_cards_for_boolean_settings_except_email_switches(self):
         form = SystemSettingsForm(
             instance=SystemSettings(is_configured=False),
@@ -1857,12 +1965,48 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.single_step_index, 2)
         self.assertTrue(form.is_valid(), form.errors)
         saved = form.save(commit=False)
-        # A Security-step (index 2) save must not wipe Themes-step (index 8) layout keys.
+        # A Security-step save must not wipe Layout-step values.
         self.assertEqual(saved.default_form_density, 'roomy')
         self.assertEqual(saved.default_modal_size, 'wide')
         self.assertFalse(saved.sticky_table_headers)
         self.assertFalse(saved.resizable_table_columns)
         self.assertFalse(saved.zebra_striping)
+
+    def test_security_step_save_preserves_public_root_controls_owned_by_other_steps(self):
+        request = RequestFactory().get('/sys/modals/dlux/systemsettings/1/?step=2')
+        form = SystemSettingsForm(
+            data={
+                'system_names': '{"en": "System", "ar": "System"}',
+                'home_url': '/dashboard/',
+                'default_language': 'en',
+                'default_theme': 'light',
+                'allowed_themes': ['light'],
+                'languages': '{}',
+                'translations_override': '{}',
+                'public_root': 'on',
+                'sidebar_config': '{"entries":[]}',
+            },
+            instance=SystemSettings(
+                is_configured=True,
+                public_root_config={
+                    'public_root': True,
+                    'public_root_theme': 'dark',
+                    'public_root_title': 'Public title',
+                    'public_root_meta_description': 'Public description',
+                    'show_titlebar_on_public': True,
+                    'show_sidebar_on_public': True,
+                },
+            ),
+            request=request,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save(commit=False)
+        self.assertEqual(saved.public_root_theme, 'dark')
+        self.assertEqual(saved.public_root_title, 'Public title')
+        self.assertEqual(saved.public_root_meta_description, 'Public description')
+        self.assertTrue(saved.show_titlebar_on_public)
+        self.assertTrue(saved.show_sidebar_on_public)
 
     def test_public_root_setup_js_uses_single_form_scoped_controller(self):
         script = (
@@ -2988,6 +3132,34 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("skeletonBlock", script)
         self.assertIn("hasPreviousFallback", script)
         self.assertIn("Request failed with HTTP ${res.status}", script)
+        self.assertIn("modal-dialog-scrollable", contents)
+        self.assertIn("normalizeModalChrome", script)
+        self.assertIn("directModalChild('modal-header')", script)
+        self.assertIn("directModalChild('modal-body')", script)
+        self.assertIn("directModalChild('modal-footer')", script)
+        self.assertIn("removeAttribute('data-dlux-wizard-bound')", script)
+        self.assertIn("embeddedFooter.setAttribute('data-dlux-modal-footer'", script)
+        self.assertIn("embeddedBody.replaceWith", script)
+        self.assertIn("actions.querySelectorAll('button')", script)
+        self.assertNotIn("actions.querySelector('.dlux-btn-next, .dlux-btn-prev')", script)
+
+    def test_dynamic_modal_wizard_controls_can_live_in_the_shared_footer(self):
+        script_path = (
+            Path(__file__).resolve().parents[1]
+            / 'static'
+            / 'dlux'
+            / 'helpers'
+            / 'wizard'
+            / 'js'
+            / 'main.js'
+        )
+        script = script_path.read_text(encoding='utf-8')
+
+        self.assertIn("function controlFor(container, selector)", script)
+        self.assertIn('document.querySelector(`${selector}[form="${escapedId}"]`)', script)
+        self.assertIn("controlFor(container, '.dlux-btn-next')", script)
+        self.assertIn("controlFor(container, '.dlux-btn-prev')", script)
+        self.assertIn("controlFor(container, '.dlux-btn-submit')", script)
 
     def test_setup_editor_templates_use_ids_not_post_names_for_js_controls(self):
         templates_root = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes'

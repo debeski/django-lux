@@ -53,7 +53,7 @@ class ComponentIndexTests(TestCase):
     def test_settings_entries_are_step_deeplinked_modals(self):
         index = get_component_index('en')
         settings_entries = [entry for entry in index if entry['type'] == 'setting']
-        self.assertEqual(len(settings_entries), 12)
+        self.assertEqual(len(settings_entries), 13)
         for entry in settings_entries:
             self.assertEqual(entry['mode'], 'modal')
             self.assertIn('?step=', entry['url'])
@@ -63,6 +63,11 @@ class ComponentIndexTests(TestCase):
         index = get_component_index('en')
         security = next(e for e in index if e['type'] == 'setting' and 'Security' in e['label'])
         self.assertIn('?step=2', security['url'])
+
+    def test_layout_section_maps_to_step_9(self):
+        index = get_component_index('en')
+        layout = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Layout')
+        self.assertIn('?step=9', layout['url'])
 
     def test_index_includes_options_cards(self):
         index = get_component_index('en')
@@ -83,6 +88,13 @@ class ArabicLocalizationTests(TestCase):
         setting_labels = [e['label'] for e in index if e['type'] == 'setting']
         # Access & Security in Arabic — the index must not be English.
         self.assertIn('الوصول والأمان', setting_labels)
+
+    def test_arabic_theme_and_layout_labels_are_distinct_and_step_deep_linked(self):
+        index = get_component_index('ar')
+        settings = {e['label']: e for e in index if e['type'] == 'setting'}
+
+        self.assertIn('?step=8', settings['الالوان']['url'])
+        self.assertIn('?step=9', settings['المظهر']['url'])
 
     def test_arabic_query_matches_arabic_labels(self):
         results = search_components(self.superuser, 'الأمان', lang_code='ar')

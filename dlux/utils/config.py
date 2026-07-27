@@ -36,6 +36,7 @@ from ..system.constants import (
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_OPTIONS_STYLE,
+    DEFAULT_ROW_ACTIONS_STYLE,
     DEFAULT_TABLE_DENSITY,
     MODAL_SIZE_CLASSES,
     REGISTRATION_ACTIVATION_AUTO_LOGIN,
@@ -408,6 +409,7 @@ def build_config_groups(config, current_language=None):
             'resizable_table_columns': bool(config.get('resizable_table_columns', True)),
             'zebra_striping': bool(config.get('zebra_striping', True)),
             'options_style': config.get('options_style', DEFAULT_OPTIONS_STYLE),
+            'row_actions_style': config.get('row_actions_style', DEFAULT_ROW_ACTIONS_STYLE),
             'footer_enabled': bool(config.get('footer_enabled', True)),
             'footer_text': config.get('footer_text', '') or '',
             'footer_link_text': config.get('footer_link_text', '') or '',
@@ -1053,6 +1055,16 @@ def get_system_config():
                 _options_style, default_config.get('options_style', DEFAULT_OPTIONS_STYLE)
             ):
                 db_config['options_style'] = _options_style
+            _row_actions_style = _layout_json.get('row_actions_style')
+            if _row_actions_style and _should_apply_db_override(
+                _row_actions_style, default_config.get('row_actions_style', DEFAULT_ROW_ACTIONS_STYLE)
+            ):
+                db_config['row_actions_style'] = _row_actions_style
+            # JSON-only opt-in flags (default False): surface them as flat keys so
+            # audit_fields_visible()/soft_deleted_visible() can read them.
+            for _flag in ('show_audit_fields', 'show_soft_deleted'):
+                if bool(_layout_json.get(_flag)):
+                    db_config[_flag] = True
         if str(getattr(sys_settings, 'footer_text', '') or '').strip():
             db_config['footer_text'] = sys_settings.footer_text
         if str(getattr(sys_settings, 'footer_link_text', '') or '').strip():

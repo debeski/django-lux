@@ -345,6 +345,41 @@ def _build_default_dlux_actions(table, record):
     ]
 
 
+def _build_dlux_row_actions_column():
+    """A presentational last column holding a three-dot trigger.
+
+    The button carries no actions of its own; the shared context-menu JS reads
+    the row's ``data-dlux-actions`` payload (resolved via ``closest``) when the
+    button is clicked. Non-orderable and empty-headed; export is model-driven so
+    this render-only column never reaches exported data.
+    """
+    import django_tables2 as tables
+    from django.utils.safestring import mark_safe
+
+    class _DluxRowActionsColumn(tables.Column):
+        def __init__(self, **kwargs):
+            kwargs.setdefault('orderable', False)
+            kwargs.setdefault('verbose_name', '')
+            # empty_values=() so django-tables2 always calls render() (the column
+            # has no accessor, so its value is otherwise treated as empty → default).
+            kwargs.setdefault('empty_values', ())
+            kwargs.setdefault(
+                'attrs',
+                {'td': {'class': 'dlux-row-actions-cell'}, 'th': {'class': 'dlux-row-actions-cell'}},
+            )
+            super().__init__(**kwargs)
+
+        def render(self, **kwargs):
+            return mark_safe(
+                '<button type="button" class="dlux-row-actions-trigger" '
+                'aria-haspopup="menu" aria-label="Actions">'
+                '<i class="bi bi-three-dots-vertical" aria-hidden="true"></i>'
+                '</button>'
+            )
+
+    return _DluxRowActionsColumn()
+
+
 # ──────────────────────────────────────────────────────────
 # 1. ModelForm patch
 # ──────────────────────────────────────────────────────────
@@ -361,6 +396,18 @@ def _patch_modelform_init():
 
         # Call the full MRO chain (subclass → ModelForm → BaseForm)
         _original_init(self, *args, **kwargs)
+
+        # Related pickers must never offer soft-deleted rows, even while a
+        # superadmin's "show soft-deleted" review mode relaxes the manager for
+        # reads. Explicitly filter any ScopedModel-backed choice field. Runs for
+        # every form, not just ScopedModel forms.
+        try:
+            for _field in getattr(self, 'fields', {}).values():
+                _qs = getattr(_field, 'queryset', None)
+                if _qs is not None and hasattr(getattr(_qs, 'model', None), 'deleted_at'):
+                    _field.queryset = _qs.filter(deleted_at__isnull=True)
+        except Exception:
+            pass
 
         # Fallback: check if subclass stored user on self
         if not user:
@@ -609,6 +656,64 @@ def _patch_table_init():
                         extra.append(('scope', tables.Column(verbose_name='النطاق')))
                         kwargs['extra_columns'] = extra
 
+        # Audit + soft-delete columns. Excluded by default; ADDED here (as
+        # extra_columns) when the viewer is permitted, so they appear on every
+        # DluxTable — including project tables with an explicit Meta.fields that
+        # never lists audit columns. Only added for models that actually have the
+        # field and where it isn't already a declared column.
+        try:
+            from django.utils import timezone as _tz  # noqa: F401 (import guard)
+            from dlux.utils.authorization import audit_fields_visible, soft_deleted_visible
+            gate_user = getattr(request, 'user', None)
+            wanted = []
+            if audit_fields_visible(gate_user):
+                wanted += ['created_by', 'created_at', 'updated_by', 'updated_at', 'deleted_by']
+            if soft_deleted_visible(gate_user):
+                wanted.append('deleted_at')
+            if wanted and model is not None:
+                declared = set(getattr(table_cls, 'base_columns', {}) or {})
+                declared |= set(_table_meta_value(table_cls, 'fields', ()) or ())
+                extra = list(kwargs.get('extra_columns', []))
+                have = {name for name, _ in extra}
+                # Ensure these are not excluded (Meta or a prior branch may list them).
+                exclude = kwargs.get('exclude', _table_meta_value(table_cls, 'exclude', ()) or ())
+                exclude = tuple(exclude) if isinstance(exclude, (list, tuple)) else ()
+                for _name in wanted:
+                    if _name in declared or _name in have:
+                        continue
+                    try:
+                        _mf = model._meta.get_field(_name)
+                    except Exception:
+                        continue
+                    if _name in exclude:
+                        exclude = tuple(x for x in exclude if x != _name)
+                    _label = getattr(_mf, 'verbose_name', _name)
+                    if _name in ('created_at', 'updated_at', 'deleted_at'):
+                        extra.append((_name, tables.DateTimeColumn(verbose_name=_label, format='Y-m-d H:i')))
+                    else:
+                        extra.append((_name, tables.Column(verbose_name=_label, default='—')))
+                    have.add(_name)
+                if extra:
+                    kwargs['extra_columns'] = extra
+                    kwargs['exclude'] = exclude
+        except Exception:
+            pass
+
+        # Dedicated row-actions column (three-dot trigger). Appended last so it
+        # sits at the end of the table. Mode-driven: 'column' or 'both'. Must be
+        # added before _original_init since extra_columns is consumed there.
+        try:
+            if _should_use_dlux_table(table_cls) and _should_enable_dlux_actions(table_cls):
+                from .utils import get_system_config
+                _row_actions_style = get_system_config().get('row_actions_style') or 'context'
+                if _row_actions_style in ('column', 'both'):
+                    extra = list(kwargs.get('extra_columns', []))
+                    if not any(name == 'dlux_row_actions' for name, _ in extra):
+                        extra.append(('dlux_row_actions', _build_dlux_row_actions_column()))
+                        kwargs['extra_columns'] = extra
+        except Exception:
+            pass
+
         _original_init(self, *args, **kwargs)
 
         # Framework-owned rendering path: adopt the Dlux template unless
@@ -649,9 +754,17 @@ def _patch_table_init():
 
         if self.dlux_table_enabled and _should_enable_dlux_actions(table_cls):
             try:
-                if getattr(self, 'row_attrs', None) is None:
-                    self.row_attrs = {}
-                self.row_attrs.setdefault('data-dlux-context', 'true')
+                from .utils import get_system_config
+                _row_actions_style = get_system_config().get('row_actions_style') or 'context'
+                # Copy so we never mutate a row_attrs dict shared on the table class.
+                self.row_attrs = dict(getattr(self, 'row_attrs', None) or {})
+                # Right-click / long-press is wired via data-dlux-context; omit it
+                # in pure 'column' mode so the three-dot button is the only trigger
+                # (actively drop any marker baked into the table class).
+                if _row_actions_style in ('context', 'both'):
+                    self.row_attrs.setdefault('data-dlux-context', 'true')
+                else:
+                    self.row_attrs.pop('data-dlux-context', None)
                 if 'data-dlux-actions' not in self.row_attrs:
                     def _default_actions(record, table=self):
                         try:

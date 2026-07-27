@@ -25,10 +25,12 @@ from .constants import (
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_OPTIONS_STYLE,
+    DEFAULT_ROW_ACTIONS_STYLE,
     LAYOUT_FOOTER_TEXT_MAX_LENGTH,
     LOGIN_STYLE_VALUES,
     MODAL_SIZE_VALUES,
     OPTIONS_STYLE_VALUES,
+    ROW_ACTIONS_STYLE_VALUES,
     PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
     PUBLIC_ROOT_TITLE_MAX_LENGTH,
     NAVBAR_MODE_VALUES,
@@ -393,6 +395,9 @@ def normalize_layout_config(value):
     options_style = cfg.get('options_style') or DEFAULT_OPTIONS_STYLE
     if options_style not in OPTIONS_STYLE_VALUES:
         options_style = DEFAULT_OPTIONS_STYLE
+    row_actions_style = cfg.get('row_actions_style') or DEFAULT_ROW_ACTIONS_STYLE
+    if row_actions_style not in ROW_ACTIONS_STYLE_VALUES:
+        row_actions_style = DEFAULT_ROW_ACTIONS_STYLE
     footer_enabled = cfg.get('footer_enabled', True)
     return {
         'default_table_density': density,
@@ -401,7 +406,10 @@ def normalize_layout_config(value):
         'sticky_table_headers': bool(cfg.get('sticky_table_headers', True)),
         'resizable_table_columns': bool(cfg.get('resizable_table_columns', True)),
         'zebra_striping': bool(cfg.get('zebra_striping', True)),
+        'show_audit_fields': bool(cfg.get('show_audit_fields', False)),
+        'show_soft_deleted': bool(cfg.get('show_soft_deleted', False)),
         'options_style': options_style,
+        'row_actions_style': row_actions_style,
         'footer_enabled': bool(footer_enabled),
         'footer_text': _normalize_footer_text_value(cfg.get('footer_text')),
         'footer_link_text': _normalize_footer_text_value(cfg.get('footer_link_text')),

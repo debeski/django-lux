@@ -30,6 +30,12 @@ Practical implications:
 - use `SystemSettings` for live runtime edits from the UI
 - expect the final resolved configuration to be the merged view, not one single source
 
+To **add a new first-class setting** to the `SystemSettings` pipeline (schema →
+normalizer → export whitelist → form → runtime), follow the step-by-step procedure
+and trap list in [`adding-system-settings.md`](adding-system-settings.md). To store
+**project-owned** config without touching the framework, use the
+`extra_config['app']` namespace documented in [`reference.md`](reference.md).
+
 ## Core Models
 
 The main system-level models are:
@@ -174,7 +180,9 @@ In both cases, the discovery system is the same. What changes is the entry point
 
 ### Pinning buttons to the modal footer
 
-The dynamic modal keeps its header and footer fixed while only the body scrolls. Built-in action bars (auto-form buttons, the System Settings wizard bar, and `_build_submit_actions` bars) are detected and moved into the pinned footer automatically.
+The dynamic modal owns its header, scrolling body, and persistent footer. AJAX partials should return body content only: do not add another `.modal-header`, `.modal-body`, or `.modal-footer`, and use the trigger's `data-modal-title` for the single shell title. Legacy fragments that still return Bootstrap modal chrome are normalized automatically; their embedded title is promoted to the shell, non-title header context stays in the body, and their footer actions are pinned.
+
+Built-in action bars (auto-form buttons, multi-step wizard controls, the System Settings wizard bar, and `_build_submit_actions` bars) are detected and moved into the pinned footer automatically.
 
 For a **custom modal template** (a view that sets `template_name`, or a custom options screen), mark your own button container with `data-dlux-modal-footer` to have it pinned the same way:
 
@@ -194,9 +202,8 @@ For a **custom modal template** (a view that sets `template_name`, or a custom o
 Notes:
 
 - The marked container takes priority over the built-in bars.
-- Submit buttons inside it are auto-associated to the modal's form via the `form=` attribute, so the modal's AJAX submit interception still fires even though the button now lives in the footer.
+- Its buttons are associated to the modal form via the `form=` attribute, so AJAX submit interception and multi-step wizard navigation still work after relocation.
 - The element is physically moved out of the modal body, so any custom JS for those buttons should use document-level event delegation rather than querying the modal body after load.
-- A container that includes multi-step wizard navigation (`.dlux-btn-next` / `.dlux-btn-prev`) is intentionally left in the body so the wizard controller can manage it.
 
 ## Users, Profiles, and Permissions
 
@@ -273,6 +280,21 @@ Filter pages also have a clearer contract now:
 - `setup_filter_helper()` and `advanced_filter_helper()` default to inline placeholder labels for filter bars
 - if you want normal external labels instead, pass `inline_labels=False`
 - if a page cannot extend `dlux/list_base.html`, include `dlux/forms/filter_assets_head.html`
+
+For Arabic keyword search, use `arabic_search_q()` instead of hand-rolled `icontains` chains so أ/ا, ي/ى, ة/ه, ق/غ, diacritics, and Arabic-Indic digits all match interchangeably:
+
+```python
+from dlux.utils import arabic_search_q
+
+
+class DecreeFilter(django_filters.FilterSet):
+    keyword = django_filters.CharFilter(method="filter_keyword", label="")
+
+    def filter_keyword(self, queryset, name, value):
+        return queryset.filter(
+            arabic_search_q(value, ["title", "keywords", "category__name"])
+        )
+```
 
 For the full contract and more examples, use:
 

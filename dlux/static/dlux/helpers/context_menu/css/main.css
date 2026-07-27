@@ -86,3 +86,31 @@
     padding: 8px 12px;
     border-radius: 5px;
 }
+
+/* Dedicated actions column (row_actions_style: column / both) */
+.dlux-row-actions-cell {
+    width: 1%;
+    white-space: nowrap;
+    text-align: center;
+}
+.dlux-row-actions-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--bs-secondary, #6c757d);
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+}
+.dlux-row-actions-trigger:hover,
+.dlux-row-actions-trigger:focus-visible {
+    background: var(--bs-secondary-bg, rgba(0, 0, 0, 0.06));
+    color: var(--bs-body-color, inherit);
+    outline: none;
+}

@@ -29,6 +29,7 @@ Use the sections below based on what you are trying to do.
 
 - [Developer Guide](developer-guide.md) for the system mental model, configuration layers, scoped models, discovery, and when to use each subsystem.
 - [Customization Guide](customization-guide.md) for `DLUX_CONFIG`, translations, sections, dynamic modals, context-menu integrations, fetch/export utilities, activity logging, autofill, and template overrides.
+- [Adding a System Setting](adding-system-settings.md) — the A→Z procedure and trap list for adding a first-class setting to the `SystemSettings` pipeline (framework contributors).
 
 ## I Need Reference Material
 

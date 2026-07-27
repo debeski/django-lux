@@ -41,6 +41,11 @@
         // Close menu on interaction
         document.addEventListener('click', hideMenu);
         document.addEventListener('scroll', hideMenu, { passive: true });
+
+        // Dedicated actions-column three-dot trigger (row_actions_style column/both).
+        // Registered after hideMenu so, on the opening click, hideMenu runs first
+        // and bails (see its guard), then this opens the menu.
+        document.addEventListener('click', handleGlobalActionsTrigger);
         
         // Handle Menu Action Clicks
         menuElement.addEventListener('click', handleActionClick);
@@ -105,6 +110,23 @@
         }
     }
 
+    function handleGlobalActionsTrigger(e) {
+        const btn = e.target.closest('.dlux-row-actions-trigger');
+        if (!btn) return;
+        e.preventDefault();
+        const target = btn.closest('[data-dlux-actions]');
+        if (!target) return;
+        // Toggle closed when the same row's menu is already open.
+        if (menuElement && menuElement.classList.contains('show') && currentTarget === target) {
+            menuElement.classList.remove('show');
+            menuElement.style.display = 'none';
+            return;
+        }
+        currentTarget = target;
+        const rect = btn.getBoundingClientRect();
+        openMenu(target, rect.left, rect.bottom + 4);
+    }
+
     function handleGlobalTouchStart(e) {
         const target = e.target.closest('[data-dlux-context]');
         if (!target) return;
@@ -160,7 +182,13 @@
         }
     }
 
-    function hideMenu() {
+    function hideMenu(e) {
+        // Don't let the click that OPENS the actions dropdown immediately close it;
+        // handleGlobalActionsTrigger (registered later) handles opening/toggling.
+        if (e && e.type === 'click' && e.target && e.target.closest &&
+            e.target.closest('.dlux-row-actions-trigger')) {
+            return;
+        }
         if (menuElement) {
             menuElement.classList.remove('show');
             menuElement.style.display = 'none';

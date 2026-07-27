@@ -17,6 +17,52 @@ document.addEventListener('DOMContentLoaded', function() {
     const DEFAULT_LOADING_MIN_HEIGHT = 320;
     const RELOCATED_FORM_ID = 'universalDynamicModalForm';
 
+    function directModalChild(className) {
+        return Array.from(modalBody.children).find(child => child.classList.contains(className)) || null;
+    }
+
+    // Custom/legacy AJAX fragments may still return their own Bootstrap modal
+    // header, body, and footer. Fold that chrome into the universal shell so the
+    // viewer sees one title, one scrolling body, and one persistent action footer.
+    function normalizeModalChrome() {
+        modalBody.removeAttribute('data-dlux-wizard-bound');
+        const embeddedHeader = directModalChild('modal-header');
+        const embeddedBody = directModalChild('modal-body');
+        const embeddedFooter = directModalChild('modal-footer');
+
+        if (embeddedHeader) {
+            const embeddedTitle = embeddedHeader.querySelector('.modal-title');
+            const normalizedTitle = embeddedTitle
+                ? embeddedTitle.textContent.replace(/\s+/g, ' ').trim()
+                : '';
+            if (normalizedTitle && titleText) {
+                titleText.textContent = normalizedTitle;
+            }
+            if (embeddedTitle) embeddedTitle.remove();
+            embeddedHeader.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]').forEach(control => {
+                control.remove();
+            });
+
+            const hasContext = embeddedHeader.textContent.trim()
+                || embeddedHeader.querySelector('img, svg, .badge');
+            if (hasContext) {
+                embeddedHeader.classList.remove('modal-header', 'border-0', 'pb-0');
+                embeddedHeader.classList.add('dlux-modal-header-context', 'mb-3');
+                if (embeddedBody) embeddedBody.prepend(embeddedHeader);
+            } else {
+                embeddedHeader.remove();
+            }
+        }
+
+        if (embeddedFooter) {
+            embeddedFooter.setAttribute('data-dlux-modal-footer', '');
+        }
+
+        if (embeddedBody) {
+            embeddedBody.replaceWith(...Array.from(embeddedBody.childNodes));
+        }
+    }
+
     // Footer starts hidden; syncModalFooter() reveals it only when the loaded
     // content has a standard action bar to pin.
     function resetModalFooter() {
@@ -48,10 +94,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Resolution order:
     //  1. an explicit [data-dlux-modal-footer] container (dev opt-in), else
     //  2. the first built-in action bar.
-    // Skips:
-    //  - multi-step wizard bars (contain .dlux-btn-next / .dlux-btn-prev): the wizard JS
-    //    scans the body for these and toggles them per step — relocating would break it.
-    //  - nothing matched (tables / detail / dev-custom with no marker): footer stays hidden.
+    // If nothing matches (tables / detail / dev-custom with no marker), the
+    // footer stays hidden.
     function syncModalFooter() {
         if (!footer) return;
         resetModalFooter();
@@ -60,18 +104,20 @@ document.addEventListener('DOMContentLoaded', function() {
             || modalBody.querySelector(BUILTIN_ACTION_SELECTOR);
         if (!actions) return;
 
-        // Leave multi-step wizard navigation bars in place for the wizard controller.
-        if (actions.querySelector('.dlux-btn-next, .dlux-btn-prev')) return;
-
-        const form = modalBody.querySelector('form');
+        const form = actions.closest('form') || modalBody.querySelector('form');
         if (form) {
             if (!form.id) form.id = RELOCATED_FORM_ID;
-            actions.querySelectorAll('button[type="submit"], button:not([type])').forEach(btn => {
-                btn.setAttribute('form', form.id);
+            actions.querySelectorAll('button').forEach(btn => {
+                if (!btn.hasAttribute('form')) btn.setAttribute('form', form.id);
             });
         }
 
-        footer.appendChild(actions);
+        if (actions.classList.contains('modal-footer')) {
+            footer.append(...Array.from(actions.childNodes));
+            actions.remove();
+        } else {
+            footer.appendChild(actions);
+        }
         footer.style.display = '';
     }
 
@@ -254,6 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.html) {
                 modalBody.style.minHeight = '';
                 modalBody.innerHTML = data.html;
+                normalizeModalChrome();
                 attachListeners();
                 
                 // Execute any inline scripts returned in the HTML payload
@@ -430,6 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // syncModalFooter()/resetModalFooter() rebuild the footer from the
                 // fresh markup, discarding this (busy) button — no restore needed.
                 modalBody.innerHTML = data.html;
+                normalizeModalChrome();
                 attachListeners();
             } else {
                 releaseSubmit();

@@ -274,3 +274,77 @@ class AgentComposerVersionTests(TestCase):
         self.assertContains(response, "1.2.5-deployer")
         self.assertContains(response, "Composer (agent)")
         self.assertContains(response, "1.2.5-agent")
+
+
+class ControlLinkDisconnectTests(TestCase):
+    """A previously-connected panel that drops must be distinguishable from a
+    never-configured one, and must alert superadmins once."""
+
+    def _write_status(self, store, **fields):
+        agent = store.state_dir / "agent"
+        agent.mkdir(parents=True, exist_ok=True)
+        (agent / "agent-status.json").write_text(
+            json.dumps({"schema_version": 1, **fields}), encoding="utf-8"
+        )
+
+    def test_connection_status_distinguishes_the_four_states(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = RuntimeStore(tmp).ensure()
+            self.assertEqual(control_link.control_link_state(store)["connection_status"], "unconfigured")
+
+            self._write_status(store, enrolled=True, control_url="https://panel.example")
+            self.assertEqual(control_link.control_link_state(store)["connection_status"], "connected")
+
+            self._write_status(store, enrolled=True, revoked=True, control_url="https://panel.example")
+            state = control_link.control_link_state(store)
+            self.assertEqual(state["connection_status"], "disconnected")
+            self.assertTrue(state["revoked"])
+            self.assertEqual(state["control_url"], "https://panel.example")
+
+            self._write_status(store, enrolled=False, control_url="https://panel.example")
+            self.assertEqual(control_link.control_link_state(store)["connection_status"], "disconnected")
+
+    def test_worker_alerts_once_per_disconnect_and_rearms_on_reconnect(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = RuntimeStore(tmp).ensure()
+            service = UpdateService(store=store)
+            calls = []
+            service._notify_admins_control_link_disconnected = lambda url, revoked: calls.append((url, revoked))
+
+            service._detect_control_link_disconnect({"enrolled": True, "control_url": "https://panel.example"})
+            self.assertEqual(calls, [])  # connected — arms, no alert
+
+            service._detect_control_link_disconnect(
+                {"enrolled": True, "revoked": True, "control_url": "https://panel.example"}
+            )
+            self.assertEqual(calls, [("https://panel.example", True)])  # revoked — one alert
+
+            service._detect_control_link_disconnect({"enrolled": False, "control_url": "https://panel.example"})
+            self.assertEqual(len(calls), 1)  # still down — no repeat
+
+            service._detect_control_link_disconnect({"enrolled": True, "control_url": "https://panel.example"})
+            service._detect_control_link_disconnect({"enrolled": False, "control_url": "https://panel.example"})
+            self.assertEqual(len(calls), 2)  # reconnect then drop — alerts again
+
+    def test_no_alert_when_already_disconnected_on_first_observation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = RuntimeStore(tmp).ensure()
+            service = UpdateService(store=store)
+            calls = []
+            service._notify_admins_control_link_disconnected = lambda url, revoked: calls.append(1)
+            # Worker's first-ever tick already finds it revoked — no witnessed transition.
+            service._detect_control_link_disconnect(
+                {"enrolled": False, "revoked": True, "control_url": "https://panel.example"}
+            )
+            self.assertEqual(calls, [])
+
+    def test_disconnect_notification_reaches_superadmins(self):
+        from dlux.models import DluxNotification
+
+        User.objects.create_superuser("cl-admin", "cl@example.com", "pw12345!x")
+        with tempfile.TemporaryDirectory() as tmp:
+            store = RuntimeStore(tmp).ensure()
+            UpdateService(store=store)._notify_admins_control_link_disconnected("https://panel.example", True)
+            note = DluxNotification.objects.filter(action="control_link_disconnected").first()
+            self.assertIsNotNone(note)
+            self.assertIn("panel.example", note.message)

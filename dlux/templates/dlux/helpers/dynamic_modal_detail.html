@@ -33,6 +33,8 @@
     </div>
 {% endif %}
 
+{% dlux_audit_trail object %}
+
 {% if request.GET.action == 'view' %}
 <div class="mt-4 text-end border-top pt-3">
     <button type="button" class="btn btn-outline-secondary px-4 rounded-pill dynamic-back-btn">

@@ -43,6 +43,18 @@
     display: none;
 }
 
+/* Step out of the way while a Bootstrap modal is open. By z-index the footer
+   (850) already sits below the modal (1055) and its backdrop (1050), but the
+   footer's `backdrop-filter` puts it on its own composited layer, which browsers
+   mis-stack against a fixed modal — so the strip bleeds over the modal's action
+   bar (submit buttons sit at the same bottom edge). `.modal-open` is on <body>
+   for the whole time any modal is up. This touches ONLY the footer — no z-index
+   is changed, so nothing else can be pushed under a modal by it. Offcanvas
+   (sidebar) does not set `.modal-open`, so it is unaffected. */
+body.modal-open .dlux-footer {
+    display: none;
+}
+
 .dlux-footer a,
 .dlux-footer button {
     pointer-events: auto;

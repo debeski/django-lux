@@ -1035,7 +1035,85 @@ class UpdateService:
             and last.get("state") == "ok"
         ):
             control_link.clear_enroll_request(self.store)
+        self._detect_control_link_disconnect(status)
         return applied
+
+    def _detect_control_link_disconnect(self, status):
+        """Alert admins once when a previously-connected Control Panel enrollment
+        drops (revoked, or the agent is no longer enrolled).
+
+        The web tier can render the disconnected state on the panel, but a
+        superadmin who never opens that page would not know. Detection lives here
+        because only the worker has the read-write runtime mount for the dedup
+        marker. Fully isolated — a failure never affects the tick.
+        """
+        from . import control_link
+
+        try:
+            control_url = str(status.get("control_url") or "").strip()
+            connected = bool(status.get("enrolled")) and not bool(status.get("revoked"))
+            notice = control_link.read_link_notice(self.store)
+            if connected:
+                # Record the live connection and re-arm, so a later drop alerts
+                # again (and a move to a different panel re-arms too).
+                if notice.get("connected_url") != control_url or notice.get("disconnect_notified"):
+                    control_link.write_link_notice(
+                        self.store, {"connected_url": control_url, "disconnect_notified": False}
+                    )
+                return
+            # Not connected: only alert if we actually witnessed a prior connection
+            # (never for a deployment that was already disconnected on first sight).
+            prior = str(notice.get("connected_url") or "").strip()
+            if prior and not notice.get("disconnect_notified"):
+                self._notify_admins_control_link_disconnected(prior, bool(status.get("revoked")))
+                control_link.write_link_notice(
+                    self.store, {"connected_url": prior, "disconnect_notified": True}
+                )
+        except Exception:
+            logger.warning("Control-link disconnect detection failed.", exc_info=True)
+
+    def _notify_admins_control_link_disconnected(self, control_url, revoked):
+        try:
+            from django.contrib.auth import get_user_model
+            from django.urls import NoReverseMatch, reverse
+
+            from ..notifications import notify
+            from ..translations import get_strings
+
+            admins = list(get_user_model().objects.filter(is_active=True, is_superuser=True))
+            if not admins:
+                return
+            try:
+                target_url = reverse("control_panel")
+            except NoReverseMatch:
+                target_url = ""
+            s = get_strings()
+            title = s.get("notif_control_link_disconnected_title", "Control Panel disconnected")
+            if revoked:
+                template = s.get(
+                    "notif_control_link_revoked_message",
+                    "This deployment's Control Panel enrollment ({url}) was revoked. "
+                    "Local updates still work; pair again to reconnect.",
+                )
+            else:
+                template = s.get(
+                    "notif_control_link_disconnected_message",
+                    "This deployment is no longer connected to its Control Panel ({url}). "
+                    "Pair again to reconnect.",
+                )
+            message = template.replace("{url}", control_url)
+            notify.warning(
+                message,
+                title=title,
+                recipients=admins,
+                category="system",
+                action="control_link_disconnected",
+                source="updater",
+                target_url=target_url,
+                metadata={"control_url": control_url, "revoked": bool(revoked)},
+            )
+        except Exception:
+            logger.warning("Failed to emit the control-link disconnect notification.", exc_info=True)
 
     def _begin_image_update(self, row):
         from .image_update import write_composer_trigger, write_deploy_status

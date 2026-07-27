@@ -268,6 +268,7 @@ projects store opaque JSON under a reserved key in `SystemSettings.extra_config`
 
 - **Write** — `POST /sys/api/system-config/app/<namespace>/` with the namespace's new value as the JSON body. **Superuser-only** (non-superusers get 403), POST + CSRF, namespace-scoped (only `extra_config['app'][<ns>]` is touched — it can never reach Dlux's own settings or other keys), size-capped (**HTTP 413**; default 64 KB, override `settings.DLUX_MAX_SYSTEM_APP_CONFIG_BYTES`), **audit-logged**, and cache-refreshed. A `null` body clears the namespace.
 - **Read** — `from dlux.utils import get_app_system_config`; `get_app_system_config('myproject.settings', default)`. Reads through the cached `get_system_config()`.
+- **Write programmatically** — `from dlux.options import write_app_system_config`; `write_app_system_config('myproject.settings', {...}, request=None)` for server-side writes (migrations, management commands, signals). It applies the same namespace validation, size cap (raises `AppSystemConfigError`), persistence, and cache refresh as the endpoint, and audit-logs when a `request` is passed. Pass `value=None` to clear the namespace.
 
 Because it is opaque JSON written only by superusers into a walled-off key, it
 cannot be used to tamper with security-relevant Dlux configuration. Card
@@ -575,7 +576,7 @@ is the single source of truth for all logs. Every row carries a `category`:
   denied). Audit rows are **append-only** (cannot be edited/deleted in-app) and are never
   auto-pruned by default.
 
-`log_config` (Step 10 of the setup wizard) governs logging:
+`log_config` (Step 11 of the setup wizard) governs logging:
 
 - `enabled` — master switch (does not gate audit).
 - `user` / `system` — each has `enabled`, `default_actions` (`create`/`update`/`delete`),
@@ -596,7 +597,7 @@ the settings grid, declare it on the model:
 
 ```python
 class Decree(ScopedModel):
-    dlux_log_actions = ["download", "export"]   # adds per-action toggles in Step 10
+    dlux_log_actions = ["download", "export"]   # adds per-action toggles in Step 11
 ```
 
 A dev can then disable a specific action via its per-model `actions` override
@@ -626,7 +627,7 @@ tabs (`?category=`); the audit tab is restricted to superusers/global staff.
 
 ### Profile page + onboarding (`profile_config`)
 
-`profile_config` (Step 11 of the setup wizard) governs the user profile page and the
+`profile_config` (Step 12 of the setup wizard) governs the user profile page and the
 first-login experience — it is **not** personalization defaults (those stay in
 theme/typography/layout/language configs) and **not** per-user prefs (those live in
 `Profile.preferences`):
@@ -658,7 +659,7 @@ always happens before optional onboarding preferences.
 
 ### Full-system backup policy (`backup_config`)
 
-`backup_config` (Step 12) is the DB-backed policy consumed by the full `.dlb`
+`backup_config` (Step 13) is the DB-backed policy consumed by the full `.dlb`
 backup subsystem:
 
 - `scheduled_enabled` — opt in to Celery-beat scheduling (off by default).
@@ -784,14 +785,18 @@ Common runtime feature flags in `get_system_config()`:
 - `public_root_theme` — Fixed theme applied to anonymous visitors on the public
   root (`public_root_config.public_root_theme`, blank = inherit the normal theme).
   Its stylesheet is emitted even if it is not in the normally-allowed theme set.
+  The control appears under Themes and Typography only while public root is enabled.
 - `public_root_title` / `public_root_meta_description` — Optional `<title>` and
   `<meta name="description">` emitted only for the anonymous public index
-  (`public_root_config.*`, length-bounded). Exposed as `APP_CONFIG.security.*`.
+  (`public_root_config.*`, length-bounded). Exposed as `APP_CONFIG.security.*`;
+  the controls appear under Identity only while public root is enabled.
 - `show_titlebar_on_public` / `show_sidebar_on_public` — Centralized public-root
   chrome toggles (`public_root_config.*`, both default **off** = hidden). They
   supersede the deprecated `titlebar_config.hide_on_public_unauthenticated_index`
   (legacy data migrates inverted) and gate `base.html`'s titlebar/sidebar for
   anonymous public-root visitors via the shared `_is_public_index()` context flag.
+  Their controls appear under Titlebar and Sidebar respectively, only while public
+  root is enabled.
 - `default_table_density` — System default table density (`balanced`, `dense`, or `roomy`)
 - `default_form_density` — System default form field spacing (`balanced`, `dense`,
   or `roomy`), independent of table density. Drives `--dlux-form-*` CSS variables
@@ -816,9 +821,18 @@ Common runtime feature flags in `get_system_config()`:
   emitted as `data-options-style` on `#dluxOptionsGrid`; `options.css`/`options.js`
   render the three modes from the same card DOM (JSON-only, no migration).
   Exposed as `APP_CONFIG.appearance.*`.
+- `row_actions_style` — How table row actions are triggered (`layout_config`,
+  JSON-only, no migration): `context` (default) keeps the right-click / long-press
+  context menu; `column` adds a dedicated last three-dot column (`dlux_row_actions`)
+  and turns the row's right-click marker (`data-dlux-context`) off so the button is
+  the only trigger; `both` enables the column and the context menu. Distinct from a
+  table's `dlux_actions` Meta flag, which gates whether row actions exist at all.
+  The column is added by the patched `Table.__init__` and its three-dot button
+  (`.dlux-row-actions-trigger`) reuses the row's `data-dlux-actions` payload via the
+  shared context-menu JS. Exposed at `APP_CONFIG.appearance.row_actions_style`.
 - `footer_text` — Optional copyright/description line for the global page footer
   (`layout_config.footer_text`, max 300 chars, blank by default). Edited from
-  *System Settings → Themes & Typography → Footer* and exposed to templates as
+  *System Settings → Identity → Footer* and exposed to templates as
   `APP_CONFIG.appearance.footer_text`; the `dlux/includes/footer.html` partial
   renders it, falling back to `DLUX_STRINGS.footer_text` then `© <year> <system name>`.
 
@@ -971,6 +985,7 @@ notice.setAttribute('data-autoclose', 'false');
 | `dlux_timesince` | simple tag | Translated relative timestamp output |
 | `include_if_exists` | simple tag | Render a template only if it exists |
 | `include_once` | simple tag | Render a template at most once per request (dedupes shared asset partials) |
+| `dlux_audit_trail` | inclusion tag | Render a grouped audit block (created/edited/deleted by and at) for a model instance — `{% dlux_audit_trail object %}`. Self-gates on the `show_audit_fields` setting + `dlux.view_audit_fields` permission (deleted line is superadmin-only); renders nothing otherwise. Drop into any detail template to replace hand-rolled audit sections. |
 
 ### `dlux_translation`
 
@@ -1014,6 +1029,9 @@ notice.setAttribute('data-autoclose', 'false');
 | `has_related_records()` | Fast relation check before destructive actions |
 | `setup_filter_helper()` | Normalize filter UI and clear-button behavior |
 | `advanced_filter_helper()` | Build a primary filter row plus collapsible advanced rows, optional action buttons, and separate hidden/clear preserve behavior |
+| `arabic_search_q(term, fields)` | Variant-aware Arabic `icontains`: one OR'd `Q` over `fields` matching every common spelling of `term` (alef/hamza forms, ي/ى/ئ, ة/ه, ق/غ, و/ؤ, Farsi ی/ک, Arabic-Indic digits, ignoring diacritics/tatweel/hamza) via `__iregex` — stored values need no migration |
+| `arabic_search_pattern(term)` | The underlying regex builder (confusable letters become character classes); reusable for custom lookups |
+| `normalize_arabic(value)` | Fold a string to one canonical Arabic spelling (for Python-side comparison, dedup keys, or a stored shadow column); `ARABIC_EQUIVALENCE_GROUPS` is the overridable default fold table (`groups=` kwarg on all three) |
 | `set_field_attrs()` | Apply DjangoLux-friendly widget classes and affordances to a form, including the shared datepicker hook (`.dlux-datepicker` with legacy `.flatpickr` compatibility) |
 | `translate_choices()` | Translate choice lists using the system translation engine |
 | `log_user_action()` | Create consistent audit log entries |

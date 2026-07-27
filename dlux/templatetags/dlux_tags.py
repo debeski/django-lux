@@ -202,3 +202,24 @@ def get_item(dictionary, key):
     if not isinstance(dictionary, dict):
         return None
     return dictionary.get(key)
+
+
+@register.inclusion_tag('dlux/includes/audit_trail.html', takes_context=True)
+def dlux_audit_trail(context, instance):
+    """Render the audit trail (created/updated/deleted by/at) for a model
+    instance, gated by the show_audit_fields setting + the view_audit_fields
+    permission. Renders nothing unless the viewer is permitted. The deleted-by
+    line additionally requires the superadmin soft-delete gate. Drop it into any
+    detail template: ``{% dlux_audit_trail object %}``.
+    """
+    from ..utils.authorization import audit_fields_visible, soft_deleted_visible
+
+    request = context.get('request')
+    user = getattr(request, 'user', None)
+    visible = bool(instance is not None and audit_fields_visible(user))
+    return {
+        'instance': instance,
+        'visible': visible,
+        'show_deleted': visible and soft_deleted_visible(user),
+        'DLUX_STRINGS': context.get('DLUX_STRINGS') or get_strings(),
+    }

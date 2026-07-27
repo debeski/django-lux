@@ -18,10 +18,10 @@ The setup wizard lives at `/sys/setup/` and is only intended for the initial sys
 
 ![Setup wizard capture slot](assets/setup-wizard.webp)
 
-The wizard currently runs in eleven steps:
+The wizard currently runs in thirteen steps:
 
 1. Identity
-   This step sets language-keyed system names (a JSON dict such as `{"en": "System", "ar": "النظام"}`), logo, and favicon. It also includes the JSON setup import control, which can prefill the wizard from a previously exported Dlux setup file.
+   This step sets language-keyed system names (a JSON dict such as `{"en": "System", "ar": "النظام"}`), logo, favicon, and footer. It also includes the JSON setup import control and, while public root access is enabled, the public-root page title and meta description.
 
 2. Localization
    This step manages language-keyed system names, the explicit language catalog, default language, user language override policy, and the translation matrix editor. English and Arabic are built in; custom languages are available to users only after an admin adds them here.
@@ -29,7 +29,7 @@ The wizard currently runs in eleven steps:
 3. Access and security
    This step controls public root access, the global Home URL, the optional split between authenticated Home and anonymous public-root destinations, public registration/email 2FA, Dlux email delivery, and centralized Client IP resolution (auto-detect, direct, header-based, or proxy-aware modes). Use delivery path `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress. Secret storage can be environment/secrets or encrypted database.
 
-   When public root is enabled, this step also exposes the public-root presentation controls (shown only while public root is on): a **fixed public-root theme** for anonymous visitors, an optional public-root **page title** and **meta description**, and **Show titlebar on public root** / **Show sidebar on public root** toggles (both default off — chrome is hidden for anonymous public-root visitors unless turned on; these replace the old titlebar-only "hide on public index" rule and the previous hardcoded hide-sidebar-for-anonymous behavior). When public registration is enabled, a **registration honeypot** toggle (default on) governs the hidden `website` bot-trap field.
+   Public root is the master switch for presentation controls in their canonical categories: page title and metadata in Identity, sidebar visibility in Sidebar, titlebar visibility in Titlebar, and the fixed anonymous theme in Themes and Typography. Those controls stay hidden while public root access is off. When public registration is enabled, a **registration honeypot** toggle (default on) governs the hidden `website` bot-trap field.
 
    The email delivery panel adds three operator aids: a **provider preset** (Gmail, Outlook/Office 365, Amazon SES, Mailgun, internal relay, or custom) that prefills SMTP host/port/STARTTLS/SSL in the UI; **failure alert recipients** — a comma/newline list of emails warned **in-app** (never by email — that path is what failed) through the notification subsystem with a matching `audit` activity-log row whenever transactional mail fails to send (requires notifications enabled); and a **Send test email** button (`POST sys/settings/email/send-test/`, superuser-only) that sends a one-off message using the saved configuration so you can verify SMTP before relying on OTP or registration mail. Save the form before testing — the button uses the persisted config, not unsaved field values. The preset and failure-recipient list persist in `SystemSettings.email_config`; the test recipient is transient.
 
@@ -37,27 +37,32 @@ The wizard currently runs in eleven steps:
    This step controls how the public login screen is presented: the layout **style** (Split, Centered, Minimal, or Full-page split), a **Show Logo** toggle, the **logo treatment** (none / plate / halo / contrast, with plate shape), an optional **banner colour** (any CSS colour; empty = theme default), and — for the Full-page split style only — a per-language Markdown **hero message** shown on the start half beside the form. Settings persist to `SystemSettings.login_config`.
 
 5. Sidebar
-   This step manages the sidebar builder and sidebar behavior controls.
+   This step manages the sidebar builder and sidebar behavior controls. **Show sidebar on public root** appears here only while public root access is enabled.
 
 6. Nav Bar
    This step manages the optional authenticated Nav Bar, including hierarchy/history mode, user override policy, and the static hierarchy tree. Its pinned **Navigation Root** selector keeps the existing neutral Root by default, can follow the configured homepage, or can use a specific discovered page. A selected page becomes the trail boundary for itself and its descendants without moving or rewriting nodes in the stored hierarchy. During first-launch setup, enabling an empty Nav Bar tree can seed it from the configured sidebar accordions.
 
-7. UI and Layout
-   This step manages titlebar controls (logo/home visibility, logo treatment, action-button shape, Dropdown vs Titlebar Actions user-hub layout, action ordering, alignment, height, and surface style). A **Show titlebar language switcher** toggle adds a single titlebar button that cycles through the available languages; it is disabled unless user language override is allowed and more than one language exists. Titlebar visibility on the anonymous public root is now governed by **Show titlebar on public root** in Step 3 (Access and security), not here.
-   It also sets the **Options page style** (`layout_config.options_style`): **Cards** (default rearrangeable grid), **Tabs** (one section at a time behind a tab strip — the superuser Admin panel becomes the first tab), or **Compact** (a dense single-page, desktop-app-style list). This is a system-wide default applied to every user's Options page.
+7. Titlebar
+   This step manages titlebar controls (logo/home visibility, logo treatment, action-button shape, Dropdown vs Titlebar Actions user-hub layout, action ordering, alignment, height, and surface style). A **Show titlebar language switcher** toggle adds a single titlebar button that cycles through the available languages; it is disabled unless user language override is allowed and more than one language exists. **Show titlebar on public root** appears here only while public root access is enabled.
    This step also configures **Global Search**: a titlebar search box that jumps to pages, settings, and actions from anywhere (press **Ctrl/⌘-K** to focus it). Choose **Icon, expand on focus** (default), **Always visible**, or **Disabled**. While search is enabled, an **Include data records in search** toggle appears — when on, search also matches records the user is allowed to view (not just app components). Settings results deep-link straight to the right settings step, so searching e.g. "inactivity" or "backup" takes you there directly.
 
 8. Notifications
    This step controls the notification subsystem, including the flash, drawer, badge, browser bridge, email delivery, and automatic CRUD notification behavior.
 
-9. Appearance and Typography
-   This step manages theme availability, default theme, theme override policy, and the Dynamic Font Management system.
+9. Themes and Typography
+   This step contains only theme, colour, and Dynamic Font Management controls. The fixed public-root theme appears here only while public root access is enabled.
 
-10. Logging
+10. Layout
+   This step owns system defaults for table density and behavior, form density, modal size, Options-page style, audit-field visibility, and soft-delete review visibility.
+
+11. Logging
    This step manages user/system activity logging, audit event logging, and retention controls.
 
-11. Profile Page
+12. Profile Page
    This step controls the profile page modules and first-login user setup/onboarding options.
+
+13. Backups
+   This step controls scheduled backup, storage, and retention policy.
 
 The first-launch page expands to the available page width and hides the runtime sidebar toggle because the runtime sidebar is not rendered during initial setup. Its bullet-style step navigation bar jumps to the corresponding setup step while staying synchronized with the wizard's Next and Previous buttons. The default-language control is save-only: changing it in first-launch setup or later System Settings modals no longer previews the language or reloads the page, and it remains editable independently of the initial setup-language choice.
 
@@ -168,7 +173,7 @@ The system maintains a registry of approved fonts located in `dlux/fonts.py`. Th
 
 ### Admin Controls
 
-From the **Appearance and Typography** setup step (or the corresponding System Settings modal), admins can:
+From the **Themes and Typography** setup step (or the corresponding System Settings modal), admins can:
 
 - **Theme Matrix**: Each theme card shows a checkbox and a visual preview circle. Click the large preview circle to make a theme the default. Click the rest of the card, or the checkbox inside it, to allow or disable that theme for runtime user selection. The active card and preview-ring styling identify the default theme.
 - **Allowed Fonts**: Select which fonts from the registry are available for use in the system.
@@ -198,8 +203,8 @@ The Options screen currently provides:
 - autofill enable or disable
 - reset-to-defaults for user preferences
 - a superuser-only System Settings card that opens focused Branding, Languages,
-  Access & Security, Login Page, Sidebar, Nav Bar, UI & Layout, Notifications,
-  Appearance, Logging, Profile Page, and Backups modals
+  Access & Security, Login Page, Sidebar, Nav Bar, Titlebar, Notifications,
+  Themes & Typography, Layout, Logging, Profile Page, and Backups modals
 - a superuser-only setup export action for reusing System Settings across development environments
 - a superuser-only Backup & Restore card that summarizes the latest full backup, completed/protected backup counts, and latest restore before opening `/sys/backup/`
 - generated Compose deployments also show installed/latest verified DjangoLux versions and the last update check in System Info; Global Staff see read-only state, while superusers can check, review/apply, and roll back manifest-approved releases
@@ -275,8 +280,8 @@ The most common admin-facing configuration tasks are:
 - changing the default theme used before a user saves a personal preference
 - changing the default language used before a user saves a personal preference
 - changing the default table density used before a user saves a personal preference
-- changing the default form density and default modal size (Themes & Typography)
-- toggling sticky table headers, contained resizable table columns, and zebra striping (Themes & Typography); enabled resize handles appear as subtle header dividers and reallocate width without widening the page
+- changing the default form density and default modal size (Layout)
+- toggling sticky table headers, contained resizable table columns, and zebra striping (Layout); enabled resize handles appear as subtle header dividers and reallocate width without widening the page
 - updating the list of available languages
 - adding translation overrides without touching code
 - adjusting the global home URL used by the titlebar Home button
@@ -383,7 +388,7 @@ Downloads always go through the permission-checked Django view, which also enfor
 
 Both backup types integrate with the Dlux notification drawer. Starting a worker creates one live progress item addressed to the requesting user (or active superusers for scheduled/system-owned runs). That item is non-dismissible while active and refreshes every three seconds while visible in the drawer; completion or failure unlocks it and creates a separate unread terminal notification linking back to the appropriate backup page. This lifecycle respects the global notifications enable switch and never sends backup notifications by email.
 
-**Scheduled backups and rotation.** Step 12 of first-launch setup and the **Backups** System Settings tile write `SystemSettings.backup_config`. `scheduled_enabled` is off by default. When enabled, generated deployments' Celery worker/beat process checks `dlux.tasks.run_scheduled_system_backup` every 15 minutes and creates a backup once `schedule_interval_hours` has elapsed since the last scheduled run. `auto_export_target` is a validated relative folder inside Django `default_storage`, so it works with either the shared media volume or a configured remote storage backend. `retention_days` and `max_backups_to_keep` are both `0` by default (unlimited); nonzero values prune completed backup files and rows after each successful backup. The just-created backup is protected from that rotation pass.
+**Scheduled backups and rotation.** Step 13 of first-launch setup and the **Backups** System Settings tile write `SystemSettings.backup_config`. `scheduled_enabled` is off by default. When enabled, generated deployments' Celery worker/beat process checks `dlux.tasks.run_scheduled_system_backup` every 15 minutes and creates a backup once `schedule_interval_hours` has elapsed since the last scheduled run. `auto_export_target` is a validated relative folder inside Django `default_storage`, so it works with either the shared media volume or a configured remote storage backend. `retention_days` and `max_backups_to_keep` are both `0` by default (unlimited); nonzero values prune completed backup files and rows after each successful backup. The just-created backup is protected from that rotation pass.
 
 **Restore semantics.** Restore is a **full replace**: it wipes and reloads every backed-up model in a single transaction (FK checks deferred, models loaded in dependency order, Dlux signals suspended), resets primary-key sequences, restores files to their original storage names, then clears all caches and sessions. The backup manifest records the exact applied-migration state; restore refuses to run against a different migration state unless "ignore version mismatch" is explicitly checked. Starting a restore requires the superuser's current password plus an explicit replace confirmation, and passphrase-protected files also require the backup passphrase. Regular users sign in with the restored credentials. For superusers, Dlux preserves the current target password hash when the restored superuser username matches an existing target superuser; restored superusers without a target username match receive an unusable password and must be reset out-of-band.
 

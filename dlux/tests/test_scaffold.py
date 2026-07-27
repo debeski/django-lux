@@ -163,6 +163,7 @@ class ScaffoldTests(unittest.TestCase):
                 "BASE_URL",
                 "ALLOWED_URLS",
                 "ALLOWED_HOSTS",
+                "TIME_ZONE",
                 "NGINX_PORT",
                 "NGINX_SERVER_NAME",
                 "NGINX_MAX_SIZE",

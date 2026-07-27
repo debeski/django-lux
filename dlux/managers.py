@@ -1,6 +1,30 @@
+import contextlib
+import threading
+
 from django.db import models
 from django.apps import apps
 from .middleware import get_current_user
+
+# When set, ScopedManager hides soft-deleted rows even in the superadmin
+# "show soft-deleted" review mode. Used to keep the paths that must never see
+# deleted rows safe — uniqueness validation and (via the form patch) related
+# pickers — while list/detail reads stay transparent.
+_hide_deleted_local = threading.local()
+
+
+def _force_hide_deleted():
+    return getattr(_hide_deleted_local, 'on', False)
+
+
+@contextlib.contextmanager
+def force_hide_deleted():
+    prev = getattr(_hide_deleted_local, 'on', False)
+    _hide_deleted_local.on = True
+    try:
+        yield
+    finally:
+        _hide_deleted_local.on = prev
+
 
 def _is_scope_enabled():
     """
@@ -52,9 +76,18 @@ class ScopedManager(models.Manager):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        
-        # Skip if soft-deleted (standard behavior)
+
+        # Hide soft-deleted rows, EXCEPT when a superadmin has enabled the
+        # "show soft-deleted" review mode — then reads/lists include them
+        # transparently (custom views' `objects.all()` show them too, no view
+        # change). `force_hide_deleted()` overrides that for the paths that must
+        # never surface deleted rows (uniqueness validation, related pickers).
         if hasattr(self.model, 'deleted_at'):
-            qs = qs.filter(deleted_at__isnull=True)
+            hide = _force_hide_deleted()
+            if not hide:
+                from .utils.authorization import soft_deleted_visible
+                hide = not soft_deleted_visible()
+            if hide:
+                qs = qs.filter(deleted_at__isnull=True)
 
         return self.apply_scoping(qs)
