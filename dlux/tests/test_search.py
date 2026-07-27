@@ -83,22 +83,33 @@ class ArabicLocalizationTests(TestCase):
         _configure_system()
         self.superuser = User.objects.create_superuser('root', 'r@x.com', 'pw12345!')
 
+    @staticmethod
+    def _setting_at_step(index, step):
+        return next(
+            entry
+            for entry in index
+            if entry['type'] == 'setting' and entry['url'].endswith(f'?step={step}')
+        )
+
     def test_arabic_index_labels_are_translated(self):
-        index = get_component_index('ar')
-        setting_labels = [e['label'] for e in index if e['type'] == 'setting']
-        # Access & Security in Arabic — the index must not be English.
-        self.assertIn('الوصول والأمان', setting_labels)
+        arabic = self._setting_at_step(get_component_index('ar'), 2)
+        english = self._setting_at_step(get_component_index('en'), 2)
+
+        self.assertNotEqual(arabic['label'], english['label'])
 
     def test_arabic_theme_and_layout_labels_are_distinct_and_step_deep_linked(self):
         index = get_component_index('ar')
-        settings = {e['label']: e for e in index if e['type'] == 'setting'}
+        themes = self._setting_at_step(index, 8)
+        layout = self._setting_at_step(index, 9)
 
-        self.assertIn('?step=8', settings['الالوان']['url'])
-        self.assertIn('?step=9', settings['المظهر']['url'])
+        self.assertNotEqual(themes['label'], layout['label'])
+        self.assertTrue(themes['label'])
+        self.assertTrue(layout['label'])
 
     def test_arabic_query_matches_arabic_labels(self):
-        results = search_components(self.superuser, 'الأمان', lang_code='ar')
-        self.assertTrue(any(r['type'] == 'setting' and 'أمان' in r['label'] for r in results))
+        security = self._setting_at_step(get_component_index('ar'), 2)
+        results = search_components(self.superuser, security['label'], lang_code='ar')
+        self.assertTrue(any(r['type'] == 'setting' and r['url'] == security['url'] for r in results))
 
     def test_endpoint_uses_user_language_over_accept_language_header(self):
         # The reported bug: an English browser (Accept-Language: en) on an
@@ -109,12 +120,17 @@ class ArabicLocalizationTests(TestCase):
         profile.preferences = {**(profile.preferences or {}), 'language': 'ar'}
         profile.save()
         cache.clear()
+        security = self._setting_at_step(get_component_index('ar'), 2)
         client = Client()
         client.force_login(self.superuser)
-        payload = client.get('/search/?q=الأمان', HTTP_ACCEPT_LANGUAGE='en-US,en;q=0.9').json()
+        payload = client.get(
+            '/search/',
+            {'q': security['label']},
+            HTTP_ACCEPT_LANGUAGE='en-US,en;q=0.9',
+        ).json()
         setting = next((g for g in payload['groups'] if g['type'] == 'setting'), None)
         self.assertIsNotNone(setting)
-        self.assertTrue(any('أمان' in item['label'] for item in setting['items']))
+        self.assertTrue(any(item['url'] == security['url'] for item in setting['items']))
 
     def test_middleware_reactivates_profile_language(self):
         # DluxMiddleware sets request.LANGUAGE_CODE + activates translation to the

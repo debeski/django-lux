@@ -24,6 +24,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dlux.models import GroupProfile, Scope, Section, SystemSettings
+from dlux.translations import get_strings
 from dlux.utils import get_user_management_tier_state_for_user
 
 User = get_user_model()
@@ -700,8 +701,9 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, 'data-dlux-wizard-step-target="0"')
         self.assertContains(response, 'data-dlux-wizard-step-target="6"')
         self.assertContains(response, 'data-dlux-wizard-step-target="12"')
-        self.assertContains(response, 'الالوان')
-        self.assertContains(response, 'المظهر')
+        arabic_strings = get_strings('ar')
+        self.assertContains(response, arabic_strings['system_settings_appearance'])
+        self.assertContains(response, arabic_strings['system_settings_layout'])
         self.assertContains(response, 'aria-label="التنقل بين خطوات التهيئة"')
         self.assertContains(response, 'dlux-setup-step-nav__bullet')
         self.assertContains(response, 'data-language-default value="en" checked')

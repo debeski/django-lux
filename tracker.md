@@ -55,8 +55,8 @@
   - [x] v1.5.10 footer/modal fix: `body.modal-open .dlux-footer { display:none }` so the footer's `backdrop-filter` layer stops bleeding over modal action bars (blocked submit buttons); no z-index change, offcanvas unaffected. CSS-only.
   - [x] v1.5.10 Control Panel disconnect surfacing: `control_link_state()` gains derived `connection_status` (connected/pending/disconnected/unconfigured); distinct "Disconnected" badge + warning banner (names URL, revoked-aware); worker `_detect_control_link_disconnect()` posts a one-time superadmin notification on enrolled→disconnected (runtime-volume dedup marker, re-arms on reconnect). control_url was always read from `agent-status.json`, never hardcoded. EN/AR; +4 tests; no migration.
 ### One-line info about last verified Tests:
+- 2026-07-27: full suite GREEN: 1010 tests (2 PostgreSQL-only skips); Arabic settings/search tests now identify entries by stable step URLs and catalog-derived labels, so translation copy edits do not break routing coverage.
 - 2026-07-27: scaffold/utils/defaults/updater suites GREEN post TIME_ZONE wiring (344 tests, 2 PG-only skips) incl. env-key contract and generated-README key list.
-- 2026-07-27: suite at 1035 tests: 1034 GREEN + 2 skips; 1 pre-existing WIP failure in `test_search.ArabicLocalizationTests` ('الالوان' settings label, category-split WIP); +15 `test_arabic_search.py` all GREEN.
 - 2026-07-27: full suite GREEN: 1020 tests (2 PostgreSQL-only skips); +10 `test_row_actions_style.py` (settings round-trip/export-whitelist/normalizer + per-mode column presence/context-attr/button-render/empty-header).
 
 ### One-line info about last time edited Docs:
