@@ -24,7 +24,7 @@ Generated project baseline:
 - `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
-- a generated Docker baseline with `web`, `celery`, `dlux-updater`, outbound-only `composer-agent` (+ least-privilege `docker-socket-proxy`), `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal `smtp-relay` services
+- a generated Docker baseline with `web`, `celery`, `dlux-updater`, outbound-only `composer-agent` (read-only Docker access via a `POST=0`/`EXEC=0` `docker-socket-proxy`), the isolated `composer-executor` that holds the real Docker socket and performs all writes, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal `smtp-relay` services. Requires composer ≥ 1.3.0 (the `executor` role); existing agent stacks harden in place via `composer check --fix` / `composer enable-executor --apply`.
 - `requirements.txt` pinned to the generated stable `django-lux` release
 - a persistent `dlux_runtime` volume, project-owned process supervisor, and a proxy-served maintenance/progress page
 
@@ -58,10 +58,39 @@ Generated app scaffold baseline:
 | `python manage.py dlux_settings import --input config.json` | Import portable System Settings JSON and mark setup configured. |
 | `python manage.py dlux_prune_activity_log --dry-run` | Preview log rows outside configured category retention windows. |
 | `python manage.py dlux_prune_activity_log` | Delete rows outside configured category retention windows. |
+| `python manage.py dlux_seed` | Dry-run auto-discovery and show the project models and empty canonical dependencies that would be seeded. |
+| `python manage.py dlux_seed --count 25 --seed 42 --apply` | Generate 25 deterministic rows per discovered project model from field metadata. |
+| `python manage.py dlux_seed app.Model --apply` | Seed only the named model; `--app`, `--exclude`, `--database`, and `--no-populate` further constrain the run. |
 | `python manage.py dlux_migrate_from_microsys` | Dry-run the supported Microsys 2.4.1 database relabel. |
 | `python manage.py dlux_migrate_from_microsys --yes` | Apply the database relabel after an external backup. |
 | `python manage.py dlux_update_worker` | Internal generated-Compose update worker; normally started only by `dlux-updater`. |
 | `python manage.py migrator` | Internal generated-project migration/static/bootstrap command used by Compose startup. |
+
+`dlux_seed` excludes Django/Dlux internals, unmanaged/proxy/auto-created models, and
+models outside the project root. Set `dlux_seed = False` on a project model that
+must never receive generated rows, or `dlux_seed = True` to explicitly include a
+model outside the normal project-path heuristic. It generates choices, text,
+numbers, decimals, booleans, dates/times, UUIDs, JSON, IP addresses, required
+files, foreign keys, one-to-one relations, and automatic many-to-many relations.
+Optional file fields remain empty. Unsupported required fields or unresolved
+relation cycles are reported and skipped without aborting valid models.
+
+Projects with canonical lookup data can declare ownership through their local
+`populate` command:
+
+```python
+class Command(BaseCommand):
+    dlux_populate_models = (
+        "catalog.Category",
+        "catalog.Supplier",
+    )
+```
+
+If that command accepts `--models`, DjangoLux passes only empty related model
+labels; otherwise it invokes the legacy command once. Models owned by `populate`
+are reused as dependencies and never receive random rows from `dlux_seed`.
+`--no-populate` preserves that ownership: empty canonical models stay empty and
+dependent seed models are reported as skipped.
 
 ## Optional SSO Packages
 

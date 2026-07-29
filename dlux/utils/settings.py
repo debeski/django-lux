@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 from copy import deepcopy
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -71,6 +72,12 @@ def _env_positive_int(key, default, *, minimum=1):
         return max(minimum, int(os.getenv(key, str(default)) or default))
     except (TypeError, ValueError):
         return default
+
+
+def _is_test_process():
+    argv = [str(value).strip().lower() for value in sys.argv]
+    executable = Path(argv[0]).name if argv else ""
+    return "test" in argv[1:] or executable.startswith(("pytest", "py.test"))
 
 # Settings Bootstrap - Helper inserts middleware once at a requested position.
 def _insert_middleware_once(middleware, middleware_path, *, after=None, before=None):
@@ -188,6 +195,14 @@ def dlux_settings(scope):
     scope.setdefault("USE_I18N", True)
     scope.setdefault("USE_TZ", True)
     scope.setdefault("DEFAULT_CHARSET", "utf-8")
+    scope.setdefault("DLUX_ISOLATE_TEST_CACHE", True)
+    if scope["DLUX_ISOLATE_TEST_CACHE"] and _is_test_process():
+        scope["CACHES"] = {
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": f"dlux-test-cache-{os.getpid()}",
+            }
+        }
     scope.setdefault(
         "DLUX_INLINE_UPDATES_ENABLED",
         str(os.getenv("DLUX_INLINE_UPDATES_ENABLED", "False")).strip().lower()

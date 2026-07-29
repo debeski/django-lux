@@ -1,17 +1,14 @@
 {
   "schema_version": 1,
-  "version": "1.5.10",
+  "version": "1.6.0",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Improves dynamic-modal chrome and persistent actions, and surfaces disconnected or revoked Control Panel links.",
+  "summary": "Hardens the generated Composer topology, adds metadata-driven seeding, and drops Django admin from scaffolds.",
   "highlights": [
-    "New 'Disconnected' state and warning banner on the Control Panel, distinct from a never-configured one, naming the control URL and whether it was revoked.",
-    "The update worker posts a one-time warning notification to superadmins when a connected deployment is disconnected or revoked (re-armed on reconnect).",
-    "control_link_state() exposes a derived connection_status (connected/pending/disconnected/unconfigured).",
-    "Dynamic modals now show one shell title and keep submit, cancel, and wizard controls in the visible footer.",
-    "Fixed the global footer overlapping modal action bars (submit buttons) — it now steps out while any modal is open.",
-    "New UI & Layout toggles: show audit fields (created/updated by/at) in every table and via the new {% dlux_audit_trail %} detail block (gated by the view_audit_fields permission), and show soft-deleted entries (superadmin only)."
+    "New composer-executor isolates Docker write authority; the agent keeps read-only proxy access. Harden existing stacks with composer check --fix.",
+    "Dry-run-first dlux_seed generates valid rows from model field metadata.",
+    "Generated projects no longer install django.contrib.admin."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.5.10"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.6.0"
 }

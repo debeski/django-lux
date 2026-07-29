@@ -35,7 +35,7 @@ Each project is a working example of DjangoLux conventions applied to a differen
 
 For generated Compose deployments, [**Composer**](https://github.com/debeski/composer) is DjangoLux's containerized operations companion. It resolves deployment secrets, starts and updates the stack, runs service and Django management commands, waits for health checks, and publishes atomic deployment status and logs without requiring a local Python or Compose toolchain.
 
-The resident `composer-agent` extends that local workflow with registry image discovery, guarded container recreation through a constrained `docker-socket-proxy`, durable operation replay, and an optional outbound-only connection to the DLUX Control Plane. The responsibilities remain deliberately separated:
+The resident `composer-agent` extends that local workflow with registry image discovery, durable operation replay, and an optional outbound-only connection to the DLUX Control Plane. Docker write authority is isolated in a separate, non-network-facing `composer-executor` (the sole holder of the socket); the agent keeps only read-only Docker access through a `POST=0`/`EXEC=0` `docker-socket-proxy`, so a compromise of the network-facing agent can inspect but never mutate. The responsibilities remain deliberately separated:
 
 | DjangoLux | Composer | DLUX Control Plane |
 |:--|:--|:--|

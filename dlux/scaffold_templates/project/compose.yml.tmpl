@@ -309,8 +309,8 @@ services:
       - internal
 
   # DjangoLux Composer agent start
-  # Least-privilege Docker API gateway. composer-agent talks to this instead of
-  # mounting the raw /var/run/docker.sock (which is host root).
+  # Read-only Docker gateway (POST=0, EXEC=0): the agent reads container/image
+  # state through it but can never mutate. Writes go through composer-executor.
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     restart: always
@@ -323,22 +323,62 @@ services:
     environment:
       CONTAINERS: 1
       IMAGES: 1
-      NETWORKS: 1
-      VOLUMES: 1
       EVENTS: 1
-      EXEC: 1
-      POST: 1
       INFO: 1
       PING: 1
       VERSION: 1
+      NETWORKS: 0
+      VOLUMES: 0
+      POST: 0
+      EXEC: 0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - docker_proxy
 
-  # One outbound-only deployment agent per project. DLUX remains responsible for
-  # backup, maintenance, monitoring, and durable application update state; the
-  # agent executes Composer operations and relays the typed runtime spool.
+  # Holds the real Docker socket and performs every write. Not network-facing: it
+  # watches the update trigger and serves the agent typed restart/recovery ops.
+  composer-executor:
+    image: debeski/composer:latest
+    restart: unless-stopped
+    labels:
+      org.dlux.restart: "protected"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    working_dir: "${PWD}"
+    command:
+      - executor
+      - --socket
+      - /run/composer-exec/composer-exec.sock
+      - --trigger-file
+      - /opt/dlux-runtime/state/image-update-request.json
+      - --status-file
+      - /opt/dlux-runtime/state/deploy-status.json
+      - --interval
+      - "2"
+    environment:
+      WEB_IMAGE: "${WEB_IMAGE:-{{ project_image }}:{{ project_image_tag }}}"
+      COMPOSER_EXECUTOR_SOCKET: "/run/composer-exec/composer-exec.sock"
+      COMPOSER_VERSION_LABEL: "org.{{ project_slug }}.dlux_baked_version"
+      COMPOSER_RELEASE_MANIFEST_LABEL: "org.dlux.project.release-manifest"
+      COMPOSER_ACTIVE_VERSION_FILE: "/opt/dlux-runtime/state/active.json"
+      COMPOSER_ACTIVE_VERSION_KEY: "version"
+      COMPOSER_STATUS_FILE: "/opt/dlux-runtime/state/deploy-status.json"
+      COMPOSER_WATCH_SELF_SERVICE: "composer-executor"
+      COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,docker-socket-proxy,db,redis"
+      COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"
+    volumes:
+      - "${PWD}:${PWD}:ro"
+      - dlux_runtime:/opt/dlux-runtime:rw
+      - composer_exec_sock:/run/composer-exec:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+    networks:
+      - docker_proxy
+
+  # Outbound-only control-plane agent. Reads Docker via the proxy, delegates all
+  # writes to composer-executor, and relays status. DLUX owns backup/maintenance.
   composer-agent:
     image: debeski/composer:latest
     restart: unless-stopped
@@ -379,14 +419,18 @@ services:
       COMPOSER_ACTIVE_VERSION_KEY: "version"
       COMPOSER_STATUS_FILE: "/opt/dlux-runtime/state/deploy-status.json"
       COMPOSER_WATCH_SELF_SERVICE: "composer-agent"
-      COMPOSER_EXCLUDE_SERVICES: "composer-agent,docker-socket-proxy,db,redis"
+      COMPOSER_EXECUTOR_SOCKET: "/run/composer-exec/composer-exec.sock"
+      COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,docker-socket-proxy,db,redis"
       COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"
     volumes:
       - "${PWD}:${PWD}:ro"
       - dlux_runtime:/opt/dlux-runtime:rw
       - composer_agent_state:/var/lib/composer-agent:rw
+      - composer_exec_sock:/run/composer-exec:rw
     depends_on:
       docker-socket-proxy:
+        condition: service_started
+      composer-executor:
         condition: service_started
     networks:
       - egress
@@ -399,6 +443,8 @@ volumes:
   static:
   dlux_runtime:
   composer_agent_state:
+  # Private socket: the agent's typed write channel to composer-executor.
+  composer_exec_sock:
   caddy_data:
   caddy_config:
 
@@ -416,6 +462,7 @@ networks:
   # Inter-service traffic with NO internet access — db, redis, web, celery, …
   internal:
     internal: true
-  # Isolated path from composer-agent to the docker-socket-proxy only.
+  # Isolated, internet-less path for the Docker-control services: the agent's
+  # read-only route to docker-socket-proxy, plus composer-executor (off egress).
   docker_proxy:
     internal: true

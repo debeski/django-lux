@@ -15,6 +15,7 @@
     "dlux-updater": {"networks": ["egress", "internal"], "restart": "protected"},
     "caddy": {"networks": ["frontend", "internal"], "publishes_ports": true, "restart": "safe"},
     "docker-socket-proxy": {"networks": ["docker_proxy"], "restart": "protected"},
+    "composer-executor": {"networks": ["docker_proxy"], "restart": "protected"},
     "composer-agent": {"networks": ["egress", "docker_proxy"], "restart": "protected"}
   },
   "invariants": {
@@ -24,18 +25,18 @@
     "frontend_egress_disjoint": true,
     "docker_socket": {
       "path": "/var/run/docker.sock",
-      "access": "ro",
-      "allowed_services": ["docker-socket-proxy"]
+      "access": {"docker-socket-proxy": "ro", "composer-executor": "rw"},
+      "allowed_services": ["docker-socket-proxy", "composer-executor"]
     },
     "runtime_volume": {
       "volume": "dlux_runtime",
-      "read_write_services": ["dlux-updater", "composer-agent"],
+      "read_write_services": ["dlux-updater", "composer-agent", "composer-executor"],
       "read_only_services": ["web", "celery", "caddy"]
     },
     "restart": {
       "label": "org.dlux.restart",
       "safe": ["web", "celery", "smtp-relay", "caddy"],
-      "protected": ["db", "redis", "dlux-updater", "docker-socket-proxy", "composer-agent"]
+      "protected": ["db", "redis", "dlux-updater", "docker-socket-proxy", "composer-executor", "composer-agent"]
     }
   },
   "removed_services": {
@@ -56,6 +57,7 @@
     "static",
     "dlux_runtime",
     "composer_agent_state",
+    "composer_exec_sock",
     "caddy_data",
     "caddy_config"
   ],

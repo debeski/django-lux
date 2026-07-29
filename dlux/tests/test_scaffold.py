@@ -214,7 +214,8 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("  docker_proxy:", compose_contents)
             self.assertIn("image: debeski/composer:latest", compose_contents)
             self.assertIn('COMPOSER_AGENT_STATE_DIR: "/var/lib/composer-agent"', compose_contents)
-            self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-agent,docker-socket-proxy,db,redis"', compose_contents)
+            self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,docker-socket-proxy,db,redis"', compose_contents)
+            self.assertIn("  composer-executor:\n", compose_contents)
             self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"', compose_contents)
             # db-backup (superseded by DjangoLux system backups) and pgadmin are
             # no longer part of the default stack.
@@ -535,12 +536,26 @@ class ComposeNetworkTopologyTests(unittest.TestCase):
     def test_docker_proxy_path_is_isolated(self):
         self.assertEqual(self.attachments["docker-socket-proxy"], {"docker_proxy"})
         self.assertEqual(self.attachments["composer-agent"], {"egress", "docker_proxy"})
+        # The executor holds the real socket but is kept off egress (isolated).
+        self.assertEqual(self.attachments["composer-executor"], {"docker_proxy"})
         socket = self.contract["invariants"]["docker_socket"]
-        # The socket proxy is the agent's only Docker route; a raw socket mount
-        # on any other service would hand it host root.
-        mounts = re.findall(r"^\s+- /var/run/docker\.sock:.*$", self.compose, re.MULTILINE)
-        self.assertEqual(len(mounts), len(socket["allowed_services"]))
-        self.assertTrue(mounts[0].endswith(f":{socket['access']}"), mounts[0])
+        # Parse each service's raw /var/run/docker.sock mount and its access mode.
+        # A raw socket mount on the network-facing agent would hand it host root;
+        # only the read-only proxy (ro) and the executor (rw) may mount it.
+        body = self.compose.partition("\nservices:\n")[2].partition("\nvolumes:\n")[0]
+        service = None
+        mounts = {}
+        for line in body.splitlines():
+            header = re.match(r"^  ([A-Za-z][\w-]*):\s*$", line)
+            if header:
+                service = header.group(1)
+                continue
+            match = re.match(r"^\s+- /var/run/docker\.sock:/var/run/docker\.sock:(rw|ro)\s*$", line)
+            if match and service:
+                mounts[service] = match.group(1)
+        self.assertEqual(set(mounts), set(socket["allowed_services"]))
+        self.assertEqual(mounts, socket["access"])
+        self.assertNotIn("composer-agent", mounts)  # no raw socket on the agent
 
     def test_runtime_volume_read_write_split_matches_the_contract(self):
         """dlux_runtime is read/write only for the updater and agent; every other
@@ -704,7 +719,8 @@ class ProjectReleaseScaffoldTests(unittest.TestCase):
 
             compose = (target / "compose.yml").read_text(encoding="utf-8")
             self.assertNotIn("demo_project:latest", compose)
-            self.assertEqual(compose.count("acme/demo:stable"), 7)
+            # +1 vs pre-executor: composer-executor also carries a WEB_IMAGE default.
+            self.assertEqual(compose.count("acme/demo:stable"), 8)
 
             workflow = (target / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
             self.assertIn("${{ env.IMAGE }}:stable", workflow)

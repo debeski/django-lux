@@ -179,6 +179,12 @@ the curated package Django suite through
 includes `test_defaults_and_urls`, scaffold checks, backup/report coverage,
 notifications, permissions, middleware, and utility tests.
 
+Projects that call `dlux_settings(globals())` automatically replace the default
+cache with a process-local memory cache during `manage.py test` and pytest runs.
+This prevents test `SystemSettings`, sessions, and throttles from leaking into a
+development stack's shared Redis. Set `DLUX_ISOLATE_TEST_CACHE=False` only when
+the test environment already points at a dedicated disposable cache.
+
 Keep external/manual probes such as `test_m2m.py` and `verify_detailed_logs.py`
 out of `TEST_LABELS` unless they are converted to the shared package harness.
 Once CI is green on `main`, it can be treated as the required branch-protection

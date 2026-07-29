@@ -163,6 +163,49 @@ class UtilsTests(TestCase):
         self.assertIn('project-task', scope['CELERY_BEAT_SCHEDULE'])
         self.assertIn('dlux-scheduled-system-backup-check', scope['CELERY_BEAT_SCHEDULE'])
 
+    def test_dlux_settings_isolates_manage_py_tests_from_shared_cache(self):
+        shared_cache = {
+            'default': {
+                'BACKEND': 'django_redis.cache.RedisCache',
+                'LOCATION': 'redis://redis:6379/1',
+            },
+        }
+        scope = {
+            'INSTALLED_APPS': [],
+            'MIDDLEWARE': [],
+            'TEMPLATES': [],
+            'CACHES': shared_cache,
+        }
+
+        with patch('dlux.utils.settings.sys.argv', ['manage.py', 'test', 'documents']):
+            dlux_settings(scope)
+
+        self.assertEqual(
+            scope['CACHES']['default']['BACKEND'],
+            'django.core.cache.backends.locmem.LocMemCache',
+        )
+        self.assertNotEqual(scope['CACHES'], shared_cache)
+
+    def test_dlux_settings_allows_explicit_test_cache_isolation_opt_out(self):
+        shared_cache = {
+            'default': {
+                'BACKEND': 'django_redis.cache.RedisCache',
+                'LOCATION': 'redis://redis:6379/15',
+            },
+        }
+        scope = {
+            'INSTALLED_APPS': [],
+            'MIDDLEWARE': [],
+            'TEMPLATES': [],
+            'CACHES': shared_cache,
+            'DLUX_ISOLATE_TEST_CACHE': False,
+        }
+
+        with patch('dlux.utils.settings.sys.argv', ['manage.py', 'test']):
+            dlux_settings(scope)
+
+        self.assertIs(scope['CACHES'], shared_cache)
+
     def test_dlux_settings_accepts_an_explicit_compatible_middleware(self):
         scope = {
             'INSTALLED_APPS': [],

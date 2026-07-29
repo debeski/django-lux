@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Current source version: unreleased v1.5.10 in `dlux/release-manifest.json`; v1.5.9 is tagged/published (includes the doctor, stack contract, service removals, proxy client-identity). NEVER append to an already-published version — check `git tag` first, then start a new version + bump the manifest.
+- Current source version: unreleased v1.6.0 in `dlux/release-manifest.json`; v1.5.10 is tagged/published. NEVER append to an already-published version — check the tag first, then start a new version + bump the manifest.
 - DjangoLux includes the typed Composer agent bridge, migration `0011`, and state-row-serialized inline/image admission.
 - Generated projects emit one hardened `composer-agent`; Composer owns legacy migration and `dlux enable-agent` is a one-cycle forwarder.
 - First-launch `BASE_DIR/config.json` bootstrap runs during `migrator` after migrations; the setup GET retains the same row-locked fallback.
@@ -45,6 +45,10 @@
   - [ ] Browser-validate v1.5.10 dynamic-modal title normalization and persistent submit/cancel/wizard footer; in-app browser had no active session.
   - [ ] Browser-validate v1.5.10 row_actions_style `column`/`both`: three-dot button opens the shared menu at the button, toggle-close, hideMenu guard, mobile tap, and RTL column placement (server render + logic unit-tested; no live click yet).
 - **Completed Recently:**
+  - [x] v1.6.0 Hardened Composer scaffold: `compose.yml.tmpl` adds `composer-executor` (holds docker.sock rw), demotes `docker-socket-proxy` to POST=0/EXEC=0, agent keeps read-only DOCKER_HOST + `composer_exec_sock` socket; `stack_contract.json` + topology tests updated; generated compose passes real `docker compose config`; suite 1040 GREEN. Needs composer executor role (app-composer, 218 tests); existing stacks harden via `composer check --fix`.
+  - [x] v1.5.11 `dlux_settings()` isolates `manage.py test`/pytest caches with process-local LocMem by default, preventing test `SystemSettings` and sessions from leaking into a live development Redis; explicit opt-out retained.
+  - [x] v1.5.11 Added dry-run-first `dlux_seed`: project-model discovery, typed/random required-field generation, relation ordering, deterministic/model/app controls, and targeted local-`populate` reuse for canonical lookup models; +3 focused tests and Decrees integration.
+  - [x] v1.5.11 Dropped `django.contrib.admin` from scaffolds (settings.py.tmpl INSTALLED_APPS + urls.py.tmpl import/path); getting-started example updated; dlux never needed it (test settings already admin-free). Also stripped it from 7 existing projects (archive, decrees, trademarks, min-survey, dlux-panel, dhub, sales-crm gov_edition+switch_pos).
   - [x] v1.5.10 scaffold TIME_ZONE wiring: `compose.yml.tmpl` x-environment gains `TIME_ZONE: "${TIME_ZONE:-UTC}"`, `.secrets/.env.tmpl` ships `TIME_ZONE=UTC`, `stack_contract.json` env_keys + scaffold README updated, `dlux_settings()` fallback `Etc/GMT-2`→env-driven `UTC`.
   - [x] v1.5.10 Arabic variant-aware search: new `dlux.utils.arabic` (`arabic_search_q`/`arabic_search_pattern`/`normalize_arabic`, overridable `ARABIC_EQUIVALENCE_GROUPS`) matches alef/hamza, ي/ى/ئ/ی, ة/ه, ق/غ, و/ؤ, ک, digits via one `__iregex` per field; +15 tests, docs in reference + developer-guide.
   - [x] v1.5.10 Table row-actions style setting `layout_config.row_actions_style` (context|column|both): `column`/`both` add a presentational `dlux_row_actions` three-dot column via patched `Table.__init__` (empty_values=(), reuses row `data-dlux-actions` through shared context-menu JS + new `.dlux-row-actions-trigger` handler); full pipeline + EN/AR + 10 tests (`test_row_actions_style.py`).
@@ -55,12 +59,14 @@
   - [x] v1.5.10 footer/modal fix: `body.modal-open .dlux-footer { display:none }` so the footer's `backdrop-filter` layer stops bleeding over modal action bars (blocked submit buttons); no z-index change, offcanvas unaffected. CSS-only.
   - [x] v1.5.10 Control Panel disconnect surfacing: `control_link_state()` gains derived `connection_status` (connected/pending/disconnected/unconfigured); distinct "Disconnected" badge + warning banner (names URL, revoked-aware); worker `_detect_control_link_disconnect()` posts a one-time superadmin notification on enrolled→disconnected (runtime-volume dedup marker, re-arms on reconnect). control_url was always read from `agent-status.json`, never hardcoded. EN/AR; +4 tests; no migration.
 ### One-line info about last verified Tests:
+- 2026-07-28: `UtilsTests` 65/65 GREEN in the mounted Decrees container; after the run, live Redis `SystemSettings` still matched PostgreSQL (Arabic name, gold theme, `/documents/`).
+- 2026-07-28: Seed tests 7/7 GREEN (Dlux 3 + Decrees 4); isolated full Dlux suite 1037/1038 with sole unrelated existing `test_worker_records_a_bridge_failure_and_drops_the_token` failure (also fails alone).
 - 2026-07-27: full suite GREEN: 1010 tests (2 PostgreSQL-only skips); Arabic settings/search tests now identify entries by stable step URLs and catalog-derived labels, so translation copy edits do not break routing coverage.
 - 2026-07-27: scaffold/utils/defaults/updater suites GREEN post TIME_ZONE wiring (344 tests, 2 PG-only skips) incl. env-key contract and generated-README key list.
 - 2026-07-27: full suite GREEN: 1020 tests (2 PostgreSQL-only skips); +10 `test_row_actions_style.py` (settings round-trip/export-whitelist/normalizer + per-mode column presence/context-attr/button-render/empty-header).
 
 ### One-line info about last time edited Docs:
-- 2026-07-27: getting-started.md documents env-driven `TIME_ZONE`; reference.md + developer-guide document `arabic_search_q`/`normalize_arabic`; same-day `row_actions_style` docs.
+- 2026-07-28: RELEASING.md documents automatic test cache isolation and the dedicated-cache opt-out; reference.md documents `dlux_seed`.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
