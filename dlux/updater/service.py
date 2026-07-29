@@ -735,14 +735,54 @@ class UpdateService:
         candidate = select_latest_candidate(
             index, state.active_version or state.baked_version, skip_versions=state.skipped_versions
         )
-        if not candidate or candidate.version != state.latest_version:
-            raise UpdaterError("The previously checked release is no longer the latest stable update.")
-        if candidate.sha256 != state.latest_wheel_sha256 or candidate.url != state.latest_wheel_url:
+        if not candidate:
+            raise UpdaterError("No verified inline-safe DjangoLux update is available.")
+        if candidate.version != state.latest_version:
+            # The latest advanced between the check and this apply. Re-verify the
+            # new release in place and roll the plan forward instead of dead-ending.
+            candidate = self._roll_forward(state, run, candidate)
+        elif candidate.sha256 != state.latest_wheel_sha256 or candidate.url != state.latest_wheel_url:
+            # Same version, different artifact = a re-published/tampered wheel.
             raise UpdaterError("The PyPI release metadata changed after the update check.")
         run.wheel_url = candidate.url
         run.wheel_sha256 = candidate.sha256
         run.target_version = candidate.version
         run.save(update_fields=["wheel_url", "wheel_sha256", "target_version"])
+        return candidate
+
+    def _roll_forward(self, state, run, candidate):
+        """The latest release advanced since the check. Re-verify the new
+        candidate here (download + attestation + inline-safety) and, if it is
+        still inline-safe, roll the plan forward to it — preserving the "only
+        install a verified, inline-safe release" guarantee while sparing the admin
+        a manual re-check. If the new release is not inline-safe, stop with a
+        clear reason instead of a cryptic "no longer the latest"."""
+        previous = state.latest_version
+        self._transition(
+            run,
+            run.STATUS_VERIFYING,
+            f"A newer release (v{candidate.version}) appeared since the check; re-verifying it.",
+        )
+        wheel = download_wheel(candidate, self.store.wheel_path(candidate))
+        verify_pypi_attestation(candidate)
+        assessment = assess_wheel(candidate, wheel)
+        state.latest_version = candidate.version
+        state.latest_wheel_url = candidate.url
+        state.latest_wheel_sha256 = candidate.sha256
+        state.latest_manifest = assessment["manifest"]
+        state.latest_compatible = assessment["compatible"]
+        state.latest_reason = assessment["reason"] or "Ready for inline update."
+        state.last_checked_at = timezone.now()
+        state.save()
+        if not assessment["compatible"]:
+            raise UpdaterError(
+                f"A newer release (v{candidate.version}) is available but is not inline-safe; "
+                f"it needs an image update. {assessment['reason'] or ''}".strip()
+            )
+        run.append_log(
+            f"Available update changed from v{previous} to v{candidate.version}; applying v{candidate.version}."
+        )
+        run.save(update_fields=["progress_log"])
         return candidate
 
     def _process_apply(self, run):

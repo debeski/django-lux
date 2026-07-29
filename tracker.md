@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Current source version: unreleased v1.6.0 in `dlux/release-manifest.json`; v1.5.10 is tagged/published. NEVER append to an already-published version — check the tag first, then start a new version + bump the manifest.
+- Current source version: unreleased v1.6.1 in `dlux/release-manifest.json`; v1.6.0 is tagged/published. NEVER append to an already-published version — check the tag first, then start a new version + bump the manifest.
 - DjangoLux includes the typed Composer agent bridge, migration `0011`, and state-row-serialized inline/image admission.
 - Generated projects emit one hardened `composer-agent`; Composer owns legacy migration and `dlux enable-agent` is a one-cycle forwarder.
 - First-launch `BASE_DIR/config.json` bootstrap runs during `migrator` after migrations; the setup GET retains the same row-locked fallback.
@@ -45,6 +45,7 @@
   - [ ] Browser-validate v1.5.10 dynamic-modal title normalization and persistent submit/cancel/wizard footer; in-app browser had no active session.
   - [ ] Browser-validate v1.5.10 row_actions_style `column`/`both`: three-dot button opens the shared menu at the button, toggle-close, hideMenu guard, mobile tap, and RTL column placement (server render + logic unit-tested; no live click yet).
 - **Completed Recently:**
+  - [x] v1.6.1 Inline-updater fixes: (1) `_verified_latest_candidate`/`_roll_forward` — when latest advances between check and apply, re-verify the new release in place and apply if inline-safe (clear stop if not), keeping tampered-artifact hard-stops. (2) deprecated `dlux_check` alias is advisory-only (swallows the doctor's gating exit; `dlux_doctor` still gates) — unblocks pre-1.5.9 projects inline-updating forward (their preflight runs the candidate's `dlux_check`, which aborted on expected unapplied migrations). +tests; doctor+updater suites GREEN.
   - [x] v1.6.0 Hardened Composer scaffold: `compose.yml.tmpl` adds `composer-executor` (holds docker.sock rw), demotes `docker-socket-proxy` to POST=0/EXEC=0, agent keeps read-only DOCKER_HOST + `composer_exec_sock` socket; `stack_contract.json` + topology tests updated; generated compose passes real `docker compose config`; suite 1040 GREEN. Needs composer executor role (app-composer, 218 tests); existing stacks harden via `composer check --fix`.
   - [x] v1.5.11 `dlux_settings()` isolates `manage.py test`/pytest caches with process-local LocMem by default, preventing test `SystemSettings` and sessions from leaking into a live development Redis; explicit opt-out retained.
   - [x] v1.5.11 Added dry-run-first `dlux_seed`: project-model discovery, typed/random required-field generation, relation ordering, deterministic/model/app controls, and targeted local-`populate` reuse for canonical lookup models; +3 focused tests and Decrees integration.

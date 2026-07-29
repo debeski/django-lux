@@ -2080,3 +2080,76 @@ class InlineProgressMirrorTests(TestCase):
                 service._transition(run, DluxUpdateRun.STATUS_SWITCHING, "switching")
             run.refresh_from_db()
             self.assertEqual(run.status, DluxUpdateRun.STATUS_SWITCHING)
+
+
+class InlineRollForwardTests(TestCase):
+    """When the latest release advances between the check and the apply, the
+    updater re-verifies the new release in place and rolls forward if it's
+    inline-safe — instead of dead-ending — while stopping clearly if it isn't and
+    keeping the tampered-artifact hard stop for a re-published same-version wheel."""
+
+    def _state(self):
+        state = DluxUpdateState.load()
+        state.baked_version = "1.2.2"
+        state.active_version = "1.2.2"
+        state.latest_version = "1.2.3"
+        state.latest_wheel_url = "https://files.pythonhosted.org/x.whl"
+        state.latest_wheel_sha256 = "a" * 64
+        state.latest_manifest = release_manifest()
+        state.latest_compatible = True
+        state.save()
+        return state
+
+    def _run(self):
+        return DluxUpdateRun.objects.create(
+            action=DluxUpdateRun.ACTION_APPLY, source_version="1.2.2", target_version="1.2.3"
+        )
+
+    def _candidate(self, version, sha="b" * 64, url="https://files.pythonhosted.org/y.whl"):
+        return ReleaseCandidate(version, f"django_lux-{version}-py3-none-any.whl", url, sha)
+
+    def _patches(self, tmp, candidate, *, compatible=True):
+        return (
+            mock.patch("dlux.updater.service.fetch_simple_index", return_value={}),
+            mock.patch("dlux.updater.service.select_latest_candidate", return_value=candidate),
+            mock.patch("dlux.updater.service.download_wheel", return_value=Path(tmp) / "w.whl"),
+            mock.patch("dlux.updater.service.verify_pypi_attestation", return_value=True),
+            mock.patch(
+                "dlux.updater.service.assess_wheel",
+                return_value={"compatible": compatible, "manifest": release_manifest("1.2.4"), "reason": "ok" if compatible else "needs an image update"},
+            ),
+        )
+
+    def test_rolls_forward_to_a_newer_inline_safe_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = UpdateService(store=RuntimeStore(tmp).ensure())
+            state, run = self._state(), self._run()
+            p = self._patches(tmp, self._candidate("1.2.4"))
+            with p[0], p[1], p[2], p[3], p[4]:
+                result = service._verified_latest_candidate(state, run)
+            self.assertEqual(result.version, "1.2.4")
+            self.assertEqual(DluxUpdateState.load().latest_version, "1.2.4")
+            run.refresh_from_db()
+            self.assertIn("1.2.3", run.progress_log)
+            self.assertIn("1.2.4", run.progress_log)
+
+    def test_stops_clearly_when_the_newer_release_is_not_inline_safe(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = UpdateService(store=RuntimeStore(tmp).ensure())
+            state, run = self._state(), self._run()
+            p = self._patches(tmp, self._candidate("1.2.4"), compatible=False)
+            with p[0], p[1], p[2], p[3], p[4]:
+                with self.assertRaises(UpdaterError) as ctx:
+                    service._verified_latest_candidate(state, run)
+            self.assertIn("inline-safe", str(ctx.exception))
+
+    def test_same_version_tampered_artifact_still_hard_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = UpdateService(store=RuntimeStore(tmp).ensure())
+            state, run = self._state(), self._run()
+            tampered = self._candidate("1.2.3", sha="c" * 64)  # same version, different sha
+            with mock.patch("dlux.updater.service.fetch_simple_index", return_value={}), \
+                 mock.patch("dlux.updater.service.select_latest_candidate", return_value=tampered):
+                with self.assertRaises(UpdaterError) as ctx:
+                    service._verified_latest_candidate(state, run)
+            self.assertIn("metadata changed", str(ctx.exception))

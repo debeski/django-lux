@@ -1,5 +1,6 @@
 import json
 from io import StringIO
+from unittest.mock import patch
 
 from dlux.tests.harness import setup_test_environment
 
@@ -271,7 +272,41 @@ class DoctorAliasTests(TestCase):
         self.assertIn('dlux_doctor', err.getvalue())
         json.loads(out)  # stdout is still clean JSON
 
-    def test_alias_preserves_exit_code(self):
+    def test_alias_is_advisory_not_gating(self):
+        # The alias is advisory-only: even a clean run does not propagate a gating
+        # exit (the failure case is covered by DluxCheckAliasIsAdvisoryTests).
         err = StringIO()
         _, code = run_command('--group', 'packages', name='dlux_check', stderr=err)
-        self.assertEqual(code, 0)
+        self.assertIn(code, (None, 0))
+
+
+class DluxCheckAliasIsAdvisoryTests(TestCase):
+    """The deprecated `dlux_check` alias is advisory-only — it prints the report
+    but never gates on the exit code — while `dlux_doctor` keeps the real exit-1
+    gate. This is what lets a pre-1.5.9 inline updater (whose required preflight
+    runs `dlux_check`) cross forward even though the candidate has the *expected*
+    unapplied migrations at preflight."""
+
+    def _failing_report(self):
+        report = doctor.run_checks()
+        counts = dict(report['counts'])
+        counts[doctor.ERROR] = counts.get(doctor.ERROR, 0) + 1
+        report['counts'] = counts
+        report['status'] = doctor.ERROR
+        return report
+
+    def test_dlux_check_never_gates_even_when_doctor_finds_problems(self):
+        with patch(
+            'dlux.management.commands.dlux_doctor.doctor.run_checks',
+            return_value=self._failing_report(),
+        ):
+            _, code = run_command('--format', 'json', name='dlux_check', stderr=StringIO())
+        self.assertIn(code, (None, 0))  # advisory: no gating exit
+
+    def test_dlux_doctor_still_gates_on_problems(self):
+        with patch(
+            'dlux.management.commands.dlux_doctor.doctor.run_checks',
+            return_value=self._failing_report(),
+        ):
+            _, code = run_command('--format', 'json', name='dlux_doctor')
+        self.assertEqual(code, 1)

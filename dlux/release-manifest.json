@@ -1,14 +1,13 @@
 {
   "schema_version": 1,
-  "version": "1.6.0",
+  "version": "1.6.1",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Hardens the generated Composer topology, adds metadata-driven seeding, and drops Django admin from scaffolds.",
+  "summary": "Inline updater rolls forward to a newer verified release; deprecated dlux_check is advisory-only so pre-1.5.9 projects can inline-update forward.",
   "highlights": [
-    "New composer-executor isolates Docker write authority; the agent keeps read-only proxy access. Harden existing stacks with composer check --fix.",
-    "Dry-run-first dlux_seed generates valid rows from model field metadata.",
-    "Generated projects no longer install django.contrib.admin."
+    "Inline update auto-rolls-forward when a newer inline-safe release appears between check and apply, instead of erroring.",
+    "The deprecated dlux_check alias no longer gates on its exit code (dlux_doctor still does), unblocking inline updates from pre-1.5.9 projects."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.6.0"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.6.1"
 }

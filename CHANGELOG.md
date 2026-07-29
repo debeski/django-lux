@@ -6,6 +6,10 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+## v1.6.1
+- **Inline Update Rolls Forward**: When a newer release appears between the update check and the apply, the inline updater re-verifies the new version in place and applies it if it's inline-safe (instead of erroring "no longer the latest"); a non-inline-safe newer version stops with a clear reason. Tampered-artifact hard-stops kept.
+- **`dlux_check` Is Advisory-Only**: The deprecated `dlux_check` alias no longer gates on its exit code (`dlux_doctor` still does), restoring its pre-1.5.9 contract. This lets pre-1.5.9 projects inline-update forward — their preflight runs the candidate's `dlux_check`, which no longer aborts on the expected unapplied migrations.
+
 ## v1.6.0
 - **Hardened Composer Topology**: Generated stacks add `composer-executor` (sole Docker-write authority), demote `docker-socket-proxy` to read-only (`POST=0`/`EXEC=0`), and leave `composer-agent` read-only. Existing stacks harden via `composer check --fix`.
 - **Test Cache Isolation**: `dlux_settings()` now switches test processes to a process-local cache by default, preventing test `SystemSettings` and sessions from contaminating a development stack's shared Redis; `DLUX_ISOLATE_TEST_CACHE=False` opts out.

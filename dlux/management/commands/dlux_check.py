@@ -17,6 +17,17 @@ class Command(DoctorCommand):
         # stderr, so it never contaminates the --format json report on stdout
         # that Composer parses.
         self.stderr.write(self.style.WARNING(
-            "dlux_check is a deprecated alias for dlux_doctor. Use 'python manage.py dlux_doctor'."
+            "dlux_check is a deprecated, advisory-only alias for dlux_doctor "
+            "(it always exits 0). Use 'python manage.py dlux_doctor' for a gating exit code."
         ))
-        super().handle(*args, **options)
+        try:
+            super().handle(*args, **options)
+        except SystemExit:
+            # Advisory only: the full report still prints, but the alias never
+            # gates on the exit code — restoring its pre-1.5.9 contract. This is
+            # what lets a pre-1.5.9 inline updater cross forward: its preflight
+            # runs `dlux_check` as a *required* command, and at preflight the
+            # candidate's migrations are unapplied / static uncollected (expected,
+            # applied later in the flow) — a gating exit 1 there aborts the update.
+            # `dlux_doctor` keeps the real exit-1 gate for everything current.
+            pass
