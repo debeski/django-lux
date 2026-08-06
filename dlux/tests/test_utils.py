@@ -383,6 +383,38 @@ class UtilsTests(TestCase):
         self.assertTrue(config['allow_user_language_override'])
         self.assertEqual(config['default_table_density'], DEFAULT_TABLE_DENSITY)
 
+    def test_get_system_config_ignores_missing_database_branding_files(self):
+        from dlux.models import SystemSettings
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            settings_obj = SystemSettings.load()
+            SystemSettings.objects.filter(pk=settings_obj.pk).update(
+                logo='microsys/branding/missing-logo.png',
+                favicon='microsys/branding/missing-favicon.png',
+            )
+            cache.clear()
+
+            config = get_system_config()
+
+        self.assertEqual(config['logo_url'], '/static/img/base_logo.svg')
+        self.assertEqual(config['login_logo_url'], '/static/img/login_logo.svg')
+        self.assertEqual(config['favicon_url'], '/static/img/base_logo.svg')
+
+    @override_settings(DEBUG=True, STATIC_URL='/static/')
+    def test_dlux_static_uses_source_mtime_during_development(self):
+        from dlux.templatetags.dlux_tags import dlux_static
+
+        with tempfile.NamedTemporaryFile() as source_file, patch(
+            'dlux.templatetags.dlux_tags.finders.find',
+            return_value=source_file.name,
+        ):
+            url = dlux_static('dlux/reports/css/print.css')
+
+        self.assertRegex(
+            url,
+            rf'^/static/dlux/reports/css/print\.css\?v={__version__}-[0-9a-f]+$',
+        )
+
     def test_get_system_config_with_settings_override(self):
         """Test get_system_config with DLUX_CONFIG override."""
         with override_settings(DLUX_CONFIG={

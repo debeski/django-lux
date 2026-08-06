@@ -4,7 +4,7 @@ import threading
 import time
 
 from django.conf import settings
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 
 from dlux import __version__
 from dlux.updater.service import UpdateService, queue_daily_check_if_due, updates_enabled
@@ -36,7 +36,23 @@ class Command(BaseCommand):
         service = UpdateService()
         state = service.reconcile()
         if state.degraded:
-            raise CommandError(state.degraded_reason or "DjangoLux runtime reconstruction failed.")
+            # Never wedge the site behind a maintenance screen on a degraded
+            # reconcile. The baked image is always servable — its app code and dlux
+            # shipped together — so fall back to it, clear the flags, and restart
+            # clean instead of crash-looping. The failure stays in the archived
+            # state and logs for operator review.
+            from dlux.updater import get_baked_version
+
+            baked = get_baked_version()
+            service.store.write_active(baked, source="image", generation=service.store.read_generation())
+            service.store.clear_degraded()
+            service.store.set_maintenance(False)
+            service.store.invalidate_heartbeat()
+            self.stdout.write(self.style.WARNING(
+                f"Degraded runtime ({state.degraded_reason or 'reconstruction failed'}); "
+                f"reconciled to baked {baked} and restarting the update worker."
+            ))
+            return
         if state.active_version and state.active_version != __version__:
             service.store.invalidate_heartbeat()
             self.stdout.write("Selected runtime release differs from this interpreter; restarting the update worker.")

@@ -41,6 +41,58 @@ IMAGE_BYTES = base64.b64decode(
 )
 
 
+def build_seed_pdf(label):
+    escaped_label = (
+        str(label)
+        .encode("ascii", "replace")
+        .replace(b"\\", b"\\\\")
+        .replace(b"(", b"\\(")
+        .replace(b")", b"\\)")
+    )
+    stream = (
+        b"BT\n/F1 12 Tf\n72 720 Td\n(Seeded document: "
+        + escaped_label
+        + b") Tj\nET\n"
+    )
+    objects = (
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"
+        ),
+        (
+            b"<< /Length "
+            + str(len(stream)).encode("ascii")
+            + b" >>\nstream\n"
+            + stream
+            + b"endstream"
+        ),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    )
+
+    output = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = [0]
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(output))
+        output.extend(f"{number} 0 obj\n".encode("ascii"))
+        output.extend(body)
+        output.extend(b"\nendobj\n")
+
+    xref_offset = len(output)
+    output.extend(f"xref\n0 {len(offsets)}\n".encode("ascii"))
+    output.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        output.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    output.extend(
+        (
+            f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\n"
+            f"startxref\n{xref_offset}\n%%EOF\n"
+        ).encode("ascii")
+    )
+    return bytes(output)
+
+
 class SeedModelError(Exception):
     pass
 
@@ -321,7 +373,7 @@ class MetadataSeeder:
         if isinstance(field, models.FileField):
             extension = self._file_extension(field)
             content = (
-                b"%PDF-1.4\n%%EOF\n"
+                build_seed_pdf(token)
                 if extension == "pdf"
                 else f"Seeded file {token}\n".encode("utf-8")
             )

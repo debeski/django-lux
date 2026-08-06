@@ -21,6 +21,7 @@ from ..trust import (
     issue_trusted_device,
     revoke_linked_session_trust,
     sync_session_device_metadata,
+    terminate_other_user_sessions,
     trusted_device_for_session,
 )
 from ..session_history import flag_sessions_revoked, hash_session_key, mark_presence_sessions_ended
@@ -30,7 +31,13 @@ from ..reports import (
     is_report_eligible_activity_model_name,
     log_report_key,
 )
-from ..utils import get_user_management_tier_state_for_user, log_audit_event, log_user_action, normalize_activity_log_model_key
+from ..utils import (
+    get_system_config,
+    get_user_management_tier_state_for_user,
+    log_audit_event,
+    log_user_action,
+    normalize_activity_log_model_key,
+)
 from ..translations import get_strings
 from .twofa import get_2fa_config
 
@@ -212,9 +219,12 @@ def user_profile(request):
     password_form = CustomPasswordChangeForm(user)
     
     if request.method == 'POST':
-        # ... existing POST logic ...
         password_form = CustomPasswordChangeForm(user, request.POST)
         if password_form.is_valid():
+            sign_out_other_sessions = bool(
+                password_form.cleaned_data.get('sign_out_other_sessions')
+                and not get_system_config().get('prevent_multiple_active_sessions', False)
+            )
             password_form.save()
             profile = getattr(user, 'profile', None)
             preferences = getattr(profile, 'preferences', {}) if profile is not None else {}
@@ -224,14 +234,27 @@ def user_profile(request):
                 profile.preferences = updated_preferences
                 profile.save(update_fields=['preferences'])
             log_audit_event(request, 'password_change', "PASSWORD_CHANGE", instance=user, model_name="password")
+            sessions_ended = 0
+            if sign_out_other_sessions:
+                sessions_ended = terminate_other_user_sessions(
+                    user,
+                    keep_session_key=request.session.session_key,
+                    reason='signed_out_remotely',
+                )
             update_session_auth_hash(request, password_form.user)
             s = get_strings()
+            message_key = 'msg_password_changed_sessions_ended' if sessions_ended else 'msg_password_changed'
+            default_message = (
+                'Password changed and all other signed-in devices were signed out.'
+                if sessions_ended else
+                'Password changed successfully!'
+            )
             notify.success(
-                s.get('msg_password_changed', 'Password changed successfully!'),
+                s.get(message_key, default_message),
                 request=request,
                 action='password_changed',
                 category='security',
-                metadata={'message_key': 'msg_password_changed'},
+                metadata={'message_key': message_key, 'sessions_ended': sessions_ended},
             )
             return redirect('user_profile')
         else:
@@ -320,7 +343,6 @@ def user_profile(request):
     _session_device_metadata_from_request(request)
     profile_preferences = getattr(profile, 'preferences', {}) if profile is not None else {}
 
-    from ..utils import get_system_config
     profile_config = get_system_config().get('profile_config') or {}
 
     context = {
@@ -486,7 +508,7 @@ def initial_user_setup(request):
     """
     from ..utils import get_system_config, get_effective_allowed_themes
     from ..themes import get_theme_options
-    from ..fonts import get_builtin_fonts
+    from ..fonts import get_available_fonts
     from ..discovery import build_user_home_url_options
 
     Profile = apps.get_model('dlux', 'Profile')
@@ -514,7 +536,7 @@ def initial_user_setup(request):
                     prefs['language'] = lang
             if allow_fonts:
                 font = request.POST.get('font')
-                allowed_font_slugs = set(config.get('allowed_fonts') or [f['slug'] for f in get_builtin_fonts()])
+                allowed_font_slugs = set(config.get('allowed_fonts') or [f['slug'] for f in get_available_fonts()])
                 if font in allowed_font_slugs:
                     prefs['font'] = font
             if allow_home:
@@ -544,7 +566,7 @@ def initial_user_setup(request):
         'allow_home': allow_home,
         'theme_options': get_theme_options(s, config.get('allowed_themes')),
         'language_options': config.get('languages') or {},
-        'font_options': [f for f in get_builtin_fonts() if not allowed_font_slugs or f['slug'] in allowed_font_slugs],
+        'font_options': [f for f in get_available_fonts() if not allowed_font_slugs or f['slug'] in allowed_font_slugs],
         'current_theme': prefs.get('theme') or config.get('default_theme'),
         'current_language': prefs.get('language') or config.get('default_language'),
         'current_font': prefs.get('font') or '',

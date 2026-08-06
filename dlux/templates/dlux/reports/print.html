@@ -1,0 +1,166 @@
+{% extends 'dlux/base.html' %}
+{% load dlux_tags %}
+{% load static %}
+
+{% block title %}{{ DLUX_STRINGS.reports_print_title }}{% endblock %}
+
+{% block extra_head %}
+{{ block.super }}
+<link rel="stylesheet" href="{% dlux_static 'dlux/reports/css/print.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="dlux-report-print-page">
+    <div class="dlux-report-print-toolbar no-print">
+        <a href="{{ builder_url }}" class="btn btn-outline-secondary rounded-pill">
+            <i class="bi bi-arrow-left me-1"></i>{{ DLUX_STRINGS.reports_print_back }}
+        </a>
+        <button type="button" class="btn btn-primary rounded-pill" data-dlux-report-print-trigger>
+            <i class="bi bi-printer me-1"></i>{{ DLUX_STRINGS.reports_print_action }}
+        </button>
+    </div>
+
+    <article class="dlux-report-doc" data-dlux-report-print>
+        <header class="dlux-report-doc-head">
+            <div class="dlux-report-doc-brand">
+                <span class="dlux-report-doc-kicker">{{ DLUX_STRINGS.reports_print_kicker }}</span>
+                <h1>{{ DLUX_STRINGS.reports_print_title }}</h1>
+                <p>{{ APP_CONFIG.identity.display_name|default:"DjangoLux" }}</p>
+            </div>
+            <dl class="dlux-report-doc-meta">
+                <dt>{{ DLUX_STRINGS.reports_print_period }}</dt>
+                <dd>{% if overview.period.range_label %}{{ overview.period.range_label }}{% else %}{{ DLUX_STRINGS.user_report_window_all }}{% endif %}</dd>
+                <dt>{{ DLUX_STRINGS.reports_print_scope }}</dt>
+                <dd>{{ overview.selected_model_count }} {{ DLUX_STRINGS.reports_models }} · {{ overview.selected_operation_count }} {{ DLUX_STRINGS.reports_operations }}</dd>
+                <dt>{{ DLUX_STRINGS.reports_print_generated_at }}</dt>
+                <dd>{{ generated_at|date:"Y-m-d H:i" }}</dd>
+                <dt>{{ DLUX_STRINGS.reports_print_generated_by }}</dt>
+                <dd>{{ request.user.get_full_name|default:request.user.username }}</dd>
+            </dl>
+        </header>
+
+        <section class="dlux-report-doc-section">
+            <h2>{{ DLUX_STRINGS.reports_print_summary }}</h2>
+            <div class="dlux-report-doc-kpis">
+                <div class="dlux-report-doc-kpi dlux-report-doc-kpi-lead">
+                    <span>{{ DLUX_STRINGS.reports_current_total }}</span>
+                    <strong>{{ overview.current_total }}</strong>
+                    <small>{% if overview.delta > 0 %}▲ +{{ overview.delta }}{% elif overview.delta < 0 %}▼ {{ overview.delta }}{% else %}— {{ overview.delta }}{% endif %} {{ DLUX_STRINGS.reports_print_vs_previous }}</small>
+                </div>
+                <div class="dlux-report-doc-kpi">
+                    <span>{{ DLUX_STRINGS.reports_previous_period_total }}</span>
+                    <strong>{{ overview.previous_period_total }}</strong>
+                </div>
+                <div class="dlux-report-doc-kpi">
+                    <span>{{ DLUX_STRINGS.reports_average_per_day }}</span>
+                    <strong>{{ overview.average_per_active_day }}</strong>
+                </div>
+                <div class="dlux-report-doc-kpi">
+                    <span>{{ DLUX_STRINGS.reports_average_per_user }}</span>
+                    <strong>{{ overview.average_per_user }}</strong>
+                </div>
+                <div class="dlux-report-doc-kpi">
+                    <span>{{ DLUX_STRINGS.reports_all_total }}</span>
+                    <strong>{{ overview.all_total }}</strong>
+                </div>
+            </div>
+        </section>
+
+        {% if overview.current_total %}
+        <section class="dlux-report-doc-section dlux-report-doc-break">
+            <h2>{{ DLUX_STRINGS.reports_print_trend }}</h2>
+            <figure class="dlux-report-figure dlux-report-figure-wide">
+                <figcaption>{{ DLUX_STRINGS.reports_print_trend_caption }}</figcaption>
+                <div class="dlux-report-canvas dlux-report-canvas-trend">
+                    <canvas data-dlux-report-chart="days"></canvas>
+                </div>
+            </figure>
+        </section>
+
+        <section class="dlux-report-doc-section dlux-report-doc-break dlux-report-doc-page-two">
+            <h2>{{ DLUX_STRINGS.reports_print_distribution }}</h2>
+            <div class="dlux-report-figure-grid">
+                <figure class="dlux-report-figure">
+                    <figcaption>{{ DLUX_STRINGS.reports_print_models_chart }}</figcaption>
+                    <div class="dlux-report-canvas dlux-report-canvas-rank">
+                        <canvas data-dlux-report-chart="models"></canvas>
+                    </div>
+                </figure>
+                <figure class="dlux-report-figure">
+                    <figcaption>{{ DLUX_STRINGS.reports_print_users_chart }}</figcaption>
+                    <div class="dlux-report-canvas dlux-report-canvas-rank">
+                        <canvas data-dlux-report-chart="users"></canvas>
+                    </div>
+                </figure>
+            </div>
+            <figure class="dlux-report-figure dlux-report-figure-wide">
+                <figcaption>{{ DLUX_STRINGS.reports_print_actions_chart }}</figcaption>
+                <div class="dlux-report-canvas dlux-report-canvas-mix">
+                    <canvas data-dlux-report-chart="actions"></canvas>
+                </div>
+                <div class="dlux-report-legend" data-dlux-report-legend="actions"></div>
+            </figure>
+        </section>
+        {% else %}
+        <section class="dlux-report-doc-section">
+            <p class="dlux-report-doc-empty">{{ DLUX_STRINGS.reports_print_no_data }}</p>
+        </section>
+        {% endif %}
+
+        <section class="dlux-report-doc-section">
+            <h2>{{ DLUX_STRINGS.reports_print_details }}</h2>
+            <div class="dlux-report-doc-tables">
+                <div class="dlux-report-doc-table">
+                    <h3>{{ DLUX_STRINGS.reports_by_model }}</h3>
+                    <table>
+                        <thead><tr><th>{{ DLUX_STRINGS.user_report_model }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead>
+                        <tbody>
+                            {% for item in overview.models %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="dlux-report-doc-table">
+                    <h3>{{ DLUX_STRINGS.reports_by_action }}</h3>
+                    <table>
+                        <thead><tr><th>{{ DLUX_STRINGS.user_report_action }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead>
+                        <tbody>
+                            {% for item in overview.actions %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="dlux-report-doc-table">
+                    <h3>{{ DLUX_STRINGS.reports_by_user }}</h3>
+                    <table>
+                        <thead><tr><th>{{ DLUX_STRINGS.user_report_username }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead>
+                        <tbody>
+                            {% for item in overview.users %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="dlux-report-doc-table">
+                    <h3>{{ DLUX_STRINGS.reports_by_day }}</h3>
+                    <table>
+                        <thead><tr><th>{{ DLUX_STRINGS.user_report_timestamp }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead>
+                        <tbody>
+                            {% for item in overview.days %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <footer class="dlux-report-doc-foot">
+            <span>{{ APP_CONFIG.identity.display_name|default:"DjangoLux" }} · {{ DLUX_STRINGS.reports_print_title }}</span>
+            <span>{{ generated_at|date:"Y-m-d H:i" }}</span>
+        </footer>
+    </article>
+</div>
+
+{{ chart_data|json_script:"dlux-report-chart-data" }}
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script src="{% static 'chart.js/chart.umd.min.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+<script src="{% dlux_static 'dlux/reports/js/print.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+{% endblock %}

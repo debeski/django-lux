@@ -642,7 +642,7 @@
             <div class="modal-body p-4 dlux-form">
                 <form method="post" class="dlux-form">
                     {% csrf_token %}
-                    {{ password_form|crispy }}
+                    {% crispy password_form %}
                     <div class="d-grid mt-4">
                         <button type="submit" name="change_password" class="btn btn-danger action-btn rounded-pill justify-content-center">
                             {{ DLUX_STRINGS.btn_confirm_password_change }}

@@ -11,6 +11,14 @@ UPSTREAM_PORT = int(os.getenv("SMTP_RELAY_PORT", "587"))
 UPSTREAM_USE_TLS = os.getenv("SMTP_RELAY_USE_TLS", "True").lower() == "true"
 UPSTREAM_USER = os.getenv("SMTP_RELAY_USER", "")
 UPSTREAM_PASSWORD = os.getenv("SMTP_RELAY_PASSWORD", "")
+# Must stay BELOW dlux's relay-transport client timeout
+# (dlux.utils.mail.DLUX_SMTP_RELAY_CLIENT_TIMEOUT, 75s). Sized for a slow
+# upstream: servers that scan mail in-line often answer connect/EHLO/AUTH
+# instantly and then take 30-60s on DATA. Raise it if your provider is slower. Delivery is two hops and
+# only this process can see why the provider hop failed; if the app times out first
+# it reports a bare "timed out" and this reason never reaches the operator. Losing
+# the race on purpose is what lets the 451 below carry the real cause.
+UPSTREAM_TIMEOUT = int(os.getenv("SMTP_RELAY_UPSTREAM_TIMEOUT", "60"))
 MAX_MESSAGE_BYTES = int(os.getenv("SMTP_RELAY_MAX_MESSAGE_BYTES", str(10 * 1024 * 1024)))
 
 
@@ -91,7 +99,7 @@ def _deliver(mail_from, recipients, message_bytes):
         raise RuntimeError("RCPT TO is missing")
 
     smtp_class = smtplib.SMTP_SSL if upstream.get("use_ssl") else smtplib.SMTP
-    with smtp_class(upstream_host, upstream_port, timeout=30) as smtp:
+    with smtp_class(upstream_host, upstream_port, timeout=UPSTREAM_TIMEOUT) as smtp:
         smtp.ehlo()
         if upstream.get("use_tls") and not upstream.get("use_ssl"):
             smtp.starttls()
@@ -99,6 +107,17 @@ def _deliver(mail_from, recipients, message_bytes):
         if upstream_user or upstream_password:
             smtp.login(upstream_user, upstream_password)
         smtp.sendmail(mail_from, recipients, message_bytes)
+
+
+def _smtp_reason(exc):
+    """One-line, length-capped failure reason safe to put in an SMTP reply.
+
+    A reply line cannot contain CR/LF and must stay short, so the exception text is
+    folded and truncated. Credentials are never part of smtplib's exception text —
+    only the server's own response — so this does not leak the relay password.
+    """
+    reason = " ".join(str(exc).split()) or exc.__class__.__name__
+    return reason[:180]
 
 
 async def _send(writer, line):
@@ -163,7 +182,7 @@ async def handle_client(reader, writer):
                     await _send(writer, "250 Message accepted")
                 except Exception as exc:
                     print(f"SMTP relay delivery failed for {peer}: {exc}", file=sys.stderr, flush=True)
-                    await _send(writer, "451 Relay delivery failed")
+                    await _send(writer, f"451 Relay delivery failed: {_smtp_reason(exc)}")
         elif upper == "QUIT":
             await _send(writer, "221 Bye")
             break

@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from dlux.tests.harness import setup_test_environment
@@ -5,9 +6,17 @@ from dlux.tests.harness import setup_test_environment
 setup_test_environment()
 
 from django.core.cache import cache
+from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 
-from dlux.discovery import _is_candidate, build_sidebar_navigation, discover_sidebar_catalog, sanitize_sidebar_config
+from dlux.discovery import (
+    _is_candidate,
+    annotate_sidebar_notification_counts,
+    build_sidebar_navigation,
+    discover_sidebar_catalog,
+    sanitize_navbar_config,
+    sanitize_sidebar_config,
+)
 
 
 class _StubUser:
@@ -47,10 +56,109 @@ class SidebarDiscoveryTests(SimpleTestCase):
         self.assertFalse(_is_candidate("documents_api:decree_list", "/api/decrees/", callback=None))
         self.assertFalse(_is_candidate("api:decree_list", "/v1/decrees/", callback=None))
         self.assertFalse(_is_candidate("documents:decree_list", "/api/decrees/", callback=None))
+        self.assertFalse(_is_candidate("documents:decrees_api", "/v1/decrees/", callback=None))
+        self.assertFalse(_is_candidate("documents:api:decree_list", "/v1/decrees/", callback=None))
+        self.assertFalse(_is_candidate("documents:decree_list", "/v1/decrees-api/", callback=None))
         # The user-facing page view is still discovered, and a non-API path with
         # "api" only as a substring is not falsely excluded.
         self.assertTrue(_is_candidate("documents:decree_list", "/documents/decrees/", callback=None))
         self.assertTrue(_is_candidate("rapid_report", "/finance/rapid-report/", callback=None))
+
+    def test_discovery_excludes_api_callback_names_without_substring_false_positives(self):
+        class ProductsAPIView:
+            pass
+
+        class RapidView:
+            pass
+
+        self.assertFalse(_is_candidate(
+            "documents:products",
+            "/documents/products/",
+            callback=SimpleNamespace(view_class=ProductsAPIView),
+        ))
+        self.assertTrue(_is_candidate(
+            "documents:rapid_report",
+            "/documents/rapid-report/",
+            callback=SimpleNamespace(view_class=RapidView),
+        ))
+
+    def test_sanitize_sidebar_config_removes_stored_api_routes_and_empty_groups(self):
+        sidebar = {
+            "home_url_name": "catalog:products_api",
+            "entries": [
+                {"kind": "item", "id": "catalog:products", "url_name": "catalog:products"},
+                {"kind": "item", "id": "catalog:products_api", "url_name": "catalog:products_api"},
+                {
+                    "kind": "group",
+                    "id": "api-only",
+                    "items": [{"kind": "item", "id": "catalog:api:stock", "url_name": "catalog:api:stock"}],
+                },
+                {
+                    "kind": "item",
+                    "id": "catalog:feed",
+                    "url_name": "catalog:feed",
+                    "url": "/catalog/feed-api/",
+                },
+            ],
+        }
+
+        sanitized = sanitize_sidebar_config(sidebar, allow_system_items=True)
+
+        self.assertEqual(
+            [entry["id"] for entry in sanitized["entries"]],
+            ["catalog:products"],
+        )
+        self.assertIsNone(sanitized["home_url_name"])
+
+    def test_sanitize_navbar_config_removes_stored_api_routes_and_preserves_children(self):
+        navbar = {
+            "enabled": True,
+            "root": {"mode": "route", "url_name": "catalog:products_api"},
+            "hierarchy": {
+                "nodes": [
+                    {
+                        "kind": "route",
+                        "id": "catalog:api:products",
+                        "url_name": "catalog:api:products",
+                        "children": [{
+                            "kind": "route",
+                            "id": "catalog:products",
+                            "url_name": "catalog:products",
+                        }],
+                    },
+                    {
+                        "kind": "manual",
+                        "id": "api-link",
+                        "url": "/v1/products-api/",
+                        "labels": {"en": "API"},
+                    },
+                ],
+            },
+        }
+
+        sanitized = sanitize_navbar_config(navbar)
+
+        self.assertEqual(sanitized["root"], {"mode": "neutral", "url_name": ""})
+        self.assertEqual(
+            [node["id"] for node in sanitized["hierarchy"]["nodes"]],
+            ["catalog:products"],
+        )
+
+    @patch("dlux.discovery.reverse", return_value="/staff/api/products/")
+    def test_stored_route_with_safe_name_is_removed_when_it_resolves_to_api_path(self, _mock_reverse):
+        sidebar = sanitize_sidebar_config({
+            "entries": [{"kind": "item", "id": "catalog:feed", "url_name": "catalog:feed"}],
+        }, allow_system_items=True)
+        navbar = sanitize_navbar_config({
+            "root": {"mode": "route", "url_name": "catalog:feed"},
+            "hierarchy": {
+                "nodes": [{"kind": "route", "id": "catalog:feed", "url_name": "catalog:feed"}],
+            },
+        })
+
+        self.assertEqual(sidebar["entries"], [])
+        self.assertEqual(navbar["root"], {"mode": "neutral", "url_name": ""})
+        self.assertEqual(navbar["hierarchy"]["nodes"], [])
 
     def test_sanitize_sidebar_config_hides_system_items_by_default(self):
         sidebar = {
@@ -151,6 +259,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
             if entry.get("group_key") == "dlux"
         }
         options_entry = next(entry for entry in catalog_with_system if entry["id"] == "options_view")
+        users_entry = next(entry for entry in catalog_with_system if entry["id"] == "manage_users")
 
         self.assertNotIn("manage_sections", default_ids)
         self.assertTrue(
@@ -158,6 +267,65 @@ class SidebarDiscoveryTests(SimpleTestCase):
         )
         self.assertNotIn("user_profile", system_ids)
         self.assertEqual(options_entry["permissions"], ["__dlux_authenticated__"])
+        self.assertEqual(users_entry["notification_model_key"], "auth.user")
+
+    def test_sidebar_notification_counts_annotate_items_and_unique_group_totals(self):
+        entries = [
+            {
+                'kind': 'group',
+                'id': 'people',
+                'items': [
+                    {'kind': 'item', 'id': 'users', 'notification_model_key': 'auth.user'},
+                    {'kind': 'item', 'id': 'staff', 'notification_model_key': 'auth.user'},
+                    {'kind': 'item', 'id': 'profiles', 'notification_model_key': 'dlux.profile'},
+                ],
+            },
+            {'kind': 'item', 'id': 'large', 'notification_model_key': 'project.record'},
+        ]
+
+        annotate_sidebar_notification_counts(entries, {
+            'auth.user': 2,
+            'dlux.profile': 3,
+            'project.record': 120,
+        })
+
+        self.assertEqual(entries[0]['notification_count'], 5)
+        self.assertEqual(entries[0]['notification_model_keys'], ['auth.user', 'dlux.profile'])
+        self.assertEqual(entries[0]['items'][0]['notification_display_count'], '2')
+        self.assertEqual(entries[1]['notification_display_count'], '99+')
+
+    def test_sidebar_tree_renders_notification_badge_hooks(self):
+        entries = [{
+            'kind': 'item',
+            'id': 'users',
+            'url_name': 'manage_users',
+            'url': '/sys/users/',
+            'label': 'Users',
+            'icon': 'bi-people',
+            'notification_model_keys': ['auth.user'],
+            'notification_count': 3,
+            'notification_display_count': '3',
+        }]
+
+        html = render_to_string('dlux/sidebar/tree.html', {
+            'entries': entries,
+            'tree_state': [],
+            'sidebar_notification_badges_enabled': True,
+            'DLUX_STRINGS': {'sidebar_unread_notifications': 'unread notifications'},
+        })
+
+        self.assertIn('data-dlux-sidebar-notification-keys="auth.user"', html)
+        self.assertIn('data-dlux-sidebar-notification-badge', html)
+        self.assertIn('aria-label="3 unread notifications"', html)
+        self.assertNotIn('dlux-sidebar-notification-badge d-none', html)
+
+        disabled_html = render_to_string('dlux/sidebar/tree.html', {
+            'entries': entries,
+            'tree_state': [],
+            'sidebar_notification_badges_enabled': False,
+            'DLUX_STRINGS': {'sidebar_unread_notifications': 'unread notifications'},
+        })
+        self.assertIn('dlux-sidebar-notification-badge d-none', disabled_html)
 
     @patch("dlux.discovery.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")

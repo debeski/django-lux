@@ -1,0 +1,119 @@
+.dlux-backup-page {
+    --dlux-backup-border: rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+    --dlux-backup-surface: color-mix(in srgb, var(--bs-body-bg, #ffffff) 84%, rgba(255, 255, 255, 0.86));
+    display: grid;
+    gap: 1.35rem;
+}
+
+.dlux-backup-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.25rem 1.4rem;
+    border: 1px solid var(--dlux-backup-border);
+    border-radius: 1.35rem;
+    background: var(--dlux-backup-surface);
+    box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.34);
+}
+
+.dlux-backup-hero .page-title {
+    color: var(--title, var(--bs-heading-color));
+    font-weight: 800;
+}
+
+.dlux-backup-create-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.65rem;
+}
+
+.dlux-backup-create-form > div {
+    min-width: 10.5rem;
+}
+
+.dlux-backup-create-form .form-control,
+.dlux-backup-create-form .form-select {
+    min-height: 2.6rem;
+}
+
+.dlux-backup-notice {
+    margin: 0;
+    border-radius: 1.05rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.dlux-backup-page > .row {
+    margin-top: 0;
+}
+
+.dlux-backup-card {
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid var(--dlux-backup-border);
+    border-radius: 1.35rem;
+    background: var(--dlux-backup-surface);
+    box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.3);
+}
+
+.dlux-backup-card h5 {
+    color: var(--title, var(--bs-heading-color));
+    font-weight: 800;
+}
+
+.dlux-backup-card--warning {
+    border-color: rgba(255, 193, 7, 0.5);
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.08), transparent 65%);
+}
+
+.dlux-backup-card--danger {
+    border-color: rgba(220, 53, 69, 0.45);
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.08), transparent 65%);
+}
+
+.dlux-backup-divider {
+    margin-block: 1rem;
+    border-color: var(--dlux-backup-border);
+    opacity: 1;
+}
+
+.dlux-backup-upload-form {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.dlux-backup-upload-form .form-control {
+    min-width: 0;
+}
+
+.dlux-backup-page .dlux-table-shell {
+    border-radius: 1.05rem;
+    clip-path: inset(0 round 1.05rem);
+}
+
+.dlux-backup-page code {
+    padding: 0.14rem 0.35rem;
+    border-radius: 0.4rem;
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.08);
+    color: inherit;
+}
+
+@media (max-width: 1199.98px) {
+    .dlux-backup-hero,
+    .dlux-backup-create-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .dlux-backup-create-form > div {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .dlux-backup-upload-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

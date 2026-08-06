@@ -20,6 +20,7 @@ from django.utils.encoding import force_str
 
 SIDEBAR_CACHE_TIMEOUT = 300
 SIDEBAR_CACHE_VERSION_KEY = 'dlux:sidebar:version'
+SIDEBAR_CACHE_SCHEMA_VERSION = 2
 
 
 EXCLUDED_EXACT_NAMES = {
@@ -200,6 +201,34 @@ def _route_name_tokens(value):
     return [token for token in re.split(r'[_:\-]+', (value or '').lower()) if token]
 
 
+def _has_api_route_token(value):
+    tokens = [token for token in re.split(r'[^a-z0-9]+', str(value or '').lower()) if token]
+    return any(token == 'api' or re.fullmatch(r'api(?:v?\d+)', token) for token in tokens)
+
+
+def _callback_looks_like_api(callback):
+    view_class = getattr(callback, 'view_class', None)
+    for name in (getattr(callback, '__name__', ''), getattr(view_class, '__name__', '')):
+        if _has_api_route_token(name):
+            return True
+        if re.search(r'(?:^|[a-z0-9])(?:API|Api)(?=[A-Z0-9]|$)', str(name or '')):
+            return True
+    return False
+
+
+def _is_api_navigation_route(url_name='', url='', callback=None):
+    if _has_api_route_token(url_name) or _has_api_route_token(url):
+        return True
+    if callback is not None and _callback_looks_like_api(callback):
+        return True
+    if url_name:
+        try:
+            return _has_api_route_token(reverse(url_name))
+        except NoReverseMatch:
+            pass
+    return False
+
+
 def _route_leaf(url_name):
     return str(url_name or '').split(':')[-1]
 
@@ -243,7 +272,8 @@ def _urlconf_cache_identity():
 
 
 def _sidebar_catalog_cache_key(lang_code, include_system_items, config):
-    return 'dlux:sidebar:catalog:{version}:{payload}'.format(
+    return 'dlux:sidebar:catalog:{schema}:{version}:{payload}'.format(
+        schema=SIDEBAR_CACHE_SCHEMA_VERSION,
         version=_sidebar_cache_version(),
         payload=_stable_hash({
             'lang': lang_code,
@@ -280,7 +310,8 @@ def _user_sidebar_permission_hash(user):
 
 
 def _sidebar_render_cache_key(lang_code, sidebar, override_sidebar, user):
-    return 'dlux:sidebar:render:{version}:{payload}'.format(
+    return 'dlux:sidebar:render:{schema}:{version}:{payload}'.format(
+        schema=SIDEBAR_CACHE_SCHEMA_VERSION,
         version=_sidebar_cache_version(),
         payload=_stable_hash({
             'lang': lang_code,
@@ -517,6 +548,9 @@ def _is_hidden_sidebar_entry(entry, allow_system_items=False):
     entry_id = entry.get('id')
     if not url_name and isinstance(entry_id, str):
         url_name = entry_id
+
+    if _is_api_navigation_route(url_name, entry.get('url')):
+        return True
     if allow_system_items and _is_configurable_system_url(url_name):
         return False
 
@@ -610,6 +644,40 @@ def sanitize_sidebar_config(sidebar_config, allow_system_items=False):
     sanitized.update(normalize_sidebar_behavior(sidebar_config))
     sanitized['home_url_name'] = home_url_name
     sanitized['entries'] = sanitized_entries
+    return sanitized
+
+
+def sanitize_navbar_config(navbar_config):
+    from .system.defaults import default_navbar_config
+    from .system.normalizers import normalize_navbar_config
+
+    sanitized = normalize_navbar_config(navbar_config)
+
+    def sanitize_nodes(nodes):
+        cleaned = []
+        for raw_node in nodes if isinstance(nodes, list) else []:
+            node = dict(raw_node)
+            children = sanitize_nodes(node.get('children'))
+            kind = node.get('kind')
+            url_name = node.get('url_name') or (node.get('id') if kind == 'route' else '')
+            url = node.get('url', '')
+
+            if kind == 'route' and _is_api_navigation_route(url_name, url):
+                cleaned.extend(children)
+                continue
+            if kind != 'route' and url and _is_api_navigation_route(url=url):
+                node.pop('url', None)
+                if not children:
+                    continue
+
+            node['children'] = children
+            cleaned.append(node)
+        return cleaned
+
+    sanitized['hierarchy']['nodes'] = sanitize_nodes(sanitized.get('hierarchy', {}).get('nodes'))
+    root = sanitized.get('root', {})
+    if root.get('mode') == 'route' and _is_api_navigation_route(root.get('url_name')):
+        sanitized['root'] = default_navbar_config()['root']
     return sanitized
 
 
@@ -762,10 +830,9 @@ def _is_candidate(url_name, url, callback, include_system_items=False):
 
     if namespace in EXCLUDED_NAMESPACE_PREFIXES:
         return False
-    # API URL namespaces (the `<app>_api` / `api` convention, e.g. DRF routers)
-    # expose the same models as the page views under the same inferred label, so
-    # they otherwise surface as duplicate, non-navigable sidebar/landing entries.
-    if namespace == 'api' or namespace.endswith('_api'):
+    # API counterparts of page views otherwise surface as duplicate,
+    # non-navigable sidebar, navbar, and landing-page entries.
+    if _is_api_navigation_route(url_name, url, callback):
         return False
     if lower_leaf in EXCLUDED_EXACT_NAMES and not (include_system_items and _is_configurable_system_url(url_name)):
         return False
@@ -824,6 +891,8 @@ def _discover_sidebar_catalog_uncached(lang_code=None, include_system_items=Fals
             'group_icon': _guess_group_icon(group_key),
             'is_system': _is_configurable_system_url(url_name),
         }
+        if model is not None:
+            entry['notification_model_key'] = model._meta.label_lower
         catalog.append(entry)
 
     catalog.sort(key=lambda entry: (entry['group_label'], entry['label']))
@@ -947,6 +1016,40 @@ def _apply_sidebar_active_state(entries, request_path, open_accordions):
             has_active = any(item.get('active') for item in entry.get('items', []))
             entry['has_active'] = has_active
             entry['is_open'] = entry.get('id') in open_ids or has_active
+
+
+def annotate_sidebar_notification_counts(entries, section_counts):
+    normalized_counts = {}
+    if isinstance(section_counts, dict):
+        for raw_key, raw_count in section_counts.items():
+            key = str(raw_key or '').strip().lower()
+            try:
+                count = max(0, int(raw_count))
+            except (TypeError, ValueError):
+                count = 0
+            if key and count:
+                normalized_counts[key] = count
+
+    def annotate(entry):
+        if not isinstance(entry, dict):
+            return set()
+        if entry.get('kind') == 'group':
+            model_keys = set()
+            for item in entry.get('items', []):
+                model_keys.update(annotate(item))
+        else:
+            key = str(entry.get('notification_model_key') or '').strip().lower()
+            model_keys = {key} if key else set()
+
+        count = sum(normalized_counts.get(key, 0) for key in model_keys)
+        entry['notification_model_keys'] = sorted(model_keys)
+        entry['notification_count'] = count
+        entry['notification_display_count'] = '99+' if count > 99 else str(count or '')
+        return model_keys
+
+    for entry in entries if isinstance(entries, list) else []:
+        annotate(entry)
+    return entries
 
 
 def build_sidebar_navigation(lang_code=None, sidebar_override=None, user=None, request_path='', open_accordions=None):
@@ -1120,6 +1223,9 @@ def _resolve_sidebar_item(entry, catalog, lang_code=None):
     elif item.get('url'):
         item['url'] = item['url']
     else:
+        return None
+
+    if _is_api_navigation_route(url_name, item.get('url')):
         return None
 
     # A per-language override wins; otherwise the catalog's per-language label

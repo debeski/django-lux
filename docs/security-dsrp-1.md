@@ -105,15 +105,20 @@ authorization decision.
 
 ## Rate Limiting & Session Controls
 
-All brute-force and timeout controls are dependency-free (Django cache + session)
-and resolve their thresholds from settings, defaulting to secure values.
+All brute-force and timeout controls are dependency-free (Django cache + session).
+Operator-editable System Settings own the normal policy; static deployment
+settings provide the controls that are not database-backed and the documented
+fallbacks when runtime configuration cannot be resolved.
 
 - **Failed-login lockout.** Repeated failed password attempts are throttled per
   client IP and per attempted username via the cache (`login_throttle.py`). After
-  `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` failures (default 5) the identifier is locked
-  for `DLUX_LOGIN_LOCKOUT_SECONDS` (default 900s); a successful login clears the
-  counters. The locked POST is rejected with HTTP 429 before authentication runs.
-  Gated by the `login_lockout_enabled` SystemSettings toggle (default on).
+  the resolved `login_lockout_threshold` failures (default 5), the identifier is
+  locked for `login_lockout_duration_minutes` (default 15); failures count within
+  `login_lockout_window_minutes` (default 15). A successful login clears the
+  counters. The locked POST is rejected with HTTP 429 before authentication runs,
+  and `login_lockout_enabled` gates the policy (default on).
+  `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` and `DLUX_LOGIN_LOCKOUT_SECONDS` are legacy
+  fallbacks used only when resolved System Settings cannot be read.
 - **2FA completion window.** The pre-2FA challenge carries a server timestamp and
   is abandoned after `DLUX_2FA_CHALLENGE_WINDOW_SECONDS` (default 300s), so a
   half-finished challenge cannot persist for the whole session lifetime. This is
@@ -126,6 +131,11 @@ and resolve their thresholds from settings, defaulting to secure values.
   policy). On expiry the user is logged out and routed to the session-ended
   interstitial with an `idle_timeout` / `session_timeout` reason. Timestamps are
   middleware-managed on the session; the idle clock write is throttled to ~30s.
+- **Password-change session revocation.** While multiple active sessions are
+  allowed, the authenticated user's profile password form can retain its newly
+  rotated current session and revoke every other recorded session. The control is
+  omitted and server-side ignored when `prevent_multiple_active_sessions` is on;
+  trusted-device records remain independent of session revocation.
 
 ## Public Registration Boundary
 

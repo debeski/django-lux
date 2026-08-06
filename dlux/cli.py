@@ -1,6 +1,7 @@
 import argparse
 import sys
 
+from . import __version__
 from .scaffold import ScaffoldError, create_app, create_project, enable_agent, enable_updater
 
 
@@ -8,6 +9,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="dlux",
         description="DjangoLux project and app scaffolding",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=__version__,
+        help="Print the installed DjangoLux version and exit.",
     )
     subparsers = parser.add_subparsers(dest="command")
 

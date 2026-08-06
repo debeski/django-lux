@@ -379,6 +379,70 @@
         });
     }
 
+    function initEmailHealthCheck() {
+        // Re-reads configuration + verification state. Unlike the Celery probe this
+        // touches no network and sends no mail — proving delivery is the Email
+        // step's test-send button, not a status widget.
+        const container = document.querySelector('[data-dlux-email-health]');
+        if (!container) {
+            return;
+        }
+        const button = container.querySelector('[data-email-recheck]');
+        const badge = container.querySelector('[data-email-badge]');
+        if (!button || !badge) {
+            return;
+        }
+        const detail = container.querySelector('[data-email-detail]');
+        const note = container.querySelector('[data-email-note]');
+        const checkUrl = container.getAttribute('data-check-url');
+        const errorLabel = container.getAttribute('data-error-label') || 'Check failed';
+
+        async function runCheck() {
+            const response = await fetch(checkUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({}),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.state) {
+                throw new Error('email check failed');
+            }
+            badge.className = 'badge ' + (data.badge_class || 'bg-secondary');
+            badge.textContent = data.label || '';
+            badge.setAttribute('title', data.note || '');
+            if (detail && data.detail) {
+                detail.textContent = data.detail;
+            }
+            if (note) {
+                note.textContent = data.note || '';
+            }
+        }
+
+        function paintError() {
+            badge.className = 'badge bg-danger';
+            badge.textContent = errorLabel;
+            badge.setAttribute('title', '');
+        }
+
+        button.addEventListener('click', () => {
+            if (window.DluxLoadingButton) {
+                if (window.DluxLoadingButton.isBusy(button)) {
+                    return;
+                }
+                window.DluxLoadingButton.run(button, () => runCheck().catch((err) => {
+                    paintError();
+                    throw err;
+                }));
+                return;
+            }
+            runCheck().catch(paintError);
+        });
+    }
+
     function initCeleryHealthCheck() {
         // On-demand Celery worker check. Nothing pings the broker until the user
         // clicks the recheck arrow; the server persists the result, so the badge
@@ -751,6 +815,7 @@
         initResetDefaults(grid);
         initAdminCommandLauncher();
         initForcePasswordChangeAll();
+        initEmailHealthCheck();
         initCeleryHealthCheck();
         focusHashCard();
 

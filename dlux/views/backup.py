@@ -14,10 +14,13 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from ..backup import (
+    backup_retry_policy,
     dispatch_system_backup,
     dispatch_system_restore,
     read_dlb_metadata,
     get_system_backup_storage_prefix,
+    reap_stalled_system_backups,
+    resume_system_backup,
     run_system_backup,
     run_system_restore,
 )
@@ -45,8 +48,29 @@ def _system_restore_model():
     return apps.get_model('dlux', 'SystemRestore')
 
 
-def _recent_system_backups():
+def _recent_system_backups(*, reap=True):
+    """Recent backup rows, after retiring any whose worker is demonstrably gone.
+
+    The reap runs on the read path on purpose: this page (and its poller) is
+    where an operator watches a backup, so it is also where a run that died
+    without a trace has to stop pretending it is still alive.
+    """
+    if reap:
+        try:
+            # allow_inline=False: a retry from here must go to a worker. Building
+            # a snapshot inside a status poll would hang the request for as long
+            # as the backup takes.
+            reap_stalled_system_backups(allow_inline=False)
+        except Exception:
+            logger.warning('Could not reap stalled system backups', exc_info=True)
     return list(_system_backup_model().objects.all()[:20])
+
+
+def _stall_seconds(backup):
+    """How long a still-active run has gone without reporting anything."""
+    if not backup.is_active:
+        return 0
+    return backup.seconds_since_signal()
 
 
 def _system_backup_revision(backups):
@@ -63,10 +87,28 @@ def _system_backup_revision(backups):
             backup.progress_message or '',
             '1' if backup.passphrase_required else '0',
             backup.error or '',
+            str(backup.attempt_count),
+            backup.stage or '',
+            # Bucketed so a live run refreshes its "no progress for Nm" warning
+            # without the revision churning on every single poll.
+            str(_stall_seconds(backup) // 30),
+            backup.next_attempt_at.isoformat() if backup.next_attempt_at else '',
         ))
         for backup in backups
     )
     return hashlib.sha256(rendered_state.encode('utf-8')).hexdigest()
+
+
+def _backup_rows_context(backups):
+    policy = backup_retry_policy()
+    return {
+        'backups': backups,
+        'DLUX_STRINGS': get_strings(),
+        'backup_policy': policy,
+        # Warn well before the row is actually reaped, so a genuinely slow stage
+        # is visible as "quiet" rather than silently looking identical to a hang.
+        'backup_stall_warn_seconds': max(60, policy['stall_timeout_minutes'] * 60 // 3),
+    }
 
 
 def _posted_passphrase(request):
@@ -113,8 +155,7 @@ def system_backup_page(request):
     SystemRestore = _system_restore_model()
     backups = _recent_system_backups()
     return render(request, 'dlux/backup/manage.html', {
-        'DLUX_STRINGS': get_strings(),
-        'backups': backups,
+        **_backup_rows_context(backups),
         'backup_revision': _system_backup_revision(backups),
         'restores': SystemRestore.objects.all()[:10],
         'orphan_files': _orphan_dlb_files(),
@@ -172,23 +213,27 @@ def system_backup_list_status_view(request):
     """Return the current backup-table fragment for live background updates."""
     _require_superuser(request)
     backups = _recent_system_backups()
+    context = _backup_rows_context(backups)
     return JsonResponse({
         'revision': _system_backup_revision(backups),
-        'active': any(backup.status in {'pending', 'running'} for backup in backups),
+        'active': any(backup.is_active for backup in backups),
         'items': [
             {
                 'token': backup.token,
                 'status': backup.status,
                 'progress_percent': backup.progress_percent,
                 'progress_message': backup.progress_message,
+                'stage': backup.stage,
+                'attempt_count': backup.attempt_count,
+                'seconds_since_progress': _stall_seconds(backup),
+                'stalled': bool(
+                    backup.is_active
+                    and _stall_seconds(backup) > context['backup_stall_warn_seconds']
+                ),
             }
             for backup in backups
         ],
-        'html': render_to_string(
-            'dlux/backup/_backup_rows.html',
-            {'backups': backups, 'DLUX_STRINGS': get_strings()},
-            request=request,
-        ),
+        'html': render_to_string('dlux/backup/_backup_rows.html', context, request=request),
     })
 
 
@@ -197,6 +242,7 @@ def system_backup_list_status_view(request):
 def system_backup_status_view(request, token):
     backup = _get_backup_or_404(request, token)
     SystemBackup = type(backup)
+    policy = backup_retry_policy()
     payload = {
         'status': backup.status,
         'file_size': backup.file_size,
@@ -204,11 +250,45 @@ def system_backup_status_view(request, token):
         'files': backup.file_count,
         'progress_percent': backup.progress_percent,
         'progress_message': backup.progress_message,
+        'stage': backup.stage,
+        'attempt_count': backup.attempt_count,
+        'max_attempts': policy['max_attempts'],
+        'seconds_since_progress': _stall_seconds(backup),
+        'next_attempt_at': backup.next_attempt_at.isoformat() if backup.next_attempt_at else '',
         'error': backup.error[:200] if backup.status == SystemBackup.STATUS_FAILED else '',
     }
     if backup.status == SystemBackup.STATUS_COMPLETED:
         payload['download_url'] = reverse('system_backup_download', args=[backup.token])
     return JsonResponse(payload)
+
+
+@login_required
+@require_POST
+def system_backup_resume_view(request, token):
+    """Run another attempt for a failed backup, on the same history row."""
+    backup = _get_backup_or_404(request, token)
+    s = get_strings()
+    try:
+        resume_system_backup(
+            backup,
+            passphrase=_posted_passphrase(request),
+            requested_by=request.user.get_username(),
+        )
+    except ValueError as exc:
+        notify.error(
+            s.get('sysbackup_resume_blocked', str(exc)),
+            request=request,
+            action='backup_resume_blocked',
+            category='backup',
+        )
+        return redirect('system_backup_page')
+    notify.success(
+        s.get('sysbackup_resume_started', 'Retrying the backup.'),
+        request=request,
+        action='backup_resume',
+        category='backup',
+    )
+    return redirect('system_backup_page')
 
 
 @login_required

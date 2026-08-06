@@ -173,8 +173,6 @@ def create_project(project_name, destination=None, image=None, repo=None, intera
         "project/compose.yml.tmpl": target_root / "compose.yml",
         "project/compose.dev.yml.tmpl": target_root / "compose.dev.yml",
         "project/entrypoint.sh.tmpl": target_root / "entrypoint.sh",
-        "project/tools/smtp_relay.py.tmpl": target_root / "tools" / "smtp_relay.py",
-        "project/tools/dlux_runtime_supervisor.py.tmpl": target_root / "tools" / "dlux_runtime_supervisor.py",
         "project/gunicorn.py.tmpl": target_root / "gunicorn.py",
         "project/requirements.txt.tmpl": target_root / "requirements.txt",
         "project/release-manifest.json.tmpl": target_root / "release-manifest.json",
@@ -415,7 +413,7 @@ def _updater_service_block(project_slug):
     restart: always
     labels:
       org.dlux.restart: "protected"
-    command: ["python", "-m", "tools.dlux_runtime_supervisor", "--no-watch", "--", "bash", "-c", "python manage.py migrator && exec python manage.py dlux_update_worker"]
+    command: ["python", "-m", "dlux.updater.supervisor", "--no-watch", "--", "bash", "-c", "python manage.py dlux_reconcile; python manage.py migrator && exec python manage.py dlux_update_worker"]
     entrypoint: ["/app/entrypoint.sh"]
     volumes:
       - dlux_runtime:/opt/dlux-runtime:rw
@@ -447,10 +445,44 @@ def _updater_service_block(project_slug):
 '''
 
 
+def _migrate_manage_py(contents):
+    """Point an existing project's manage.py release resolver at the packaged
+    supervisor (idempotent). New scaffolds already import from the package."""
+    return contents.replace(
+        "from dlux_runtime_supervisor import baked_version, resolve_release",
+        "from dlux.updater.supervisor import baked_version, resolve_release",
+    )
+
+
+def _migrate_smtp_relay_compose(contents):
+    """Point an existing project's smtp-relay service at the packaged relay.
+
+    The relay moved out of ``tools/smtp_relay.py`` into ``dlux.smtp_relay`` for the
+    same reason the supervisor did: fixes to it were stranded in whatever copy each
+    project was scaffolded with. Unlike the updater this service has no marked
+    block, but the module path is distinctive enough to rewrite directly, and doing
+    so is idempotent. The project's own ``tools/smtp_relay.py`` is left on disk —
+    unused, and harmless to keep.
+    """
+    return contents.replace("tools.smtp_relay", "dlux.smtp_relay")
+
+
 def _enable_updater_compose(contents, project_slug, config_package):
     if UPDATER_COMPOSE_START in contents:
         if UPDATER_COMPOSE_END not in contents or "  dlux-updater:\n" not in contents:
             raise ScaffoldError("The existing DjangoLux updater Compose block is incomplete")
+        # Self-heal an existing updater block to the current runtime wiring
+        # (idempotent, surgical — the marked block only). Two migrations:
+        #   1. Supervisor now ships in the dlux package, not a scaffold file.
+        #   2. A pre-migration pointer reconcile guards against a stale pinned
+        #      release wedging the boot chain behind a maintenance screen.
+        contents = contents.replace("tools.dlux_runtime_supervisor", "dlux.updater.supervisor")
+        if "dlux_reconcile" not in contents:
+            contents = contents.replace(
+                "python manage.py migrator && exec python manage.py dlux_update_worker",
+                "python manage.py dlux_reconcile; python manage.py migrator "
+                "&& exec python manage.py dlux_update_worker",
+            )
         return contents
     required_services = ("db", "redis", "smtp-relay", "nginx", "web", "celery")
     for service in required_services:
@@ -487,7 +519,7 @@ def _enable_updater_compose(contents, project_slug, config_package):
         section = _replace_once(
             section,
             "      bash -c ' if [ \"$$DEBUG_STATUS\" = \"True\" ]; then\n",
-            "      python -m tools.dlux_runtime_supervisor -- bash -c ' if [ \"$$DEBUG_STATUS\" = \"True\" ]; then\n",
+            "      python -m dlux.updater.supervisor -- bash -c ' if [ \"$$DEBUG_STATUS\" = \"True\" ]; then\n",
             "web command",
         )
         section = section.replace(
@@ -523,7 +555,7 @@ def _enable_updater_compose(contents, project_slug, config_package):
             '"worker", "-B", "--loglevel=info"]\n'
         )
         new_command = (
-            f'    command: ["python", "-m", "tools.dlux_runtime_supervisor", "--", '
+            f'    command: ["python", "-m", "dlux.updater.supervisor", "--", '
             f'"python", "-m", "celery", "-A", "{config_package}", "worker", "-B", "--loglevel=info"]\n'
         )
         section = _replace_once(section, old_command, new_command, "Celery command")
@@ -557,7 +589,7 @@ def _enable_updater_compose(contents, project_slug, config_package):
 
 def _enable_updater_dev_compose(contents):
     if "  dlux-updater:\n" in contents:
-        return contents
+        return contents.replace("tools.dlux_runtime_supervisor", "dlux.updater.supervisor")
     _compose_service(contents, "smtp-relay")
     _compose_service(contents, "web")
     _compose_service(contents, "celery")
@@ -728,6 +760,7 @@ def enable_updater(project_root=None, *, apply=False, command_runner=subprocess.
         "compose.dev.yml": project_root / "compose.dev.yml",
         ".nginx/nginx.conf": project_root / ".nginx" / "nginx.conf",
         "requirements.txt": project_root / "requirements.txt",
+        "manage.py": project_root / "manage.py",
     }
     for relative, path in paths.items():
         if not path.is_file():
@@ -738,9 +771,12 @@ def enable_updater(project_root=None, *, apply=False, command_runner=subprocess.
         raise ScaffoldError("Could not determine the generated Compose project name")
     project_slug = name_match.group(1)
     updated = {
-        "compose.yml": _enable_updater_compose(compose, project_slug, config_package),
+        "compose.yml": _migrate_smtp_relay_compose(
+            _enable_updater_compose(compose, project_slug, config_package)
+        ),
         "compose.dev.yml": _enable_updater_dev_compose(paths["compose.dev.yml"].read_text(encoding="utf-8")),
         ".nginx/nginx.conf": _enable_updater_nginx(paths[".nginx/nginx.conf"].read_text(encoding="utf-8")),
+        "manage.py": _migrate_manage_py(manage_contents),
     }
     requirements = paths["requirements.txt"].read_text(encoding="utf-8")
     matches = re.findall(r"(?m)^django-lux(?:\[updater\])?==[^\s]+$", requirements)
@@ -750,9 +786,6 @@ def enable_updater(project_root=None, *, apply=False, command_runner=subprocess.
         matches[0], f"django-lux[updater]=={__version__}", 1,
     )
     additions = {
-        "tools/dlux_runtime_supervisor.py": _render_template(
-            "project/tools/dlux_runtime_supervisor.py.tmpl", {},
-        ),
         ".nginx/maintenance.html": _render_template(
             "project/.proxy/maintenance.html.tmpl", {},
         ),

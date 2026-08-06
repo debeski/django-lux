@@ -19,7 +19,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db import close_old_connections, connection
-from django.test import Client, TestCase, TransactionTestCase, override_settings, skipUnlessDBFeature
+from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase, override_settings, skipUnlessDBFeature
 from django.urls import reverse
 from django.utils import timezone
 
@@ -407,7 +407,10 @@ class RuntimeStoreTests(TestCase):
             }), encoding="utf-8")
             (state / "generation").write_text("0\n", encoding="utf-8")
             supervisor = root / "supervisor.py"
-            supervisor.write_text(_render_template("project/tools/dlux_runtime_supervisor.py.tmpl", {}), encoding="utf-8")
+            from dlux.updater import supervisor as _supervisor_module
+            supervisor.write_text(
+                Path(_supervisor_module.__file__).read_text(encoding="utf-8"), encoding="utf-8"
+            )
             child = root / "child.py"
             log = root / "launches.txt"
             child.write_text(
@@ -424,8 +427,9 @@ class RuntimeStoreTests(TestCase):
             # and independent of the installed-package metadata (importlib.metadata),
             # which can lag the source/manifest version on a source checkout. The
             # supervisor's runtime_environment() keeps an already-set value, so this
-            # is exactly what the child should report back as "baked".
-            expected_baked = "9.9.9-supervisor-test"
+            # is exactly what the child should report back as "baked". Kept below the
+            # 1.2.3 volume release so the version gate activates it.
+            expected_baked = "1.0.0"
             supervisor_env = {**os.environ, "DLUX_BAKED_VERSION": expected_baked}
             process = subprocess.Popen([
                 sys.executable, str(supervisor), "--runtime-root", str(runtime),
@@ -616,14 +620,14 @@ class RuntimeStoreTests(TestCase):
         # running code's manifest) so bind-mounted source checkouts — where the
         # installed-package metadata is absent or stale — bake the correct version.
         # importlib.metadata remains only as a fallback.
-        from dlux.scaffold import _render_template
+        from dlux.updater import supervisor as _supervisor_module
 
-        rendered = _render_template("project/tools/dlux_runtime_supervisor.py.tmpl", {})
-        self.assertIn("def baked_version", rendered)
-        self.assertIn("from dlux import __version__", rendered)
+        source = Path(_supervisor_module.__file__).read_text(encoding="utf-8")
+        self.assertIn("def baked_version", source)
+        self.assertIn("from dlux import __version__", source)
         self.assertLess(
-            rendered.index("from dlux import __version__"),
-            rendered.index('importlib.metadata.version("django-lux")'),
+            source.index("from dlux import __version__"),
+            source.index('importlib.metadata.version("django-lux")'),
         )
 
 
@@ -641,10 +645,8 @@ class ManageRuntimeReleaseTests(TestCase):
         from dlux.scaffold import _render_template
 
         root = Path(temp_dir)
-        (root / "tools").mkdir()
-        (root / "tools" / "dlux_runtime_supervisor.py").write_text(
-            _render_template("project/tools/dlux_runtime_supervisor.py.tmpl", {}), encoding="utf-8"
-        )
+        # manage.py imports the supervisor from the installed dlux package
+        # (dlux.updater.supervisor), so no project-local supervisor file is needed.
         (root / "manage.py").write_text(
             _render_template(
                 "project/manage.py.tmpl",
@@ -676,7 +678,8 @@ class ManageRuntimeReleaseTests(TestCase):
             cwd=str(root),
             capture_output=True,
             text=True,
-            env={**os.environ, "DLUX_UPDATE_RUNTIME_ROOT": str(runtime), "PYTHONPATH": str(root)},
+            env={**os.environ, "DLUX_UPDATE_RUNTIME_ROOT": str(runtime),
+                 "PYTHONPATH": os.pathsep.join([str(root), os.environ.get("PYTHONPATH", "")]).rstrip(os.pathsep)},
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
         return completed.stdout.strip()
@@ -708,7 +711,7 @@ class ManageRuntimeReleaseTests(TestCase):
              "config_package": "config"},
         )
         self.assertIn("_activate_runtime_release()", rendered)
-        self.assertIn("from dlux_runtime_supervisor import baked_version, resolve_release", rendered)
+        self.assertIn("from dlux.updater.supervisor import baked_version, resolve_release", rendered)
         # Resolution must precede the Django import, or the baked package is
         # already bound by the time the release is added to the path.
         self.assertLess(
@@ -1292,6 +1295,24 @@ class UpdaterApiTests(TestCase):
         )
         self.assertIsNone(
             select_latest_candidate(index, "1.4.6", skip_versions=["1.4.7", "v1.4.8"])
+        )
+
+    def test_selection_jumps_directly_over_an_image_required_release(self):
+        # Selection returns the single highest candidate, so a box on 1.6.8 is
+        # offered 1.7.1 directly even when the image-required 1.7.0 sits between
+        # them (whether or not 1.7.0 was skipped). This is exactly why the
+        # per-wheel inline floor below is required.
+        def wheel(v):
+            return {
+                "filename": f"django_lux-{v}-py3-none-any.whl",
+                "hashes": {"sha256": "a" * 64},
+                "url": f"https://files.pythonhosted.org/packages/x/django_lux-{v}-py3-none-any.whl",
+                "requires-python": "",
+            }
+        index = {"files": [wheel("1.7.0"), wheel("1.7.1")]}
+        self.assertEqual(select_latest_candidate(index, "1.6.8").version, "1.7.1")
+        self.assertEqual(
+            select_latest_candidate(index, "1.6.8", skip_versions=["1.7.0"]).version, "1.7.1"
         )
 
     def test_runtime_health_requires_internal_probe_and_reports_version(self):
@@ -1908,7 +1929,7 @@ services:
             self.assertTrue(applied["applied"])
             self.assertIn(UPDATER_COMPOSE_START, (root / "compose.yml").read_text())
             self.assertEqual((root / "requirements.txt").read_text().splitlines()[0], f"django-lux[updater]=={__version__}")
-            self.assertTrue((root / "tools" / "dlux_runtime_supervisor.py").exists())
+            self.assertFalse((root / "tools" / "dlux_runtime_supervisor.py").exists())
             maintenance = (root / ".nginx" / "maintenance.html").read_text(encoding="utf-8")
             nginx = (root / ".nginx" / "nginx.conf").read_text(encoding="utf-8")
             self.assertIn('var statusUrl = "/_update/status.json"', maintenance)
@@ -2153,3 +2174,66 @@ class InlineRollForwardTests(TestCase):
                 with self.assertRaises(UpdaterError) as ctx:
                     service._verified_latest_candidate(state, run)
             self.assertIn("metadata changed", str(ctx.exception))
+
+
+class InlineFloorTests(SimpleTestCase):
+    def _floor_wheel(self, path, *, version="1.7.1", baseline="1.7.0"):
+        return make_wheel(
+            path, version=version,
+            manifest=release_manifest(version=version, image_baseline=baseline),
+        )
+
+    def test_manifest_normalizes_and_validates_image_baseline(self):
+        self.assertEqual(
+            validate_release_manifest(release_manifest(image_baseline="1.7.0"), "1.2.3")["image_baseline"],
+            "1.7.0",
+        )
+        self.assertNotIn(
+            "image_baseline",
+            validate_release_manifest(release_manifest(image_baseline="  "), "1.2.3"),
+        )
+        with self.assertRaisesMessage(UpdaterError, "invalid image baseline"):
+            validate_release_manifest(release_manifest(image_baseline="not-a-version"), "1.2.3")
+
+    def test_inline_floor_blocks_a_box_below_the_baseline(self):
+        with tempfile.TemporaryDirectory() as temp_dir, \
+                mock.patch("dlux.updater.manifest._check_dependency_contract", return_value=[]), \
+                mock.patch("dlux.updater.manifest._check_dependencies", return_value=[]):
+            wheel = self._floor_wheel(Path(temp_dir) / "candidate.whl")
+            candidate = ReleaseCandidate("1.7.1", wheel.name, "https://files.pythonhosted.org/a.whl", "a" * 64)
+
+            blocked = assess_wheel(candidate, wheel, baked_version="1.6.8")
+            self.assertFalse(blocked["compatible"])
+            self.assertIn("needs the v1.7.0 project image", blocked["reason"])
+
+    def test_inline_floor_allows_a_box_at_or_above_the_baseline(self):
+        with tempfile.TemporaryDirectory() as temp_dir, \
+                mock.patch("dlux.updater.manifest._check_dependency_contract", return_value=[]), \
+                mock.patch("dlux.updater.manifest._check_dependencies", return_value=[]):
+            wheel = self._floor_wheel(Path(temp_dir) / "candidate.whl")
+            candidate = ReleaseCandidate("1.7.1", wheel.name, "https://files.pythonhosted.org/a.whl", "a" * 64)
+
+            for baked in ("1.7.0", "1.7.0.1", "1.8.0"):
+                assessment = assess_wheel(candidate, wheel, baked_version=baked)
+                self.assertTrue(assessment["compatible"], f"baked {baked} should clear the floor")
+
+    def test_inline_floor_fails_closed_when_image_version_is_unknown(self):
+        with tempfile.TemporaryDirectory() as temp_dir, \
+                mock.patch("dlux.updater.manifest._check_dependency_contract", return_value=[]), \
+                mock.patch("dlux.updater.manifest._check_dependencies", return_value=[]):
+            wheel = self._floor_wheel(Path(temp_dir) / "candidate.whl")
+            candidate = ReleaseCandidate("1.7.1", wheel.name, "https://files.pythonhosted.org/a.whl", "a" * 64)
+
+            for baked in (None, "", "garbage"):
+                self.assertFalse(assess_wheel(candidate, wheel, baked_version=baked)["compatible"])
+
+    def test_release_without_baseline_is_unaffected(self):
+        with tempfile.TemporaryDirectory() as temp_dir, \
+                mock.patch("dlux.updater.manifest._check_dependency_contract", return_value=[]), \
+                mock.patch("dlux.updater.manifest._check_dependencies", return_value=[]):
+            wheel = make_wheel(Path(temp_dir) / "candidate.whl", version="1.7.1",
+                               manifest=release_manifest(version="1.7.1"))
+            candidate = ReleaseCandidate("1.7.1", wheel.name, "https://files.pythonhosted.org/a.whl", "a" * 64)
+
+            assessment = assess_wheel(candidate, wheel, baked_version="1.6.8")
+            self.assertTrue(assessment["compatible"])

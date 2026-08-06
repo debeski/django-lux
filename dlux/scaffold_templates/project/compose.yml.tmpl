@@ -76,7 +76,7 @@ services:
     labels:
       org.dlux.restart: "safe"
     entrypoint: []
-    command: ["python", "-m", "tools.smtp_relay"]
+    command: ["python", "-m", "dlux.smtp_relay"]
     environment:
       <<: *de
       POSTGRES_USER: ${POSTGRES_USER:-admin}
@@ -108,7 +108,7 @@ services:
     # generation bump; an external restart mid-update is unsafe.
     labels:
       org.dlux.restart: "protected"
-    command: ["python", "-m", "tools.dlux_runtime_supervisor", "--no-watch", "--", "bash", "-c", "python manage.py migrator && exec python manage.py dlux_update_worker"]
+    command: ["python", "-m", "dlux.updater.supervisor", "--no-watch", "--", "bash", "-c", "python manage.py dlux_reconcile; python manage.py migrator && exec python manage.py dlux_update_worker"]
     entrypoint: ["/app/entrypoint.sh"]
     volumes:
       - dlux_runtime:/opt/dlux-runtime:rw
@@ -227,7 +227,7 @@ services:
     labels:
       org.dlux.restart: "safe"
     command: >
-      python -m tools.dlux_runtime_supervisor -- bash -c ' if [ "$$DEBUG_STATUS" = "True" ]; then
+      python -m dlux.updater.supervisor -- bash -c ' if [ "$$DEBUG_STATUS" = "True" ]; then
           echo "Starting in DEBUG mode with Django development server..."
           python manage.py runserver 0.0.0.0:8000
       else
@@ -243,7 +243,7 @@ services:
       # serves templates from. Run raw, it collects from the baked image instead,
       # and — running last on recreate — overwrites the correct static with a
       # version-mismatched set (stale CSS/JS against newer templates).
-      - command: python -m tools.dlux_runtime_supervisor --no-watch -- python manage.py migrator
+      - command: python -m dlux.updater.supervisor --no-watch -- python manage.py migrator
     volumes:
       - static:/app/staticfiles:rw
       - ./media/:/app/media:rw
@@ -279,7 +279,7 @@ services:
     restart: always
     labels:
       org.dlux.restart: "safe"
-    command: ["python", "-m", "tools.dlux_runtime_supervisor", "--", "python", "-m", "celery", "-A", "{{ config_package }}", "worker", "-B", "--loglevel=info"]
+    command: ["python", "-m", "dlux.updater.supervisor", "--", "python", "-m", "celery", "-A", "{{ config_package }}", "worker", "-B", "--loglevel=info"]
     entrypoint: ["/app/entrypoint.sh"]
     volumes:
       - static:/app/staticfiles:ro
@@ -347,6 +347,11 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    # DAC_READ_SEARCH lets this UID-0-but-uncapped process read the project's
+    # own 0600 .secrets/.env to deploy. Read-only override — no write/exec/setuid
+    # bypass. Without it, deploys fail reading secrets and inline updates break.
+    cap_add:
+      - DAC_READ_SEARCH
     working_dir: "${PWD}"
     command:
       - executor

@@ -35,6 +35,8 @@ urlpatterns = [
     # path('sys/', views.dashboard, name='sys_dashboard'),
     path('sys/setup/', views.system_setup_view, name='system_setup'),
     path('sys/settings/export/', views.export_system_settings_view, name='system_settings_export'),
+    path('sys/settings/email/health/', views.email_health_check_view, name='email_health_check'),
+    path('sys/settings/email/apply/', views.email_config_apply_view, name='email_config_apply'),
     path('sys/settings/email/send-test/', views.email_send_test_view, name='email_send_test'),
     path('sys/users/', views.UserListView.as_view(), name='manage_users'),
     path('sys/registrations/', views.pending_registrations_view, name='pending_registrations'),
@@ -69,6 +71,7 @@ urlpatterns = [
     # Reports URLs
     path('sys/reports/', views.reports_overview_view, name='reports_overview'),
     path('sys/reports/export.xlsx', views.reports_overview_xlsx_view, name='reports_overview_xlsx'),
+    path('sys/reports/print/', views.reports_print_view, name='reports_print'),
     path('sys/reports/backup.zip', views.reports_backup_zip_view, name='reports_backup_zip'),
     path('sys/reports/backup/start/', views.reports_backup_start_view, name='reports_backup_start'),
     path('sys/reports/backup/<str:token>/status/', views.reports_backup_status_view, name='reports_backup_status'),
@@ -83,6 +86,7 @@ urlpatterns = [
     path('sys/backup/<str:token>/status/', views.system_backup_status_view, name='system_backup_status'),
     path('sys/backup/<str:token>/download/', views.system_backup_download_view, name='system_backup_download'),
     path('sys/backup/<str:token>/delete/', views.system_backup_delete_view, name='system_backup_delete'),
+    path('sys/backup/<str:token>/resume/', views.system_backup_resume_view, name='system_backup_resume'),
     # Scope Management URLs
     path('sys/scopes/manage/', views.manage_scopes, name='manage_scopes'),
     path('sys/scopes/form/', views.get_scope_form, name='get_scope_form'),

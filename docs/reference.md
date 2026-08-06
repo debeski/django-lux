@@ -1,6 +1,8 @@
 # Reference
 
 This page is the fast lookup sheet for common DjangoLux commands, routes, template tags, and helper utilities.
+For the exhaustive `DLUX_*` Django-setting and environment-variable inventory,
+see [Deployment Configuration](deployment-configuration.md).
 
 ## Scaffold Commands
 
@@ -72,8 +74,10 @@ must never receive generated rows, or `dlux_seed = True` to explicitly include a
 model outside the normal project-path heuristic. It generates choices, text,
 numbers, decimals, booleans, dates/times, UUIDs, JSON, IP addresses, required
 files, foreign keys, one-to-one relations, and automatic many-to-many relations.
-Optional file fields remain empty. Unsupported required fields or unresolved
-relation cycles are reported and skipped without aborting valid models.
+Required PDF fields receive a valid one-page PDF with a complete cross-reference
+table, so downstream PDF readers can open and rewrite seeded files. Optional file
+fields remain empty. Unsupported required fields or unresolved relation cycles are
+reported and skipped without aborting valid models.
 
 Projects with canonical lookup data can declare ownership through their local
 `populate` command:
@@ -171,6 +175,7 @@ Section security contract:
 - section detail/delete and subsection CRUD no longer accept arbitrary `model=` tokens; the target must be a discovered Dlux section or discovered section child model
 - `/sys/users/` plus the user-detail page/modal require `auth.view_user` for staff users (superusers still bypass)
 - `/sys/reset_password/<int:pk>/` now requires `auth.change_user` and the same staff/scope/superuser target checks as the hardened user-management modal routes. Reset submissions are rejected if the new password matches the target user's current password.
+- `/accounts/profile/` exposes `sign_out_other_sessions` only on the authenticated user's own password-change form and only while `prevent_multiple_active_sessions` is false. On a successful change, an enabled toggle excludes the current browser from revocation, deletes every other discoverable database or cache-backed session, marks its presence row ended/revoked, and then lets Django rotate the retained session key. Trusted-device records are not revoked. The backend ignores a forged toggle while single-session enforcement is enabled.
 - the create-user modal can mark a new account with `profile.preferences["force_password_change"]`; `DluxMiddleware` then redirects that user to `/accounts/profile/?force_password_change=1` until the profile password-change form succeeds and clears the marker. While this marker is active, the first-login Initial User Setup auto-modal is deferred so the password-change requirement remains the only blocking first action. The forced change must set a password different from the current one.
 - `/sys/admin/force-password-change-all/` is a POST-only superuser endpoint used by the Options Admin panel command launcher. It requires the acting superuser's current password and sets the same `profile.preferences["force_password_change"]` marker on every non-superuser user, preserving other preference keys and skipping all superusers.
 - `/sys/logs/` and `/sys/logs/<int:pk>/details/` now require the explicit `dlux.view_activitylog` permission or superuser status rather than plain `is_staff`
@@ -180,6 +185,12 @@ Section security contract:
 
 Backup export contract:
 
+- general-report criteria use `window`, optional inclusive `custom_start`/`custom_end`, repeated `models`, repeated `operations`, and `builder=1`; async jobs persist the normalized allowlisted form in `ReportBackup.criteria`
+- report model discovery is separate from navigation discovery; set `dlux_report = False` on a model or list its `app_label.model_name` under `DLUX_CONFIG['reports']['exclude_models']`; exclusions win over include lists, while `exclude_activity` handles unresolved legacy activity labels
+- report ZIPs contain `entries.xlsx` (the Export Entries workbook), the referenced media under `files/`, and `manifest.json`; they carry **no** `data/*.json` because the archive is a periodic deliverable, never a restore source — `manifest.json.selection` records the exact normalized criteria used for the page/workbook/archive
+- the restorable system `.dlb` is unaffected and still serializes `data/<app>/<model>.json`; `stream_model_into_zip(include_records=False)` is what drops the JSON for the reports ZIP only
+- `/sys/reports/export.xlsx` exports the selected models' **actual rows** (one sheet per model, period- and scope-filtered) plus an Export Info index sheet; credential-named fields are always dropped, `DLUX_CONFIG['reports']['entries_exclude_fields'] = {'app.model': ['field']}` drops more, and `entries_row_limit` (default `20000`) caps each sheet
+- `/sys/reports/print/` renders the same criteria as a print-ready analytical report (charts plus a table twin per chart) using the bundled Chart.js on a fixed paper surface; both routes require `dlux.view_reports`
 - report ZIP and full system `.dlb` exports use primary-key pagination plus a backup-local JSON serializer, so PostgreSQL deployments do not need Django server-side named cursors for export streaming
 - system backup rows, report backup rows, system restore rows, updater runtime state/run rows, sessions, content types, permissions, and admin log entries remain excluded from full `.dlb` payloads
 - `.dlb` payloads are encrypted in chunked Fernet frames and include a manifest with Dlux version, migration state, model counts, file counts, and omitted-superuser-password policy
@@ -463,7 +474,7 @@ global default.
 
 | Route | Method | Purpose |
 | --- | --- | --- |
-| `/sys/api/notifications/` | `GET` | Return the current user’s notification drawer items and unread count |
+| `/sys/api/notifications/` | `GET` | Return the current user’s notification drawer items, unread count, and unread `section_counts` keyed by source model |
 | `/sys/api/notifications/<pk>/read/` | `POST` | Mark one notification state as read for the current user |
 | `/sys/api/notifications/<pk>/dismiss/` | `POST` | Mark one notification state dismissed for the current user |
 | `/sys/api/notifications/read-all/` | `POST` | Mark all current-user notification states as read |
@@ -554,6 +565,15 @@ System Settings store `notification_config` with:
 - `automatic.create/delete`: per-action gates under the automatic CRUD source
 - `automatic.update`: `off`, `summary`, or `full`; summary emits quiet changed-field summaries and full keeps richer update metadata
 - `automatic.actor_flash_actions/watchable`: actor flash defaults and model-watch support
+
+The separate `sidebar_config.show_notification_badges` flag controls whether
+model-backed sidebar entries use each notification's existing
+`source_model_key` to show per-section unread counters. It is independent from
+`notification_config.drawer.badge_enabled`; the global notifications master
+switch still disables both. Sidebar groups aggregate unique child model keys,
+counts are scoped to the current user's undismissed/unexpired notification
+states, and the notification list API returns the same mapping as
+`section_counts` for live updates.
 
 DEBUG-only internal test trigger:
 
@@ -697,10 +717,39 @@ backup subsystem:
 - `max_backups_to_keep` — retain the newest completed rows/files; `0` disables the count limit.
 - `auto_export_target` — validated relative folder inside Django `default_storage`.
 - `use_celery` and `exclude_models` — normalized code-owned compatibility keys retained from `DLUX_CONFIG['backup']`.
+- `stall_timeout_minutes` — 2–1440 (default 30). A pending/running backup whose
+  `heartbeat_at` is older than this is declared dead and failed.
+- `auto_retry_enabled` — re-run a failed or stalled backup automatically (default on).
+- `max_attempts` — 1–10 total attempts per backup row, counting the first (default 3).
+- `retry_delay_minutes` — 0–1440 wait between attempts (default 5).
 
 Each `SystemBackup` stores a `manual`, `scheduled`, or `update` trigger. Inline
 apply/rollback always creates and verifies an update-triggered backup before
 maintenance, aborts if it fails, and protects the new backup while retention runs.
+
+#### Interrupted backups
+
+Every progress tick writes `SystemBackup.heartbeat_at` (plus `stage`,
+`attempt_count`, `next_attempt_at`), which is the only reliable evidence that a
+run is alive: a worker killed mid-build — OOM, restart, lost connection — never
+reaches the failure path, so without it the row stays `running` forever with a
+frozen percentage and no error.
+
+`reap_stalled_system_backups()` fails any pending/running row that has gone
+quiet past `stall_timeout_minutes`, for **every** trigger, and then starts any
+due retry. It runs from the Backup & Restore page and its status poller, from
+the scheduled-backup beat task, and from Celery `worker_ready` — so a worker
+restart retires exactly the backups that worker abandoned (a run in a sibling
+worker heartbeats every few seconds and is never inside the window).
+
+Retries re-run the whole snapshot on the same history row; a partially written
+`.dlb` is one encrypted stream over a consistent snapshot and has nothing
+resumable in it. **Passphrase-protected backups are never retried
+automatically** — the passphrase is stored nowhere, so a blind re-run would
+silently produce a secret-key-encrypted file instead. The one exception is a
+retry queued from inside the Celery task, which still holds the passphrase in
+its arguments; every other path leaves the row failed with a Retry button that
+asks for the passphrase (`POST sys/backup/<token>/resume/`).
 
 Common preference keys:
 
@@ -777,7 +826,7 @@ Common runtime feature flags in `get_system_config()`:
 - `login_lockout_duration_minutes` — How long sign-in stays blocked once the lock is armed (1–1440, default 15). The legacy `DLUX_LOGIN_LOCKOUT_MAX_ATTEMPTS` / `DLUX_LOGIN_LOCKOUT_SECONDS` Django settings act only as a fallback when system config cannot be resolved.
 - `enforce_strong_passwords` — Enable the strict password validator on every set-password path.
 - `strong_password_min_length` — Minimum length the strict validator (and the live checklist card) requires while enforcement is on (8–64, default 12).
-- `purge_session_on_exit` — When true, the session cookie is a browser-session cookie (`session.set_expiry(0)`, no persistent `Max-Age`), so closing the tab/browser signs the user out; the next visit is unauthenticated. Enforced by `DluxMiddleware` on authenticated requests (default off).
+- `purge_session_on_exit` — When true, the session cookie is a browser-session cookie (`session.set_expiry(0)`, no persistent `Max-Age`), so a new browser session requires authentication. Tabs share this cookie, so closing one tab cannot end the session while the browser session remains open. Enforced by `DluxMiddleware` on authenticated requests (default off).
 - `inactivity_timeout_enabled` — Enable idle sign-out. When on, `DluxMiddleware` expires the session after inactivity (overriding the static `DLUX_SESSION_IDLE_TIMEOUT_SECONDS`), and authenticated pages load `session_timeout.js`, which shows a countdown modal ~30s before expiry with a "Stay signed in" dismiss (pings `/accounts/session-keepalive/`) and a "Sign out now" action (default off).
 - `inactivity_timeout_minutes` — Minutes of inactivity before sign-out while `inactivity_timeout_enabled` is on (1–1440, default 10).
 - `email_config` — Redacted Dlux email delivery config. Supports delivery `transport` (`direct` or `relay`) plus `secret_storage` (`env` or `encrypted_db`); exports never include SMTP secrets.

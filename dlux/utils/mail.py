@@ -62,6 +62,53 @@ DLUX_INTERNAL_SMTP_RELAY_HOST = 'smtp-relay'
 
 DLUX_INTERNAL_SMTP_RELAY_PORT = 1025
 
+# Client-side SMTP timeouts. These are deliberately a *pair* with the relay's own
+# upstream timeout (DLUX_SMTP_RELAY_UPSTREAM_TIMEOUT, used by the scaffolded
+# dlux/smtp_relay.py), and the ordering between them is the whole point:
+#
+#   relay upstream timeout  <  relay client timeout
+#
+# Relay delivery is two hops — app → relay → provider — and only the relay can see
+# why the provider hop failed. If the app gives up first it reports a meaningless
+# "Connection unexpectedly closed: timed out" and the real reason lands in the
+# relay's log ~20s later, where nobody looks. Letting the relay lose the race means
+# it answers `451` with the actual cause and the operator sees it in the UI.
+# Values are sized for a SLOW upstream, not a fast one. Plenty of real mail
+# servers (virus/spam scanning in-line, legacy government and university relays)
+# take 30-60s to accept a DATA payload while answering the connect, EHLO and AUTH
+# steps instantly — so a timeout tuned to the handshake looks fine right up until
+# the message body, then fails every send. Raise these rather than lower them; a
+# too-short timeout is indistinguishable from a broken server.
+DLUX_SMTP_DIRECT_TIMEOUT = 30
+# Slack the app allows the relay on top of its own upstream budget, so the relay
+# always answers first with the reason. Derived rather than hand-set, so an
+# operator raising the timeout in the UI cannot invert the ordering by accident.
+DLUX_SMTP_RELAY_CLIENT_HEADROOM = 15
+# Consumed by the packaged relay; exported so a project can import the value
+# instead of hard-coding a number that must stay under the client timeout.
+DLUX_SMTP_RELAY_UPSTREAM_TIMEOUT = 60
+DLUX_SMTP_RELAY_CLIENT_TIMEOUT = DLUX_SMTP_RELAY_UPSTREAM_TIMEOUT + DLUX_SMTP_RELAY_CLIENT_HEADROOM
+
+
+def resolve_smtp_timeouts(email_config):
+    """``(upstream, client)`` seconds for one email configuration.
+
+    The UI exposes a single number — how long to wait for the provider — because
+    two independent boxes invite an operator to invert the ordering the relay's
+    error reporting depends on. For relay transport that number is the relay's
+    upstream budget and the client gets it plus headroom; for direct transport the
+    app *is* the only hop, so it is the client timeout outright.
+    """
+    try:
+        configured = int(email_config.get('timeout') or 0)
+    except (TypeError, ValueError):
+        configured = 0
+    if email_config.get('transport') == 'relay':
+        upstream = configured or DLUX_SMTP_RELAY_UPSTREAM_TIMEOUT
+        return upstream, upstream + DLUX_SMTP_RELAY_CLIENT_HEADROOM
+    client = configured or DLUX_SMTP_DIRECT_TIMEOUT
+    return client, client
+
 # Email Secrets - Helper derives the encryption seed for stored email passwords.
 def _email_secret_seed():
     configured_key = (
@@ -86,15 +133,45 @@ def encrypt_email_secret(raw_secret):
         return ''
     return _email_fernet().encrypt(raw_secret.encode('utf-8')).decode('utf-8')
 
+# Email Secrets - Sentinel for a stored secret that cannot be decrypted here.
+EMAIL_SECRET_ABSENT = 'absent'
+EMAIL_SECRET_OK = 'ok'
+EMAIL_SECRET_UNDECRYPTABLE = 'undecryptable'
+
+
 # Email Secrets - Function decrypts stored SMTP passwords with legacy fallback.
-def decrypt_email_secret(encrypted_secret):
+def decrypt_email_secret(encrypted_secret, *, strict=False):
+    """Decrypt a stored SMTP password.
+
+    Returns '' on failure by default so callers on the send path degrade rather
+    than crash. Pass ``strict=True`` to tell the two failure modes apart: an empty
+    return is ambiguous between "no password stored" and "stored but encrypted
+    under a different key", and those need very different operator action. The
+    second happens whenever the process decrypting has a different SECRET_KEY from
+    the one that encrypted — a rotated key, or a sidecar container (the SMTP relay)
+    started with a different DJANGO_SECRET_KEY.
+    """
     encrypted_secret = str(encrypted_secret or '').strip()
     if not encrypted_secret:
         return ''
     try:
         return _email_fernet().decrypt(encrypted_secret.encode('utf-8')).decode('utf-8')
     except Exception:
+        if strict:
+            raise
         return ''
+
+
+# Email Secrets - Function reports whether a stored secret is usable *here*.
+def email_secret_state(encrypted_secret):
+    """Classify a stored secret as absent / ok / undecryptable for this process."""
+    if not str(encrypted_secret or '').strip():
+        return EMAIL_SECRET_ABSENT
+    try:
+        decrypt_email_secret(encrypted_secret, strict=True)
+    except Exception:
+        return EMAIL_SECRET_UNDECRYPTABLE
+    return EMAIL_SECRET_OK
 
 # Email Runtime - Function resolves the active Dlux email backend configuration.
 def get_dlux_email_config(*, include_secret=False):
@@ -119,6 +196,7 @@ def get_dlux_email_config(*, include_secret=False):
             'password': '',
             'from_email': stored_config.get('default_from_email', ''),
             'password_configured': False,
+            'timeout': stored_config.get('timeout', 0),
         }
 
     if stored_config.get('secret_storage') == 'encrypted_db':
@@ -134,6 +212,7 @@ def get_dlux_email_config(*, include_secret=False):
             'password': '',
             'from_email': stored_config.get('default_from_email', ''),
             'password_configured': bool(stored_config.get('encrypted_password')),
+            'timeout': stored_config.get('timeout', 0),
         }
         if include_secret:
             config['password'] = decrypt_email_secret(stored_config.get('encrypted_password'))
@@ -156,6 +235,31 @@ def get_dlux_email_config(*, include_secret=False):
         'password_configured': bool(getattr(settings, 'EMAIL_HOST_PASSWORD', '')),
         'ui_hints': stored_hints,
     }
+
+# Email Runtime - Gate for the settings that depend on Dlux sending mail.
+def email_features_unlocked():
+    """True when mail-dependent SETTINGS may be edited.
+
+    Requires both operator intent (email_config.enabled) and proof the config
+    actually works (a successful test send, still matching the connection it was
+    run against). Deliberately stricter than get_email_service_status(), which
+    reports whether mail *can* be sent and stays the runtime gate: a deployment
+    configuring SMTP purely through env vars keeps sending mail exactly as before
+    even though its toggles read locked until someone runs the test once.
+
+    Local debug backends unlock without a test so development is not blocked on
+    a real SMTP round trip.
+    """
+    status = get_email_service_status()
+    if status.get('reason') == 'local_debug_backend':
+        return True
+    try:
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        config = normalize_email_config(getattr(SystemSettings.load(), 'email_config', {}) or {})
+    except Exception:
+        return False
+    return bool(config.get('enabled') and config.get('verified'))
+
 
 # Email Runtime - Function reports configured email capability without network I/O.
 def get_email_service_status():
@@ -327,10 +431,12 @@ def send_dlux_mail(subject, message, recipient_list, *, from_email=None, fail_si
         # Without a timeout a slow/unreachable SMTP host blocks the calling request
         # (e.g. login-time OTP emails) until the OS socket timeout, which can take
         # minutes. Cap it so mail failures surface quickly instead of hanging auth.
-        try:
-            smtp_timeout = int(email_config.get('timeout') or 0) or 10
-        except (TypeError, ValueError):
-            smtp_timeout = 10
+        #
+        # Relay transport gets a longer cap on purpose: the app is only the first of
+        # two hops, and the relay needs to finish losing its own upstream race before
+        # it can answer with *why*. Timing out first here would replace the relay's
+        # real 451 reason with an uninformative client-side timeout.
+        _upstream, smtp_timeout = resolve_smtp_timeouts(email_config)
         connection = get_connection(
             backend=backend,
             host=email_config.get('host') or None,

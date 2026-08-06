@@ -68,7 +68,9 @@ class ScaffoldTests(unittest.TestCase):
             self.assertTrue((target / ".proxy" / "Caddyfile").exists())
             self.assertTrue((target / ".proxy" / "default.conf.template").exists())
             self.assertTrue((target / ".proxy" / "maintenance.html").exists())
-            self.assertTrue((target / "tools" / "dlux_runtime_supervisor.py").exists())
+            # The runtime supervisor now ships inside the dlux package
+            # (python -m dlux.updater.supervisor), not as a scaffold file.
+            self.assertFalse((target / "tools" / "dlux_runtime_supervisor.py").exists())
             self.assertTrue((target / "start.sh").exists())
             self.assertTrue((target / "start.ps1").exists())
 
@@ -148,6 +150,11 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("CADDY_PORT=", env_contents)
             self.assertIn("CADDY_SITE_ADDRESS=", env_contents)
             self.assertIn("CADDY_MAX_SIZE=", env_contents)
+            self.assertIn("@static_asset file", caddy_contents)
+            self.assertIn(
+                'header @static_asset Cache-Control "public, max-age=31536000, immutable"',
+                caddy_contents,
+            )
             env_keys = [
                 line.partition("=")[0]
                 for line in env_contents.splitlines()
@@ -198,9 +205,9 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn('POSTGRES_DB: "${POSTGRES_DB:-demo_project_db}"', compose_contents)
             self.assertIn('POSTGRES_USER: ${POSTGRES_USER:-admin}', compose_contents)
             self.assertIn('DJANGO_SETTINGS_MODULE: "config.settings"', compose_contents)
-            self.assertIn('command: ["python", "-m", "tools.smtp_relay"]', compose_contents)
+            self.assertIn('command: ["python", "-m", "dlux.smtp_relay"]', compose_contents)
             self.assertIn("celery:", compose_contents)
-            self.assertIn('command: ["python", "-m", "tools.dlux_runtime_supervisor", "--", "python", "-m", "celery", "-A", "config", "worker", "-B", "--loglevel=info"]', compose_contents)
+            self.assertIn('command: ["python", "-m", "dlux.updater.supervisor", "--", "python", "-m", "celery", "-A", "config", "worker", "-B", "--loglevel=info"]', compose_contents)
             self.assertIn("dlux-updater:", compose_contents)
             self.assertIn('DLUX_INLINE_UPDATES_ENABLED: "True"', compose_contents)
             self.assertIn("dlux_runtime:/opt/dlux-runtime:rw", compose_contents)
@@ -216,6 +223,9 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn('COMPOSER_AGENT_STATE_DIR: "/var/lib/composer-agent"', compose_contents)
             self.assertIn('COMPOSER_EXCLUDE_SERVICES: "composer-agent,composer-executor,docker-socket-proxy,db,redis"', compose_contents)
             self.assertIn("  composer-executor:\n", compose_contents)
+            executor_block = compose_contents.split("  composer-executor:\n", 1)[1].split("\n\n", 1)[0]
+            self.assertIn("cap_drop:\n      - ALL", executor_block)
+            self.assertIn("cap_add:\n      - DAC_READ_SEARCH", executor_block)
             self.assertIn('COMPOSER_AGENT_RESTART_SERVICES: "web,celery,smtp-relay,caddy"', compose_contents)
             # db-backup (superseded by DjangoLux system backups) and pgadmin are
             # no longer part of the default stack.
@@ -232,7 +242,7 @@ class ScaffoldTests(unittest.TestCase):
             # serves templates from; run raw it collects from the baked image and,
             # running last on recreate, leaves version-mismatched static.
             self.assertIn(
-                "- command: python -m tools.dlux_runtime_supervisor --no-watch -- python manage.py migrator",
+                "- command: python -m dlux.updater.supervisor --no-watch -- python manage.py migrator",
                 compose_contents,
             )
             self.assertNotIn("- command: python manage.py migrator\n", compose_contents)
@@ -289,6 +299,32 @@ class ScaffoldTests(unittest.TestCase):
             self.assertNotIn(b"\r\n", entrypoint_bytes)
             self.assertNotIn(b"\r\n", start_sh_bytes)
             self.assertTrue(start_sh_mode & 0o111)
+
+    def test_scaffolded_wrappers_declare_the_mirrored_composer_wrapper_version(self):
+        """The launcher wrappers are mirrors of composer's, and must say so.
+
+        Composer owns `start.sh`/`start.ps1` — it is the only component that
+        keeps running in a project after `create_project`, which writes them
+        once and then refuses to overwrite. `composer check` compares a
+        deployment's wrapper against the copy baked into the composer image, so
+        a mirror that lags here is not fatal: a freshly scaffolded project is
+        simply told to run `composer check --fix` on day one. Bump this
+        constant whenever the templates are re-synced from the composer repo,
+        so drift fails loudly instead of going unnoticed.
+        """
+        expected = 1
+        marker = re.compile(r"^#\s*composer-wrapper:\s*(\d+)\s*$", re.MULTILINE)
+        templates = Path(__file__).resolve().parents[1] / "scaffold_templates" / "project"
+        for name in ("start.sh.tmpl", "start.ps1.tmpl"):
+            with self.subTest(template=name):
+                found = marker.search((templates / name).read_text(encoding="utf-8"))
+                self.assertIsNotNone(found, f"{name} carries no composer-wrapper marker")
+                self.assertEqual(
+                    int(found.group(1)),
+                    expected,
+                    f"{name} is out of sync with the composer repo; re-copy it and "
+                    "update the expected version here",
+                )
 
     def test_enable_agent_forwards_to_the_project_composer_wrapper(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -604,7 +640,9 @@ class StackContractTests(unittest.TestCase):
         from dlux import __version__
 
         self.assertEqual(self.contract["dlux_version"], __version__)
-        self.assertEqual(self.contract["schema_version"], 1)
+        # Bumped to 2 when service command_module / retired_command_modules were
+        # added so Composer can check and fix retired entrypoints.
+        self.assertEqual(self.contract["schema_version"], 2)
 
     def test_contract_is_internally_consistent(self):
         declared = set(self.contract["networks"])
@@ -808,6 +846,54 @@ class ProjectReleaseScaffoldTests(unittest.TestCase):
     def test_repo_slug_validation(self):
         with self.assertRaises(ScaffoldError):
             create_project("demo_project", "/tmp/never-created", repo="not-a-slug")
+
+
+class UpdaterBlockSelfHealTests(unittest.TestCase):
+    """enable-updater migrates an EXISTING project's updater block in place —
+    surgical, idempotent — so deployed projects adopt the packaged supervisor and
+    the pre-migration reconcile without a re-scaffold."""
+
+    def _compose(self):
+        from dlux.scaffold import UPDATER_COMPOSE_START, UPDATER_COMPOSE_END
+        return (
+            "services:\n"
+            "  web:\n"
+            "    command: python -m tools.dlux_runtime_supervisor -- gunicorn\n"
+            f"  {UPDATER_COMPOSE_START}\n"
+            "  dlux-updater:\n"
+            '    command: ["python", "-m", "tools.dlux_runtime_supervisor", "--no-watch", "--", '
+            '"bash", "-c", "python manage.py migrator && exec python manage.py dlux_update_worker"]\n'
+            f"  {UPDATER_COMPOSE_END}\n"
+        )
+
+    def test_existing_block_migrates_to_package_supervisor_and_reconcile(self):
+        from dlux.scaffold import _enable_updater_compose
+        migrated = _enable_updater_compose(self._compose(), "demo", "config")
+        self.assertNotIn("tools.dlux_runtime_supervisor", migrated)
+        self.assertIn('"python", "-m", "dlux.updater.supervisor"', migrated)
+        self.assertIn("python manage.py dlux_reconcile; python manage.py migrator", migrated)
+        # Idempotent: a second pass changes nothing (no double reconcile).
+        self.assertEqual(_enable_updater_compose(migrated, "demo", "config"), migrated)
+        self.assertEqual(migrated.count("dlux_reconcile"), 1)
+
+    def test_manage_py_import_is_migrated_idempotently(self):
+        from dlux.scaffold import _migrate_manage_py
+        old = "        from dlux_runtime_supervisor import baked_version, resolve_release\n"
+        migrated = _migrate_manage_py(old)
+        self.assertIn("from dlux.updater.supervisor import baked_version, resolve_release", migrated)
+        self.assertEqual(_migrate_manage_py(migrated), migrated)
+
+
+class CliVersionTests(unittest.TestCase):
+    def test_version_flag_prints_version_and_exits_zero(self):
+        import contextlib
+        import io
+
+        buffer = io.StringIO()
+        with self.assertRaises(SystemExit) as ctx, contextlib.redirect_stdout(buffer):
+            main(["--version"])
+        self.assertEqual(ctx.exception.code, 0)
+        self.assertIn(__version__, buffer.getvalue())
 
 
 if __name__ == "__main__":

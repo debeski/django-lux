@@ -358,6 +358,47 @@
     color: #8c98a4;
 }
 
+.sidebar .sidebar-tree-label,
+.sidebar .sidebar-folder-button > .text-start {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar .dlux-sidebar-notification-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding-inline: 0.32rem;
+    border-radius: 999px;
+    background: var(--primal);
+    color: var(--body);
+    box-shadow: 0 2px 7px rgba(var(--primal-rgb), 0.3);
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.sidebar.collapsed .list-group-item .dlux-sidebar-notification-badge,
+.sidebar.collapsed .accordion-button .dlux-sidebar-notification-badge {
+    position: absolute;
+    inset-block-start: 4px;
+    inset-inline-end: 4px;
+    display: inline-flex;
+    width: auto;
+    min-width: 1rem;
+    height: 1rem;
+    padding-inline: 0.2rem;
+    opacity: 1;
+    visibility: visible;
+    font-size: 0.56rem;
+}
+
 .sidebar[data-sidebar-show-icons="false"]:not(.collapsed) .list-group-item i,
 .sidebar[data-sidebar-show-icons="false"]:not(.collapsed) .accordion-button i {
     display: none;

@@ -335,6 +335,32 @@ class ContextProcessorsTests(TestCase):
         self.assertEqual(context['sidebar_entries'], [])
         self.assertFalse(context['sidebar']['enabled'])
 
+    def test_sidebar_notification_badge_toggle_is_independent_from_drawer_badge(self):
+        from dlux.models import SystemSettings
+
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.sidebar_config = {
+            'enabled': True,
+            'entries': [],
+            'show_notification_badges': False,
+        }
+        settings_obj.notification_config = {
+            'enabled': True,
+            'drawer': {'enabled': True, 'badge_enabled': True},
+        }
+        settings_obj.save()
+
+        request = self.factory.get('/')
+        request.user = self.user
+        self.assertFalse(dlux_context(request)['sidebar_notification_badges_enabled'])
+
+        settings_obj.sidebar_config['show_notification_badges'] = True
+        settings_obj.notification_config['drawer']['badge_enabled'] = False
+        settings_obj.save()
+
+        self.assertTrue(dlux_context(request)['sidebar_notification_badges_enabled'])
+
     def test_dlux_context_falls_back_to_default_language_when_override_disabled(self):
         from dlux.models import SystemSettings
 

@@ -111,6 +111,31 @@ unsupported updater/Python baselines also require `inline_safe: false` even when
 their migration policy remains backward-compatible. The deployed UI then reports
 **Project image rebuild required** instead of offering an Update button.
 
+### Inline floor after an image-required release (`image_baseline`)
+
+The inline updater always offers the single **highest** available release, not a
+step-by-step walk, so a box on an old version can be offered a much later one
+directly — skipping over any image-required release in between. Marking a later
+release `inline_safe: true` is only true *relative to the image the release
+before it left baked*; it is **not** safe to drop onto an older image.
+
+To make this an enforced invariant instead of an authoring convention, set the
+optional `image_baseline` manifest field to the most recent version that required
+an image rebuild. `assess_wheel` compares it against the box's **baked image**
+version and refuses the inline update (fails closed on an unknown image version)
+until the project image is rebuilt to at least that baseline:
+
+```
+"image_baseline": "1.7.0"
+```
+
+Rule of thumb: once any release ships `inline_safe: false`, carry
+`image_baseline: "<that version>"` on **every** subsequent inline-safe manifest
+until the next image-required release advances the baseline. Omit the field
+entirely when there is no outstanding image dependency (the default — no floor).
+A box at or above the baseline updates inline as normal; a box below it is told to
+image-update first.
+
 PyPI must continue publishing through repository `debeski/django-lux`, workflow
 `.github/workflows/release.yml`, and environment `pypi`; deployed updaters verify
 that exact attested publisher identity. PyPI's integrity response represents the

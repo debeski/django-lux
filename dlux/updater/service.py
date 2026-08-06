@@ -447,7 +447,7 @@ class UpdateService:
         )
         wheel = download_wheel(candidate, self.store.wheel_path(candidate))
         verify_pypi_attestation(candidate)
-        assessment = assess_wheel(candidate, wheel)
+        assessment = assess_wheel(candidate, wheel, baked_version=baked_version)
         if not assessment["compatible"]:
             raise UpdaterError(assessment["reason"])
         release = self.store.release_path(candidate.version)
@@ -712,7 +712,7 @@ class UpdateService:
         wheel = download_wheel(candidate, self.store.wheel_path(candidate))
         self._transition(run, run.STATUS_VERIFYING, "Verifying hash, publisher attestation, and compatibility.")
         verify_pypi_attestation(candidate)
-        assessment = assess_wheel(candidate, wheel)
+        assessment = assess_wheel(candidate, wheel, baked_version=state.baked_version)
         run.manifest = assessment["manifest"]
         run.save(update_fields=["manifest"])
         state.latest_version = candidate.version
@@ -765,7 +765,7 @@ class UpdateService:
         )
         wheel = download_wheel(candidate, self.store.wheel_path(candidate))
         verify_pypi_attestation(candidate)
-        assessment = assess_wheel(candidate, wheel)
+        assessment = assess_wheel(candidate, wheel, baked_version=state.baked_version)
         state.latest_version = candidate.version
         state.latest_wheel_url = candidate.url
         state.latest_wheel_sha256 = candidate.sha256
@@ -794,7 +794,7 @@ class UpdateService:
         wheel = download_wheel(candidate, self.store.wheel_path(candidate))
         self._transition(run, run.STATUS_VERIFYING, "Re-verifying the release before installation.")
         verify_pypi_attestation(candidate)
-        assessment = assess_wheel(candidate, wheel)
+        assessment = assess_wheel(candidate, wheel, baked_version=state.baked_version)
         if not assessment["compatible"]:
             raise UpdaterError(assessment["reason"])
         if assessment["manifest"] != state.latest_manifest:

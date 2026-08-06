@@ -4,10 +4,13 @@ Keep this module free of model/form/admin/view/translations imports. It may use
 small leaf registries such as themes/fonts lazily when validating choices.
 """
 
+import hashlib
+import json
 import re
 from copy import deepcopy
 
 from .constants import (
+    EMAIL_CONFIG_VERIFIED_FIELDS,
     CLIENT_IP_MODE_CUSTOM,
     CLIENT_IP_MODE_VALUES,
     DEFAULT_LANGUAGE_CATALOG,
@@ -152,11 +155,12 @@ def normalize_language_catalog(*layers):
 
 
 def normalize_allowed_fonts(allowed_fonts=None):
-    from ..fonts import get_builtin_fonts
+    from ..fonts import get_available_fonts
 
-    available = {f['slug'] for f in get_builtin_fonts()}
+    available_slugs = [font['slug'] for font in get_available_fonts()]
+    available = set(available_slugs)
     if allowed_fonts is None:
-        return list(available)
+        return available_slugs
 
     normalized = []
     if isinstance(allowed_fonts, (list, tuple, set)):
@@ -164,17 +168,17 @@ def normalize_allowed_fonts(allowed_fonts=None):
             if font in available and font not in normalized:
                 normalized.append(font)
 
-    return normalized or list(available)
+    return normalized or available_slugs
 
 
 def normalize_default_fonts(value=None, *, allowed_fonts=None):
-    from ..fonts import get_builtin_fonts
+    from ..fonts import get_available_fonts
 
     if not isinstance(value, dict):
         return {}
     allowed = set(normalize_allowed_fonts(allowed_fonts))
     if not allowed:
-        allowed = {font['slug'] for font in get_builtin_fonts()}
+        allowed = {font['slug'] for font in get_available_fonts()}
     normalized = {}
     for raw_code, raw_font in value.items():
         code = _normalize_language_code(raw_code)
@@ -248,9 +252,44 @@ def normalize_email_config(value, *, redact_secret=False):
         config.get('failure_notification_recipients'),
         limit=EMAIL_CONFIG_MAX_FAILURE_RECIPIENTS,
     )
+    # 0 means "use the shipped default". A real value is clamped to a sane band:
+    # below ~5s no SMTP handshake completes, and beyond 300s a synchronous send
+    # would hold a request open far longer than any proxy tolerates.
+    normalized['timeout'] = _to_int(config.get('timeout', 0), 0, min_value=0, max_value=300)
+    if 0 < normalized['timeout'] < 5:
+        normalized['timeout'] = 5
+    normalized['enabled'] = _coerce_import_bool(config.get('enabled', False))
+
+    # Verification vouches for one exact connection configuration. Recomputing the
+    # fingerprint here means *every* write path — form save, import, config.json
+    # bootstrap, a hand-edited row — re-arms it on change; there is no path that
+    # can leave a stale "verified" claiming an untested server.
+    fingerprint = email_config_fingerprint(normalized)
+    still_verified = (
+        _coerce_import_bool(config.get('verified', False))
+        and str(config.get('verified_fingerprint') or '') == fingerprint
+    )
+    normalized['verified'] = still_verified
+    normalized['verified_at'] = str(config.get('verified_at') or '') if still_verified else ''
+    normalized['verified_fingerprint'] = fingerprint if still_verified else ''
+
     if redact_secret:
+        # Exports travel to other hosts, where neither the secret nor this host's
+        # test result is meaningful.
         normalized.pop('encrypted_password', None)
+        normalized['verified'] = False
+        normalized['verified_at'] = ''
+        normalized['verified_fingerprint'] = ''
     return normalized
+
+
+def email_config_fingerprint(config):
+    """Stable digest of the connection fields a verification test vouches for."""
+    payload = json.dumps(
+        [str(config.get(field, '')) for field in EMAIL_CONFIG_VERIFIED_FIELDS],
+        separators=(',', ':'),
+    )
+    return hashlib.sha256(payload.encode('utf-8')).hexdigest()
 
 
 _EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
@@ -579,6 +618,9 @@ def normalize_sidebar_behavior(sidebar_config):
     normalized['enable_reorder'] = bool(config.get('enable_reorder', normalized['enable_reorder']))
     normalized['show_toolbar'] = bool(config.get('show_toolbar', normalized['show_toolbar']))
     normalized['show_icons'] = bool(config.get('show_icons', normalized['show_icons']))
+    normalized['show_notification_badges'] = bool(
+        config.get('show_notification_badges', normalized['show_notification_badges'])
+    )
     normalized['allow_user_density'] = bool(config.get('allow_user_density', normalized['allow_user_density']))
 
     density = config.get('density')
@@ -782,6 +824,25 @@ def normalize_backup_config(value):
         'auto_export_target': raw_target,
         'use_celery': _to_bool(config.get('use_celery'), defaults['use_celery']),
         'exclude_models': normalized_excluded,
+        'stall_timeout_minutes': _to_int(
+            config.get('stall_timeout_minutes'),
+            defaults['stall_timeout_minutes'],
+            min_value=2,
+            max_value=1440,
+        ),
+        'auto_retry_enabled': _to_bool(config.get('auto_retry_enabled'), defaults['auto_retry_enabled']),
+        'max_attempts': _to_int(
+            config.get('max_attempts'),
+            defaults['max_attempts'],
+            min_value=1,
+            max_value=10,
+        ),
+        'retry_delay_minutes': _to_int(
+            config.get('retry_delay_minutes'),
+            defaults['retry_delay_minutes'],
+            min_value=0,
+            max_value=1440,
+        ),
     }
 
 
@@ -890,6 +951,7 @@ __all__ = [
     'normalize_client_ip_config',
     'normalize_default_fonts',
     'normalize_email_config',
+    'email_config_fingerprint',
     'normalize_extra_config',
     'normalize_language_catalog',
     'normalize_language_config',

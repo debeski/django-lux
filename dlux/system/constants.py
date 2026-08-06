@@ -204,8 +204,44 @@ DEFAULT_LANGUAGE_CATALOG = {
     'ar': {'name': 'العربية', 'dir': 'rtl', 'flag': '🇱🇾'},
 }
 
+# Setup wizard step order — the single source of truth for step indices.
+#
+# SystemSettingsForm addresses steps by index in three places at once: the layout
+# Divs, the per-step `_clean_preserved_*` guards, and single-step modal saves. A
+# literal that drifts out of step with the layout does not raise — the cleaner
+# reads an absent checkbox as False and silently wipes another step's value
+# (docs/adding-system-settings.md, trap 2). Names make that drift impossible.
+SETUP_STEP_IDENTITY = 0
+SETUP_STEP_LANGUAGES = 1
+SETUP_STEP_EMAIL = 2
+SETUP_STEP_SECURITY = 3
+SETUP_STEP_LOGIN = 4
+SETUP_STEP_SIDEBAR = 5
+SETUP_STEP_NAVBAR = 6
+SETUP_STEP_TITLEBAR = 7
+SETUP_STEP_NOTIFICATIONS = 8
+SETUP_STEP_APPEARANCE = 9
+SETUP_STEP_LAYOUT = 10
+SETUP_STEP_LOGGING = 11
+SETUP_STEP_PROFILE = 12
+SETUP_STEP_BACKUPS = 13
+SETUP_STEP_COUNT = 14
+
 EMAIL_CONFIG_TRANSPORTS = {'direct', 'relay'}
 EMAIL_CONFIG_SECRET_STORAGES = {'env', 'encrypted_db'}
+# Connection fields whose value the verification test vouches for. Any change to
+# one of these re-arms verification (see normalize_email_config).
+EMAIL_CONFIG_VERIFIED_FIELDS = (
+    'transport',
+    'secret_storage',
+    'host',
+    'port',
+    'use_tls',
+    'use_ssl',
+    'username',
+    'default_from_email',
+    'encrypted_password',
+)
 
 # Provider presets prefill host/port/TLS/SSL in the UI; 'custom' leaves the
 # entered values untouched. Stored on email_config so the picker survives reloads.

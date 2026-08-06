@@ -192,7 +192,13 @@ class GeneralViewsTests(TestCase):
         self.assertFalse(response.context['sidebar_density_picker_enabled'])
         self.assertNotContains(response, 'data-options-card="sidebar-density"')
 
-    def test_options_email_diagnostics_only_render_when_email_features_enabled(self):
+    def test_options_email_diagnostics_always_render(self):
+        """The Email row must not be gated on the features it is needed to enable.
+
+        It used to render only while public registration or email 2FA was on — the
+        two settings that are themselves locked until email is verified, so the
+        indicator was hidden exactly when an operator needed it to set email up.
+        """
         settings_obj = SystemSettings.load()
         settings_obj.auth_config = {**(settings_obj.auth_config or {}), "email_2fa": False}
         settings_obj.public_registration_enabled = False
@@ -201,16 +207,51 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertIsNone(response.context.get('email_service'))
-        self.assertNotContains(response, '<th>Email:</th>', html=True)
-
-        settings_obj.auth_config = {**(settings_obj.auth_config or {}), "email_2fa": True}
-        settings_obj.save()
-        response = self.client.get(reverse('options_view'))
-
-        self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.context.get('email_service'))
         self.assertContains(response, '<th>Email:</th>', html=True)
+
+    def test_options_email_indicator_reports_the_configuration_posture(self):
+        from dlux.system.normalizers import email_config_fingerprint, normalize_email_config
+
+        settings_obj = SystemSettings.load()
+
+        # Off in the Email step.
+        settings_obj.email_config = normalize_email_config({'enabled': False})
+        settings_obj.save(update_fields=['email_config'])
+        state = self.client.get(reverse('options_view')).context['email_service']['state']
+        self.assertEqual(state, 'degraded')
+
+        # Enabled and configured, but never proven by a test send.
+        config = normalize_email_config({
+            'transport': 'relay', 'secret_storage': 'encrypted_db',
+            'host': 'mail.example.com', 'port': 465, 'use_ssl': True,
+            'default_from_email': 'sender@example.com', 'enabled': True,
+        })
+        settings_obj.email_config = config
+        settings_obj.save(update_fields=['email_config'])
+        self.assertIn(
+            self.client.get(reverse('options_view')).context['email_service']['state'],
+            {'unknown', 'offline'},
+        )
+
+        # Verified by a passed test.
+        config['verified'] = True
+        config['verified_fingerprint'] = email_config_fingerprint(config)
+        settings_obj.email_config = config
+        settings_obj.save(update_fields=['email_config'])
+        self.assertEqual(
+            self.client.get(reverse('options_view')).context['email_service']['state'], 'online',
+        )
+
+    def test_email_health_check_requires_privilege_and_sends_nothing(self):
+        from unittest.mock import patch
+
+        with patch('dlux.views.general.send_dlux_mail') as send:
+            response = self.client.post(reverse('email_health_check'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('state', response.json())
+        send.assert_not_called()
+
 
     def test_email_send_test_requires_superuser_and_post(self):
         # GET is rejected (POST-only).
@@ -409,6 +450,15 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, '"readex_pro": "Readex Pro"', html=False)
 
     def test_system_settings_modal_honors_requested_wizard_step(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.allowed_themes = ['light', 'dark']
+        settings_obj.languages = {
+            'en': {'name': 'English', 'dir': 'ltr', 'flag': 'EN'},
+            'ar': {'name': 'Arabic', 'dir': 'rtl', 'flag': 'LY'},
+        }
+        settings_obj.save(update_fields=['allowed_themes', 'languages'])
+        cache.clear()
+
         response = self.client.get(
             reverse('modal_manager', args=['dlux', 'SystemSettings', 1]) + '?step=4',
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
@@ -417,6 +467,9 @@ class GeneralViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
         self.assertIn('data-dlux-wizard-initial-step="4"', payload['html'])
+        self.assertIn('data-dlux-allowed-theme-count="2"', payload['html'])
+        self.assertIn('data-dlux-language-count="2"', payload['html'])
+        self.assertNotIn('data-setup-theme-allowed=', payload['html'])
         self.assertIn('?step=4', payload['html'])
         self.assertIn('dlux-btn-submit', payload['html'])
         self.assertNotIn('dlux-form-action-primary', payload['html'])
@@ -450,14 +503,14 @@ class GeneralViewsTests(TestCase):
 
     def test_system_settings_modal_honors_final_wizard_step(self):
         response = self.client.get(
-            reverse('modal_manager', args=['dlux', 'SystemSettings', 1]) + '?step=12',
+            reverse('modal_manager', args=['dlux', 'SystemSettings', 1]) + '?step=13',
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertIn('data-dlux-wizard-initial-step="12"', payload['html'])
-        self.assertIn('Step 13: Backups', payload['html'])
+        self.assertIn('data-dlux-wizard-initial-step="13"', payload['html'])
+        self.assertIn('Step 14: Backups', payload['html'])
         self.assertIn('dlux-btn-submit', payload['html'])
 
     def test_system_settings_export_downloads_setup_payload_for_superuser(self):
@@ -856,6 +909,97 @@ class ProfileViewsTests(TestCase):
             'new_password2': 'newpass123',
         })
         self.assertEqual(response.status_code, 302)  # Redirect on success
+
+    def test_password_change_shows_other_device_sign_out_toggle_when_multi_session_allowed(self):
+        response = self.client.get(reverse('user_profile'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('sign_out_other_sessions', response.context['password_form'].fields)
+        self.assertContains(response, "name='sign_out_other_sessions'")
+        self.assertContains(response, 'form-switch')
+
+    def test_password_change_can_sign_out_every_other_session(self):
+        other_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        other_client.login(username='testuser', password='testpass123')
+        other_session_key = other_client.session.session_key
+
+        response = self.client.post(reverse('user_profile'), {
+            'old_password': 'testpass123',
+            'new_password1': 'newpass456',
+            'new_password2': 'newpass456',
+            'sign_out_other_sessions': 'on',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Session.objects.filter(session_key=other_session_key).exists())
+        self.assertTrue(Session.objects.filter(session_key=self.client.session.session_key).exists())
+        from dlux.session_history import get_session_revoked_reason
+        self.assertEqual(get_session_revoked_reason(other_session_key), 'signed_out_remotely')
+        notification = apps.get_model('dlux', 'DluxNotification').objects.get(action='password_changed')
+        self.assertEqual(notification.metadata['sessions_ended'], 1)
+        self.assertEqual(notification.metadata['message_key'], 'msg_password_changed_sessions_ended')
+
+    @override_settings(SESSION_ENGINE='django.contrib.sessions.backends.cache')
+    def test_password_change_can_sign_out_other_cache_backed_sessions(self):
+        cache.clear()
+        current_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Chrome/122.0 Linux')
+        other_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        current_client.login(username='testuser', password='testpass123')
+        other_client.login(username='testuser', password='testpass123')
+        current_client.get(reverse('user_profile'))
+        other_client.get(reverse('user_profile'))
+
+        response = current_client.post(reverse('user_profile'), {
+            'old_password': 'testpass123',
+            'new_password1': 'newpass456',
+            'new_password2': 'newpass456',
+            'sign_out_other_sessions': 'on',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(current_client.get(reverse('user_profile')).status_code, 200)
+        signed_out = other_client.get(reverse('user_profile'))
+        self.assertEqual(signed_out.status_code, 302)
+        self.assertIn(reverse('session_ended'), signed_out.url)
+
+    def test_password_change_keeps_other_sessions_when_toggle_is_off(self):
+        other_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        other_client.login(username='testuser', password='testpass123')
+        other_session_key = other_client.session.session_key
+
+        response = self.client.post(reverse('user_profile'), {
+            'old_password': 'testpass123',
+            'new_password1': 'newpass456',
+            'new_password2': 'newpass456',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Session.objects.filter(session_key=other_session_key).exists())
+
+    def test_password_change_hides_and_ignores_toggle_when_single_session_is_enforced(self):
+        settings_obj = SystemSettings.load()
+        settings_obj.auth_config = {
+            **(settings_obj.auth_config or {}),
+            'prevent_multiple_active_sessions': True,
+        }
+        settings_obj.save()
+        other_client = Client(HTTP_USER_AGENT='Mozilla/5.0 Firefox/123.0 Windows')
+        other_client.login(username='testuser', password='testpass123')
+        other_session_key = other_client.session.session_key
+
+        page = self.client.get(reverse('user_profile'))
+        self.assertNotIn('sign_out_other_sessions', page.context['password_form'].fields)
+        self.assertNotContains(page, "name='sign_out_other_sessions'")
+
+        response = self.client.post(reverse('user_profile'), {
+            'old_password': 'testpass123',
+            'new_password1': 'newpass456',
+            'new_password2': 'newpass456',
+            'sign_out_other_sessions': 'on',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Session.objects.filter(session_key=other_session_key).exists())
 
     def test_user_profile_rejects_password_change_to_current_password(self):
         original_password_hash = self.user.password
@@ -3068,6 +3212,19 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Reports')
         self.assertContains(response, 'Project Entry')
+        self.assertContains(
+            response,
+            'class="form-control glass-input dlux-datepicker"',
+            count=2,
+        )
+        self.assertContains(response, 'type="text" name="custom_start"')
+        self.assertContains(response, 'type="text" name="custom_end"')
+        self.assertContains(
+            response,
+            'autocomplete="off" data-report-custom-date',
+            count=2,
+        )
+        self.assertNotContains(response, 'type="date" name="custom_')
         overview_model_labels = {item['label'] for item in response.context['overview']['models']}
         self.assertNotIn('Known Device', overview_model_labels)
 

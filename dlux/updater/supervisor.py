@@ -1,4 +1,13 @@
-"""Standard-library process supervisor for the shared DjangoLux runtime volume."""
+"""Standard-library process supervisor for the shared DjangoLux runtime volume.
+
+Shipped inside the ``dlux`` package (not as a project scaffold file) so every fix
+travels with dlux itself — an image rebuild or inline update delivers it, with no
+per-project file to hand-copy. Invoked as ``python -m dlux.updater.supervisor``.
+
+It runs at the very start of a container, before any volume release is on the
+child's ``PYTHONPATH``, and imports only the standard library plus the bundled
+release manifest — no Django setup.
+"""
 
 import argparse
 import importlib.metadata
@@ -34,7 +43,40 @@ def baked_version():
         return ""
 
 
-def resolve_release(root):
+def _is_newer(candidate, baseline):
+    """True if dlux version ``candidate`` is strictly newer than ``baseline``.
+
+    An empty candidate is never newer; an unknown baseline preserves the pinned
+    release (prior behavior). Prefers ``packaging`` and falls back to a numeric
+    dotted comparison, so 1.5.8 vs 1.5.11 orders correctly.
+    """
+    candidate = str(candidate or "").strip()
+    baseline = str(baseline or "").strip()
+    if not candidate:
+        return False
+    if not baseline:
+        return True
+    try:
+        from packaging.version import Version
+
+        return Version(candidate) > Version(baseline)
+    except Exception:
+        pass
+
+    def _key(value):
+        key = []
+        for chunk in value.split("."):
+            digits = "".join(char for char in chunk if char.isdigit())
+            key.append(int(digits) if digits else 0)
+        return key
+
+    try:
+        return _key(candidate) > _key(baseline)
+    except Exception:
+        return True
+
+
+def resolve_release(root, baked=None):
     """Return the runtime-active volume release directory, or ``None`` to use the
     baked image package.
 
@@ -42,7 +84,15 @@ def resolve_release(root):
     (to build the child ``PYTHONPATH``) and by the project ``manage.py`` (to keep
     every management command — collectstatic above all — on the same release the
     web process serves templates from). Missing/corrupt state falls back to baked.
+
+    A volume release only shadows the baked image when it is STRICTLY NEWER than
+    baked. Inline updates ship newer, forward-compatible dlux; an older pinned
+    release must never shadow a newer image (an image update supersedes it), or
+    the image's app code would run against stale dlux and fail on missing symbols.
     """
+    root = Path(root)
+    if baked is None:
+        baked = os.environ.get("DLUX_BAKED_VERSION") or baked_version()
     active_file = root / "state" / "active.json"
     try:
         payload = json.loads(active_file.read_text(encoding="utf-8"))
@@ -50,7 +100,7 @@ def resolve_release(root):
         source = payload.get("source")
         release = (root / "releases" / version).resolve()
         release.relative_to((root / "releases").resolve())
-        if source == "volume" and release.is_dir():
+        if source == "volume" and release.is_dir() and _is_newer(version, baked):
             return release
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
         pass
@@ -59,11 +109,10 @@ def resolve_release(root):
 
 def runtime_environment(root):
     env = os.environ.copy()
-    if not env.get("DLUX_BAKED_VERSION"):
-        version = baked_version()
-        if version:
-            env["DLUX_BAKED_VERSION"] = version
-    release = resolve_release(root)
+    baked = env.get("DLUX_BAKED_VERSION") or baked_version()
+    if baked and not env.get("DLUX_BAKED_VERSION"):
+        env["DLUX_BAKED_VERSION"] = baked
+    release = resolve_release(root, baked)
     if release is not None:
         current = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = f"{release}{os.pathsep}{current}" if current else str(release)
@@ -72,7 +121,7 @@ def runtime_environment(root):
 
 def generation(root):
     try:
-        return max(0, int((root / "state" / "generation").read_text(encoding="utf-8").strip()))
+        return max(0, int((Path(root) / "state" / "generation").read_text(encoding="utf-8").strip()))
     except (OSError, ValueError):
         return 0
 

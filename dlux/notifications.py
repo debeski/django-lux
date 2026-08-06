@@ -16,7 +16,7 @@ from django.apps import apps
 from django.contrib.messages import get_messages
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
@@ -810,6 +810,7 @@ def get_notification_context(request, limit=None):
             'items': [],
             'unread_count': 0,
             'unread_level': '',
+            'section_counts': {},
             'config': config,
         }
     if not config.get('enabled', True):
@@ -818,14 +819,7 @@ def get_notification_context(request, limit=None):
             'items': [],
             'unread_count': 0,
             'unread_level': '',
-            'config': config,
-        }
-    if not config.get('drawer', {}).get('enabled', True):
-        return {
-            'enabled': False,
-            'items': [],
-            'unread_count': 0,
-            'unread_level': '',
+            'section_counts': {},
             'config': config,
         }
     DluxNotificationState = apps.get_model('dlux', 'DluxNotificationState')
@@ -842,6 +836,21 @@ def get_notification_context(request, limit=None):
     latest_unread = unread_qs.first()
     if latest_unread:
         unread_level = latest_unread.notification.level
+    section_counts = {
+        row['notification__source_model_key']: row['count']
+        for row in unread_qs.exclude(notification__source_model_key='').order_by().values(
+            'notification__source_model_key'
+        ).annotate(count=Count('pk'))
+    }
+    if not config.get('drawer', {}).get('enabled', True):
+        return {
+            'enabled': False,
+            'items': [],
+            'unread_count': 0,
+            'unread_level': '',
+            'section_counts': section_counts,
+            'config': config,
+        }
     if limit is None:
         limit = config.get('drawer', {}).get('preview_limit', 8)
     return {
@@ -849,6 +858,7 @@ def get_notification_context(request, limit=None):
         'items': [serialize_notification_state(state, request=request) for state in qs[:limit]],
         'unread_count': unread_count,
         'unread_level': unread_level,
+        'section_counts': section_counts,
         'config': config,
     }
 

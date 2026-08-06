@@ -51,7 +51,7 @@
 - **Category-owned public-root controls** appear only while public root access is enabled: identity metadata in Identity, public sidebar visibility in Sidebar, public titlebar visibility in Titlebar, and the public theme in Themes and Typography
 - **Setup import/export path** for reusing System Settings payloads across environments
 - **Setup language gate** on first launch accepts either built-in English or Arabic and chooses only the setup UI language/direction before the wizard renders; the persisted system default language remains an editable Localization setting and may be different
-- **Live preview** for theme, sidebar, titlebar, and notification drawer/flash presentation changes
+- **Live preview** for theme, sidebar, titlebar, and notification drawer/flash presentation changes; focused System Settings modals preserve theme/language catalog counts for steps that omit the heavy matrices, so unrelated pickers do not disappear
 - **Save-only default language** in setup/System Settings so language changes no longer trigger preview reloads or discard unsaved wizard values
 - **Full-width first-launch setup shell** that hides the runtime sidebar toggle because the setup page does not render the runtime sidebar
 - **Dynamic sidebar builder** with drag-and-drop cross-pane support
@@ -227,7 +227,8 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - **Configurable login lockout**: cache-based per-IP and per-username failure counters with admin-tunable threshold (attempts, 1–50), counting window (minutes), and lock duration (minutes) — revealed under the lockout toggle in Access & Security; audit rows on failure and lock
 - **Configurable strong-password minimum length** (8–64, default 12) driving the strict validator on every set-password path while enforcement is on
 - **Live password checklist card** under new-password fields in both modes: configured strong rules when enforcement is on, Django's stock rules (8+ characters, not entirely numeric) when off; confirm fields show a live "matches the password" check
-- **Sign out on browser close**: optional toggle that makes the session a browser-session cookie so closing the tab/browser ends the session
+- **Password-change device sign-out**: when multiple sessions are allowed, the profile password form can optionally retain the current browser and end every other active database or cache-backed session; the toggle is omitted when single active-session enforcement already owns session eviction
+- **Sign out on browser close**: optional toggle that removes the persistent cookie expiry so a new browser session requires authentication; closing one tab does not sign out because tabs share the browser-session cookie
 - **Sign out after inactivity**: optional idle timeout (1–1440 minutes, default 10) enforced by middleware, with a theme-aware countdown modal (~30s warning, "Stay signed in" / "Sign out now") and a keepalive endpoint that resets the timer on dismiss
 
 ### Public Registration Playground
@@ -518,10 +519,14 @@ ActivityLog.safe_log(
 - `TrustedDevice` remains the 2FA trust source and can be linked to known devices for reporting context.
 
 ### Backup & Restore Operations
-- Permission-gated report ZIP exports for activity/report data.
+- Builder-driven general reports with week/month/quarter/half-year/year/custom/all periods and scoped model/operation include sets shared by the page, XLSX, and report ZIP; only end-user activity is reportable, while Dlux system/audit and Celery infrastructure remain excluded.
+- Permission-gated report ZIP exports include selected model data, a criteria manifest, and the matching XLSX workbook.
 - Superuser-only system backup and restore surface at `/sys/backup/`.
 - Encrypted `.dlb` full-system backups with chunked Fernet payloads, manifest metadata, migration-state comparison, and optional one-off passphrase protection.
-- `backup_config` controls optional scheduled backups, interval hours, a safe folder inside Django default storage, and age/count rotation; scheduling is disabled and retention is unlimited by default.
+- `backup_config` controls optional scheduled backups, interval hours, a safe folder inside Django default storage, age/count rotation, and interrupted-run recovery (stall timeout, automatic retry, attempt budget, retry delay); scheduling is disabled and retention is unlimited by default.
+- Backup runs report per-record and per-file sub-progress inside each model plus byte progress while encrypting, and stamp a heartbeat on every tick.
+- Any pending/running backup whose heartbeat stops past the stall timeout is failed with an explicit reason — for every trigger, from the backup page, the scheduled check, and Celery worker startup — so an interrupted run can never remain a permanent "running" ghost.
+- Failed or stalled backups retry automatically within the attempt budget, and every failed backup offers a manual Retry; passphrase-protected backups are excluded from unattended retries because the passphrase is never stored.
 - Generated Celery workers run a 15-minute beat check and create at most one due scheduled backup per configured interval; manual, scheduled, and inline-update backups retain distinct trigger metadata.
 - Inline apply and rollback always create and verify an update-triggered `.dlb` backup before maintenance; failure aborts the operation, and rotation never removes the backup currently being created.
 - Cursor-safe export streaming uses primary-key pagination and a backup-local JSON serializer, avoiding PostgreSQL server-side named cursors for both model rows and many-to-many fields.
@@ -755,6 +760,7 @@ notify("Payroll batch exported.", obj=batch, action="export", category="reports"
 - Notification email toggles are disabled and server-coerced off until Dlux email delivery is configured.
 - Automatic CRUD has one master switch plus per-action create/delete gates and an update mode (`off`, `summary`, `full`).
 - Authenticated titlebars show a notification icon with colored unread badge, drawer list, detail view, dismiss, mark-all-read, and clear-read controls.
+- Model-backed sidebar sections show per-user unread notification counters, with unique child totals on groups, live refresh after drawer actions, and a Sidebar toggle independent from the notification drawer badge toggle.
 - Public/login pages keep flash behavior without rendering the authenticated drawer.
 - Email delivery is available through existing Dlux email configuration but remains off by default.
 

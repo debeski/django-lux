@@ -68,6 +68,8 @@ tag-driven release pipeline (`release-manifest.json`,
 The deployment timezone is driven by the `TIME_ZONE` variable (IANA name, e.g.
 `Africa/Tripoli`) in `.secrets/.env`, passed through the Compose `x-environment`
 block into `settings.TIME_ZONE` and `CELERY_TIMEZONE`; it defaults to `UTC`.
+See [Deployment Configuration](deployment-configuration.md) for the canonical
+list of accepted `DLUX_*` Django settings and environment variables.
 
 The scaffold pins `django-lux[updater]` and enables verified inline updates.
 Hand-wired and non-Compose projects remain updater-disabled by default. Existing

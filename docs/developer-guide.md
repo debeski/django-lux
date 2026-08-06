@@ -150,6 +150,17 @@ It also connects to the surrounding UI systems:
 - autofill metadata attached to generated or patched form fields
 - generic modal/list/detail views that expect convention-friendly classes
 
+Navigation discovery excludes API endpoints before they reach the sidebar,
+Nav Bar, or discovered-home selectors. `api` is matched as an exact token across
+the full URL namespace/name and resolved path, including suffixes such as
+`records_api`, nested names such as `catalog:api:records`, and callback class or
+function names such as `RecordsAPIView`. Ordinary names that merely contain the
+letters, such as `rapid_report`, remain discoverable. Stored sidebar/Nav Bar
+trees and imported/exported settings are sanitized by the same rule; when an
+old API hierarchy node contains valid page children, those children are kept.
+For an endpoint whose naming does not identify it as an API, set
+`view.sidebar_exclude = True` explicitly.
+
 ### Sidebar Permission Inference
 
 Sidebar items are only visible to users who have the required view permission. The permission for each item is inferred in this order:

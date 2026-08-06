@@ -39,8 +39,8 @@ def default_auth_config():
         # Minimum length the strict validator (and live checklist) requires while
         # enforce_strong_passwords is on.
         'strong_password_min_length': 12,
-        # When on, the session cookie is a browser-session cookie (no persistent
-        # Max-Age) so closing the tab/browser signs the user out.
+        # When on, the session cookie is a browser-session cookie with no persistent
+        # Max-Age. Browser tabs share the cookie and cannot expire it independently.
         'purge_session_on_exit': False,
         # Idle sign-out: when enabled, an authenticated session is terminated after
         # inactivity_timeout_minutes of no activity (a client countdown warns first).
@@ -63,6 +63,18 @@ def default_email_config():
         'encrypted_password': '',
         'password_configured': False,
         'failure_notification_recipients': [],
+        # Seconds to wait for the provider. 0 keeps the shipped default, which is
+        # sized for a slow upstream; raise it for a server that scans mail in-line.
+        'timeout': 0,
+        # Operator opt-in for the Email step. Dependent features (email 2FA,
+        # forgot password, public registration, notification email) are only
+        # editable while this is on AND a test send has verified the config.
+        'enabled': False,
+        'verified': False,
+        'verified_at': '',
+        # Fingerprint of the connection fields the successful test ran against;
+        # any later edit no longer matches, which re-arms verification.
+        'verified_fingerprint': '',
     }
 
 
@@ -183,10 +195,10 @@ def default_theme_config():
 
 
 def default_typography_config():
-    from ..fonts import get_builtin_fonts
+    from ..fonts import get_available_fonts
 
     return {
-        'allowed_fonts': [font['slug'] for font in get_builtin_fonts()],
+        'allowed_fonts': [font['slug'] for font in get_available_fonts()],
         'default_fonts': {},
         'allow_user_font_override': True,
     }
@@ -239,6 +251,7 @@ def default_sidebar_config():
         'enable_reorder': True,
         'show_toolbar': True,
         'show_icons': True,
+        'show_notification_badges': True,
         'density': DEFAULT_SIDEBAR_DENSITY,
         'allow_user_density': True,
         'collapse_mode': DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -297,10 +310,14 @@ def default_log_config():
 
 
 def default_backup_config():
-    """System-backup scheduling, storage, and rotation policy.
+    """System-backup scheduling, storage, rotation, and recovery policy.
 
     Zero-valued retention limits intentionally mean "keep indefinitely" so
     enabling this settings group never removes an existing backup by default.
+
+    ``stall_timeout_minutes`` is how long a run may go without a progress
+    heartbeat before it is treated as dead; ``max_attempts`` counts the first
+    attempt, so the default 3 means up to two automatic retries.
     """
     return {
         'scheduled_enabled': False,
@@ -310,6 +327,10 @@ def default_backup_config():
         'auto_export_target': 'dlux_backups',
         'use_celery': True,
         'exclude_models': [],
+        'stall_timeout_minutes': 30,
+        'auto_retry_enabled': True,
+        'max_attempts': 3,
+        'retry_delay_minutes': 5,
     }
 
 

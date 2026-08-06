@@ -1,0 +1,416 @@
+/* The report sheet stays on a fixed paper surface in every theme so what is on
+   screen is exactly what comes out of the printer. Only the page around it is themed. */
+.dlux-report-print-page {
+    --dlux-paper: #ffffff;
+    --dlux-ink: #0b0b0b;
+    --dlux-ink-secondary: #52514e;
+    --dlux-ink-muted: #898781;
+    --dlux-rule: #e1e0d9;
+    --dlux-hairline: rgba(11, 11, 11, 0.1);
+    --dlux-series-1: #2a78d6;
+    --dlux-series-2: #eb6834;
+    display: grid;
+    justify-items: center;
+    gap: 1rem;
+    padding: 1.25rem 1rem 2rem;
+}
+
+.dlux-report-print-toolbar {
+    display: flex;
+    width: min(100%, 210mm);
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+.dlux-report-doc {
+    width: min(100%, 210mm);
+    padding: 16mm 14mm;
+    border: 1px solid var(--dlux-hairline);
+    border-radius: 0.5rem;
+    background: var(--dlux-paper);
+    box-shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.45);
+    color: var(--dlux-ink);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.dlux-report-doc-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--dlux-ink);
+}
+
+.dlux-report-doc-kicker {
+    color: var(--dlux-series-1);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.dlux-report-doc-head h1 {
+    margin: 0.2rem 0 0.15rem;
+    color: var(--dlux-ink);
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.dlux-report-doc-brand p {
+    margin: 0;
+    color: var(--dlux-ink-secondary);
+    font-size: 0.9rem;
+}
+
+.dlux-report-doc-meta {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: auto auto;
+    align-content: start;
+    gap: 0.2rem 0.75rem;
+    margin: 0;
+    font-size: 0.78rem;
+}
+
+.dlux-report-doc-meta dt {
+    color: var(--dlux-ink-muted);
+    font-weight: 500;
+}
+
+.dlux-report-doc-meta dd {
+    margin: 0;
+    color: var(--dlux-ink);
+    font-weight: 600;
+    text-align: end;
+}
+
+.dlux-report-doc-section {
+    margin-top: 1.6rem;
+}
+
+.dlux-report-doc-section > h2 {
+    margin: 0 0 0.85rem;
+    color: var(--dlux-ink);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.dlux-report-doc-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.dlux-report-doc-kpi {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--dlux-rule);
+    border-radius: 0.5rem;
+}
+
+.dlux-report-doc-kpi-lead {
+    grid-column: span 4;
+    border-color: var(--dlux-series-1);
+    border-inline-start-width: 4px;
+}
+
+.dlux-report-doc-kpi span {
+    color: var(--dlux-ink-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.dlux-report-doc-kpi strong {
+    color: var(--dlux-ink);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.dlux-report-doc-kpi-lead strong {
+    font-size: 3rem;
+}
+
+.dlux-report-doc-kpi small {
+    color: var(--dlux-ink-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.dlux-report-figure-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.dlux-report-figure {
+    min-width: 0;
+    margin: 0 0 1rem;
+    padding: 0.9rem;
+    border: 1px solid var(--dlux-rule);
+    border-radius: 0.5rem;
+    break-inside: avoid;
+}
+
+.dlux-report-figure figcaption {
+    margin-bottom: 0.6rem;
+    color: var(--dlux-ink);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.dlux-report-canvas {
+    position: relative;
+    width: 100%;
+}
+
+.dlux-report-canvas-trend {
+    height: 260px;
+}
+
+.dlux-report-canvas-rank {
+    height: 300px;
+}
+
+.dlux-report-canvas-mix {
+    height: 90px;
+}
+
+.dlux-report-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    margin-top: 0.7rem;
+}
+
+.dlux-report-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--dlux-ink-secondary);
+    font-size: 0.76rem;
+}
+
+.dlux-report-legend-swatch {
+    width: 0.7rem;
+    height: 0.7rem;
+    flex: 0 0 auto;
+    border-radius: 0.2rem;
+}
+
+.dlux-report-legend-item strong {
+    color: var(--dlux-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.dlux-report-doc-tables {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 1.5rem;
+}
+
+.dlux-report-doc-table {
+    min-width: 0;
+    break-inside: avoid;
+}
+
+.dlux-report-doc-table h3 {
+    margin: 0 0 0.4rem;
+    color: var(--dlux-ink);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.dlux-report-doc-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.dlux-report-doc-table th {
+    padding: 0.3rem 0.4rem;
+    border-bottom: 1px solid var(--dlux-ink);
+    color: var(--dlux-ink-muted);
+    font-weight: 600;
+    text-align: start;
+}
+
+.dlux-report-doc-table td {
+    padding: 0.28rem 0.4rem;
+    border-bottom: 1px solid var(--dlux-rule);
+    color: var(--dlux-ink);
+}
+
+.dlux-report-doc-table td:last-child,
+.dlux-report-doc-table th:last-child {
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+}
+
+.dlux-report-doc-empty {
+    margin: 0;
+    padding: 2rem;
+    border: 1px dashed var(--dlux-rule);
+    border-radius: 0.5rem;
+    color: var(--dlux-ink-muted);
+    text-align: center;
+}
+
+.dlux-report-doc-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.75rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--dlux-rule);
+    color: var(--dlux-ink-muted);
+    font-size: 0.72rem;
+}
+
+@media (max-width: 767.98px) {
+    .dlux-report-doc {
+        padding: 1.25rem;
+    }
+
+    .dlux-report-doc-head {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .dlux-report-doc-meta dd {
+        text-align: start;
+    }
+
+    .dlux-report-doc-kpis,
+    .dlux-report-figure-grid,
+    .dlux-report-doc-tables {
+        grid-template-columns: 1fr;
+    }
+
+    .dlux-report-doc-kpi-lead {
+        grid-column: span 1;
+    }
+}
+
+@page {
+    size: A4;
+    margin: 12mm;
+}
+
+@media print {
+    .dlux-report-print-page {
+        display: block;
+        padding: 0;
+    }
+
+    .dlux-report-doc {
+        width: 100%;
+        max-width: none;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .dlux-report-doc-head {
+        flex-direction: row;
+        gap: 8mm;
+        padding-bottom: 4mm;
+    }
+
+    .dlux-report-doc-meta dd {
+        text-align: end;
+    }
+
+    .dlux-report-doc-section {
+        margin-top: 5mm;
+    }
+
+    .dlux-report-doc-section > h2 {
+        margin-bottom: 3mm;
+    }
+
+    .dlux-report-doc-kpis {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 3mm;
+    }
+
+    .dlux-report-doc-kpi {
+        padding: 2.5mm 3mm;
+    }
+
+    .dlux-report-doc-kpi-lead {
+        grid-column: span 4;
+    }
+
+    .dlux-report-doc-kpi-lead strong {
+        font-size: 2.25rem;
+    }
+
+    .dlux-report-figure-grid,
+    .dlux-report-doc-tables {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 3mm 5mm;
+    }
+
+    .dlux-report-figure {
+        margin-bottom: 3mm;
+        padding: 3mm;
+    }
+
+    .dlux-report-doc-break {
+        break-inside: avoid;
+    }
+
+    .dlux-report-doc-page-two {
+        break-before: page;
+        page-break-before: always;
+    }
+
+    .dlux-report-canvas-trend {
+        height: 82mm;
+    }
+
+    .dlux-report-canvas-rank {
+        height: 52mm;
+    }
+
+    .dlux-report-canvas-mix {
+        height: 18mm;
+    }
+
+    .dlux-report-canvas > canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    .dlux-report-doc-table h3 {
+        margin-bottom: 2mm;
+    }
+
+    .dlux-report-doc-table th,
+    .dlux-report-doc-table td {
+        padding: 1.5mm 2mm;
+    }
+
+    .dlux-report-doc-kpi,
+    .dlux-report-figure,
+    .dlux-report-legend-swatch {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .dlux-report-doc-foot {
+        margin-top: 5mm;
+    }
+}

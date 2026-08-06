@@ -113,7 +113,7 @@ class SystemBackupPolicyTests(TestCase):
         # choice survives a Celery handoff, where the task only receives the pk.
         captured = {}
 
-        def fake_write(dest, *, passphrase=None, progress_callback=None, include_media=True):
+        def fake_write(dest, *, passphrase=None, progress_callback=None, reporter=None, include_media=True):
             captured['include_media'] = include_media
             return (
                 {'models': 0, 'rows': 0, 'files': 0, 'media_included': include_media, 'passphrase_required': False},
@@ -309,6 +309,9 @@ class SystemRestoreRoundTripTests(TestCase):
                     source_object_id=str(backup.pk),
                     action='backup_completed',
                 ).exists())
+                backup_log = ActivityLog.objects.get(action='EXPORT', model_key='dlux.systembackup')
+                self.assertEqual(backup_log.category, 'system')
+                self.assertEqual(backup_log.model_name, 'Dlux System Backup')
 
                 # Mutate the world after the snapshot.
                 admin.set_password('changed-pass-9')
@@ -340,6 +343,10 @@ class SystemRestoreRoundTripTests(TestCase):
                 self.assertEqual(restored_worker.profile.profile_picture.name, picture_name)
                 self.assertTrue(default_storage.exists(picture_name))
                 self.assertEqual(ActivityLog.objects.filter(action='CREATE', model_name='Thing').count(), 1)
+                restore_log = ActivityLog.objects.get(action='RESTORE')
+                self.assertEqual(restore_log.category, 'system')
+                self.assertEqual(restore_log.model_key, 'dlux.systemrestore')
+                self.assertEqual(restore_log.model_name, 'Dlux System Restore')
 
     def test_restore_blocks_on_migration_mismatch(self):
         with tempfile.TemporaryDirectory() as media_root:
@@ -406,6 +413,9 @@ class SystemBackupViewTests(TestCase):
         self.assertContains(response, reverse('system_backup_list_status'))
         self.assertContains(response, 'id="sysbackup-table-body"')
         self.assertContains(response, 'data-autoclose="false"')
+        self.assertContains(response, 'dlux-backup-page')
+        self.assertContains(response, 'dlux-form dlux-backup-create-form')
+        self.assertContains(response, 'dlux-table-shell')
 
     def test_manual_backup_scope_choice_sets_media_included_flag(self):
         SystemBackup = apps.get_model('dlux', 'SystemBackup')

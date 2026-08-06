@@ -291,6 +291,23 @@ def validate_release_manifest(manifest, expected_version):
             if text:
                 cleaned.append(text)
         manifest["highlights"] = cleaned
+    # Optional inline-update floor: the most recent version that required a
+    # project image rebuild. An inline (Python-only) update is only safe onto a
+    # baked image at or above this version, so a box several releases behind
+    # cannot skip an image-required release by jumping to a later inline-safe
+    # one. Absent = no floor (older manifests, or releases with no image
+    # dependency). Validated as a canonical PEP 440 version; empty drops it.
+    image_baseline = manifest.get("image_baseline")
+    if image_baseline is not None:
+        baseline_text = str(image_baseline).strip()
+        if not baseline_text:
+            manifest.pop("image_baseline", None)
+        else:
+            try:
+                Version(baseline_text)
+            except InvalidVersion as exc:
+                raise UpdaterError("The release manifest has an invalid image baseline.") from exc
+            manifest["image_baseline"] = baseline_text
     return manifest
 
 
@@ -342,12 +359,26 @@ def _check_dependency_contract(metadata):
     return []
 
 
-def assess_wheel(candidate, wheel_path):
+def assess_wheel(candidate, wheel_path, baked_version=None):
     manifest, metadata = inspect_wheel(wheel_path)
     manifest = validate_release_manifest(manifest, candidate.version)
     reasons = []
     if not manifest["inline_safe"]:
         reasons.append("This release requires a project image rebuild.")
+    # Enforce the inline-update floor. Fails closed: when a release declares an
+    # image baseline, an inline update is refused unless the baked image is a
+    # comparable version at or above that baseline. This stops a box that is
+    # several releases behind from skipping an image-required release by jumping
+    # straight to a later inline-safe one.
+    baseline = manifest.get("image_baseline")
+    if baseline:
+        baked_text = str(baked_version or "").strip()
+        image_message = f"This release needs the v{baseline} project image; update the project image first."
+        try:
+            if not baked_text or Version(baked_text) < Version(baseline):
+                reasons.append(image_message)
+        except InvalidVersion:
+            reasons.append(image_message)
     if manifest["minimum_updater_schema"] > UPDATER_SCHEMA_VERSION:
         reasons.append("This release requires a newer updater bootstrap.")
     if manifest["migration_policy"] != "backward_compatible":

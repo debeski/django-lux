@@ -18,6 +18,7 @@ Use the sections below based on what you are trying to do.
 ## I am Configuring DjangoLux
 
 - [Admin Guide](admin-guide.md) for the first-launch setup wizard, Options view, sidebar builder, themes, languages, and runtime preferences.
+- [Deployment Configuration](deployment-configuration.md) for every accepted `DLUX_*` Django setting and environment variable, including types, defaults, precedence, and secret handling.
 - [DSRP-1 Security Standard](security-dsrp-1.md) for the active backend authorization and security-flow policy.
 - [Public Registration Playground](registration.md) for the disabled-by-default email-verified local signup path.
 - [Data & Privacy](data-privacy.md) for the personal data DjangoLux stores, transparency vs. consent, retention, and the privacy-notice / consent operator controls.
@@ -33,6 +34,7 @@ Use the sections below based on what you are trying to do.
 
 ## I Need Reference Material
 
+- [Deployment Configuration](deployment-configuration.md) for the canonical accepted deployment-key inventory.
 - [Features](FEATURES.md) — complete feature inventory covering every capability from scaffolding to security, tables, themes, and UI infrastructure.
 - [Reference](reference.md) for management commands, endpoints, template tags, helper utilities, and codebase entry points.
 - [Verified Inline Updater](inline-updater.md) for updater settings, volume state, safety gates, and operator recovery.

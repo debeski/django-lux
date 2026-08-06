@@ -144,14 +144,12 @@ def revoke_linked_session_trust(user, session_keys, trusted_device_ids=None, exc
     return devices.filter(criteria).update(revoked_at=timezone.now())
 
 
-def terminate_other_user_sessions(user, keep_session_key=None):
+def terminate_other_user_sessions(user, keep_session_key=None, *, reason='signed_in_elsewhere'):
     """End every other active session for ``user`` (delete the session row + close its
     presence record), keeping only ``keep_session_key``.
 
-    Single active session is purely about session concurrency, so this does not touch
-    trusted-device records — trust is independent of which session is currently live,
-    and an evicted device can still skip 2FA when it signs back in. (Revoking a device's
-    trust is a separate, explicit action in the profile's trusted-devices UI.)
+    Session concurrency is independent of trusted-device status, so this does not touch
+    trusted-device records. Revoking a device's trust remains a separate profile action.
     """
     now = timezone.now()
     user_id = str(user.pk)
@@ -193,7 +191,7 @@ def terminate_other_user_sessions(user, keep_session_key=None):
         except Exception:
             Session.objects.filter(session_key__in=target_keys).delete()
         mark_presence_sessions_ended(target_keys, revoked=True)
-        flag_sessions_revoked(target_keys, reason='signed_in_elsewhere')
+        flag_sessions_revoked(target_keys, reason=reason)
     return len(target_keys)
 
 

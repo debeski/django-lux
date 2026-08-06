@@ -46,6 +46,30 @@
         badge.textContent = count > 99 ? '99+' : String(count);
     }
 
+    function updateSidebarSectionBadges(sectionCounts) {
+        const counts = sectionCounts && typeof sectionCounts === 'object' ? sectionCounts : {};
+        document.querySelectorAll('[data-dlux-sidebar-notification-keys]').forEach(function (entry) {
+            const keys = Array.from(new Set(
+                (entry.dataset.dluxSidebarNotificationKeys || '').split(/\s+/).filter(Boolean)
+            ));
+            const count = keys.reduce(function (total, key) {
+                return total + Math.max(0, Number(counts[key]) || 0);
+            }, 0);
+            const badge = entry.querySelector(':scope > [data-dlux-sidebar-notification-badge], :scope > h2 button [data-dlux-sidebar-notification-badge]');
+            if (!badge) {
+                return;
+            }
+            const root = entry.closest('#sidebarTreeRoot');
+            const enabled = !root || root.dataset.dluxSidebarNotificationBadgesEnabled === 'true';
+            badge.classList.toggle('d-none', !enabled || !count);
+            badge.textContent = count > 99 ? '99+' : (count ? String(count) : '');
+            const label = root ? root.dataset.dluxSidebarUnreadLabel : 'unread notifications';
+            const accessibleLabel = count + ' ' + (label || 'unread notifications');
+            badge.setAttribute('aria-label', accessibleLabel);
+            badge.title = accessibleLabel;
+        });
+    }
+
     function itemMeta(item) {
         const parts = [];
         if (item.source_model || item.category) {
@@ -118,6 +142,7 @@
     function applyPayload(root, payload) {
         renderList(root, payload.items || []);
         updateBadge(root, payload.unread_count || 0, payload.unread_level || 'info');
+        updateSidebarSectionBadges(payload.section_counts || {});
     }
 
     function hasActiveProgress(payload) {

@@ -138,6 +138,7 @@ def notifications_list(request):
         'items': context.get('items', []),
         'unread_count': context.get('unread_count', 0),
         'unread_level': context.get('unread_level', ''),
+        'section_counts': context.get('section_counts', {}),
     })
 
 

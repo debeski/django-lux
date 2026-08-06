@@ -1074,6 +1074,7 @@ class ReportBackup(models.Model):
         verbose_name="User",
     )
     window = models.CharField(max_length=10, default='all', verbose_name="Window")
+    criteria = models.JSONField(default=dict, db_default={}, blank=True, verbose_name="Report Criteria")
     status = models.CharField(
         max_length=12,
         choices=STATUS_CHOICES,
@@ -1193,9 +1194,23 @@ class SystemBackup(models.Model):
     )
     passphrase_required = models.BooleanField(default=False, verbose_name="Passphrase Required")
     error = models.TextField(blank=True, verbose_name="Error")
+    # Liveness marker written by every progress tick. A running row whose heartbeat
+    # stops advancing is the only reliable signal that its worker died mid-build:
+    # an OOM-killed or restarted worker never reaches the failure path, so without
+    # this the row would stay 'running' forever (a ghost).
+    heartbeat_at = models.DateTimeField(blank=True, null=True, verbose_name="Heartbeat At")
+    # Coarse machine-readable phase so the UI can say where a stall happened.
+    stage = models.CharField(max_length=20, blank=True, default='', db_default='', verbose_name="Stage")
+    attempt_count = models.PositiveSmallIntegerField(default=0, db_default=0, verbose_name="Attempts")
+    next_attempt_at = models.DateTimeField(blank=True, null=True, verbose_name="Next Attempt At")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     started_at = models.DateTimeField(blank=True, null=True, verbose_name="Started At")
     completed_at = models.DateTimeField(blank=True, null=True, verbose_name="Completed At")
+
+    STAGE_PREPARING = 'preparing'
+    STAGE_MODELS = 'models'
+    STAGE_ENCRYPTING = 'encrypting'
+    STAGE_STORING = 'storing'
 
     class Meta:
         verbose_name = "System Backup"
@@ -1204,6 +1219,21 @@ class SystemBackup(models.Model):
 
     def __str__(self):
         return f"system backup {self.token[:8]} ({self.status})"
+
+    @property
+    def is_active(self):
+        return self.status in (self.STATUS_PENDING, self.STATUS_RUNNING)
+
+    @property
+    def last_signal_at(self):
+        """Most recent proof of life for this run, whatever stage it reached."""
+        return self.heartbeat_at or self.started_at or self.created_at
+
+    def seconds_since_signal(self, now=None):
+        reference = self.last_signal_at
+        if reference is None:
+            return 0
+        return max(0, int(((now or timezone.now()) - reference).total_seconds()))
 
 
 class SystemRestore(models.Model):

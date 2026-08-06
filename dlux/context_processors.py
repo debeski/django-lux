@@ -33,8 +33,12 @@ from django.conf import settings
 import hashlib
 import json
 from django.urls import reverse, NoReverseMatch
-from .discovery import SYSTEM_ROUTE_META, build_sidebar_navigation
-from .themes import get_theme_names, get_theme_options
+from .discovery import (
+    SYSTEM_ROUTE_META,
+    annotate_sidebar_notification_counts,
+    build_sidebar_navigation,
+)
+from .themes import generate_theme_preview_css, get_theme_names, get_theme_options
 
 
 def _normalize_runtime_path(value):
@@ -488,6 +492,7 @@ def dlux_context(request):
         allowed_theme_names = [*allowed_theme_names, public_root_theme]
     context['DLUX_THEME_NAMES'] = allowed_theme_names
     context['DLUX_THEMES'] = get_theme_options(dlux_strings, allowed_themes=allowed_theme_names)
+    context['theme_preview_css'] = generate_theme_preview_css()
     context['DLUX_TABLE_DENSITIES'] = list(TABLE_DENSITY_CHOICES)
     context['DLUX_MODAL_SIZES'] = list(MODAL_SIZE_CHOICES)
     context['DLUX_URL_PREFIX'] = _dlux_url_prefix()
@@ -547,6 +552,11 @@ def dlux_context(request):
     sidebar_runtime_config = normalize_sidebar_behavior(final_config.get('sidebar', {}))
     sidebar_enabled = bool(sidebar_runtime_config.get('enabled', True))
     context['sidebar_enabled'] = sidebar_enabled
+    context['sidebar_notification_badges_enabled'] = bool(
+        sidebar_enabled
+        and sidebar_runtime_config.get('show_notification_badges', True)
+        and final_config.get('notifications', {}).get('enabled', True)
+    )
     context['sidebar_theme_picker_enabled'] = bool(
         sidebar_enabled and final_config.get('allow_user_theme_override', True) and len(allowed_theme_names) > 1
     )
@@ -603,6 +613,10 @@ def dlux_context(request):
         context['dlux_notifications_enabled'] = notification_context.get('enabled', False)
         context['dlux_unread_notifications_count'] = notification_context.get('unread_count', 0)
         context['dlux_unread_notifications_level'] = notification_context.get('unread_level', '')
+        annotate_sidebar_notification_counts(
+            context['sidebar_entries'],
+            notification_context.get('section_counts', {}),
+        )
         context['dlux_flash_notifications'] = get_flash_notifications(request)
     except Exception:
         context['dlux_notification_config'] = final_config.get('notifications', {})
@@ -610,6 +624,7 @@ def dlux_context(request):
         context['dlux_notifications_enabled'] = False
         context['dlux_unread_notifications_count'] = 0
         context['dlux_unread_notifications_level'] = ''
+        annotate_sidebar_notification_counts(context['sidebar_entries'], {})
         context['dlux_flash_notifications'] = []
     context['titlebar_actions'] = _build_titlebar_actions(request, context, final_config, dlux_strings)
     is_public_index = _is_public_index(request, final_config)
@@ -633,19 +648,19 @@ def dlux_context(request):
     from .fonts import (
         DEFAULT_FONT_SLUG,
         generate_font_face_css,
-        get_builtin_fonts,
+        get_available_fonts,
         get_default_font_family,
         get_font_by_slug,
     )
-    builtin_fonts = get_builtin_fonts()
+    available_fonts = get_available_fonts()
     allowed_fonts = normalize_allowed_fonts(final_config.get('allowed_fonts'))
     context['font_face_css'] = generate_font_face_css(allowed_fonts)
     context['default_font_family'] = get_default_font_family()
     context['font_families'] = {
         font['slug']: font['family']
-        for font in builtin_fonts
+        for font in available_fonts
     }
-    context['option_fonts'] = [font for font in builtin_fonts if font.get('slug') in allowed_fonts]
+    context['option_fonts'] = [font for font in available_fonts if font.get('slug') in allowed_fonts]
     
     allow_user_font_override = bool(final_config.get('allow_user_font_override', True))
     default_fonts_by_lang = final_config.get('default_fonts', {})

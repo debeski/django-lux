@@ -465,6 +465,45 @@ def _celery_status_from_result(detail, result):
     )
 
 
+def _get_email_service():
+    """Resolve the Email service status for the admin panel.
+
+    Always resolvable, and deliberately not gated on any feature toggle. It used
+    to render only while public registration or email 2FA was on — the two
+    settings that are themselves locked until email is verified, so the indicator
+    was hidden exactly when an operator needed it to set email up.
+
+    Four distinct states, because "not working" is not one condition:
+      offline  — enabled and configured, but the config cannot send
+      unknown  — configured but never proven by a test send
+      degraded — turned off by the operator
+      online   — enabled, configured and verified
+    """
+    from ..system.normalizers import normalize_email_config
+    from ..utils import email_features_unlocked
+
+    status = get_email_service_status()
+    SystemSettings = apps.get_model('dlux', 'SystemSettings')
+    try:
+        config = normalize_email_config(getattr(SystemSettings.load(), 'email_config', {}) or {})
+    except Exception:
+        config = {}
+
+    transport = config.get('transport') or status.get('transport') or 'direct'
+    detail = 'smtp-relay' if transport == 'relay' else (status.get('backend', '') or '')
+
+    if not config.get('enabled'):
+        state, note_key = 'degraded', 'service_email_disabled'
+    elif not status.get('available'):
+        state, note_key = 'offline', 'service_email_unavailable'
+    elif not (config.get('verified') or email_features_unlocked()):
+        state, note_key = 'unknown', 'service_email_unverified'
+    else:
+        state, note_key = 'online', 'service_email_verified'
+
+    return _service_status(state, detail=detail, note_key=note_key)
+
+
 def _get_celery_service(probe=False):
     """Resolve the Tasks (Celery) service status.
 
@@ -584,20 +623,11 @@ def options_view(request):
 
     if show_system_diagnostics:
         system_config = get_system_config()
-        show_email_service = bool(system_config.get('public_registration_enabled') or system_config.get('email_2fa'))
         db_service = _localize_service_status(_get_database_service(), strings)
         cache_service = _localize_service_status(_get_cache_service(), strings)
         api_service = _localize_service_status(_get_api_service(), strings)
         celery_service = _localize_service_status(_get_celery_service(), strings)
-        email_service = None
-        if show_email_service:
-            email_status = get_email_service_status()
-            email_service = _service_status(
-                'online' if email_status.get('available') else 'offline',
-                detail=email_status.get('backend', ''),
-                note=email_status.get('reason', ''),
-            )
-            email_service = _localize_service_status(email_service, strings)
+        email_service = _localize_service_status(_get_email_service(), strings)
         drf_service = _get_drf_service()
         os_info = f"{platform.system()} {platform.release()}"
         python_version = sys.version.split()[0]
@@ -746,6 +776,28 @@ def app_settings_modal_view(request, namespace):
         request=request,
     )
     return JsonResponse({'html': html})
+
+
+@login_required
+@require_POST
+def email_health_check_view(request):
+    """On-demand Email posture re-read (superuser / global-staff only).
+
+    Cheap and side-effect free: it re-reads configuration and verification state
+    and sends nothing. Proving delivery is the test-send button's job.
+    """
+    if not (request.user.is_superuser or is_global_staff(request.user)):
+        raise PermissionDenied
+
+    strings = get_strings(get_current_language_code(request))
+    service = _localize_service_status(_get_email_service(), strings)
+    return JsonResponse({
+        'state': service['state'],
+        'label': service['label'],
+        'detail': service['detail'],
+        'note': service['note'],
+        'badge_class': service['badge_class'],
+    })
 
 
 @login_required
@@ -1088,6 +1140,85 @@ def export_system_settings_view(request):
     return response
 
 
+@login_required
+@require_POST
+def email_config_apply_view(request):
+    """Persist just the Email step so a test send can run without leaving it.
+
+    The test button deliberately sends with the *stored* configuration: the SMTP
+    relay is a separate container that reads config from the database, so testing
+    against unsaved form values would exercise something the relay cannot see.
+    Rather than make the test lie, this saves the email group in place — the admin
+    edits, applies, and tests in one pass instead of saving the modal, reopening it
+    and navigating back to the step.
+
+    Only ``email_config`` is written. The form is bound in single-step mode for the
+    Email step, so every other step's values pass through its preservation cleaners
+    untouched, and the same packing/normalizing path runs as a full save.
+    """
+    if not request.user.is_superuser:
+        raise PermissionDenied
+
+    strings = get_strings(get_current_language_code(request))
+    SystemSettingsForm = import_string('dlux.forms.SystemSettingsForm')
+    SystemSettings = apps.get_model('dlux', 'SystemSettings')
+    instance = SystemSettings.load()
+    form = SystemSettingsForm(data=request.POST, instance=instance, request=request)
+    if not form.is_valid() and 'email_config' in form.errors:
+        return JsonResponse(
+            {'ok': False, 'message': '; '.join(str(e) for e in form.errors['email_config'])},
+            status=400,
+        )
+
+    config = (form.cleaned_data or {}).get('email_config')
+    if not isinstance(config, dict):
+        return JsonResponse(
+            {'ok': False, 'message': strings.get('email_apply_failed', 'Could not apply the email settings.')},
+            status=400,
+        )
+
+    instance.email_config = config
+    instance.save(update_fields=['email_config'])
+    ActivityLog = apps.get_model('dlux', 'ActivityLog')
+    ActivityLog.safe_log(user=request.user, action='UPDATE', model_name='Dlux Email Settings')
+
+    status = get_email_service_status()
+    return JsonResponse({
+        'ok': True,
+        'message': strings.get('email_apply_saved', 'Email settings applied. You can send a test now.'),
+        'verified': bool(config.get('verified')),
+        'password_configured': bool(config.get('password_configured')),
+        'service_reason': status.get('reason', ''),
+        'available': bool(status.get('available')),
+    })
+
+
+def _record_email_verification(verified):
+    """Persist the outcome of a test send onto email_config.
+
+    The test result is what unlocks the mail-dependent settings, so it is stored
+    against a fingerprint of the exact connection it was run over; editing any
+    connection field later re-arms verification automatically (see
+    normalize_email_config). Returns the resulting verified flag.
+    """
+    from ..system.normalizers import email_config_fingerprint, normalize_email_config
+
+    SystemSettings = apps.get_model('dlux', 'SystemSettings')
+    instance = SystemSettings.load()
+    config = normalize_email_config(getattr(instance, 'email_config', {}) or {})
+    if verified:
+        config['verified'] = True
+        config['verified_at'] = timezone.now().isoformat()
+        config['verified_fingerprint'] = email_config_fingerprint(config)
+    else:
+        config['verified'] = False
+        config['verified_at'] = ''
+        config['verified_fingerprint'] = ''
+    instance.email_config = config
+    instance.save(update_fields=['email_config'])
+    return bool(config['verified'])
+
+
 @require_POST
 def email_send_test_view(request):
     """Send a one-off test email using the saved Dlux email configuration."""
@@ -1111,23 +1242,55 @@ def email_send_test_view(request):
             status=409,
         )
 
+    # A stored secret that this process cannot decrypt is indistinguishable from
+    # "no password" once decryption falls back to '' — the send then fails deep in
+    # SMTP (or, with relay transport, in a sidecar whose log nobody is watching)
+    # with an error that names neither the key nor the password. Say so up front.
+    from ..system.normalizers import normalize_email_config
+    from ..utils import EMAIL_SECRET_UNDECRYPTABLE, email_secret_state
+
+    SystemSettings = apps.get_model('dlux', 'SystemSettings')
+    stored = normalize_email_config(getattr(SystemSettings.load(), 'email_config', {}) or {})
+    if stored.get('secret_storage') == 'encrypted_db':
+        if email_secret_state(stored.get('encrypted_password')) == EMAIL_SECRET_UNDECRYPTABLE:
+            _record_email_verification(False)
+            return JsonResponse(
+                {
+                    'ok': False,
+                    'message': strings.get(
+                        'email_test_secret_undecryptable',
+                        'The stored SMTP password cannot be decrypted with this deployment\'s SECRET_KEY. '
+                        'It was saved under a different key (a rotated key, or a container started with a '
+                        'different DJANGO_SECRET_KEY). Re-enter the password to store it again.',
+                    ),
+                },
+                status=409,
+            )
+
     subject = strings.get('email_test_subject', 'DjangoLux test email')
     body = strings.get('email_test_body', 'This is a test email confirming your DjangoLux email configuration works.')
     try:
         sent = send_dlux_mail(subject, body, [recipient], fail_silently=False, alert_on_failure=False)
     except Exception as exc:  # noqa: BLE001 — surface any backend/SMTP error to the operator
         logger.warning("Dlux test email to %s failed: %s", recipient, exc)
+        _record_email_verification(False)
         return JsonResponse(
             {'ok': False, 'message': strings.get('email_test_failed', 'Sending failed. Check the SMTP host, credentials, and from address.')},
             status=502,
         )
 
     if not sent:
+        _record_email_verification(False)
         return JsonResponse(
             {'ok': False, 'message': strings.get('email_test_failed', 'Sending failed. Check the SMTP host, credentials, and from address.')},
             status=502,
         )
-    return JsonResponse({'ok': True, 'message': strings.get('email_test_sent', 'Test email sent. Check the recipient inbox.')})
+    _record_email_verification(True)
+    return JsonResponse({
+        'ok': True,
+        'verified': True,
+        'message': strings.get('email_test_sent', 'Test email sent. Check the recipient inbox.'),
+    })
 
 
 @login_required

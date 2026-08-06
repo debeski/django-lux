@@ -48,7 +48,7 @@ Generated projects include `start.sh` and `start.ps1` wrappers plus the resident
 ```bash
 ./start.sh             # start the production stack
 ./start.sh -d          # start with the development override
-./start.sh --update    # pull and safely recreate updated services
+./start.sh update    # pull and safely recreate updated services
 ```
 
 [Composer source](https://github.com/debeski/composer) · [Docker image](https://hub.docker.com/r/debeski/composer) · [DjangoLux integration guide](docs/inline-updater.md#deployment-architecture)

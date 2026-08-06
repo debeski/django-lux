@@ -1,4 +1,7 @@
+import os
+
 from django import template
+from django.contrib.staticfiles import finders
 from django.template.loader import get_template
 from django.template import TemplateDoesNotExist
 from django.templatetags.static import static as _django_static
@@ -22,14 +25,24 @@ def dlux_static(path):
     and thus no ``DLUX_VERSION`` context variable.
 
     Because the version changes on every release, every static asset is
-    re-fetched by browsers after an inline update — no more stale cached CSS/JS
-    from a forgotten manual buster. Interim measure; once the generated project
-    adopts ManifestStaticFilesStorage (content-hashed names) this can be dropped
-    in favour of a plain ``{% static %}``.
+    re-fetched by browsers after an inline update. In DEBUG, the source file's
+    modification time is added so mounted development assets also refresh
+    without pretending an unreleased edit is a new Dlux release. Interim
+    measure; once the generated project adopts ManifestStaticFilesStorage
+    (content-hashed names) this can be dropped in favour of a plain
+    ``{% static %}``.
     """
+    revision = _DLUX_VERSION
+    if settings.DEBUG:
+        try:
+            source_path = finders.find(path)
+            if source_path:
+                revision = f"{revision}-{os.stat(source_path).st_mtime_ns:x}"
+        except (OSError, TypeError, ValueError):
+            pass
     url = _django_static(path)
     separator = '&' if '?' in url else '?'
-    return f"{url}{separator}v={_DLUX_VERSION}"
+    return f"{url}{separator}v={revision}"
 
 @register.simple_tag(takes_context=True)
 def dlux_timesince(context, value, arg=None):

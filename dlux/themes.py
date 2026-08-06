@@ -1,5 +1,8 @@
+import re
 from functools import lru_cache
 from pathlib import Path
+
+from django.conf import settings
 
 
 _THEME_REGISTRY = (
@@ -90,26 +93,79 @@ _THEME_REGISTRY = (
 )
 
 
+_THEME_SLUG_RE = re.compile(r'^[a-z][a-z0-9_-]{0,49}$')
+_THEME_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
+_THEME_PATH_RE = re.compile(r'^[A-Za-z0-9_./@+-]+\.css$')
+
+
 def _themes_dir():
     return Path(__file__).resolve().parent / 'static' / 'dlux' / 'themes' / 'css'
 
 
 @lru_cache(maxsize=1)
-def get_theme_names():
+def get_builtin_themes():
     available = {
         path.stem
         for path in _themes_dir().glob('*.css')
         if path.stem != 'main'
     }
-    return tuple(theme['slug'] for theme in _THEME_REGISTRY if theme['slug'] in available)
+    return tuple(theme for theme in _THEME_REGISTRY if theme['slug'] in available)
+
+
+def _normalize_custom_theme(value):
+    if not isinstance(value, dict):
+        return None
+
+    slug = str(value.get('slug') or '').strip().lower()
+    label = str(value.get('label') or slug.replace('_', ' ').replace('-', ' ').title()).strip()
+    preview_color = str(value.get('preview_color') or '').strip()
+    css_path = str(value.get('css_path') or '').strip()
+    if (
+        not _THEME_SLUG_RE.fullmatch(slug)
+        or not label
+        or len(label) > 100
+        or not _THEME_COLOR_RE.fullmatch(preview_color)
+        or not _THEME_PATH_RE.fullmatch(css_path)
+        or css_path.startswith(('/', './', '../'))
+        or '/..' in css_path
+    ):
+        return None
+
+    return {
+        'slug': slug,
+        'color': preview_color,
+        'label': label,
+        'label_key': '',
+        'preview_style': f'background: {preview_color};',
+        'css_path': css_path,
+        'custom': True,
+    }
+
+
+def get_available_themes():
+    themes = list(get_builtin_themes())
+    known_slugs = {theme['slug'] for theme in themes}
+    configured = getattr(settings, 'DLUX_CUSTOM_THEMES', ())
+    if not isinstance(configured, (list, tuple)):
+        return tuple(themes)
+
+    for value in configured:
+        theme = _normalize_custom_theme(value)
+        if not theme or theme['slug'] in known_slugs:
+            continue
+        themes.append(theme)
+        known_slugs.add(theme['slug'])
+    return tuple(themes)
+
+
+def get_theme_names():
+    return tuple(theme['slug'] for theme in get_available_themes())
 
 
 def get_theme_choices():
-    names = set(get_theme_names())
     return tuple(
-        (theme['slug'], theme['color'], theme['label_key'])
-        for theme in _THEME_REGISTRY
-        if theme['slug'] in names
+        (theme['slug'], theme['color'], theme.get('label_key', ''))
+        for theme in get_available_themes()
     )
 
 
@@ -133,12 +189,23 @@ def get_theme_options(strings=None, allowed_themes=None):
     return [
         {
             **theme,
-            'label': strings.get(theme['label_key'], theme['slug'].replace('_', ' ').title()),
+            'label': (
+                theme.get('label')
+                or strings.get(theme.get('label_key'), theme['slug'].replace('_', ' ').title())
+            ),
         }
-        for theme in _THEME_REGISTRY
+        for theme in get_available_themes()
         if theme['slug'] in names
     ]
 
 
 def is_valid_theme(theme):
     return theme in set(get_theme_names())
+
+
+def generate_theme_preview_css():
+    return '\n'.join(
+        f".dlux-theme-preview--{theme['slug']} {{ background: {theme['color']}; }}"
+        for theme in get_available_themes()
+        if theme.get('custom')
+    )

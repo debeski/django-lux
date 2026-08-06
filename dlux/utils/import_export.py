@@ -76,7 +76,6 @@ from .config import (
     normalize_titlebar_config,
 )
 from .localization import _normalize_language_code, normalize_language_catalog
-from .navigation import normalize_navbar_config, normalize_sidebar_behavior
 
 SYSTEM_SETTINGS_EXPORT_FORMAT = 'django-lux.system-settings'
 
@@ -97,6 +96,8 @@ def _field_file_name(value):
 # System Import Export - Function serializes DB-backed settings for transport.
 def export_system_settings_payload(instance=None):
     """Return a portable JSON payload for DB-backed setup settings."""
+    from ..discovery import sanitize_navbar_config, sanitize_sidebar_config
+
     if instance is None:
         SystemSettings = apps.get_model('dlux', 'SystemSettings')
         instance = SystemSettings.load()
@@ -140,9 +141,9 @@ def export_system_settings_payload(instance=None):
         elif field_name == 'system_names':
             data[field_name] = normalize_system_names(value)
         elif field_name == 'sidebar_config':
-            data[field_name] = normalize_sidebar_behavior(value)
+            data[field_name] = sanitize_sidebar_config(value, allow_system_items=True)
         elif field_name == 'navbar_config':
-            data[field_name] = normalize_navbar_config(value)
+            data[field_name] = sanitize_navbar_config(value)
         elif field_name == 'log_config':
             data[field_name] = normalize_log_config(value)
         elif field_name == 'profile_config':
@@ -178,6 +179,8 @@ def export_system_settings_payload(instance=None):
 # System Import Export - Function validates exported or raw settings payloads.
 def normalize_system_settings_import_payload(payload):
     """Validate and normalize an exported setup payload or a direct settings dict."""
+    from ..discovery import sanitize_navbar_config, sanitize_sidebar_config
+
     if not isinstance(payload, dict):
         raise ValueError("Setup import must be a JSON object.")
 
@@ -201,9 +204,12 @@ def normalize_system_settings_import_payload(payload):
     if 'translations_override' in normalized and not isinstance(normalized['translations_override'], dict):
         normalized['translations_override'] = {}
     if 'sidebar_config' in normalized:
-        normalized['sidebar_config'] = normalize_sidebar_behavior(normalized['sidebar_config'])
+        normalized['sidebar_config'] = sanitize_sidebar_config(
+            normalized['sidebar_config'],
+            allow_system_items=True,
+        )
     if 'navbar_config' in normalized:
-        normalized['navbar_config'] = normalize_navbar_config(normalized['navbar_config'])
+        normalized['navbar_config'] = sanitize_navbar_config(normalized['navbar_config'])
     if 'log_config' in normalized:
         normalized['log_config'] = normalize_log_config(normalized['log_config'])
     if 'profile_config' in normalized:

@@ -5,11 +5,16 @@ import logging
 from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.urls import NoReverseMatch, reverse
+from django.utils import timezone
 
 from .translations import get_strings
 
 
 logger = logging.getLogger("dlux")
+
+
+def _has_field(backup, name):
+    return any(field.name == name for field in type(backup)._meta.fields)
 
 
 def _backup_kind(backup):
@@ -106,16 +111,37 @@ def start_backup_progress(backup):
         return None
 
 
-def set_backup_progress(backup, percent, message):
+def touch_backup_progress(backup, percent=None, message=None, stage=None):
+    """Write a liveness heartbeat (and optional progress) without touching the drawer.
+
+    The drawer notification is comparatively expensive to rewrite, so long inner
+    loops call this instead: the row keeps proving the runner is alive — which is
+    what the stall reaper and the "no progress for Nm" warning read — while the
+    notification is refreshed only at coarse checkpoints.
+    """
+    values = {}
+    if _has_field(backup, "heartbeat_at"):
+        values["heartbeat_at"] = timezone.now()
+    if percent is not None:
+        percent = max(0, min(int(percent or 0), 99))
+        values["progress_percent"] = percent
+    if message is not None:
+        message = str(message or "")[:255]
+        values["progress_message"] = message
+    if stage is not None and _has_field(backup, "stage"):
+        values["stage"] = str(stage)[:20]
+    if not values:
+        return
+    type(backup).objects.filter(pk=backup.pk).update(**values)
+    for name, value in values.items():
+        setattr(backup, name, value)
+
+
+def set_backup_progress(backup, percent, message, stage=None):
     """Persist bounded progress and update the active drawer item in place."""
     percent = max(0, min(int(percent or 0), 99))
     message = str(message or "")[:255]
-    type(backup).objects.filter(pk=backup.pk).update(
-        progress_percent=percent,
-        progress_message=message,
-    )
-    backup.progress_percent = percent
-    backup.progress_message = message
+    touch_backup_progress(backup, percent=percent, message=message, stage=stage)
     notification = _progress_notification(backup) or start_backup_progress(backup)
     if notification is None:
         return
@@ -133,6 +159,33 @@ def set_backup_progress(backup, percent, message):
     notification.message = message or notification.message
     notification.metadata = metadata
     notification.save(update_fields=["message", "metadata", "updated_at"])
+
+
+def mark_backup_retrying(backup, message):
+    """Keep the drawer item alive and explain the pause between two attempts.
+
+    A run that will be retried automatically is not a terminal outcome, so it
+    must not emit the unread "backup failed" notice — otherwise every transient
+    hiccup pages the operator for something the system is already fixing.
+    """
+    message = str(message or "")[:255]
+    touch_backup_progress(backup, message=message)
+    notification = _progress_notification(backup)
+    if notification is None:
+        return
+    metadata = dict(notification.metadata or {})
+    metadata.update({
+        "progress": int(getattr(backup, "progress_percent", 0) or 0),
+        "progress_message": message,
+        "status": "retrying",
+        "locked": True,
+    })
+    metadata.pop("message_key", None)
+    metadata.pop("translation_key", None)
+    notification.message = message
+    notification.level = "warning"
+    notification.metadata = metadata
+    notification.save(update_fields=["message", "level", "metadata", "updated_at"])
 
 
 def finish_backup_progress(backup, *, success, error=""):

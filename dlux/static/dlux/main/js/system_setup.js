@@ -1136,7 +1136,22 @@
     }
 
     function getSetupAllowedThemeCount(form) {
-        return Array.from(form.querySelectorAll('[data-setup-theme-allowed]')).filter((checkbox) => checkbox.checked).length;
+        const checkboxes = Array.from(form.querySelectorAll('[data-setup-theme-allowed]'));
+        if (checkboxes.length) {
+            return checkboxes.filter((checkbox) => checkbox.checked).length;
+        }
+        const preservedCount = Number(form.dataset.dluxAllowedThemeCount);
+        return Number.isFinite(preservedCount) && preservedCount >= 0 ? preservedCount : 0;
+    }
+
+    function getSetupLanguageCount(form) {
+        const renderedCount = form.querySelectorAll('[data-language-row]').length
+            || form.querySelectorAll('[data-setup-language-choice]').length;
+        if (renderedCount) {
+            return renderedCount;
+        }
+        const preservedCount = Number(form.dataset.dluxLanguageCount);
+        return Number.isFinite(preservedCount) && preservedCount >= 0 ? preservedCount : 0;
     }
 
     function syncSidebarBehaviorConfig(form) {
@@ -1153,6 +1168,7 @@
         nextConfig.enable_reorder = readBooleanField(form, '#id_sidebar_enable_reorder', true);
         nextConfig.show_toolbar = readBooleanField(form, '#id_sidebar_enable_toolbar', true);
         nextConfig.show_icons = readBooleanField(form, '#id_sidebar_show_icons', true);
+        nextConfig.show_notification_badges = readBooleanField(form, '#id_sidebar_show_notification_badges', true);
         nextConfig.density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
         nextConfig.allow_user_density = readBooleanField(form, '#id_sidebar_allow_user_density', true);
         nextConfig.collapse_mode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
@@ -1791,12 +1807,9 @@
             setPreviewVisibility(container, flashEnabled);
         });
 
-        const notificationRoots = Array.from(document.querySelectorAll('[data-dlux-notifications]'));
-        if (!notificationRoots.length) {
-            return;
-        }
         const drawerEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_drawer_enabled', true);
         const badgeEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_badge_enabled', true);
+        const notificationRoots = Array.from(document.querySelectorAll('[data-dlux-notifications]'));
         notificationRoots.forEach((notifications) => {
             notifications.dataset.dluxNotificationsEnabled = drawerEnabled ? 'true' : 'false';
             notifications.dataset.badgeEnabled = badgeEnabled ? 'true' : 'false';
@@ -1841,6 +1854,8 @@
 
         const sidebarEnabled = readBooleanField(form, '#id_sidebar_enabled', true);
         const showIcons = readBooleanField(form, '#id_sidebar_show_icons', true);
+        const showNotificationBadges = readBooleanField(form, '#id_sidebar_show_notification_badges', true);
+        const notificationsEnabled = readBooleanField(form, '#id_notifications_enabled', true);
         const collapseMode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
         const density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
         const allowUserDensity = readBooleanField(form, '#id_sidebar_allow_user_density', true);
@@ -1849,7 +1864,7 @@
         const allowThemeOverride = readBooleanField(form, '#id_allow_user_theme_override', true);
         const allowUserLanguage = readBooleanField(form, '#id_allow_user_language_override', true);
         const allowedThemeCount = getSetupAllowedThemeCount(form);
-        const languageCount = form.querySelectorAll('[data-language-row]').length || form.querySelectorAll('[data-setup-language-choice]').length;
+        const languageCount = getSetupLanguageCount(form);
         const themeToolVisible = allowThemeOverride && allowedThemeCount > 1;
         const densityToolVisible = allowUserDensity;
         const reorderToolVisible = enableReorder;
@@ -1861,6 +1876,15 @@
         sidebar.dataset.sidebarDensity = density;
         sidebar.dataset.sidebarDefaultDensity = density;
         sidebar.dataset.sidebarAllowUserDensity = allowUserDensity ? 'true' : 'false';
+        const sidebarNotificationBadgesEnabled = sidebarEnabled && notificationsEnabled && showNotificationBadges;
+        const sidebarTree = sidebar.querySelector('#sidebarTreeRoot');
+        if (sidebarTree) {
+            sidebarTree.dataset.dluxSidebarNotificationBadgesEnabled = sidebarNotificationBadgesEnabled ? 'true' : 'false';
+        }
+        sidebar.querySelectorAll('[data-dlux-sidebar-notification-badge]').forEach((badge) => {
+            const hasCount = String(badge.textContent || '').trim().length > 0;
+            badge.classList.toggle('d-none', !sidebarNotificationBadgesEnabled || !hasCount);
+        });
 
         if (collapseMode === 'locked_expanded') {
             sidebar.classList.remove('collapsed');
@@ -3976,6 +4000,7 @@
             setCheckboxField(form, 'sidebar_enable_reorder', sidebar.enable_reorder !== false);
             setCheckboxField(form, 'sidebar_enable_toolbar', sidebar.show_toolbar !== false);
             setCheckboxField(form, 'sidebar_show_icons', sidebar.show_icons !== false);
+            setCheckboxField(form, 'sidebar_show_notification_badges', sidebar.show_notification_badges !== false);
             setCheckboxField(form, 'sidebar_allow_user_density', sidebar.allow_user_density !== false);
             setNamedFieldValue(form, 'sidebar_density', sidebar.density || 'balanced');
             setNamedFieldValue(form, 'sidebar_collapse_mode', sidebar.collapse_mode || 'icons');
@@ -4373,6 +4398,7 @@
             const toolbarNote = form.querySelector('[data-sidebar-toolbar-note]');
             const sidebarDisabledNote = form.querySelector('[data-sidebar-disabled-note]');
             const showIconsToggle = form.querySelector('#id_sidebar_show_icons');
+            const notificationBadgesToggle = form.querySelector('#id_sidebar_show_notification_badges');
             const allowThemeOverrideToggle = form.querySelector('#id_allow_user_theme_override');
             const reorderToggle = form.querySelector('#id_sidebar_enable_reorder');
             const allowUserDensityToggle = form.querySelector('#id_sidebar_allow_user_density');
@@ -4417,6 +4443,7 @@
                     'sidebar_enable_reorder',
                     'sidebar_enable_toolbar',
                     'sidebar_show_icons',
+                    'sidebar_show_notification_badges',
                     'sidebar_allow_user_density',
                     'sidebar_density',
                     'sidebar_collapse_mode',
@@ -4455,7 +4482,12 @@
             themeAllowCheckboxes.forEach((checkbox) => {
                 checkbox.addEventListener('change', syncToolbarAvailability);
             });
-            [allowThemeOverrideToggle, reorderToggle, allowUserDensityToggle].forEach((field) => {
+            [
+                allowThemeOverrideToggle,
+                reorderToggle,
+                allowUserDensityToggle,
+                notificationBadgesToggle,
+            ].forEach((field) => {
                 if (field) {
                     field.addEventListener('change', syncToolbarAvailability);
                 }
@@ -4530,6 +4562,7 @@
             'sidebar_enable_reorder',
             'sidebar_enable_toolbar',
             'sidebar_show_icons',
+            'sidebar_show_notification_badges',
             'sidebar_allow_user_density',
             'sidebar_density',
             'sidebar_collapse_mode',
@@ -4569,12 +4602,13 @@
             }
 
             const section = form.querySelector('[data-email-config-section]');
-            const publicRegistrationToggle = form.querySelector('#id_public_registration_enabled');
-            const email2faToggle = form.querySelector('#id_email_2fa');
+            // Email owns its own wizard step now: the SMTP fields follow the step's
+            // own enable toggle, not whichever feature happens to need mail.
+            const emailEnabledToggle = form.querySelector('#id_email_config_enabled');
             const secretStorageInput = form.querySelector('[name="email_config_secret_storage"]');
             const passwordInput = form.querySelector('[name="email_config_password"]');
             const passwordField = form.querySelector('.dlux-email-config-password-field') || (passwordInput && passwordInput.closest('.col-lg-4, .col-lg-6, .col-12'));
-            if (!section || (!publicRegistrationToggle && !email2faToggle)) {
+            if (!section || !emailEnabledToggle) {
                 return;
             }
 
@@ -4591,10 +4625,7 @@
             const presetInput = form.querySelector('[data-email-provider-preset]');
 
             function syncEmailConfigVisibility() {
-                const enabled = Boolean(
-                    (publicRegistrationToggle && publicRegistrationToggle.checked) ||
-                    (email2faToggle && email2faToggle.checked)
-                );
+                const enabled = Boolean(emailEnabledToggle && emailEnabledToggle.checked);
                 const encryptedDbSecret = enabled && (!secretStorageInput || secretStorageInput.value === 'encrypted_db');
                 section.classList.toggle('d-none', !enabled);
                 section.setAttribute('aria-hidden', enabled ? 'false' : 'true');
@@ -4632,7 +4663,7 @@
                 setCheckboxField(form, 'email_config_use_ssl', preset.use_ssl);
             }
 
-            [publicRegistrationToggle, email2faToggle, secretStorageInput].forEach((field) => {
+            [emailEnabledToggle, secretStorageInput].forEach((field) => {
                 if (field) {
                     field.addEventListener('change', syncEmailConfigVisibility);
                 }
@@ -4640,8 +4671,85 @@
             if (presetInput) {
                 presetInput.addEventListener('change', applyProviderPreset);
             }
+            initEmailApply(form);
             initEmailSendTest(form);
             syncEmailConfigVisibility();
+        });
+    }
+
+    function initEmailApply(form) {
+        const button = form.querySelector('[data-email-apply]');
+        const result = form.querySelector('[data-email-apply-result]');
+        if (!button || button.dataset.bound === 'true') {
+            return;
+        }
+        button.dataset.bound = 'true';
+
+        button.addEventListener('click', () => {
+            const url = button.getAttribute('data-email-apply-url');
+            const csrfInput = form.querySelector('[name="csrfmiddlewaretoken"]');
+            if (!url || !csrfInput) {
+                return;
+            }
+
+            function show(ok, message) {
+                if (!result) return;
+                result.textContent = message || '';
+                result.classList.toggle('text-success', Boolean(ok && message));
+                result.classList.toggle('text-danger', Boolean(!ok && message));
+            }
+
+            function setBusy(busy) {
+                button.disabled = busy;
+                const spinner = button.querySelector('[data-email-apply-spinner]');
+                if (spinner) spinner.classList.toggle('d-none', !busy);
+            }
+
+            // Post the whole step. The endpoint binds the form in single-step mode
+            // for Email, so other steps keep their stored values and only
+            // email_config is written.
+            const body = new URLSearchParams(new FormData(form));
+            setBusy(true);
+            show(true, '');
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfInput.value,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                credentials: 'same-origin',
+                body: body.toString(),
+            })
+                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    show(Boolean(ok && data && data.ok), (data && data.message) || '');
+                })
+                .catch(() => {
+                    show(false, t('email_apply_failed', 'Could not apply the email settings.'));
+                })
+                .finally(() => setBusy(false));
+        });
+    }
+
+    /* The lock on mail-dependent toggles is rendered server-side, so a test that
+       succeeds inside an already-open modal would leave them greyed out until a
+       reload — which reads as "the test did nothing". Unlock them in place. */
+    function unlockEmailDependentFields(form, button) {
+        const names = String(button.getAttribute('data-email-dependent-fields') || '')
+            .split(',')
+            .map((name) => name.trim())
+            .filter(Boolean);
+        names.forEach((name) => {
+            const wrapper = form.querySelector(`[data-dlux-settings-toggle-field="${name}"]`);
+            if (!wrapper) return;
+            wrapper.classList.remove('dlux-settings-toggle-field--locked');
+            wrapper.removeAttribute('data-dlux-tooltip');
+            wrapper.removeAttribute('title');
+            wrapper.querySelectorAll('input').forEach((input) => {
+                input.disabled = false;
+            });
         });
     }
 
@@ -4665,8 +4773,17 @@
             function showResult(ok, message) {
                 if (!result) return;
                 result.textContent = message || '';
-                result.classList.toggle('text-success', ok);
-                result.classList.toggle('text-danger', !ok);
+                result.classList.toggle('text-success', Boolean(ok && message));
+                result.classList.toggle('text-danger', Boolean(!ok && message));
+            }
+
+            function setButtonBusy(busy) {
+                button.disabled = busy;
+                button.classList.toggle('dlux-email-test-btn--busy', busy);
+                const spinner = button.querySelector('[data-email-send-test-spinner]');
+                if (spinner) {
+                    spinner.classList.toggle('d-none', !busy);
+                }
             }
 
             if (!recipient) {
@@ -4676,8 +4793,10 @@
 
             const body = new URLSearchParams();
             body.append('recipient', recipient);
-            button.disabled = true;
-            showResult(true, t('email_test_sending', 'Sending…'));
+            // In-place spinner on the button: the old approach printed "Sending…"
+            // into the result line, which then had to be overwritten by the verdict.
+            setButtonBusy(true);
+            showResult(true, '');
 
             fetch(url, {
                 method: 'POST',
@@ -4691,13 +4810,17 @@
             })
                 .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
                 .then(({ ok, data }) => {
-                    showResult(Boolean(ok && data && data.ok), (data && data.message) || '');
+                    const passed = Boolean(ok && data && data.ok);
+                    showResult(passed, (data && data.message) || '');
+                    if (passed) {
+                        unlockEmailDependentFields(form, button);
+                    }
                 })
                 .catch(() => {
                     showResult(false, t('email_test_failed', 'Sending failed. Check the SMTP host, credentials, and from address.'));
                 })
                 .finally(() => {
-                    button.disabled = false;
+                    setButtonBusy(false);
                 });
         });
     }

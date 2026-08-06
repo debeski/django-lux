@@ -1,13 +1,17 @@
 {
   "schema_version": 1,
-  "version": "1.6.1",
+  "version": "1.7.0",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Inline updater rolls forward to a newer verified release; deprecated dlux_check is advisory-only so pre-1.5.9 projects can inline-update forward.",
+  "summary": "General Reports gain a shared period/model/operation builder, interrupted backups recover automatically, and projects can register local fonts and themes.",
   "highlights": [
-    "Inline update auto-rolls-forward when a newer inline-safe release appears between check and apply, instead of erroring.",
-    "The deprecated dlux_check alias no longer gates on its exit code (dlux_doctor still does), unblocking inline updates from pre-1.5.9 projects."
+    "A backup whose worker dies is now detected, failed with a reason, and retried instead of staying 'running' forever.",
+    "Backup progress reports records, files, and encrypted bytes, plus how long ago the run last reported anything.",
+    "General Reports share quarter, half-year, year, custom range, model, and operation selections across the page, XLSX, and ZIP.",
+    "DLUX_CUSTOM_FONTS merges project-owned font variants into the existing typography settings and runtime.",
+    "DLUX_CUSTOM_THEMES merges validated project-owned static CSS themes into the existing theme controls and runtime.",
+    "Model-backed sidebar sections and groups show live per-user unread counters behind a separate Sidebar toggle."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.6.1"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.7.0"
 }

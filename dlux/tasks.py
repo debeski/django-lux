@@ -12,8 +12,10 @@ logger = logging.getLogger('dlux')
 
 try:
     from celery import shared_task
+    from celery.signals import worker_ready
 except Exception:  # pragma: no cover - celery not installed
     shared_task = None
+    worker_ready = None
 
 
 if shared_task is not None:
@@ -24,8 +26,18 @@ if shared_task is not None:
 
     @shared_task(name='dlux.tasks.build_system_backup', ignore_result=True)
     def build_system_backup_task(backup_pk, passphrase=''):
-        from .backup import run_system_backup
-        run_system_backup(backup_pk, passphrase=passphrase)
+        from .backup import retry_countdown_for, run_system_backup
+        run_system_backup(backup_pk, passphrase=passphrase, allow_passphrase_retry=True)
+        # Re-queue ourselves rather than blocking the worker for the retry delay.
+        # Carrying the original arguments is also the only way a passphrase-
+        # protected backup can be retried at all — the passphrase is never stored.
+        countdown = retry_countdown_for(backup_pk)
+        if countdown is not None:
+            build_system_backup_task.apply_async(
+                args=[backup_pk, passphrase],
+                countdown=countdown,
+                retry=False,
+            )
 
     @shared_task(name='dlux.tasks.restore_system_backup', ignore_result=True)
     def restore_system_backup_task(restore_pk, passphrase=''):
@@ -45,9 +57,39 @@ if shared_task is not None:
         # instead of living solely in that worker's in-memory countdown.
         from .updater.service import queue_daily_check_if_due
         queue_daily_check_if_due()
+
+    @shared_task(name='dlux.tasks.reap_stalled_system_backups', ignore_result=True)
+    def reap_stalled_system_backups_task():
+        from .backup import reap_stalled_system_backups
+        reap_stalled_system_backups()
+
+    if worker_ready is not None:
+        @worker_ready.connect
+        def _reap_backups_on_worker_start(**_kwargs):
+            """Clear backups abandoned by the worker instance we are replacing.
+
+            A worker that is OOM-killed or restarted mid-build never runs the
+            failure path, so its row stays 'running' with no error and no file —
+            the ghost that blocks later scheduled backups. Its heartbeat stopped
+            when the process died, so the reaper can retire it safely; a backup
+            genuinely running in a sibling worker heartbeats every few seconds and
+            is never inside the stall window.
+            """
+            try:
+                from .backup import reap_stalled_system_backups
+
+                reaped, requeued = reap_stalled_system_backups()
+                if reaped or requeued:
+                    logger.warning(
+                        'Worker startup retired %s stalled system backup(s) and restarted %s.',
+                        reaped, requeued,
+                    )
+            except Exception:
+                logger.warning('Could not reap stalled system backups on worker startup', exc_info=True)
 else:  # pragma: no cover - celery not installed
     build_report_backup_task = None
     build_system_backup_task = None
     restore_system_backup_task = None
     run_scheduled_system_backup_task = None
     dlux_update_check_task = None
+    reap_stalled_system_backups_task = None

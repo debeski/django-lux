@@ -27,6 +27,7 @@ import logging
 import secrets
 import struct
 import tempfile
+import time
 import zipfile
 from datetime import timedelta
 
@@ -36,8 +37,9 @@ from django.core import serializers
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.core.management.color import no_style
-from django.db import connection, transaction
+from django.db import connection, models, transaction
 from django.db.migrations.recorder import MigrationRecorder
+from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 
 from .reports import build_relation_schema, stream_model_into_zip
@@ -233,8 +235,9 @@ def _backup_fernet(salt_hex, *, encryption=None, passphrase=None):
 # ── .dlb container ───────────────────────────────────────────────────────────
 
 
-def _encrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None):
+def _encrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chunk=None):
     fernet = _backup_fernet(salt_hex, encryption=encryption, passphrase=passphrase)
+    written = 0
     while True:
         chunk = src.read(_CHUNK_SIZE)
         if not chunk:
@@ -242,6 +245,9 @@ def _encrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None):
         token = fernet.encrypt(chunk)
         dest.write(struct.pack(">Q", len(token)))
         dest.write(token)
+        written += len(chunk)
+        if on_chunk:
+            on_chunk(written)
 
 
 def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None):
@@ -259,7 +265,7 @@ def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None):
         dest.write(fernet.decrypt(token))
 
 
-def write_dlb_container(zip_fileobj, dest, metadata, *, passphrase=None):
+def write_dlb_container(zip_fileobj, dest, metadata, *, passphrase=None, on_chunk=None):
     """Wrap an already-built backup zip stream into an encrypted .dlb container."""
     salt_hex = secrets.token_bytes(16).hex()
     has_passphrase = bool(_clean_passphrase(passphrase))
@@ -279,7 +285,12 @@ def write_dlb_container(zip_fileobj, dest, metadata, *, passphrase=None):
     dest.write(DLB_MAGIC)
     dest.write(struct.pack(">I", len(payload)))
     dest.write(payload)
-    _encrypt_stream(zip_fileobj, dest, salt_hex, encryption=encryption, passphrase=passphrase)
+    _encrypt_stream(
+        zip_fileobj, dest, salt_hex,
+        encryption=encryption,
+        passphrase=passphrase,
+        on_chunk=on_chunk,
+    )
     return metadata
 
 
@@ -319,16 +330,83 @@ def decrypt_dlb_to_tempfile(fileobj, *, passphrase=None):
     return metadata, tmp
 
 
+# ── Progress reporting ───────────────────────────────────────────────────────
+
+
+class _NullReporter:
+    def checkpoint(self, percent, message, stage=None):
+        pass
+
+    def tick(self, percent, message, stage=None):
+        pass
+
+
+class _BackupReporter:
+    """Throttled progress + liveness writer for one running backup row.
+
+    Two rates on purpose: ``checkpoint`` marks real milestones and rewrites the
+    drawer notification, while ``tick`` is called from tight inner loops and
+    mostly just refreshes the row's heartbeat. Without the cheap rate a large
+    model would either flood the database or — as before — report nothing at all
+    for many minutes, which is exactly what makes a live run indistinguishable
+    from a dead one.
+    """
+
+    NOTIFY_INTERVAL_SECONDS = 10.0
+    HEARTBEAT_INTERVAL_SECONDS = 3.0
+
+    def __init__(self, backup):
+        from .backup_progress import set_backup_progress, touch_backup_progress
+
+        self._backup = backup
+        self._set = set_backup_progress
+        self._touch = touch_backup_progress
+        self._last_notify = 0.0
+        self._last_touch = 0.0
+
+    def checkpoint(self, percent, message, stage=None):
+        self._set(self._backup, percent, message, stage=stage)
+        self._last_notify = self._last_touch = time.monotonic()
+
+    def tick(self, percent, message, stage=None):
+        now = time.monotonic()
+        if now - self._last_notify >= self.NOTIFY_INTERVAL_SECONDS:
+            self.checkpoint(percent, message, stage=stage)
+        elif now - self._last_touch >= self.HEARTBEAT_INTERVAL_SECONDS:
+            self._touch(self._backup, percent=percent, message=message, stage=stage)
+            self._last_touch = now
+
+
+class _CallbackReporter(_NullReporter):
+    """Adapter for the legacy ``progress_callback(percent, message)`` argument."""
+
+    def __init__(self, callback):
+        self._callback = callback
+
+    def checkpoint(self, percent, message, stage=None):
+        self._callback(percent, message)
+
+
+def _format_count(value):
+    return f"{int(value or 0):,}"
+
+
 # ── Full backup build ────────────────────────────────────────────────────────
 
 
-def write_system_backup(dest, *, passphrase=None, progress_callback=None, include_media=True):
+def write_system_backup(dest, *, passphrase=None, progress_callback=None, reporter=None, include_media=True):
     """Build the complete encrypted system backup into ``dest``. Returns metadata.
 
     ``include_media=False`` writes a data-only backup (database rows + migration
     state, no media blobs) — much faster, used for the inline updater's pre-update
     safety snapshot since an inline code/schema update never alters media on disk.
+
+    ``reporter`` receives coarse ``checkpoint()`` milestones and frequent
+    ``tick()`` sub-progress; ``progress_callback`` is the older two-argument
+    milestone-only form.
     """
+    if reporter is None:
+        reporter = _CallbackReporter(progress_callback) if progress_callback else _NullReporter()
     manifest = {
         "kind": "dlux-system-backup",
         "generated_at": timezone.now().isoformat(),
@@ -351,37 +429,80 @@ def write_system_backup(dest, *, passphrase=None, progress_callback=None, includ
     total_models = max(len(models_to_export), 1)
     from .translations import get_strings
     strings = get_strings()
+    STAGE_MODELS = "models"
+    STAGE_ENCRYPTING = "encrypting"
     with tempfile.TemporaryFile() as zip_tmp:
         with zipfile.ZipFile(zip_tmp, "w", zipfile.ZIP_DEFLATED) as zf:
             for index, model in enumerate(models_to_export):
-                if progress_callback:
-                    progress_callback(
-                        5 + int((index / total_models) * 70),
-                        strings.get("backup_progress_model", "Backing up {model}...").format(
-                            model=str(model._meta.verbose_name),
-                        ),
+                model_label = str(model._meta.verbose_name)
+                span_start = 5 + int((index / total_models) * 70)
+                span_end = 5 + int(((index + 1) / total_models) * 70)
+                reporter.checkpoint(
+                    span_start,
+                    strings.get("backup_progress_model", "Backing up {model}...").format(model=model_label),
+                    stage=STAGE_MODELS,
+                )
+
+                def report_step(step_stage, done, total, _start=span_start, _end=span_end, _label=model_label):
+                    # Sub-progress is confined to this model's slice of the 5–75
+                    # band, so the bar keeps creeping instead of freezing on a
+                    # model that owns thousands of uploads.
+                    share = (done / total) if total else 1.0
+                    if step_stage == "files":
+                        share = 0.5 + (share * 0.5)
+                    else:
+                        share = share * 0.5
+                    template = (
+                        "backup_progress_model_files" if step_stage == "files" else "backup_progress_model_rows"
                     )
+                    fallback = (
+                        "Backing up {model} - files {done}/{total}..."
+                        if step_stage == "files"
+                        else "Backing up {model} - records {done}/{total}..."
+                    )
+                    reporter.tick(
+                        _start + int((_end - _start) * share),
+                        strings.get(template, fallback).format(
+                            model=_label,
+                            done=_format_count(done),
+                            total=_format_count(total),
+                        ),
+                        stage=STAGE_MODELS,
+                    )
+
                 qs = _system_model_queryset(model)
                 stream_model_into_zip(
                     zf, model, qs, manifest,
                     serialize_kwargs={"use_natural_foreign_keys": True},
                     object_transform=_scrub_superuser_password,
                     include_files=include_media,
+                    step_callback=report_step,
                 )
-                if progress_callback:
-                    progress_callback(
-                        5 + int(((index + 1) / total_models) * 70),
-                        strings.get("backup_progress_model_done", "Backed up {model}.").format(
-                            model=str(model._meta.verbose_name),
-                        ),
-                    )
+                reporter.checkpoint(
+                    span_end,
+                    strings.get("backup_progress_model_done", "Backed up {model}.").format(model=model_label),
+                    stage=STAGE_MODELS,
+                )
             zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+        payload_size = zip_tmp.tell()
         zip_tmp.seek(0)
-        if progress_callback:
-            progress_callback(
-                82,
-                strings.get("backup_progress_encrypting", "Encrypting backup artifact..."),
+        reporter.checkpoint(
+            82,
+            strings.get("backup_progress_encrypting", "Encrypting backup artifact..."),
+            stage=STAGE_ENCRYPTING,
+        )
+
+        def report_encryption(written):
+            share = (written / payload_size) if payload_size else 1.0
+            reporter.tick(
+                82 + int(min(1.0, share) * 12),
+                strings.get(
+                    "backup_progress_encrypting_bytes",
+                    "Encrypting backup artifact ({done} of {total})...",
+                ).format(done=filesizeformat(written), total=filesizeformat(payload_size)),
+                stage=STAGE_ENCRYPTING,
             )
+
         metadata = write_dlb_container(zip_tmp, dest, {
             "created_at": manifest["generated_at"],
             "dlux_version": manifest["dlux_version"],
@@ -390,11 +511,11 @@ def write_system_backup(dest, *, passphrase=None, progress_callback=None, includ
             "files": len(manifest["files"]),
             "media_included": bool(include_media),
             "passphrase_required": bool(_clean_passphrase(passphrase)),
-        }, passphrase=passphrase)
+        }, passphrase=passphrase, on_chunk=report_encryption)
     return metadata, manifest
 
 
-def run_system_backup(backup_pk, passphrase=None):
+def run_system_backup(backup_pk, passphrase=None, *, allow_passphrase_retry=False):
     """Celery-or-inline runner that builds the .dlb for a SystemBackup row.
 
     Whether media blobs are included is read from ``backup.media_included`` (set by
@@ -402,30 +523,61 @@ def run_system_backup(backup_pk, passphrase=None):
     the task only receives the pk. ``media_included=False`` yields a faster data-only
     snapshot (database + migration state), used by the inline updater's pre-update
     backup and by manual "quick" backups.
+
+    ``allow_passphrase_retry`` is set only by the Celery task, which can arm an
+    automatic retry for a passphrase-protected backup because it re-queues itself
+    with the same arguments; no other caller can reproduce that passphrase.
     """
     SystemBackup = apps.get_model("dlux", "SystemBackup")
     backup = SystemBackup.objects.filter(pk=backup_pk).first()
     if backup is None or backup.status != SystemBackup.STATUS_PENDING:
         return backup
+    now = timezone.now()
+    # The pending → running transition is the claim, and it is the only one:
+    # a queued retry, a due-retry sweep, and an operator's Resume can all aim at
+    # the same row, and exactly one of them must build it.
+    claimed = SystemBackup.objects.filter(
+        pk=backup.pk,
+        status=SystemBackup.STATUS_PENDING,
+    ).filter(
+        models.Q(next_attempt_at__isnull=True) | models.Q(next_attempt_at__lte=now),
+    ).update(
+        status=SystemBackup.STATUS_RUNNING,
+        started_at=now,
+        heartbeat_at=now,
+        stage=SystemBackup.STAGE_PREPARING,
+        attempt_count=models.F("attempt_count") + 1,
+        next_attempt_at=None,
+    )
+    if not claimed:
+        backup.refresh_from_db()
+        return backup
+    backup.refresh_from_db()
     include_media = bool(backup.media_included)
-    backup.status = SystemBackup.STATUS_RUNNING
-    backup.started_at = timezone.now()
-    backup.save(update_fields=["status", "started_at"])
-    from .backup_progress import finish_backup_progress, set_backup_progress, start_backup_progress
+    from .backup_progress import finish_backup_progress, start_backup_progress
     from .translations import get_strings
     start_backup_progress(backup)
-    set_backup_progress(backup, 2, get_strings().get("backup_progress_preparing", "Preparing backup..."))
+    reporter = _BackupReporter(backup)
+    reporter.checkpoint(
+        2,
+        get_strings().get("backup_progress_preparing", "Preparing backup..."),
+        stage=SystemBackup.STAGE_PREPARING,
+    )
     try:
         with tempfile.TemporaryFile() as tmp:
             metadata, manifest = write_system_backup(
                 tmp,
                 passphrase=passphrase,
-                progress_callback=lambda percent, message: set_backup_progress(backup, percent, message),
+                reporter=reporter,
                 include_media=include_media,
             )
             size = tmp.tell()
             tmp.seek(0)
-            set_backup_progress(backup, 95, get_strings().get("backup_progress_storing", "Storing backup artifact..."))
+            reporter.checkpoint(
+                95,
+                get_strings().get("backup_progress_storing", "Storing backup artifact..."),
+                stage=SystemBackup.STAGE_STORING,
+            )
             saved_path = default_storage.save(
                 f"{get_system_backup_storage_prefix()}/system-{backup.token}.dlb",
                 File(tmp),
@@ -439,6 +591,9 @@ def run_system_backup(backup_pk, passphrase=None):
         backup.passphrase_required = bool(metadata.get("passphrase_required"))
         backup.status = SystemBackup.STATUS_COMPLETED
         backup.completed_at = timezone.now()
+        backup.heartbeat_at = backup.completed_at
+        backup.stage = ""
+        backup.next_attempt_at = None
         backup.error = ""
         backup.save()
         finish_backup_progress(backup, success=True)
@@ -448,15 +603,246 @@ def run_system_backup(backup_pk, passphrase=None):
             "models": backup.model_count,
             "rows": backup.row_count,
             "files": backup.file_count,
+            "attempts": backup.attempt_count,
         })
         apply_backup_retention(protected_pk=backup.pk)
     except Exception as exc:
         logger.exception("System backup pk=%s failed", backup_pk)
-        backup.status = SystemBackup.STATUS_FAILED
-        backup.completed_at = timezone.now()
-        backup.error = str(exc)[:1000]
-        backup.save(update_fields=["status", "completed_at", "error"])
-        finish_backup_progress(backup, success=False, error=backup.error)
+        fail_system_backup(
+            backup,
+            str(exc)[:1000],
+            passphrase_in_hand=bool(allow_passphrase_retry and _clean_passphrase(passphrase)),
+        )
+    return backup
+
+
+# ── Failure, stall detection, and retry ──────────────────────────────────────
+
+
+def backup_retry_policy():
+    """Resolved recovery policy: (auto_retry_enabled, max_attempts, delay, stall timeout)."""
+    config = _backup_config()
+    return {
+        "auto_retry_enabled": bool(config["auto_retry_enabled"]),
+        "max_attempts": int(config["max_attempts"]),
+        "retry_delay_minutes": int(config["retry_delay_minutes"]),
+        "stall_timeout_minutes": int(config["stall_timeout_minutes"]),
+    }
+
+
+def _can_auto_retry(backup, policy=None, *, passphrase_in_hand=False):
+    """Whether this row may be re-run without asking a human for anything.
+
+    A passphrase-protected backup normally cannot: the passphrase is deliberately
+    stored nowhere, so re-running it blind would silently produce a backup
+    encrypted with the Django secret key instead of the passphrase the operator
+    chose. The one exception is a retry queued from inside the Celery task that
+    still holds the original passphrase in its arguments.
+    """
+    policy = policy or backup_retry_policy()
+    if not policy["auto_retry_enabled"]:
+        return False
+    if backup.passphrase_required and not passphrase_in_hand:
+        return False
+    if int(backup.attempt_count or 0) >= policy["max_attempts"]:
+        return False
+    # Without a worker there is nothing that could run a delayed attempt — the
+    # only executor is the web request that just failed. Promising a retry we
+    # cannot start would leave the row pending until the reaper failed it again.
+    return bool(passphrase_in_hand or system_backup_celery_available())
+
+
+def fail_system_backup(backup, error, *, now=None, stalled=False, passphrase_in_hand=False):
+    """Record a failed attempt and, when policy allows, arm the next one.
+
+    Returns the seconds to wait before re-running, or ``None`` when this is the
+    final outcome and a human has to decide what happens next.
+    """
+    from .backup_progress import finish_backup_progress, mark_backup_retrying
+    from .translations import get_strings
+
+    SystemBackup = type(backup)
+    now = now or timezone.now()
+    policy = backup_retry_policy()
+    error = str(error or "")[:1000]
+    strings = get_strings()
+
+    if _can_auto_retry(backup, policy, passphrase_in_hand=passphrase_in_hand):
+        delay = timedelta(minutes=policy["retry_delay_minutes"])
+        backup.status = SystemBackup.STATUS_PENDING
+        backup.error = error
+        backup.next_attempt_at = now + delay
+        backup.started_at = None
+        backup.heartbeat_at = now
+        backup.stage = ""
+        backup.save(update_fields=[
+            "status", "error", "next_attempt_at", "started_at", "heartbeat_at", "stage",
+        ])
+        mark_backup_retrying(backup, strings.get(
+            "sysbackup_retry_scheduled",
+            "Attempt {attempt} of {max} failed ({error}). Retrying in {minutes} minutes.",
+        ).format(
+            attempt=backup.attempt_count,
+            max=policy["max_attempts"],
+            error=error or ("stalled" if stalled else "unknown error"),
+            minutes=policy["retry_delay_minutes"],
+        ))
+        return int(delay.total_seconds())
+
+    backup.status = SystemBackup.STATUS_FAILED
+    backup.completed_at = now
+    backup.heartbeat_at = now
+    backup.next_attempt_at = None
+    backup.error = error
+    backup.save(update_fields=[
+        "status", "completed_at", "heartbeat_at", "next_attempt_at", "error",
+    ])
+    finish_backup_progress(backup, success=False, error=error)
+    return None
+
+
+def retry_countdown_for(backup_pk, *, now=None):
+    """Seconds until this row's armed retry, or ``None`` if none is armed.
+
+    The Celery task uses this to re-queue itself with its original arguments —
+    the only path that can auto-retry a passphrase-protected backup, because the
+    passphrase lives in the task arguments and nowhere else.
+    """
+    SystemBackup = apps.get_model("dlux", "SystemBackup")
+    backup = SystemBackup.objects.filter(
+        pk=backup_pk,
+        status=SystemBackup.STATUS_PENDING,
+        next_attempt_at__isnull=False,
+    ).first()
+    if backup is None:
+        return None
+    return max(0, int((backup.next_attempt_at - (now or timezone.now())).total_seconds()))
+
+
+def reap_stalled_system_backups(*, now=None, dispatch=True, allow_inline=True):
+    """Fail every backup whose runner stopped reporting, then start due retries.
+
+    This is the guard against ghost rows. A worker that is OOM-killed, restarted,
+    or disconnected mid-build never reaches ``run_system_backup``'s failure path,
+    so the row would otherwise sit at ``running`` forever — showing a frozen
+    percentage with no error, and (for scheduled runs) blocking every later
+    backup as "already active". Any pending/running row whose heartbeat is older
+    than the configured stall timeout is therefore declared dead here.
+
+    Deliberately trigger-agnostic: the previous stale check only ever looked at
+    scheduled runs, which is why an interrupted manual backup stayed a ghost.
+
+    Returns ``(reaped, requeued)``.
+    """
+    SystemBackup = apps.get_model("dlux", "SystemBackup")
+    now = now or timezone.now()
+    policy = backup_retry_policy()
+    cutoff = now - timedelta(minutes=policy["stall_timeout_minutes"])
+    from .translations import get_strings
+    strings = get_strings()
+
+    reaped = 0
+    active = SystemBackup.objects.filter(
+        status__in=(SystemBackup.STATUS_PENDING, SystemBackup.STATUS_RUNNING),
+    )
+    for backup in active:
+        # A pending row waiting on its own scheduled retry is not stalled.
+        if backup.next_attempt_at and backup.next_attempt_at > now:
+            continue
+        if backup.last_signal_at and backup.last_signal_at > cutoff:
+            continue
+        stall_error = strings.get(
+            "sysbackup_stalled_error",
+            "Backup stopped reporting progress at {percent}% for over {minutes} minutes; "
+            "its worker process is gone. Nothing was written.",
+        ).format(percent=backup.progress_percent, minutes=policy["stall_timeout_minutes"])
+        logger.warning(
+            "Reaping stalled system backup pk=%s token=%s at %s%% (stage=%s)",
+            backup.pk, backup.token, backup.progress_percent, backup.stage or "unknown",
+        )
+        fail_system_backup(backup, stall_error, now=now, stalled=True)
+        reaped += 1
+
+    requeued = dispatch_due_backup_retries(now=now, allow_inline=allow_inline) if dispatch else 0
+    return reaped, requeued
+
+
+def dispatch_due_backup_retries(*, now=None, allow_inline=True):
+    """Start any backup whose scheduled retry time has arrived.
+
+    ``allow_inline=False`` is what the web tier uses: a retry there must go to a
+    worker or wait, never build a multi-gigabyte snapshot inside the request that
+    was only polling for status.
+    """
+    SystemBackup = apps.get_model("dlux", "SystemBackup")
+    now = now or timezone.now()
+    started = 0
+    # Passphrase-protected rows are excluded on purpose: only the Celery task that
+    # still holds the passphrase may re-queue one, and starting it from here would
+    # quietly fall back to secret-key encryption.
+    due = SystemBackup.objects.filter(
+        status=SystemBackup.STATUS_PENDING,
+        passphrase_required=False,
+        next_attempt_at__isnull=False,
+        next_attempt_at__lte=now,
+    )
+    for backup in due:
+        # Claim the row before doing anything: two pollers (a browser refresh and
+        # the beat task, say) can reach this at the same moment, and a backup must
+        # never run twice concurrently.
+        if not allow_inline and not system_backup_celery_available():
+            continue
+        claimed = SystemBackup.objects.filter(
+            pk=backup.pk,
+            status=SystemBackup.STATUS_PENDING,
+            next_attempt_at=backup.next_attempt_at,
+        ).update(next_attempt_at=None)
+        if not claimed:
+            continue
+        backup.next_attempt_at = None
+        if not dispatch_system_backup(backup):
+            if not allow_inline:
+                continue
+            run_system_backup(backup.pk)
+        started += 1
+    return started
+
+
+def resume_system_backup(backup, *, passphrase=None, requested_by=None):
+    """Re-run a failed backup on the same row as a fresh attempt.
+
+    Resuming re-runs rather than continuing from the stall point: a ``.dlb`` is a
+    single encrypted stream over a consistent snapshot, so a half-written one has
+    nothing resumable in it. The row is reused so the history stays one line per
+    requested backup, with ``attempt_count`` showing what it took.
+    """
+    SystemBackup = type(backup)
+    if backup.status not in (SystemBackup.STATUS_FAILED, SystemBackup.STATUS_PENDING):
+        raise ValueError("Only a failed backup can be resumed.")
+    if backup.passphrase_required and not _clean_passphrase(passphrase):
+        raise ValueError("This backup is passphrase-protected; the passphrase is required to resume it.")
+    claimed = SystemBackup.objects.filter(pk=backup.pk, status=backup.status).update(
+        status=SystemBackup.STATUS_PENDING,
+        progress_percent=0,
+        progress_message="",
+        stage="",
+        next_attempt_at=None,
+        started_at=None,
+        completed_at=None,
+        heartbeat_at=timezone.now(),
+    )
+    if not claimed:
+        return backup
+    backup.refresh_from_db()
+    if requested_by:
+        _log_system_action(requested_by, "EXPORT", {
+            "kind": "system_backup_resume",
+            "token": backup.token,
+            "attempt": int(backup.attempt_count or 0) + 1,
+        })
+    if not dispatch_system_backup(backup, passphrase=passphrase):
+        run_system_backup(backup.pk, passphrase=passphrase)
+        backup.refresh_from_db()
     return backup
 
 
@@ -502,6 +888,9 @@ def run_scheduled_system_backup(*, now=None):
     SystemSettings = apps.get_model("dlux", "SystemSettings")
     SystemBackup = apps.get_model("dlux", "SystemBackup")
     interval_start = now - timedelta(hours=config["schedule_interval_hours"])
+    # Clear out anything the last cycle left behind (any trigger, not just this
+    # one) before deciding whether a scheduled backup is still in flight.
+    reap_stalled_system_backups(now=now)
     with transaction.atomic():
         SystemSettings.objects.get_or_create(pk=1)
         SystemSettings.objects.select_for_update().get(pk=1)
@@ -510,15 +899,7 @@ def run_scheduled_system_backup(*, now=None):
             status__in=(SystemBackup.STATUS_PENDING, SystemBackup.STATUS_RUNNING),
         ).first()
         if active is not None:
-            stale_before = now - timedelta(hours=max(24, config["schedule_interval_hours"]))
-            if active.created_at >= stale_before:
-                return active
-            active.status = SystemBackup.STATUS_FAILED
-            active.completed_at = now
-            active.error = "Scheduled backup did not complete before the stale-run timeout."
-            active.save(update_fields=["status", "completed_at", "error"])
-            from .backup_progress import finish_backup_progress
-            finish_backup_progress(active, success=False, error=active.error)
+            return active
         latest = SystemBackup.objects.filter(trigger=SystemBackup.TRIGGER_SCHEDULED).order_by("-created_at").first()
         if latest is not None and latest.created_at >= interval_start:
             return latest
@@ -534,10 +915,13 @@ def _log_system_action(username, action, details):
         UserActivityLog = apps.get_model("dlux", "ActivityLog")
         User = apps.get_model(settings.AUTH_USER_MODEL)
         user = User._default_manager.filter(username=username).first()
+        is_restore = str((details or {}).get("kind") or "") == "system_restore"
         UserActivityLog.safe_log(
             user=user,
             action=action,
-            model_name="Dlux System Backup",
+            category="system",
+            model_name="Dlux System Restore" if is_restore else "Dlux System Backup",
+            model_key="dlux.systemrestore" if is_restore else "dlux.systembackup",
             details=details,
         )
     except Exception:

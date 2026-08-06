@@ -356,6 +356,10 @@ SYSTEM_SETTING_GROUPS = (
             _field('backup', 'retention_days', form_name='backup_retention_days', field_type='int', default=0),
             _field('backup', 'max_backups_to_keep', form_name='backup_max_backups_to_keep', field_type='int', default=0),
             _field('backup', 'auto_export_target', form_name='backup_auto_export_target', default='dlux_backups'),
+            _field('backup', 'stall_timeout_minutes', form_name='backup_stall_timeout_minutes', field_type='int', default=30),
+            _field('backup', 'auto_retry_enabled', form_name='backup_auto_retry_enabled', field_type='bool', default=True, widget='switch'),
+            _field('backup', 'max_attempts', form_name='backup_max_attempts', field_type='int', default=3),
+            _field('backup', 'retry_delay_minutes', form_name='backup_retry_delay_minutes', field_type='int', default=5),
         ),
     ),
     SettingGroup(

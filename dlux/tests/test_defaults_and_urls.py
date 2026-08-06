@@ -22,7 +22,19 @@ import json
 import re
 import tempfile
 
-from dlux.system.constants import DEFAULT_HOME_URL, DEFAULT_TABLE_DENSITY, TITLEBAR_ACTIONS_ORDER
+from dlux.system.constants import (
+    DEFAULT_HOME_URL,
+    DEFAULT_TABLE_DENSITY,
+    TITLEBAR_ACTIONS_ORDER,
+    SETUP_STEP_COUNT,
+    SETUP_STEP_IDENTITY,
+    SETUP_STEP_SECURITY,
+    SETUP_STEP_EMAIL,
+    SETUP_STEP_SIDEBAR,
+    SETUP_STEP_TITLEBAR,
+    SETUP_STEP_APPEARANCE,
+    SETUP_STEP_LAYOUT,
+)
 from dlux.context_processors import dlux_context
 from dlux.forms import SystemSettingsForm, _build_archive_file_widget
 from dlux.models import SystemSettings
@@ -293,6 +305,36 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(imported['titlebar_config']['logo_treatment'], 'plate')
         self.assertEqual(imported['titlebar_config']['logo_treatment_shape'], 'pill')
         self.assertTrue(imported['prevent_multiple_active_sessions'])
+
+    def test_system_settings_import_export_prunes_api_navigation_routes(self):
+        instance = SystemSettings.load()
+        instance.sidebar_config = {
+            'entries': [
+                {'kind': 'item', 'id': 'archive:index', 'url_name': 'archive:index'},
+                {'kind': 'item', 'id': 'archive:records_api', 'url_name': 'archive:records_api'},
+            ],
+        }
+        instance.navbar_config = {
+            'enabled': True,
+            'hierarchy': {
+                'nodes': [
+                    {'kind': 'route', 'id': 'archive:index', 'url_name': 'archive:index'},
+                    {'kind': 'route', 'id': 'archive:api:records', 'url_name': 'archive:api:records'},
+                ],
+            },
+        }
+
+        payload = export_system_settings_payload(instance)
+        imported = normalize_system_settings_import_payload(payload)
+
+        self.assertEqual(
+            [entry['id'] for entry in imported['sidebar_config']['entries']],
+            ['archive:index'],
+        )
+        self.assertEqual(
+            [node['id'] for node in imported['navbar_config']['hierarchy']['nodes']],
+            ['archive:index'],
+        )
 
     def test_system_settings_import_accepts_grouped_config_aliases(self):
         imported = normalize_system_settings_import_payload({
@@ -1047,6 +1089,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             'entries': [],
             'enable_reorder': False,
             'show_toolbar': False,
+            'show_notification_badges': False,
         },
     })
     def test_setup_form_surfaces_neon_and_sidebar_behavior_flags(self):
@@ -1062,6 +1105,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.initial['default_table_density'], 'roomy')
         self.assertFalse(form.initial['sidebar_enable_reorder'])
         self.assertFalse(form.initial['sidebar_enable_toolbar'])
+        self.assertFalse(form.initial['sidebar_show_notification_badges'])
 
     @override_settings(DLUX_CONFIG={
         'default_theme': 'retro',
@@ -1355,7 +1399,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
                     'default_from_email': 'security@example.com',
                     'password_configured': True,
                 },
-                'sidebar_config': {'enabled': False, 'entries': [], 'density': 'dense'},
+                'sidebar_config': {
+                    'enabled': False,
+                    'entries': [],
+                    'show_notification_badges': False,
+                    'density': 'dense',
+                },
             },
         }
         import_file = SimpleUploadedFile(
@@ -1386,6 +1435,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertFalse(form.cleaned_data['email_config']['password_configured'])
         self.assertFalse(form.cleaned_data['sidebar_config']['enabled'])
         self.assertTrue(form.cleaned_data['sidebar_enable_toolbar'])
+        self.assertFalse(form.cleaned_data['sidebar_show_notification_badges'])
 
     def test_setup_form_import_restores_login_config_and_registration_mode(self):
         payload = {
@@ -1552,10 +1602,18 @@ class DluxDefaultRouteTests(SimpleTestCase):
             instance=SystemSettings(is_configured=False),
         )
 
-        self.assertFalse(form.is_valid())
-        self.assertIn('email_config', form.errors)
+        # Public registration is a mail-dependent toggle, so it is locked until a
+        # test send verifies email. The unusable combination (registration on with
+        # an encrypted_db secret that has no saved password) is therefore now
+        # prevented outright rather than surfaced as a validation error.
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.cleaned_data['public_registration_enabled'])
         self.assertEqual(form.cleaned_data['default_language'], 'en')
         self.assertEqual(form.cleaned_data['registration_activation_mode'], 'verified_pending_approval')
+
+        saved = form.save()
+        self.assertFalse(saved.email_config.get('verified'))
+        self.assertFalse(saved.registration_config.get('public_registration_enabled'))
 
     def test_setup_form_keeps_sidebar_child_settings_when_sidebar_is_disabled(self):
         form = SystemSettingsForm(
@@ -1575,6 +1633,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
                     'enable_reorder': True,
                     'show_toolbar': True,
                     'show_icons': True,
+                    'show_notification_badges': False,
                     'density': 'roomy',
                     'allow_user_density': True,
                     'collapse_mode': 'icons',
@@ -1588,12 +1647,14 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertTrue(form.cleaned_data['sidebar_config']['enable_reorder'])
         self.assertTrue(form.cleaned_data['sidebar_config']['show_toolbar'])
         self.assertTrue(form.cleaned_data['sidebar_config']['show_icons'])
+        self.assertFalse(form.cleaned_data['sidebar_config']['show_notification_badges'])
         self.assertEqual(form.cleaned_data['sidebar_config']['density'], 'roomy')
         self.assertTrue(form.cleaned_data['sidebar_config']['allow_user_density'])
         self.assertEqual(form.cleaned_data['sidebar_config']['collapse_mode'], 'icons')
         self.assertTrue(form.cleaned_data['sidebar_enable_reorder'])
         self.assertTrue(form.cleaned_data['sidebar_enable_toolbar'])
         self.assertTrue(form.cleaned_data['sidebar_show_icons'])
+        self.assertFalse(form.cleaned_data['sidebar_show_notification_badges'])
         self.assertTrue(form.cleaned_data['sidebar_allow_user_density'])
         self.assertEqual(form.cleaned_data['sidebar_collapse_mode'], 'icons')
 
@@ -1703,33 +1764,45 @@ class DluxDefaultRouteTests(SimpleTestCase):
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
         steps = _wizard_step_field_names(html)
 
-        self.assertEqual(len(steps), 13)
+        self.assertEqual(len(steps), SETUP_STEP_COUNT)
         self.assertLessEqual(
             {'default_theme', 'allowed_themes', 'allow_user_theme_override', 'allowed_fonts',
              'allow_user_font_override', 'default_fonts', 'public_root_theme'},
-            steps[8],
+            steps[SETUP_STEP_APPEARANCE],
         )
         self.assertLessEqual(
             {'default_table_density', 'default_form_density', 'default_modal_size',
              'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
              'show_audit_fields', 'show_soft_deleted', 'options_style'},
-            steps[9],
+            steps[SETUP_STEP_LAYOUT],
         )
         self.assertTrue(
-            steps[8].isdisjoint({
+            steps[SETUP_STEP_APPEARANCE].isdisjoint({
                 'default_table_density', 'default_form_density', 'default_modal_size',
                 'sticky_table_headers', 'resizable_table_columns', 'zebra_striping',
                 'show_audit_fields', 'show_soft_deleted', 'options_style',
             })
         )
-        self.assertLessEqual({'public_root_title', 'public_root_meta_description'}, steps[0])
-        self.assertIn('show_sidebar_on_public', steps[4])
-        self.assertIn('show_titlebar_on_public', steps[6])
-        self.assertNotIn('public_root_theme', steps[2])
-        self.assertNotIn('show_sidebar_on_public', steps[2])
-        self.assertNotIn('show_titlebar_on_public', steps[2])
-        self.assertNotIn('public_root_title', steps[2])
-        self.assertNotIn('public_root_meta_description', steps[2])
+        self.assertLessEqual({'public_root_title', 'public_root_meta_description'}, steps[SETUP_STEP_IDENTITY])
+        self.assertIn('show_sidebar_on_public', steps[SETUP_STEP_SIDEBAR])
+        self.assertIn('show_titlebar_on_public', steps[SETUP_STEP_TITLEBAR])
+        # Email owns its own step; the security step no longer carries SMTP fields.
+        self.assertLessEqual(
+            {'email_config_enabled', 'email_config_host', 'email_config_port',
+             'email_config_username', 'email_config_default_from_email'},
+            steps[SETUP_STEP_EMAIL],
+        )
+        self.assertTrue(
+            steps[SETUP_STEP_SECURITY].isdisjoint({
+                'email_config_enabled', 'email_config_host', 'email_config_port',
+                'email_config_username', 'email_config_default_from_email',
+            })
+        )
+        self.assertNotIn('public_root_theme', steps[SETUP_STEP_SECURITY])
+        self.assertNotIn('show_sidebar_on_public', steps[SETUP_STEP_SECURITY])
+        self.assertNotIn('show_titlebar_on_public', steps[SETUP_STEP_SECURITY])
+        self.assertNotIn('public_root_title', steps[SETUP_STEP_SECURITY])
+        self.assertNotIn('public_root_meta_description', steps[SETUP_STEP_SECURITY])
         self.assertLessEqual(
             {
                 'public_root_title',
@@ -1767,6 +1840,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("data-dlux-email-toggle-field='email_config_use_ssl'", html)
         self.assertNotIn("data-dlux-settings-toggle-field='email_config_use_tls'", html)
         self.assertNotIn("data-dlux-settings-toggle-field='email_config_use_ssl'", html)
+        # The compact email variant is only for the inline TLS/SSL switches. The
+        # Email step's master toggle is a step-level switch like sidebar/navbar and
+        # must render as the shared Dlux toggle card, not a bare checkbox.
+        self.assertIn("data-dlux-settings-toggle-field='email_config_enabled'", html)
+        self.assertNotIn("data-dlux-email-toggle-field='email_config_enabled'", html)
         self.assertIn('data-dlux-settings-toggle-field=\'allow_user_language_override\'', html)
         self.assertIn('class="row mb-3"', html)
         self.assertIn('class="row g-3 mb-3"', html)
@@ -2354,7 +2432,26 @@ class DluxDefaultRouteTests(SimpleTestCase):
         password_class_end = html.index('>', password_class_start)
 
         self.assertNotIn('d-none', html[password_class_start:password_class_end])
-        self.assertIn("alert alert-info small' data-autoclose='false'", html)
+        # The service reason is an inline status beside Apply, not a full-width
+        # alert banner that pushed the rest of the step down.
+        self.assertIn('dlux-email-status', html)
+        self.assertNotIn("alert alert-info small' data-autoclose='false'", html)
+
+    def test_send_test_button_shares_one_input_group_with_its_field(self):
+        """Two grid columns cannot stay level: the field column carries a label and
+        help text, so any vertical alignment picks the wrong edge and the button
+        lands above or below the input. One input-group makes them level."""
+        form = SystemSettingsForm(instance=SystemSettings(is_configured=False), mode='setup')
+        html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
+
+        group = re.search(
+            r"<div class='input-group dlux-email-test-group'>(.*?)</div>", html, re.S,
+        )
+        self.assertIsNotNone(group, 'send-test control is not an input-group')
+        inner = group.group(1)
+        self.assertIn('data-email-test-recipient', inner)
+        self.assertIn('data-email-send-test', inner)
+        self.assertLess(inner.index('<input'), inner.index('<button'))
 
     def test_setup_form_renders_client_ip_config_controls(self):
         form = SystemSettingsForm(
@@ -2494,6 +2591,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('syncSetupLanguagePickers(form);', contents)
         self.assertIn('syncTranslationOverrides(form);', contents)
         self.assertIn('applyImmediateSystemSettingsPreview(form);', contents)
+        self.assertIn('form.dataset.dluxAllowedThemeCount', contents)
+        self.assertIn('form.dataset.dluxLanguageCount', contents)
+        self.assertIn('const languageCount = getSetupLanguageCount(form);', contents)
         self.assertIn('delete form.__dluxPendingSetupState;', contents)
         self.assertIn('rehydrateSetupLanguageEditors(form)', contents)
         self.assertIn('restoreImportedEmailPasswordNotice(form);', contents)
@@ -2510,6 +2610,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('function syncSidebarBehaviorConfig(form) {', contents)
         self.assertIn('const hiddenInput = form.querySelector(\'input[name="sidebar_config"]\');', contents)
         self.assertIn('nextConfig.show_toolbar = readBooleanField(form, \'#id_sidebar_enable_toolbar\', true);', contents)
+        self.assertIn(
+            'nextConfig.show_notification_badges = readBooleanField('
+            "form, '#id_sidebar_show_notification_badges', true);",
+            contents,
+        )
         self.assertIn('syncSidebarBehaviorConfig(form);', contents)
         self.assertIn('function seedNavbarConfigFromSidebar(form) {', contents)
         self.assertIn("shell.classList.contains('mode-setup')", contents)
@@ -3204,7 +3309,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertNotIn('name="ms_', html)
         self.assertNotIn('name="sidebarSystemItemsToggle-', html)
-        self.assertLess(len(re.findall(r'\sname=', html)), 210)
+        # Coarse budget guarding against JS-only editor controls leaking into the
+        # POST; raised for the Step 13 backup-recovery fields.
+        self.assertLess(len(re.findall(r'\sname=', html)), 215)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
         css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'options.css'
@@ -3614,10 +3721,19 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
     @override_settings(DLUX_CONFIG={}, MEDIA_URL='')
     def test_uploaded_branding_urls_fall_back_to_absolute_media_paths(self):
+        available_storage = SimpleNamespace(exists=lambda _name: True)
         fake_settings = SimpleNamespace(
             system_names={},
-            logo=SimpleNamespace(url='dlux/branding/logo.png'),
-            favicon=SimpleNamespace(url='dlux/branding/favicon.ico'),
+            logo=SimpleNamespace(
+                name='dlux/branding/logo.png',
+                url='dlux/branding/logo.png',
+                storage=available_storage,
+            ),
+            favicon=SimpleNamespace(
+                name='dlux/branding/favicon.ico',
+                url='dlux/branding/favicon.ico',
+                storage=available_storage,
+            ),
             home_url='',
             default_language='en',
             default_theme='light',

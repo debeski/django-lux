@@ -8,6 +8,7 @@
     const POLL_INTERVAL_MS = 4000;
     const POLL_LIMIT = 1800;
     const IDLE_LIST_POLL_MS = 15000;
+    const STALL_WARN_SECONDS = 120;
     let listPollTimer = null;
     let listRequestActive = false;
 
@@ -42,6 +43,17 @@
                     createBtn.disabled = false;
                     refreshBackupList(true);
                 } else {
+                    // Say what the run is actually doing and how long ago it last
+                    // said anything — a bare "preparing..." for an hour is what
+                    // made a dead backup look like a slow one.
+                    const parts = [(data.progress_percent || 0) + '%'];
+                    if (data.progress_message) parts.push(data.progress_message);
+                    if (data.attempt_count > 1) {
+                        parts.push('#' + data.attempt_count + '/' + (data.max_attempts || data.attempt_count));
+                    }
+                    const quietFor = data.seconds_since_progress || 0;
+                    parts.push((form.dataset.msgLastSignal || 'last update') + ' ' + quietFor + 's');
+                    setNote(parts.join(' · '), quietFor > STALL_WARN_SECONDS ? 'error' : null);
                     setTimeout(function () { pollBackup(statusUrl, attempt + 1); }, POLL_INTERVAL_MS);
                 }
             })
@@ -97,6 +109,33 @@
     const fileInput = document.getElementById('sysrestore-file');
     const labelSpan = document.getElementById('sysrestore-label');
 
+    const resumePanel = document.getElementById('sysbackup-resume-panel');
+    const resumeForm = document.getElementById('sysbackup-resume-form');
+    const resumeLabel = document.getElementById('sysbackup-resume-label');
+    const resumePassphraseWrap = document.getElementById('sysbackup-resume-passphrase-wrap');
+    const resumePassphrase = document.getElementById('sysbackup-resume-passphrase');
+
+    function bindResumeButtons(root) {
+        root.querySelectorAll('.sysbackup-resume-open:not([data-dlux-backup-bound])').forEach(function (btn) {
+            btn.dataset.dluxBackupBound = 'true';
+            btn.addEventListener('click', function () {
+                if (!resumePanel || !resumeForm || !resumeLabel) return;
+                resumeForm.action = btn.dataset.resumeUrl || '';
+                resumeLabel.textContent = btn.dataset.backupLabel || '';
+                const needsPassphrase = btn.dataset.needsPassphrase === '1';
+                if (resumePassphraseWrap) {
+                    resumePassphraseWrap.classList.toggle('d-none', !needsPassphrase);
+                }
+                if (resumePassphrase) {
+                    resumePassphrase.value = '';
+                    resumePassphrase.required = needsPassphrase;
+                }
+                resumePanel.classList.remove('d-none');
+                resumePanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        });
+    }
+
     function bindRestoreButtons(root) {
         root.querySelectorAll('.sysrestore-open:not([data-dlux-backup-bound])').forEach(function (btn) {
             btn.dataset.dluxBackupBound = 'true';
@@ -142,6 +181,18 @@
         }
     }
 
+    function announceStalledBackups(items) {
+        if (!form) return;
+        const stalled = (items || []).find(function (item) { return item.stalled; });
+        if (!stalled) return;
+        const template = form.dataset.msgStalled || '';
+        setNote(
+            template.replace('{seconds}', String(stalled.seconds_since_progress || 0)) +
+                (stalled.progress_message ? ' - ' + stalled.progress_message : ''),
+            'error',
+        );
+    }
+
     function scheduleListPoll(delay) {
         if (!tableBody) return;
         if (listPollTimer) window.clearTimeout(listPollTimer);
@@ -169,8 +220,10 @@
                     tableBody.innerHTML = data.html || '';
                     tableBody.dataset.revision = data.revision || '';
                     bindRestoreButtons(tableBody);
+                    bindResumeButtons(tableBody);
                     announceStatusChanges(previousStatuses, data.items);
                 }
+                announceStalledBackups(data.items);
                 scheduleListPoll(data.active ? POLL_INTERVAL_MS : IDLE_LIST_POLL_MS);
             })
             .catch(function () {
@@ -182,6 +235,11 @@
     }
 
     bindRestoreButtons(document);
+    bindResumeButtons(document);
+    const resumeCancel = document.getElementById('sysbackup-resume-cancel');
+    if (resumeCancel && resumePanel) {
+        resumeCancel.addEventListener('click', function () { resumePanel.classList.add('d-none'); });
+    }
     if (tableHasActiveBackup() && form) setNote(form.dataset.msgPreparing);
     scheduleListPoll(tableHasActiveBackup() ? POLL_INTERVAL_MS : IDLE_LIST_POLL_MS);
     document.addEventListener('visibilitychange', function () {

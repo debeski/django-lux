@@ -219,7 +219,7 @@
 }
 
 .dlux-backup-progress-cell {
-    min-width: 9rem;
+    min-width: 12rem;
 }
 
 .dlux-backup-progress--success {
@@ -228,6 +228,22 @@
 
 .dlux-backup-progress--error {
     --dlux-progress-color: #dc2626;
+}
+
+.dlux-backup-progress--stalled {
+    --dlux-progress-color: #d97706;
+    animation: dlux-backup-progress-stalled 1.6s ease-in-out infinite;
+}
+
+@keyframes dlux-backup-progress-stalled {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dlux-backup-progress--stalled {
+        animation: none;
+    }
 }
 
 .dlux-notifications__progress-label {

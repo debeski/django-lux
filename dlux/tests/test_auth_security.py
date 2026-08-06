@@ -77,6 +77,13 @@ class SessionPolicyConfigTests(TestCase):
         self.assertFalse(cfg['inactivity_timeout_enabled'])
         self.assertEqual(cfg['inactivity_timeout_minutes'], 10)
 
+    def test_purge_on_exit_copy_describes_browser_not_tab_expiry(self):
+        from dlux.translations import get_strings
+
+        help_text = get_strings('en')['help_sys_purge_session_on_exit']
+        self.assertIn('browser is fully closed', help_text)
+        self.assertIn('Closing one tab does not end', help_text)
+
     def test_inactivity_minutes_clamped(self):
         self.assertEqual(normalize_auth_config({'inactivity_timeout_minutes': 0})['inactivity_timeout_minutes'], 1)
         self.assertEqual(normalize_auth_config({'inactivity_timeout_minutes': 99999})['inactivity_timeout_minutes'], 1440)

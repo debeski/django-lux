@@ -27,6 +27,11 @@
             --dlux-main-font: '{{ active_font_family }}', sans-serif;
         }
     </style>
+    {% if theme_preview_css %}
+    <style id="dlux-dynamic-theme-previews" nonce="{{ request.csp_nonce }}">
+        {{ theme_preview_css|safe }}
+    </style>
+    {% endif %}
     <script src="{% dlux_static 'dlux/main/js/base_head.js' %}" nonce="{{ request.csp_nonce }}"></script>
     <!-- Include CSS (direction-aware bootstrap) -->
     {% if CURRENT_DIR == 'ltr' %}

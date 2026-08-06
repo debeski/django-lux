@@ -10,6 +10,7 @@
 - Use `{{ config_package }}/celery.py` as the shared Celery entrypoint and keep app tasks in app-local `tasks.py`
 - Use `/health/` as the project health endpoint when checking container readiness
 - Keep secret bootstrap values in `.secrets/.env`; the generated compose file itself stays in the standard inline-env pattern
+- Check the [DjangoLux Deployment Configuration reference](https://github.com/debeski/django-lux/blob/v{{ dlux_version }}/docs/deployment-configuration.md) before adding `DLUX_*` settings or environment variables
 - Keep `dlux_runtime` mounted read-only in web/Celery/nginx and read/write only in `dlux-updater`; do not add a Docker socket or published updater port
 - Operate Dlux updates from the superuser System Info card; checks may run daily, but apply and rollback are always explicit
 

@@ -6,6 +6,12 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 
+from dlux.system.constants import (
+    SETUP_STEP_COUNT,
+    SETUP_STEP_EMAIL,
+    SETUP_STEP_LAYOUT,
+    SETUP_STEP_SECURITY,
+)
 from dlux.search import get_component_index, run_search, search_components
 from dlux.system.normalizers import normalize_titlebar_config
 
@@ -53,7 +59,7 @@ class ComponentIndexTests(TestCase):
     def test_settings_entries_are_step_deeplinked_modals(self):
         index = get_component_index('en')
         settings_entries = [entry for entry in index if entry['type'] == 'setting']
-        self.assertEqual(len(settings_entries), 13)
+        self.assertEqual(len(settings_entries), SETUP_STEP_COUNT)
         for entry in settings_entries:
             self.assertEqual(entry['mode'], 'modal')
             self.assertIn('?step=', entry['url'])
@@ -62,12 +68,17 @@ class ComponentIndexTests(TestCase):
     def test_security_section_maps_to_step_2(self):
         index = get_component_index('en')
         security = next(e for e in index if e['type'] == 'setting' and 'Security' in e['label'])
-        self.assertIn('?step=2', security['url'])
+        self.assertIn(f'?step={SETUP_STEP_SECURITY}', security['url'])
 
-    def test_layout_section_maps_to_step_9(self):
+    def test_layout_section_maps_to_its_wizard_step(self):
         index = get_component_index('en')
         layout = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Layout')
-        self.assertIn('?step=9', layout['url'])
+        self.assertIn(f'?step={SETUP_STEP_LAYOUT}', layout['url'])
+
+    def test_email_section_deeplinks_to_its_own_step(self):
+        index = get_component_index('en')
+        email = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Email')
+        self.assertIn(f'?step={SETUP_STEP_EMAIL}', email['url'])
 
     def test_index_includes_options_cards(self):
         index = get_component_index('en')

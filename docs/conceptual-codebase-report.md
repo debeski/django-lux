@@ -274,17 +274,19 @@ the same resolved state.
 
 ## 12. Themes, Fonts, And Visual Runtime
 
-Themes are registry-driven. `dlux/themes.py` defines the canonical ordering,
-slug, color, label key, preview style, and CSS path. The runtime only exposes
-themes whose CSS file exists, then applies an allowlist from config.
+Themes are registry-driven. `dlux/themes.py` defines the canonical built-in
+ordering, slug, color, label key, preview style, and CSS path, filters built-ins
+against packaged CSS, then appends validated project entries from
+`DLUX_CUSTOM_THEMES`. The runtime applies the same config allowlist to both.
 
 Fonts work similarly. Built-in font metadata and generated `@font-face` CSS are
 resolved from the allowed font list. User font preference is honored only if the
 system allows user override and the selected font is still allowed.
 
 The visual runtime is external-asset oriented. The base template uses JSON
-script blocks for data, external JavaScript for behavior, linked CSS for styling,
-and a single nonce-protected dynamic font style block for generated font faces.
+script blocks for data, external JavaScript for behavior, linked CSS for
+styling, and nonce-protected style blocks for generated font faces and
+validated custom-theme preview swatches.
 
 Before full page load, `base_head.js` applies theme, font, and accessibility
 classes to avoid a flash of the wrong UI state. Later runtime scripts initialize
@@ -619,27 +621,33 @@ The report engine:
 
 1. Builds a base activity queryset.
 2. Applies scope visibility based on actor tier.
-3. Applies a time window: week, month, or all.
-4. Filters out Dlux-internal/noise model keys.
-5. Groups by user, model, action, and day.
-6. Computes totals, deltas, averages, available filters, and recent activity.
-7. Optionally caches expensive overview stats by actor scope, filters, language,
+3. Applies a week, month, quarter, half-year, year, custom inclusive date range,
+   or all-time window.
+4. Builds an actor-visible model/operation catalog and applies explicit include sets.
+5. Filters out Dlux-internal/noise model keys.
+6. Groups by user, model, action, and day.
+7. Computes totals, equal-duration previous-period deltas, averages, and recent activity.
+8. Optionally caches expensive overview stats by actor scope, filters, language,
    and report config.
 
 The engine prefers stable `model_key` grouping over translated `model_name`
 labels. That avoids reports changing identity when the UI language changes.
+Celery result, beat-schedule, and legacy `djcelery` identities are hard-excluded
+before configuration allowlists so infrastructure rows never enter the builder.
 
-Reports can export XLSX workbooks with summary and grouped sheets.
+Reports export XLSX workbooks with summary/grouped/log sheets plus a selection
+sheet that records every included and excluded model and operation.
 
 ## 27. Report Backups
 
 Report backups are scoped, permission-gated ZIP archives for monitoring/export.
 They are not full system restore files.
 
-The backup chooses report-eligible models, applies scope and optional time
-window filtering, streams serialized JSON fixtures into a ZIP, and streams file
-field contents into the same archive. It records a manifest with model counts,
-files, and missing files.
+The backup uses the overview's normalized builder criteria, chooses included
+report-eligible models, applies scope and period filtering, streams serialized
+JSON fixtures and file fields, and embeds the same XLSX report. Its manifest
+records the period/model/operation selection, model counts, files, and missing
+files. `ReportBackup.criteria` persists that contract for background workers.
 
 Large backups can run in Celery when a worker and broker are actually reachable.
 Otherwise views fall back to synchronous generation. Completed backups are
@@ -734,6 +742,9 @@ When nothing exists, Dlux generates a fallback ModelForm, Table, or FilterSet.
 Sidebar discovery walks Django URL patterns, keeps only reversible named routes,
 rejects action-like/internal/API/auth/modal/delete routes, infers model/group,
 labels, icons, and permissions, and caches a catalog per language/config/URLconf.
+API detection uses exact tokens across every namespace segment, route name,
+resolved path, and callback name; the same rule prunes stored sidebar/Nav Bar
+trees and settings imports/exports without misclassifying words such as `rapid`.
 
 This lets host apps become navigable and manageable by following normal Django
 conventions instead of registering every surface manually.
@@ -757,7 +768,9 @@ Build algorithm:
 7. Drop empty groups.
 8. Mark active items based on current request path.
 9. Open groups that contain active items or user-open accordions.
-10. Return render-ready entries, top-level auto items, and groups.
+10. Match model-backed entries to notification `source_model_key` values and
+    annotate per-user unread counts plus unique group totals.
+11. Return render-ready entries, top-level auto items, and groups.
 
 New base entries missing from a user override are appended so user-specific
 ordering does not hide newly added system navigation forever.
@@ -983,7 +996,8 @@ The active security standard is DSRP-1. Its practical rules in code are:
 - Section and modal endpoints reject arbitrary model tokens.
 - Sidebar visibility does not imply access by itself.
 - Runtime templates avoid executable inline scripts and inline style attributes,
-  with narrow exceptions for JSON data and dynamic font CSS.
+  with narrow exceptions for JSON data, dynamic font CSS, and validated
+  custom-theme preview CSS.
 - Sensitive fields are masked in logs and excluded from autofill.
 - Redirects and `next` URLs are checked for safety.
 - Backup/restore is superuser-only.

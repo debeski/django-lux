@@ -79,6 +79,44 @@ def diff_attachments(contract, attachments):
     return drift
 
 
+def retired_command_modules(contract):
+    """``{retired module: current module}`` for dlux-owned service entrypoints.
+
+    Both the SMTP relay and the runtime supervisor moved out of per-project
+    ``tools/`` files into the package, so fixes to them travel with the dlux
+    version rather than being frozen at whatever a project was scaffolded with.
+    A deployment generated before either move keeps invoking its own stale copy
+    until the Compose command is rewritten — which is Composer's job, not a
+    manual edit.
+    """
+    return dict(contract.get("invariants", {}).get("retired_command_modules", {}))
+
+
+def diff_command_modules(contract, service_commands):
+    """Compare a parsed ``{service: command string}`` map against the contract.
+
+    Returns ``[(service, retired_module, current_module), ...]`` for every service
+    still invoking a retired entrypoint — everything Composer needs to report the
+    drift and to repair it by substitution. Pure and dependency-free so the check
+    and the fix share one definition of "wrong".
+    """
+    retired = retired_command_modules(contract)
+    drift = []
+    for service, command in sorted((service_commands or {}).items()):
+        text = command if isinstance(command, str) else " ".join(map(str, command or []))
+        for old_module, new_module in retired.items():
+            if old_module in text:
+                drift.append((service, old_module, new_module))
+    return drift
+
+
+def fix_command_modules(contract, contents):
+    """Rewrite retired entrypoints in a Compose file's text, idempotently."""
+    for old_module, new_module in retired_command_modules(contract).items():
+        contents = contents.replace(old_module, new_module)
+    return contents
+
+
 def removed_services_present(contract, service_names):
     """Advisory list for services DjangoLux used to ship and has since dropped
     but are still running in a deployment.

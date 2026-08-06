@@ -156,6 +156,67 @@ class NotificationPipelineTests(TestCase):
         self.assertIsNotNone(read_state.read_at)
         self.assertIsNotNone(dismissed_state.dismissed_at)
 
+    def test_unread_section_counts_group_by_notification_source_model(self):
+        request = self._request()
+        first_user_notification = notify('First user.', request=request, obj=self.user)
+        notify('Second user.', request=request, obj=self.user)
+        settings_obj = SystemSettings.load()
+        notify('Settings changed.', request=request, obj=settings_obj)
+        mark_notification_read(self.user, first_user_notification.pk)
+
+        context = get_notification_context(request)
+
+        self.assertEqual(context['section_counts'], {
+            'auth.user': 1,
+            'dlux.systemsettings': 1,
+        })
+
+        client = Client()
+        client.force_login(self.user)
+        response = client.get(reverse('notifications_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['section_counts'], context['section_counts'])
+
+    def test_sidebar_section_counts_are_independent_of_drawer_badge_toggle(self):
+        request = self._request()
+        notify('User changed.', request=request, obj=self.user)
+        settings_obj = SystemSettings.load()
+        settings_obj.notification_config = {
+            'enabled': True,
+            'drawer': {
+                'enabled': True,
+                'badge_enabled': False,
+            },
+        }
+        settings_obj.save()
+        cache.delete(SystemSettings.__name__)
+
+        self.assertEqual(get_notification_context(request)['section_counts'], {'auth.user': 1})
+
+    def test_sidebar_section_counts_remain_available_when_drawer_is_disabled(self):
+        request = self._request()
+        notification = notify('User drawer disabled.', request=request, obj=self.user)
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.source_model_key, 'auth.user')
+        self.assertTrue(
+            DluxNotificationState.objects.filter(notification=notification, user=self.user).exists()
+        )
+        settings_obj = SystemSettings.load()
+        settings_obj.notification_config = {
+            'enabled': True,
+            'drawer': {
+                'enabled': False,
+                'badge_enabled': True,
+            },
+        }
+        settings_obj.save()
+        cache.delete(SystemSettings.__name__)
+
+        context = get_notification_context(request)
+
+        self.assertFalse(context['enabled'])
+        self.assertEqual(context['section_counts'], {'auth.user': 1})
+
     def test_active_backup_notification_cannot_be_dismissed_or_cleared(self):
         request = self._request()
         notification = notify.info(
@@ -264,11 +325,36 @@ class NotificationSettingsFormTests(TestCase):
         EMAIL_PORT=587,
         DEFAULT_FROM_EMAIL='notify@example.com',
     )
-    def test_notification_email_toggles_enable_when_email_delivery_is_configured(self):
+    def test_notification_email_toggles_stay_locked_until_email_is_verified(self):
+        """Configured is not the same as proven: the toggles need a passed test send."""
         from dlux.models import SystemSettings
+        from dlux.system.normalizers import email_config_fingerprint, normalize_email_config
 
+        settings_obj = SystemSettings.load()
+
+        # Reachable SMTP settings alone are not enough.
+        form = SystemSettingsForm(instance=settings_obj)
+        self.assertTrue(form.fields['notification_email_enabled'].disabled)
+        self.assertTrue(form.fields['notification_email_default'].disabled)
+
+        # Enabled but still untested stays locked.
+        config = normalize_email_config({
+            'host': 'smtp.example.com',
+            'port': 587,
+            'default_from_email': 'notify@example.com',
+            'enabled': True,
+        })
+        settings_obj.email_config = config
+        settings_obj.save(update_fields=['email_config'])
         form = SystemSettingsForm(instance=SystemSettings.load())
+        self.assertTrue(form.fields['notification_email_enabled'].disabled)
 
+        # A recorded successful test unlocks them.
+        config['verified'] = True
+        config['verified_fingerprint'] = email_config_fingerprint(config)
+        settings_obj.email_config = config
+        settings_obj.save(update_fields=['email_config'])
+        form = SystemSettingsForm(instance=SystemSettings.load())
         self.assertFalse(form.fields['notification_email_enabled'].disabled)
         self.assertFalse(form.fields['notification_email_default'].disabled)
 

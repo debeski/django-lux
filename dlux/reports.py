@@ -7,7 +7,8 @@ import tempfile
 import unicodedata
 import zipfile
 from collections import Counter, defaultdict
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from io import BytesIO
 
 from django.apps import apps
@@ -36,7 +37,14 @@ from .utils import (
 
 logger = logging.getLogger("dlux")
 
-REPORT_WINDOWS = {"week", "month", "all"}
+REPORT_WINDOWS = {"week", "month", "quarter", "half_year", "year", "custom", "all"}
+REPORT_ACTIVITY_CATEGORY = "user"
+REPORT_OVERVIEW_CACHE_SCHEMA_VERSION = 2
+REPORT_ENTRIES_ROW_LIMIT = 20000
+REPORT_CHART_TOP_N = 12
+# The operation mix is the one categorical chart: it may never exceed the eight
+# validated hue slots, so the tail folds into a single "Other" slice.
+REPORT_CHART_CATEGORICAL_TOP_N = 7
 _DLUX_REPORT_EXCLUDED_KEYS = {
     "auth",
     "authentication",
@@ -66,6 +74,8 @@ _DLUX_REPORT_EXCLUDED_KEYS = {
     "backup_code",
     "backup_codes",
     # Dlux-internal meta actions (not project work; classified as system interactions)
+    "dlux_system_backup",
+    "dlux_system_restore",
     "dlux_reports_backup",
     "reports_backup",
 }
@@ -87,6 +97,36 @@ _EXCLUDED_APP_LABELS = {
     "messages",
     "staticfiles",
 }
+_CELERY_REPORT_APP_LABELS = {
+    "celery",
+    "djcelery",
+    "django_celery_beat",
+    "django_celery_results",
+}
+_CELERY_REPORT_MODEL_KEYS = {
+    "task_result",
+    "taskresult",
+    "group_result",
+    "groupresult",
+    "chord_counter",
+    "chordcounter",
+    "periodic_task",
+    "periodictask",
+    "periodic_tasks",
+    "periodictasks",
+    "crontab_schedule",
+    "crontabschedule",
+    "interval_schedule",
+    "intervalschedule",
+    "solar_schedule",
+    "solarschedule",
+    "clocked_schedule",
+    "clockedschedule",
+    "task_meta",
+    "taskmeta",
+    "task_set_meta",
+    "tasksetmeta",
+}
 
 
 def normalize_report_window(value):
@@ -98,6 +138,15 @@ def normalize_backup_window(value):
     """Like normalize_report_window but defaults to 'all' (the historical backup scope)."""
     value = str(value or "all").strip().lower()
     return value if value in REPORT_WINDOWS else "all"
+
+
+def _parse_report_date(value):
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value or "").strip())
+    except (TypeError, ValueError):
+        return None
 
 
 def _reports_config():
@@ -148,11 +197,37 @@ def _model_is_section(model):
     return bool(getattr(model._meta, "is_section", False))
 
 
+def _is_celery_report_identity(value):
+    normalized = normalize_activity_log_model_key(value)
+    return (
+        normalized in _CELERY_REPORT_MODEL_KEYS
+        or normalized.startswith("django_celery_beat_")
+        or normalized.startswith("django_celery_results_")
+        or normalized.startswith("djcelery_")
+        or normalized.startswith("celery_")
+    )
+
+
+def _is_celery_report_model(model):
+    app_label = str(model._meta.app_label or "").lower()
+    return app_label in _CELERY_REPORT_APP_LABELS or app_label.startswith("django_celery_")
+
+
 def is_report_eligible_model(model):
     if model is None:
         return False
     meta = model._meta
-    if meta.abstract or not meta.managed:
+    if (
+        meta.abstract
+        or not meta.managed
+        or getattr(meta, "auto_created", False)
+        or getattr(meta, "proxy", False)
+        or getattr(meta, "swapped", False)
+    ):
+        return False
+    if _is_celery_report_model(model):
+        return False
+    if getattr(model, "dlux_report", None) is False:
         return False
     keys = _model_keys(model)
     if keys & _normalized_config_set("exclude_models"):
@@ -176,15 +251,19 @@ def is_report_eligible_activity_model_name(model_name):
     # model resolution so the decision is made on the underlying model instead of
     # on whether its label happens to be ASCII.
     normalized = normalize_activity_log_model_key(raw)
+    if _is_celery_report_identity(raw):
+        return False
     if normalized and normalized in _DLUX_REPORT_EXCLUDED_KEYS:
+        return False
+    model = resolve_model_by_name(raw)
+    if model is not None and not is_report_eligible_model(model):
         return False
     if normalized in _normalized_config_set("exclude_activity"):
         return False
     if normalized in _normalized_config_set("include_activity"):
         return True
-    model = resolve_model_by_name(raw)
     if model is not None:
-        return is_report_eligible_model(model)
+        return True
     return True
 
 
@@ -201,11 +280,28 @@ def _week_start_index():
     return value if 0 <= value <= 6 else 0
 
 
-def get_report_window_bounds(window, *, now=None):
+def get_report_window_bounds(window, *, now=None, custom_start=None, custom_end=None):
     window = normalize_report_window(window)
     if window == "all":
         return None, None
     now = timezone.localtime(now or timezone.now())
+    timezone_value = timezone.get_current_timezone()
+    if window == "custom":
+        start_date = _parse_report_date(custom_start) or now.date()
+        end_date = _parse_report_date(custom_end) or start_date
+        if end_date < start_date:
+            start_date, end_date = end_date, start_date
+        start = timezone.make_aware(datetime.combine(start_date, time.min), timezone_value)
+        end = timezone.make_aware(datetime.combine(end_date + timedelta(days=1), time.min), timezone_value)
+        return start, end
+    if window == "year":
+        return now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0), None
+    if window == "half_year":
+        month = 1 if now.month <= 6 else 7
+        return now.replace(month=month, day=1, hour=0, minute=0, second=0, microsecond=0), None
+    if window == "quarter":
+        month = ((now.month - 1) // 3) * 3 + 1
+        return now.replace(month=month, day=1, hour=0, minute=0, second=0, microsecond=0), None
     if window == "month":
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         return start, None
@@ -213,6 +309,21 @@ def get_report_window_bounds(window, *, now=None):
     start_date = now.date() - timedelta(days=(now.weekday() - week_start) % 7)
     start = timezone.make_aware(datetime.combine(start_date, time.min), timezone.get_current_timezone())
     return start, None
+
+
+def get_previous_period_bounds(window, *, now=None, custom_start=None, custom_end=None):
+    now = timezone.localtime(now or timezone.now())
+    current_start, current_end = get_report_window_bounds(
+        window,
+        now=now,
+        custom_start=custom_start,
+        custom_end=custom_end,
+    )
+    if current_start is None:
+        return None, None
+    comparison_end = current_start
+    duration = (current_end or now) - current_start
+    return comparison_end - duration, comparison_end
 
 
 def get_previous_week_bounds(*, now=None):
@@ -241,8 +352,13 @@ def apply_report_scope(queryset, actor):
     return queryset.none()
 
 
-def apply_report_window(queryset, window, *, now=None):
-    start, end = get_report_window_bounds(window, now=now)
+def apply_report_window(queryset, window, *, now=None, custom_start=None, custom_end=None):
+    start, end = get_report_window_bounds(
+        window,
+        now=now,
+        custom_start=custom_start,
+        custom_end=custom_end,
+    )
     if start is not None:
         queryset = queryset.filter(created_at__gte=start)
     if end is not None:
@@ -250,9 +366,15 @@ def apply_report_window(queryset, window, *, now=None):
     return queryset
 
 
-def get_visible_report_activity(actor, *, window="all", now=None):
+def get_visible_report_activity(actor, *, window="all", now=None, custom_start=None, custom_end=None):
     qs = apply_report_scope(_base_activity_queryset(), actor)
-    qs = apply_report_window(qs, window, now=now)
+    qs = apply_report_window(
+        qs,
+        window,
+        now=now,
+        custom_start=custom_start,
+        custom_end=custom_end,
+    )
     return qs.order_by("-created_at")
 
 
@@ -276,6 +398,7 @@ def log_report_key(log):
 
 
 def filter_report_eligible_activity(queryset):
+    queryset = queryset.filter(category=REPORT_ACTIVITY_CATEGORY)
     eligible_keys = set()
     eligible_legacy_names = set()
     identity_rows = queryset.select_related(None).order_by().values_list("model_key", "model_name").distinct()
@@ -399,12 +522,15 @@ def _overview_cache_scope(actor):
 
 def _overview_stats_cache_key(actor, window, filters):
     payload = {
+        "schema": REPORT_OVERVIEW_CACHE_SCHEMA_VERSION,
         "scope": _overview_cache_scope(actor),
         "window": window,
         "filters": {
             "q": filters.get("q") or "",
-            "model": filters.get("model") or "",
-            "action": filters.get("action") or "",
+            "custom_start": filters.get("custom_start") or "",
+            "custom_end": filters.get("custom_end") or "",
+            "models": sorted(filters.get("models") or []),
+            "operations": sorted(filters.get("operations") or []),
         },
         "language": get_current_language_code(),
         "config": repr(_reports_config()),
@@ -461,14 +587,15 @@ def _build_reports_overview_stats(current_qs, previous_qs, all_qs, *, strings):
     current_total = sum(user_counts.values())
     active_days = len(day_counts)
     active_users = len(user_counts)
-    previous_week_total = previous_qs.count()
+    previous_period_total = previous_qs.count() if previous_qs is not None else 0
     all_total = all_qs.count()
 
     return {
         "current_total": current_total,
-        "previous_week_total": previous_week_total,
+        "previous_period_total": previous_period_total,
+        "previous_week_total": previous_period_total,
         "all_total": all_total,
-        "delta": current_total - previous_week_total,
+        "delta": current_total - previous_period_total,
         "average_per_active_day": round(current_total / active_days, 2) if active_days else 0,
         "average_per_user": round(current_total / active_users, 2) if active_users else 0,
         "users": [
@@ -481,38 +608,184 @@ def _build_reports_overview_stats(current_qs, previous_qs, all_qs, *, strings):
         ],
         "actions": _format_actions(action_counts, strings),
         "days": day_counts,
-        "available_models": list(
-            _aggregation_queryset(current_qs)
-            .order_by("model_name")
-            .values_list("model_name", flat=True)
-            .distinct()
-        ),
-        "available_actions": list(
-            _aggregation_queryset(current_qs)
-            .order_by("action")
-            .values_list("action", flat=True)
-            .distinct()
-        ),
     }
 
 
-def build_reports_overview(actor, *, window="week", filters=None):
+def _filter_values(filters, plural_key, legacy_key):
+    value = filters.get(plural_key)
+    if value is None:
+        value = filters.get(legacy_key)
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = [value]
+    return [str(item).strip() for item in value if str(item or "").strip()]
+
+
+def _report_filter_catalog(activity_qs, *, strings):
+    catalog = {}
+    for model in get_report_eligible_models():
+        key = model._meta.label_lower
+        catalog[key] = {
+            "key": key,
+            "label": str(model._meta.verbose_name),
+            "registered": True,
+        }
+    rows = (
+        _aggregation_queryset(activity_qs)
+        .values_list("model_key", "model_name")
+        .distinct()
+    )
+    for model_key, model_name in rows:
+        activity_key = activity_report_key(model_key, model_name)
+        if not activity_key or not is_report_eligible_activity_model_name(activity_key):
+            continue
+        resolved_model = resolve_model_by_name(model_name) if not model_key else None
+        key = resolved_model._meta.label_lower if resolved_model is not None else activity_key
+        entry = catalog.setdefault(key, {"key": key, "registered": False})
+        entry["label"] = translate_activity_log_model_name(key, strings=strings)
+        entry["model_key"] = model_key or ""
+        if not model_key and model_name:
+            legacy_names = entry.setdefault("legacy_names", [])
+            if model_name not in legacy_names:
+                legacy_names.append(model_name)
+    models_catalog = sorted(catalog.values(), key=lambda item: item["label"].casefold())
+    operation_keys = list(
+        _aggregation_queryset(activity_qs)
+        .exclude(action="")
+        .order_by("action")
+        .values_list("action", flat=True)
+        .distinct()
+    )
+    operations_catalog = [
+        {
+            "key": key,
+            "label": strings.get(f"action_{str(key).lower()}", key),
+        }
+        for key in operation_keys
+    ]
+    return models_catalog, operations_catalog
+
+
+def _apply_report_builder_filters(queryset, *, model_catalog, selected_models, selected_operations):
+    if selected_models is not None:
+        if not selected_models:
+            return queryset.none()
+        selected = set(selected_models)
+        predicate = Q()
+        for entry in model_catalog:
+            if entry["key"] not in selected:
+                continue
+            model_key = entry.get("model_key") or (entry["key"] if "." in entry["key"] else "")
+            if model_key:
+                predicate |= Q(model_key=model_key)
+            legacy_names = entry.get("legacy_names") or []
+            if legacy_names:
+                predicate |= Q(model_key__isnull=True, model_name__in=legacy_names)
+                predicate |= Q(model_key="", model_name__in=legacy_names)
+        if not predicate:
+            return queryset.none()
+        queryset = queryset.filter(predicate)
+    if selected_operations is not None:
+        if not selected_operations:
+            return queryset.none()
+        queryset = queryset.filter(action__in=selected_operations)
+    return queryset
+
+
+def _report_period_details(window, custom_start, custom_end, *, now=None):
+    now = timezone.localtime(now or timezone.now())
+    errors = []
+    parsed_start = _parse_report_date(custom_start)
+    parsed_end = _parse_report_date(custom_end)
+    if window == "custom":
+        if parsed_start is None:
+            errors.append("start")
+        if parsed_end is None:
+            errors.append("end")
+        if parsed_start and parsed_end and parsed_end < parsed_start:
+            errors.append("order")
+        effective_start = parsed_start or now.date()
+        effective_end = parsed_end or effective_start
+        if effective_end < effective_start:
+            effective_start, effective_end = effective_end, effective_start
+        custom_start = effective_start.isoformat()
+        custom_end = effective_end.isoformat()
+    else:
+        custom_start = ""
+        custom_end = ""
+    start, end = get_report_window_bounds(
+        window,
+        now=now,
+        custom_start=custom_start,
+        custom_end=custom_end,
+    )
+    start_label = timezone.localtime(start).date().isoformat() if start else ""
+    if end is not None:
+        # Custom ranges carry an exclusive upper bound (midnight after the last
+        # day), so the inclusive label is the day before it.
+        end_label = (timezone.localtime(end).date() - timedelta(days=1)).isoformat()
+    elif start is not None:
+        # Week/month/quarter/half-year/year are deliberately open-ended: they run
+        # from their start through now. Label that end as today so "Active period"
+        # reads as the range it filters on rather than a lone start date.
+        end_label = now.date().isoformat()
+    else:
+        end_label = ""
+    # En dash rather than an arrow: it carries no direction, so the range reads
+    # correctly in both LTR and RTL.
+    range_label = f"{start_label} – {end_label}" if end_label and end_label != start_label else start_label
+    return {
+        "custom_start": custom_start,
+        "custom_end": custom_end,
+        "start": start,
+        "end": end,
+        "start_label": start_label,
+        "end_label": end_label,
+        "range_label": range_label,
+        "errors": errors,
+    }
+
+
+def build_reports_overview(actor, *, window="week", filters=None, now=None):
     strings = get_strings()
     window = normalize_report_window(window)
     filters = filters or {}
-    current_qs = filter_report_eligible_activity(get_visible_report_activity(actor, window=window))
-    previous_start, previous_end = get_previous_week_bounds()
-    previous_qs = filter_report_eligible_activity(
-        apply_report_scope(_base_activity_queryset(), actor).filter(
-            created_at__gte=previous_start,
-            created_at__lt=previous_end,
-        )
+    now = now or timezone.now()
+    period = _report_period_details(
+        window,
+        filters.get("custom_start"),
+        filters.get("custom_end"),
+        now=now,
     )
-    all_qs = filter_report_eligible_activity(get_visible_report_activity(actor, window="all"))
+    base_qs = filter_report_eligible_activity(
+        apply_report_scope(_base_activity_queryset(), actor)
+    )
+    model_catalog, operation_catalog = _report_filter_catalog(base_qs, strings=strings)
+    model_keys = {item["key"] for item in model_catalog}
+    operation_keys = {item["key"] for item in operation_catalog}
+    requested_models = _filter_values(filters, "models", "model")
+    requested_operations = _filter_values(filters, "operations", "action")
+    explicit_builder = str(filters.get("builder") or "") == "1"
+    if requested_models is None and not explicit_builder:
+        selected_models = sorted(model_keys)
+    else:
+        selected_models = [key for key in (requested_models or []) if key in model_keys]
+    if requested_operations is None and not explicit_builder:
+        selected_operations = sorted(operation_keys)
+    else:
+        selected_operations = [key for key in (requested_operations or []) if key in operation_keys]
+
+    filtered_qs = _apply_report_builder_filters(
+        base_qs,
+        model_catalog=model_catalog,
+        selected_models=selected_models,
+        selected_operations=selected_operations,
+    )
 
     keyword = str(filters.get("q") or "").strip()
     if keyword:
-        current_qs = current_qs.filter(
+        filtered_qs = filtered_qs.filter(
             Q(created_by__username__icontains=keyword)
             | Q(created_by__first_name__icontains=keyword)
             | Q(created_by__last_name__icontains=keyword)
@@ -520,12 +793,26 @@ def build_reports_overview(actor, *, window="week", filters=None):
             | Q(model_name__icontains=keyword)
             | Q(number__icontains=keyword)
         )
-    model_filter = str(filters.get("model") or "").strip()
-    if model_filter:
-        current_qs = current_qs.filter(model_name=model_filter)
-    action_filter = str(filters.get("action") or "").strip()
-    if action_filter:
-        current_qs = current_qs.filter(action=action_filter)
+    all_qs = filtered_qs
+    current_qs = apply_report_window(
+        filtered_qs,
+        window,
+        now=now,
+        custom_start=period["custom_start"],
+        custom_end=period["custom_end"],
+    ).order_by("-created_at")
+    previous_start, previous_end = get_previous_period_bounds(
+        window,
+        now=now,
+        custom_start=period["custom_start"],
+        custom_end=period["custom_end"],
+    )
+    previous_qs = None
+    if previous_start is not None:
+        previous_qs = filtered_qs.filter(
+            created_at__gte=previous_start,
+            created_at__lt=previous_end,
+        )
 
     users = _visible_user_queryset(actor)
     stats = None
@@ -534,7 +821,13 @@ def build_reports_overview(actor, *, window="week", filters=None):
         cache_key = _overview_stats_cache_key(
             actor,
             window,
-            {"q": keyword, "model": model_filter, "action": action_filter},
+            {
+                "q": keyword,
+                "custom_start": period["custom_start"],
+                "custom_end": period["custom_end"],
+                "models": selected_models,
+                "operations": selected_operations,
+            },
         )
         stats = _safe_cache_get(cache_key)
     else:
@@ -544,10 +837,28 @@ def build_reports_overview(actor, *, window="week", filters=None):
         if cache_seconds and cache_key:
             _safe_cache_set(cache_key, stats, cache_seconds)
 
+    criteria = {
+        "window": window,
+        "q": keyword,
+        "custom_start": period["custom_start"],
+        "custom_end": period["custom_end"],
+        "models": selected_models,
+        "operations": selected_operations,
+        "builder": "1",
+    }
+    selected_model_set = set(selected_models)
+    selected_operation_set = set(selected_operations)
+    for item in model_catalog:
+        item["selected"] = item["key"] in selected_model_set
+    for item in operation_catalog:
+        item["selected"] = item["key"] in selected_operation_set
     return {
         "window": window,
-        "filters": {"q": keyword, "model": model_filter, "action": action_filter},
+        "filters": criteria,
+        "criteria": criteria,
+        "period": period,
         "current_total": stats["current_total"],
+        "previous_period_total": stats["previous_period_total"],
         "previous_week_total": stats["previous_week_total"],
         "all_total": stats["all_total"],
         "delta": stats["delta"],
@@ -559,75 +870,53 @@ def build_reports_overview(actor, *, window="week", filters=None):
         "days": stats["days"],
         "visible_users": users,
         "recent_activity": list(current_qs[:50]),
-        "available_models": stats["available_models"],
-        "available_actions": stats["available_actions"],
+        "available_models": model_catalog,
+        "available_actions": operation_catalog,
+        "selected_model_count": len(selected_models),
+        "selected_operation_count": len(selected_operations),
         "activity_qs": current_qs,
     }
 
 
-def build_reports_overview_xlsx(overview):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font
+def _chart_series(items, *, limit=REPORT_CHART_TOP_N, other_label=""):
+    """Top-N label/count pairs, with the remainder folded into one 'Other' slice."""
+    series = [
+        {"label": str(item.get("label") or item.get("key") or ""), "count": int(item.get("count") or 0)}
+        for item in items
+    ]
+    if limit and len(series) > limit:
+        head = series[:limit]
+        remainder = sum(item["count"] for item in series[limit:])
+        if remainder:
+            head.append({"label": other_label, "count": remainder})
+        return head
+    return series
 
-    strings = get_strings()
-    wb = Workbook()
 
-    def write_rows(ws, rows):
-        for row in rows:
-            ws.append(row)
-        for cell in ws[1]:
-            cell.font = Font(bold=True)
-        for column in ws.columns:
-            max_len = max(len(str(cell.value or "")) for cell in column)
-            ws.column_dimensions[column[0].column_letter].width = min(max(max_len + 2, 12), 60)
+def build_report_chart_data(overview, *, strings=None):
+    """Chart-ready series for the printable report.
 
-    summary = wb.active
-    summary.title = strings.get("reports_sheet_summary", "Summary")[:31]
-    write_rows(summary, [
-        [strings.get("user_report_field"), strings.get("user_report_value")],
-        [strings.get("reports_window"), overview["window"]],
-        [strings.get("reports_current_total"), overview["current_total"]],
-        [strings.get("reports_previous_week_total"), overview["previous_week_total"]],
-        [strings.get("reports_all_total"), overview["all_total"]],
-        [strings.get("reports_delta"), overview["delta"]],
-        [strings.get("reports_average_per_day"), overview["average_per_active_day"]],
-        [strings.get("reports_average_per_user"), overview["average_per_user"]],
-    ])
-
-    for sheet_key, title_key, rows in (
-        ("users", "reports_by_user", overview["users"]),
-        ("models", "reports_by_model", overview["models"]),
-        ("actions", "reports_by_action", overview["actions"]),
-        ("days", "reports_by_day", overview["days"]),
-    ):
-        ws = wb.create_sheet(strings.get(title_key, sheet_key.title())[:31])
-        write_rows(ws, [[strings.get("user_report_value"), strings.get("user_report_count")]] + [
-            [item.get("label") or item.get("key"), item.get("count")] for item in rows
-        ])
-
-    logs = wb.create_sheet(strings.get("user_report_sheet_logs", "Logs")[:31])
-    log_rows = [[
-        strings.get("user_report_timestamp"),
-        strings.get("user_report_username"),
-        strings.get("user_report_action"),
-        strings.get("user_report_model"),
-        strings.get("user_report_count"),
-    ]]
-    for log in overview["activity_qs"][:1000]:
-        created_at = timezone.localtime(log.created_at).replace(tzinfo=None) if log.created_at else None
-        log_rows.append([
-            created_at,
-            log.created_by.get_username() if log.created_by else "",
-            log.action,
-            translate_activity_log_model_name(log.model_name, strings=strings),
-            log.number or "",
-        ])
-    write_rows(logs, log_rows)
-
-    stream = BytesIO()
-    wb.save(stream)
-    stream.seek(0)
-    return stream.getvalue()
+    ``days`` is re-ordered chronologically (the stats query returns newest-first)
+    so the trend chart reads left-to-right. The ranked breakdowns are capped at
+    ``REPORT_CHART_TOP_N`` so a project with hundreds of models still prints a
+    legible chart; the operation mix — the only chart that colours by identity —
+    is capped tighter, at the eight validated categorical hue slots.
+    """
+    strings = strings or get_strings()
+    other_label = strings.get("reports_print_other", "Other")
+    return {
+        "days": [
+            {"label": str(item.get("label") or ""), "count": int(item.get("count") or 0)}
+            for item in reversed(overview.get("days") or [])
+        ],
+        "models": _chart_series(overview.get("models") or [], other_label=other_label),
+        "actions": _chart_series(
+            overview.get("actions") or [],
+            limit=REPORT_CHART_CATEGORICAL_TOP_N,
+            other_label=other_label,
+        ),
+        "users": _chart_series(overview.get("users") or [], other_label=other_label),
+    }
 
 
 def _scope_model_queryset(model, actor):
@@ -820,9 +1109,13 @@ def _backup_timestamp_field(model):
     return None
 
 
-def _backup_model_queryset(model, actor, window):
+def _backup_model_queryset(model, actor, window, *, custom_start=None, custom_end=None):
     qs = _scope_model_queryset(model, actor)
-    start, end = get_report_window_bounds(window)
+    start, end = get_report_window_bounds(
+        window,
+        custom_start=custom_start,
+        custom_end=custom_end,
+    )
     if start is None and end is None:
         return qs
     field = _backup_timestamp_field(model)
@@ -887,6 +1180,8 @@ def stream_model_into_zip(
     object_transform=None,
     human_record_folders=False,
     include_files=True,
+    include_records=True,
+    step_callback=None,
 ):
     """Stream one model's records (JSON) and its file-field contents into an
     open backup ZipFile, recording everything in ``manifest``.
@@ -901,24 +1196,43 @@ def stream_model_into_zip(
     media on disk untouched (``_restore_files`` only touches files the manifest
     lists). This is what the inline updater's pre-update backup uses so a quick
     code/schema update is not gated on copying gigabytes of unchanged uploads.
+
+    ``include_records=False`` is the mirror image: copy the media and record the
+    manifest entries, but write no ``data/`` JSON. The periodic reports ZIP uses
+    it because that archive is a deliverable read by people — its data ships as
+    the entries workbook — and is never restored. The restorable ``.dlb`` always
+    keeps the JSON.
+
+    ``step_callback(stage, done, total)`` — ``stage`` being ``"rows"`` or
+    ``"files"`` — reports movement *inside* one model. Without it a model holding
+    thousands of uploads looks frozen for as long as it takes to copy them, which
+    is indistinguishable from a dead worker.
     """
     meta = model._meta
     model_key = meta.label_lower
-    manifest["models"].append({"model": model_key, "count": qs.count()})
+    total_rows = qs.count()
+    manifest["models"].append({"model": model_key, "count": total_rows})
+
+    def report(stage, done, total):
+        if step_callback:
+            step_callback(stage, done, total)
+
     def serialized_objects():
-        for obj in _iter_queryset_by_pk(qs, chunk_size=200):
+        for position, obj in enumerate(_iter_queryset_by_pk(qs, chunk_size=200), start=1):
+            report("rows", position, total_rows)
             yield object_transform(obj) if object_transform else obj
 
-    with zf.open(f"data/{meta.app_label}/{meta.model_name}.json", mode="w") as raw_stream:
-        text_stream = io.TextIOWrapper(raw_stream, encoding="utf-8")
-        serializer = _CursorlessJSONSerializer()
-        serializer.serialize(
-            serialized_objects(),
-            stream=text_stream,
-            **(serialize_kwargs or {}),
-        )
-        text_stream.flush()
-        text_stream.detach()
+    if include_records:
+        with zf.open(f"data/{meta.app_label}/{meta.model_name}.json", mode="w") as raw_stream:
+            text_stream = io.TextIOWrapper(raw_stream, encoding="utf-8")
+            serializer = _CursorlessJSONSerializer()
+            serializer.serialize(
+                serialized_objects(),
+                stream=text_stream,
+                **(serialize_kwargs or {}),
+            )
+            text_stream.flush()
+            text_stream.detach()
     if not include_files:
         return
     file_fields = [
@@ -929,7 +1243,8 @@ def stream_model_into_zip(
         return
     record_label_field = _backup_label_field(model) if human_record_folders else ""
     folder_counts = {}
-    for record in _iter_queryset_by_pk(qs, chunk_size=100):
+    for position, record in enumerate(_iter_queryset_by_pk(qs, chunk_size=100), start=1):
+        report("files", position, total_rows)
         if human_record_folders:
             base_folder = backup_record_folder(record, label_field=record_label_field)
             folder_counts[base_folder] = folder_counts.get(base_folder, 0) + 1
@@ -965,17 +1280,287 @@ def stream_model_into_zip(
                 })
 
 
-def write_backup_zip(actor, fileobj, *, window="all", progress_callback=None):
-    """Stream a scope-aware, window-filtered backup zip into ``fileobj``."""
+def _models_for_report_criteria(criteria):
+    selected = criteria.get("models")
+    if selected is None:
+        return get_report_eligible_models()
+    selected_keys = {
+        normalize_activity_log_model_key(value)
+        for value in selected
+        if str(value or "").strip()
+    }
+    return [
+        model for model in get_report_eligible_models()
+        if _model_keys(model) & selected_keys
+    ]
+
+
+# ── Model entry export (XLSX) ───────────────────────────────────────────────
+#
+# The builder's XLSX download is a *data* export: one sheet per selected model
+# holding that model's real rows for the chosen period. The analytical figures
+# live in the printable report instead, where charts and layout can carry them.
+
+_XLSX_SHEET_TITLE_INVALID = re.compile(r"[\[\]:*?/\\]")
+# Control characters openpyxl refuses to write into a shared string.
+_XLSX_ILLEGAL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_XLSX_MAX_CELL_LENGTH = 32767
+_XLSX_MAX_COLUMN_WIDTH = 60
+# Never place credential material in a spreadsheet a user can mail around. Matched
+# against the concrete field name, so a project's custom user/token models are
+# covered without needing configuration.
+_EXPORT_SENSITIVE_FIELD_PARTS = (
+    "password",
+    "passphrase",
+    "secret",
+    "token",
+    "api_key",
+    "apikey",
+    "private_key",
+    "session_key",
+    "recovery_code",
+    "backup_code",
+    "salt",
+)
+
+
+def get_report_entries_row_limit():
+    """Per-model row cap for the XLSX entry export.
+
+    Bounds worst-case workbook size/memory on a project with very large tables.
+    Override with DLUX_CONFIG['reports']['entries_row_limit'].
+    """
+    try:
+        value = int(_reports_config().get("entries_row_limit", REPORT_ENTRIES_ROW_LIMIT))
+    except (TypeError, ValueError):
+        value = REPORT_ENTRIES_ROW_LIMIT
+    return max(1, min(value, 1000000))
+
+
+def _unique_sheet_title(title, used):
+    """Excel-legal, <=31 char, case-insensitively unique worksheet title."""
+    base = _XLSX_SHEET_TITLE_INVALID.sub(" ", str(title or "")).strip()
+    base = re.sub(r"\s+", " ", base)[:31].strip() or "Sheet"
+    candidate = base
+    index = 2
+    while candidate.casefold() in used:
+        suffix = f"~{index}"
+        candidate = f"{base[:31 - len(suffix)].strip()}{suffix}"
+        index += 1
+    used.add(candidate.casefold())
+    return candidate
+
+
+def _is_sensitive_export_field(field):
+    name = str(getattr(field, "name", "") or "").lower()
+    return any(part in name for part in _EXPORT_SENSITIVE_FIELD_PARTS)
+
+
+def _configured_export_exclusions(model):
+    configured = _reports_config().get("entries_exclude_fields", {})
+    if not isinstance(configured, dict):
+        return set()
+    values = configured.get(model._meta.label_lower, [])
+    if isinstance(values, str):
+        values = [values]
+    return {str(value).strip() for value in values or [] if str(value or "").strip()}
+
+
+def get_report_entry_fields(model):
+    """Concrete fields exported for one model, minus credential-bearing ones."""
+    excluded = _configured_export_exclusions(model)
+    return [
+        field for field in model._meta.concrete_fields
+        if field.name not in excluded and not _is_sensitive_export_field(field)
+    ]
+
+
+def _xlsx_text(value):
+    return _XLSX_ILLEGAL_CHARS.sub("", str(value))[:_XLSX_MAX_CELL_LENGTH]
+
+
+def _xlsx_cell_value(value):
+    """Coerce a model field value into something openpyxl can write."""
+    if value is None:
+        return ""
+    if isinstance(value, (bool, int, float, Decimal)):
+        return value
+    if isinstance(value, datetime):
+        # openpyxl cannot write tz-aware datetimes; localize then drop the tzinfo.
+        return timezone.localtime(value).replace(tzinfo=None) if timezone.is_aware(value) else value
+    if isinstance(value, (date, time)):
+        return value
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return _xlsx_text(f"<{len(bytes(value))} bytes>")
+    if isinstance(value, (list, tuple, set, dict)):
+        return _xlsx_text(json.dumps(value, ensure_ascii=False, default=str, sort_keys=True))
+    return _xlsx_text(value)
+
+
+def _export_field_value(record, field):
+    if getattr(field, "choices", None):
+        display = getattr(record, f"get_{field.name}_display", None)
+        if callable(display):
+            return display()
+    if field.is_relation:
+        related = getattr(record, field.name, None)
+        return str(related) if related is not None else ""
+    value = getattr(record, field.attname, None)
+    if isinstance(field, (models.FileField, models.ImageField)):
+        return getattr(value, "name", "") or ""
+    return value
+
+
+def _entry_export_queryset(model, actor, criteria, overview):
+    """Rows exported for one model under the builder's period/scope selection."""
+    if model._meta.label_lower == "dlux.activitylog" and overview is not None:
+        # Reuse the already-filtered activity queryset so the operation selection
+        # applies here exactly as it does on screen and in the ZIP.
+        return overview["activity_qs"]
+    qs = _backup_model_queryset(
+        model,
+        actor,
+        normalize_report_window(criteria.get("window")),
+        custom_start=criteria.get("custom_start"),
+        custom_end=criteria.get("custom_end"),
+    )
+    related = [
+        field.name for field in model._meta.concrete_fields
+        if field.is_relation and field.related_model is not None
+    ]
+    return qs.select_related(*related) if related else qs
+
+
+def build_model_entries_xlsx(actor, overview):
+    """Workbook of the *actual entries* of every model the builder selected.
+
+    One sheet per model with that model's own columns and rows, filtered by the
+    selected period and the caller's scope — not the report's aggregate figures,
+    which are the printable report's job.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    strings = get_strings()
+    criteria = overview["criteria"]
+    period = overview["period"]
+    row_limit = get_report_entries_row_limit()
+    used_titles = set()
+
+    wb = Workbook()
+    info = wb.active
+    info.title = _unique_sheet_title(strings.get("reports_sheet_export_info", "Export Info"), used_titles)
+
+    index_rows = []
+    for model in _models_for_report_criteria(criteria):
+        fields = get_report_entry_fields(model)
+        if not fields:
+            continue
+        title = _unique_sheet_title(str(model._meta.verbose_name_plural), used_titles)
+        ws = wb.create_sheet(title)
+        headers = [_xlsx_text(field.verbose_name or field.name) for field in fields]
+        ws.append(headers)
+        widths = [len(header) for header in headers]
+
+        exported = 0
+        qs = _entry_export_queryset(model, actor, criteria, overview)
+        for record in _iter_queryset_by_pk(qs, chunk_size=200):
+            if exported >= row_limit:
+                break
+            row = [_xlsx_cell_value(_export_field_value(record, field)) for field in fields]
+            ws.append(row)
+            exported += 1
+            for column, value in enumerate(row):
+                widths[column] = max(widths[column], len(str(value or "")))
+
+        total = qs.count()
+        if not exported:
+            ws.append([strings.get("reports_export_empty_model", "No entries in the selected period.")])
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+        ws.freeze_panes = "A2"
+        for column, width in enumerate(widths, start=1):
+            ws.column_dimensions[get_column_letter(column)].width = min(max(width + 2, 12), _XLSX_MAX_COLUMN_WIDTH)
+        index_rows.append([
+            str(model._meta.verbose_name_plural),
+            model._meta.label_lower,
+            title,
+            exported,
+            strings.get("reports_export_truncated_yes", "Yes") if total > exported
+            else strings.get("reports_export_truncated_no", "No"),
+        ])
+
+    info_rows = [
+        [strings.get("user_report_field"), strings.get("user_report_value")],
+        [strings.get("reports_export_generated_at", "Generated at"),
+         timezone.localtime().replace(tzinfo=None)],
+        [strings.get("reports_window"), criteria["window"]],
+        [strings.get("reports_custom_start", "Start date"), period["start_label"]],
+        [strings.get("reports_custom_end", "End date"), period["end_label"]],
+        [strings.get("reports_models_included", "Models included"), len(index_rows)],
+        [strings.get("reports_export_row_limit", "Row limit per model"), row_limit],
+        [],
+    ]
+    if index_rows:
+        info_rows.append([
+            strings.get("user_report_model"),
+            strings.get("reports_export_model_key", "Model key"),
+            strings.get("reports_export_sheet", "Sheet"),
+            strings.get("reports_export_rows", "Rows exported"),
+            strings.get("reports_export_truncated", "Truncated"),
+        ])
+        info_rows.extend(index_rows)
+    else:
+        info_rows.append([
+            strings.get("reports_export_no_models", "No models were selected, so no entry sheets were produced."),
+        ])
+    for row in info_rows:
+        info.append(row)
+    for cell in info[1]:
+        cell.font = Font(bold=True)
+    if index_rows:
+        for cell in info[len(info_rows) - len(index_rows)]:
+            cell.font = Font(bold=True)
+    for column in info.columns:
+        max_len = max((len(str(cell.value or "")) for cell in column), default=12)
+        info.column_dimensions[column[0].column_letter].width = min(max(max_len + 2, 14), _XLSX_MAX_COLUMN_WIDTH)
+
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream.getvalue()
+
+
+REPORT_ZIP_WORKBOOK_NAME = "entries.xlsx"
+
+
+def write_backup_zip(actor, fileobj, *, window="all", criteria=None, progress_callback=None):
+    """Stream a scope-aware report package into ``fileobj``.
+
+    The archive is a periodic deliverable for people, not a restore artifact
+    (that is the system ``.dlb``), so it carries exactly two things: the entries
+    workbook the Export Entries button produces, and the media those records
+    reference, foldered by business identifier. No serialized JSON — the same
+    normalized period/model/operation selection drives both parts, so the
+    browser, the spreadsheet, and the ZIP always agree.
+    """
     window = normalize_backup_window(window)
+    requested_filters = dict(criteria or {})
+    if criteria:
+        requested_filters["builder"] = "1"
+    overview = build_reports_overview(actor, window=window, filters=requested_filters)
+    criteria = overview["criteria"]
     manifest = {
         "generated_at": timezone.now().isoformat(),
         "window": window,
+        "selection": criteria,
         "models": [],
         "files": [],
         "missing_files": [],
+        "report_artifacts": [REPORT_ZIP_WORKBOOK_NAME],
     }
-    models_to_export = get_report_eligible_models()
+    models_to_export = _models_for_report_criteria(criteria)
     total_models = max(len(models_to_export), 1)
     strings = get_strings()
     with zipfile.ZipFile(fileobj, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -987,13 +1572,13 @@ def write_backup_zip(actor, fileobj, *, window="all", progress_callback=None):
                         model=str(model._meta.verbose_name),
                     ),
                 )
-            qs = _backup_model_queryset(model, actor, window)
             stream_model_into_zip(
                 zf,
                 model,
-                qs,
+                _entry_export_queryset(model, actor, criteria, overview),
                 manifest,
                 human_record_folders=True,
+                include_records=False,
             )
             if progress_callback:
                 progress_callback(
@@ -1002,14 +1587,17 @@ def write_backup_zip(actor, fileobj, *, window="all", progress_callback=None):
                         model=str(model._meta.verbose_name),
                     ),
                 )
+        if progress_callback:
+            progress_callback(92, strings.get("reports_backup_building_workbook", "Building report workbook..."))
+        zf.writestr(REPORT_ZIP_WORKBOOK_NAME, build_model_entries_xlsx(actor, overview))
         zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
     return manifest
 
 
-def build_backup_zip(request, window="all"):
+def build_backup_zip(request, window="all", criteria=None):
     """In-memory backup build kept for backward compatibility (small datasets only)."""
     buffer = BytesIO()
-    manifest = write_backup_zip(request.user, buffer, window=window)
+    manifest = write_backup_zip(request.user, buffer, window=window, criteria=criteria)
     buffer.seek(0)
     log_user_action(
         request,
@@ -1114,6 +1702,7 @@ def run_report_backup(backup_pk):
                 backup.user,
                 tmp,
                 window=backup.window,
+                criteria=backup.criteria or None,
                 progress_callback=lambda percent, message: set_backup_progress(backup, percent, message),
             )
             size = tmp.tell()
@@ -1149,6 +1738,7 @@ def run_report_backup(backup_pk):
             model_name="Dlux Reports Backup",
             details={
                 "window": backup.window,
+                "criteria": backup.criteria,
                 "models": backup.model_count,
                 "files": backup.file_count,
             },

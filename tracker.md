@@ -2,11 +2,11 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Current source version: unreleased v1.6.1 in `dlux/release-manifest.json`; v1.6.0 is tagged/published. NEVER append to an already-published version — check the tag first, then start a new version + bump the manifest.
-- DjangoLux includes the typed Composer agent bridge, migration `0011`, and state-row-serialized inline/image admission.
-- Generated projects emit one hardened `composer-agent`; Composer owns legacy migration and `dlux enable-agent` is a one-cycle forwarder.
-- First-launch `BASE_DIR/config.json` bootstrap runs during `migrator` after migrations; the setup GET retains the same row-locked fallback.
+- Current source version: unreleased v1.7.0 in `dlux/release-manifest.json`; v1.6.1 is tagged/published.
+- DjangoLux includes the typed Composer bridge and state-row-serialized update admission; generated projects emit one hardened `composer-agent` while Composer owns legacy migration.
+- General Reports share criteria across overview, entries XLSX, print, and ZIP; print uses two A4 pages with restored desktop grids/recalculated canvases, ZIP carries workbook + media, and `.dlb` remains restorable JSON.
 - Updater state uses `DluxUpdateState`/`DluxUpdateRun` plus `dlux_runtime`; generated proxy baseline is Caddy-default `.proxy/` with updater parity.
+- `dlux_seed` emits parseable one-page PDFs; profile password changes can revoke other DB/cache sessions; backup recovery uses migration `0014` liveness/attempt fields.
 
 ### Current Project Adopted Standards:
 - Integrate settings with `from dlux.utils import dlux_settings`; call `dlux_settings(globals())`; mount `dlux.urls` at root.
@@ -23,64 +23,67 @@
 - Reuse Dlux components and full schema -> form -> config import/export patterns.
 
 ### Cross-Cutting Audits if any:
-- 2026-06/07 audits: updater artifacts/attestation/migrations/proxy, report backup/download/media/nginx, scaffold-vs-project-decrees.
+- 2026-06/07 updater/report/scaffold audits; 2026-08-03 table integration audit: Archive v1.6.2 matches package/collected assets and uses the supported unwrapped DLUX shell.
 - Mounted test Compose uses Redis sessions; never use live `cache.clear()` probes because they delete browser sessions.
 
 ### Current Project's Unsolved Known Bugs:
 - Fallback file/download redirects remain a high-risk-deployment review point; `_safe_referer()` currently enforces allowed hosts.
 - Legacy `switch_pos` v1.2.4 deployments may stay degraded until v1.2.13+ reconcile clears or operator resets runtime flags.
-- A stale pre-exclusion `composer-updater` can recreate its own Docker socket proxy during the first 1.5.x app-image update and lose `DOCKER_HOST`; update Composer and migrate the verified legacy block with `enable-agent` before retrying.
+- A stale pre-exclusion `composer-updater` can recreate its Docker socket proxy during the first 1.5.x app-image update and lose `DOCKER_HOST`; update Composer and migrate the legacy block with `enable-agent` before retrying.
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - [ ] Doctor P3 (composer repo): wire `composer check`'s contract drift-diff to exec `dlux_stack_contract` + mirror `diff_attachments()`; deep relay already execs `dlux_doctor` (v1.2.5).
-  - [ ] Doctor P4: `dlux.doctor` remote action in `agent_protocol.REMOTE_ACTIONS` + Control Panel surface; redact before the report leaves the host.
+  - [ ] project-archive: unresolved `dlux-updater` restart loop — still runs retired `tools.dlux_runtime_supervisor` (no strictly-newer gate) and `manage.py` lacks the release resolver; run `dlux enable-updater` and re-check `DluxUpdateState.active_version` vs running `dlux.__version__`.
+  - [ ] Doctor P3 (composer repo): wire `composer check` drift-diff to exec `dlux_stack_contract` + mirror `diff_attachments()` AND `diff_command_modules()`/`fix_command_modules()` (contract schema 2).
+  - [ ] Doctor P4: add `dlux.doctor` remote action + Control Panel surface; redact before the report leaves the host.
   - [ ] Verify `dlux_check --apply` against a live Docker stack (collectstatic + migrator paths); only unit-tested so far.
   - [ ] Browser-validate setup Step 11 logging grid hydrate/serialize, audit tab, and prune after collectstatic.
   - [ ] Run live Docker staging acceptance for central image update, backup creation, outage replay, and control-panel self-update.
-  - [ ] Browser-validate v1.4.15 Navigation Root selector at desktop/mobile widths; in-app browser was unavailable during implementation.
-  - [ ] Browser-validate v1.2.13 anon public root with `show_sidebar_on_public` on; confirm `sidebar_items.html` degrades for AnonymousUser.
-  - [ ] Browser-validate v1.4.10 table column resizing with sticky headers on/off and RTL/LTR.
-  - [ ] Browser-validate the v1.5.6 Control Panel Admin-command rail and pairing page at desktop/mobile widths; in-app browser was unavailable during implementation.
-  - [ ] Browser-validate v1.5.10 dynamic-modal title normalization and persistent submit/cancel/wizard footer; in-app browser had no active session.
-  - [ ] Browser-validate v1.5.10 row_actions_style `column`/`both`: three-dot button opens the shared menu at the button, toggle-close, hideMenu guard, mobile tap, and RTL column placement (server render + logic unit-tested; no live click yet).
+  - [ ] Browser-validate General Reports/Backup & Restore plus Navigation Root, anonymous public root, and Control Panel at desktop/mobile widths (in-app browser unavailable 2026-08-03).
+  - [ ] Re-export and visually verify the fixed Archive `sys/reports/print/` PDF is exactly two A4 pages (in-app browser has no attached tab).
 - **Completed Recently:**
-  - [x] v1.6.1 Inline-updater fixes: (1) `_verified_latest_candidate`/`_roll_forward` — when latest advances between check and apply, re-verify the new release in place and apply if inline-safe (clear stop if not), keeping tampered-artifact hard-stops. (2) deprecated `dlux_check` alias is advisory-only (swallows the doctor's gating exit; `dlux_doctor` still gates) — unblocks pre-1.5.9 projects inline-updating forward (their preflight runs the candidate's `dlux_check`, which aborted on expected unapplied migrations). +tests; doctor+updater suites GREEN.
-  - [x] v1.6.0 Hardened Composer scaffold: `compose.yml.tmpl` adds `composer-executor` (holds docker.sock rw), demotes `docker-socket-proxy` to POST=0/EXEC=0, agent keeps read-only DOCKER_HOST + `composer_exec_sock` socket; `stack_contract.json` + topology tests updated; generated compose passes real `docker compose config`; suite 1040 GREEN. Needs composer executor role (app-composer, 218 tests); existing stacks harden via `composer check --fix`.
-  - [x] v1.5.11 `dlux_settings()` isolates `manage.py test`/pytest caches with process-local LocMem by default, preventing test `SystemSettings` and sessions from leaking into a live development Redis; explicit opt-out retained.
-  - [x] v1.5.11 Added dry-run-first `dlux_seed`: project-model discovery, typed/random required-field generation, relation ordering, deterministic/model/app controls, and targeted local-`populate` reuse for canonical lookup models; +3 focused tests and Decrees integration.
-  - [x] v1.5.11 Dropped `django.contrib.admin` from scaffolds (settings.py.tmpl INSTALLED_APPS + urls.py.tmpl import/path); getting-started example updated; dlux never needed it (test settings already admin-free). Also stripped it from 7 existing projects (archive, decrees, trademarks, min-survey, dlux-panel, dhub, sales-crm gov_edition+switch_pos).
-  - [x] v1.5.10 scaffold TIME_ZONE wiring: `compose.yml.tmpl` x-environment gains `TIME_ZONE: "${TIME_ZONE:-UTC}"`, `.secrets/.env.tmpl` ships `TIME_ZONE=UTC`, `stack_contract.json` env_keys + scaffold README updated, `dlux_settings()` fallback `Etc/GMT-2`→env-driven `UTC`.
-  - [x] v1.5.10 Arabic variant-aware search: new `dlux.utils.arabic` (`arabic_search_q`/`arabic_search_pattern`/`normalize_arabic`, overridable `ARABIC_EQUIVALENCE_GROUPS`) matches alef/hamza, ي/ى/ئ/ی, ة/ه, ق/غ, و/ؤ, ک, digits via one `__iregex` per field; +15 tests, docs in reference + developer-guide.
-  - [x] v1.5.10 Table row-actions style setting `layout_config.row_actions_style` (context|column|both): `column`/`both` add a presentational `dlux_row_actions` three-dot column via patched `Table.__init__` (empty_values=(), reuses row `data-dlux-actions` through shared context-menu JS + new `.dlux-row-actions-trigger` handler); full pipeline + EN/AR + 10 tests (`test_row_actions_style.py`).
-  - [x] v1.5.10 System Settings is now 13 category-owned steps: Themes/Typography is theme/font-only, Layout is Step 10, public-root identity/sidebar/titlebar/theme controls follow their categories and master visibility, and EN/AR/options/search/deep links were shifted.
-  - [x] v1.5.10 audit-field + soft-delete visibility toggles now live in Layout; permission/superadmin gates, manager/table/detail behavior, export/bootstrap persistence, Decrees override, migration 0013, EN/AR, and +19 tests.
-  - [x] v1.5.10 global-search autofill fix: titlebar search box was autofilled with the saved username (`admin`); added non-credential `name` + `data-1p-ignore`/`data-lpignore`/`data-form-type="other"` (our JS never set the value). Template-only.
-  - [x] v1.5.10 dynamic-modal chrome normalization: one shell title, legacy header/body/footer folding with context retained, and persistent form-associated submit/cancel/wizard controls; documented and +2 focused regressions.
-  - [x] v1.5.10 footer/modal fix: `body.modal-open .dlux-footer { display:none }` so the footer's `backdrop-filter` layer stops bleeding over modal action bars (blocked submit buttons); no z-index change, offcanvas unaffected. CSS-only.
-  - [x] v1.5.10 Control Panel disconnect surfacing: `control_link_state()` gains derived `connection_status` (connected/pending/disconnected/unconfigured); distinct "Disconnected" badge + warning banner (names URL, revoked-aware); worker `_detect_control_link_disconnect()` posts a one-time superadmin notification on enrolled→disconnected (runtime-volume dedup marker, re-arms on reconnect). control_url was always read from `agent-status.json`, never hardcoded. EN/AR; +4 tests; no migration.
+  - [x] v1.7.0 Email is setup Step 3 (before Access & Security) behind `email_config.enabled`; a passed test send sets fingerprinted `verified`, and `email_2fa`/`forgot_password`/`public_registration`/notification-email lock (value preserved) until enabled+verified; wizard indices are `SETUP_STEP_*` constants; +12 tests in `test_email_step.py`.
+  - [x] v1.6.2: re-synced `scaffold_templates/project/start.{sh,ps1}.tmpl` from Composer 1.3.4 (`# composer-wrapper: 1`). Composer OWNS these; they are mirrors here — a `test_scaffold` case pins the version so drift fails the suite.
+  - [x] v1.6.2 period preview labels both ends via `period['range_label']`; week/month options renamed Current (were 'Last'); query bounds unchanged.
+  - [x] v1.6.2 report backup control: 'Create Backup ZIP' label, single status channel (duplicate terminal message fixed), download-last pill with size/age.
+  - [x] v1.6.2 report outputs split: XLSX exports selected models' actual rows (credential fields dropped, `entries_row_limit`), ZIP packs that workbook + `files/` media with no JSON (`include_records=False`), analytics moved to printable `sys/reports/print/`; retired aggregate builder to `.xpose/`; +14 tests.
+  - [x] v1.6.2 API navigation exclusion covers exact route/path/callback tokens, nested/suffix names, stored sidebar/Nav Bar trees, settings import/export, and a cache schema bump; +5 regressions.
+  - [x] v1.6.2 optional password-change revocation retains current session, ends other DB/cache-backed sessions, hides/ignores under single-session enforcement, preserves trust; EN/AR +5 tests.
+  - [x] v1.6.2 interrupted-backup recovery: migration `0014`, trigger-agnostic reaper, granular progress, retry policy/manual Resume, passphrase exclusion; +24 tests.
+  - [x] v1.6.2 notification-linked sidebar counters with independent Sidebar toggle/live refresh; +6 tests.
+  - [x] v1.6.2 valid seeded PDFs: complete one-page object/xref output; 75 Archive placeholders preserved/repaired and parsed with `pypdf`; +1 regression.
+  - [x] v1.6.2 corrected `purge_session_on_exit` contract: browser-session expiry only; tabs share the cookie and individual tab close cannot safely sign out; EN/AR/docs +1 regression.
+  - [x] v1.6.2 General Reports: business-only builder/exports plus opt-outs/RTL; two-page A4 grids/canvases fixed, print assets collected, Caddy negative caching and missing branding fallback corrected.
+  - [x] v1.6.2 focused System Settings modals preserve theme/language counts when matrices are omitted, preventing sidebar/Options pickers from vanishing during live preview.
 ### One-line info about last verified Tests:
-- 2026-07-28: `UtilsTests` 65/65 GREEN in the mounted Decrees container; after the run, live Redis `SystemSettings` still matched PostgreSQL (Arabic name, gold theme, `/documents/`).
-- 2026-07-28: Seed tests 7/7 GREEN (Dlux 3 + Decrees 4); isolated full Dlux suite 1037/1038 with sole unrelated existing `test_worker_records_a_bridge_failure_and_drops_the_token` failure (also fails alone).
-- 2026-07-27: full suite GREEN: 1010 tests (2 PostgreSQL-only skips); Arabic settings/search tests now identify entries by stable step URLs and catalog-derived labels, so translation copy edits do not break routing coverage.
-- 2026-07-27: scaffold/utils/defaults/updater suites GREEN post TIME_ZONE wiring (344 tests, 2 PG-only skips) incl. env-key contract and generated-README key list.
-- 2026-07-27: full suite GREEN: 1020 tests (2 PostgreSQL-only skips); +10 `test_row_actions_style.py` (settings round-trip/export-whitelist/normalizer + per-mode column presence/context-attr/button-render/empty-header).
-
+- 2026-08-06: v1.7.0 pre-release — full suite 1214 GREEN (2 PG-only skips); UI SMTP timeout verified through import/runtime/other-step-save round trip, which caught and fixed a clean-order reset of the email group.
+- 2026-08-05: Send-test input-group — full suite 1206 GREEN; rendered-HTML guard asserts input and button are siblings in one `.dlux-email-test-group`, so column-alignment drift cannot return.
+- 2026-08-05: Contract command drift + always-on Email indicator — full suite 1205 GREEN; `diff_command_modules`/`fix_command_modules` cover retired relay+supervisor paths, indicator asserts off/unproven/verified states.
+- 2026-08-05: SMTP relay packaged as `dlux.smtp_relay` — 16 new behavioural tests (protocol loop, dot-stuffing, size cap, config resolution, 451 reason); full suite 1198 GREEN.
+- 2026-08-05: Email step layout/unlock — full suite 1184 GREEN; rendered-HTML check confirms md columns pair password+recipients and recipient+test button, inline status replaces the alert banner.
+- 2026-08-05: Email in-form Apply — 5 tests (persists only email_config, leaves other groups/home_url untouched, superuser+POST only, apply-then-test verifies); full suite 1184 GREEN.
+- 2026-08-05: Email verification persistence — 3 regressions in `test_email_step.py` (save keeps verification; host change and retyped password still re-arm), full suite 1179 GREEN.
+- 2026-08-05: SMTP secret visibility + relay timeout pairing — 10 tests (`test_smtp_timeouts.py`, `test_email_step.py`), full suite 1175 GREEN; undecryptable secrets now 409 instead of failing blind.
+- 2026-08-05: SMTP relay timeout pairing — 7 tests in `test_smtp_timeouts.py`, full discovery suite 1172 GREEN (2 PG-only skips); relay-vs-client ordering pinned so 451 reasons reach the UI.
+- 2026-08-05: Email step + verification guard + dependent locking — 12 focused tests in `test_email_step.py`, full discovery suite 1165 GREEN (2 PG-only skips); fingerprint re-arming proven across form/import/export paths.
+- 2026-08-05: System Settings picker preservation — 2 regression, 324 related, and full discovery 1147 GREEN (2 skips); Archive collected/served JS checksum matches source.
+- 2026-08-04: Two-page A4 print fix — 33 report tests + full discovery 1147 GREEN (2 skips); Archive collected/served assets match source; visual re-export awaits an attached browser.
 ### One-line info about last time edited Docs:
-- 2026-07-28: RELEASING.md documents automatic test cache isolation and the dedicated-cache opt-out; reference.md documents `dlux_seed`.
-
+- 2026-08-05: Admin Guide rewritten to fourteen wizard steps with the Email step, verification-as-guard contract, and lock-not-clear semantics; CHANGELOG v1.7.0.
+- 2026-08-05: Focused System Settings live-preview preservation documented in Features/Admin Guide/changelog.
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
 - Prefer `rg`/`rg --files`; inspect durable updater runs through DB/runtime state, not web logs alone.
-- Static cache-busting: use `{% dlux_static %}` for versioned dlux assets; it appends `?v=dlux.__version__`.
+- Static cache-busting: `{% dlux_static %}` appends the Dlux version plus source mtime in DEBUG; Caddy caches only files that exist.
 
 ### Global Rulesets:
 - Keep tracker/changelog/docs synchronized with verified code and executed checks.
 - File cleanup policy: move obsolete files into `.xpose/<relative path>`; never delete repo files or directories.
+- Project-side runtime helpers belong in the package (supervisor, smtp relay): scaffold copies strand fixes in whatever version a project was generated with.
 
 ### Agent Handoff Rules:
 - Preserve user work; if tagged version exists, create next changelog/manifest version.
-- Adding/extending a system setting: read `docs/adding-system-settings.md` end-to-end FIRST (full pipeline + traps; #1 trap = must add key to `SYSTEM_SETTINGS_EXPORT_FIELDS`).
+- Adding/extending a system setting: read `docs/adding-system-settings.md` first; add keys to `SYSTEM_SETTINGS_EXPORT_FIELDS`.
 
 ### References and Links:
 - Security: `docs/security-dsrp-1.md`; updater: `docs/inline-updater.md`; release: `docs/RELEASING.md`.

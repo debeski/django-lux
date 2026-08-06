@@ -1,29 +1,52 @@
 #!/bin/bash
+# composer-wrapper: 1
 set -euo pipefail
 
-script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# Closing the terminal must not abort a run in flight. The ignored disposition
+# is inherited by `docker run`, so the client is not killed by the hangup and
+# the container keeps going; Ctrl+C still reaches composer and cancels.
+trap '' HUP
 
-# `--update` as the *only* argument self-updates the Composer tool image.
-# `--update <service>` (and -u/-uo/restart/-r) pass through to the app instead.
-if [[ $# -eq 1 && "${1:-}" == "--update" ]]; then
-    # Show current version from image's VERSION file
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+composer_self_image="${COMPOSER_SELF_IMAGE:-debeski/composer:latest}"
+
+# `update-self` replaces the legacy one-argument `--update` route.
+if [[ $# -eq 1 && ("${1:-}" == "update-self" || "${1:-}" == "--update") ]]; then
+    # Show current version from image's VERSION file. `docker image inspect`
+    # first, because `docker run` on a missing image pulls it — silently, since
+    # the progress goes to the stderr this used to discard.
     echo "=== Current Composer Version ==="
-    docker run --rm --entrypoint cat debeski/composer:latest /app/VERSION 2>/dev/null || echo "  (not present locally)"
+    if docker image inspect "${composer_self_image}" >/dev/null 2>&1; then
+        docker run --rm --entrypoint cat "${composer_self_image}" /app/VERSION
+    else
+        echo "  (not present locally)"
+    fi
 
     echo ""
     echo "Pulling latest composer image..."
-    docker pull debeski/composer:latest
-
+    docker pull "${composer_self_image}"
+    
     echo ""
     echo "=== Installed Version ==="
-    docker run --rm --entrypoint cat debeski/composer:latest /app/VERSION
-
+    docker run --rm --entrypoint cat "${composer_self_image}" /app/VERSION
+    
     exit 0
 fi
 
-docker_flags=(--rm)
+# Announce the first-run download instead of letting `docker run` pull an
+# unnamed image while the command appears to hang.
+if ! docker image inspect "${composer_self_image}" >/dev/null 2>&1; then
+  echo "Composer image not installed locally — fetching ${composer_self_image}..."
+  docker pull "${composer_self_image}"
+  echo ""
+fi
+
+# Attach stdin unconditionally, so a pipe (`echo yes | ./start.sh run -m web
+# migrate`) reaches the container instead of the container getting no stdin at
+# all. Allocate a TTY only when there is one; `-t` on a redirected stream fails.
+docker_flags=(-i --rm)
 if [[ -t 0 && -t 1 ]]; then
-  docker_flags=(-it "${docker_flags[@]}")
+  docker_flags+=(-t)
 fi
 
 secret_flags=()
@@ -51,9 +74,11 @@ for candidate in .env secrets/.env .secrets/.env; do
   break
 done
 
+# macOS ships bash 3.2, where `set -u` rejects an empty array expansion, so a
+# project with no secrets file cannot use the plain "${secret_flags[@]}" form.
 docker run "${docker_flags[@]}" \
-  "${secret_flags[@]}" \
+  ${secret_flags[@]+"${secret_flags[@]}"} \
   -v "${script_dir}:${script_dir}" \
   -w "${script_dir}" \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  debeski/composer:latest "$@"
+  "${composer_self_image}" "$@"

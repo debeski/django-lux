@@ -1,0 +1,374 @@
+.dlux-reports-page {
+    --dlux-report-surface: color-mix(in srgb, var(--bs-body-bg, #ffffff) 84%, rgba(255, 255, 255, 0.86));
+    --dlux-report-border: rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+    --dlux-report-muted: var(--bs-secondary-color, #6c757d);
+    display: grid;
+    gap: 1.5rem;
+}
+
+.dlux-report-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.35rem 1.5rem;
+    border: 1px solid var(--dlux-report-border);
+    border-radius: 1.35rem;
+    background: var(--dlux-report-surface);
+    box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.34);
+}
+
+.dlux-report-hero-copy,
+.dlux-report-exports,
+.dlux-report-builder-heading,
+.dlux-report-builder-panel-heading,
+.dlux-report-builder-actions {
+    display: flex;
+    align-items: center;
+}
+
+.dlux-report-hero-copy {
+    gap: 1rem;
+}
+
+.dlux-report-hero-icon {
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 1rem;
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.12);
+    color: var(--primal, #0d6efd);
+    font-size: 1.35rem;
+}
+
+.dlux-report-hero h1,
+.dlux-report-builder h2,
+.dlux-report-table-card h2 {
+    margin: 0;
+    color: var(--title, var(--bs-heading-color));
+    font-weight: 800;
+}
+
+.dlux-report-hero h1 {
+    font-size: clamp(1.35rem, 2.4vw, 2rem);
+}
+
+.dlux-report-hero p,
+.dlux-report-builder-heading p {
+    margin: 0.25rem 0 0;
+    color: var(--dlux-report-muted);
+}
+
+.dlux-report-exports {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.dlux-report-backup-action {
+    display: flex;
+    min-width: 13rem;
+    max-width: 17rem;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.dlux-report-backup-status {
+    color: var(--dlux-report-muted);
+    font-size: 0.76rem;
+    line-height: 1.35;
+    text-align: center;
+    text-wrap: balance;
+}
+
+.dlux-report-backup-status:empty {
+    display: none;
+}
+
+.dlux-report-backup-status--success {
+    color: var(--bs-success, #198754);
+}
+
+.dlux-report-backup-status--error {
+    color: var(--bs-danger, #dc3545);
+}
+
+.dlux-report-backup-latest {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.4rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px dashed var(--dlux-report-border);
+    border-radius: 0.75rem;
+    color: var(--primal, #0d6efd);
+    font-size: 0.76rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.dlux-report-backup-latest:hover {
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.07);
+    color: var(--primal, #0d6efd);
+}
+
+.dlux-report-backup-latest [data-reports-backup-latest-meta] {
+    color: var(--dlux-report-muted);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.dlux-report-backup-latest [data-reports-backup-latest-meta]:empty {
+    display: none;
+}
+
+.dlux-report-builder {
+    padding: 1.35rem;
+    border: 1px solid var(--dlux-report-border);
+    border-radius: 1.35rem;
+    background: var(--dlux-report-surface);
+    box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.3);
+}
+
+.dlux-report-builder-heading {
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.15rem;
+}
+
+.dlux-report-builder h2 {
+    margin-top: 0.25rem;
+    font-size: 1.15rem;
+}
+
+.dlux-report-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--primal, #0d6efd);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.dlux-report-selection-summary,
+.dlux-report-period-preview {
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--dlux-report-border);
+    border-radius: 0.9rem;
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.05);
+    color: var(--dlux-report-muted);
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.dlux-report-selection-summary strong {
+    color: var(--title, var(--bs-body-color));
+}
+
+.dlux-report-period-row {
+    padding-top: 0.25rem;
+}
+
+.dlux-report-period-preview {
+    display: flex;
+    min-height: var(--dlux-form-input-h, 3.05rem);
+    flex-direction: column;
+    justify-content: center;
+}
+
+.dlux-report-period-preview strong {
+    color: var(--title, var(--bs-body-color));
+}
+
+.dlux-report-custom-period {
+    margin-top: 0.25rem;
+    padding: 1rem;
+    border: 1px dashed var(--dlux-report-border);
+    border-radius: 1rem;
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.025);
+}
+
+.dlux-report-builder-grid,
+.dlux-report-table-grid,
+.dlux-report-stats {
+    display: grid;
+    gap: 1rem;
+}
+
+.dlux-report-builder-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 1.25rem;
+}
+
+.dlux-report-builder-panel {
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid var(--dlux-report-border);
+    border-radius: 1.1rem;
+    background: color-mix(in srgb, var(--dlux-report-surface) 92%, transparent);
+}
+
+.dlux-report-builder-panel-heading {
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.8rem;
+}
+
+.dlux-report-builder-panel-heading > div:first-child {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.dlux-report-builder-panel-heading span {
+    color: var(--title, var(--bs-body-color));
+    font-weight: 800;
+}
+
+.dlux-report-builder-panel-heading small,
+.dlux-report-choice small {
+    color: var(--dlux-report-muted);
+}
+
+.dlux-report-builder-actions {
+    flex: 0 0 auto;
+    gap: 0.4rem;
+}
+
+.dlux-report-choice-list {
+    display: grid;
+    max-height: 18rem;
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+    padding-inline-end: 0.2rem;
+    overflow-y: auto;
+}
+
+.dlux-report-choice {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0 !important;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 0.85rem;
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.035);
+    cursor: pointer;
+}
+
+.dlux-report-choice:has(input:checked) {
+    border-color: var(--dlux-report-border);
+    background: rgba(var(--primal-rgb, 13, 110, 253), 0.09);
+}
+
+.dlux-report-choice > span {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.dlux-report-choice strong,
+.dlux-report-choice small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dlux-report-choice-empty {
+    padding: 1rem;
+    color: var(--dlux-report-muted);
+    text-align: center;
+}
+
+.dlux-report-builder-submit {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.dlux-report-stats {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.dlux-report-stats .report-stat-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1rem;
+    border: 1px solid var(--dlux-report-border);
+    border-radius: 1.1rem;
+    background: var(--dlux-report-surface);
+}
+
+.dlux-report-stats .stat-title {
+    color: var(--dlux-report-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.dlux-report-stats strong {
+    color: var(--title, var(--bs-body-color));
+    font-size: 1.7rem;
+}
+
+.dlux-report-table-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dlux-report-table-card {
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid var(--dlux-report-border);
+    border-radius: 1.35rem;
+    background: var(--dlux-report-surface);
+}
+
+.dlux-report-table-card h2 {
+    margin-bottom: 0.85rem;
+    font-size: 1rem;
+}
+
+.dlux-report-users {
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 1199.98px) {
+    .dlux-report-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 991.98px) {
+    .dlux-report-hero,
+    .dlux-report-builder-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .dlux-report-builder-grid,
+    .dlux-report-table-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .dlux-report-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dlux-report-builder-panel-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .dlux-report-selection-summary {
+        white-space: normal;
+    }
+}

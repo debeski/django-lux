@@ -187,13 +187,19 @@
                     <tr>
                         <th>{{ DLUX_STRINGS.email_label|default:"Email" }}:</th>
                         <td class="text-end">
-                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
-                                <span class="font-monospace">{{ email_service.detail }}</span>
-                                <span class="badge {{ email_service.badge_class }}" title="{{ email_service.note|default:'' }}">{{ email_service.label }}</span>
+                            <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap"
+                                 data-dlux-email-health
+                                 data-check-url="{% url 'email_health_check' %}"
+                                 data-error-label="{{ DLUX_STRINGS.service_email_check_failed|default:'Check failed' }}">
+                                {% if email_service.detail %}
+                                <span class="font-monospace" data-email-detail>{{ email_service.detail }}</span>
+                                {% endif %}
+                                <span class="badge {{ email_service.badge_class }}" data-email-badge title="{{ email_service.note|default:'' }}">{{ email_service.label }}</span>
+                                <button type="button" class="dlux-upd-ic" data-email-recheck
+                                        title="{{ DLUX_STRINGS.service_email_recheck|default:'Re-read email status' }}"
+                                        aria-label="{{ DLUX_STRINGS.service_email_recheck|default:'Re-read email status' }}"><i class="bi bi-arrow-clockwise"></i></button>
                             </div>
-                            {% if email_service.note %}
-                            <div class="small text-muted mt-1">{{ email_service.note }}</div>
-                            {% endif %}
+                            <div class="small text-muted mt-1" data-email-note>{{ email_service.note }}</div>
                         </td>
                     </tr>
                     {% endif %}
@@ -371,6 +377,15 @@
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
                             data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=2"
+                            data-modal-title="{{ DLUX_STRINGS.system_settings_email }}"
+                            data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_email_desc }}"
+                            aria-label="{{ DLUX_STRINGS.system_settings_email }}. {{ DLUX_STRINGS.system_settings_email_desc }}">
+                        <span class="dlux-system-settings-tile-icon"><i class="bi bi-envelope-at"></i></span>
+                        <span class="dlux-system-settings-tile-title">{{ DLUX_STRINGS.system_settings_email }}</span>
+                    </button>
+                    <button class="dlux-system-settings-action dlux-system-settings-tile"
+                            type="button"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=3"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_security }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_security_desc }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_security }}. {{ DLUX_STRINGS.system_settings_security_desc }}">
@@ -379,7 +394,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=3"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=4"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_login_page }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_login_page_desc }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_login_page }}. {{ DLUX_STRINGS.system_settings_login_page_desc }}">
@@ -388,7 +403,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=4"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=5"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_sidebar }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_sidebar_desc }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_sidebar }}. {{ DLUX_STRINGS.system_settings_sidebar_desc }}">
@@ -397,7 +412,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=5"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=6"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_navbar }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_navbar_desc }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_navbar }}. {{ DLUX_STRINGS.system_settings_navbar_desc }}">
@@ -406,7 +421,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=6"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=7"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_titlebar }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_titlebar_desc }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_titlebar }}. {{ DLUX_STRINGS.system_settings_titlebar_desc }}">
@@ -415,7 +430,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=7"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=8"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_notifications }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_notifications_desc }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_notifications }}. {{ DLUX_STRINGS.system_settings_notifications_desc }}">
@@ -424,7 +439,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=8"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=9"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_appearance }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_appearance_desc }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_appearance }}. {{ DLUX_STRINGS.system_settings_appearance_desc }}">
@@ -433,7 +448,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=9"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=10"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_layout }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_layout_desc }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_layout }}. {{ DLUX_STRINGS.system_settings_layout_desc }}">
@@ -442,7 +457,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=10"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=11"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_logging_desc|default:'Control activity, system, and audit logging.' }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_logging|default:'Logging' }}. {{ DLUX_STRINGS.system_settings_logging_desc|default:'Control activity, system, and audit logging.' }}">
@@ -451,7 +466,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=11"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=12"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_profile_desc|default:'Profile-page composition and first-launch user setup.' }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_profile|default:'Profile Page' }}. {{ DLUX_STRINGS.system_settings_profile_desc|default:'Profile-page composition and first-launch user setup.' }}">
@@ -460,7 +475,7 @@
                     </button>
                     <button class="dlux-system-settings-action dlux-system-settings-tile"
                             type="button"
-                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=12"
+                            data-dynamic-modal="{% url 'modal_manager' 'dlux' 'SystemSettings' 1 %}?step=13"
                             data-modal-title="{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}"
                             data-dlux-tooltip="{{ DLUX_STRINGS.system_settings_backups_desc|default:'Scheduled backup, storage, and retention policy.' }}"
                             aria-label="{{ DLUX_STRINGS.system_settings_backups|default:'Backups' }}. {{ DLUX_STRINGS.system_settings_backups_desc|default:'Scheduled backup, storage, and retention policy.' }}">

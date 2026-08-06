@@ -1,42 +1,150 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "networks": {
-    "frontend": {"internal": false},
-    "egress": {"internal": false},
-    "internal": {"internal": true},
-    "docker_proxy": {"internal": true}
+    "frontend": {
+      "internal": false
+    },
+    "egress": {
+      "internal": false
+    },
+    "internal": {
+      "internal": true
+    },
+    "docker_proxy": {
+      "internal": true
+    }
   },
   "services": {
-    "db": {"networks": ["internal"], "restart": "protected"},
-    "redis": {"networks": ["internal"], "restart": "protected"},
-    "web": {"networks": ["internal"], "restart": "safe"},
-    "celery": {"networks": ["internal"], "restart": "safe"},
-    "smtp-relay": {"networks": ["egress", "internal"], "restart": "safe"},
-    "dlux-updater": {"networks": ["egress", "internal"], "restart": "protected"},
-    "caddy": {"networks": ["frontend", "internal"], "publishes_ports": true, "restart": "safe"},
-    "docker-socket-proxy": {"networks": ["docker_proxy"], "restart": "protected"},
-    "composer-executor": {"networks": ["docker_proxy"], "restart": "protected"},
-    "composer-agent": {"networks": ["egress", "docker_proxy"], "restart": "protected"}
+    "db": {
+      "networks": [
+        "internal"
+      ],
+      "restart": "protected"
+    },
+    "redis": {
+      "networks": [
+        "internal"
+      ],
+      "restart": "protected"
+    },
+    "web": {
+      "networks": [
+        "internal"
+      ],
+      "restart": "safe",
+      "command_module": "dlux.updater.supervisor"
+    },
+    "celery": {
+      "networks": [
+        "internal"
+      ],
+      "restart": "safe",
+      "command_module": "dlux.updater.supervisor"
+    },
+    "smtp-relay": {
+      "networks": [
+        "egress",
+        "internal"
+      ],
+      "restart": "safe",
+      "command_module": "dlux.smtp_relay"
+    },
+    "dlux-updater": {
+      "networks": [
+        "egress",
+        "internal"
+      ],
+      "restart": "protected",
+      "command_module": "dlux.updater.supervisor"
+    },
+    "caddy": {
+      "networks": [
+        "frontend",
+        "internal"
+      ],
+      "publishes_ports": true,
+      "restart": "safe"
+    },
+    "docker-socket-proxy": {
+      "networks": [
+        "docker_proxy"
+      ],
+      "restart": "protected"
+    },
+    "composer-executor": {
+      "networks": [
+        "docker_proxy"
+      ],
+      "restart": "protected"
+    },
+    "composer-agent": {
+      "networks": [
+        "egress",
+        "docker_proxy"
+      ],
+      "restart": "protected"
+    }
   },
   "invariants": {
-    "ingress_services": ["caddy"],
-    "egress_services": ["smtp-relay", "dlux-updater", "composer-agent"],
-    "internal_only_services": ["db", "redis", "web", "celery"],
+    "ingress_services": [
+      "caddy"
+    ],
+    "egress_services": [
+      "smtp-relay",
+      "dlux-updater",
+      "composer-agent"
+    ],
+    "internal_only_services": [
+      "db",
+      "redis",
+      "web",
+      "celery"
+    ],
     "frontend_egress_disjoint": true,
     "docker_socket": {
       "path": "/var/run/docker.sock",
-      "access": {"docker-socket-proxy": "ro", "composer-executor": "rw"},
-      "allowed_services": ["docker-socket-proxy", "composer-executor"]
+      "access": {
+        "docker-socket-proxy": "ro",
+        "composer-executor": "rw"
+      },
+      "allowed_services": [
+        "docker-socket-proxy",
+        "composer-executor"
+      ]
     },
     "runtime_volume": {
       "volume": "dlux_runtime",
-      "read_write_services": ["dlux-updater", "composer-agent", "composer-executor"],
-      "read_only_services": ["web", "celery", "caddy"]
+      "read_write_services": [
+        "dlux-updater",
+        "composer-agent",
+        "composer-executor"
+      ],
+      "read_only_services": [
+        "web",
+        "celery",
+        "caddy"
+      ]
     },
     "restart": {
       "label": "org.dlux.restart",
-      "safe": ["web", "celery", "smtp-relay", "caddy"],
-      "protected": ["db", "redis", "dlux-updater", "docker-socket-proxy", "composer-executor", "composer-agent"]
+      "safe": [
+        "web",
+        "celery",
+        "smtp-relay",
+        "caddy"
+      ],
+      "protected": [
+        "db",
+        "redis",
+        "dlux-updater",
+        "docker-socket-proxy",
+        "composer-executor",
+        "composer-agent"
+      ]
+    },
+    "retired_command_modules": {
+      "tools.smtp_relay": "dlux.smtp_relay",
+      "tools.dlux_runtime_supervisor": "dlux.updater.supervisor"
     }
   },
   "removed_services": {

@@ -7,6 +7,8 @@ from .general import (
     data_reset_preview_view,
     celery_health_check_view,
     debug_notifications_view,
+    email_config_apply_view,
+    email_health_check_view,
     email_send_test_view,
     export_system_settings_view,
     force_password_change_all_view,
@@ -96,6 +98,7 @@ from .backup import (
     system_backup_download_view,
     system_backup_list_status_view,
     system_backup_page,
+    system_backup_resume_view,
     system_backup_status_view,
     system_backup_upload_view,
     system_restore_start_view,
@@ -110,6 +113,7 @@ from .reports import (
     reports_backup_zip_view,
     reports_overview_view,
     reports_overview_xlsx_view,
+    reports_print_view,
 )
 
 # Profile

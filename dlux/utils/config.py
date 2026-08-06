@@ -57,7 +57,7 @@ from ..system.constants import (
     TITLEBAR_USER_HUB_STYLE_DROPDOWN,
     TITLEBAR_USER_HUB_STYLE_VALUES,
 )
-from ..fonts import DEFAULT_FONT_SLUG, get_builtin_fonts
+from ..fonts import DEFAULT_FONT_SLUG, get_available_fonts
 from ..system.constants import (
     CLIENT_IP_MODE_AUTO,
     CLIENT_IP_MODE_CLOUDFLARE,
@@ -229,8 +229,7 @@ def normalize_email_config(value, *, redact_secret=False):
 
 # Typography Config - Function keeps configured font slugs valid and unique.
 def normalize_allowed_fonts(allowed_fonts=None):
-    from ..fonts import get_builtin_fonts
-    available = {f['slug'] for f in get_builtin_fonts()}
+    available = {font['slug'] for font in get_available_fonts()}
     if allowed_fonts is None:
         return list(available)
 
@@ -881,7 +880,7 @@ def normalize_default_fonts(value=None, *, allowed_fonts=None):
         return {}
     allowed = set(normalize_allowed_fonts(allowed_fonts))
     if not allowed:
-        allowed = {font['slug'] for font in get_builtin_fonts()}
+        allowed = {font['slug'] for font in get_available_fonts()}
     normalized = {}
     for raw_code, raw_font in value.items():
         code = _normalize_language_code(raw_code)
@@ -915,6 +914,26 @@ normalize_theme_config = _system_normalize_theme_config
 normalize_titlebar_actions_order = _system_normalize_titlebar_actions_order
 normalize_titlebar_config = _system_normalize_titlebar_config
 normalize_typography_config = _system_normalize_typography_config
+
+
+def _stored_asset_url(field_file):
+    if not field_file:
+        return ''
+    name = str(getattr(field_file, 'name', '') or '').strip()
+    if not name:
+        return ''
+    storage = getattr(field_file, 'storage', None)
+    if storage is not None:
+        try:
+            if not storage.exists(name):
+                return ''
+        except Exception:
+            pass
+    try:
+        return str(field_file.url or '').strip()
+    except Exception:
+        return ''
+
 
 # System Config - Function merges defaults, settings, and DB-backed runtime config.
 def get_system_config():
@@ -953,13 +972,15 @@ def get_system_config():
             )
         ):
             db_config['system_names'] = sys_settings.system_names
-        if sys_settings.logo:
-            db_config['logo'] = sys_settings.logo.url
-            db_config['logo_url'] = sys_settings.logo.url
-            db_config['login_logo_url'] = sys_settings.logo.url
-        if sys_settings.favicon:
-            db_config['favicon'] = sys_settings.favicon.url
-            db_config['favicon_url'] = sys_settings.favicon.url
+        logo_url = _stored_asset_url(sys_settings.logo)
+        if logo_url:
+            db_config['logo'] = logo_url
+            db_config['logo_url'] = logo_url
+            db_config['login_logo_url'] = logo_url
+        favicon_url = _stored_asset_url(sys_settings.favicon)
+        if favicon_url:
+            db_config['favicon'] = favicon_url
+            db_config['favicon_url'] = favicon_url
         legacy_unconfigured_home_url = (
             not system_is_configured and
             getattr(sys_settings, 'home_url', '') == _LEGACY_HOME_URL
@@ -1335,7 +1356,7 @@ def get_system_config():
         db_config.get('translations', {}),
     )
 
-    from ..discovery import sanitize_sidebar_config
+    from ..discovery import sanitize_navbar_config, sanitize_sidebar_config
 
     merged_sidebar = deepcopy(default_config['sidebar'])
     for layer in (user_sidebar, db_sidebar):
@@ -1352,7 +1373,7 @@ def get_system_config():
     for layer in (user_navbar, db_navbar):
         if isinstance(layer, dict):
             merged_navbar.update(layer)
-    final_config['navbar'] = normalize_navbar_config(merged_navbar)
+    final_config['navbar'] = sanitize_navbar_config(merged_navbar)
     merged_titlebar = deepcopy(default_config['titlebar'])
     for layer in (user_titlebar, db_titlebar):
         for key, value in layer.items():

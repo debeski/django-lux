@@ -41,6 +41,7 @@ from ..utils import (
     user_has_section_view_permission,
     resolve_detail_field_label,
 )
+from ..system.constants import SETUP_STEP_COUNT
 from ..translations import get_strings
 
 User = get_user_model()
@@ -987,7 +988,7 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             return None
 
-        if 0 <= step <= 12:
+        if 0 <= step < SETUP_STEP_COUNT:
             return step
         return None
 

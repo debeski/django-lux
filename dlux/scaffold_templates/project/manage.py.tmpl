@@ -21,19 +21,12 @@ def _activate_runtime_release():
     expect: unstyled pages and dead JS controls. Resolving the same release here,
     before Django is imported, makes every `manage.py` invocation consistent
     regardless of how it is launched. No-op when the active release is the baked
-    image, when runtime state is absent/corrupt, or when the helper is missing.
+    image, when runtime state is absent/corrupt, or when dlux is not importable.
     """
-    tools_dir = Path(__file__).resolve().parent / "tools"
-    sys.path.insert(0, str(tools_dir))
     try:
-        from dlux_runtime_supervisor import baked_version, resolve_release
+        from dlux.updater.supervisor import baked_version, resolve_release
     except Exception:
         return
-    finally:
-        try:
-            sys.path.remove(str(tools_dir))
-        except ValueError:
-            pass
     # Record the immutable image version before a release shadows the package,
     # mirroring the supervisor so DLUX_BAKED_VERSION means the same thing here.
     os.environ.setdefault("DLUX_BAKED_VERSION", baked_version() or "")

@@ -3,12 +3,14 @@ from io import StringIO
 from unittest import mock
 
 from django.core.management import call_command
+from django.core.validators import FileExtensionValidator
 from django.db import connection, models
 from django.test import TransactionTestCase
 
 from dlux.management.commands.dlux_seed import (
     MetadataSeeder,
     MissingRelatedRows,
+    build_seed_pdf,
     is_seedable_project_model,
 )
 
@@ -78,6 +80,23 @@ class DluxSeedTests(TransactionTestCase):
 
         with self.assertRaises(MissingRelatedRows):
             seeder.seed_model(SeedRecord, 1)
+
+    def test_required_pdf_file_is_a_complete_one_page_document(self):
+        field = models.FileField(validators=[FileExtensionValidator(["pdf"])])
+        field.set_attributes_from_name("document")
+        seeder = MetadataSeeder(database="default", rng=random.Random(3), batch_label="unit")
+
+        seeded_file = seeder._field_value(SeedRecord, field, 1, 1)
+        pdf_bytes = seeded_file.read()
+        startxref = int(pdf_bytes.rsplit(b"startxref\n", 1)[1].splitlines()[0])
+
+        self.assertEqual(seeded_file.name.rsplit(".", 1)[1], "pdf")
+        self.assertEqual(pdf_bytes, build_seed_pdf(seeded_file.name[:-4]))
+        self.assertTrue(pdf_bytes.startswith(b"%PDF-1.4\n"))
+        self.assertTrue(pdf_bytes.endswith(b"%%EOF\n"))
+        self.assertEqual(pdf_bytes[startxref : startxref + 4], b"xref")
+        self.assertIn(b"/Type /Page ", pdf_bytes)
+        self.assertIn(b"/Count 1", pdf_bytes)
 
     def test_command_is_dry_run_then_applies_discovered_models(self):
         discovered = [SeedLookup, SeedRecord]

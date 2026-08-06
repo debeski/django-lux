@@ -284,9 +284,10 @@ class DluxMiddleware:
 
     def _apply_session_cookie_policy(self, request):
         """Apply ``purge_session_on_exit``: when on, make the session cookie a
-        browser-session cookie (no persistent Max-Age) so closing the tab/browser
-        signs the user out. A session marker keeps this to a single write and lets
-        us restore the persistent lifetime if the admin turns the policy back off.
+        browser-session cookie (no persistent Max-Age) so the next browser session
+        requires authentication. Individual tabs share that cookie and cannot expire
+        it independently. A session marker keeps this to a single write and lets us
+        restore the persistent lifetime if the admin turns the policy back off.
         """
         user = getattr(request, 'user', None)
         if not (user and getattr(user, 'is_authenticated', False)):

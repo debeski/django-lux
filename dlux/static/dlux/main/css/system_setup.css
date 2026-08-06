@@ -1379,3 +1379,14 @@
 .dlux-setup-language-choice__copy small {
     color: var(--dlux-setup-muted);
 }
+
+/* The recipient input and its Send-test button are one input-group, so they are
+   level by construction — no column alignment to fight with the label and help
+   text that make the field column taller. */
+.dlux-email-test-group .dlux-email-test-btn {
+    white-space: nowrap;
+}
+
+.dlux-email-test-btn--busy {
+    cursor: progress;
+}

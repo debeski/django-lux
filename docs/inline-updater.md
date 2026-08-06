@@ -306,6 +306,7 @@ Before an Update button is allowed, the worker verifies:
   and configured workflow `.github/workflows/release.yml` (serialized by
   PyPI's integrity API as the canonical basename `release.yml`);
 - manifest schema/version and `inline_safe=true`;
+- the optional `image_baseline` floor — when a manifest declares it, the baked image version must be a comparable version at or above that baseline, otherwise the release is rejected (fails closed on an unknown image version). This stops a box several releases behind from skipping an image-required release by jumping to a later inline-safe one, since discovery always offers the single highest release rather than a step-by-step walk;
 - updater-schema and Python-version compatibility;
 - an unchanged DjangoLux dependency contract, with every requirement already installed and satisfied;
 - candidate `check` (required), an advisory `dlux_doctor --group settings --group urls` wiring check (non-fatal — at preflight the target's migrations are unapplied and its static uncollected, so the full doctor's deep checks would report expected errors), and a migration-plan subprocess, all with the staged release first on `PYTHONPATH`.

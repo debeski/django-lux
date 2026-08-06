@@ -3,7 +3,7 @@ from urllib.parse import urlsplit
 from django.urls import NoReverseMatch, reverse
 
 from .system.constants import DEFAULT_NAVBAR_MODE, NAVBAR_MODE_VALUES
-from .discovery import SYSTEM_ROUTE_META, discover_sidebar_catalog
+from .discovery import SYSTEM_ROUTE_META, discover_sidebar_catalog, sanitize_navbar_config
 from .utils import normalize_navbar_config
 
 
@@ -357,7 +357,7 @@ def build_navbar_hierarchy_crumbs(
     runtime_crumbs=None,
     home_url='',
 ):
-    config = normalize_navbar_config(navbar_config)
+    config = sanitize_navbar_config(navbar_config)
     request_path = getattr(request, 'path', '')
     neutral_root = _root_crumb(dlux_strings, current_path=request_path)
     catalog = discover_sidebar_catalog(lang_code=lang_code, include_system_items=True)

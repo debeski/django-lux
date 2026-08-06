@@ -1,241 +1,217 @@
 {% extends 'dlux/base.html' %}
-{% load static dlux_translation %}
 {% load dlux_tags %}
 
 {% block title %}{{ DLUX_STRINGS.reports_title }}{% endblock %}
 
+{% block extra_head %}
+{{ block.super }}
+<link rel="stylesheet" href="{% dlux_static 'dlux/reports/css/overview.css' %}">
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid py-3">
-    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
-        <div>
-            <h2 class="page-title mb-1"><i class="bi bi-bar-chart-fill me-2"></i>{{ DLUX_STRINGS.reports_title }}</h2>
-            <p class="text-muted mb-0">{{ DLUX_STRINGS.reports_subtitle }}</p>
+<div class="container-fluid py-3 dlux-reports-page">
+    <section class="glass-profile dlux-report-hero">
+        <div class="dlux-report-hero-copy">
+            <span class="dlux-report-hero-icon"><i class="bi bi-bar-chart-fill"></i></span>
+            <div>
+                <h1>{{ DLUX_STRINGS.reports_title }}</h1>
+                <p>{{ DLUX_STRINGS.reports_subtitle }}</p>
+            </div>
         </div>
-        <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-outline-primary rounded-pill" href="{% url 'reports_overview_xlsx' %}?window={{ overview.window }}{% if overview.filters.q %}&q={{ overview.filters.q|urlencode }}{% endif %}{% if overview.filters.model %}&model={{ overview.filters.model|urlencode }}{% endif %}{% if overview.filters.action %}&action={{ overview.filters.action|urlencode }}{% endif %}">
-                <i class="bi bi-filetype-xlsx me-1"></i>{{ DLUX_STRINGS.reports_export_xlsx }}
-            </a>
+        <div class="dlux-report-exports">
+            <button type="submit" form="general-report-form" formmethod="get" formaction="{% url 'reports_print' %}" formtarget="_blank" class="btn btn-outline-primary rounded-pill" title="{{ DLUX_STRINGS.reports_print_hint }}">
+                <i class="bi bi-printer me-1"></i>{{ DLUX_STRINGS.reports_print_report }}
+            </button>
+            <button type="submit" form="general-report-form" formmethod="get" formaction="{% url 'reports_overview_xlsx' %}" class="btn btn-outline-primary rounded-pill" title="{{ DLUX_STRINGS.reports_export_entries_hint }}">
+                <i class="bi bi-filetype-xlsx me-1"></i>{{ DLUX_STRINGS.reports_export_entries_xlsx }}
+            </button>
             {% if can_download_backup %}
-                <div class="d-flex flex-column align-items-stretch gap-1">
-                    <button type="button"
-                            id="reports-backup-btn"
-                            class="btn btn-primary rounded-pill"
-                            data-start-url="{% url 'reports_backup_start' %}"
-                            data-csrf="{{ csrf_token }}"
-                            data-window="{{ overview.window }}"
-                            data-active-status-url="{% if active_report_backup %}{% url 'reports_backup_status' active_report_backup.token %}{% endif %}"
-                            data-active-progress="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}"
-                            data-active-progress-message="{% if active_report_backup %}{{ active_report_backup.progress_message }}{% endif %}"
-                            data-msg-preparing="{{ DLUX_STRINGS.reports_backup_preparing }}"
-                            data-msg-ready="{{ DLUX_STRINGS.reports_backup_ready }}"
-                            data-msg-failed="{{ DLUX_STRINGS.reports_backup_failed }}">
-                        <i class="bi bi-file-zip-fill me-1"></i>{{ DLUX_STRINGS.reports_backup_zip }}
-                    </button>
-                    <small id="reports-backup-status" class="text-muted text-center">{% if active_report_backup %}{{ DLUX_STRINGS.reports_backup_preparing }}{% endif %}</small>
-                    <div id="reports-backup-progress" class="{% if not active_report_backup %}d-none {% endif %}mt-1" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}">
-                        <progress class="dlux-backup-progress" max="100" value="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}"></progress>
-                        <small class="d-block text-muted text-center mt-1" data-reports-backup-progress-label>{% if active_report_backup %}{{ active_report_backup.progress_message }}{% endif %}</small>
-                    </div>
-                    <a id="reports-backup-latest"
-                       class="small text-center{% if not latest_completed_report_backup %} d-none{% endif %}"
-                       {% if latest_completed_report_backup %}href="{% url 'reports_backup_download' latest_completed_report_backup.token %}"{% endif %}>
-                        {{ DLUX_STRINGS.reports_backup_download_ready }}
-                    </a>
+            <div class="dlux-report-backup-action">
+                <button type="button"
+                        id="reports-backup-btn"
+                        class="btn btn-primary rounded-pill"
+                        title="{{ DLUX_STRINGS.reports_backup_create_hint }}"
+                        data-start-url="{% url 'reports_backup_start' %}"
+                        data-csrf="{{ csrf_token }}"
+                        data-window="{{ overview.window }}"
+                        data-active-status-url="{% if active_report_backup %}{% url 'reports_backup_status' active_report_backup.token %}{% endif %}"
+                        data-active-progress="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}"
+                        data-active-progress-message="{% if active_report_backup %}{{ active_report_backup.progress_message }}{% endif %}"
+                        data-label-idle="{{ DLUX_STRINGS.reports_backup_create }}"
+                        data-label-busy="{{ DLUX_STRINGS.reports_backup_building }}"
+                        data-msg-preparing="{{ DLUX_STRINGS.reports_backup_preparing }}"
+                        data-msg-ready="{{ DLUX_STRINGS.reports_backup_ready }}"
+                        data-msg-failed="{{ DLUX_STRINGS.reports_backup_failed }}"
+                        data-msg-just-now="{{ DLUX_STRINGS.reports_backup_just_now }}">
+                    <i class="bi bi-file-earmark-zip me-1"></i><span data-reports-backup-label>{{ DLUX_STRINGS.reports_backup_create }}</span>
+                </button>
+                <div id="reports-backup-progress" class="{% if not active_report_backup %}d-none{% endif %}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}">
+                    <progress class="dlux-backup-progress" max="100" value="{% if active_report_backup %}{{ active_report_backup.progress_percent }}{% else %}0{% endif %}"></progress>
                 </div>
+                <small id="reports-backup-status" class="dlux-report-backup-status">{% if active_report_backup %}{{ active_report_backup.progress_message|default:DLUX_STRINGS.reports_backup_preparing }}{% endif %}</small>
+                <a id="reports-backup-latest"
+                   class="dlux-report-backup-latest{% if not latest_completed_report_backup %} d-none{% endif %}"
+                   {% if latest_completed_report_backup %}href="{% url 'reports_backup_download' latest_completed_report_backup.token %}"{% endif %}>
+                    <i class="bi bi-download"></i>
+                    <span>{{ DLUX_STRINGS.reports_backup_download_latest }}</span>
+                    <span data-reports-backup-latest-meta>{% if latest_completed_report_backup %}{{ latest_completed_report_backup.file_size|filesizeformat }} · {% dlux_timesince latest_completed_report_backup.completed_at %}{% endif %}</span>
+                </a>
+            </div>
             {% endif %}
         </div>
-    </div>
+    </section>
 
-    <form method="get" class="row g-2 align-items-end mb-4">
-        <div class="col-md-3">
-            <label class="form-label" for="reports-window">{{ DLUX_STRINGS.reports_window }}</label>
-            <select id="reports-window" name="window" class="form-select">
-                <option value="week"{% if overview.window == 'week' %} selected{% endif %}>{{ DLUX_STRINGS.user_report_window_week }}</option>
-                <option value="month"{% if overview.window == 'month' %} selected{% endif %}>{{ DLUX_STRINGS.user_report_window_month }}</option>
-                <option value="all"{% if overview.window == 'all' %} selected{% endif %}>{{ DLUX_STRINGS.user_report_window_all }}</option>
-            </select>
+    <form id="general-report-form" method="get" class="dlux-form glass-container dlux-report-builder">
+        <input type="hidden" name="builder" value="1">
+        <div class="dlux-report-builder-heading">
+            <div>
+                <span class="dlux-report-kicker"><i class="bi bi-sliders"></i>{{ DLUX_STRINGS.reports_builder_kicker|default:'Report builder' }}</span>
+                <h2>{{ DLUX_STRINGS.reports_builder_title|default:'Build the report scope' }}</h2>
+                <p>{{ DLUX_STRINGS.reports_builder_help|default:'Choose a period, then include only the models and operations you want calculated and exported.' }}</p>
+            </div>
+            <span class="dlux-report-selection-summary"><strong data-report-model-count>{{ overview.selected_model_count }}</strong> {{ DLUX_STRINGS.reports_models|default:'models' }} · <strong data-report-operation-count>{{ overview.selected_operation_count }}</strong> {{ DLUX_STRINGS.reports_operations|default:'operations' }}</span>
         </div>
-        <div class="col-md-3">
-            <label class="form-label" for="reports-search">{{ DLUX_STRINGS.search }}</label>
-            <input id="reports-search" type="search" name="q" value="{{ overview.filters.q }}" class="form-control">
+
+        {% if overview.period.errors %}
+        <div class="alert alert-warning" role="alert">{{ DLUX_STRINGS.reports_custom_invalid|default:'The custom date range was incomplete or reversed, so a safe normalized range was used.' }}</div>
+        {% endif %}
+
+        <div class="row g-3 align-items-end dlux-report-period-row">
+            <div class="col-lg-4">
+                <label class="form-label" for="reports-window">{{ DLUX_STRINGS.reports_window }}</label>
+                <select id="reports-window" name="window" class="form-select glass-input" data-report-window>
+                    <option value="week"{% if overview.window == 'week' %} selected{% endif %}>{{ DLUX_STRINGS.user_report_window_week }}</option>
+                    <option value="month"{% if overview.window == 'month' %} selected{% endif %}>{{ DLUX_STRINGS.user_report_window_month }}</option>
+                    <option value="quarter"{% if overview.window == 'quarter' %} selected{% endif %}>{{ DLUX_STRINGS.reports_window_quarter|default:'Current quarter' }}</option>
+                    <option value="half_year"{% if overview.window == 'half_year' %} selected{% endif %}>{{ DLUX_STRINGS.reports_window_half_year|default:'Current half-year' }}</option>
+                    <option value="year"{% if overview.window == 'year' %} selected{% endif %}>{{ DLUX_STRINGS.reports_window_year|default:'Current year' }}</option>
+                    <option value="custom"{% if overview.window == 'custom' %} selected{% endif %}>{{ DLUX_STRINGS.reports_window_custom|default:'Custom range' }}</option>
+                    <option value="all"{% if overview.window == 'all' %} selected{% endif %}>{{ DLUX_STRINGS.user_report_window_all }}</option>
+                </select>
+            </div>
+            <div class="col-lg-4">
+                <label class="form-label" for="reports-search">{{ DLUX_STRINGS.search }}</label>
+                <input id="reports-search" type="search" name="q" value="{{ overview.filters.q }}" class="form-control glass-input" placeholder="{{ DLUX_STRINGS.reports_search_placeholder|default:'User, model, operation, or number' }}">
+            </div>
+            <div class="col-lg-4 dlux-report-period-preview">
+                <span>{{ DLUX_STRINGS.reports_active_period|default:'Active period' }}</span>
+                <strong>{% if overview.period.range_label %}{{ overview.period.range_label }}{% else %}{{ DLUX_STRINGS.user_report_window_all }}{% endif %}</strong>
+            </div>
         </div>
-        <div class="col-md-2">
-            <label class="form-label" for="reports-model">{{ DLUX_STRINGS.user_report_model }}</label>
-            <select id="reports-model" name="model" class="form-select">
-                <option value="">{{ DLUX_STRINGS.filter_all }}</option>
-                {% for model in overview.available_models %}
-                    {% if model %}
-                    <option value="{{ model }}"{% if overview.filters.model == model %} selected{% endif %}>{{ model|translate_log:'model' }}</option>
-                    {% endif %}
-                {% endfor %}
-            </select>
+
+        <div class="row g-3 dlux-report-custom-period{% if overview.window != 'custom' %} d-none{% endif %}" data-report-custom-period>
+            <div class="col-md-6">
+                <label class="form-label" for="reports-custom-start">{{ DLUX_STRINGS.reports_custom_start|default:'Start date' }}</label>
+                <input id="reports-custom-start" type="text" name="custom_start" value="{{ overview.filters.custom_start }}" class="form-control glass-input dlux-datepicker" autocomplete="off" data-report-custom-date>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="reports-custom-end">{{ DLUX_STRINGS.reports_custom_end|default:'End date' }}</label>
+                <input id="reports-custom-end" type="text" name="custom_end" value="{{ overview.filters.custom_end }}" class="form-control glass-input dlux-datepicker" autocomplete="off" data-report-custom-date>
+            </div>
         </div>
-        <div class="col-md-2">
-            <label class="form-label" for="reports-action">{{ DLUX_STRINGS.user_report_action }}</label>
-            <select id="reports-action" name="action" class="form-select">
-                <option value="">{{ DLUX_STRINGS.filter_all }}</option>
-                {% for action in overview.available_actions %}
-                    {% if action %}
-                    <option value="{{ action }}"{% if overview.filters.action == action %} selected{% endif %}>{{ action|translate_log:'action' }}</option>
-                    {% endif %}
-                {% endfor %}
-            </select>
+
+        <div class="dlux-report-builder-grid">
+            <section class="dlux-report-builder-panel" data-report-choice-panel="models">
+                <div class="dlux-report-builder-panel-heading">
+                    <div><span>{{ DLUX_STRINGS.reports_builder_models|default:'Models' }}</span><small>{{ DLUX_STRINGS.reports_builder_models_help|default:'Controls model totals and data included in the ZIP.' }}</small></div>
+                    <div class="dlux-report-builder-actions">
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" data-report-select="all">{{ DLUX_STRINGS.reports_include_all|default:'Include all' }}</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" data-report-select="none">{{ DLUX_STRINGS.reports_exclude_all|default:'Exclude all' }}</button>
+                    </div>
+                </div>
+                <input type="search" class="form-control form-control-sm glass-input" data-report-choice-search placeholder="{{ DLUX_STRINGS.reports_builder_search_models|default:'Search models' }}">
+                <div class="dlux-report-choice-list">
+                    {% for model in overview.available_models %}
+                    <label class="dlux-report-choice" data-report-choice data-search-value="{{ model.label|lower }} {{ model.key|lower }}">
+                        <input class="form-check-input" type="checkbox" name="models" value="{{ model.key }}"{% if model.selected %} checked{% endif %}>
+                        <span><strong>{{ model.label }}</strong><small>{{ model.key }}</small></span>
+                    </label>
+                    {% empty %}
+                    <div class="dlux-report-choice-empty">{{ DLUX_STRINGS.reports_empty }}</div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="dlux-report-builder-panel" data-report-choice-panel="operations">
+                <div class="dlux-report-builder-panel-heading">
+                    <div><span>{{ DLUX_STRINGS.reports_builder_operations|default:'Operations' }}</span><small>{{ DLUX_STRINGS.reports_builder_operations_help|default:'Controls which activity operations are calculated in every output.' }}</small></div>
+                    <div class="dlux-report-builder-actions">
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" data-report-select="all">{{ DLUX_STRINGS.reports_include_all|default:'Include all' }}</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" data-report-select="none">{{ DLUX_STRINGS.reports_exclude_all|default:'Exclude all' }}</button>
+                    </div>
+                </div>
+                <input type="search" class="form-control form-control-sm glass-input" data-report-choice-search placeholder="{{ DLUX_STRINGS.reports_builder_search_operations|default:'Search operations' }}">
+                <div class="dlux-report-choice-list">
+                    {% for operation in overview.available_actions %}
+                    <label class="dlux-report-choice" data-report-choice data-search-value="{{ operation.label|lower }} {{ operation.key|lower }}">
+                        <input class="form-check-input" type="checkbox" name="operations" value="{{ operation.key }}"{% if operation.selected %} checked{% endif %}>
+                        <span><strong>{{ operation.label }}</strong><small>{{ operation.key }}</small></span>
+                    </label>
+                    {% empty %}
+                    <div class="dlux-report-choice-empty">{{ DLUX_STRINGS.reports_empty }}</div>
+                    {% endfor %}
+                </div>
+            </section>
         </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn btn-primary w-100 rounded-pill">
-                <i class="bi bi-funnel-fill me-1"></i>{{ DLUX_STRINGS.btn_apply|default:DLUX_STRINGS.search }}
+
+        <div class="dlux-form-actions dlux-report-builder-submit">
+            <button type="submit" class="dlux-form-action dlux-form-action-primary">
+                <span class="dlux-form-action-icon"><i class="bi bi-funnel-fill"></i></span>
+                <span class="dlux-form-action-copy"><span class="dlux-form-action-title">{{ DLUX_STRINGS.btn_apply|default:DLUX_STRINGS.search }}</span></span>
             </button>
+            <a href="{% url 'reports_overview' %}" class="dlux-form-action dlux-form-action-neutral">
+                <span class="dlux-form-action-icon"><i class="bi bi-arrow-counterclockwise"></i></span>
+                <span class="dlux-form-action-copy"><span class="dlux-form-action-title">{{ DLUX_STRINGS.reset|default:'Reset' }}</span></span>
+            </a>
         </div>
     </form>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-6 col-xl-3">
-            <div class="p-3 border rounded bg-light h-100">
-                <div class="text-muted small">{{ DLUX_STRINGS.reports_current_total }}</div>
-                <div class="fs-3 fw-bold">{{ overview.current_total }}</div>
-            </div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="p-3 border rounded bg-light h-100">
-                <div class="text-muted small">{{ DLUX_STRINGS.reports_previous_week_total }}</div>
-                <div class="fs-3 fw-bold">{{ overview.previous_week_total }}</div>
-            </div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="p-3 border rounded bg-light h-100">
-                <div class="text-muted small">{{ DLUX_STRINGS.reports_delta }}</div>
-                <div class="fs-3 fw-bold">{{ overview.delta }}</div>
-            </div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="p-3 border rounded bg-light h-100">
-                <div class="text-muted small">{{ DLUX_STRINGS.reports_all_total }}</div>
-                <div class="fs-3 fw-bold">{{ overview.all_total }}</div>
-            </div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="p-3 border rounded bg-light h-100">
-                <div class="text-muted small">{{ DLUX_STRINGS.reports_average_per_day }}</div>
-                <div class="fs-3 fw-bold">{{ overview.average_per_active_day }}</div>
-            </div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="p-3 border rounded bg-light h-100">
-                <div class="text-muted small">{{ DLUX_STRINGS.reports_average_per_user }}</div>
-                <div class="fs-3 fw-bold">{{ overview.average_per_user }}</div>
-            </div>
-        </div>
+    <div class="dlux-report-stats">
+        <article class="report-stat-card"><span class="stat-title">{{ DLUX_STRINGS.reports_current_total }}</span><strong>{{ overview.current_total }}</strong></article>
+        <article class="report-stat-card"><span class="stat-title">{{ DLUX_STRINGS.reports_previous_period_total|default:'Previous Period Total' }}</span><strong>{{ overview.previous_period_total }}</strong></article>
+        <article class="report-stat-card"><span class="stat-title">{{ DLUX_STRINGS.reports_delta }}</span><strong>{{ overview.delta }}</strong></article>
+        <article class="report-stat-card"><span class="stat-title">{{ DLUX_STRINGS.reports_all_total }}</span><strong>{{ overview.all_total }}</strong></article>
+        <article class="report-stat-card"><span class="stat-title">{{ DLUX_STRINGS.reports_average_per_day }}</span><strong>{{ overview.average_per_active_day }}</strong></article>
+        <article class="report-stat-card"><span class="stat-title">{{ DLUX_STRINGS.reports_average_per_user }}</span><strong>{{ overview.average_per_user }}</strong></article>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-6">
-            <section class="p-3 border rounded bg-light h-100">
-                <h5 class="mb-3">{{ DLUX_STRINGS.reports_by_user }}</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead><tr><th>{{ DLUX_STRINGS.user_report_username }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead>
-                        <tbody>
-                            {% for item in overview.users %}
-                                <tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>
-                            {% empty %}
-                                <tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
-        <div class="col-lg-6">
-            <section class="p-3 border rounded bg-light h-100">
-                <h5 class="mb-3">{{ DLUX_STRINGS.reports_by_model }}</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead><tr><th>{{ DLUX_STRINGS.user_report_model }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead>
-                        <tbody>
-                            {% for item in overview.models %}
-                                <tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>
-                            {% empty %}
-                                <tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
-        <div class="col-lg-6">
-            <section class="p-3 border rounded bg-light h-100">
-                <h5 class="mb-3">{{ DLUX_STRINGS.reports_by_action }}</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead><tr><th>{{ DLUX_STRINGS.user_report_action }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead>
-                        <tbody>
-                            {% for item in overview.actions %}
-                                <tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>
-                            {% empty %}
-                                <tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
-        <div class="col-lg-6">
-            <section class="p-3 border rounded bg-light h-100">
-                <h5 class="mb-3">{{ DLUX_STRINGS.reports_by_day }}</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead><tr><th>{{ DLUX_STRINGS.user_report_timestamp }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead>
-                        <tbody>
-                            {% for item in overview.days %}
-                                <tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>
-                            {% empty %}
-                                <tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
-
-        <div class="col-12">
-            <section class="p-3 border rounded bg-light">
-                <h5 class="mb-3">{{ DLUX_STRINGS.reports_user_drilldown }}</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>{{ DLUX_STRINGS.user_report_username }}</th>
-                                <th>{{ DLUX_STRINGS.tbl_full_name }}</th>
-                                <th>{{ DLUX_STRINGS.tbl_staff_tier }}</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for visible_user in overview.visible_users %}
-                                <tr>
-                                    <td>{{ visible_user.username }}</td>
-                                    <td>{{ visible_user.get_full_name|default:visible_user.username }}</td>
-                                    <td>{% if visible_user.is_staff %}{{ DLUX_STRINGS.badge_staff }}{% else %}{{ DLUX_STRINGS.regular_user|default:"User" }}{% endif %}</td>
-                                    <td class="text-end">
-                                        <button type="button"
-                                                class="btn btn-outline-primary btn-sm rounded-pill"
-                                                data-dynamic-modal="{% url 'user_report_modal' visible_user.pk %}?window={{ overview.window }}"
-                                                data-modal-title="{{ DLUX_STRINGS.user_report_title }}">
-                                            <i class="bi bi-file-earmark-person me-1"></i>{{ DLUX_STRINGS.user_report_title }}
-                                        </button>
-                                    </td>
-                                </tr>
-                            {% empty %}
-                                <tr><td colspan="4" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
+    <div class="dlux-report-table-grid">
+        <section class="glass-container dlux-report-table-card">
+            <h2>{{ DLUX_STRINGS.reports_by_user }}</h2>
+            <div class="dlux-table-shell" data-dlux-table-density="balanced"><div class="dlux-table-scroll"><table class="table table-hover align-middle dlux-data-table"><thead><tr><th>{{ DLUX_STRINGS.user_report_username }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead><tbody>{% for item in overview.users %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}</tbody></table></div></div>
+        </section>
+        <section class="glass-container dlux-report-table-card">
+            <h2>{{ DLUX_STRINGS.reports_by_model }}</h2>
+            <div class="dlux-table-shell" data-dlux-table-density="balanced"><div class="dlux-table-scroll"><table class="table table-hover align-middle dlux-data-table"><thead><tr><th>{{ DLUX_STRINGS.user_report_model }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead><tbody>{% for item in overview.models %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}</tbody></table></div></div>
+        </section>
+        <section class="glass-container dlux-report-table-card">
+            <h2>{{ DLUX_STRINGS.reports_by_action }}</h2>
+            <div class="dlux-table-shell" data-dlux-table-density="balanced"><div class="dlux-table-scroll"><table class="table table-hover align-middle dlux-data-table"><thead><tr><th>{{ DLUX_STRINGS.user_report_action }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead><tbody>{% for item in overview.actions %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}</tbody></table></div></div>
+        </section>
+        <section class="glass-container dlux-report-table-card">
+            <h2>{{ DLUX_STRINGS.reports_by_day }}</h2>
+            <div class="dlux-table-shell" data-dlux-table-density="balanced"><div class="dlux-table-scroll"><table class="table table-hover align-middle dlux-data-table"><thead><tr><th>{{ DLUX_STRINGS.user_report_timestamp }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead><tbody>{% for item in overview.days %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}</tbody></table></div></div>
+        </section>
     </div>
+
+    <section class="glass-container dlux-report-table-card dlux-report-users">
+        <h2>{{ DLUX_STRINGS.reports_user_drilldown }}</h2>
+        <div class="dlux-table-shell" data-dlux-table-density="balanced">
+            <div class="dlux-table-scroll">
+                <table class="table table-hover align-middle dlux-data-table">
+                    <thead><tr><th>{{ DLUX_STRINGS.user_report_username }}</th><th>{{ DLUX_STRINGS.tbl_full_name }}</th><th>{{ DLUX_STRINGS.tbl_staff_tier }}</th><th></th></tr></thead>
+                    <tbody>
+                        {% for visible_user in overview.visible_users %}
+                        <tr><td>{{ visible_user.username }}</td><td>{{ visible_user.get_full_name|default:visible_user.username }}</td><td>{% if visible_user.is_staff %}{{ DLUX_STRINGS.badge_staff }}{% else %}{{ DLUX_STRINGS.regular_user|default:'User' }}{% endif %}</td><td class="text-end"><button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dynamic-modal="{% url 'user_report_modal' visible_user.pk %}?window={{ overview.window }}" data-modal-title="{{ DLUX_STRINGS.user_report_title }}"><i class="bi bi-file-earmark-person me-1"></i>{{ DLUX_STRINGS.user_report_title }}</button></td></tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
 </div>
-
 {% endblock %}
 
 {% block scripts %}

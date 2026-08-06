@@ -2,10 +2,17 @@
     {{ tree_state|json_script:"sidebarTreeData" }}
 {% endif %}
 
-<div class="sidebar-tree-root" id="sidebarTreeRoot">
+<div class="sidebar-tree-root"
+     id="sidebarTreeRoot"
+     data-dlux-sidebar-notification-badges-enabled="{% if sidebar_notification_badges_enabled %}true{% else %}false{% endif %}"
+     data-dlux-sidebar-unread-label="{{ DLUX_STRINGS.sidebar_unread_notifications|default:'unread notifications' }}">
 {% for entry in entries %}
     {% if entry.kind == 'group' %}
-    <div class="accordion-item sidebar-tree-node sidebar-group-node" data-entry-kind="group" data-entry-id="{{ entry.id }}" data-group-id="{{ entry.id }}">
+    <div class="accordion-item sidebar-tree-node sidebar-group-node"
+         data-entry-kind="group"
+         data-entry-id="{{ entry.id }}"
+         data-group-id="{{ entry.id }}"
+         {% if entry.notification_model_keys %}data-dlux-sidebar-notification-keys="{{ entry.notification_model_keys|join:' ' }}"{% endif %}>
         <h2 class="accordion-header d-flex flex-nowrap align-items-center{% if entry.url and entry.url != '#' %} has-url-btn{% endif %}">
             <button class="accordion-button sidebar-folder-button{% if entry.has_active %} has-active-child{% endif %}{% if not entry.is_open %} collapsed{% endif %}"
                     type="button"
@@ -15,6 +22,12 @@
                     aria-controls="{{ entry.id }}">
                 <i class="bi {{ entry.icon }} me-2"></i>
                 <span class="text-start">{{ entry.label }}</span>
+                {% if entry.notification_model_keys %}
+                <span class="dlux-sidebar-notification-badge{% if not sidebar_notification_badges_enabled or not entry.notification_count %} d-none{% endif %}"
+                      data-dlux-sidebar-notification-badge
+                      aria-label="{{ entry.notification_count }} {{ DLUX_STRINGS.sidebar_unread_notifications|default:'unread notifications' }}"
+                      title="{{ entry.notification_count }} {{ DLUX_STRINGS.sidebar_unread_notifications|default:'unread notifications' }}">{{ entry.notification_display_count }}</span>
+                {% endif %}
             </button>
             {% if entry.url and entry.url != '#' %}
             <a href="{{ entry.url }}" class="group-url-btn" title="{{ entry.label }}">
@@ -29,9 +42,16 @@
                    class="list-group-item list-group-item-action sidebar-tree-node sidebar-group-item{% if item.active %} active{% endif %}"
                    data-entry-kind="item"
                    data-entry-id="{{ item.id }}"
-                   data-url-name="{{ item.url_name }}">
+                   data-url-name="{{ item.url_name }}"
+                   {% if item.notification_model_keys %}data-dlux-sidebar-notification-keys="{{ item.notification_model_keys|join:' ' }}"{% endif %}>
                     <i class="bi {{ item.icon }} me-2"></i>
-                    <span>{{ item.label }}</span>
+                    <span class="sidebar-tree-label">{{ item.label }}</span>
+                    {% if item.notification_model_keys %}
+                    <span class="dlux-sidebar-notification-badge{% if not sidebar_notification_badges_enabled or not item.notification_count %} d-none{% endif %}"
+                          data-dlux-sidebar-notification-badge
+                          aria-label="{{ item.notification_count }} {{ DLUX_STRINGS.sidebar_unread_notifications|default:'unread notifications' }}"
+                          title="{{ item.notification_count }} {{ DLUX_STRINGS.sidebar_unread_notifications|default:'unread notifications' }}">{{ item.notification_display_count }}</span>
+                    {% endif %}
                 </a>
                 {% endfor %}
             </div>
@@ -42,9 +62,16 @@
        class="list-group-item list-group-item-action sidebar-tree-node sidebar-root-item{% if entry.active %} active{% endif %}"
        data-entry-kind="item"
        data-entry-id="{{ entry.id }}"
-       data-url-name="{{ entry.url_name }}">
+       data-url-name="{{ entry.url_name }}"
+       {% if entry.notification_model_keys %}data-dlux-sidebar-notification-keys="{{ entry.notification_model_keys|join:' ' }}"{% endif %}>
         <i class="bi {{ entry.icon }} me-2"></i>
-        <span>{{ entry.label }}</span>
+        <span class="sidebar-tree-label">{{ entry.label }}</span>
+        {% if entry.notification_model_keys %}
+        <span class="dlux-sidebar-notification-badge{% if not sidebar_notification_badges_enabled or not entry.notification_count %} d-none{% endif %}"
+              data-dlux-sidebar-notification-badge
+              aria-label="{{ entry.notification_count }} {{ DLUX_STRINGS.sidebar_unread_notifications|default:'unread notifications' }}"
+              title="{{ entry.notification_count }} {{ DLUX_STRINGS.sidebar_unread_notifications|default:'unread notifications' }}">{{ entry.notification_display_count }}</span>
+        {% endif %}
     </a>
     {% endif %}
 {% empty %}

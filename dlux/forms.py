@@ -27,6 +27,21 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.urls import NoReverseMatch, reverse
 from .system.constants import (
+    SETUP_STEP_IDENTITY,
+    SETUP_STEP_LANGUAGES,
+    SETUP_STEP_SECURITY,
+    SETUP_STEP_EMAIL,
+    SETUP_STEP_LOGIN,
+    SETUP_STEP_SIDEBAR,
+    SETUP_STEP_NAVBAR,
+    SETUP_STEP_TITLEBAR,
+    SETUP_STEP_NOTIFICATIONS,
+    SETUP_STEP_APPEARANCE,
+    SETUP_STEP_LAYOUT,
+    SETUP_STEP_LOGGING,
+    SETUP_STEP_PROFILE,
+    SETUP_STEP_BACKUPS,
+    SETUP_STEP_COUNT,
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
@@ -101,6 +116,7 @@ from .utils import (
     encrypt_email_secret,
     apply_system_settings_import,
     get_email_service_status,
+    email_features_unlocked,
     get_user_management_tier_state,
     get_user_scope,
     has_section_models,
@@ -697,6 +713,17 @@ def _boolean_field_checked(form, field_name):
     return bool(field.initial)
 
 
+# Settings that cannot function without Dlux sending mail. Locked (not cleared)
+# while email is disabled or unverified.
+EMAIL_DEPENDENT_SETTING_FIELDS = (
+    'email_2fa',
+    'forgot_password_enabled',
+    'public_registration_enabled',
+    'notification_email_enabled',
+    'notification_email_default',
+)
+
+
 def build_settings_toggle_field(form, field_name, css_class=None, attrs=None):
     bound_field = form[field_name]
     field = bound_field.field
@@ -709,9 +736,16 @@ def build_settings_toggle_field(form, field_name, css_class=None, attrs=None):
     )
     checked_attr = ' checked' if _boolean_field_checked(form, field_name) else ''
     disabled_attr = ' disabled' if bool(getattr(field, 'disabled', False)) else ''
+    # A locked toggle explains itself on hover rather than just being dead.
+    lock_reason = str(getattr(field, 'dlux_lock_reason', '') or '').strip()
+    lock_attrs = (
+        f" data-dlux-tooltip='{conditional_escape(lock_reason)}' aria-describedby='{conditional_escape(field_name)}-lock'"
+        if lock_reason else ""
+    )
+    lock_class = ' dlux-settings-toggle-field--locked' if lock_reason else ''
     wrapper_html = mark_safe(
-        f"<div class='dlux-settings-toggle-field d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-2 h-100' "
-        f"data-dlux-settings-toggle-field='{conditional_escape(field_name)}'>"
+        f"<div class='dlux-settings-toggle-field{lock_class} d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-2 h-100' "
+        f"data-dlux-settings-toggle-field='{conditional_escape(field_name)}'{lock_attrs}>"
         f"<div class='dlux-settings-toggle-field__content flex-grow-1'>"
         f"<div class='dlux-settings-toggle-field__label fw-semibold'>{label}</div>"
         f"{help_html}"
@@ -725,6 +759,41 @@ def build_settings_toggle_field(form, field_name, css_class=None, attrs=None):
     if css_class:
         return Div(HTML(wrapper_html), css_class=css_class, **(attrs or {}))
     return HTML(wrapper_html)
+
+
+def build_email_test_control(form, send_url, button_label):
+    """Recipient input and Send-test button as a single Bootstrap input-group.
+
+    Two grid columns will not stay level here: the field column carries a label
+    and help text, so it is taller than the button column, and any vertical
+    alignment picks the wrong edge — `end` drops the button below the input,
+    `start` lifts it above. An input-group makes them one control, so they are
+    level by construction no matter how much text sits above or below.
+    """
+    bound_field = form['email_config_test_recipient']
+    field = bound_field.field
+    label = conditional_escape(field.label or 'Send a test email to')
+    help_text = str(field.help_text or '').strip()
+    help_html = (
+        f"<div class='form-text'>{conditional_escape(help_text)}</div>" if help_text else ""
+    )
+    return Div(
+        HTML(
+            f"<label class='form-label' for='{conditional_escape(bound_field.auto_id)}'>{label}</label>"
+            f"<div class='input-group dlux-email-test-group'>"
+            f"{bound_field}"
+            f"<button type='button' class='btn btn-outline-primary dlux-email-test-btn' "
+            f"data-email-send-test "
+            f"data-email-dependent-fields='{','.join(EMAIL_DEPENDENT_SETTING_FIELDS)}' "
+            f"data-email-send-test-url='{send_url}'>"
+            f"<span class='spinner-border spinner-border-sm me-2 d-none' role='status' "
+            f"aria-hidden='true' data-email-send-test-spinner></span>"
+            f"{conditional_escape(button_label)}</button>"
+            f"</div>"
+            f"{help_html}"
+        ),
+        css_class='col-12',
+    )
 
 
 def build_email_toggle_field(form, field_name, css_class=None, attrs=None):
@@ -1718,8 +1787,12 @@ class UserProfileEditForm(forms.ModelForm):
 
 
 class CustomPasswordChangeForm(DluxPasswordMustChangeMixin, PasswordChangeForm):
+    sign_out_other_sessions = forms.BooleanField(required=False, initial=False)
+
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
+        from dlux.utils import get_system_config
+
         s = get_strings()
         
         # Current Password
@@ -1744,6 +1817,23 @@ class CustomPasswordChangeForm(DluxPasswordMustChangeMixin, PasswordChangeForm):
                 'new_password2': 'new-password',
             },
         )
+
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        layout_fields = ['old_password', 'new_password1', 'new_password2']
+        if get_system_config().get('prevent_multiple_active_sessions', False):
+            self.fields.pop('sign_out_other_sessions', None)
+        else:
+            self.fields['sign_out_other_sessions'].label = s.get(
+                'form_sign_out_other_sessions',
+                'Sign out of all other signed-in devices',
+            )
+            self.fields['sign_out_other_sessions'].help_text = s.get(
+                'help_sign_out_other_sessions',
+                'Keep this device signed in and end every other active session after your password changes.',
+            )
+            layout_fields.append(build_settings_toggle_field(self, 'sign_out_other_sessions'))
+        self.helper.layout = Layout(*layout_fields)
 
 class ScopeForm(forms.ModelForm):
     class Meta:
@@ -2061,10 +2151,6 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.HiddenInput(),
         required=False,
     )
-    email_config = forms.CharField(
-        widget=forms.HiddenInput(),
-        required=False,
-    )
     email_config_transport = forms.ChoiceField(
         required=False,
         choices=(
@@ -2105,6 +2191,16 @@ class SystemSettingsForm(forms.ModelForm):
         widget=forms.Textarea(attrs={'rows': 2}),
     )
     email_config_test_recipient = forms.EmailField(required=False)
+    email_config_enabled = forms.BooleanField(required=False, initial=False)
+    email_config_timeout = forms.IntegerField(required=False, min_value=0, max_value=300)
+    # Declared last on purpose: Django cleans fields in declaration order and
+    # clean_email_config() packs this group from the scalar fields above, so it
+    # must run after them. Declared first, it packed an empty cleaned_data and
+    # silently reset timeout/enabled on any save of another settings step.
+    email_config = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False,
+    )
     sidebar_config = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -2127,6 +2223,10 @@ class SystemSettingsForm(forms.ModelForm):
     backup_retention_days = forms.IntegerField(required=False, min_value=0, max_value=3650, initial=0)
     backup_max_backups_to_keep = forms.IntegerField(required=False, min_value=0, max_value=10000, initial=0)
     backup_auto_export_target = forms.CharField(required=False, max_length=180, initial='dlux_backups')
+    backup_stall_timeout_minutes = forms.IntegerField(required=False, min_value=2, max_value=1440, initial=30)
+    backup_auto_retry_enabled = forms.BooleanField(required=False, initial=True)
+    backup_max_attempts = forms.IntegerField(required=False, min_value=1, max_value=10, initial=3)
+    backup_retry_delay_minutes = forms.IntegerField(required=False, min_value=0, max_value=1440, initial=5)
     sidebar_enabled = forms.BooleanField(
         required=False,
         initial=True,
@@ -2140,6 +2240,10 @@ class SystemSettingsForm(forms.ModelForm):
         initial=True,
     )
     sidebar_show_icons = forms.BooleanField(
+        required=False,
+        initial=True,
+    )
+    sidebar_show_notification_badges = forms.BooleanField(
         required=False,
         initial=True,
     )
@@ -2531,6 +2635,7 @@ class SystemSettingsForm(forms.ModelForm):
             'languages',
             'translations_override',
             'sidebar_config',
+            'sidebar_show_notification_badges',
             'navbar_config',
             'log_config',
             'profile_config',
@@ -2578,6 +2683,7 @@ class SystemSettingsForm(forms.ModelForm):
         self._user = user if user is not None else kwargs.pop('user', None)
         self.mode = mode if mode is not None else kwargs.pop('mode', 'modal')
         super().__init__(*args, **kwargs)
+        self.fields['allowed_fonts'].choices = get_font_choices()
         # A bound (POST) settings save must source its data from the AUTHORITATIVE
         # DB row. Views hand this form ``SystemSettings.load()`` (the cached
         # singleton), and single-step saves re-serialise the WHOLE config while
@@ -2606,7 +2712,7 @@ class SystemSettingsForm(forms.ModelForm):
                 parsed_step = int(raw_step)
             except (TypeError, ValueError):
                 parsed_step = None
-            if parsed_step in range(13):
+            if parsed_step in range(SETUP_STEP_COUNT):
                 self.single_step_mode = True
                 self.single_step_index = parsed_step
         if self.mode != 'setup' and self.single_step_mode:
@@ -2616,7 +2722,7 @@ class SystemSettingsForm(forms.ModelForm):
             self.fields['default_theme'].required = False
             self.fields['default_table_density'].required = False
 
-        from dlux.discovery import discover_sidebar_catalog, sanitize_sidebar_config
+        from dlux.discovery import discover_sidebar_catalog, sanitize_navbar_config, sanitize_sidebar_config
         from dlux.utils import get_system_config
 
         config = get_system_config()
@@ -2885,6 +2991,14 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_sidebar_show_icons',
             'Show icons beside sidebar items and folders in the expanded sidebar.',
         )
+        self.fields['sidebar_show_notification_badges'].label = s.get(
+            'form_sys_sidebar_show_notification_badges',
+            'Show notification badges in sidebar',
+        )
+        self.fields['sidebar_show_notification_badges'].help_text = s.get(
+            'help_sys_sidebar_show_notification_badges',
+            'Show unread notification counters beside model-backed sidebar sections and their groups.',
+        )
         self.fields['sidebar_density'].label = s.get('form_sys_sidebar_density', 'Sidebar density')
         self.fields['sidebar_density'].help_text = s.get(
             'help_sys_sidebar_density',
@@ -2924,6 +3038,14 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['backup_max_backups_to_keep'].help_text = s.get('help_sys_backup_max_backups_to_keep', 'Keep only the newest completed backups after each successful backup. Use 0 for no count limit.')
         self.fields['backup_auto_export_target'].label = s.get('form_sys_backup_auto_export_target', 'Automatic export target')
         self.fields['backup_auto_export_target'].help_text = s.get('help_sys_backup_auto_export_target', 'Storage-relative folder in Django default storage, for example dlux_backups or protected/dlux.')
+        self.fields['backup_stall_timeout_minutes'].label = s.get('form_sys_backup_stall_timeout_minutes', 'Stall timeout (minutes)')
+        self.fields['backup_stall_timeout_minutes'].help_text = s.get('help_sys_backup_stall_timeout_minutes', 'A running backup that reports no progress for this long is treated as dead and marked failed, so an interrupted worker cannot leave it running forever.')
+        self.fields['backup_auto_retry_enabled'].label = s.get('form_sys_backup_auto_retry_enabled', 'Retry failed backups automatically')
+        self.fields['backup_auto_retry_enabled'].help_text = s.get('help_sys_backup_auto_retry_enabled', 'Re-run a failed or stalled backup by itself. Backups protected by a passphrase are never retried automatically because the passphrase is never stored; resume those from the Backup & Restore page.')
+        self.fields['backup_max_attempts'].label = s.get('form_sys_backup_max_attempts', 'Maximum attempts')
+        self.fields['backup_max_attempts'].help_text = s.get('help_sys_backup_max_attempts', 'Total attempts per backup, counting the first one. Use 1 to disable retrying.')
+        self.fields['backup_retry_delay_minutes'].label = s.get('form_sys_backup_retry_delay_minutes', 'Retry delay (minutes)')
+        self.fields['backup_retry_delay_minutes'].help_text = s.get('help_sys_backup_retry_delay_minutes', 'How long to wait after a failure before the next automatic attempt starts.')
         self.fields['navbar_enabled'].label = s.get('form_sys_navbar_enabled', '')
         self.fields['navbar_enabled'].help_text = s.get('help_sys_navbar_enabled', '')
         self.fields['navbar_default_mode'].label = s.get('form_sys_navbar_default_mode', '')
@@ -3278,7 +3400,7 @@ class SystemSettingsForm(forms.ModelForm):
         self.fields['purge_session_on_exit'].label = s.get('form_sys_purge_session_on_exit', 'Sign out on browser close')
         self.fields['purge_session_on_exit'].help_text = s.get(
             'help_sys_purge_session_on_exit',
-            'End the session when the tab or browser is closed instead of keeping the user signed in on their next visit.',
+            'Keep the session only until the browser is fully closed. Closing one tab does not end the browser-wide session.',
         )
         self.fields['inactivity_timeout_enabled'].label = s.get('form_sys_inactivity_timeout', 'Sign out after inactivity')
         self.fields['inactivity_timeout_enabled'].help_text = s.get(
@@ -3340,6 +3462,17 @@ class SystemSettingsForm(forms.ModelForm):
             'help_sys_email_failure_recipients',
             'Comma or newline separated emails warned in-app when transactional mail fails to send. Requires notifications enabled.',
         )
+        self.fields['email_config_timeout'].label = s.get('form_sys_email_timeout', 'SMTP timeout (seconds)')
+        self.fields['email_config_timeout'].help_text = s.get(
+            'help_sys_email_timeout',
+            'How long to wait for the mail server. Leave blank for the default. Raise it if '
+            'your server accepts the connection quickly but is slow to accept the message.',
+        )
+        self.fields['email_config_enabled'].label = s.get('form_sys_email_config_enabled', 'Enable email delivery')
+        self.fields['email_config_enabled'].help_text = s.get(
+            'help_sys_email_config_enabled',
+            'Turn on to configure SMTP. Features that send mail stay locked until a test email succeeds.',
+        )
         self.fields['email_config_test_recipient'].label = s.get('form_sys_email_test_recipient', 'Send a test email to')
         self.fields['email_config_test_recipient'].help_text = s.get(
             'help_sys_email_test_recipient',
@@ -3352,6 +3485,8 @@ class SystemSettingsForm(forms.ModelForm):
             'email_config_default_from_email',
             'email_config_failure_recipients',
             'email_config_test_recipient',
+            'email_config_enabled',
+            'email_config_timeout',
         ):
             self.fields[field_name].widget.attrs.update({'class': 'form-control glass-input'})
         self.fields['email_config_port'].widget.attrs.update({'class': 'form-control glass-input'})
@@ -3359,7 +3494,10 @@ class SystemSettingsForm(forms.ModelForm):
             'class': 'form-select glass-input',
             'data-email-provider-preset': '',
         })
-        self.fields['email_config_test_recipient'].widget.attrs.update({'data-email-test-recipient': ''})
+        self.fields['email_config_test_recipient'].widget.attrs.update({
+            'data-email-test-recipient': '',
+            'class': 'form-control glass-input',
+        })
         self.fields['public_root'].label = s.get('form_sys_public_root', 'Public Root Access')
         self.fields['public_root'].help_text = s.get(
             'help_sys_public_root',
@@ -3374,6 +3512,22 @@ class SystemSettingsForm(forms.ModelForm):
             'When enabled, anonymous users can be redirected to a separate Public Root URL while authenticated users still use the main Home URL.',
         )
         email_status = get_email_service_status()
+        # Mail-dependent settings are editable only once email is switched on AND a
+        # test send has verified it. Django's disabled=True keeps the *stored* value
+        # (it ignores POST and falls back to initial), so locking never silently
+        # turns off someone's 2FA or password recovery — it only prevents changes.
+        self.email_features_unlocked = email_features_unlocked()
+        if not self.email_features_unlocked:
+            lock_reason = s.get(
+                'email_requires_verification_tooltip',
+                'Email must be enabled and verified by a successful test email before this feature can be used.',
+            )
+            for locked_name in EMAIL_DEPENDENT_SETTING_FIELDS:
+                locked_field = self.fields.get(locked_name)
+                if locked_field is None:
+                    continue
+                locked_field.disabled = True
+                locked_field.dlux_lock_reason = lock_reason
         smtp_label = s.get('form_sys_email_status_ready', 'ready') if email_status.get('available') else s.get('form_sys_email_status_not_ready', 'not ready')
         self.fields['public_registration_enabled'].label = s.get('form_sys_public_registration', 'Enable Public Registration')
         self.fields['public_registration_enabled'].help_text = s.get(
@@ -3800,6 +3954,10 @@ class SystemSettingsForm(forms.ModelForm):
             ) or config.get('allowed_themes')
         )
         self.initial['allowed_themes'] = list(initial_allowed_themes)
+        self.dlux_system_preview_counts = {
+            'allowed_themes': len(initial_allowed_themes),
+            'languages': len(current_languages),
+        }
         self.initial['allow_user_theme_override'] = bool(
             config.get('allow_user_theme_override', True)
             if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
@@ -3864,7 +4022,7 @@ class SystemSettingsForm(forms.ModelForm):
             sidebar_config = sanitize_sidebar_config(self.instance.sidebar_config, allow_system_items=True)
             sidebar_config['home_url_name'] = None
             self.initial['sidebar_config'] = _json_dump(sidebar_config, ensure_ascii=False)
-        initial_navbar_config = normalize_navbar_config(
+        initial_navbar_config = sanitize_navbar_config(
             (
                 config.get('navbar', {})
                 if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
@@ -4055,6 +4213,15 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['email_config_failure_recipients'] = '\n'.join(
             initial_email_config.get('failure_notification_recipients', []) or []
         )
+        self.initial['email_config_enabled'] = bool(initial_email_config.get('enabled', False))
+        self.initial['email_config_timeout'] = initial_email_config.get('timeout', 0) or None
+        if initial_email_config.get('password_configured'):
+            # A write-only field renders blank whether or not a secret is stored;
+            # say which, so "empty" is not mistaken for "lost".
+            self.fields['email_config_password'].help_text = get_strings().get(
+                'help_sys_email_password_saved',
+                'A password is saved. Leave blank to keep it, or type a new one to replace it.',
+            )
         if not self.initial.get('sidebar_config'):
             sidebar_config = sanitize_sidebar_config(config.get('sidebar', {}), allow_system_items=True)
             if not isinstance(sidebar_config, dict):
@@ -4078,6 +4245,9 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['sidebar_enable_reorder'] = bool(initial_sidebar_config.get('enable_reorder', True))
         self.initial['sidebar_enable_toolbar'] = bool(initial_sidebar_config.get('show_toolbar', True))
         self.initial['sidebar_show_icons'] = bool(initial_sidebar_config.get('show_icons', True))
+        self.initial['sidebar_show_notification_badges'] = bool(
+            initial_sidebar_config.get('show_notification_badges', True)
+        )
         self.initial['sidebar_density'] = initial_sidebar_config.get('density', DEFAULT_SIDEBAR_DENSITY)
         self.initial['sidebar_allow_user_density'] = bool(initial_sidebar_config.get('allow_user_density', True))
         self.initial['sidebar_collapse_mode'] = initial_sidebar_config.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
@@ -4251,7 +4421,7 @@ class SystemSettingsForm(forms.ModelForm):
             if code not in current_languages
         ]
 
-        self.language_catalog_html = self._step_render(1,
+        self.language_catalog_html = self._step_render(SETUP_STEP_LANGUAGES,
             'dlux/includes/language_catalog_editor.html',
             {
                 'language_rows': [
@@ -4269,7 +4439,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'DLUX_STRINGS': s,
             },
         )
-        self.system_names_html = self._step_render(0,
+        self.system_names_html = self._step_render(SETUP_STEP_IDENTITY,
             'dlux/includes/system_names_editor.html',
             {
                 'language_rows': [
@@ -4289,7 +4459,7 @@ class SystemSettingsForm(forms.ModelForm):
                 group['label'] = s.get('translation_matrix_group_project', group.get('label') or 'Project translations')
             elif group.get('id') == 'runtime':
                 group['label'] = s.get('translation_matrix_group_runtime', group.get('label') or 'Settings overrides')
-        self.translation_matrix_html = self._step_render(1,
+        self.translation_matrix_html = self._step_render(SETUP_STEP_LANGUAGES,
             'dlux/includes/translation_matrix_editor.html',
             {
                 'languages': current_languages,
@@ -4298,7 +4468,7 @@ class SystemSettingsForm(forms.ModelForm):
             },
         )
 
-        self.theme_picker_html = self._step_render(8,
+        self.theme_picker_html = self._step_render(SETUP_STEP_APPEARANCE,
             'dlux/includes/theme_settings_matrix.html',
             {
                 'selected_theme': self.initial.get('default_theme', 'light'),
@@ -4313,8 +4483,8 @@ class SystemSettingsForm(forms.ModelForm):
             },
         )
 
-        from .fonts import get_builtin_fonts
-        self.font_picker_html = self._step_render(8,
+        from .fonts import get_available_fonts
+        self.font_picker_html = self._step_render(SETUP_STEP_APPEARANCE,
             'dlux/includes/font_settings_matrix.html',
             {
                 'picker_mode': 'setup',
@@ -4322,7 +4492,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'allowed_input_name': 'allowed_fonts',
                 'allowed_fonts': set(self.initial.get('allowed_fonts') if isinstance(self.initial.get('allowed_fonts'), (list, tuple, set)) else []),
                 'DLUX_STRINGS': s,
-                'DLUX_FONTS': get_builtin_fonts(),
+                'DLUX_FONTS': get_available_fonts(),
                 'label': self.fields['allowed_fonts'].label,
                 'help_text': self.fields['allowed_fonts'].help_text,
             },
@@ -4335,17 +4505,17 @@ class SystemSettingsForm(forms.ModelForm):
             except (TypeError, ValueError, json.JSONDecodeError):
                 default_fonts_data = {}
 
-        self.language_fonts_editor_html = self._step_render(8,
+        self.language_fonts_editor_html = self._step_render(SETUP_STEP_APPEARANCE,
             'dlux/includes/language_fonts_editor.html',
             {
                 'current_languages': current_languages,
                 'default_fonts': default_fonts_data,
-                'DLUX_FONTS': get_builtin_fonts(),
+                'DLUX_FONTS': get_available_fonts(),
                 'DLUX_STRINGS': s,
             },
         )
 
-        self.sidebar_builder_html = self._step_render(4,
+        self.sidebar_builder_html = self._step_render(SETUP_STEP_SIDEBAR,
             'dlux/includes/sidebar_builder.html',
             {
                 'sidebar_catalog': self.sidebar_catalog,
@@ -4357,7 +4527,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'DLUX_STRINGS': s,
             },
         )
-        self.navbar_builder_html = self._step_render(5,
+        self.navbar_builder_html = self._step_render(SETUP_STEP_NAVBAR,
             'dlux/includes/navbar_builder.html',
             {
                 'navbar_catalog_json': _json_dump(self.sidebar_catalog, ensure_ascii=False),
@@ -4385,7 +4555,7 @@ class SystemSettingsForm(forms.ModelForm):
                     for a in _item.get('actions') or ('create', 'update', 'delete')
                 ]
 
-        self.log_builder_html = self._step_render(10,
+        self.log_builder_html = self._step_render(SETUP_STEP_LOGGING,
             'dlux/includes/log_builder.html',
             {
                 'log_config_json': _json_dump(initial_log_config, ensure_ascii=False),
@@ -4405,7 +4575,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'DLUX_STRINGS': s,
             },
         )
-        self.profile_builder_html = self._step_render(11,
+        self.profile_builder_html = self._step_render(SETUP_STEP_PROFILE,
             'dlux/includes/profile_builder.html',
             {
                 'profile_config_json': _json_dump(initial_profile_config, ensure_ascii=False),
@@ -4453,7 +4623,7 @@ class SystemSettingsForm(forms.ModelForm):
                 classes.append('d-none')
             return ' '.join(classes)
 
-        email_password_field_class = 'col-lg-4 dlux-email-config-password-field'
+        email_password_field_class = 'col-md-4 dlux-email-config-password-field'
         if self.initial.get('email_config_secret_storage') != 'encrypted_db':
             email_password_field_class += ' d-none'
 
@@ -4516,7 +4686,7 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('footer_link_url', dir='ltr'), css_class='col-12 col-lg-6'),
                     css_class='mb-3'
                 ),
-                css_class=_step_css_class(0),
+                css_class=_step_css_class(SETUP_STEP_IDENTITY),
             ),
             Div(
                 HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step2', 'Step 2: Languages')}</span></div>"),
@@ -4529,13 +4699,19 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(self.translation_matrix_html),
                 Field('languages'),
                 Field('translations_override'),
-                css_class=_step_css_class(1),
+                css_class=_step_css_class(SETUP_STEP_LANGUAGES),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'Step 3: Security')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'Step 3: Email')}</span></div>"),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('email_delivery_settings_title', 'Email Delivery')}</h6>"),
+                HTML(f"<p class='small text-muted mb-3'>{s.get('email_step_intro', '')}</p>"),
+                Row(
+                    build_settings_toggle_field(self, 'email_config_enabled', css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
+                ),
                 HTML(
-                    f"<div class='dlux-email-config-section' data-email-config-section>"
-                    f"<h6 class='fw-bold my-3'>{s.get('email_delivery_settings_title', 'Email Delivery')}</h6>"
+                    f"<div class='dlux-email-config-section{'' if self.initial.get('email_config_enabled', False) else ' d-none'}' "
+                    f"data-email-config-section>"
                     f"<p class='small text-muted mb-3'>"
                     f"{s.get('email_delivery_settings_desc', 'Visible when public signup or email 2FA is enabled. If the web service is isolated, choose Internal SMTP relay and enter the upstream SMTP server below; the generated relay reads this UI config and handles internet egress. If the web service can reach SMTP directly, choose Direct SMTP from web service. Use Encrypted database secret for UI-managed passwords, or Environment / secrets when deployers intentionally keep mail secrets outside the UI.')}"
                     f"</p>"
@@ -4555,31 +4731,37 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 Row(
                     Div(Field('email_config_password'), css_class=email_password_field_class),
-                ),
-                Row(
-                    Div(Field('email_config_failure_recipients'), css_class='col-lg-12'),
+                    Div(Field('email_config_timeout'), css_class='col-md-3'),
+                    Div(Field('email_config_failure_recipients'), css_class='col-md-5'),
                 ),
                 Field('email_config'),
                 HTML(
-                    f"<div class='alert alert-info small' data-autoclose='false'>"
-                    f"Email service: {get_email_service_status().get('reason', 'unknown')}."
-                    f"</div>"
+                    "<div class='d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3'>"
+                    "<span class='dlux-email-status small text-muted'>"
+                    f"<i class='bi bi-info-circle me-1'></i>{s.get('email_service_status_label', 'Email service')}: "
+                    f"<code>{get_email_service_status().get('reason', 'unknown')}</code></span>"
+                    "<button type='button' class='btn btn-outline-secondary dlux-email-apply-btn' "
+                    "data-email-apply "
+                    f"data-email-apply-url='{reverse('email_config_apply')}'>"
+                    "<span class='spinner-border spinner-border-sm me-2 d-none' role='status' "
+                    "aria-hidden='true' data-email-apply-spinner></span>"
+                    f"{s.get('email_apply_button', 'Apply email settings')}</button>"
+                    "</div>"
+                    "<div class='small mb-2' data-email-apply-result aria-live='polite'></div>"
                 ),
                 Row(
-                    Div(Field('email_config_test_recipient'), css_class='col-lg-8'),
-                    Div(
-                        HTML(
-                            "<button type='button' class='btn btn-outline-primary w-100' "
-                            "data-email-send-test "
-                            f"data-email-send-test-url='{reverse('email_send_test')}'>"
-                            f"{s.get('email_send_test_button', 'Send test email')}</button>"
-                        ),
-                        css_class='col-lg-4 d-flex align-items-end',
+                    build_email_test_control(
+                        self, reverse('email_send_test'),
+                        s.get('email_send_test_button', 'Send test email'),
                     ),
-                    css_class='align-items-end',
+                    css_class='g-3',
                 ),
                 HTML("<div class='small mt-2' data-email-send-test-result aria-live='polite'></div>"),
                 HTML("</div>"),
+                css_class=_step_css_class(SETUP_STEP_EMAIL),
+            ),
+            Div(
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'Step 4: Access & Security')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('access_security_settings_title', s.get('system_settings_security', 'Access & Security'))}</h6>"),
                 Row(
                     build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
@@ -4745,10 +4927,10 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('privacy_notice_text', dir='auto'), css_class='col-lg-12'),
                     css_class='g-3 mb-3',
                 ),
-                css_class=_step_css_class(2),
+                css_class=_step_css_class(SETUP_STEP_SECURITY),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'Step 4: Login Page')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Login Page')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('login_page_settings_title', 'Login Page Settings')}</h6>"),
                 HTML(f"<p class='small text-muted mb-3'>{s.get('login_page_settings_desc', 'Choose the login page layout and customise the side banner and logo treatment.')}</p>"),
                 # Row 1: layout style — full width, as-is
@@ -4816,10 +4998,10 @@ class SystemSettingsForm(forms.ModelForm):
                     css_class='g-3 mt-2 mb-3',
                 ),
                 Field('login_config'),
-                css_class=_step_css_class(3),
+                css_class=_step_css_class(SETUP_STEP_LOGIN),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Sidebar')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step6', 'Step 6: Sidebar')}</span></div>"),
                 Row(
                     build_settings_toggle_field(self, 'sidebar_enabled', css_class='col-lg-12'),
                     css_class='g-3 mb-3',
@@ -4848,6 +5030,14 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     build_settings_toggle_field(
                         self,
+                        'sidebar_show_notification_badges',
+                        css_class='col-lg-6',
+                    ),
+                    css_class='g-3 mb-3',
+                ),
+                Row(
+                    build_settings_toggle_field(
+                        self,
                         'show_sidebar_on_public',
                         css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
                         attrs={
@@ -4870,10 +5060,10 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(self.sidebar_builder_html),
                 HTML("</div>"),
                 Field('sidebar_config'),
-                css_class=_step_css_class(4),
+                css_class=_step_css_class(SETUP_STEP_SIDEBAR),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step6', 'Step 6: Nav Bar')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step7', 'Step 7: Nav Bar')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('navbar_settings_title', '')}</h6>"),
 
                 Row(
@@ -4892,10 +5082,10 @@ class SystemSettingsForm(forms.ModelForm):
                 HTML(self.navbar_builder_html),
                 HTML("</div>"),
                 Field('navbar_config'),
-                css_class=_step_css_class(5),
+                css_class=_step_css_class(SETUP_STEP_NAVBAR),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step7', 'Step 7: Titlebar')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step8', 'Step 8: Titlebar')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
                 Row(
                     build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-4'),
@@ -4971,10 +5161,10 @@ class SystemSettingsForm(forms.ModelForm):
                     ),
                     css_class='g-3 mb-3',
                 ),
-                css_class=_step_css_class(6),
+                css_class=_step_css_class(SETUP_STEP_TITLEBAR),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step8', 'Step 8: Notifications')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step9', 'Step 9: Notifications')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('notification_settings_title', 'Notifications')}</h6>"),
                 Row(
                     build_settings_toggle_field(self, 'notifications_enabled', css_class='col-lg-12'),
@@ -5016,10 +5206,10 @@ class SystemSettingsForm(forms.ModelForm):
                 ),
                 HTML("</div>"),
                 Field('notification_config'),
-                css_class=_step_css_class(7),
+                css_class=_step_css_class(SETUP_STEP_NOTIFICATIONS),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step9', 'Step 9: Themes & Typography')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step10', 'Step 10: Themes & Typography')}</span></div>"),
                 Row(
                     Div(
                         HTML(self.theme_picker_html),
@@ -5045,10 +5235,10 @@ class SystemSettingsForm(forms.ModelForm):
                 build_settings_toggle_field(self, 'allow_user_font_override', css_class='col-12 mt-2'),
                 HTML(self.language_fonts_editor_html),
                 Field('default_fonts'),
-                css_class=_step_css_class(8),
+                css_class=_step_css_class(SETUP_STEP_APPEARANCE),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step10', 'Step 10: Layout')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step11', 'Step 11: Layout')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
                 Row(
                     Div(Field('default_table_density'), css_class='col'),
@@ -5085,24 +5275,24 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('options_style'), css_class='col'),
                     css_class='mb-3'
                 ),
-                css_class=_step_css_class(9),
+                css_class=_step_css_class(SETUP_STEP_LAYOUT),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step11', 'Step 11: Logging')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step12', 'Step 12: Logging')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('log_settings_title', 'Activity Logging')}</h6>"),
                 HTML(self.log_builder_html),
                 Field('log_config'),
-                css_class=_step_css_class(10),
+                css_class=_step_css_class(SETUP_STEP_LOGGING),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step12', 'Step 12: Profile Page')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step13', 'Step 13: Profile Page')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('profile_settings_title', 'Profile Page & Onboarding')}</h6>"),
                 HTML(self.profile_builder_html),
                 Field('profile_config'),
-                css_class=_step_css_class(11),
+                css_class=_step_css_class(SETUP_STEP_PROFILE),
             ),
             Div(
-                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step13', 'Step 13: Backups')}</span></div>"),
+                HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step14', 'Step 14: Backups')}</span></div>"),
                 HTML(f"<h6 class='fw-bold my-3'>{s.get('backup_settings_title', 'System Backup Policy')}</h6>"),
                 HTML(f"<div class='alert alert-info'>{s.get('backup_settings_update_notice', 'Inline updates and rollbacks always create and verify a full system backup before maintenance. An update is stopped if that backup fails.')}</div>"),
                 build_settings_toggle_field(self, 'backup_scheduled_enabled', css_class='col-12'),
@@ -5113,8 +5303,16 @@ class SystemSettingsForm(forms.ModelForm):
                     css_class='g-3',
                 ),
                 Field('backup_auto_export_target', css_class='form-control font-monospace', dir='ltr'),
+                HTML(f"<h6 class='fw-bold my-3'>{s.get('backup_settings_recovery_title', 'Interrupted Backup Recovery')}</h6>"),
+                build_settings_toggle_field(self, 'backup_auto_retry_enabled', css_class='col-12'),
+                Row(
+                    Div(Field('backup_stall_timeout_minutes', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    Div(Field('backup_max_attempts', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    Div(Field('backup_retry_delay_minutes', css_class='form-control'), css_class='col-12 col-lg-4'),
+                    css_class='g-3',
+                ),
                 Field('backup_config'),
-                css_class=_step_css_class(12),
+                css_class=_step_css_class(SETUP_STEP_BACKUPS),
             ),
             FormActions(
                 HTML(
@@ -5301,7 +5499,7 @@ class SystemSettingsForm(forms.ModelForm):
         # the active step rather than mere presence.
         if (
             self.is_bound and self.mode != 'setup' and self.single_step_mode
-            and self.single_step_index != 0
+            and self.single_step_index != SETUP_STEP_IDENTITY
         ):
             return bool(getattr(self.instance, 'footer_enabled', True))
         return bool(self.cleaned_data.get('footer_enabled'))
@@ -5343,55 +5541,75 @@ class SystemSettingsForm(forms.ModelForm):
         return str(value or '').strip()[:max_length].rstrip()
 
     def clean_sticky_table_headers(self):
-        return self._clean_preserved_toggle('sticky_table_headers', 9, True)
+        return self._clean_preserved_toggle('sticky_table_headers', SETUP_STEP_LAYOUT, True)
 
     def clean_resizable_table_columns(self):
-        return self._clean_preserved_toggle('resizable_table_columns', 9, True)
+        return self._clean_preserved_toggle('resizable_table_columns', SETUP_STEP_LAYOUT, True)
 
     def clean_zebra_striping(self):
-        return self._clean_preserved_toggle('zebra_striping', 9, True)
+        return self._clean_preserved_toggle('zebra_striping', SETUP_STEP_LAYOUT, True)
 
     def clean_show_audit_fields(self):
-        return self._clean_preserved_toggle('show_audit_fields', 9, False)
+        return self._clean_preserved_toggle('show_audit_fields', SETUP_STEP_LAYOUT, False)
 
     def clean_show_soft_deleted(self):
-        return self._clean_preserved_toggle('show_soft_deleted', 9, False)
+        return self._clean_preserved_toggle('show_soft_deleted', SETUP_STEP_LAYOUT, False)
 
     def clean_default_form_density(self):
-        return self._clean_preserved_choice('default_form_density', 9, FORM_DENSITY_VALUES, DEFAULT_FORM_DENSITY)
+        return self._clean_preserved_choice('default_form_density', SETUP_STEP_LAYOUT, FORM_DENSITY_VALUES, DEFAULT_FORM_DENSITY)
 
     def clean_default_modal_size(self):
-        return self._clean_preserved_choice('default_modal_size', 9, MODAL_SIZE_VALUES, DEFAULT_MODAL_SIZE)
+        return self._clean_preserved_choice('default_modal_size', SETUP_STEP_LAYOUT, MODAL_SIZE_VALUES, DEFAULT_MODAL_SIZE)
 
     def clean_options_style(self):
-        return self._clean_preserved_choice('options_style', 9, OPTIONS_STYLE_VALUES, DEFAULT_OPTIONS_STYLE)
+        return self._clean_preserved_choice('options_style', SETUP_STEP_LAYOUT, OPTIONS_STYLE_VALUES, DEFAULT_OPTIONS_STYLE)
 
     def clean_row_actions_style(self):
-        return self._clean_preserved_choice('row_actions_style', 9, ROW_ACTIONS_STYLE_VALUES, DEFAULT_ROW_ACTIONS_STYLE)
+        return self._clean_preserved_choice('row_actions_style', SETUP_STEP_LAYOUT, ROW_ACTIONS_STYLE_VALUES, DEFAULT_ROW_ACTIONS_STYLE)
+
+    def clean_email_config_timeout(self):
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != SETUP_STEP_EMAIL
+        ):
+            stored = getattr(self.instance, 'email_config', None)
+            return (stored or {}).get('timeout', 0) if isinstance(stored, dict) else 0
+        return self.cleaned_data.get('email_config_timeout') or 0
+
+    def clean_email_config_enabled(self):
+        # email_config_enabled lives inside the email_config dict rather than as a
+        # flat model attribute, so _clean_preserved_toggle cannot read it back.
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != SETUP_STEP_EMAIL
+        ):
+            stored = getattr(self.instance, 'email_config', None)
+            return bool(stored.get('enabled', False)) if isinstance(stored, dict) else False
+        return bool(self.cleaned_data.get('email_config_enabled', False))
 
     def clean_honeypot_enabled(self):
-        return self._clean_preserved_toggle('honeypot_enabled', 2, True)
+        return self._clean_preserved_toggle('honeypot_enabled', SETUP_STEP_SECURITY, True)
 
     def clean_registration_require_consent(self):
-        return self._clean_preserved_toggle('registration_require_consent', 2, False)
+        return self._clean_preserved_toggle('registration_require_consent', SETUP_STEP_SECURITY, False)
 
     def clean_privacy_policy_url(self):
-        return self._clean_preserved_text('privacy_policy_url', 2, 500)
+        return self._clean_preserved_text('privacy_policy_url', SETUP_STEP_SECURITY, 500)
 
     def clean_terms_url(self):
-        return self._clean_preserved_text('terms_url', 2, 500)
+        return self._clean_preserved_text('terms_url', SETUP_STEP_SECURITY, 500)
 
     def clean_privacy_notice_text(self):
-        return self._clean_preserved_text('privacy_notice_text', 2, 500)
+        return self._clean_preserved_text('privacy_notice_text', SETUP_STEP_SECURITY, 500)
 
     def clean_show_titlebar_on_public(self):
-        return self._clean_preserved_toggle('show_titlebar_on_public', 6, False)
+        return self._clean_preserved_toggle('show_titlebar_on_public', SETUP_STEP_TITLEBAR, False)
 
     def clean_show_sidebar_on_public(self):
-        return self._clean_preserved_toggle('show_sidebar_on_public', 4, False)
+        return self._clean_preserved_toggle('show_sidebar_on_public', SETUP_STEP_SIDEBAR, False)
 
     def clean_public_root_title(self):
-        return self._clean_preserved_text('public_root_title', 0, PUBLIC_ROOT_TITLE_MAX_LENGTH)
+        return self._clean_preserved_text('public_root_title', SETUP_STEP_IDENTITY, PUBLIC_ROOT_TITLE_MAX_LENGTH)
 
     def clean_public_root_meta_description(self):
         return self._clean_preserved_text(
@@ -5404,7 +5622,7 @@ class SystemSettingsForm(forms.ModelForm):
         valid = {''} | {value for value, _, _ in get_theme_choices()}
         if (
             self.is_bound and self.mode != 'setup' and self.single_step_mode
-            and self.single_step_index != 8 and 'public_root_theme' not in self.data
+            and self.single_step_index != SETUP_STEP_APPEARANCE and 'public_root_theme' not in self.data
         ):
             value = getattr(self.instance, 'public_root_theme', '') or self.initial.get('public_root_theme', '')
         else:
@@ -5417,7 +5635,7 @@ class SystemSettingsForm(forms.ModelForm):
         # single-step save of another step omits it (unchecked == absent for boxes).
         if (
             self.is_bound and self.mode != 'setup' and self.single_step_mode
-            and self.single_step_index != 2
+            and self.single_step_index != SETUP_STEP_SECURITY
         ):
             stored = getattr(self.instance, 'profile_config', None)
             if isinstance(stored, dict) and 'allow_user_home_url' in stored:
@@ -5434,7 +5652,7 @@ class SystemSettingsForm(forms.ModelForm):
             self.is_bound
             and self.mode != 'setup'
             and self.single_step_mode
-            and self.single_step_index != 2
+            and self.single_step_index != SETUP_STEP_SECURITY
             and key not in self.data
         ):
             existing = normalize_auth_config(getattr(self.instance, 'auth_config', None) or {})
@@ -5461,7 +5679,7 @@ class SystemSettingsForm(forms.ModelForm):
             self.is_bound
             and self.mode != 'setup'
             and self.single_step_mode
-            and self.single_step_index != 2
+            and self.single_step_index != SETUP_STEP_SECURITY
             and key not in self.data
         ):
             existing = normalize_auth_config(getattr(self.instance, 'auth_config', None) or {})
@@ -5628,12 +5846,15 @@ class SystemSettingsForm(forms.ModelForm):
             'enable_reorder': parsed.get('enable_reorder', True),
             'show_toolbar': parsed.get('show_toolbar', True),
             'show_icons': parsed.get('show_icons', True),
+            'show_notification_badges': parsed.get('show_notification_badges', True),
             'density': parsed.get('density', DEFAULT_SIDEBAR_DENSITY),
             'allow_user_density': parsed.get('allow_user_density', True),
             'collapse_mode': parsed.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE),
         }, allow_system_items=True)
 
     def clean_navbar_config(self):
+        from dlux.discovery import sanitize_navbar_config
+
         data = self.cleaned_data.get('navbar_config')
         if not data:
             return default_navbar_config()
@@ -5643,7 +5864,7 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Invalid nav bar JSON format.")
         if not isinstance(parsed, dict):
             raise ValidationError("Nav bar configuration must be a valid JSON object.")
-        return normalize_navbar_config(parsed)
+        return sanitize_navbar_config(parsed)
 
     def clean_log_config(self):
         data = self.cleaned_data.get('log_config')
@@ -5711,11 +5932,27 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Notification configuration must be a valid JSON object.")
         return normalize_notification_config(parsed)
 
+    def _email_scalar(self, form_name, key, default):
+        """Value for one email scalar, whichever cleaner order Django picks.
+
+        ``email_config`` is a model field, so its position in ``self.fields`` comes
+        from ``Meta.fields`` — ahead of the declared-only ``email_config_*`` scalars.
+        clean_email_config() therefore packs the group *before* those scalars have
+        been cleaned, and reading them out of ``cleaned_data`` silently yielded the
+        empty default: a save of any other settings step reset timeout and enabled.
+        Fall back to the stored value whenever the scalar has not been cleaned yet.
+        """
+        if form_name in self.cleaned_data:
+            return self.cleaned_data[form_name]
+        stored = getattr(self.instance, 'email_config', None)
+        return stored.get(key, default) if isinstance(stored, dict) else default
+
     def clean_email_config(self):
         existing = normalize_email_config(getattr(self.instance, 'email_config', {}))
         transport = self.cleaned_data.get('email_config_transport') or existing.get('transport', 'direct')
         secret_storage = self.cleaned_data.get('email_config_secret_storage') or existing.get('secret_storage', 'env')
-        config = normalize_email_config({
+        existing_verified = existing if isinstance(existing, dict) else {}
+        _payload = {
             'transport': transport,
             'secret_storage': secret_storage,
             'provider_preset': self.cleaned_data.get('email_config_provider_preset') or existing.get('provider_preset', 'custom'),
@@ -5726,13 +5963,25 @@ class SystemSettingsForm(forms.ModelForm):
             'username': self.cleaned_data.get('email_config_username') or '',
             'default_from_email': self.cleaned_data.get('email_config_default_from_email') or '',
             'failure_notification_recipients': self.cleaned_data.get('email_config_failure_recipients') or '',
-        })
-        if config.get('secret_storage') == 'encrypted_db':
+            'enabled': self._email_scalar('email_config_enabled', 'enabled', False),
+            'timeout': self._email_scalar('email_config_timeout', 'timeout', 0) or 0,
+            'verified': existing_verified.get('verified', False),
+            'verified_at': existing_verified.get('verified_at', ''),
+            'verified_fingerprint': existing_verified.get('verified_fingerprint', ''),
+        }
+        # Normalize once to resolve the canonical transport/secret_storage, attach the
+        # secret to the *payload*, then normalize again. The verification fingerprint is
+        # computed inside normalize over encrypted_password, so a secret attached after
+        # normalizing would fingerprint an empty password and revoke verification on the
+        # very next read.
+        _probe = normalize_email_config(_payload)
+        if _probe['secret_storage'] == 'encrypted_db':
             raw_password = self.cleaned_data.get('email_config_password') or ''
             if raw_password:
-                config['encrypted_password'] = encrypt_email_secret(raw_password)
-            elif existing.get('transport') == config.get('transport') and existing.get('secret_storage') == 'encrypted_db':
-                config['encrypted_password'] = existing.get('encrypted_password', '')
+                _payload['encrypted_password'] = encrypt_email_secret(raw_password)
+            elif existing.get('transport') == _probe['transport'] and existing.get('secret_storage') == 'encrypted_db':
+                _payload['encrypted_password'] = existing.get('encrypted_password', '')
+        config = normalize_email_config(_payload)
         config['password_configured'] = bool(config.get('encrypted_password'))
         return config
 
@@ -5832,13 +6081,18 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['sidebar_enable_reorder'] = bool(sidebar.get('enable_reorder', True))
             cleaned['sidebar_enable_toolbar'] = bool(sidebar.get('show_toolbar', True))
             cleaned['sidebar_show_icons'] = bool(sidebar.get('show_icons', True))
+            cleaned['sidebar_show_notification_badges'] = bool(
+                sidebar.get('show_notification_badges', True)
+            )
             cleaned['sidebar_density'] = sidebar.get('density', DEFAULT_SIDEBAR_DENSITY)
             cleaned['sidebar_allow_user_density'] = bool(sidebar.get('allow_user_density', True))
             cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
 
         navbar = imported.get('navbar_config')
         if isinstance(navbar, dict):
-            navbar = normalize_navbar_config(navbar)
+            from dlux.discovery import sanitize_navbar_config
+
+            navbar = sanitize_navbar_config(navbar)
             cleaned['navbar_config'] = navbar
             cleaned['navbar_enabled'] = bool(navbar.get('enabled', False))
             cleaned['navbar_default_mode'] = navbar.get('default_mode', DEFAULT_NAVBAR_MODE)
@@ -5861,6 +6115,10 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['backup_retention_days'] = backup['retention_days']
             cleaned['backup_max_backups_to_keep'] = backup['max_backups_to_keep']
             cleaned['backup_auto_export_target'] = backup['auto_export_target']
+            cleaned['backup_stall_timeout_minutes'] = backup['stall_timeout_minutes']
+            cleaned['backup_auto_retry_enabled'] = backup['auto_retry_enabled']
+            cleaned['backup_max_attempts'] = backup['max_attempts']
+            cleaned['backup_retry_delay_minutes'] = backup['retry_delay_minutes']
 
         titlebar = imported.get('titlebar_config')
         if isinstance(titlebar, dict):
@@ -5959,6 +6217,9 @@ class SystemSettingsForm(forms.ModelForm):
                 sidebar['enable_reorder'] = bool(cleaned.get('sidebar_enable_reorder', True))
                 sidebar['show_toolbar'] = bool(cleaned.get('sidebar_enable_toolbar', True))
                 sidebar['show_icons'] = bool(cleaned.get('sidebar_show_icons', True))
+                sidebar['show_notification_badges'] = bool(
+                    cleaned.get('sidebar_show_notification_badges', True)
+                )
                 sidebar['density'] = cleaned.get('sidebar_density', DEFAULT_SIDEBAR_DENSITY)
                 sidebar['allow_user_density'] = bool(cleaned.get('sidebar_allow_user_density', True))
                 sidebar['collapse_mode'] = cleaned.get('sidebar_collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
@@ -5971,16 +6232,21 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['sidebar_enable_reorder'] = bool(sidebar.get('enable_reorder', True))
             cleaned['sidebar_enable_toolbar'] = bool(sidebar.get('show_toolbar', True))
             cleaned['sidebar_show_icons'] = bool(sidebar.get('show_icons', True))
+            cleaned['sidebar_show_notification_badges'] = bool(
+                sidebar.get('show_notification_badges', True)
+            )
             cleaned['sidebar_density'] = sidebar.get('density', DEFAULT_SIDEBAR_DENSITY)
             cleaned['sidebar_allow_user_density'] = bool(sidebar.get('allow_user_density', True))
             cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
         navbar = cleaned.get('navbar_config')
         if isinstance(navbar, dict):
+            from dlux.discovery import sanitize_navbar_config
+
             navbar['enabled'] = bool(cleaned.get('navbar_enabled', False))
             mode = cleaned.get('navbar_default_mode') or DEFAULT_NAVBAR_MODE
             navbar['default_mode'] = mode if mode in NAVBAR_MODE_VALUES else DEFAULT_NAVBAR_MODE
             navbar['allow_user_mode_override'] = bool(cleaned.get('navbar_allow_user_mode_override', True))
-            navbar = normalize_navbar_config(navbar)
+            navbar = sanitize_navbar_config(navbar)
             cleaned['navbar_config'] = navbar
             cleaned['navbar_enabled'] = navbar.get('enabled', False)
             cleaned['navbar_default_mode'] = navbar.get('default_mode', DEFAULT_NAVBAR_MODE)
@@ -6002,9 +6268,13 @@ class SystemSettingsForm(forms.ModelForm):
             'backup_retention_days',
             'backup_max_backups_to_keep',
             'backup_auto_export_target',
+            'backup_stall_timeout_minutes',
+            'backup_auto_retry_enabled',
+            'backup_max_attempts',
+            'backup_retry_delay_minutes',
         ))
         existing_backup = normalize_backup_config(getattr(self.instance, 'backup_config', None) or {})
-        if self.is_bound and self.mode != 'setup' and self.single_step_mode and self.single_step_index != 12 and not backup_fields_posted:
+        if self.is_bound and self.mode != 'setup' and self.single_step_mode and self.single_step_index != SETUP_STEP_BACKUPS and not backup_fields_posted:
             cleaned['backup_config'] = existing_backup
         else:
             submitted_backup = cleaned.get('backup_config')
@@ -6016,6 +6286,10 @@ class SystemSettingsForm(forms.ModelForm):
                 'retention_days': cleaned.get('backup_retention_days'),
                 'max_backups_to_keep': cleaned.get('backup_max_backups_to_keep'),
                 'auto_export_target': cleaned.get('backup_auto_export_target'),
+                'stall_timeout_minutes': cleaned.get('backup_stall_timeout_minutes'),
+                'auto_retry_enabled': bool(cleaned.get('backup_auto_retry_enabled', False)),
+                'max_attempts': cleaned.get('backup_max_attempts'),
+                'retry_delay_minutes': cleaned.get('backup_retry_delay_minutes'),
             })
         existing_email_config = normalize_email_config(getattr(self.instance, 'email_config', {}))
         email_features_enabled = bool(cleaned.get('public_registration_enabled') or cleaned.get('email_2fa'))
@@ -6046,7 +6320,8 @@ class SystemSettingsForm(forms.ModelForm):
         else:
             email_transport = cleaned.get('email_config_transport') or existing_email_config.get('transport', 'direct')
             email_secret_storage = cleaned.get('email_config_secret_storage') or existing_email_config.get('secret_storage', 'env')
-            email_config = normalize_email_config({
+            existing_verified = existing_email_config if isinstance(existing_email_config, dict) else {}
+            _payload = {
                 'transport': email_transport,
                 'secret_storage': email_secret_storage,
                 'provider_preset': cleaned.get('email_config_provider_preset') or existing_email_config.get('provider_preset', 'custom'),
@@ -6057,16 +6332,28 @@ class SystemSettingsForm(forms.ModelForm):
                 'username': cleaned.get('email_config_username') or '',
                 'default_from_email': cleaned.get('email_config_default_from_email') or '',
                 'failure_notification_recipients': cleaned.get('email_config_failure_recipients') or '',
-            })
-            if email_config.get('secret_storage') == 'encrypted_db':
+                'enabled': cleaned.get('email_config_enabled', False),
+            'timeout': cleaned.get('email_config_timeout') or 0,
+                'verified': existing_verified.get('verified', False),
+                'verified_at': existing_verified.get('verified_at', ''),
+                'verified_fingerprint': existing_verified.get('verified_fingerprint', ''),
+            }
+            # Normalize once to resolve the canonical transport/secret_storage, attach the
+            # secret to the *payload*, then normalize again. The verification fingerprint is
+            # computed inside normalize over encrypted_password, so a secret attached after
+            # normalizing would fingerprint an empty password and revoke verification on the
+            # very next read.
+            _probe = normalize_email_config(_payload)
+            if _probe['secret_storage'] == 'encrypted_db':
                 raw_password = cleaned.get('email_config_password') or ''
                 if raw_password:
-                    email_config['encrypted_password'] = encrypt_email_secret(raw_password)
+                    _payload['encrypted_password'] = encrypt_email_secret(raw_password)
                 elif (
-                    existing_email_config.get('transport') == email_config.get('transport')
+                    existing_email_config.get('transport') == _probe['transport']
                     and existing_email_config.get('secret_storage') == 'encrypted_db'
                 ):
-                    email_config['encrypted_password'] = existing_email_config.get('encrypted_password', '')
+                    _payload['encrypted_password'] = existing_email_config.get('encrypted_password', '')
+            email_config = normalize_email_config(_payload)
             email_config['password_configured'] = bool(email_config.get('encrypted_password'))
             cleaned['email_config'] = email_config
         email_config = normalize_email_config(cleaned.get('email_config') or existing_email_config)
@@ -6137,7 +6424,7 @@ class SystemSettingsForm(forms.ModelForm):
             self.is_bound
             and self.mode != 'setup'
             and self.single_step_mode
-            and self.single_step_index != 7
+            and self.single_step_index != SETUP_STEP_NOTIFICATIONS
             and not notification_fields_posted
         ):
             cleaned['notification_config'] = normalize_notification_config(

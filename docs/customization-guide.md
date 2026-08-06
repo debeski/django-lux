@@ -50,25 +50,120 @@ Keep in mind:
 
 ## Themes and Sidebar Runtime Controls
 
-DjangoLux now treats theme registration as a shared framework concern instead of a repeated hardcoded list.
+DjangoLux treats theme registration as a shared framework concern instead of a repeated hardcoded list.
 
 What to know:
 
-- the official theme registry lives in `dlux/themes.py`
+- the built-in theme registry lives in `dlux/themes.py`, and projects can append
+  themes through `DLUX_CUSTOM_THEMES`
 - that registry supplies theme names, labels, ordering, preview swatches, CSS asset paths, and the runtime allowlist
 - base-template theme CSS inclusion follows the registry instead of a separate hand-maintained stylesheet list
-- the active runtime list is filtered against the actual files present in `dlux/static/dlux/themes/css`, so stray registry entries do not become selectable unless their CSS exists
+- built-in entries are filtered against files in `dlux/static/dlux/themes/css`;
+  project entries use Django's normal static-file discovery and deployment flow
 
 For sidebar behavior defaults, the code-owned `DLUX_CONFIG["sidebar"]` layer can also seed:
 
 - `enable_reorder`
 - `show_toolbar`
 - `show_icons`
+- `show_notification_badges`
 - `density`
 - `allow_user_density`
 - `collapse_mode`
 
 Those defaults are then layered with runtime System Settings edits in the normal configuration flow.
+`sidebar.show_notification_badges` is independent from
+`notifications.drawer.badge_enabled`, so administrators can show either badge
+surface without enabling the other.
+
+## Project-Configured Custom Themes
+
+Put a project-owned CSS file in one of your app's static directories, then
+register it in Django settings:
+
+```python
+DLUX_CUSTOM_THEMES = [
+    {
+        "slug": "project_ocean",
+        "label": "Project Ocean",
+        "preview_color": "#0ea5e9",
+        "css_path": "myapp/themes/project-ocean.css",
+    },
+]
+```
+
+Keep every theme rule scoped to the matching root class. A small theme can
+override the core color tokens:
+
+```css
+:root.theme-project_ocean {
+    --title: #0f172a;
+    --body: #f0f9ff;
+    --htitle: #0369a1;
+    --hbody: #e0f2fe;
+    --table-row: #f8fdff;
+    --table-row-hover: #e0f2fe;
+    --primal: #0ea5e9;
+    --primal_dark: #0284c7;
+    --primal-rgb: 14, 165, 233;
+    --btn-primary-shadow: rgba(14, 165, 233, 0.4);
+    --nav-item-color: #e0f2fe;
+    --bg-gradient: linear-gradient(135deg, #f0f9ff, #bae6fd);
+    --right-bg: var(--title);
+    --primary-color: var(--primal);
+    --bs-primary: var(--primal);
+    --bs-primary-rgb: var(--primal-rgb);
+}
+```
+
+Copying a bundled theme CSS file is the simplest starting point when the
+project needs more detailed component overrides. Run `collectstatic` normally.
+The theme then appears in setup/System Settings, the user theme picker when
+overrides are enabled, and the fixed public-root theme control. New
+installations allow all registered themes by default; an existing installation
+leaves a newly registered theme disabled until an administrator enables it.
+
+Each entry needs a unique lowercase `slug`, an exact six-digit `#RRGGBB`
+preview color, and a safe relative `.css` static path. `label` is optional and
+defaults to a title-cased slug. Project themes cannot replace built-in themes
+with the same slug. Invalid entries are ignored. DjangoLux validates the
+registry metadata, while Django's static deployment owns the CSS file itself;
+a missing collected asset returns the usual static-file 404.
+
+## Project-Configured Custom Fonts
+
+Put project-owned WOFF2 files in one of your app's static directories, then
+register the family in Django settings:
+
+```python
+DLUX_CUSTOM_FONTS = [
+    {
+        "slug": "project_sans",
+        "family": "Project Sans",
+        "label": "Project Sans",
+        "variants": [
+            {
+                "weight": 400,
+                "path": "myapp/fonts/project-sans-regular.woff2",
+            },
+            {
+                "weight": 700,
+                "path": "myapp/fonts/project-sans-bold.woff2",
+            },
+        ],
+    },
+]
+```
+
+Run `collectstatic` normally. The family then appears beside the bundled fonts
+in Themes and Typography, where an administrator can allow it, make it a
+language default, and expose it to user font selection. New installations allow
+all registered fonts by default; an existing installation leaves a newly added
+font disabled until an administrator enables it.
+
+Each entry needs a unique lowercase `slug`, a CSS `family`, and at least one
+WOFF2 variant with a weight from 100 through 900. A project font cannot replace
+a bundled font with the same slug. Invalid entries are ignored.
 
 ## Nav Bar Hierarchy and Runtime Crumbs
 
