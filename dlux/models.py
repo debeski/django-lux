@@ -1269,9 +1269,32 @@ class SystemRestore(models.Model):
     )
     report = models.JSONField(default=dict, blank=True, verbose_name="Report")
     error = models.TextField(blank=True, verbose_name="Error")
+    progress_percent = models.PositiveSmallIntegerField(
+        default=0,
+        db_default=0,
+        verbose_name="Progress Percent",
+    )
+    progress_message = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        db_default="",
+        verbose_name="Progress Message",
+    )
+    # Coarse machine-readable phase, so the UI can say which half of a restore is
+    # slow: decrypting a large container and rewriting media files are long, and
+    # the database load between them runs in one transaction.
+    stage = models.CharField(max_length=20, blank=True, default='', db_default='', verbose_name="Stage")
+    heartbeat_at = models.DateTimeField(blank=True, null=True, verbose_name="Heartbeat At")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     started_at = models.DateTimeField(blank=True, null=True, verbose_name="Started At")
     completed_at = models.DateTimeField(blank=True, null=True, verbose_name="Completed At")
+
+    STAGE_READING = 'reading'
+    STAGE_DECRYPTING = 'decrypting'
+    STAGE_DATABASE = 'database'
+    STAGE_FILES = 'files'
+    STAGE_FINALIZING = 'finalizing'
 
     class Meta:
         verbose_name = "System Restore"
@@ -1280,6 +1303,20 @@ class SystemRestore(models.Model):
 
     def __str__(self):
         return f"system restore {self.token[:8]} ({self.status})"
+
+    @property
+    def is_active(self):
+        return self.status in (self.STATUS_PENDING, self.STATUS_RUNNING)
+
+    @property
+    def last_signal_at(self):
+        return self.heartbeat_at or self.started_at or self.created_at
+
+    def seconds_since_signal(self, now=None):
+        reference = self.last_signal_at
+        if reference is None:
+            return 0
+        return max(0, int(((now or timezone.now()) - reference).total_seconds()))
 
 
 class DluxUpdateState(models.Model):

@@ -383,6 +383,14 @@ def create_app(app_name, register=False):
 UPDATER_COMPOSE_START = "# DjangoLux updater start"
 UPDATER_COMPOSE_END = "# DjangoLux updater end"
 
+# Composer reads this label and runs the command once, after health, with the
+# flags it was given. Kept off Compose's native post_start so Compose does not
+# run an unflagged copy in parallel.
+POST_START_LABEL = "org.dlux.post-start"
+POST_START_MIGRATOR = (
+    "python -m dlux.updater.supervisor --no-watch -- python manage.py migrator"
+)
+
 
 def _replace_once(contents, old, new, label):
     if contents.count(old) != 1:
@@ -522,11 +530,24 @@ def _enable_updater_compose(contents, project_slug, config_package):
             "      python -m dlux.updater.supervisor -- bash -c ' if [ \"$$DEBUG_STATUS\" = \"True\" ]; then\n",
             "web command",
         )
-        section = section.replace(
-            "    post_start:\n      - command: python manage.py migrator\n",
-            "",
-            1,
-        )
+        # Composer owns the migrator now, so the native Compose post_start hook
+        # (which Compose runs itself, unflagged, racing composer's flagged run)
+        # becomes a label composer reads. Supervisor-wrapped, so collectstatic
+        # uses the runtime-active release rather than the baked image.
+        legacy_hook = "    post_start:\n      - command: python manage.py migrator\n"
+        if legacy_hook in section:
+            section = section.replace(legacy_hook, "", 1)
+        if POST_START_LABEL not in section:
+            label_line = f"      {POST_START_LABEL}: \"{POST_START_MIGRATOR}\"\n"
+            if "    labels:\n" in section:
+                section = section.replace("    labels:\n", "    labels:\n" + label_line, 1)
+            else:
+                section = _replace_once(
+                    section,
+                    "    entrypoint: [\"/app/entrypoint.sh\"]\n",
+                    "    labels:\n" + label_line + "    entrypoint: [\"/app/entrypoint.sh\"]\n",
+                    "web entrypoint anchor",
+                )
         section = _replace_once(
             section,
             "      - ./imports/:/app/imports:ro\n",

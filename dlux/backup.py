@@ -250,8 +250,9 @@ def _encrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chun
             on_chunk(written)
 
 
-def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None):
+def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None, on_chunk=None):
     fernet = _backup_fernet(salt_hex, encryption=encryption, passphrase=passphrase)
+    consumed = 0
     while True:
         header = src.read(8)
         if not header:
@@ -263,6 +264,9 @@ def _decrypt_stream(src, dest, salt_hex, *, encryption, passphrase=None):
         if len(token) != length:
             raise ValueError("Truncated backup container")
         dest.write(fernet.decrypt(token))
+        consumed += len(header) + length
+        if on_chunk:
+            on_chunk(consumed)
 
 
 def write_dlb_container(zip_fileobj, dest, metadata, *, passphrase=None, on_chunk=None):
@@ -308,11 +312,13 @@ def read_dlb_metadata(fileobj):
     return metadata
 
 
-def decrypt_dlb_to_tempfile(fileobj, *, passphrase=None):
+def decrypt_dlb_to_tempfile(fileobj, *, passphrase=None, on_chunk=None):
     """Decrypt an .dlb stream (positioned anywhere) into a temp zip file.
 
     Returns ``(metadata, tempfile)`` with the temp file positioned at 0.
-    The caller owns closing the temp file.
+    The caller owns closing the temp file. ``on_chunk`` receives the number of
+    encrypted bytes consumed so far, so a caller that knows the container size
+    can report progress across what is the longest phase of a large restore.
     """
     fileobj.seek(0)
     metadata = read_dlb_metadata(fileobj)
@@ -322,7 +328,12 @@ def decrypt_dlb_to_tempfile(fileobj, *, passphrase=None):
         raise ValueError("Backup metadata is missing encryption parameters")
     tmp = tempfile.TemporaryFile()
     try:
-        _decrypt_stream(fileobj, tmp, salt_hex, encryption=encryption, passphrase=passphrase)
+        _decrypt_stream(
+            fileobj, tmp, salt_hex,
+            encryption=encryption,
+            passphrase=passphrase,
+            on_chunk=on_chunk,
+        )
     except Exception:
         tmp.close()
         raise
@@ -987,19 +998,36 @@ def _apply_superuser_password_policy(deserialized, current_passwords):
         obj.set_unusable_password()
 
 
-def _wipe_and_load(zf, models_to_restore):
+def _wipe_and_load(zf, models_to_restore, reporter=None, *, span=(35, 70)):
     """Replace every restorable model's rows with the backup contents.
 
     Runs inside one transaction with FK checks deferred/disabled, so neither
     the wipe nor the load order matters; integrity is verified before commit.
+
+    ``reporter`` progress spans ``span`` and is mirrored through the cache,
+    because a row written from inside this transaction stays invisible to the
+    polling web process until the whole load commits.
     """
     from .signals import suspend_dlux_signals
+    from .backup_progress import NullRestoreReporter
+    from .translations import get_strings
 
+    if reporter is None:
+        reporter = NullRestoreReporter()
+    strings = get_strings()
+    stage = "database"
+    span_start, span_end = span
+    total_models = max(len(models_to_restore), 1)
     counts = {}
     current_superuser_passwords = _current_superuser_passwords()
     with suspend_dlux_signals():
         with transaction.atomic():
             with connection.constraint_checks_disabled():
+                reporter.checkpoint(
+                    span_start,
+                    strings.get("sysrestore_stage_wiping", "Clearing current data..."),
+                    stage=stage,
+                )
                 with connection.cursor() as cursor:
                     # ReportBackup rows FK to users (which are being replaced) but are
                     # excluded from the payload — clear them so no dangling refs remain.
@@ -1009,7 +1037,15 @@ def _wipe_and_load(zf, models_to_restore):
                     for model in reversed(models_to_restore):
                         cursor.execute(_delete_model_rows_sql(model))
                 deferred = []
-                for model in models_to_restore:
+                load_start = span_start + 2
+                load_span = max(span_end - load_start, 1)
+                loading_label = strings.get("sysrestore_stage_loading", "Restoring")
+                for index, model in enumerate(models_to_restore):
+                    reporter.tick(
+                        load_start + int((index / total_models) * load_span),
+                        f"{loading_label} {model._meta.verbose_name} ({index + 1}/{total_models})",
+                        stage=stage,
+                    )
                     member = _zip_data_member(zf, model)
                     if member is None:
                         counts[model._meta.label_lower] = 0
@@ -1023,7 +1059,19 @@ def _wipe_and_load(zf, models_to_restore):
                             if getattr(obj, "deferred_fields", None):
                                 deferred.append(obj)
                             loaded += 1
+                            if loaded % 500 == 0:
+                                reporter.tick(
+                                    load_start + int((index / total_models) * load_span),
+                                    f"{loading_label} {model._meta.verbose_name} "
+                                    f"({_format_count(loaded)})",
+                                    stage=stage,
+                                )
                     counts[model._meta.label_lower] = loaded
+                reporter.checkpoint(
+                    span_end - 1,
+                    strings.get("sysrestore_stage_integrity", "Verifying integrity..."),
+                    stage=stage,
+                )
                 for obj in deferred:
                     obj.save_deferred_fields()
                 table_names = [model._meta.db_table for model in models_to_restore]
@@ -1037,13 +1085,30 @@ def _wipe_and_load(zf, models_to_restore):
     return counts
 
 
-def _restore_files(zf, manifest):
+def _restore_files(zf, manifest, reporter=None, *, span=(70, 92)):
+    from .backup_progress import NullRestoreReporter
+    from .translations import get_strings
+
+    if reporter is None:
+        reporter = NullRestoreReporter()
+    strings = get_strings()
+    entries = [
+        entry for entry in (manifest.get("files") or [])
+        if entry.get("path") and entry.get("name")
+    ]
+    total = max(len(entries), 1)
+    span_start, span_end = span
+    span_width = max(span_end - span_start, 1)
+    label = strings.get("sysrestore_stage_files", "Restoring files")
+    reporter.checkpoint(
+        span_start,
+        f"{label} (0/{_format_count(len(entries))})",
+        stage="files",
+    )
     restored, failed = 0, 0
-    for entry in manifest.get("files") or []:
-        archive_path = entry.get("path")
-        storage_name = entry.get("name")
-        if not archive_path or not storage_name:
-            continue
+    for index, entry in enumerate(entries):
+        archive_path = entry["path"]
+        storage_name = entry["name"]
         try:
             if default_storage.exists(storage_name):
                 default_storage.delete(storage_name)
@@ -1053,6 +1118,11 @@ def _restore_files(zf, manifest):
         except Exception:
             logger.exception("Failed to restore backup file %s", storage_name)
             failed += 1
+        reporter.tick(
+            span_start + int(((index + 1) / total) * span_width),
+            f"{label} ({_format_count(index + 1)}/{_format_count(len(entries))})",
+            stage="files",
+        )
     return restored, failed
 
 
@@ -1065,13 +1135,45 @@ def run_system_restore(restore_pk, passphrase=None):
     restore.status = SystemRestore.STATUS_RUNNING
     restore.started_at = timezone.now()
     restore.save(update_fields=["status", "started_at"])
+    from .backup_progress import RestoreReporter, finish_restore_progress
+    from .translations import get_strings
+    strings = get_strings()
+    reporter = RestoreReporter(restore)
     try:
         if not restore.backup_file_path or not default_storage.exists(restore.backup_file_path):
             raise ValueError("Backup file not found in storage")
+        reporter.checkpoint(
+            2,
+            strings.get("sysrestore_stage_reading", "Reading the backup file..."),
+            stage=SystemRestore.STAGE_READING,
+        )
+        try:
+            container_size = default_storage.size(restore.backup_file_path)
+        except Exception:
+            container_size = 0
+        decrypt_label = strings.get("sysrestore_stage_decrypting", "Decrypting")
+        total_label = filesizeformat(container_size) if container_size else ""
+
+        def _on_decrypt(consumed):
+            if container_size:
+                percent = 3 + int(min(consumed / container_size, 1.0) * 27)
+                message = f"{decrypt_label} {filesizeformat(consumed)} / {total_label}"
+            else:
+                percent = 15
+                message = f"{decrypt_label} {filesizeformat(consumed)}"
+            reporter.tick(percent, message, stage=SystemRestore.STAGE_DECRYPTING)
+
         with default_storage.open(restore.backup_file_path, "rb") as fh:
-            metadata, zip_tmp = decrypt_dlb_to_tempfile(fh, passphrase=passphrase)
+            metadata, zip_tmp = decrypt_dlb_to_tempfile(
+                fh, passphrase=passphrase, on_chunk=_on_decrypt,
+            )
         try:
             with zipfile.ZipFile(zip_tmp) as zf:
+                reporter.checkpoint(
+                    32,
+                    strings.get("sysrestore_stage_manifest", "Checking the backup contents..."),
+                    stage=SystemRestore.STAGE_READING,
+                )
                 manifest = json.loads(zf.read("manifest.json"))
                 migration_report = build_migration_report(manifest)
                 report = {"metadata": metadata, "migrations": migration_report}
@@ -1081,16 +1183,22 @@ def run_system_restore(restore_pk, passphrase=None):
                     restore.completed_at = timezone.now()
                     restore.error = "Migration state mismatch between backup and this system"
                     restore.save(update_fields=["report", "status", "completed_at", "error"])
+                    finish_restore_progress(restore, success=False, error=restore.error)
                     return restore
                 models_to_restore = get_system_backup_models()
-                counts = _wipe_and_load(zf, models_to_restore)
-                files_restored, files_failed = _restore_files(zf, manifest)
+                counts = _wipe_and_load(zf, models_to_restore, reporter)
+                files_restored, files_failed = _restore_files(zf, manifest, reporter)
                 report["restored_rows"] = sum(counts.values())
                 report["restored_models"] = len(counts)
                 report["restored_files"] = files_restored
                 report["failed_files"] = files_failed
         finally:
             zip_tmp.close()
+        reporter.checkpoint(
+            95,
+            strings.get("sysrestore_stage_finalizing", "Clearing caches and sessions..."),
+            stage=SystemRestore.STAGE_FINALIZING,
+        )
         # Restored data invalidates every cached artifact: sessions (all users
         # must sign back in with restored credentials), the SystemSettings
         # singleton, sidebar caches, and content-type caches.
@@ -1109,12 +1217,14 @@ def run_system_restore(restore_pk, passphrase=None):
             "files": report.get("restored_files"),
             "backup_created_at": metadata.get("created_at"),
         })
+        finish_restore_progress(restore, success=True)
     except Exception as exc:
         logger.exception("System restore pk=%s failed", restore_pk)
         restore.status = SystemRestore.STATUS_FAILED
         restore.completed_at = timezone.now()
         restore.error = str(exc)[:1000]
         restore.save(update_fields=["status", "completed_at", "error"])
+        finish_restore_progress(restore, success=False, error=restore.error)
     return restore
 
 

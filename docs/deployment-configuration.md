@@ -38,6 +38,7 @@ uses `setdefault`, so explicitly declared Django settings win.
 |---|---|---|---|
 | `DLUX_MAX_PREFERENCES_BYTES` | Django setting | integer bytes, `65536`, minimum `1024` | Maximum serialized size of a user's complete `Profile.preferences` payload. |
 | `DLUX_MAX_SYSTEM_APP_CONFIG_BYTES` | Django setting | integer bytes, `65536`, minimum `1024` | Maximum serialized size accepted for one app-owned System Settings namespace write. |
+| `DLUX_DLB_UPLOAD_MAX_MB` | Django setting | integer MB, `512`, minimum `1` | Largest `.dlb` the Backup & Restore upload form accepts. The reverse-proxy body limit (`CADDY_MAX_SIZE` / `NGINX_MAX_SIZE`, both `10M` by default) applies first, so raising this alone does not admit a larger file. |
 | `DLUX_SEARCH_DATA_MODELS` | Django setting | iterable of `app_label.model`, unset | Restricts global data search to the listed models. Unset uses DjangoLux discovery. |
 | `DLUX_SEARCH_DATA_URL_RESOLVER` | Django setting | dotted callable path, unset | Resolves a searched object to its click-through URL. The callable receives the object and returns a URL. |
 

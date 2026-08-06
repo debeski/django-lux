@@ -236,13 +236,17 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("composer_agent_state:/var/lib/composer-agent:rw", compose_contents)
             self.assertIn('COMPOSER_VERSION_LABEL: "org.demo_project.dlux_baked_version"', compose_contents)
             self.assertIn('COMPOSER_RELEASE_MANIFEST_LABEL: "org.dlux.project.release-manifest"', compose_contents)
-            self.assertIn("post_start:", compose_contents)
-            # The post_start migrator must run under the runtime supervisor so its
-            # collectstatic uses the same runtime-active DjangoLux release gunicorn
-            # serves templates from; run raw it collects from the baked image and,
-            # running last on recreate, leaves version-mismatched static.
+            # Composer runs the migrator once, after health, with its flags. A
+            # native Compose post_start hook would run a second unflagged copy in
+            # parallel, so the declaration lives on a label instead.
+            self.assertNotIn("post_start:", compose_contents)
+            # It must run under the runtime supervisor so its collectstatic uses
+            # the same runtime-active DjangoLux release gunicorn serves templates
+            # from; run raw it collects from the baked image and, running last on
+            # recreate, leaves version-mismatched static.
             self.assertIn(
-                "- command: python -m dlux.updater.supervisor --no-watch -- python manage.py migrator",
+                'org.dlux.post-start: "python -m dlux.updater.supervisor'
+                ' --no-watch -- python manage.py migrator"',
                 compose_contents,
             )
             self.assertNotIn("- command: python manage.py migrator\n", compose_contents)

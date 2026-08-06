@@ -1,0 +1,25 @@
+{% for restore in restores %}
+    <tr data-system-restore-row data-restore-token="{{ restore.token }}" data-restore-status="{{ restore.status }}">
+        <td>{{ restore.created_at|date:'Y-m-d H:i' }}</td>
+        <td>{{ restore.requested_by_username|default:'-' }}</td>
+        <td>
+            {% if restore.status == 'completed' %}<span class="badge bg-success">{{ restore.get_status_display }}</span>
+            {% elif restore.status == 'failed' %}<span class="badge bg-danger" title="{{ restore.error }}">{{ restore.get_status_display }}</span>
+            {% else %}<span class="badge bg-secondary">{{ restore.get_status_display }}</span>{% endif %}
+        </td>
+        <td class="dlux-backup-progress-cell">
+            <progress class="dlux-backup-progress{% if restore.status == 'completed' %} dlux-backup-progress--success{% elif restore.status == 'failed' %} dlux-backup-progress--error{% endif %}" max="100" value="{% if restore.status == 'completed' %}100{% else %}{{ restore.live_progress.progress_percent }}{% endif %}" aria-label="{{ DLUX_STRINGS.sysrestore_progress }}"></progress>
+            <small class="text-muted d-block">{% if restore.status == 'completed' %}100{% else %}{{ restore.live_progress.progress_percent }}{% endif %}%{% if restore.live_progress.progress_message %} · {{ restore.live_progress.progress_message }}{% endif %}</small>
+            {% if restore.is_active %}
+                <small class="d-block text-muted">
+                    <i class="bi bi-activity me-1"></i>{{ DLUX_STRINGS.sysbackup_last_signal|default:'Last update' }}: {{ restore.seconds_since_signal }}{{ DLUX_STRINGS.sysbackup_seconds_short|default:'s' }}
+                </small>
+            {% endif %}
+            {% if restore.status == 'failed' and restore.error %}
+                <small class="d-block text-danger">{{ restore.error|truncatechars:120 }}</small>
+            {% endif %}
+        </td>
+    </tr>
+{% empty %}
+    <tr><td colspan="4" class="text-muted text-center py-3">{{ DLUX_STRINGS.sysrestore_none }}</td></tr>
+{% endfor %}

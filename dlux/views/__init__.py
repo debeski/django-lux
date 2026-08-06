@@ -102,6 +102,7 @@ from .backup import (
     system_backup_status_view,
     system_backup_upload_view,
     system_restore_start_view,
+    system_restore_list_status_view,
     system_restore_status_view,
 )
 

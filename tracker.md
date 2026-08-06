@@ -2,10 +2,11 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Current source version: unreleased v1.7.0 in `dlux/release-manifest.json`; v1.6.1 is tagged/published.
+- Current source version: unreleased v1.7.1; v1.7.0 is tagged/published — append to the v1.7.1 entry, never a tagged one.
 - DjangoLux includes the typed Composer bridge and state-row-serialized update admission; generated projects emit one hardened `composer-agent` while Composer owns legacy migration.
 - General Reports share criteria across overview, entries XLSX, print, and ZIP; print uses two A4 pages with restored desktop grids/recalculated canvases, ZIP carries workbook + media, and `.dlb` remains restorable JSON.
 - Updater state uses `DluxUpdateState`/`DluxUpdateRun` plus `dlux_runtime`; generated proxy baseline is Caddy-default `.proxy/` with updater parity.
+- The migrator contract: `-mm` forces makemigrations for ALL target apps; bare only for apps with no `migrations/0001_*.py`; `-nm` skips makemigrations+migrate but STILL collects static; `-mm`/`-nm` exclusive. Composer runs it ONCE via the `org.dlux.post-start` label (never Compose's native `post_start`, which Compose runs itself unflagged).
 - `dlux_seed` emits parseable one-page PDFs; profile password changes can revoke other DB/cache sessions; backup recovery uses migration `0014` liveness/attempt fields.
 
 ### Current Project Adopted Standards:
@@ -30,6 +31,7 @@
 - Fallback file/download redirects remain a high-risk-deployment review point; `_safe_referer()` currently enforces allowed hosts.
 - Legacy `switch_pos` v1.2.4 deployments may stay degraded until v1.2.13+ reconcile clears or operator resets runtime flags.
 - A stale pre-exclusion `composer-updater` can recreate its Docker socket proxy during the first 1.5.x app-image update and lose `DOCKER_HOST`; update Composer and migrate the legacy block with `enable-agent` before retrying.
+- Browser upload of a multi-GB `.dlb` still cannot succeed by design: proxy `CADDY_MAX_SIZE`/`NGINX_MAX_SIZE` (10M) and gunicorn `timeout=120` are unchanged. The error is now accurate; the supported route is copying the file into the `dlux_backups` media folder (orphan list).
 
 ### Incomplete Tasks:
 - **Priority 1:**
@@ -42,6 +44,9 @@
   - [ ] Browser-validate General Reports/Backup & Restore plus Navigation Root, anonymous public root, and Control Panel at desktop/mobile widths (in-app browser unavailable 2026-08-03).
   - [ ] Re-export and visually verify the fixed Archive `sys/reports/print/` PDF is exactly two A4 pages (in-app browser has no attached tab).
 - **Completed Recently:**
+  - [x] v1.7.1 migrator standardized: ordered phases (schema -> collectstatic -> setup), single multi-label `makemigrations` call (per-app loop broke cross-app deps), `0001_*` detection, unwritable-migrations pre-check; `populate`/superuser/config-bootstrap non-fatal + summarized, `dlux_setup`/migrate/collectstatic/makemigrations fatal. Scaffold emits `org.dlux.post-start` label instead of `post_start:`; needs composer >= 1.3.5. +16 tests.
+  - [x] v1.7.1 restore progress: migration `0015` adds progress/stage/heartbeat to `SystemRestore`; decrypt/load/files/finalize phases reported 0-100, cache mirror carries the in-transaction DB phase, terminal drawer notification, live `system_restore_list_status` poller; +10 tests.
+  - [x] v1.7.1 truncated `.dlb` upload: empty `request.FILES` now reports `backup_upload_incomplete` (names the proxy body limit + copy route) instead of `backup_upload_invalid`; `DLUX_DLB_UPLOAD_MAX_MB` replaces the hardcoded 512 MB cap; EN/AR +4 tests.
   - [x] v1.7.0 Email is setup Step 3 (before Access & Security) behind `email_config.enabled`; a passed test send sets fingerprinted `verified`, and `email_2fa`/`forgot_password`/`public_registration`/notification-email lock (value preserved) until enabled+verified; wizard indices are `SETUP_STEP_*` constants; +12 tests in `test_email_step.py`.
   - [x] v1.6.2: re-synced `scaffold_templates/project/start.{sh,ps1}.tmpl` from Composer 1.3.4 (`# composer-wrapper: 1`). Composer OWNS these; they are mirrors here — a `test_scaffold` case pins the version so drift fails the suite.
   - [x] v1.6.2 period preview labels both ends via `period['range_label']`; week/month options renamed Current (were 'Last'); query bounds unchanged.
@@ -56,21 +61,17 @@
   - [x] v1.6.2 General Reports: business-only builder/exports plus opt-outs/RTL; two-page A4 grids/canvases fixed, print assets collected, Caddy negative caching and missing branding fallback corrected.
   - [x] v1.6.2 focused System Settings modals preserve theme/language counts when matrices are omitted, preventing sidebar/Options pickers from vanishing during live preview.
 ### One-line info about last verified Tests:
+- 2026-08-06: v1.7.1 migrator contract — full `dlux.tests` 1241 GREEN (2 PG-only skips); new selection/flag/failure-boundary cases, incl. a case proving a stray module in `migrations/` no longer masks a missing `0001_*`, and one that caught `get_user_model()` sitting outside the try (a broken AUTH_USER_MODEL would still have been fatal). Generated compose passes real `docker compose config` with no `post_start:`.
+- 2026-08-06: v1.7.1 restore progress — full suite 1228 GREEN (2 PG-only skips); e2e test asserts a real restore hits every stage with monotonic percentages, which caught a time-only tick throttle that dropped fast phases.
+- 2026-08-06: v1.7.1 `.dlb` upload fix — full suite 1218 GREEN (2 PG-only skips); new `DlbUploadViewTests` separates truncated / oversized / corrupt uploads by notify action code.
 - 2026-08-06: v1.7.0 pre-release — full suite 1214 GREEN (2 PG-only skips); UI SMTP timeout verified through import/runtime/other-step-save round trip, which caught and fixed a clean-order reset of the email group.
-- 2026-08-05: Send-test input-group — full suite 1206 GREEN; rendered-HTML guard asserts input and button are siblings in one `.dlux-email-test-group`, so column-alignment drift cannot return.
 - 2026-08-05: Contract command drift + always-on Email indicator — full suite 1205 GREEN; `diff_command_modules`/`fix_command_modules` cover retired relay+supervisor paths, indicator asserts off/unproven/verified states.
 - 2026-08-05: SMTP relay packaged as `dlux.smtp_relay` — 16 new behavioural tests (protocol loop, dot-stuffing, size cap, config resolution, 451 reason); full suite 1198 GREEN.
-- 2026-08-05: Email step layout/unlock — full suite 1184 GREEN; rendered-HTML check confirms md columns pair password+recipients and recipient+test button, inline status replaces the alert banner.
-- 2026-08-05: Email in-form Apply — 5 tests (persists only email_config, leaves other groups/home_url untouched, superuser+POST only, apply-then-test verifies); full suite 1184 GREEN.
-- 2026-08-05: Email verification persistence — 3 regressions in `test_email_step.py` (save keeps verification; host change and retyped password still re-arm), full suite 1179 GREEN.
-- 2026-08-05: SMTP secret visibility + relay timeout pairing — 10 tests (`test_smtp_timeouts.py`, `test_email_step.py`), full suite 1175 GREEN; undecryptable secrets now 409 instead of failing blind.
-- 2026-08-05: SMTP relay timeout pairing — 7 tests in `test_smtp_timeouts.py`, full discovery suite 1172 GREEN (2 PG-only skips); relay-vs-client ordering pinned so 451 reasons reach the UI.
-- 2026-08-05: Email step + verification guard + dependent locking — 12 focused tests in `test_email_step.py`, full discovery suite 1165 GREEN (2 PG-only skips); fingerprint re-arming proven across form/import/export paths.
-- 2026-08-05: System Settings picker preservation — 2 regression, 324 related, and full discovery 1147 GREEN (2 skips); Archive collected/served JS checksum matches source.
-- 2026-08-04: Two-page A4 print fix — 33 report tests + full discovery 1147 GREEN (2 skips); Archive collected/served assets match source; visual re-export awaits an attached browser.
 ### One-line info about last time edited Docs:
-- 2026-08-05: Admin Guide rewritten to fourteen wizard steps with the Email step, verification-as-guard contract, and lock-not-clear semantics; CHANGELOG v1.7.0.
-- 2026-08-05: Focused System Settings live-preview preservation documented in Features/Admin Guide/changelog.
+- 2026-08-06: `docs/reference.md` migrator flag rows (-mm/-nm/-a) + `docs/inline-updater.md` post-start label/supervisor rationale.
+- 2026-08-06: `docs/admin-guide.md` 'Watching a restore' (phases, cache mirror, why there is no start notification).
+- 2026-08-06: `docs/admin-guide.md` .dlb upload paragraph + `DLUX_DLB_UPLOAD_MAX_MB` row in `docs/deployment-configuration.md`.
+
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
 - Prefer `rg`/`rg --files`; inspect durable updater runs through DB/runtime state, not web logs alone.

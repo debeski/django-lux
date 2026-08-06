@@ -5,12 +5,15 @@
     const createBtn = document.getElementById('sysbackup-create-btn');
     const note = document.getElementById('sysbackup-create-status');
     const tableBody = document.getElementById('sysbackup-table-body');
+    const restoreTableBody = document.getElementById('sysrestore-table-body');
     const POLL_INTERVAL_MS = 4000;
     const POLL_LIMIT = 1800;
     const IDLE_LIST_POLL_MS = 15000;
     const STALL_WARN_SECONDS = 120;
     let listPollTimer = null;
     let listRequestActive = false;
+    let restorePollTimer = null;
+    let restoreRequestActive = false;
 
     function setNote(text, tone) {
         if (!note) return;
@@ -234,6 +237,61 @@
             });
     }
 
+    function tableHasActiveRestore() {
+        if (!restoreTableBody) return false;
+        return Array.prototype.some.call(
+            restoreTableBody.querySelectorAll('[data-system-restore-row]'),
+            function (row) {
+                const status = row.dataset.restoreStatus || '';
+                return status === 'pending' || status === 'running';
+            },
+        );
+    }
+
+    function scheduleRestorePoll(delay) {
+        if (!restoreTableBody) return;
+        if (restorePollTimer) window.clearTimeout(restorePollTimer);
+        restorePollTimer = window.setTimeout(refreshRestoreList, delay);
+    }
+
+    function refreshRestoreList() {
+        if (!restoreTableBody || !restoreTableBody.dataset.statusUrl || restoreRequestActive) return;
+        if (document.hidden) {
+            scheduleRestorePoll(IDLE_LIST_POLL_MS);
+            return;
+        }
+        restoreRequestActive = true;
+        fetch(restoreTableBody.dataset.statusUrl, {
+            cache: 'no-store',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(function (resp) {
+                if (!resp.ok) throw new Error('restore list status failed');
+                return resp.json();
+            })
+            .then(function (data) {
+                const wasActive = tableHasActiveRestore();
+                if (data.revision !== restoreTableBody.dataset.revision) {
+                    restoreTableBody.innerHTML = data.html || '';
+                    restoreTableBody.dataset.revision = data.revision || '';
+                }
+                // A finished restore replaced this session's data, so the rest of
+                // the page (backups, external files, and the viewer's own login)
+                // is stale — reload once rather than leave a half-truthful page.
+                if (wasActive && !data.active) {
+                    window.setTimeout(function () { window.location.reload(); }, 1500);
+                    return;
+                }
+                scheduleRestorePoll(data.active ? POLL_INTERVAL_MS : IDLE_LIST_POLL_MS);
+            })
+            .catch(function () {
+                scheduleRestorePoll(IDLE_LIST_POLL_MS);
+            })
+            .finally(function () {
+                restoreRequestActive = false;
+            });
+    }
+
     bindRestoreButtons(document);
     bindResumeButtons(document);
     const resumeCancel = document.getElementById('sysbackup-resume-cancel');
@@ -242,8 +300,11 @@
     }
     if (tableHasActiveBackup() && form) setNote(form.dataset.msgPreparing);
     scheduleListPoll(tableHasActiveBackup() ? POLL_INTERVAL_MS : IDLE_LIST_POLL_MS);
+    scheduleRestorePoll(tableHasActiveRestore() ? POLL_INTERVAL_MS : IDLE_LIST_POLL_MS);
     document.addEventListener('visibilitychange', function () {
-        if (!document.hidden) refreshBackupList(false);
+        if (document.hidden) return;
+        refreshBackupList(false);
+        refreshRestoreList();
     });
 
     const cancelBtn = document.getElementById('sysrestore-cancel');

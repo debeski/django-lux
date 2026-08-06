@@ -29,6 +29,7 @@ from dlux.backup import (
     run_system_restore,
     write_system_backup,
 )
+from dlux import backup_progress as dlux_backup_progress
 from dlux.reports import build_relation_schema
 from dlux.system.defaults import default_backup_config
 from dlux.system.normalizers import normalize_backup_config
@@ -528,3 +529,222 @@ class SystemBackupViewTests(TestCase):
                 self.assertEqual(SystemRestore.objects.count(), 1)
                 restore = SystemRestore.objects.first()
                 self.assertEqual(restore.status, SystemRestore.STATUS_COMPLETED, restore.error)
+
+
+class DlbUploadViewTests(TestCase):
+    """Upload rejection paths.
+
+    The failure these cover: a multi-GB ``.dlb`` cut short by the reverse proxy
+    body limit (``CADDY_MAX_SIZE`` / ``NGINX_MAX_SIZE``, both 10M by default)
+    leaves ``request.FILES`` empty, and the view used to report that missing part
+    as "not a valid backup file" — pointing the operator at the file instead of
+    the proxy.
+    """
+
+    def setUp(self):
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save(update_fields=['is_configured'])
+        User.objects.create_superuser('boss', 'boss@example.com', 'bosspass123')
+        self.client = Client()
+        self.client.login(username='boss', password='bosspass123')
+
+    def _post(self, **payload):
+        with mock.patch('dlux.views.backup.notify') as notify:
+            response = self.client.post(reverse('system_backup_upload'), payload)
+        return response, notify
+
+    def test_truncated_upload_reports_an_incomplete_transfer_not_a_bad_file(self):
+        response, notify = self._post()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(notify.error.call_args.kwargs['action'], 'backup_upload_incomplete')
+
+    def test_oversized_upload_reports_the_size_limit(self):
+        from dlux.views import backup as backup_views
+
+        with override_settings(DLUX_DLB_UPLOAD_MAX_MB=1):
+            response, notify = self._post(
+                backup_file=ContentFile(b'x' * (2 * 1024 * 1024), name='big.dlb'),
+            )
+        self.assertEqual(backup_views._dlb_upload_max_mb(), backup_views.DLB_UPLOAD_MAX_MB_DEFAULT)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(notify.error.call_args.kwargs['action'], 'backup_upload_too_large')
+
+    def test_complete_but_corrupt_file_is_still_reported_as_invalid(self):
+        response, notify = self._post(
+            backup_file=ContentFile(b'PK\x03\x04 definitely a zip', name='fake.dlb'),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(notify.error.call_args.kwargs['action'], 'backup_upload_invalid')
+
+    def test_page_shows_the_copy_into_backup_folder_route(self):
+        response = self.client.get(reverse('system_backup_page'))
+        self.assertContains(response, 'copy the .dlb file straight into the backup folder')
+
+
+class RestoreProgressTests(TestCase):
+    """Live progress for a running restore.
+
+    The failure these cover: a restore reported nothing at all — only a bare
+    'running' badge — so an operator watching a multi-GB restore could not tell a
+    working run from a hung one. The database phase is the hard part: it runs in
+    one transaction, so a row UPDATE from inside it is invisible to the polling
+    web process until the whole load commits.
+    """
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        # notify() dedupes identical events for 2s through the cache, which
+        # TestCase does not roll back — so two tests that each restore row pk=1
+        # would have the second notification silently swallowed. Local LocMem
+        # cache only; this never runs against a shared cache.
+        cache.clear()
+        SystemSettings = apps.get_model('dlux', 'SystemSettings')
+        settings_obj = SystemSettings.load()
+        settings_obj.is_configured = True
+        settings_obj.save(update_fields=['is_configured'])
+        self.SystemRestore = apps.get_model('dlux', 'SystemRestore')
+        User.objects.create_superuser('boss', 'boss@example.com', 'bosspass123')
+        self.client = Client()
+        self.client.login(username='boss', password='bosspass123')
+
+    def _restore(self, **kwargs):
+        return self.SystemRestore.objects.create(
+            requested_by_username='boss', backup_file_path='x.dlb', **kwargs,
+        )
+
+    def test_in_transaction_progress_is_visible_through_the_cache_mirror(self):
+        from django.db import transaction
+
+        from dlux.backup_progress import read_restore_progress, set_restore_progress
+
+        restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
+        # Inside an atomic block a row UPDATE is invisible to other connections;
+        # the mirror is what the status view must be reading.
+        with transaction.atomic():
+            set_restore_progress(restore, 42, 'Restoring users', stage='database')
+            live = read_restore_progress(restore)
+        self.assertEqual(live['progress_percent'], 42)
+        self.assertEqual(live['progress_message'], 'Restoring users')
+        self.assertEqual(live['stage'], 'database')
+
+    def test_a_stale_mirror_never_drags_the_row_backwards(self):
+        from dlux.backup_progress import read_restore_progress, set_restore_progress
+
+        restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
+        set_restore_progress(restore, 20, 'early', stage='database')
+        self.SystemRestore.objects.filter(pk=restore.pk).update(progress_percent=80, progress_message='later')
+        restore.refresh_from_db()
+        self.assertEqual(read_restore_progress(restore)['progress_percent'], 80)
+
+    def test_finished_restore_ignores_the_mirror_entirely(self):
+        from dlux.backup_progress import read_restore_progress, set_restore_progress
+
+        restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
+        set_restore_progress(restore, 55, 'mid-flight', stage='files')
+        self.SystemRestore.objects.filter(pk=restore.pk).update(
+            status=self.SystemRestore.STATUS_COMPLETED, progress_percent=100, progress_message='done',
+        )
+        restore.refresh_from_db()
+        self.assertEqual(read_restore_progress(restore)['progress_percent'], 100)
+
+    def test_status_endpoint_reports_progress(self):
+        from dlux.backup_progress import set_restore_progress
+
+        restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
+        set_restore_progress(restore, 61, 'Restoring documents', stage='database')
+        payload = self.client.get(
+            reverse('system_restore_status', args=[restore.token])
+        ).json()
+        self.assertEqual(payload['status'], 'running')
+        self.assertEqual(payload['progress_percent'], 61)
+        self.assertEqual(payload['progress_message'], 'Restoring documents')
+        self.assertEqual(payload['stage'], 'database')
+
+    def test_list_status_renders_rows_and_tracks_activity(self):
+        from dlux.backup_progress import set_restore_progress
+
+        restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
+        set_restore_progress(restore, 37, 'Restoring groups', stage='database')
+        payload = self.client.get(reverse('system_restore_list_status')).json()
+        self.assertTrue(payload['active'])
+        self.assertIn('Restoring groups', payload['html'])
+        self.assertIn('dlux-backup-progress', payload['html'])
+        self.assertIn('value="37"', payload['html'])
+
+        first_revision = payload['revision']
+        set_restore_progress(restore, 58, 'Restoring documents', stage='database')
+        second = self.client.get(reverse('system_restore_list_status')).json()
+        self.assertNotEqual(second['revision'], first_revision)
+
+    def test_list_status_requires_superuser(self):
+        User.objects.create_user('staffer', 's@example.com', 'staffpass123', is_staff=True)
+        client = Client()
+        client.login(username='staffer', password='staffpass123')
+        self.assertEqual(client.get(reverse('system_restore_list_status')).status_code, 403)
+
+    def test_terminal_notification_is_emitted_for_a_finished_restore(self):
+        from dlux.backup_progress import finish_restore_progress
+
+        restore = self._restore(status=self.SystemRestore.STATUS_COMPLETED)
+        finish_restore_progress(restore, success=True)
+
+        DluxNotification = apps.get_model('dlux', 'DluxNotification')
+        notification = DluxNotification.objects.filter(action='restore_completed').first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.metadata.get('backup_kind'), 'restore')
+        restore.refresh_from_db()
+        self.assertEqual(restore.progress_percent, 100)
+
+    def test_failed_restore_notification_carries_the_error(self):
+        from dlux.backup_progress import finish_restore_progress
+
+        restore = self._restore(status=self.SystemRestore.STATUS_FAILED, error='boom')
+        finish_restore_progress(restore, success=False, error='boom')
+
+        DluxNotification = apps.get_model('dlux', 'DluxNotification')
+        notification = DluxNotification.objects.filter(action='restore_failed').first()
+        self.assertIsNotNone(notification)
+        self.assertIn('boom', notification.message)
+
+    def test_page_renders_the_live_restore_table(self):
+        response = self.client.get(reverse('system_backup_page'))
+        self.assertContains(response, 'id="sysrestore-table-body"')
+        self.assertContains(response, reverse('system_restore_list_status'))
+
+    def test_a_real_restore_reports_every_phase_and_ends_at_100(self):
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                worker = User.objects.create_user('worker', 'w@example.com', 'workerpass1')
+                worker.profile.profile_picture.save('pic.png', ContentFile(_tiny_png()), save=True)
+                SystemBackup = apps.get_model('dlux', 'SystemBackup')
+                backup = SystemBackup.objects.create(requested_by_username='boss')
+                run_system_backup(backup.pk)
+                backup.refresh_from_db()
+
+                restore = self.SystemRestore.objects.create(
+                    requested_by_username='boss', backup_file_path=backup.file_path,
+                )
+                seen = []
+                real = dlux_backup_progress.set_restore_progress
+
+                def record(target, percent, message, stage=None):
+                    seen.append((int(percent), stage))
+                    return real(target, percent, message, stage=stage)
+
+                with mock.patch.object(dlux_backup_progress, 'set_restore_progress', record):
+                    run_system_restore(restore.pk)
+
+                restore.refresh_from_db()
+                self.assertEqual(restore.status, self.SystemRestore.STATUS_COMPLETED, restore.error)
+                self.assertEqual(restore.progress_percent, 100)
+                stages = [stage for _percent, stage in seen]
+                for expected in ('reading', 'decrypting', 'database', 'files', 'finalizing'):
+                    self.assertIn(expected, stages, stages)
+                # Progress only ever moves forward while the run is live.
+                percents = [percent for percent, _stage in seen]
+                self.assertEqual(percents, sorted(percents), percents)

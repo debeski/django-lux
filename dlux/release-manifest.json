@@ -1,17 +1,15 @@
 {
   "schema_version": 1,
-  "version": "1.7.0",
+  "version": "1.7.1",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "General Reports gain a shared period/model/operation builder, interrupted backups recover automatically, and projects can register local fonts and themes.",
+  "summary": "Restore reports live progress like backups do, and a truncated .dlb upload names the reverse-proxy body limit instead of blaming the file.",
   "highlights": [
-    "A backup whose worker dies is now detected, failed with a reason, and retried instead of staying 'running' forever.",
-    "Backup progress reports records, files, and encrypted bytes, plus how long ago the run last reported anything.",
-    "General Reports share quarter, half-year, year, custom range, model, and operation selections across the page, XLSX, and ZIP.",
-    "DLUX_CUSTOM_FONTS merges project-owned font variants into the existing typography settings and runtime.",
-    "DLUX_CUSTOM_THEMES merges validated project-owned static CSS themes into the existing theme controls and runtime.",
-    "Model-backed sidebar sections and groups show live per-user unread counters behind a separate Sidebar toggle."
+    "Restore now shows a live progress bar with the current phase — decrypting, per-model load, per-file writes, and finalize — instead of a bare 'running' badge.",
+    "A finished or failed restore raises a notification; progress survives a page reload because it is persisted on the SystemRestore row.",
+    "A backup upload cut short by the reverse-proxy body limit reports the truncated transfer instead of 'not a valid .dlb file'.",
+    "DLUX_DLB_UPLOAD_MAX_MB makes the 512 MB upload cap configurable; copying a large .dlb into the backup folder stays the route for multi-GB snapshots."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.7.0"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.7.1"
 }

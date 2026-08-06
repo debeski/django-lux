@@ -226,6 +226,17 @@ services:
     restart: always
     labels:
       org.dlux.restart: "safe"
+      # Composer runs this after the stack is healthy, once, applying the flags it
+      # was given (-mm / -nm / -a). Declared as a label rather than a Compose
+      # post_start hook on purpose: Compose runs post_start itself the moment the
+      # container starts, unflagged, which raced composer's own flagged run — two
+      # migrators, one clearing staticfiles while the other collected into it.
+      # Must run under the runtime supervisor (like dlux-updater's migrator), so
+      # its collectstatic uses the SAME runtime-active DjangoLux release gunicorn
+      # serves templates from. Run raw, it collects from the baked image instead,
+      # and — running last on recreate — overwrites the correct static with a
+      # version-mismatched set (stale CSS/JS against newer templates).
+      org.dlux.post-start: "python -m dlux.updater.supervisor --no-watch -- python manage.py migrator"
     command: >
       python -m dlux.updater.supervisor -- bash -c ' if [ "$$DEBUG_STATUS" = "True" ]; then
           echo "Starting in DEBUG mode with Django development server..."
@@ -235,15 +246,6 @@ services:
           gunicorn -c gunicorn.py {{ config_package }}.wsgi:application
       fi'
     entrypoint: ["/app/entrypoint.sh"]
-    post_start:
-      # Re-run migrations after the composer updater recreates web onto a new
-      # image, so a released image's migrations apply on recreate. Idempotent.
-      # Must run under the runtime supervisor (like dlux-updater's migrator), so
-      # its collectstatic uses the SAME runtime-active DjangoLux release gunicorn
-      # serves templates from. Run raw, it collects from the baked image instead,
-      # and — running last on recreate — overwrites the correct static with a
-      # version-mismatched set (stale CSS/JS against newer templates).
-      - command: python -m dlux.updater.supervisor --no-watch -- python manage.py migrator
     volumes:
       - static:/app/staticfiles:rw
       - ./media/:/app/media:rw

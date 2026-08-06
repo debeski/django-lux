@@ -82,6 +82,7 @@ urlpatterns = [
     path('sys/backup/upload/', views.system_backup_upload_view, name='system_backup_upload'),
     path('sys/backup/status/', views.system_backup_list_status_view, name='system_backup_list_status'),
     path('sys/backup/restore/', views.system_restore_start_view, name='system_restore_start'),
+    path('sys/backup/restore/status/', views.system_restore_list_status_view, name='system_restore_list_status'),
     path('sys/backup/restore/<str:token>/status/', views.system_restore_status_view, name='system_restore_status'),
     path('sys/backup/<str:token>/status/', views.system_backup_status_view, name='system_backup_status'),
     path('sys/backup/<str:token>/download/', views.system_backup_download_view, name='system_backup_download'),

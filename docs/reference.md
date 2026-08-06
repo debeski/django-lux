@@ -66,7 +66,10 @@ Generated app scaffold baseline:
 | `python manage.py dlux_migrate_from_microsys` | Dry-run the supported Microsys 2.4.1 database relabel. |
 | `python manage.py dlux_migrate_from_microsys --yes` | Apply the database relabel after an external backup. |
 | `python manage.py dlux_update_worker` | Internal generated-Compose update worker; normally started only by `dlux-updater`. |
-| `python manage.py migrator` | Internal generated-project migration/static/bootstrap command used by Compose startup. |
+| `python manage.py migrator` | Internal generated-project migration/static/bootstrap command. Composer runs it once per start via the `org.dlux.post-start` label. |
+| `python manage.py migrator -mm` | Force makemigrations for every target app, then migrate, then collectstatic. |
+| `python manage.py migrator -nm` | Skip makemigrations and migrate; still collect static. Mutually exclusive with `-mm`. |
+| `python manage.py migrator -a APP` | Scope the target-app list instead of auto-discovering local apps. |
 
 `dlux_seed` excludes Django/Dlux internals, unmanaged/proxy/auto-created models, and
 models outside the project root. Set `dlux_seed = False` on a project model that

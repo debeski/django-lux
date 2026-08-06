@@ -2,6 +2,7 @@ import hashlib
 import logging
 
 from django.apps import apps
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
@@ -24,6 +25,7 @@ from ..backup import (
     run_system_backup,
     run_system_restore,
 )
+from ..backup_progress import read_restore_progress
 from ..guards import require_current_password
 from ..notifications import notify
 from ..translations import get_strings
@@ -32,6 +34,18 @@ from ..utils import get_system_config
 logger = logging.getLogger('dlux')
 
 DLB_UPLOAD_MAX_MB_DEFAULT = 512
+
+
+def _dlb_upload_max_mb():
+    """Largest .dlb the upload form accepts, in MB (``DLUX_DLB_UPLOAD_MAX_MB``).
+
+    The reverse proxy body limit (``CADDY_MAX_SIZE`` / ``NGINX_MAX_SIZE``) applies
+    first, so raising this alone is not enough.
+    """
+    try:
+        return max(int(getattr(settings, 'DLUX_DLB_UPLOAD_MAX_MB', DLB_UPLOAD_MAX_MB_DEFAULT)), 1)
+    except (TypeError, ValueError):
+        return DLB_UPLOAD_MAX_MB_DEFAULT
 
 
 def _require_superuser(request):
@@ -64,6 +78,10 @@ def _recent_system_backups(*, reap=True):
         except Exception:
             logger.warning('Could not reap stalled system backups', exc_info=True)
     return list(_system_backup_model().objects.all()[:20])
+
+
+def _recent_system_restores():
+    return list(_system_restore_model().objects.all()[:10])
 
 
 def _stall_seconds(backup):
@@ -152,12 +170,13 @@ def _orphan_dlb_files():
 @login_required
 def system_backup_page(request):
     _require_superuser(request)
-    SystemRestore = _system_restore_model()
     backups = _recent_system_backups()
+    restores = _recent_system_restores()
     return render(request, 'dlux/backup/manage.html', {
         **_backup_rows_context(backups),
         'backup_revision': _system_backup_revision(backups),
-        'restores': SystemRestore.objects.all()[:10],
+        **_restore_rows_context(restores),
+        'restore_revision': _system_restore_revision(restores),
         'orphan_files': _orphan_dlb_files(),
         'backup_config': get_system_config().get('backup_config', {}),
     })
@@ -329,9 +348,16 @@ def system_backup_upload_view(request):
     s = get_strings()
     uploaded = request.FILES.get('backup_file')
     if uploaded is None:
-        notify.error(s.get('sysbackup_upload_invalid'), request=request, action='backup_upload_invalid', category='backup')
+        # A file was selected but no complete multipart part arrived, so the body was
+        # cut short in transit — almost always the reverse proxy body-size limit.
+        notify.error(
+            s.get('sysbackup_upload_incomplete'),
+            request=request,
+            action='backup_upload_incomplete',
+            category='backup',
+        )
         return redirect('system_backup_page')
-    max_mb = DLB_UPLOAD_MAX_MB_DEFAULT
+    max_mb = _dlb_upload_max_mb()
     if uploaded.size > max_mb * 1024 * 1024:
         notify.error(s.get('sysbackup_upload_too_large'), request=request, action='backup_upload_too_large', category='backup')
         return redirect('system_backup_page')
@@ -391,13 +417,74 @@ def system_restore_start_view(request):
 
 
 @login_required
+@never_cache
 def system_restore_status_view(request, token):
     _require_superuser(request)
     restore = _system_restore_model().objects.filter(token=token).first()
     if restore is None:
         raise Http404
+    progress = read_restore_progress(restore)
     return JsonResponse({
         'status': restore.status,
         'report': restore.report or {},
         'error': restore.error[:300] if restore.error else '',
+        'progress_percent': 100 if restore.status == 'completed' else progress['progress_percent'],
+        'progress_message': progress['progress_message'],
+        'stage': progress['stage'],
+        'seconds_since_progress': restore.seconds_since_signal() if restore.is_active else 0,
+    })
+
+
+def _attach_restore_progress(restores):
+    """Overlay each row with its live progress before rendering or hashing.
+
+    A running restore's fine-grained progress lives in the cache mirror, not the
+    row, because the database phase runs inside one transaction — so both the
+    template and the revision hash must read through this, never the raw field.
+    """
+    for restore in restores:
+        restore.live_progress = read_restore_progress(restore)
+    return restores
+
+
+def _restore_rows_context(restores):
+    return {
+        'restores': _attach_restore_progress(restores),
+        'DLUX_STRINGS': get_strings(),
+    }
+
+
+def _system_restore_revision(restores):
+    """Stable marker for every field rendered in the live restore table."""
+    rendered_state = '\x1f'.join(
+        ':'.join((
+            restore.token,
+            restore.status,
+            str(restore.live_progress['progress_percent']),
+            restore.live_progress['progress_message'],
+            restore.live_progress['stage'],
+            restore.error or '',
+            # Bucketed so an active run refreshes its elapsed marker without the
+            # revision churning on every poll.
+            str(restore.seconds_since_signal() // 30 if restore.is_active else 0),
+        ))
+        for restore in _attach_restore_progress(restores)
+    )
+    return hashlib.sha256(rendered_state.encode('utf-8')).hexdigest()
+
+
+@login_required
+@never_cache
+def system_restore_list_status_view(request):
+    """Return the current restore-table fragment for live background updates."""
+    _require_superuser(request)
+    restores = _recent_system_restores()
+    return JsonResponse({
+        'revision': _system_restore_revision(restores),
+        'active': any(restore.is_active for restore in restores),
+        'html': render_to_string(
+            'dlux/backup/_restore_rows.html',
+            _restore_rows_context(restores),
+            request=request,
+        ),
     })

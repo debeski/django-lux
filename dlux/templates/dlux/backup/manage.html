@@ -147,6 +147,7 @@
                         <i class="bi bi-upload me-1"></i>{{ DLUX_STRINGS.sysbackup_upload }}
                     </button>
                 </form>
+                <p class="form-text mt-2 mb-0">{{ DLUX_STRINGS.sysbackup_upload_help }}</p>
             </section>
         </div>
 
@@ -156,21 +157,18 @@
                 <div class="dlux-table-shell" data-dlux-table-density="balanced">
                     <div class="dlux-table-scroll">
                     <table class="table table-hover align-middle dlux-data-table">
-                        <tbody>
-                            {% for restore in restores %}
-                                <tr>
-                                    <td>{{ restore.created_at|date:'Y-m-d H:i' }}</td>
-                                    <td>{{ restore.requested_by_username|default:'-' }}</td>
-                                    <td>
-                                        {% if restore.status == 'completed' %}<span class="badge bg-success">{{ restore.get_status_display }}</span>
-                                        {% elif restore.status == 'failed' %}<span class="badge bg-danger" title="{{ restore.error }}">{{ restore.get_status_display }}</span>
-                                        {% else %}<span class="badge bg-secondary">{{ restore.get_status_display }}</span>{% endif %}
-                                    </td>
-                                    <td class="small text-muted">{{ restore.error|truncatechars:80 }}</td>
-                                </tr>
-                            {% empty %}
-                                <tr><td class="text-muted text-center py-3">{{ DLUX_STRINGS.sysrestore_none }}</td></tr>
-                            {% endfor %}
+                        <thead>
+                            <tr>
+                                <th>{{ DLUX_STRINGS.user_report_timestamp }}</th>
+                                <th>{{ DLUX_STRINGS.sysbackup_requested_by }}</th>
+                                <th>{{ DLUX_STRINGS.sysbackup_status }}</th>
+                                <th>{{ DLUX_STRINGS.sysrestore_progress }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sysrestore-table-body"
+                               data-status-url="{% url 'system_restore_list_status' %}"
+                               data-revision="{{ restore_revision }}">
+                            {% include 'dlux/backup/_restore_rows.html' %}
                         </tbody>
                     </table>
                     </div>

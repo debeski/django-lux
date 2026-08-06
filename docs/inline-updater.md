@@ -39,10 +39,12 @@ source: generated `manage.py` calls `_activate_runtime_release()` before Django
 loads, which resolves the same active release the supervisor uses (via the
 shared `resolve_release()` helper) and puts it on the path. So **any** way a
 management command is launched — `dlux-updater`'s supervised startup migrator,
-the `web` service's `post_start` migrator, or an operator running `collectstatic`
+the `web` service's post-start migrator, or an operator running `collectstatic`
 in a shell — imports the same version the web process serves templates from. The
-`web` post_start migrator also runs under
-`dlux_runtime_supervisor --no-watch` for defense in depth. Existing deployments
+`web` post-start migrator also runs under
+`dlux.updater.supervisor --no-watch` for defense in depth; that is why the
+`org.dlux.post-start` label carries the supervisor wrapper rather than a bare
+`manage.py migrator`. Existing deployments
 adopt this on the next image rebuild.
 
 If an empty/corrupt volume cannot be reconstructed from the database's verified active-release metadata, the updater writes `state/degraded`, preserves that metadata for retry, and fails its bootstrap health check. Web and Celery therefore do not start against a silently downgraded package. A successful reconstruction (or the updater container's baked migrator repairing an already-restored pointer/static tree) clears and archives the degraded marker.
