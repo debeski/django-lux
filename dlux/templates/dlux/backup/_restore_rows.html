@@ -9,7 +9,10 @@
         </td>
         <td class="dlux-backup-progress-cell">
             <progress class="dlux-backup-progress{% if restore.status == 'completed' %} dlux-backup-progress--success{% elif restore.status == 'failed' %} dlux-backup-progress--error{% endif %}" max="100" value="{% if restore.status == 'completed' %}100{% else %}{{ restore.live_progress.progress_percent }}{% endif %}" aria-label="{{ DLUX_STRINGS.sysrestore_progress }}"></progress>
-            <small class="text-muted d-block">{% if restore.status == 'completed' %}100{% else %}{{ restore.live_progress.progress_percent }}{% endif %}%{% if restore.live_progress.progress_message %} · {{ restore.live_progress.progress_message }}{% endif %}</small>
+            <small class="text-muted dlux-backup-progress-status">
+                <span class="dlux-backup-progress-percent">{% if restore.status == 'completed' %}100{% else %}{{ restore.live_progress.progress_percent }}{% endif %}%</span>
+                {% if restore.live_progress.progress_message %}<span class="dlux-backup-progress-note">{{ restore.live_progress.progress_message }}</span>{% endif %}
+            </small>
             {% if restore.is_active %}
                 <small class="d-block text-muted">
                     <i class="bi bi-activity me-1"></i>{{ DLUX_STRINGS.sysbackup_last_signal|default:'Last update' }}: {{ restore.seconds_since_signal }}{{ DLUX_STRINGS.sysbackup_seconds_short|default:'s' }}

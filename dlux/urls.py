@@ -143,6 +143,7 @@ urlpatterns = [
     # preferences API
     path('sys/api/preferences/update/', api.update_preferences, name='update_preferences'),
     path('sys/api/preferences/reset/', api.reset_preferences, name='reset_preferences'),
+    path('sys/api/preferences/dialogs/reset/', api.reset_dialog_prompts, name='reset_dialog_prompts'),
     path('sys/api/preferences/app/<str:namespace>/', api.update_app_preference, name='update_app_preference'),
     # System-level app-owned config (superuser only)
     path('sys/api/system-config/app/<str:namespace>/', api.update_app_system_config, name='update_app_system_config'),

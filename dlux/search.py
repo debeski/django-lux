@@ -13,6 +13,7 @@ user: pages by their inferred permissions, settings by superuser, data by each
 model's ``view`` permission (scoped models are additionally row-filtered for free
 because ``ScopedManager`` scopes to the current thread-local user).
 """
+import logging
 import re
 
 from django.conf import settings
@@ -21,6 +22,8 @@ from django.db import models as dj_models
 from django.db.models import Q
 from django.urls import NoReverseMatch, reverse
 from django.utils.module_loading import import_string
+
+logger = logging.getLogger('dlux')
 
 SEARCH_INDEX_CACHE_TIMEOUT = 300
 RESULT_LIMIT_PER_GROUP = 8
@@ -89,6 +92,8 @@ OPTIONS_CARDS = (
     ('navbar-mode', 'navbar_options_title', 'Nav bar', 'bi-signpost-split', ('breadcrumb', 'navigation')),
     ('sidebar-density', 'sidebar_density', 'Sidebar density', 'bi-layout-sidebar-inset', ('sidebar', 'menu', 'spacing')),
     ('autofill', 'autofill', 'Autofill', 'bi-magic', ('autofill', 'auto fill', 'form')),
+    ('unsaved-warning', 'unsaved_option_title', 'Unsaved changes warning', 'bi-shield-exclamation',
+     ('unsaved', 'discard', 'warning', 'prompt', 'confirm')),
 )
 
 _EXCLUDE_FIELD_HINTS = ('password', 'secret', 'token', 'hash', 'encrypted', 'salt', 'signature')
@@ -101,7 +106,8 @@ def _humanize(value):
 # ── component index (cached) ─────────────────────────────────────────────────
 
 def _component_index(lang_code):
-    from .discovery import discover_sidebar_catalog
+    from .discovery import discover_routes_for
+    from .system.constants import DISCOVERY_PROFILE_SEARCH
     from .translations import get_strings
     from .utils import get_system_config
 
@@ -110,7 +116,7 @@ def _component_index(lang_code):
     entries = []
     page_urls = set()
 
-    for entry in discover_sidebar_catalog(lang_code=lang_code, include_system_items=True):
+    for entry in discover_routes_for(DISCOVERY_PROFILE_SEARCH, lang_code=lang_code, include_system_items=True):
         page_urls.add(entry['url'])
         entries.append({
             'type': 'page',
@@ -127,6 +133,10 @@ def _component_index(lang_code):
         settings_url = reverse('modal_manager', args=['dlux', 'SystemSettings', '1'])
     except NoReverseMatch:
         settings_url = None
+    try:
+        options_fallback = reverse('options_view')
+    except NoReverseMatch:
+        options_fallback = ''
     if settings_url:
         settings_group = strings.get('search_group_settings', 'Settings')
         for step, title_key, icon, keywords in SETTINGS_SECTIONS:
@@ -137,6 +147,9 @@ def _component_index(lang_code):
                 'icon': icon,
                 'url': f'{settings_url}?step={step}',
                 'mode': 'modal',
+                # Where to land if the client cannot open the modal (no dynamic
+                # modal host on the page). Better than a click that does nothing.
+                'fallback_url': f'{options_fallback}#dlux-option-admin-panel' if options_fallback else '',
                 'keywords': ' '.join(keywords),
                 '_vis': ('superuser', ()),
             })
@@ -165,19 +178,142 @@ def _component_index(lang_code):
         options_url = None
     if options_url:
         options_group = strings.get('search_group_options', 'Options')
+        visible_slugs, slug_remap = _visible_option_slugs(config)
         for slug, label_key, fallback, icon, keywords in OPTIONS_CARDS:
+            target = slug_remap.get(slug, slug)
+            # A card this configuration does not render must not be offered:
+            # its deep link would land on Options and highlight nothing.
+            if target not in visible_slugs:
+                continue
             entries.append({
                 'type': 'option',
                 'label': strings.get(label_key, fallback),
                 'sublabel': options_group,
                 'icon': icon,
-                'url': f'{options_url}#dlux-option-{slug}',
+                'url': f'{options_url}#dlux-option-{target}',
                 'mode': 'link',
                 'keywords': ' '.join(keywords),
                 '_vis': ('authenticated', ()),
             })
 
     return entries
+
+
+def _app_card_entries(request, lang_code):
+    """Options cards an app registered through :func:`dlux.options.register_card`.
+
+    Built per request, never cached: a card's title is a
+    ``callable(request)`` and its ``visible``/``permission``/``superuser_only``
+    gates are per-request too, so :func:`~dlux.options.get_visible_cards` is the
+    only thing that can answer both correctly — and it answers them exactly as
+    the Options page itself does, so search can never offer a card the user
+    would not be shown.
+    """
+    from .options import get_visible_cards
+    from .translations import get_strings
+    from .utils import get_system_config
+
+    try:
+        options_url = reverse('options_view')
+    except NoReverseMatch:
+        return []
+
+    strings = get_strings(lang_code, overrides=get_system_config().get('translations'))
+    group = strings.get('search_group_options', 'Options')
+    entries = []
+    for card in get_visible_cards(request):
+        title = card['title']
+        if callable(title):
+            try:
+                title = title(request)
+            except Exception:
+                logger.exception("Options card '%s' title failed; skipping it in search.", card['id'])
+                continue
+        label = str(title or '').strip()
+        if not label:
+            continue
+        entries.append({
+            'type': 'option',
+            'label': label,
+            'sublabel': group,
+            'icon': card['icon'] or 'bi-puzzle',
+            # The card id is its `data-options-card` value, which is what
+            # `focusHashCard()` resolves the fragment against.
+            'url': f"{options_url}#dlux-option-{card['id']}",
+            'mode': 'link',
+            'keywords': ' '.join(card['search_keywords']),
+            '_vis': ('authenticated', ()),
+        })
+    return entries
+
+
+def _visible_option_slugs(config):
+    """Which Options cards this configuration actually renders.
+
+    ``OPTIONS_CARDS`` is a static catalogue, so without this the index offered
+    every card unconditionally — a result for a Language card that a
+    single-language install never renders, whose deep link then lands on Options
+    and highlights nothing. The conditions mirror the guards in
+    ``dlux/includes/options.html``; a card missing from this map is unguarded and
+    always shown.
+
+    Theme and Language are the awkward pair: below the split thresholds the page
+    merges them into one ``theme-language`` card, so their slugs are remapped
+    rather than dropped and both still resolve to a card that exists.
+    """
+    from .utils import (
+        get_effective_allowed_themes,
+        normalize_allowed_fonts,
+        normalize_navbar_config,
+        normalize_sidebar_behavior,
+    )
+
+    localization = config.get('localization', {}) or {}
+    languages = localization.get('languages') or config.get('languages', {}) or {}
+    allow_language = bool(localization.get(
+        'allow_user_language_override', config.get('allow_user_language_override', True),
+    ))
+    try:
+        themes = list(get_effective_allowed_themes(config))
+    except Exception:
+        themes = []
+    try:
+        fonts = list(normalize_allowed_fonts(config.get('allowed_fonts')))
+    except Exception:
+        fonts = []
+    sidebar = normalize_sidebar_behavior(config.get('sidebar', {}) or {})
+    navbar = normalize_navbar_config(config.get('navbar', {}) or {})
+    options_style = (config.get('appearance', {}) or {}).get('options_style', 'cards')
+
+    theme_ok = bool(config.get('allow_user_theme_override', True)) and len(themes) > 1
+    language_ok = allow_language and len(languages) > 1
+
+    visible = {'accessibility', 'table-density', 'form-density', 'modal-size', 'autofill'}
+    if (config.get('profile_config', {}) or {}).get('allow_user_home_url'):
+        visible.add('landing-page')
+    if bool(config.get('allow_user_font_override', True)) and len(fonts) > 1:
+        visible.add('typography')
+    if navbar.get('enabled', True) and navbar.get('allow_user_mode_override', True):
+        visible.add('navbar-mode')
+    if sidebar.get('enabled', True) and sidebar.get('allow_user_density', True):
+        visible.add('sidebar-density')
+
+    # Slug remap for the theme/language pair, matching the template's branch.
+    remap = {}
+    if theme_ok or language_ok:
+        split = options_style == 'tabs' or len(themes) > 5 or len(languages) > 2
+        if split:
+            if theme_ok:
+                visible.add('theme')
+            if language_ok:
+                visible.add('language')
+        else:
+            visible.add('theme-language')
+            if theme_ok:
+                remap['theme'] = 'theme-language'
+            if language_ok:
+                remap['language'] = 'theme-language'
+    return visible, remap
 
 
 def get_component_index(lang_code=None):
@@ -225,12 +361,17 @@ def _score(entry, q):
     return 0
 
 
-def search_components(user, query, lang_code=None):
+def search_components(user, query, lang_code=None, request=None):
     q = (query or '').strip().lower()
     if len(q) < MIN_QUERY_LEN:
         return []
+    entries = get_component_index(lang_code)
+    # App cards resolve per request, so they live outside the cached index; a
+    # caller with no request (a management command, a test) simply gets none.
+    if request is not None:
+        entries = entries + _app_card_entries(request, lang_code or 'en')
     scored = []
-    for entry in get_component_index(lang_code):
+    for entry in entries:
         if not _entry_visible(entry, user):
             continue
         score = _score(entry, q)
@@ -363,17 +504,20 @@ def search_data(user, query, lang_code=None, limit=DATA_TOTAL_LIMIT):
 
 # ── orchestrator (used by the view) ──────────────────────────────────────────
 
-_PUBLIC_KEYS = ('type', 'label', 'sublabel', 'icon', 'url', 'mode')
+_PUBLIC_KEYS = ('type', 'label', 'sublabel', 'icon', 'url', 'mode', 'fallback_url')
 
 
 def _clean(entry):
     return {key: entry.get(key) for key in _PUBLIC_KEYS}
 
 
-def run_search(user, query, *, include_data=False, lang_code=None):
+def run_search(user, query, *, include_data=False, lang_code=None, request=None):
     """Return grouped, permission-filtered results:
-    ``[{'type': 'page'|'setting'|'action'|'data', 'items': [...]}]``."""
-    components = search_components(user, query, lang_code)
+    ``[{'type': 'page'|'setting'|'action'|'data', 'items': [...]}]``.
+
+    Pass ``request`` to include app-registered Options cards, which cannot be
+    resolved from ``user`` alone."""
+    components = search_components(user, query, lang_code, request=request)
     buckets = {'page': [], 'setting': [], 'option': [], 'action': []}
     for entry in components:
         buckets.setdefault(entry['type'], []).append(entry)

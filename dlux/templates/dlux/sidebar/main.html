@@ -74,16 +74,39 @@
         </div>
         {% endif %}
         {% if sidebar_theme_picker_enabled %}
+        {% if not sidebar_theme_toggle_enabled %}
         <i class="bi bi-chevron-up theme-arrow" id="sidebarThemeArrow"></i>
-        <div class="current-theme-indicator" id="sidebarThemeIndicator" title="{{ DLUX_STRINGS.theme_change }}"></div>
+        {% endif %}
+        <button type="button"
+                class="current-theme-indicator"
+                id="sidebarThemeIndicator"
+                title="{{ DLUX_STRINGS.theme_change }}"
+                aria-label="{{ DLUX_STRINGS.theme_change }}"
+                {% if sidebar_theme_toggle_enabled %}
+                data-sidebar-theme-toggle
+                data-theme-cycle="{{ DLUX_THEME_NAMES|join:',' }}"
+                data-theme-toggle-label="{{ DLUX_STRINGS.theme_change }}"
+                {% else %}
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-controls="sidebarThemePopup"
+                {% endif %}>
+            {% if sidebar_theme_toggle_enabled %}
+                {% for theme in DLUX_THEMES %}
+                <span hidden aria-hidden="true" data-theme-swatch data-theme="{{ theme.slug }}" data-theme-color="{{ theme.color }}" data-theme-label="{{ theme.label }}"></span>
+                {% endfor %}
+            {% endif %}
+        </button>
+        {% if not sidebar_theme_toggle_enabled %}
         <div class="theme-popup" id="sidebarThemePopup">
             <div class="small fw-bold mb-2 text-center border-bottom pb-1">{{ DLUX_STRINGS.theme_pick_color }}</div>
             <div class="theme-options-grid">
                 {% for theme in DLUX_THEMES %}
-                <div class="theme-option-circle dlux-theme-preview--{{ theme.slug }}" data-theme="{{ theme.slug }}" title="{{ theme.label }}"></div>
+                <button type="button" class="theme-option-circle dlux-theme-preview--{{ theme.slug }}" data-theme="{{ theme.slug }}" data-theme-color="{{ theme.color }}" title="{{ theme.label }}" aria-label="{{ theme.label }}"></button>
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
         {% endif %}
     </div>
     {% endif %}

@@ -1106,6 +1106,13 @@ button.dlux-upd-ic--rollback:hover { opacity: 1; background: color-mix(in srgb, 
     border-top: 1px solid rgba(var(--primal-rgb), 0.1);
 }
 
+/* One bar carries both reset actions; each group swaps its trigger for an
+   inline confirm/cancel pair independently of the other. */
+.dlux-options-reset-group {
+    display: inline-flex;
+    align-items: center;
+}
+
 .dlux-options-reset-bar {
     position: relative;
     overflow: hidden;

@@ -1105,3 +1105,60 @@ def has_submit_button(form):
             return True
             
     return False
+
+
+# ── Sticky forms ────────────────────────────────────────────────────────────
+# Prefilling an add-form from the user's last record is a server-side concern:
+# the initial data has to be in the form before it renders. Projects gate their
+# prefill on this helper instead of reading a cookie, so the switch in Options
+# (and the inline one on the form) actually controls it.
+
+STICKY_FORMS_PREFERENCE = 'sticky_forms'
+STICKY_FORMS_DEFAULT = False
+
+
+def sticky_forms_enabled(request):
+    """Whether this user wants add-forms prefilled from their last record.
+
+    Reads the `sticky_forms` user preference. Falls back to the shipped default
+    for anonymous users or a profile that has never set it.
+    """
+    user = getattr(request, 'user', None)
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return STICKY_FORMS_DEFAULT
+    try:
+        preferences = user.profile.preferences
+    except Exception:
+        return STICKY_FORMS_DEFAULT
+    if not isinstance(preferences, dict):
+        return STICKY_FORMS_DEFAULT
+    return bool(preferences.get(STICKY_FORMS_PREFERENCE, STICKY_FORMS_DEFAULT))
+
+
+def sticky_form_initial(request, model, fields, *, order_by='-pk', transform=None):
+    """Initial data for an add-form, taken from the user's most recent record.
+
+    Returns `{}` when sticky forms are off, when the model has no rows, or when
+    the request is not a GET — so a call site can hand the result straight to a
+    form's `initial=` without branching.
+
+    `fields` maps form field name -> model attribute name (or a callable taking
+    the instance). `transform` post-processes the resulting dict, which is where
+    a project increments a reference number.
+    """
+    if request.method != 'GET' or not sticky_forms_enabled(request):
+        return {}
+
+    last = model._default_manager.order_by(order_by).first()
+    if last is None:
+        return {}
+
+    initial = {}
+    for form_field, source in (fields or {}).items():
+        value = source(last) if callable(source) else getattr(last, source, None)
+        if value is not None:
+            initial[form_field] = value
+
+    if callable(transform):
+        initial = transform(initial, last) or initial
+    return initial

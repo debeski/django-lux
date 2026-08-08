@@ -132,6 +132,13 @@ def default_profile_config():
 class Scope(models.Model):
     name = models.CharField(max_length=100, verbose_name="Scope")
     description = models.TextField(blank=True, null=True, verbose_name="Description")
+    default_theme = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        db_default='',
+        verbose_name="Default Theme",
+    )
     is_public_registration_default = models.BooleanField(
         default=False,
         db_default=False,

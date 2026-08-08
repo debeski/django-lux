@@ -218,8 +218,12 @@ document.addEventListener('DOMContentLoaded', function() {
         openModalAndLoad(url, trigger);
     });
 
-    // Programmatic trigger (Context Menu / external integrations)
-    document.body.addEventListener('dlux:dynamic_modal:open', function(e) {
+    // Programmatic trigger (Context Menu / global search / external integrations).
+    // Bound to `document`, not `document.body`: an event dispatched directly on
+    // `document` never reaches body (bubbling only travels child → parent), so a
+    // body-bound listener silently ignored those callers. Element-dispatched
+    // bubbling events still arrive here, so this is strictly more permissive.
+    document.addEventListener('dlux:dynamic_modal:open', function(e) {
         const url = e.detail.data?.url || e.detail.action?.url;
         const title = e.detail.data?.title || e.detail.action?.title || 'تفاصيل';
         const trigger = e.detail.trigger || null;

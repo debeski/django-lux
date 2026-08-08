@@ -18,7 +18,7 @@
          data-options-order-storage-key="dlux.options.card-order.v1">
         {% if show_system_diagnostics or user.is_superuser %}
         <!-- Admin Panel: combined system status + update + backup + system settings -->
-        <div class="dlux-options-card dlux-admin-panel-card">
+        <div class="dlux-options-card dlux-admin-panel-card" data-options-deeplink="admin-panel">
             <div class="glass-profile option-section dlux-options-panel dlux-admin-panel">
                 <div class="dlux-admin-panel-heading">
                     <div class="dlux-admin-panel-heading-row">
@@ -786,8 +786,8 @@
         </div>
         {% endif %}
 
-        <!-- Autofill -->
-        <div class="dlux-options-card no-print" data-options-card="autofill">
+        <!-- Assisted entry -->
+        <div class="dlux-options-card no-print" data-options-card="autofill" data-options-deeplink="autofill">
             <div class="glass-profile option-section h-100 dlux-options-panel">
                 <button class="dlux-options-card-handle"
                         type="button"
@@ -796,18 +796,60 @@
                         title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
                     <i class="bi bi-grip-vertical"></i>
                 </button>
-                <h4 class="mb-3"><i class="bi bi-magic me-2"></i> {{ DLUX_STRINGS.autofill }}</h4>
-                <p class="text-muted small mb-4">{{ DLUX_STRINGS.autofill_desc }}</p>
+                <h4 class="mb-3"><i class="bi bi-magic me-2"></i> {{ DLUX_STRINGS.assist_card_title|default:'Assisted entry' }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.assist_card_desc|default:'Two independent shortcuts for repetitive data entry. Forms that support them also show these switches inline.' }}</p>
                 <div class="dlux-options-toggle-shell">
-                    <label class="dlux-options-toggle-label" for="autofillToggle">{{ DLUX_STRINGS.on_off }}</label>
+                    <label class="dlux-options-toggle-label" for="assistRelatedToggle">
+                        {{ DLUX_STRINGS.assist_related_label|default:'Fill from related record' }}
+                        <span class="d-block text-muted small">{{ DLUX_STRINGS.assist_related_desc|default:'Choosing a linked record copies its matching fields into this form.' }}</span>
+                    </label>
                     <div class="form-check form-switch dlux-options-inline-switch">
                         <input class="form-check-input"
                                type="checkbox"
-                               id="autofillToggle"
-                               name="autofill_enabled"
-                               checked
-                               data-enabled-message="{{ DLUX_STRINGS.autofill_enabled }}"
-                               data-disabled-message="{{ DLUX_STRINGS.autofill_disabled }}">
+                               id="assistRelatedToggle"
+                               data-assist-pref="autofill_from_related"
+                               data-enabled-message="{{ DLUX_STRINGS.assist_related_on|default:'Related records will fill matching fields.' }}"
+                               data-disabled-message="{{ DLUX_STRINGS.assist_related_off|default:'Related records will no longer fill fields.' }}">
+                    </div>
+                </div>
+                <div class="dlux-options-toggle-shell mt-3">
+                    <label class="dlux-options-toggle-label" for="assistStickyToggle">
+                        {{ DLUX_STRINGS.assist_sticky_label|default:'Reuse my last entry' }}
+                        <span class="d-block text-muted small">{{ DLUX_STRINGS.assist_sticky_desc|default:'A new form starts pre-filled with the last record you created.' }}</span>
+                    </label>
+                    <div class="form-check form-switch dlux-options-inline-switch">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="assistStickyToggle"
+                               data-assist-pref="sticky_forms"
+                               data-enabled-message="{{ DLUX_STRINGS.assist_sticky_on|default:'New forms will reuse your last entry.' }}"
+                               data-disabled-message="{{ DLUX_STRINGS.assist_sticky_off|default:'New forms will start empty.' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Unsaved-changes warning -->
+        <div class="dlux-options-card no-print" data-options-card="unsaved-warning" data-options-deeplink="unsaved-warning">
+            <div class="glass-profile option-section h-100 dlux-options-panel">
+                <button class="dlux-options-card-handle"
+                        type="button"
+                        data-options-card-handle
+                        aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                        title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
+                    <i class="bi bi-grip-vertical"></i>
+                </button>
+                <h4 class="mb-3"><i class="bi bi-shield-exclamation me-2"></i> {{ DLUX_STRINGS.unsaved_option_title|default:'Unsaved changes warning' }}</h4>
+                <p class="text-muted small mb-4">{{ DLUX_STRINGS.unsaved_option_desc|default:'Warn before closing a settings form that still has unsaved changes.' }}</p>
+                <div class="dlux-options-toggle-shell">
+                    <label class="dlux-options-toggle-label" for="unsavedWarningToggle">{{ DLUX_STRINGS.on_off }}</label>
+                    <div class="form-check form-switch dlux-options-inline-switch">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="unsavedWarningToggle"
+                               name="unsaved_warning_enabled"
+                               data-unsaved-warning-toggle
+                               data-enabled-message="{{ DLUX_STRINGS.unsaved_option_on|default:'You will be warned about unsaved changes.' }}"
+                               data-disabled-message="{{ DLUX_STRINGS.unsaved_option_off|default:'Unsaved changes will be discarded without asking.' }}">
                     </div>
                 </div>
             </div>
@@ -832,26 +874,50 @@
 
     <!-- Reset Defaults: standalone footer danger zone (resets the options above; not an options card) -->
     <div class="dlux-options-reset-footer no-print">
-        <div class="dlux-options-reset-bar dlux-options-panel--danger"
-             data-reset-url="{% url 'reset_preferences' %}"
-             data-reset-success="{{ DLUX_STRINGS.reset_success }}"
-             data-reset-error="{{ DLUX_STRINGS.reset_error|default:'Unable to reset preferences.' }}">
+        <div class="dlux-options-reset-bar dlux-options-panel--danger">
             <div class="dlux-options-reset-bar-text">
                 <h4 class="mb-1 text-danger"><i class="bi bi-arrow-counterclockwise me-2"></i> {{ DLUX_STRINGS.reset_defaults }}</h4>
                 <p class="text-muted small mb-0">{{ DLUX_STRINGS.reset_desc }}</p>
             </div>
             <div class="dlux-options-reset-bar-actions">
-                <button class="btn btn-outline-danger btn-sm dlux-options-reset-action" id="btnResetInit">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i> {{ DLUX_STRINGS.reset_btn }}
-                </button>
-                <div id="resetActions" class="dlux-options-reset-actions" hidden>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-danger btn-sm" id="btnResetConfirm">
-                            <i class="bi bi-check-lg me-1"></i> {{ DLUX_STRINGS.confirm }}
-                        </button>
-                        <button type="button" class="btn btn-secondary btn-sm" id="btnResetCancel">
-                            <i class="bi bi-x-lg me-1"></i> {{ DLUX_STRINGS.cancel }}
-                        </button>
+                <div class="dlux-options-reset-group"
+                     data-reset-bar
+                     data-reset-scope="dialogs"
+                     data-reset-url="{% url 'reset_dialog_prompts' %}"
+                     data-reset-success="{{ DLUX_STRINGS.reset_dialogs_success|default:'Dialog prompts have been restored.' }}"
+                     data-reset-error="{{ DLUX_STRINGS.reset_dialogs_error|default:'Unable to reset dialog prompts.' }}">
+                    <button class="btn btn-outline-secondary btn-sm dlux-options-reset-action" id="btnResetDialogsInit" data-reset-init>
+                        <i class="bi bi-chat-square-dots me-1"></i> {{ DLUX_STRINGS.reset_dialogs_btn|default:'Restore prompts' }}
+                    </button>
+                    <div id="resetDialogsActions" class="dlux-options-reset-actions" hidden data-reset-actions>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-primary btn-sm" data-reset-confirm>
+                                <i class="bi bi-check-lg me-1"></i> {{ DLUX_STRINGS.confirm }}
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-reset-cancel>
+                                <i class="bi bi-x-lg me-1"></i> {{ DLUX_STRINGS.cancel }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="dlux-options-reset-group"
+                     data-reset-bar
+                     data-reset-scope="preferences"
+                     data-reset-url="{% url 'reset_preferences' %}"
+                     data-reset-success="{{ DLUX_STRINGS.reset_success }}"
+                     data-reset-error="{{ DLUX_STRINGS.reset_error|default:'Unable to reset preferences.' }}">
+                    <button class="btn btn-outline-danger btn-sm dlux-options-reset-action" id="btnResetInit" data-reset-init>
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> {{ DLUX_STRINGS.reset_btn }}
+                    </button>
+                    <div id="resetActions" class="dlux-options-reset-actions" hidden data-reset-actions>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-danger btn-sm" id="btnResetConfirm" data-reset-confirm>
+                                <i class="bi bi-check-lg me-1"></i> {{ DLUX_STRINGS.confirm }}
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btnResetCancel" data-reset-cancel>
+                                <i class="bi bi-x-lg me-1"></i> {{ DLUX_STRINGS.cancel }}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

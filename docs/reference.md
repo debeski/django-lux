@@ -414,13 +414,15 @@ def _build(request):
     return {"settings": get_app_system_config("myproject.settings", {})}
 
 register_card(
-    id="myproject.dashboard",          # [A-Za-z0-9._-], also the data-options-card value
+    id="myproject.dashboard",          # [A-Za-z0-9._-]; the data-options-card value, and the
+                                       # slug for /sys/options/#dlux-option-<id> deep links
     title="Dashboard Layout",          # str, or callable(request)->str for i18n
     icon="bi-grid",                    # Bootstrap-Icons class(es)
     template_name="myapp/options/dashboard_card.html",  # rendered as the card *body*
     order=100,                          # lower sorts first
     superuser_only=False,               # or permission="myapp.change_thing"
     context_builder=_build,             # optional callable(request)->dict
+    search_keywords=("layout", "تخطيط"),  # optional global-search synonyms
     visible=lambda r: get_app_system_config("myproject.settings", {}).get("enabled", True),
 )                                       # optional config-driven visibility (fail-closed)
 ```
@@ -429,6 +431,13 @@ register_card(
 — e.g. show the card only when a feature is enabled in `extra_config`. It is
 evaluated server-side *after* `superuser_only`/`permission`, and **fail-closed**:
 if it raises, the card is hidden.
+
+The card is also a **global-search result**, deep-linking to
+`/sys/options/#dlux-option-<id>`. Its entry is built per request — so the label
+is whatever `title(request)` returns in the user's language, and the same
+`superuser_only`/`permission`/`visible` gates decide who can find it. Matching
+uses that label plus `search_keywords`, which are **not** translated: list the
+synonyms for every language you ship.
 
 Your template renders only the card body; Dlux supplies the surrounding card
 chrome (heading, drag handle) and includes it in reordering/tabs like any
@@ -605,10 +614,172 @@ translated results grouped by type — `page`, `setting`, `option`, `action`, an
 → config; the index is cached per language), so an Arabic UI returns Arabic
 results and an Arabic query matches:
 
-- **Pages** come from the sidebar route discovery, filtered by each route's inferred permissions.
-- **Settings** are the 12 System Settings sections, each deep-linking to the same step-scoped dynamic modal the Options page uses (superuser-only).
-- **Options** are the Options-page user-preference cards (theme, language, accessibility, typography, densities, modal size, nav-bar mode, landing page, autofill), visible to every authenticated user; a result deep-links to `/sys/options/#dlux-option-<slug>` and scrolls to the card.
+- **Pages** come from the global route discovery through the `search` profile, filtered by each route's inferred permissions. That profile accepts form pages, so `chapter_add` is findable by name; id-bound pages (`chapter_edit`) are not, since a search result needs a URL that resolves without arguments.
+- **Settings** are the 12 System Settings sections, each deep-linking to the same step-scoped dynamic modal the Options page uses (superuser-only). Selecting one dispatches `dlux:dynamic_modal:open` from `document.body` with `bubbles: true`; the modal helper listens on `document`, which also receives the element-dispatched events table row actions emit. Each settings result also carries a `fallback_url` pointing at the admin panel card (`#dlux-option-admin-panel`), used when the page has no dynamic-modal host so a click is never silently inert.
+- **Options** are the Options-page user-preference cards (theme, language, accessibility, typography, densities, modal size, nav-bar mode, landing page, autofill), visible to every authenticated user. Only cards the current configuration actually renders are indexed — a single-language install returns no Language result, a single-theme install no Theme result, and the same applies to `allow_user_home_url`, `allow_user_font_override`, `navbar.allow_user_mode_override`, and `sidebar.allow_user_density`. Below the split thresholds (non-tabs layout, at most 5 themes and 2 languages) the page merges Theme and Language into one `theme-language` card, so those two results are remapped to that slug rather than dropped. The index is keyed on the sidebar cache version, which `SystemSettings.refresh_cache()` bumps on save, so configuration changes take effect at once. A result deep-links to `/sys/options/#dlux-option-<slug>` and scrolls to the card. Under the tabbed Options layout the target card usually sits in an inactive pane, so the deep link activates that pane before scrolling. A `hashchange` handler re-runs the same logic, because selecting a second Options result while already on the page changes only the hash and never reloads.
 - **Actions** are curated titlebar/nav shortcuts (My Profile, Options).
+
+### Translation keys
+
+`DLUX_STRINGS.<key>|default:'…'` and `strings.get('<key>', '…')` fall back to the
+literal default when the key is absent, so a missing key renders English in every
+language with no error. `dlux/tests/test_translation_coverage.py` fails the build
+when a referenced key does not resolve in every shipped language, when the
+language dicts drift apart, or when a `STRING_ALIASES` entry points at nothing.
+Retired keys may resolve through `dlux/translation_aliases.py` instead of being
+defined directly. Keys a template deliberately presence-tests (`footer_text`) are
+listed in that test's `_OPTIONAL_OVERRIDE_KEYS`. `scripts/audit_strings.py` runs
+the same check outside the suite.
+
+### Assisted entry
+
+Two independent aids for repetitive data entry, each a user preference:
+
+| Preference | Default | Behaviour |
+| --- | --- | --- |
+| `autofill_from_related` | on | Choosing a ForeignKey copies that record's matching-named fields into the form. Reacts only to a deliberate selection. |
+| `sticky_forms` | off | A new form starts pre-filled from the last record the user created. Off by default because it changes a form nobody touched. |
+
+A form advertises what it supports. FK selects carrying `data-autofill-source`
+(added automatically by `resolve_form_class_for_model`) enable the first.
+`data-model-name` + `data-app-label` enable the second — the dynamic modal emits
+them on **create** forms only, since pre-filling an existing record from a
+different one would be data loss. A project rendering its own form templates must
+emit them itself for sticky-forms to apply there.
+
+Forms that support sticky-forms get a thin `dlux-assist-bar` at the top, with the
+switch at its end. That switch is the shared `dlux-settings-toggle-field` control
+— `system_setup.css` (loaded on every page) and the themes style it by those
+exact class names, so JS building it must use them and `type="checkbox"`, or it
+renders as a bare browser checkbox.
+
+`window.updatePreferences(data)` returns the `fetch` promise. Anything that
+navigates or reloads after saving a preference must await it, or the navigation
+races the POST and the new page renders the old value.
+
+Sticky prefill is a **server-side** concern — the initial data has to be in the
+form before it renders — so dlux owns the gate rather than a cookie:
+
+```python
+from dlux.utils import sticky_forms_enabled, sticky_form_initial
+
+# either read the gate directly...
+if request.method == 'GET' and sticky_forms_enabled(request):
+    ...
+
+# ...or let dlux build the initial dict
+initial = sticky_form_initial(request, Decree, {
+    'category': 'category',
+    'number': lambda last: increment_number(last.number),
+})
+form = DecreeForm(initial=initial, request=request)
+```
+
+`sticky_form_initial` returns `{}` when the preference is off, on a POST, or when
+the model has no rows, so a call site never has to branch.
+
+These helpers are opt-in. A project pinned to dlux < 1.7.2 should guard the
+import and fall back to reading the `sticky_forms` preference itself — never to
+the retired `enable_prefill` cookie, whose `'true'` default made prefill
+impossible to switch off.
+
+```python
+def add_decree(request):
+    from dlux.utils import sticky_forms_enabled
+    ...
+```
+
+`dlux.utils` sits inside a 27-module import cycle (`dlux.models`, `dlux.middleware`,
+`dlux.discovery`, `dlux.context_processors` and others — see
+`scripts/import_cycles.py`). A module-scope `from dlux.utils import ...` in a
+project module that Django reaches through `ROOT_URLCONF` can therefore observe a
+half-initialised package, which surfaces as Django's misleading "The included
+URLconf does not appear to have any patterns in it".
+
+Both helpers arrived in 1.7.2. A project pinned to an older dlux should guard the
+import — an `ImportError` at module scope surfaces as Django's misleading "The
+included URLconf does not appear to have any patterns in it".
+
+A form that was prefilled server-side marks itself `data-sticky-server` alongside
+`data-app-label`/`data-model-name`; dlux then skips its own client-side fill and
+reloads when the switch is flipped, since only a reload can apply or undo work
+that happened before render.
+
+Only sticky-forms gets an inline switch, on the forms that support it; filling
+from a related record reacts to a deliberate selection and is configured from
+Options alone. Turning sticky off clears the remembered record id. Neither
+feature gates the other.
+
+### Unsaved-changes guard
+
+A modal form that sets `form.dlux_unsaved_guard = True` renders with
+`data-dlux-unsaved-guard`, and `unsaved_guard.js` intercepts `hide.bs.modal` —
+the single event behind the backdrop, the X button and Escape — when the form's
+values differ from the snapshot taken after its initializers settle. The
+`#dluxUnsavedModal` prompt offers Save (via `requestSubmit` with the form's named
+submitter), Discard, or Go back.
+
+Dirtiness is a value snapshot rather than an input listener on purpose: the
+System Settings form rewrites its own hidden JSON carriers during init and live
+preview, dispatching synthetic events that would otherwise mark it dirty
+immediately.
+
+The prompt's "don't ask again" switch stores the `skip_unsaved_settings_prompt`
+user preference; while set, a dirty close discards without prompting. The
+Options page carries an *Unsaved changes warning* card that turns it back on.
+
+### Never resolve a URL from a module body
+
+`reverse()` (and anything reaching it) must not run while a module is being
+imported. A project's `urls.py` calls `include('dlux.urls')` inside its
+`urlpatterns` list literal, so during that call the project's own urls module is
+in `sys.modules` **without** `urlpatterns`. Resolving a URL then makes Django
+cache that half-built module on the resolver, and every later system check fails
+with "The included URLconf does not appear to have any patterns in it".
+
+This is easy to hit indirectly: dlux's global gettext patch answers a lazy
+string by calling `get_strings()` → `get_system_config()`, and Django resolves
+lazy strings inside form-class bodies at import time. `_root_urlconf_is_loading()`
+in `dlux/discovery.py` guards the one known path; add the same guard to any new
+code that can resolve a URL from a config or translation lookup.
+
+### Registering a dismissible dialog
+
+Any prompt with a "don't show again" switch should register itself, so the
+Options page's **Reset dialog prompts** action can bring it back. Without that,
+the opt-out is a one-way door:
+
+```python
+from dlux.dialogs import register_dismissible_dialog
+
+register_dismissible_dialog(
+    id='archive.install_app',          # stable slug, [A-Za-z0-9._-], namespaced
+    label='Install as app prompt',     # shown to developers/operators
+    app_namespace='archive.pwa',       # preferences['app']['archive.pwa']
+    app_preference_key='dismissed',    # ...['dismissed']
+    description='The add-to-home-screen prompt.',
+)
+```
+
+Call it once at startup (an `AppConfig.ready()` is the natural place).
+Dismissal state can live in any of:
+
+| Argument | Stored in |
+| --- | --- |
+| `preference_key` | a top-level key in `Profile.preferences` (Dlux-owned) |
+| `app_namespace` + `app_preference_key` | `Profile.preferences['app'][<namespace>][<key>]` — the right home for project prompts |
+| `profile_field` | a boolean field on `Profile` (Dlux-internal; projects cannot add fields to Dlux's `Profile`) |
+
+Registering the same `id` twice replaces the earlier entry, so a module imported
+more than once does not accumulate duplicates.
+
+`POST /sys/api/preferences/dialogs/reset/` (`reset_dialog_prompts`) clears every
+registered dismissal for the current user and returns
+`{"success": true, "reset": <n>, "registered": <n>}`. It is deliberately narrower
+than `reset_preferences`: theme, density, language and every other preference are
+left alone, and only the dismissed key is removed from an app namespace — other
+keys in that namespace survive. Dlux registers two built-ins: the unsaved-changes
+warning, and the first-login Initial User Setup modal.
 - **Data** searches `icontains` across the text fields of the project's real models (the activity-log model set plus User/Profile), gated by each model's `view` permission; scoped models are row-filtered automatically by `ScopedManager`.
 
 Two optional settings tune the data provider:
@@ -777,9 +948,36 @@ Common runtime sidebar config keys in `get_system_config()["sidebar"]`:
 - `density`
 - `allow_user_density`
 - `collapse_mode`
+- `toggle_icon`
 
 When `enabled` is `false`, Dlux does not render the runtime sidebar, ignores
 sidebar toolbar/reorder/density controls, and lets the main layout expand.
+
+**Step master toggles** dim and disable their dependent settings rather than
+hiding them, so an admin can see what enabling the step will restore. A dimmed
+dependent also carries a `data-dlux-tooltip` naming the control that enables it.
+Variant switches (email transport, client-IP mode, login style) still hide their
+inapplicable fields — they are not on/off dependencies. Because a disabled control does not post, each
+group's save path keeps the stored configuration and only flips `enabled` when
+the master toggle is off — never rebuild a group from flat fields without that
+guard, or switching the feature off will reset it. The cross-step public-root and
+public-registration flags are the deliberate exception: their fields are injected
+into other steps, so they stay hidden when inapplicable.
+
+`toggle_icon` is the glyph on the titlebar's sidebar-toggle button, set from
+Setup Step 5 (Sidebar) with the same searchable icon grid the sidebar builder
+uses. Its picker is disabled while the sidebar is off, and while
+`collapse_mode` is `locked_expanded` — that mode hides the toggle on desktop
+(it still renders below 1100px). The grid is a disclosure: clicking the current icon expands it, picking one
+collapses it again, and it is only built while open — a ~600-button grid rendered
+on every step render is what made the step lag. It defaults to `bi-list`. Any class from the bundled Bootstrap Icons font
+is accepted; because the value is rendered straight into a `class` attribute the
+normalizer requires a plain `bi-*` token (lowercase, no spaces, max 64 chars) and
+falls back to the default for anything else, so a hand-edited or imported
+`sidebar_config` cannot inject markup. Icons listed in
+`SIDEBAR_TOGGLE_DIRECTIONAL_ICONS` (arrows, chevrons, sidebar panels) point
+*toward* the sidebar, so the template tags them `dlux-icon-directional` and CSS
+mirrors them under `[dir="rtl"]`; symmetric glyphs render as authored.
 
 `SystemSettings` storage is grouped, but the public/runtime contract is flat.
 The model keeps only identity fields as standalone columns (`system_names`,

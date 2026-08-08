@@ -3,7 +3,8 @@ from urllib.parse import urlsplit
 from django.urls import NoReverseMatch, reverse
 
 from .system.constants import DEFAULT_NAVBAR_MODE, NAVBAR_MODE_VALUES
-from .discovery import SYSTEM_ROUTE_META, discover_sidebar_catalog, sanitize_navbar_config
+from .discovery import SYSTEM_ROUTE_META, discover_routes_for, sanitize_navbar_config
+from .system.constants import DISCOVERY_PROFILE_NAVBAR
 from .utils import normalize_navbar_config
 
 
@@ -314,10 +315,15 @@ def _inferred_system_route_crumbs(url_name, catalog_entry, lang_code, catalog_lo
 
 def build_navbar_route_label_map(lang_code):
     route_labels = {}
-    for entry in discover_sidebar_catalog(lang_code=lang_code, include_system_items=True):
-        path = str(entry.get('url') or '').split('?', 1)[0].rstrip('/') or '/'
+    for entry in discover_routes_for(DISCOVERY_PROFILE_NAVBAR, lang_code=lang_code, include_system_items=True):
+        # The navbar profile also carries id-bound routes, which have no URL to
+        # key a path label by — and would otherwise all collapse onto '/'.
+        raw_url = str(entry.get('url') or '').strip()
+        if not raw_url:
+            continue
+        path = raw_url.split('?', 1)[0].rstrip('/') or '/'
         label = str(entry.get('label') or '').strip()
-        if path and label:
+        if label:
             route_labels[path] = label
     # Also label the system routes that are NOT sidebar candidates (e.g. the
     # user profile and reports overview) so the Nav Bar shows their translated
@@ -360,7 +366,7 @@ def build_navbar_hierarchy_crumbs(
     config = sanitize_navbar_config(navbar_config)
     request_path = getattr(request, 'path', '')
     neutral_root = _root_crumb(dlux_strings, current_path=request_path)
-    catalog = discover_sidebar_catalog(lang_code=lang_code, include_system_items=True)
+    catalog = discover_routes_for(DISCOVERY_PROFILE_NAVBAR, lang_code=lang_code, include_system_items=True)
     catalog_lookup = {}
     for entry in catalog:
         url_name = str(entry.get('url_name') or '').strip()

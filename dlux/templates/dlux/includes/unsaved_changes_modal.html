@@ -1,0 +1,30 @@
+<div class="modal fade dlux-confirm-modal dlux-modal-stacked" id="dluxUnsavedModal" tabindex="-1" aria-hidden="true"
+     aria-labelledby="dluxUnsavedTitle" data-dlux-unsaved-modal>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dluxUnsavedTitle" data-dlux-unsaved-title>{{ DLUX_STRINGS.unsaved_title|default:'You have unsaved changes' }}</h5>
+                <button type="button" class="btn-close" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}" data-dlux-unsaved-stay></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="alert" data-autoclose="false">
+                    <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1" aria-hidden="true"></i>
+                    <span data-dlux-unsaved-description>{{ DLUX_STRINGS.unsaved_message|default:'Your changes have not been saved yet. If you continue, they will be discarded.' }}</span>
+                </div>
+                <div class="form-check form-switch small mb-0">
+                    <input class="form-check-input" type="checkbox" id="dluxUnsavedSkipToggle" data-dlux-unsaved-skip>
+                    <label class="form-check-label" for="dluxUnsavedSkipToggle">
+                        {{ DLUX_STRINGS.unsaved_skip_label|default:"Don't ask again — always discard" }}
+                    </label>
+                </div>
+                <div class="form-text" data-dlux-unsaved-skip-help>{{ DLUX_STRINGS.unsaved_skip_help|default:'You can turn this prompt back on from Options.' }}</div>
+                <div class="text-danger small mt-2 d-none" data-dlux-unsaved-error aria-live="polite"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link text-decoration-none" data-dlux-unsaved-stay>{{ DLUX_STRINGS.unsaved_stay|default:'Go back' }}</button>
+                <button type="button" class="btn btn-outline-danger" data-dlux-unsaved-discard>{{ DLUX_STRINGS.unsaved_discard|default:'Discard changes' }}</button>
+                <button type="button" class="btn btn-primary" data-dlux-unsaved-save>{{ DLUX_STRINGS.unsaved_save|default:'Save changes' }}</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,15 +1,16 @@
 {
   "schema_version": 1,
-  "version": "1.7.1",
+  "version": "1.7.2",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
-  "summary": "Restore reports live progress like backups do, and a truncated .dlb upload names the reverse-proxy body limit instead of blaming the file.",
+  "summary": "Global search results now actually open what they name, and the backup/restore progress tables no longer strand the percentage on its own line.",
   "highlights": [
-    "Restore now shows a live progress bar with the current phase — decrypting, per-model load, per-file writes, and finalize — instead of a bare 'running' badge.",
-    "A finished or failed restore raises a notification; progress survives a page reload because it is persisted on the SystemRestore row.",
-    "A backup upload cut short by the reverse-proxy body limit reports the truncated transfer instead of 'not a valid .dlb file'.",
-    "DLUX_DLB_UPLOAD_MAX_MB makes the 512 MB upload cap configurable; copying a large .dlb into the backup folder stays the route for multi-GB snapshots."
+    "Options cards added by an app are now found by global search, in the user's own language.",
+    "System Settings results in global search open their step modal instead of doing nothing when clicked.",
+    "Options results reveal their card in the tabbed layout, and repeat selections from the Options page work.",
+    "Options cards the configuration does not render (a Language card on a single-language install) no longer appear as search results.",
+    "Progress percentage and its status message stay on one line in the backup and restore tables, whatever the message length."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.7.1"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.7.2"
 }

@@ -586,7 +586,7 @@ A preset can be **global** (no scope) or bound to a single `Scope`:
 - For *assignment*, scoped staff see global presets plus presets in their own scope.
 - For *management* (edit/delete/membership), global presets are restricted to superusers and Global Staff; scoped staff manage only presets in their own scope. Membership edits never touch members outside the actor's manageable set, so a scoped manager cannot remove a user from a preset they don't control.
 
-Scope management itself uses the same context-menu pattern. In **Manage Scopes**, scope rows expose Edit, Details, disabled Delete, and public-registration default actions. The details view shows the scope description, assigned users, related data counts, and recent activity. `Scope.description` is optional and safe to blank.
+Scope management itself uses the same context-menu pattern. In **Manage Scopes**, scope rows expose Edit, Details, disabled Delete, and public-registration default actions. The create/edit form also offers a scope default theme when scopes are enabled and more than one theme is allowed. A scoped user with no valid personal theme inherits it; disabling scopes, removing that theme from the allowlist, or leaving an existing scope unset falls back to the system default. The details view shows the scope description, assigned users, related data counts, and recent activity. `Scope.description` is optional and safe to blank.
 
 ### Data model
 

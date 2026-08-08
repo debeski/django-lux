@@ -4,7 +4,7 @@ setup_test_environment()
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import Client, TestCase, override_settings
+from django.test import Client, RequestFactory, TestCase, override_settings
 
 from dlux.system.constants import (
     SETUP_STEP_COUNT,
@@ -14,6 +14,7 @@ from dlux.system.constants import (
 )
 from dlux.search import get_component_index, run_search, search_components
 from dlux.system.normalizers import normalize_titlebar_config
+from dlux.utils import get_system_config
 
 User = get_user_model()
 
@@ -87,6 +88,58 @@ class ComponentIndexTests(TestCase):
         self.assertTrue(all('/sys/options/#dlux-option-' in url for url in option_urls))
         labels = {e['label'] for e in index if e['type'] == 'option'}
         self.assertIn('Color Theme', labels)
+
+
+class AppCardSearchTests(TestCase):
+    """App cards are resolved per request, outside the cached component index."""
+
+    def setUp(self):
+        from dlux import options
+
+        _configure_system()
+        self.factory = RequestFactory()
+        self.superuser = User.objects.create_superuser('boss', 'boss@x.com', 'pw12345!')
+        self.plain = User.objects.create_user('joe', 'joe@x.com', 'pw12345!')
+        options.register_card(
+            id='probe.widget',
+            title=lambda request: 'Widget Bridge',
+            template_name='options_test_card.html',
+            search_keywords=('gadget', 'أداة'),
+        )
+        options.register_card(
+            id='probe.secret',
+            title='Secret Widget',
+            template_name='options_test_card.html',
+            superuser_only=True,
+        )
+        self.addCleanup(options.unregister_card, 'probe.widget')
+        self.addCleanup(options.unregister_card, 'probe.secret')
+
+    def _labels(self, user, query):
+        request = self.factory.get('/')
+        request.user = user
+        results = search_components(user, query, lang_code='en', request=request)
+        return [r['label'] for r in results]
+
+    def test_card_is_found_by_title_and_deeplinks_to_its_id(self):
+        request = self.factory.get('/')
+        request.user = self.superuser
+        results = search_components(self.superuser, 'widget bridge', lang_code='en', request=request)
+        entry = next(r for r in results if r['label'] == 'Widget Bridge')
+        self.assertEqual(entry['type'], 'option')
+        self.assertEqual(entry['url'], '/sys/options/#dlux-option-probe.widget')
+
+    def test_search_keywords_match(self):
+        self.assertIn('Widget Bridge', self._labels(self.superuser, 'gadget'))
+        self.assertIn('Widget Bridge', self._labels(self.superuser, 'أداة'))
+
+    def test_superuser_only_card_is_hidden_from_others(self):
+        self.assertIn('Secret Widget', self._labels(self.superuser, 'secret'))
+        self.assertNotIn('Secret Widget', self._labels(self.plain, 'secret'))
+        self.assertIn('Widget Bridge', self._labels(self.plain, 'gadget'))
+
+    def test_no_request_yields_no_app_cards(self):
+        self.assertEqual(search_components(self.superuser, 'gadget', lang_code='en'), [])
 
 
 class ArabicLocalizationTests(TestCase):
@@ -252,3 +305,178 @@ class SearchEndpointTests(TestCase):
         payload = self.client.get('/search/?q=security').json()
         self.assertEqual(payload['groups'], [])
         self.assertTrue(payload.get('disabled'))
+
+
+class SearchActivationWiringTests(TestCase):
+    """The click path from a result to the thing it names.
+
+    The failure these cover: settings results were dead on click. The dropdown
+    dispatched `dlux:dynamic_modal:open` on `document`, while the modal helper
+    listened on `document.body` — and an event dispatched on `document` never
+    reaches body, because bubbling only travels child → parent. No modal, no
+    request, no error.
+    """
+
+    def setUp(self):
+        _configure_system()
+
+    @staticmethod
+    def _asset(*parts):
+        from pathlib import Path
+
+        import dlux
+
+        return (Path(dlux.__file__).parent.joinpath('static', 'dlux', *parts)).read_text(encoding='utf-8')
+
+    def test_modal_listener_and_dispatcher_share_a_target(self):
+        helper = self._asset('helpers', 'dynamic_modal', 'js', 'main.js')
+        search = self._asset('main', 'js', 'global_search.js')
+        # The listener must be on document so it also catches events bubbling up
+        # from an element, which is how table row actions reach it.
+        self.assertIn("document.addEventListener('dlux:dynamic_modal:open'", helper)
+        self.assertNotIn("document.body.addEventListener('dlux:dynamic_modal:open'", helper)
+        # The dispatcher bubbles from body, so it lands on either binding.
+        self.assertIn("document.body.dispatchEvent(new CustomEvent('dlux:dynamic_modal:open'", search)
+        self.assertIn('bubbles: true', search)
+
+    def test_settings_results_carry_a_fallback_target(self):
+        index = get_component_index('en')
+        settings_entries = [entry for entry in index if entry['type'] == 'setting']
+        self.assertTrue(settings_entries)
+        for entry in settings_entries:
+            self.assertTrue(entry['fallback_url'].endswith('#dlux-option-admin-panel'), entry)
+
+    def test_fallback_url_survives_the_public_key_filter(self):
+        superuser = User.objects.create_superuser('root', 'r@x.com', 'pw12345!')
+        self.client.force_login(superuser)
+        groups = self.client.get('/search/?q=security').json()['groups']
+        settings_group = next(g for g in groups if g['type'] == 'setting')
+        item = settings_group['items'][0]
+        self.assertIn('fallback_url', item)
+        self.assertTrue(item['fallback_url'])
+
+    def test_admin_panel_is_addressable_without_becoming_reorderable(self):
+        from pathlib import Path
+
+        import dlux
+
+        template = (
+            Path(dlux.__file__).parent / 'templates' / 'dlux' / 'includes' / 'options.html'
+        ).read_text(encoding='utf-8')
+        self.assertIn('dlux-admin-panel-card" data-options-deeplink="admin-panel"', template)
+        # data-options-card is what drag-reordering keys off, so the admin panel
+        # must NOT gain it just to be deep-linkable.
+        self.assertNotIn('dlux-admin-panel-card" data-options-card=', template)
+
+    def test_options_deep_link_reveals_its_tab_and_survives_repeat_clicks(self):
+        options_js = self._asset('main', 'js', 'options.js')
+        # The deep link resolves either hook.
+        self.assertIn('data-options-deeplink="', options_js)
+        # It activates the pane that holds the target instead of scrolling to a
+        # hidden card, which is what "goes to Options but not the tab" was.
+        self.assertIn('optionsTabs.activate(index)', options_js)
+        # A second result while already on Options only changes the hash.
+        self.assertIn("window.addEventListener('hashchange', focusHashCard)", options_js)
+
+
+class OptionCardVisibilityTests(TestCase):
+    """Only cards this configuration actually renders may be offered.
+
+    The failure these cover: OPTIONS_CARDS is a static catalogue, so the index
+    advertised every card unconditionally. A single-language install still
+    returned a Language result whose deep link landed on Options and highlighted
+    nothing, because the card is never rendered.
+    """
+
+    def setUp(self):
+        _configure_system()
+        self.config = get_system_config()
+
+    def _slugs(self, **overrides):
+        from dlux.search import _visible_option_slugs
+
+        return _visible_option_slugs({**self.config, **overrides})
+
+    def test_single_language_hides_the_language_card(self):
+        localization = {**(self.config.get('localization') or {}), 'languages': {'en': 'English'}}
+        visible, _remap = self._slugs(localization=localization)
+        self.assertNotIn('language', visible)
+        self.assertNotIn('theme-language', visible)
+
+    def test_language_override_off_hides_it_even_with_two_languages(self):
+        localization = {
+            **(self.config.get('localization') or {}),
+            'languages': {'en': 'English', 'ar': 'Arabic'},
+            'allow_user_language_override': False,
+        }
+        visible, _remap = self._slugs(localization=localization)
+        self.assertNotIn('language', visible)
+
+    def test_single_theme_hides_the_standalone_theme_card(self):
+        """The merged card still renders for the language half alone, matching
+        the template, so only the standalone 'theme' slug disappears."""
+        visible, remap = self._slugs(allowed_themes=['light'])
+        self.assertNotIn('theme', visible)
+        self.assertIsNone(remap.get('theme'))
+        self.assertEqual(remap.get('language'), 'theme-language')
+
+    def test_no_theme_and_no_language_hides_the_pair_entirely(self):
+        localization = {**(self.config.get('localization') or {}), 'languages': {'en': 'English'}}
+        visible, remap = self._slugs(allowed_themes=['light'], localization=localization)
+        self.assertNotIn('theme', visible)
+        self.assertNotIn('language', visible)
+        self.assertNotIn('theme-language', visible)
+        self.assertEqual(remap, {})
+
+    def test_merged_theme_language_card_remaps_both_slugs(self):
+        """Below the split thresholds the page renders one combined card."""
+        appearance = {**(self.config.get('appearance') or {}), 'options_style': 'cards'}
+        visible, remap = self._slugs(allowed_themes=['light', 'dark'], appearance=appearance)
+        self.assertIn('theme-language', visible)
+        self.assertEqual(remap.get('theme'), 'theme-language')
+        self.assertEqual(remap.get('language'), 'theme-language')
+
+    def test_tabs_layout_splits_them_into_their_own_cards(self):
+        appearance = {**(self.config.get('appearance') or {}), 'options_style': 'tabs'}
+        visible, remap = self._slugs(allowed_themes=['light', 'dark'], appearance=appearance)
+        self.assertIn('theme', visible)
+        self.assertIn('language', visible)
+        self.assertNotIn('theme-language', visible)
+        self.assertEqual(remap, {})
+
+    def test_landing_page_follows_allow_user_home_url(self):
+        off, _ = self._slugs(profile_config={'allow_user_home_url': False})
+        self.assertNotIn('landing-page', off)
+        on, _ = self._slugs(profile_config={'allow_user_home_url': True})
+        self.assertIn('landing-page', on)
+
+    def test_sidebar_density_follows_the_sidebar_being_enabled(self):
+        off, _ = self._slugs(sidebar={'enabled': False})
+        self.assertNotIn('sidebar-density', off)
+
+    def test_index_drops_the_language_result_for_a_single_language_install(self):
+        from unittest import mock
+
+        single = {
+            **self.config,
+            'localization': {
+                **(self.config.get('localization') or {}),
+                'languages': {'en': 'English'},
+            },
+        }
+        cache.clear()
+        with mock.patch('dlux.utils.get_system_config', return_value=single):
+            labels = {e['label'] for e in get_component_index('en') if e['type'] == 'option'}
+        self.assertNotIn('Language', labels)
+        # Unconditional cards are untouched.
+        self.assertIn('Accessibility', labels)
+
+    def test_every_indexed_option_points_at_a_renderable_card(self):
+        from dlux.search import _visible_option_slugs
+
+        visible, _remap = _visible_option_slugs(get_system_config())
+        for entry in get_component_index('en'):
+            if entry['type'] != 'option':
+                continue
+            slug = entry['url'].split('#dlux-option-')[-1]
+            self.assertIn(slug, visible, entry['url'])

@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db.models.query import QuerySet
+from django.template.loader import render_to_string
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -748,3 +749,83 @@ class RestoreProgressTests(TestCase):
                 # Progress only ever moves forward while the run is live.
                 percents = [percent for percent, _stage in seen]
                 self.assertEqual(percents, sorted(percents), percents)
+
+
+class ProgressCellLayoutTests(TestCase):
+    """The percentage must never be orphaned onto its own line.
+
+    The failure this covers: percentage and status message were one text run
+    joined by ' · ', so the spaces around that separator were legal break points.
+    A long running-phase message wrapped and stranded "0%" alone on the line
+    above, while a short completed message happened to fit — which is why the bug
+    only showed at 0%. They are now flex siblings, so the number always shares
+    the message's first line.
+    """
+
+    LONG_MESSAGE = 'Decrypting 1.2 GB / 9.8 GB of an unusually large container'
+
+    def setUp(self):
+        self.SystemBackup = apps.get_model('dlux', 'SystemBackup')
+        self.SystemRestore = apps.get_model('dlux', 'SystemRestore')
+
+    def _cell(self, html):
+        start = html.index('dlux-backup-progress-status')
+        return html[start:html.index('</small>', start)]
+
+    def test_backup_row_keeps_percent_and_message_as_flex_siblings(self):
+        from dlux.views.backup import _backup_rows_context
+
+        backup = self.SystemBackup.objects.create(
+            requested_by_username='x', status='running',
+            progress_percent=0, progress_message=self.LONG_MESSAGE,
+        )
+        html = render_to_string(
+            'dlux/backup/_backup_rows.html', _backup_rows_context([backup]),
+        )
+        cell = self._cell(html)
+        self.assertIn('dlux-backup-progress-percent">0%<', cell)
+        self.assertIn(f'dlux-backup-progress-note">{self.LONG_MESSAGE}<', cell)
+        # The middot separator is what could break; a gap replaces it.
+        self.assertNotIn('·', cell)
+
+    def test_restore_row_keeps_percent_and_message_as_flex_siblings(self):
+        from dlux.views.backup import _restore_rows_context
+
+        restore = self.SystemRestore.objects.create(
+            requested_by_username='x', backup_file_path='x.dlb', status='running',
+            progress_percent=0, progress_message=self.LONG_MESSAGE, stage='decrypting',
+        )
+        html = render_to_string(
+            'dlux/backup/_restore_rows.html', _restore_rows_context([restore]),
+        )
+        cell = self._cell(html)
+        self.assertIn('dlux-backup-progress-percent">0%<', cell)
+        self.assertIn(f'dlux-backup-progress-note">{self.LONG_MESSAGE}<', cell)
+        self.assertNotIn('·', cell)
+
+    def test_completed_rows_render_the_same_structure(self):
+        """100% took the same code path, so it must not diverge either."""
+        from dlux.views.backup import _backup_rows_context
+
+        backup = self.SystemBackup.objects.create(
+            requested_by_username='x', status='completed',
+            progress_percent=100, progress_message='Backup ready.',
+        )
+        cell = self._cell(render_to_string(
+            'dlux/backup/_backup_rows.html', _backup_rows_context([backup]),
+        ))
+        self.assertIn('dlux-backup-progress-percent">100%<', cell)
+        self.assertIn('dlux-backup-progress-note">Backup ready.<', cell)
+
+    def test_stylesheet_defines_the_layout_the_markup_relies_on(self):
+        from pathlib import Path
+
+        import dlux
+
+        css = (
+            Path(dlux.__file__).parent / 'static' / 'dlux' / 'main' / 'css' / 'notifications.css'
+        ).read_text(encoding='utf-8')
+        block = css[css.index('.dlux-backup-progress-status'):]
+        self.assertIn('display: flex', block)
+        self.assertIn('.dlux-backup-progress-percent', block)
+        self.assertIn('flex: 0 0 auto', block)

@@ -563,3 +563,79 @@ form label {
 .dlux-session-ended__icon {
     font-size: 3rem;
 }
+
+/* Directional icon utility.
+   A glyph that points at something (arrow, chevron, sidebar panel) carries two
+   independent flips: the writing direction, and the state of whatever it
+   controls. Both are horizontal mirrors, so they multiply into one transform —
+   applying them as separate `transform` rules would let the later one win.
+   RTL AND collapsed cancel out, which is correct: an arrow that points left in
+   an expanded LTR sidebar also points left in a collapsed RTL one. */
+.dlux-icon-directional {
+    --dlux-icon-rtl: 1;
+    --dlux-icon-state: 1;
+    display: inline-block;
+    transform: scaleX(calc(var(--dlux-icon-rtl) * var(--dlux-icon-state)));
+}
+
+[dir="rtl"] .dlux-icon-directional {
+    --dlux-icon-rtl: -1;
+}
+
+/* Stacked modal (unsaved-changes prompt over the settings modal).
+   Bootstrap gives every modal the same z-index and does not restack, so a
+   prompt declared earlier in base.html than the dynamic modal renders *under*
+   it and cannot be clicked. Raise the prompt and, while it is open, the topmost
+   backdrop with it. */
+.dlux-modal-stacked {
+    z-index: 1075;
+}
+
+body.dlux-modal-stacked-open .modal-backdrop:last-of-type {
+    z-index: 1070;
+}
+
+/* Assisted-entry inline control: a thin bar at the top of the form. The switch
+   inside it is the shared `dlux-settings-toggle-field` control (system_setup.css,
+   loaded on every page), so it matches the System Settings steps. */
+.dlux-assist-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(var(--primal-rgb), 0.14);
+    border-radius: 0.75rem;
+    background: rgba(var(--primal-rgb), 0.05);
+    font-size: 0.85rem;
+}
+
+.dlux-assist-bar__legend {
+    font-weight: 650;
+    color: var(--primal);
+    margin-inline-end: auto;
+}
+
+.dlux-assist-bar__label {
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.dlux-assist-bar .dlux-settings-toggle-field__control {
+    margin-inline-start: 0;
+    align-self: center;
+    align-items: center;
+    /* Bootstrap sizes the switch in `em`, so it would shrink to the bar's
+       0.85rem text size. */
+    font-size: 1rem;
+}
+
+/* An input has no intrinsic content, so as a flex item it can be squeezed to
+   nothing; the switch needs its size stated outright. */
+.dlux-assist-bar .dlux-settings-toggle-field__input.form-check-input {
+    flex: 0 0 auto;
+    width: 2em;
+    height: 1em;
+    min-width: 2em;
+    max-width: none;
+}

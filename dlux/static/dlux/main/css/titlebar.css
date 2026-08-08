@@ -405,6 +405,14 @@
     }
 }
 
+.titlebar[data-titlebar-buttons-shape="square"] .sidebar-toggle {
+    border-radius: 10px;
+}
+
+.titlebar[data-titlebar-buttons-shape="squircle"] .sidebar-toggle {
+    border-radius: 14px;
+}
+
 @media (max-width: 991.98px) {
     .titlebar .sidebar-toggle {
         display: inline-flex !important;

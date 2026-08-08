@@ -5,7 +5,9 @@
       action="{{ request.path }}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
       {% if form.is_multipart %}enctype="multipart/form-data"{% endif %}
       {% if form.dlux_system_preview_counts %}data-dlux-allowed-theme-count="{{ form.dlux_system_preview_counts.allowed_themes }}" data-dlux-language-count="{{ form.dlux_system_preview_counts.languages }}"{% endif %}
-      {% if wizard_initial_step is not None %}data-dlux-wizard-initial-step="{{ wizard_initial_step }}"{% endif %}>
+      {% if wizard_initial_step is not None %}data-dlux-wizard-initial-step="{{ wizard_initial_step }}"{% endif %}
+      {% if form.dlux_unsaved_guard %}data-dlux-unsaved-guard{% endif %}
+      {% if sticky_app_label and sticky_model_name %}data-app-label="{{ sticky_app_label }}" data-model-name="{{ sticky_model_name }}"{% endif %}>
     {% csrf_token %}
     {% crispy form %}
     {% if not hide_form_buttons %}

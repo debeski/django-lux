@@ -1317,5 +1317,6 @@ def global_search_view(request):
     from dlux.translations import get_current_language_code
     lang_code = get_current_language_code(request)
 
-    groups = run_search(request.user, query, include_data=include_data, lang_code=lang_code)
+    groups = run_search(request.user, query, include_data=include_data, lang_code=lang_code,
+                        request=request)
     return JsonResponse({'groups': groups, 'query': query, 'include_data': include_data})

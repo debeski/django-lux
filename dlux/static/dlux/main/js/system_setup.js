@@ -17,6 +17,24 @@
         'bi-speedometer2',
         'bi-speedometer',
 
+        // ── Sidebar toggle & panels ──
+        'bi-list',
+        'bi-list-nested',
+        'bi-text-indent-left',
+        'bi-text-indent-right',
+        'bi-arrow-bar-left',
+        'bi-arrow-bar-right',
+        'bi-chevron-bar-left',
+        'bi-chevron-bar-right',
+        'bi-chevron-double-left',
+        'bi-chevron-double-right',
+        'bi-menu-app',
+        'bi-menu-button',
+        'bi-menu-button-wide',
+        'bi-layout-sidebar-reverse',
+        'bi-layout-sidebar-inset-reverse',
+        'bi-layout-text-sidebar-reverse',
+
         // ── Grid & Layout ──
         'bi-grid',
         'bi-grid-3x2',
@@ -1172,6 +1190,7 @@
         nextConfig.density = getNamedFieldValue(form, 'sidebar_density') || 'balanced';
         nextConfig.allow_user_density = readBooleanField(form, '#id_sidebar_allow_user_density', true);
         nextConfig.collapse_mode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
+        nextConfig.toggle_icon = getNamedFieldValue(form, 'sidebar_toggle_icon') || 'bi-list';
         if (!Array.isArray(nextConfig.entries)) {
             nextConfig.entries = [];
         }
@@ -1422,6 +1441,11 @@
                 if (!urlName || seen.has(urlName)) {
                     return;
                 }
+                // The hierarchy may parent an id-bound route, but the root has to
+                // be reachable with no context — it renders on every page.
+                if (entry.requires_args || entry.is_form_page) {
+                    return;
+                }
                 seen.add(urlName);
                 const option = document.createElement('option');
                 option.value = `route:${urlName}`;
@@ -1540,9 +1564,14 @@
                     const button = document.createElement('button');
                     button.type = 'button';
                     button.className = 'dlux-navbar-route';
+                    // An id-bound route is a valid parent or child, but it has no
+                    // context-free URL, so its crumb renders as plain text.
+                    const idBound = entry.requires_args
+                        ? ` <em>${escapeHtml(t('navbar_route_needs_id', 'needs an id — not clickable'))}</em>`
+                        : '';
                     button.innerHTML = `
                         <span>${escapeHtml(entry.label)}</span>
-                        <small>${escapeHtml(entry.url_name)}</small>
+                        <small>${escapeHtml(entry.url_name)}${idBound}</small>
                     `;
                     button.addEventListener('click', () => appendNode({
                         kind: 'route',
@@ -1906,6 +1935,19 @@
         }
         setPreviewVisibility(titlebarToggle, sidebarEnabled);
 
+        // The chosen glyph lands on the live toggle as it is picked. Guarded on the
+        // picker being rendered: without it the value cannot change, so the class
+        // the server already resolved is the correct one to leave alone.
+        const toggleIconPicker = form.querySelector('[data-dlux-icon-picker][data-icon-field="sidebar_toggle_icon"]');
+        const toggleGlyph = titlebarToggle ? titlebarToggle.querySelector('i') : null;
+        if (toggleIconPicker && toggleGlyph) {
+            const icon = getNamedFieldValue(form, 'sidebar_toggle_icon') || 'bi-list';
+            const directional = String(toggleIconPicker.getAttribute('data-icon-directional') || '')
+                .split(/\s+/)
+                .filter(Boolean);
+            toggleGlyph.className = `bi ${icon}${directional.includes(icon) ? ' dlux-icon-directional' : ''}`;
+        }
+
         const toolbar = sidebar.querySelector('.sidebar-toolbar');
         const themeArrow = document.getElementById('sidebarThemeArrow');
         const themeIndicator = document.getElementById('sidebarThemeIndicator');
@@ -2064,6 +2106,7 @@
                 group_label: entry.group_label || entry.group_key || 'General',
                 group_icon: entry.group_icon || 'bi-folder2-open',
                 is_system: Boolean(entry.is_system),
+                is_form_page: Boolean(entry.is_form_page),
             }));
     }
 
@@ -2178,6 +2221,7 @@
             density: config.density || 'balanced',
             allow_user_density: config.allow_user_density !== false,
             collapse_mode: config.collapse_mode || 'icons',
+            toggle_icon: config.toggle_icon || 'bi-list',
         };
     }
 
@@ -2251,7 +2295,13 @@
 
     function availableItems(state) {
         const selectedIds = collectSelectedItemIds(state.config.entries);
-        return state.catalog.filter(item => !selectedIds.has(item.id) && (state.showSystemItems || !item.is_system));
+        // Form pages are discovered like any other route, but a sidebar lists
+        // places rather than actions — they stay out of the list until asked for.
+        return state.catalog.filter(item => (
+            !selectedIds.has(item.id)
+            && (state.showSystemItems || !item.is_system)
+            && (state.showFormPages || !item.is_form_page)
+        ));
     }
 
     function groupedAvailableItems(state) {
@@ -2378,6 +2428,7 @@
             search: '',
             dragging: null,
             showSystemItems: false,
+            showFormPages: false,
             iconSearch: '',
         };
 
@@ -2386,6 +2437,7 @@
             availableList: builder.querySelector('[data-builder-available-list]'),
             search: builder.querySelector('[data-builder-search]'),
             systemToggle: builder.querySelector('[data-builder-system-toggle]'),
+            formToggle: builder.querySelector('[data-builder-form-toggle]'),
             inspector: builder.querySelector('[data-builder-inspector]'),
             inspectorEmpty: builder.querySelector('[data-builder-empty-inspector]'),
             labelInputs: builder.querySelector('[data-builder-label-inputs]'),
@@ -2879,6 +2931,19 @@
                         (state.selected.kind === 'group' && state.selected.id === 'dlux') ||
                         (selectedAvailableItem && selectedAvailableItem.is_system)
                     ) {
+                        state.selected = null;
+                    }
+                }
+                renderAvailable();
+            });
+        }
+
+        if (refs.formToggle) {
+            refs.formToggle.addEventListener('change', () => {
+                state.showFormPages = Boolean(refs.formToggle.checked);
+                if (!state.showFormPages && state.selected && state.selected.pane === 'available') {
+                    const selectedAvailableItem = state.catalog.find(item => item.id === state.selected.id);
+                    if (selectedAvailableItem && selectedAvailableItem.is_form_page) {
                         state.selected = null;
                     }
                 }
@@ -4004,6 +4069,7 @@
             setCheckboxField(form, 'sidebar_allow_user_density', sidebar.allow_user_density !== false);
             setNamedFieldValue(form, 'sidebar_density', sidebar.density || 'balanced');
             setNamedFieldValue(form, 'sidebar_collapse_mode', sidebar.collapse_mode || 'icons');
+            setNamedFieldValue(form, 'sidebar_toggle_icon', sidebar.toggle_icon || 'bi-list');
         }
 
         const navbarSource = settings.navbar_config || settings.navbar;
@@ -4387,6 +4453,136 @@
         });
     }
 
+    // A step's master toggle dims and disables its dependent settings instead of
+    // hiding them, so the admin can see what enabling it will restore. Kept in one
+    // place because the field lists were previously duplicated per call site and
+    // drifted (a new field disabled in one copy and live in the other).
+    const DEPENDENT_FIELDS = {
+        sidebar: [
+            'sidebar_enable_reorder',
+            'sidebar_enable_toolbar',
+            'sidebar_show_icons',
+            'sidebar_show_notification_badges',
+            'sidebar_allow_user_density',
+            'sidebar_density',
+            'sidebar_collapse_mode',
+            'sidebar_toggle_icon',
+        ],
+        navbar: [
+            'navbar_allow_user_mode_override',
+            'navbar_default_mode',
+        ],
+        notifications: [
+            'notification_flash_enabled',
+            'notification_flash_position',
+            'notification_flash_size',
+            'notification_flash_text_size',
+            'notification_flash_timeout_ms',
+            'notification_flash_max_visible',
+            'notification_drawer_enabled',
+            'notification_badge_enabled',
+            'notification_bridge_enabled',
+            'notification_email_enabled',
+            'notification_email_default',
+            'notification_auto_crud_enabled',
+            'notification_auto_create',
+            'notification_auto_update',
+            'notification_auto_delete',
+        ],
+    };
+
+    // Builder sections (logging, profile) keep their state in the builder's own
+    // config object rather than in the posted fields, so disabling their controls
+    // is purely presentational — nothing can be lost on save.
+    function setBuilderSectionEnabled(section, enabled, reason) {
+        if (!section) {
+            return;
+        }
+        applyDependentTooltip(section, enabled, reason);
+        section.classList.remove('d-none');
+        section.classList.add('dlux-dependent-settings');
+        section.classList.toggle('is-disabled', !enabled);
+        section.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+        section.removeAttribute('aria-hidden');
+        section.querySelectorAll('input, select, textarea, button').forEach((control) => {
+            control.disabled = !enabled;
+        });
+    }
+
+    function dependentReason(toggle) {
+        const field = toggle && toggle.closest ? toggle.closest('[data-dlux-settings-toggle-field]') : null;
+        const labelEl = field ? field.querySelector('.dlux-settings-toggle-field__label') : null;
+        const name = labelEl ? String(labelEl.textContent || '').trim() : '';
+        const template = t('settings_dependent_disabled', 'Turn on “{name}” to change these settings.');
+        return name ? template.replace('{name}', name) : t('settings_dependent_disabled_generic', 'Turn on the setting above to change these.');
+    }
+
+    function applyDependentTooltip(el, enabled, reason) {
+        if (!el) {
+            return;
+        }
+        if (enabled || !reason) {
+            el.removeAttribute('data-dlux-tooltip');
+        } else {
+            el.setAttribute('data-dlux-tooltip', reason);
+        }
+    }
+
+    // One dependent field (rather than a whole section): same contract as
+    // setDependentSectionEnabled — visible but inert, never hidden.
+    function setDependentFieldEnabled(field, enabled, reason) {
+        if (!field) {
+            return;
+        }
+        applyDependentTooltip(field, enabled, reason);
+        field.classList.remove('d-none');
+        field.classList.add('dlux-dependent-settings');
+        field.classList.toggle('is-disabled', !enabled);
+        field.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+        field.removeAttribute('aria-hidden');
+        field.querySelectorAll('input, select, textarea, button').forEach((control) => {
+            control.disabled = !enabled;
+        });
+    }
+
+    function setDependentSectionEnabled(form, section, enabled, fieldNames, reason) {
+        if (section) {
+            applyDependentTooltip(section, enabled, reason);
+            section.classList.toggle('is-disabled', !enabled);
+            section.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+            // The section stays in the accessibility tree — its whole purpose is
+            // to be readable while off — so aria-hidden must not linger from the
+            // previous hide-based behaviour.
+            section.removeAttribute('aria-hidden');
+            section.classList.remove('d-none');
+        }
+        (fieldNames || []).forEach((name) => setNamedFieldDisabled(form, name, !enabled));
+    }
+
+    // `locked_expanded` hides the titlebar toggle on desktop, so its glyph has
+    // nothing to style there; the picker follows the collapse mode on top of the
+    // sidebar's own enable switch.
+    function syncSidebarToggleIconAvailability(form) {
+        if (!form) {
+            return;
+        }
+        const sidebarEnabledToggle = form.querySelector('#id_sidebar_enabled');
+        const sidebarEnabled = !sidebarEnabledToggle || sidebarEnabledToggle.checked;
+        const collapseMode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
+        const lockedExpanded = collapseMode === 'locked_expanded';
+        const available = sidebarEnabled && !lockedExpanded;
+
+        setNamedFieldDisabled(form, 'sidebar_toggle_icon', !available);
+        const picker = form.querySelector('[data-dlux-icon-picker][data-icon-field="sidebar_toggle_icon"]');
+        if (!picker) {
+            return;
+        }
+        const reason = lockedExpanded && sidebarEnabled
+            ? t('sidebar_toggle_icon_locked_reason', 'The sidebar is always expanded, so the toggle is not shown on desktop.')
+            : dependentReason(sidebarEnabledToggle);
+        setDependentFieldEnabled(picker, available, reason);
+    }
+
     function initSidebarBehaviorOptions(root) {
         root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
             if (form.dataset.sidebarBehaviorBound === 'true') {
@@ -4434,20 +4630,14 @@
                 if (sidebarDisabledNote) {
                     sidebarDisabledNote.classList.toggle('d-none', sidebarEnabled);
                 }
-                const dependentSection = form.querySelector('[data-sidebar-dependent]');
-                if (dependentSection) {
-                    dependentSection.classList.toggle('is-disabled', !sidebarEnabled);
-                    dependentSection.setAttribute('aria-disabled', sidebarEnabled ? 'false' : 'true');
-                }
-                [
-                    'sidebar_enable_reorder',
-                    'sidebar_enable_toolbar',
-                    'sidebar_show_icons',
-                    'sidebar_show_notification_badges',
-                    'sidebar_allow_user_density',
-                    'sidebar_density',
-                    'sidebar_collapse_mode',
-                ].forEach((name) => setNamedFieldDisabled(form, name, !sidebarEnabled));
+                setDependentSectionEnabled(
+                    form,
+                    form.querySelector('[data-sidebar-dependent]'),
+                    sidebarEnabled,
+                    DEPENDENT_FIELDS.sidebar,
+                    dependentReason(sidebarEnabledToggle),
+                );
+                syncSidebarToggleIconAvailability(form);
                 const hasToolbarTool = hasLiveToolbarTool();
                 const available = sidebarEnabled && hasToolbarTool;
                 toolbarToggle.disabled = !available;
@@ -4458,6 +4648,7 @@
 
             function syncCollapseMode() {
                 if (!showIconsToggle) {
+                    syncSidebarToggleIconAvailability(form);
                     syncSidebarBehaviorConfig(form);
                     applyImmediateSystemSettingsPreview(form);
                     return;
@@ -4465,6 +4656,7 @@
                 if (!showIconsToggle.checked && getNamedFieldValue(form, 'sidebar_collapse_mode') === 'icons') {
                     setNamedFieldValue(form, 'sidebar_collapse_mode', 'hidden');
                 }
+                syncSidebarToggleIconAvailability(form);
                 syncSidebarBehaviorConfig(form);
                 applyImmediateSystemSettingsPreview(form);
             }
@@ -4518,8 +4710,7 @@
             form.dataset.navbarBehaviorBound = 'true';
 
             function syncNavbarAvailability() {
-                dependentSection.classList.toggle('d-none', !enabledToggle.checked);
-                dependentSection.setAttribute('aria-hidden', enabledToggle.checked ? 'false' : 'true');
+                setDependentSectionEnabled(form, dependentSection, enabledToggle.checked, DEPENDENT_FIELDS.navbar, dependentReason(enabledToggle));
                 syncNavbarBehaviorConfig(form);
                 seedNavbarConfigFromSidebar(form);
             }
@@ -4552,21 +4743,14 @@
         if (sidebarDisabledNote) {
             sidebarDisabledNote.classList.toggle('d-none', sidebarEnabled);
         }
-        const dependentSection = form.querySelector('[data-sidebar-dependent]');
-        if (dependentSection) {
-            dependentSection.classList.toggle('is-disabled', !sidebarEnabled);
-            dependentSection.setAttribute('aria-disabled', sidebarEnabled ? 'false' : 'true');
-        }
-
-        [
-            'sidebar_enable_reorder',
-            'sidebar_enable_toolbar',
-            'sidebar_show_icons',
-            'sidebar_show_notification_badges',
-            'sidebar_allow_user_density',
-            'sidebar_density',
-            'sidebar_collapse_mode',
-        ].forEach((name) => setNamedFieldDisabled(form, name, !sidebarEnabled));
+        setDependentSectionEnabled(
+            form,
+            form.querySelector('[data-sidebar-dependent]'),
+            sidebarEnabled,
+            DEPENDENT_FIELDS.sidebar,
+            dependentReason(sidebarEnabledToggle),
+        );
+        syncSidebarToggleIconAvailability(form);
 
         const allowedThemeCount = Array.from(form.querySelectorAll('[data-setup-theme-allowed]'))
             .filter((checkbox) => checkbox.checked)
@@ -4627,8 +4811,7 @@
             function syncEmailConfigVisibility() {
                 const enabled = Boolean(emailEnabledToggle && emailEnabledToggle.checked);
                 const encryptedDbSecret = enabled && (!secretStorageInput || secretStorageInput.value === 'encrypted_db');
-                section.classList.toggle('d-none', !enabled);
-                section.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+                setDependentSectionEnabled(form, section, enabled, [], dependentReason(emailEnabledToggle));
                 [
                     'email_config_transport',
                     'email_config_provider_preset',
@@ -4643,6 +4826,17 @@
                     'email_config_test_recipient',
                 ].forEach((name) => setNamedFieldDisabled(form, name, !enabled));
                 setNamedFieldDisabled(form, 'email_config_password', !encryptedDbSecret);
+                // Plain buttons carry no field name, so the name-based disabling
+                // above misses them — the apply/test actions stayed live and
+                // clickable while the rest of the step was switched off.
+                section.querySelectorAll('button, a.btn').forEach((control) => {
+                    if (control.tagName === 'BUTTON') {
+                        control.disabled = !enabled;
+                    } else {
+                        control.classList.toggle('disabled', !enabled);
+                        control.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+                    }
+                });
                 if (passwordField) {
                     passwordField.classList.toggle('d-none', !encryptedDbSecret);
                     passwordField.setAttribute('aria-hidden', encryptedDbSecret ? 'false' : 'true');
@@ -4841,10 +5035,8 @@
 
             function syncPublicRegistrationVisibility() {
                 const enabled = Boolean(publicRegistrationToggle.checked);
-                dependentFields.forEach((field) => {
-                    field.classList.toggle('d-none', !enabled);
-                    field.setAttribute('aria-hidden', enabled ? 'false' : 'true');
-                });
+                const registrationReason = dependentReason(publicRegistrationToggle);
+                dependentFields.forEach((field) => setDependentFieldEnabled(field, enabled, registrationReason));
                 setNamedFieldDisabled(form, 'registration_activation_mode', !enabled);
                 setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled);
             }
@@ -4873,14 +5065,10 @@
         }
         const splitEnabled = publicRootEnabled && Boolean(splitToggle.checked);
 
-        publicRootDependents.forEach((field) => {
-            field.classList.toggle('d-none', !publicRootEnabled);
-            field.setAttribute('aria-hidden', publicRootEnabled ? 'false' : 'true');
-        });
-        splitDependents.forEach((field) => {
-            field.classList.toggle('d-none', !splitEnabled);
-            field.setAttribute('aria-hidden', splitEnabled ? 'false' : 'true');
-        });
+        const rootReason = dependentReason(publicRootToggle);
+        publicRootDependents.forEach((field) => setDependentFieldEnabled(field, publicRootEnabled, rootReason));
+        const splitReason = dependentReason(splitToggle);
+        splitDependents.forEach((field) => setDependentFieldEnabled(field, splitEnabled, splitReason));
         setNamedFieldDisabled(form, 'public_root_split_enabled', !publicRootEnabled);
         setNamedFieldDisabled(form, 'public_root_url_discovered', !splitEnabled);
         setNamedFieldDisabled(form, 'public_root_url', !splitEnabled);
@@ -4973,19 +5161,13 @@
                 const strongInput = form.querySelector('input[name="enforce_strong_passwords"]');
                 const inactivityInput = form.querySelector('input[name="inactivity_timeout_enabled"]');
                 if (lockoutRow && lockoutInput) {
-                    const showLockout = !!lockoutInput.checked;
-                    lockoutRow.classList.toggle('d-none', !showLockout);
-                    lockoutRow.setAttribute('aria-hidden', showLockout ? 'false' : 'true');
+                    setDependentFieldEnabled(lockoutRow, !!lockoutInput.checked, dependentReason(lockoutInput));
                 }
                 if (strongRow && strongInput) {
-                    const showStrong = !!strongInput.checked;
-                    strongRow.classList.toggle('d-none', !showStrong);
-                    strongRow.setAttribute('aria-hidden', showStrong ? 'false' : 'true');
+                    setDependentFieldEnabled(strongRow, !!strongInput.checked, dependentReason(strongInput));
                 }
                 if (inactivityRow && inactivityInput) {
-                    const showInactivity = !!inactivityInput.checked;
-                    inactivityRow.classList.toggle('d-none', !showInactivity);
-                    inactivityRow.setAttribute('aria-hidden', showInactivity ? 'false' : 'true');
+                    setDependentFieldEnabled(inactivityRow, !!inactivityInput.checked, dependentReason(inactivityInput));
                 }
             }
 
@@ -5012,9 +5194,11 @@
             function sync() {
                 const checked = form.querySelector('input[name="titlebar_global_search_mode"]:checked');
                 const mode = checked ? checked.value : 'icon';
-                const show = mode !== 'disabled';
-                dataRow.classList.toggle('d-none', !show);
-                dataRow.setAttribute('aria-hidden', show ? 'false' : 'true');
+                setDependentFieldEnabled(
+                    dataRow,
+                    mode !== 'disabled',
+                    t('global_search_disabled_reason', 'Enable global search to include record data in results.'),
+                );
             }
 
             form.addEventListener('change', (event) => {
@@ -5169,9 +5353,9 @@
                 setNamedFieldReadonly(form, 'titlebar_title_size', !showTitleToggle.checked);
                 setNamedFieldReadonly(form, 'titlebar_logo_treatment', !showLogo);
                 setNamedFieldReadonly(form, 'titlebar_logo_treatment_shape', !showPlateShape);
+                const logoReason = dependentReason(showLogoToggle);
                 form.querySelectorAll('.dlux-titlebar-logo-dependent').forEach((node) => {
-                    node.classList.toggle('d-none', !showLogo);
-                    node.setAttribute('aria-hidden', showLogo ? 'false' : 'true');
+                    setDependentFieldEnabled(node, showLogo, logoReason);
                 });
                 form.querySelectorAll('.dlux-titlebar-logo-treatment-primary').forEach((node) => {
                     node.classList.toggle('dlux-logo-treatment-primary--wide', showLogo && !showPlateShape);
@@ -5224,8 +5408,7 @@
                 if (!masterToggle || !dependentSection) {
                     return;
                 }
-                dependentSection.classList.toggle('d-none', !masterToggle.checked);
-                dependentSection.setAttribute('aria-hidden', masterToggle.checked ? 'false' : 'true');
+                setDependentSectionEnabled(form, dependentSection, masterToggle.checked, DEPENDENT_FIELDS.notifications, dependentReason(masterToggle));
             }
 
             function syncNotificationDependencies() {
@@ -5291,10 +5474,10 @@
             var dependent = rootEl.querySelector('[data-log-dependent]');
             if (master) {
                 master.checked = config.enabled !== false;
-                if (dependent) { dependent.classList.toggle('d-none', !master.checked); }
+                if (dependent) { setBuilderSectionEnabled(dependent, master.checked, t('log_disabled_reason', 'Turn on activity logging to change these.')); }
                 master.addEventListener('change', function () {
                     config.enabled = master.checked;
-                    if (dependent) { dependent.classList.toggle('d-none', !master.checked); }
+                    if (dependent) { setBuilderSectionEnabled(dependent, master.checked, t('log_disabled_reason', 'Turn on activity logging to change these.')); }
                     serialize();
                 });
             }
@@ -5306,10 +5489,10 @@
                 var depEl = sectionEl.querySelector('[data-log-section-dependent]');
                 if (enabledInput) {
                     enabledInput.checked = conf.enabled !== false;
-                    if (depEl) { depEl.classList.toggle('d-none', !enabledInput.checked); }
+                    if (depEl) { setBuilderSectionEnabled(depEl, enabledInput.checked, t('log_section_disabled_reason', 'Enable this log section to choose its actions.')); }
                     enabledInput.addEventListener('change', function () {
                         conf.enabled = enabledInput.checked;
-                        if (depEl) { depEl.classList.toggle('d-none', !enabledInput.checked); }
+                        if (depEl) { setBuilderSectionEnabled(depEl, enabledInput.checked, t('log_section_disabled_reason', 'Enable this log section to choose its actions.')); }
                         serialize();
                     });
                 }
@@ -5402,10 +5585,10 @@
             var onbDep = rootEl.querySelector('[data-profile-onboarding-dependent]');
             if (onbEnabled) {
                 onbEnabled.checked = config.onboarding_enabled !== false;
-                if (onbDep) { onbDep.classList.toggle('d-none', !onbEnabled.checked); }
+                if (onbDep) { setBuilderSectionEnabled(onbDep, onbEnabled.checked, t('onboarding_disabled_reason', 'Turn on the first-login setup modal to choose what it offers.')); }
                 onbEnabled.addEventListener('change', function () {
                     config.onboarding_enabled = onbEnabled.checked;
-                    if (onbDep) { onbDep.classList.toggle('d-none', !onbEnabled.checked); }
+                    if (onbDep) { setBuilderSectionEnabled(onbDep, onbEnabled.checked, t('onboarding_disabled_reason', 'Turn on the first-login setup modal to choose what it offers.')); }
                     serialize();
                 });
             }
@@ -5434,10 +5617,141 @@
         });
     }
 
+    // Standalone icon picker for a plain form field, sharing ICON_SUGGESTIONS with
+    // the sidebar builder's inspector. The visible input and the grid both write
+    // to the posted hidden field, so a value can be typed or clicked.
+    function initIconPickers(root) {
+        root.querySelectorAll('[data-dlux-icon-picker]').forEach((picker) => {
+            if (picker.dataset.dluxIconPickerReady === 'true') {
+                return;
+            }
+            picker.dataset.dluxIconPickerReady = 'true';
+
+            const form = picker.closest('form');
+            const fieldName = picker.getAttribute('data-icon-field') || '';
+            const defaultIcon = picker.getAttribute('data-icon-default') || 'bi-list';
+            const input = picker.querySelector('[data-icon-input]');
+            const preview = picker.querySelector('[data-icon-preview]');
+            const search = picker.querySelector('[data-icon-search]');
+            const suggestions = picker.querySelector('[data-icon-suggestions]');
+            const reset = picker.querySelector('[data-icon-reset]');
+            const toggle = picker.querySelector('[data-icon-toggle]');
+            const body = picker.querySelector('[data-icon-picker-body]');
+            if (!form || !fieldName || !input || !suggestions) {
+                return;
+            }
+
+            // The grid is ~600 buttons. Building it on init cost that on every
+            // render of the step, so it is built when opened and thrown away on
+            // close — a closed picker is just an input.
+            function isOpen() {
+                return Boolean(body) && !body.classList.contains('d-none');
+            }
+
+            function currentValue() {
+                return String(input.value || '').trim().toLowerCase() || defaultIcon;
+            }
+
+            function apply(icon, { rerender = true } = {}) {
+                const value = String(icon || '').trim().toLowerCase() || defaultIcon;
+                input.value = value;
+                if (preview) {
+                    preview.className = `bi ${value}`;
+                }
+                setNamedFieldValue(form, fieldName, value);
+                if (rerender && isOpen()) {
+                    renderSuggestions();
+                }
+            }
+
+            function renderSuggestions() {
+                const needle = String(search ? search.value : '').trim().toLowerCase().replace(/\s+/g, '-');
+                const matches = needle
+                    ? ICON_SUGGESTIONS.filter((icon) => icon.includes(needle))
+                    : ICON_SUGGESTIONS;
+                const active = currentValue();
+                const fragment = document.createDocumentFragment();
+                matches.forEach((icon) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = `btn btn-sm dlux-builder-icon-choice ${icon === active ? 'is-active' : ''}`;
+                    button.setAttribute('title', icon);
+                    button.setAttribute('aria-label', icon);
+                    button.innerHTML = `<i class="bi ${icon}"></i>`;
+                    // Picking is a completed choice, so the grid folds away again.
+                    button.addEventListener('click', () => {
+                        apply(icon, { rerender: false });
+                        close({ focusTrigger: true });
+                    });
+                    fragment.appendChild(button);
+                });
+                suggestions.innerHTML = '';
+                if (!matches.length) {
+                    suggestions.innerHTML = `<div class="text-muted small p-2">${t('sidebar_no_icons_found', 'No icons match your search.')}</div>`;
+                    return;
+                }
+                suggestions.appendChild(fragment);
+            }
+
+            function open() {
+                if (!body || isOpen()) {
+                    return;
+                }
+                body.classList.remove('d-none');
+                if (toggle) {
+                    toggle.setAttribute('aria-expanded', 'true');
+                }
+                renderSuggestions();
+                if (search) {
+                    search.focus();
+                }
+            }
+
+            function close({ focusTrigger = false } = {}) {
+                if (!body || !isOpen()) {
+                    return;
+                }
+                body.classList.add('d-none');
+                if (toggle) {
+                    toggle.setAttribute('aria-expanded', 'false');
+                }
+                // Drop the grid so a closed picker costs nothing to keep around.
+                suggestions.innerHTML = '';
+                if (search) {
+                    search.value = '';
+                }
+                if (focusTrigger && toggle) {
+                    toggle.focus();
+                }
+            }
+
+            input.addEventListener('input', () => apply(input.value, { rerender: false }));
+            input.addEventListener('change', () => apply(input.value));
+            if (search) {
+                search.addEventListener('input', renderSuggestions);
+            }
+            if (reset) {
+                reset.addEventListener('click', () => apply(defaultIcon));
+            }
+            if (toggle) {
+                toggle.addEventListener('click', () => (isOpen() ? close() : open()));
+            }
+            picker.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && isOpen()) {
+                    event.stopPropagation();
+                    close({ focusTrigger: true });
+                }
+            });
+
+            apply(currentValue(), { rerender: false });
+        });
+    }
+
     function scan(root) {
         restoreSetupFormState(root);
         initSetupFooterRelocation(root);
         initSetupHomeFields(root);
+        initIconPickers(root);
         initLogBuilder(root);
         initProfileBuilder(root);
         root.querySelectorAll('.dlux-setup-builder').forEach(initBuilder);

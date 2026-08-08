@@ -24,7 +24,10 @@
         </td>
         <td class="dlux-backup-progress-cell">
             <progress class="dlux-backup-progress{% if backup.status == 'completed' %} dlux-backup-progress--success{% elif backup.status == 'failed' %} dlux-backup-progress--error{% elif backup.is_active and quiet_for > backup_stall_warn_seconds %} dlux-backup-progress--stalled{% endif %}" max="100" value="{% if backup.status == 'completed' %}100{% else %}{{ backup.progress_percent }}{% endif %}" aria-label="{{ DLUX_STRINGS.backup_progress }}"></progress>
-            <small class="text-muted d-block">{% if backup.status == 'completed' %}100{% else %}{{ backup.progress_percent }}{% endif %}%{% if backup.progress_message %} · {{ backup.progress_message }}{% endif %}</small>
+            <small class="text-muted dlux-backup-progress-status">
+                <span class="dlux-backup-progress-percent">{% if backup.status == 'completed' %}100{% else %}{{ backup.progress_percent }}{% endif %}%</span>
+                {% if backup.progress_message %}<span class="dlux-backup-progress-note">{{ backup.progress_message }}</span>{% endif %}
+            </small>
             {% if backup.is_active %}
                 <small class="d-block {% if quiet_for > backup_stall_warn_seconds %}text-warning-emphasis fw-semibold{% else %}text-muted{% endif %}">
                     <i class="bi bi-activity me-1"></i>{{ DLUX_STRINGS.sysbackup_last_signal|default:'Last update' }}: {{ quiet_for }}{{ DLUX_STRINGS.sysbackup_seconds_short|default:'s' }}

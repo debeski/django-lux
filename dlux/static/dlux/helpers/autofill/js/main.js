@@ -1,256 +1,242 @@
-(function() {
+/*
+ * Assisted data entry — two independent features sharing this helper:
+ *
+ *   related  (`autofill_from_related`)  choosing a ForeignKey fills the form's
+ *            matching-named fields from that related record. Reacts only to a
+ *            deliberate selection, so it is on by default.
+ *   sticky   (`sticky_forms`)           a blank add-form is refilled from the
+ *            last record the user created. Changes a form nobody touched, so it
+ *            is off by default.
+ *
+ * Each reads its own key from window.USER_PREFS; neither can turn the other on.
+ * Forms that support either render an inline control (the Options page carries
+ * the same switches). There is no titlebar control: the previous build injected
+ * one into `.titlebar .pe-2.d-flex.align-items-center`, a selector the v1.5.10
+ * titlebar restructure stopped matching — and because init bailed when that
+ * injection failed, both features were dead from then until now.
+ */
+(function () {
     'use strict';
 
-    // Configuration
     const STORAGE_PREFIX = 'dlux_autofill_';
-    const TOGGLE_KEY = 'enable_prefill';
-    const DEBUG = false; // Set to true for development
+    const PREF_RELATED = 'autofill_from_related';
+    const PREF_STICKY = 'sticky_forms';
+    const SUBMIT_FLAG = 'dlux_last_submit_autofill';
 
-    function debugLog(...args) {
-        if (DEBUG) console.log(...args);
+    function pref(key, fallback) {
+        const prefs = window.USER_PREFS;
+        if (!prefs || !Object.prototype.hasOwnProperty.call(prefs, key)) {
+            return fallback;
+        }
+        return Boolean(prefs[key]);
     }
 
-    /**
-     * Initialize Autofill System
-     */
-    function initAutofill() {
-        // 1. Check for autofillable context
-        // Case A: Form with data-model-name (Sticky/Clone feature)
-        const stickyForm = document.querySelector('form[data-model-name]');
-        // Case B: Inputs with data-autofill-source (FK Autofill feature)
-        const fkInputs = document.querySelectorAll('[data-autofill-source]');
+    function relatedEnabled() {
+        return pref(PREF_RELATED, true);
+    }
 
-        const hasAutofill = stickyForm || fkInputs.length > 0;
+    function stickyEnabled() {
+        return pref(PREF_STICKY, false);
+    }
 
-        if (!hasAutofill) return;
+    function setPref(key, value) {
+        if (window.USER_PREFS) {
+            window.USER_PREFS[key] = value;
+        }
+        if (typeof window.updatePreferences !== 'function') {
+            return Promise.resolve();
+        }
+        return Promise.resolve(window.updatePreferences({ [key]: value }));
+    }
 
-        // 2. Inject Toggle into Titlebar (if not present)
-        injectToggle();
+    function t(key, fallback) {
+        const strings = window.DLUX_STRINGS || {};
+        return strings[key] || fallback;
+    }
 
-        const toggle = document.getElementById('autofillToggle');
-        if (!toggle) return;
+    // ── capability detection ────────────────────────────────────────────────
+    // A form supports `related` when it has FK selects carrying an autofill
+    // source, and `sticky` when it declares the model it creates.
+    function formCapabilities(form) {
+        return {
+            related: Boolean(form.querySelector('[data-autofill-source]')),
+            sticky: Boolean(form.dataset.modelName && form.dataset.appLabel),
+        };
+    }
 
-        // 3. Load State
-        const isEnabled = localStorage.getItem(TOGGLE_KEY) === 'true';
-        toggle.checked = isEnabled;
-
-        // 4. Bind Toggle Events
-        toggle.addEventListener('change', async function() {
-            const enabled = this.checked;
-            localStorage.setItem(TOGGLE_KEY, enabled);
-            
-            if (!enabled) {
-                 // User requested: "disabling autofill toggle... should clear the fields".
-                 debugLog("Autofill: Toggle OFF. Clearing all related fields.");
-                 for (const input of fkInputs) {
-                     const source = input.dataset.autofillSource;
-                     if (source) {
-                         const [app, model] = source.split('.');
-                         try {
-                             const data = await fetchModelDetails(app, model, 'empty_schema');
-                             const form = input.closest('form');
-                             if (data && form) populateForm(form, data);
-                         } catch (e) {
-                             console.error("Autofill: Error clearing fields on toggle off", e);
-                         }
-                     }
-                 }
-            } else {
-                // Optional: Re-fill fields based on current selection
-                fkInputs.forEach(input => {
-                    if (input.value) {
-                         // Dispatch event to trigger refill? 
-                         // Or manually call handler? 
-                         // Since delegation handles bubbling, dispatching event on input works.
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                });
-            }
+    function assistableForms(root) {
+        const scope = root && root.querySelectorAll ? root : document;
+        return Array.from(scope.querySelectorAll('form')).filter((form) => {
+            const caps = formCapabilities(form);
+            return caps.related || caps.sticky;
         });
-
-        // 5. Initialize Features
-        // We still support sticky form if it exists, check was done at start.
-        if (stickyForm) initStickyForm(stickyForm, isEnabled);
-        
-        // Initialize FK Delegation
-        // We pass inputs just for logic, but delegation is global.
-        initFKAutofill(fkInputs, isEnabled);
     }
 
-    /**
-     * Inject Toggle Switch into Titlebar
-     */
-    function injectToggle() {
-        if (document.getElementById('autofillToggle')) return;
-
-        const titlebarContainer = document.querySelector('.titlebar .pe-2.d-flex.align-items-center');
-        if (!titlebarContainer) return;
-
-        // Bootstrap 5 Switch Markup
-        const toggleHtml = `
-            <div class="form-check form-switch d-flex align-items-center me-3 animate__animated animate__fadeIn" title="التعبئة التلقائية">
-                <input class="form-check-input" type="checkbox" id="autofillToggle" style="cursor: pointer;">
-                <label class="form-check-label ms-1 d-none d-md-inline small text-muted" for="autofillToggle" style="cursor: pointer;">تعبئة تلقائية</label>
-            </div>
-        `;
-
-        // Prepend to the container (before Help/User buttons)
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = toggleHtml;
-        titlebarContainer.insertBefore(tempDiv.firstElementChild, titlebarContainer.firstChild);
+    // ── inline control ──────────────────────────────────────────────────────
+    // A thin bar at the top of the form. The switch is the same control the
+    // System Settings steps use (build_settings_toggle_field in forms.py) —
+    // system_setup.css and the themes style it by those exact class names, so
+    // it must not be hand-rolled from `form-check form-switch`.
+    function buildSwitch(prefKey, label, checked) {
+        const control = document.createElement('div');
+        control.className = 'dlux-settings-toggle-field__control form-switch';
+        const input = document.createElement('input');
+        input.className = 'form-check-input dlux-settings-toggle-field__input';
+        input.type = 'checkbox';
+        input.id = `id_dlux_assist_${prefKey}`;
+        input.name = `dlux_assist_${prefKey}`;
+        input.setAttribute('aria-label', label);
+        input.setAttribute('data-dlux-assist-pref', prefKey);
+        input.checked = Boolean(checked);
+        control.appendChild(input);
+        return control;
     }
 
-    /**
-     * Sticky Form Logic (Original Feature)
-     */
-    function initStickyForm(form, isEnabled) {
-        const appLabel = form.dataset.appLabel;
-        const modelName = form.dataset.modelName;
+    function renderControl(form) {
+        if (form.querySelector('[data-dlux-assist-bar]') || !formCapabilities(form).sticky) {
+            return;
+        }
+        const bar = document.createElement('div');
+        bar.className = 'dlux-assist-bar';
+        bar.setAttribute('data-dlux-assist-bar', '');
 
-        if (!appLabel || !modelName) return;
+        const legend = document.createElement('span');
+        legend.className = 'dlux-assist-bar__legend';
+        legend.innerHTML = '<i class="bi bi-magic" aria-hidden="true"></i>';
+        legend.append(` ${t('assist_bar_legend', 'Assisted entry')}`);
+        bar.appendChild(legend);
 
-        // Handle Submit
-        form.addEventListener('submit', function() {
-            if (localStorage.getItem(TOGGLE_KEY) === 'true') {
-                 sessionStorage.setItem('dlux_last_submit_autofill', 'true');
-            } else {
-                 sessionStorage.removeItem('dlux_last_submit_autofill');
-            }
+        const label = t('assist_sticky_label', 'Reuse my last entry');
+        const labelEl = document.createElement('span');
+        labelEl.className = 'dlux-assist-bar__label';
+        labelEl.textContent = label;
+        labelEl.setAttribute('data-dlux-tooltip',
+            t('assist_sticky_desc', 'A new form starts pre-filled with the last record you created.'));
+        bar.appendChild(labelEl);
+        bar.appendChild(buildSwitch(PREF_STICKY, label, stickyEnabled()));
+
+        form.insertBefore(bar, form.firstChild);
+    }
+
+    function setAssistPreference(key, enabled, origin) {
+        const saved = setPref(key, enabled);
+        document.querySelectorAll(`[data-dlux-assist-pref="${key}"]`).forEach((input) => {
+            input.checked = enabled;
         });
-
-        // Run autofill if enabled
-        if (isEnabled) {
-            handleStickyAutofill(form);
+        const form = key === PREF_STICKY && origin && origin.closest ? origin.closest('form') : null;
+        if (!form) {
+            return;
+        }
+        if (form.dataset.stickyServer !== undefined) {
+            // The project prefilled this form server-side, before it rendered;
+            // only a reload can apply or undo that — and the reload has to wait
+            // for the preference to be stored, or it races its own POST and the
+            // page comes back showing the value we just left.
+            forgetSticky(form);
+            const reload = () => window.location.reload();
+            saved.then(reload, reload);
+            return;
+        }
+        if (enabled) {
+            applySticky(form);
+        } else {
+            forgetSticky(form);
         }
     }
 
-    async function handleStickyAutofill(form) {
+    // ── sticky forms ────────────────────────────────────────────────────────
+    function initStickyForm(form) {
+        if (form.dataset.dluxStickyBound === 'true') {
+            return;
+        }
+        form.dataset.dluxStickyBound = 'true';
+
+        form.addEventListener('submit', function () {
+            if (stickyEnabled()) {
+                sessionStorage.setItem(SUBMIT_FLAG, 'true');
+            } else {
+                sessionStorage.removeItem(SUBMIT_FLAG);
+            }
+        });
+
+        if (stickyEnabled() && form.dataset.stickyServer === undefined) {
+            applySticky(form);
+        }
+    }
+
+    async function applySticky(form) {
         const appLabel = form.dataset.appLabel;
         const modelName = form.dataset.modelName;
         const storageKey = `${STORAGE_PREFIX}${appLabel}_${modelName}`;
-        
-        // 1. Check for "Create & Add Another" flow via sessionStorage
-        if (sessionStorage.getItem('dlux_last_submit_autofill') === 'true') {
+
+        // "Save and add another" hands over via sessionStorage: refill from the
+        // record just created rather than whatever was remembered before.
+        if (sessionStorage.getItem(SUBMIT_FLAG) === 'true') {
+            sessionStorage.removeItem(SUBMIT_FLAG);
             try {
                 const lastEntry = await fetchLastEntry(appLabel, modelName);
                 if (lastEntry && lastEntry._pk) {
-                    // Update header/status to show we found something?
-                    localStorage.setItem(storageKey, lastEntry._pk); // Save for future
+                    localStorage.setItem(storageKey, lastEntry._pk);
                     populateForm(form, lastEntry);
                 }
-                sessionStorage.removeItem('dlux_last_submit_autofill');
-            } catch (e) {
-                console.error("Autofill: Failed to fetch last entry", e);
+            } catch (err) {
+                console.error('Assisted entry: could not read the last entry', err);
             }
             return;
         }
 
-        // 2. Check localStorage (Sticky ID)
         const targetId = localStorage.getItem(storageKey);
-        if (targetId) {
-             try {
-                const data = await fetchModelDetails(appLabel, modelName, targetId);
-                populateForm(form, data);
-            } catch (e) {
-                console.warn("Autofill: ID invalid or not found:", targetId);
+        if (!targetId) {
+            return;
+        }
+        try {
+            populateForm(form, await fetchModelDetails(appLabel, modelName, targetId));
+        } catch (err) {
+            localStorage.removeItem(storageKey);
+        }
+    }
+
+    function forgetSticky(form) {
+        const { appLabel, modelName } = form.dataset;
+        if (appLabel && modelName) {
+            localStorage.removeItem(`${STORAGE_PREFIX}${appLabel}_${modelName}`);
+        }
+        sessionStorage.removeItem(SUBMIT_FLAG);
+    }
+
+    // ── fill from related record ────────────────────────────────────────────
+    async function handleRelatedChange(event) {
+        const target = event.target;
+        const sourceEl = target && target.closest ? target.closest('[data-autofill-source]') : null;
+        if (!sourceEl || !relatedEnabled()) {
+            return;
+        }
+        const source = sourceEl.dataset.autofillSource;
+        const form = sourceEl.closest('form');
+        if (!source || !form) {
+            return;
+        }
+        const [app, model] = source.split('.');
+        const parent = sourceEl.parentElement;
+
+        if (parent) {
+            parent.classList.add('opacity-50');
+        }
+        try {
+            // Clearing the FK clears what it filled, so a stale related record's
+            // values never survive into a different selection.
+            const pk = sourceEl.value || 'empty_schema';
+            populateForm(form, await fetchModelDetails(app, model, pk));
+        } catch (err) {
+            console.error('Assisted entry: could not read the related record', err);
+        } finally {
+            if (parent) {
+                parent.classList.remove('opacity-50');
             }
         }
     }
 
-    /**
-     * FK Autofill Logic (New Feature)
-     */
-    function initFKAutofill(inputs, isEnabled) {
-        // We use event delegation on document.body to handle:
-        // 1. Elements dynamically added after load
-        // 2. Event bubbling issues
-        // 3. Simplifying listener logic
-        
-        debugLog("Autofill: Initializing Event Delegation for FK inputs.");
-
-        const handleEvent = async function(e) {
-            // Find the relevant element (self or parent)
-            const target = e.target;
-            
-            // DEBUG: catch-all log
-            // debugLog("Autofill: Global event", e.type, "on", target.tagName, target.name, target.className);
-
-            const sourceEl = target.closest ? target.closest('[data-autofill-source]') : null;
-            
-            if (!sourceEl) return;
-
-            // Check Toggle
-            if (localStorage.getItem(TOGGLE_KEY) !== 'true') {
-                return;
-            }
-
-            // debugLog(`Autofill: Delegated '${e.type}' captured on`, sourceEl.name || sourceEl.id, "Value:", sourceEl.value);
-
-            const val = sourceEl.value;
-            const source = sourceEl.dataset.autofillSource; 
-            if (!source) return;
-            
-            const [app, model] = source.split('.');
-            const form = sourceEl.closest('form');
-
-            // Case: Clear fields if value is empty
-            if (!val) {
-                 debugLog("Autofill: Value cleared. Fetching empty schema.", sourceEl.name);
-                 try {
-                     // UI Feedback
-                    if (sourceEl.parentElement) sourceEl.parentElement.classList.add('opacity-50');
-                    
-                    const data = await fetchModelDetails(app, model, 'empty_schema');
-                    
-                    if (data && form) {
-                        populateForm(form, data);
-                    }
-                 } catch (err) {
-                    console.error("Autofill error clearing fields:", err);
-                 } finally {
-                    if (sourceEl.parentElement) sourceEl.parentElement.classList.remove('opacity-50');
-                 }
-                 return; 
-            }
-
-            debugLog("Autofill: Fetching details for", source, "ID:", val);
-            
-            try {
-                // UI Feedback
-                if (sourceEl.parentElement) sourceEl.parentElement.classList.add('opacity-50');
-                
-                const data = await fetchModelDetails(app, model, val);
-                debugLog("Autofill: Data received:", data);
-                
-                if (data && form) {
-                    populateForm(form, data);
-                }
-            } catch (err) {
-                console.error("Autofill: Error fetching details:", err);
-            } finally {
-                if (sourceEl.parentElement) sourceEl.parentElement.classList.remove('opacity-50');
-            }
-        };
-
-
-        // Attach to Body
-        document.body.addEventListener('change', handleEvent);
-        document.body.addEventListener('input', handleEvent);
-        
-        // jQuery specific handling
-        if (window.jQuery) {
-            window.jQuery(document.body).on('select2:select', function(e) {
-                handleEvent(e.originalEvent || e);
-            });
-        }
-    }
-    
-    // ... rest of code without debug logs ...
-
-
-    /**
-     * API Helpers
-     */
+    // ── API ─────────────────────────────────────────────────────────────────
     async function fetchLastEntry(app, model) {
         const path = `/sys/api/last-entry/${app}/${model}/`;
         const url = window.dluxEndpoint
@@ -258,7 +244,7 @@
             : (window.dluxUrl ? window.dluxUrl(path) : path);
         const response = await fetch(url);
         if (!response.ok) throw new Error(response.statusText);
-        return await response.json();
+        return response.json();
     }
 
     async function fetchModelDetails(app, model, pk) {
@@ -268,52 +254,86 @@
         } else if (window.dluxUrl) {
             url = window.dluxUrl(url);
         }
-        debugLog("Autofill: Calling API:", url);
         const response = await fetch(url);
         if (!response.ok) throw new Error(`API Error ${response.status}: ${response.statusText}`);
-        return await response.json();
+        return response.json();
     }
 
-    /**
-     * Population Logic
-     */
     function populateForm(form, data) {
-        if (!data) return;
-
-        debugLog("Autofill: Attempting to populate form with keys:", Object.keys(data));
-        
-        // Iterate over data and fill inputs
-        for (const [key, value] of Object.entries(data)) {
-            if (key.startsWith('_')) continue; // Skip metadata
-            
-            const input = form.querySelector(`[name="${key}"]`);
-            if (input) {
-                debugLog("Autofill: Match found! Setting", key, "to", value);
-                
-                // Determine field type
-                if (input.type === 'checkbox') {
-                    input.checked = !!value;
-                } else if (input.type === 'radio') {
-                    // Start logic for radio if needed
-                } else {
-                    input.value = value;
-                }
-                
-                // Trigger change for dependencies (but avoid loops with simple checks if needed)
-                // input.dispatchEvent(new Event('change', { bubbles: true }));
-            } else {
-                // Debug: Log missing matches to help user diagnose
-                // debugLog("Autofill: No input found for key:", key);
-            }
+        if (!data) {
+            return;
         }
+        Object.entries(data).forEach(([key, value]) => {
+            if (key.startsWith('_')) {
+                return;
+            }
+            const input = form.querySelector(`[name="${key}"]`);
+            if (!input) {
+                return;
+            }
+            if (input.type === 'checkbox') {
+                input.checked = Boolean(value);
+            } else if (input.type !== 'radio') {
+                input.value = value;
+            }
+        });
     }
 
-    // Run
-    // Use DOMContentLoaded or run immediately if deferred
+    // ── wiring ──────────────────────────────────────────────────────────────
+    function scan(root) {
+        assistableForms(root).forEach((form) => {
+            renderControl(form);
+            if (formCapabilities(form).sticky) {
+                initStickyForm(form);
+            }
+        });
+    }
+
+    function init() {
+        scan(document);
+
+        document.addEventListener('change', (event) => {
+            const control = event.target && event.target.closest
+                ? event.target.closest('[data-dlux-assist-pref]')
+                : null;
+            if (control) {
+                setAssistPreference(control.getAttribute('data-dlux-assist-pref'),
+                    Boolean(control.checked), control);
+                return;
+            }
+            handleRelatedChange(event);
+        });
+        document.addEventListener('input', handleRelatedChange);
+        if (window.jQuery) {
+            window.jQuery(document.body).on('select2:select', function (event) {
+                handleRelatedChange(event.originalEvent || event);
+            });
+        }
+
+        // Dynamic-modal forms are injected after load and dispatch no lifecycle
+        // event, so they are picked up the same way the setup wizard does it.
+        new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType === 1 && (node.matches?.('form') || node.querySelector?.('form'))) {
+                        scan(node);
+                        return;
+                    }
+                }
+            }
+        }).observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    window.dluxAssistedEntry = {
+        scan: scan,
+        capabilities: formCapabilities,
+        relatedEnabled: relatedEnabled,
+        stickyEnabled: stickyEnabled,
+    };
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initAutofill);
+        document.addEventListener('DOMContentLoaded', init);
     } else {
-        initAutofill();
+        init();
     }
-
 })();

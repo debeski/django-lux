@@ -73,10 +73,21 @@
             var url = item.url;
             var modeAttr = item.mode;
             if (modeAttr === 'modal' && url) {
-                document.dispatchEvent(new CustomEvent('dlux:dynamic_modal:open', {
-                    detail: { data: { url: url, title: item.label } },
-                }));
-                clear();
+                // Dispatch on document.body with bubbles:true so this reaches a
+                // listener bound to either body or document — the modal helper is
+                // a separately cached asset and may be an older copy.
+                if (document.getElementById('universalDynamicModal')) {
+                    document.body.dispatchEvent(new CustomEvent('dlux:dynamic_modal:open', {
+                        bubbles: true,
+                        detail: { data: { url: url, title: item.label } },
+                    }));
+                    clear();
+                } else if (item.fallback_url) {
+                    // No modal host on this page (a bare or non-dlux layout).
+                    // Land on the page that owns the setting instead of doing
+                    // nothing at all, which is indistinguishable from a dead UI.
+                    window.location.href = item.fallback_url;
+                }
             } else if (modeAttr === 'link' && url) {
                 window.location.href = url;
             }

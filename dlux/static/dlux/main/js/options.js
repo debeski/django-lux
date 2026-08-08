@@ -11,23 +11,8 @@
         callback();
     }
 
-    function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) {
-            return parts.pop().split(';').shift();
-        }
-        return null;
-    }
-
     function getCsrfToken() {
         return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    }
-
-    function setCookie(name, value) {
-        const expires = new Date();
-        expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000));
-        document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
     }
 
     function updateActiveOption(options, attribute, activeValue) {
@@ -40,24 +25,58 @@
         return options.find((option) => option.classList.contains('is-active'))?.getAttribute(attribute) || fallback;
     }
 
-    function initAutofill() {
-        const toggle = document.getElementById('autofillToggle');
+    // Assisted entry: two independent preferences, mirrored by the inline
+    // controls the assisted-entry helper renders on supporting forms.
+    function initAssistedEntry() {
+        const toggles = Array.from(document.querySelectorAll('[data-assist-pref]'));
+        if (!toggles.length) {
+            return;
+        }
+
+        const defaults = { autofill_from_related: true, sticky_forms: false };
+        toggles.forEach((toggle) => {
+            const key = toggle.getAttribute('data-assist-pref');
+            const prefs = window.USER_PREFS || {};
+            toggle.checked = Object.prototype.hasOwnProperty.call(prefs, key)
+                ? Boolean(prefs[key])
+                : defaults[key];
+
+            toggle.addEventListener('change', () => {
+                const enabled = Boolean(toggle.checked);
+                if (window.USER_PREFS) {
+                    window.USER_PREFS[key] = enabled;
+                }
+                if (typeof window.updatePreferences === 'function') {
+                    window.updatePreferences({ [key]: enabled });
+                }
+                if (typeof window.showToast === 'function') {
+                    window.showToast(enabled ? toggle.dataset.enabledMessage : toggle.dataset.disabledMessage);
+                }
+            });
+        });
+    }
+
+    // Mirror of the "don't ask again" switch in the unsaved-changes prompt, so the
+    // opt-out is reversible rather than a one-way door.
+    function initUnsavedWarningToggle() {
+        const toggle = document.querySelector('[data-unsaved-warning-toggle]');
         if (!toggle) {
             return;
         }
 
-        const cookieValue = getCookie('enable_prefill');
-        const storedValue = localStorage.getItem('enable_prefill');
-        const resolvedValue = cookieValue ?? storedValue ?? 'true';
-        toggle.checked = resolvedValue === 'true';
+        const skipped = Boolean(window.USER_PREFS && window.USER_PREFS.skip_unsaved_settings_prompt);
+        toggle.checked = !skipped;
 
         toggle.addEventListener('change', () => {
-            const isEnabled = Boolean(toggle.checked);
-            setCookie('enable_prefill', isEnabled);
-            localStorage.setItem('enable_prefill', String(isEnabled));
-
+            const warn = Boolean(toggle.checked);
+            if (window.USER_PREFS) {
+                window.USER_PREFS.skip_unsaved_settings_prompt = !warn;
+            }
+            if (typeof window.updatePreferences === 'function') {
+                window.updatePreferences({ skip_unsaved_settings_prompt: !warn });
+            }
             if (typeof window.showToast === 'function') {
-                window.showToast(isEnabled ? toggle.dataset.enabledMessage : toggle.dataset.disabledMessage);
+                window.showToast(warn ? toggle.dataset.enabledMessage : toggle.dataset.disabledMessage);
             }
         });
     }
@@ -269,6 +288,7 @@
                 || key === 'appFont'
                 || key === 'accessibilityMode'
                 || key === 'enable_prefill'
+                || key.startsWith('dlux_autofill_')
                 || key === storageKey
             ) {
                 keysToRemove.push(key);
@@ -277,61 +297,74 @@
         keysToRemove.forEach((key) => localStorage.removeItem(key));
     }
 
-    function initResetDefaults(grid) {
-        const panel = document.querySelector('.dlux-options-panel--danger[data-reset-url]');
-        const btnInit = document.getElementById('btnResetInit');
-        const actions = document.getElementById('resetActions');
-        const btnConfirm = document.getElementById('btnResetConfirm');
-        const btnCancel = document.getElementById('btnResetCancel');
-
-        if (!panel || !btnInit || !actions || !btnConfirm || !btnCancel) {
-            return;
-        }
-
+    // One implementation for every reset bar in the footer. Each bar declares its
+    // endpoint and copy via data-*; the inline confirm/cancel pair replaces the
+    // trigger in place rather than opening a dialog.
+    function initResetBars(grid) {
         const storageKey = grid?.dataset.optionsOrderStorageKey || OPTIONS_ORDER_STORAGE_KEY;
 
-        btnInit.addEventListener('click', () => {
-            btnInit.hidden = true;
-            actions.hidden = false;
-        });
+        document.querySelectorAll('[data-reset-bar][data-reset-url]').forEach((panel) => {
+            if (panel.dataset.resetBarBound === 'true') {
+                return;
+            }
+            const btnInit = panel.querySelector('[data-reset-init]');
+            const actions = panel.querySelector('[data-reset-actions]');
+            const btnConfirm = panel.querySelector('[data-reset-confirm]');
+            const btnCancel = panel.querySelector('[data-reset-cancel]');
+            if (!btnInit || !actions || !btnConfirm || !btnCancel) {
+                return;
+            }
+            panel.dataset.resetBarBound = 'true';
 
-        btnCancel.addEventListener('click', () => {
-            actions.hidden = true;
-            btnInit.hidden = false;
-        });
+            // Only the full-preferences reset invalidates locally cached UI state;
+            // restoring dialog prompts must not wipe the card order or theme.
+            const clearsLocalStorage = panel.dataset.resetScope !== 'dialogs';
 
-        btnConfirm.addEventListener('click', async function () {
-            const originalContent = this.innerHTML;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
-            this.disabled = true;
-            btnCancel.disabled = true;
+            btnInit.addEventListener('click', () => {
+                btnInit.hidden = true;
+                actions.hidden = false;
+            });
 
-            try {
-                const response = await fetch(panel.dataset.resetUrl, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCsrfToken(),
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({}),
-                });
-                const data = await response.json();
-                if (!response.ok || !data.success) {
-                    throw new Error(data.error || panel.dataset.resetError || 'Unable to reset preferences.');
-                }
-
-                clearPreferenceStorage(storageKey);
-                alert(panel.dataset.resetSuccess);
-                window.location.reload();
-            } catch (error) {
-                console.error('Reset failed', error);
-                alert(panel.dataset.resetError || 'Unable to reset preferences.');
-                this.innerHTML = originalContent;
-                this.disabled = false;
-                btnCancel.disabled = false;
+            btnCancel.addEventListener('click', () => {
                 actions.hidden = true;
                 btnInit.hidden = false;
-            }
+            });
+
+            btnConfirm.addEventListener('click', async function () {
+                const originalContent = this.innerHTML;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+                this.disabled = true;
+                btnCancel.disabled = true;
+
+                try {
+                    const response = await fetch(panel.dataset.resetUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken(),
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({}),
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || panel.dataset.resetError || 'Unable to reset.');
+                    }
+
+                    if (clearsLocalStorage) {
+                        clearPreferenceStorage(storageKey);
+                    }
+                    alert(panel.dataset.resetSuccess);
+                    window.location.reload();
+                } catch (error) {
+                    console.error('Reset failed', error);
+                    alert(panel.dataset.resetError || 'Unable to reset.');
+                    this.innerHTML = originalContent;
+                    this.disabled = false;
+                    btnCancel.disabled = false;
+                    actions.hidden = true;
+                    btnInit.hidden = false;
+                }
+            });
         });
     }
 
@@ -716,6 +749,10 @@
     // user-preference cards) into a tab pane, driven by a generated tab strip.
     // Labels/icons are read from each card's own heading so no server changes are
     // needed. Reordering is disabled in this mode.
+    // Set once the tabbed layout is live: { cards, activate }. A deep link has to
+    // reveal the pane holding its target, otherwise it scrolls to a hidden card.
+    let optionsTabs = null;
+
     function initOptionsTabs(grid) {
       try {
         const cards = Array.from(grid.querySelectorAll(':scope > .dlux-options-card'))
@@ -778,6 +815,7 @@
             if (!isNaN(saved) && saved >= 0 && saved < cards.length) { start = saved; }
         } catch (_e) { /* ignore */ }
         activate(start);
+        optionsTabs = { cards: cards, activate: activate };
         // Only now — with the tab strip built and one pane active — do we let the
         // CSS hide the inactive panes. If anything above threw, this line is never
         // reached and every card stays visible (a plain stacked list), so the page
@@ -802,7 +840,8 @@
         } else if (optionsStyle === 'cards') {
             initCardOrdering(grid);
         }
-        initAutofill();
+        initAssistedEntry();
+        initUnsavedWarningToggle();
         initThemePicker();
         initAccessibilityToggles();
         initLandingPageControl();
@@ -812,7 +851,7 @@
         initFormDensityPicker();
         initModalSizePicker();
         initNavbarModePicker();
-        initResetDefaults(grid);
+        initResetBars(grid);
         initAdminCommandLauncher();
         initForcePasswordChangeAll();
         initEmailHealthCheck();
@@ -837,17 +876,35 @@
         }
     });
 
-    // Global search deep-links to a specific options card via
-    // #dlux-option-<slug> → scroll it into view and briefly highlight it.
+    // Global search deep-links to a specific options card via #dlux-option-<slug>.
+    // `data-options-deeplink` is a second, ordering-free hook: `data-options-card`
+    // also drives drag-reordering, so panels that must not be reorderable (the
+    // admin panel) opt in to addressing without becoming draggable.
     function focusHashCard() {
         const match = /^#dlux-option-(.+)$/.exec(window.location.hash || '');
         if (!match) { return; }
-        const card = document.querySelector('[data-options-card="' + CSS.escape(match[1]) + '"]');
+        const slug = CSS.escape(match[1]);
+        const card = document.querySelector(
+            '[data-options-card="' + slug + '"], [data-options-deeplink="' + slug + '"]'
+        );
         if (!card) { return; }
+        // In the tabbed layout the target usually sits in an inactive pane, which
+        // is why a deep link used to land on Options and appear to do nothing.
+        if (optionsTabs) {
+            const index = optionsTabs.cards.findIndex(
+                (pane) => pane === card || pane.contains(card)
+            );
+            if (index >= 0) { optionsTabs.activate(index); }
+        }
         window.setTimeout(function () {
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
             card.classList.add('dlux-options-card--flash');
             window.setTimeout(function () { card.classList.remove('dlux-options-card--flash'); }, 2000);
         }, 120);
     }
+
+    // Selecting a second Options result while already on this page only changes
+    // the hash — no navigation, no reload — so without this the first deep link
+    // worked and every later one silently did nothing.
+    window.addEventListener('hashchange', focusHashCard);
 })();

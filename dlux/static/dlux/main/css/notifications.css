@@ -222,6 +222,28 @@
     min-width: 12rem;
 }
 
+/* The percentage and its status message were one text run separated by a
+   middot, so the space around that separator was a legal break point: a long
+   running-phase message ("Decrypting 1.2 GB / 9.8 GB") pushed itself onto the
+   next line and left the percentage stranded alone, while a short completed
+   message stayed put. Flex keeps the number on the message's first line at any
+   width; only the message's own overflow wraps, and it wraps under itself. */
+.dlux-backup-progress-status {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+.dlux-backup-progress-percent {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.dlux-backup-progress-note {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .dlux-backup-progress--success {
     --dlux-progress-color: #16a34a;
 }

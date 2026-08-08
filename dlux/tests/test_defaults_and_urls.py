@@ -25,6 +25,7 @@ import tempfile
 from dlux.system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_TABLE_DENSITY,
+    ROUTE_ACTION_PAGE,
     TITLEBAR_ACTIONS_ORDER,
     SETUP_STEP_COUNT,
     SETUP_STEP_IDENTITY,
@@ -516,7 +517,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             },
         }
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=[]):
+        with patch('dlux.navbar.discover_routes_for', return_value=[]):
             crumbs = build_navbar_hierarchy_crumbs(
                 request,
                 config,
@@ -547,7 +548,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         }
         catalog = [{'url_name': 'documents:list', 'label': 'Documents', 'url': '/documents/'}]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
 
         self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Library', 'Documents'])
@@ -571,7 +572,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         }
         catalog = [{'url_name': 'decree_list', 'label': 'Decrees', 'url': '/archive/decrees/'}]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
 
         self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Archive', 'Decrees'])
@@ -595,7 +596,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         }
         catalog = [{'url_name': 'decree_list', 'label': 'Decrees', 'url': '/archive/decrees/'}]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
 
         self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Index', 'Decrees'])
@@ -626,7 +627,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             {'url_name': 'archive:decree_list', 'label': 'Decree List', 'url': '/archive/decrees/'},
         ]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
 
         self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Archive', 'Decree List'])
@@ -662,7 +663,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             {'url_name': 'archive:decree_list', 'label': 'Decrees', 'url': '/archive/decrees/'},
         ]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
 
         self.assertEqual([crumb['label'] for crumb in crumbs], ['Archive', 'Decrees'])
@@ -690,7 +691,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         }
         catalog = [{'url_name': 'archive:index', 'label': 'Archive', 'url': '/archive/'}]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
 
         self.assertEqual([crumb['label'] for crumb in crumbs], ['Archive'])
@@ -720,7 +721,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             {'url_name': 'archive:decree_list', 'label': 'Decrees', 'url': '/archive/decrees/'},
         ]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(
                 request,
                 config,
@@ -752,7 +753,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         }
         catalog = [{'url_name': 'documents:list', 'label': 'Documents', 'url': '/documents/'}]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(
                 request,
                 config,
@@ -780,7 +781,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         }
         catalog = [{'url_name': 'documents:list', 'label': 'Documents', 'url': '/documents/'}]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
 
         self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Documents'])
@@ -796,7 +797,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         }
         catalog = [{'url_name': 'archive:index', 'label': 'Archive', 'url': '/archive/'}]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(
                 request,
                 config,
@@ -834,7 +835,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             {'url_name': 'documents:list', 'label': 'Documents', 'url': '/documents/'},
         ]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
 
         self.assertEqual([crumb['label'] for crumb in crumbs], ['Archive', 'Library', 'Documents'])
@@ -859,7 +860,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             {'url_name': 'archive:index', 'label': 'Archive', 'url': '/archive/'},
         ]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(request, config, 'en', {'navbar_root': 'Root'})
 
         self.assertEqual([crumb['label'] for crumb in crumbs], ['Root', 'Home'])
@@ -875,7 +876,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             'group_key': 'dlux',
         }]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(
                 request,
                 {'enabled': True, 'hierarchy': {'nodes': []}},
@@ -908,7 +909,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             },
         ]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(
                 request,
                 {'enabled': True, 'hierarchy': {'nodes': []}},
@@ -959,7 +960,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             },
         ]
 
-        with patch('dlux.navbar.discover_sidebar_catalog', return_value=catalog):
+        with patch('dlux.navbar.discover_routes_for', return_value=catalog):
             crumbs = build_navbar_hierarchy_crumbs(
                 request,
                 config,
@@ -2166,7 +2167,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
             'A public landing page.',
         )
 
-    def test_setup_form_hides_public_registration_dependents_until_enabled(self):
+    def test_setup_form_disables_public_registration_dependents_until_enabled(self):
+        # Dimmed and inert, not hidden: the admin can see what enabling public
+        # registration will turn on (matches the Sidebar/Nav Bar/Email steps).
         form = SystemSettingsForm(
             instance=SystemSettings(is_configured=False, public_registration_enabled=False),
             mode='setup',
@@ -2174,9 +2177,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dlux-public-registration-dependent d-none', html)
+        self.assertIn('dlux-public-registration-dependent dlux-dependent-settings is-disabled', html)
         self.assertIn('data-public-registration-dependent="true"', html)
-        self.assertIn('aria-hidden="true"', html)
+        self.assertIn('aria-disabled="true"', html)
+        self.assertNotIn('dlux-public-registration-dependent d-none', html)
         self.assertIn('data-dlux-settings-toggle-field=\'public_registration_enabled\'', html)
         self.assertIn('class="col-lg-12" > <div class=\'dlux-settings-toggle-field', html)
 
@@ -2191,8 +2195,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         dependent_class_end = html.index('>', dependent_class_start)
 
         self.assertNotIn('d-none', html[dependent_class_start:dependent_class_end])
-        self.assertIn('aria-hidden="false"', html[dependent_class_start:dependent_class_end])
-        self.assertIn('class="col-lg-6 dlux-public-registration-dependent"', html)
+        self.assertNotIn('is-disabled', html[dependent_class_start:dependent_class_end])
+        self.assertIn('aria-disabled="false"', html[dependent_class_start:dependent_class_end])
+        self.assertIn('class="col-lg-6 dlux-public-registration-dependent dlux-dependent-settings"', html)
 
     @override_settings(DLUX_CONFIG={})
     def test_setup_wizard_actions_align_to_direction_end_in_ltr(self):
@@ -2620,7 +2625,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("shell.classList.contains('mode-setup')", contents)
         self.assertIn('navbarHierarchyHasNodes(navbarConfig)', contents)
         self.assertIn("toolbarToggle.disabled = !available;", contents)
-        self.assertIn("'sidebar_enable_toolbar',\n                    'sidebar_show_icons'", contents)
+        # The dependent-field list moved into the shared DEPENDENT_FIELDS table;
+        # it used to be duplicated per call site and drifted between the copies.
+        self.assertIn("'sidebar_enable_toolbar',\n            'sidebar_show_icons',", contents)
+        self.assertIn('const DEPENDENT_FIELDS = {', contents)
         self.assertNotIn('toolbarToggle.checked = false;', contents)
         self.assertIn('data-public-registration-dependent', contents)
         self.assertIn('function setImportedSetupFinishVisible(form, visible)', contents)
@@ -3011,8 +3019,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('data-options-card-handle', contents)
         self.assertIn('bi-grip-vertical', contents)
         self.assertNotIn('bi-arrow-left-right', contents)
-        self.assertIn('id="autofillToggle"', contents)
-        self.assertIn('name="autofill_enabled"', contents)
+        # Assisted entry is two independent switches now, not one autofill toggle.
+        self.assertIn('data-assist-pref="autofill_from_related"', contents)
+        self.assertIn('data-assist-pref="sticky_forms"', contents)
         self.assertIn('name="accessibility_high_contrast"', contents)
         self.assertIn('id="btnResetInit"', contents)
         self.assertIn('id="resetActions"', contents)
@@ -3626,25 +3635,37 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.initial['default_table_density'], DEFAULT_TABLE_DENSITY)
 
     @override_settings(DLUX_CONFIG={'default_language': 'ar'})
-    @patch('dlux.discovery.discover_sidebar_catalog')
-    def test_setup_form_provides_sidebar_builder_with_language_catalog_and_english_fallback(self, mock_discover_sidebar_catalog):
-        mock_discover_sidebar_catalog.side_effect = [
-            [{'id': 'demo:list', 'url_name': 'demo:list', 'label': 'القائمة', 'group_label': 'التجريبي'}],
-            [{'id': 'demo:list', 'url_name': 'demo:list', 'label': 'القائمة', 'group_label': 'التجريبي'}],
-            [{'id': 'demo:list', 'url_name': 'demo:list', 'label': 'List', 'group_label': 'Demo'}],
-        ]
+    @patch('dlux.discovery.discover_routes')
+    def test_setup_form_provides_sidebar_builder_with_language_catalog_and_english_fallback(self, mock_discover_routes):
+        # Every builder catalog is now a projection of one global catalog, so the
+        # per-language behaviour is pinned at that single source.
+        def _routes(lang_code=None):
+            label = 'List' if lang_code == 'en' else 'القائمة'
+            group_label = 'Demo' if lang_code == 'en' else 'التجريبي'
+            return [{
+                'id': 'demo:list',
+                'url_name': 'demo:list',
+                'url': '/demo/',
+                'label': label,
+                'group_label': group_label,
+                'group_key': 'demo',
+                'action': ROUTE_ACTION_PAGE,
+                'is_system': False,
+                'is_form_page': False,
+                'requires_args': False,
+                'excluded_from': [],
+                'included_in': [],
+            }]
+
+        mock_discover_routes.side_effect = _routes
 
         form = SystemSettingsForm(
             instance=SystemSettings(default_language='ar', is_configured=False),
         )
 
         self.assertEqual(
-            mock_discover_sidebar_catalog.call_args_list,
-            [
-                call(lang_code='ar', include_system_items=False),
-                call(lang_code='ar', include_system_items=True),
-                call(lang_code='en', include_system_items=True),
-            ],
+            [call.kwargs['lang_code'] for call in mock_discover_routes.call_args_list],
+            ['ar', 'ar', 'en', 'ar'],
         )
         self.assertIn('dlux-sidebar-catalog-fallback-data', form.sidebar_builder_html)
         self.assertIn('Demo', form.sidebar_builder_html)

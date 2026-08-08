@@ -2,6 +2,106 @@
 
 DEFAULT_HOME_URL = '/accounts/profile/'
 
+# ── route discovery ──────────────────────────────────────────────────────────
+# Discovery walks the URLconf once and classifies every named route. It excludes
+# nothing on its own; each consuming feature (sidebar, Nav Bar, search, landing
+# picker) filters the shared catalog through one of the profiles below. Editing
+# a token here changes how a route is CLASSIFIED, not whether it is discovered.
+
+# What a route does, inferred from its name and path.
+ROUTE_ACTION_PAGE = 'page'          # a normal navigable page (list, detail, dashboard)
+ROUTE_ACTION_FORM = 'form'          # creates a record — no object required to reach it
+ROUTE_ACTION_EDIT = 'edit'          # mutates an existing record — needs an id
+ROUTE_ACTION_ASYNC = 'async'        # XHR/partial endpoint, never a destination
+ROUTE_ACTION_API = 'api'            # API counterpart of a page view
+ROUTE_ACTION_MACHINERY = 'machinery'  # auth, 2FA, setup, modal and admin plumbing
+
+ROUTE_FORM_TOKENS = frozenset({'add', 'create'})
+ROUTE_EDIT_TOKENS = frozenset({'edit', 'update'})
+ROUTE_ASYNC_TOKENS = frozenset({'ajax'})
+
+# Leaf names that are machinery no matter which app declares them.
+ROUTE_MACHINERY_EXACT_NAMES = frozenset({
+    'login',
+    'logout',
+    'toggle_sidebar',
+    'verify_otp_enable',
+    'verify_otp_login',
+    'verify_otp_generic',
+    'enable_2fa',
+    'setup_totp',
+    'disable_2fa',
+    'generate_backup_codes',
+    'resend_otp',
+    'resend_otp_login',
+    'system_setup',
+    'manage_users',
+    'manage_scopes',
+    'add_subsection',
+    'set_active_model',
+})
+
+# Substrings anywhere in the full route name that mark machinery.
+ROUTE_MACHINERY_NAME_PARTS = (
+    'modal',
+    'delete',
+    'api_',
+    'get_',
+    'save_',
+    'toggle_',
+    'verify_otp',
+    'resend_otp',
+    'reset_password',
+)
+
+ROUTE_MACHINERY_NAMESPACES = frozenset({'admin', 'health_check'})
+
+ROUTE_MACHINERY_PATH_PARTS = (
+    '/accounts/login/',
+    '/accounts/logout/',
+    '/health/',
+    '/sys/2fa/',
+    '/api/',
+    '/sys/modals/',
+    '/sys/setup/',
+)
+
+# Feature profiles. `actions` is what the feature accepts; `require_url` marks a
+# feature that needs a real href, which is what keeps id-bound edit routes out of
+# everything except the Nav Bar hierarchy (whose nodes match on route name and
+# render fine without a URL).
+DISCOVERY_PROFILE_SIDEBAR = 'sidebar'
+DISCOVERY_PROFILE_NAVBAR = 'navbar'
+DISCOVERY_PROFILE_NAVBAR_ROOT = 'navbar_root'
+DISCOVERY_PROFILE_SEARCH = 'search'
+DISCOVERY_PROFILE_LANDING = 'landing'
+
+DISCOVERY_PROFILES = {
+    # Form pages are offered but flagged `is_form_page`, so the builder keeps them
+    # out of the available list until the admin asks for them.
+    DISCOVERY_PROFILE_SIDEBAR: {
+        'actions': (ROUTE_ACTION_PAGE, ROUTE_ACTION_FORM),
+        'require_url': True,
+    },
+    DISCOVERY_PROFILE_NAVBAR: {
+        'actions': (ROUTE_ACTION_PAGE, ROUTE_ACTION_FORM, ROUTE_ACTION_EDIT),
+        'require_url': False,
+    },
+    DISCOVERY_PROFILE_NAVBAR_ROOT: {
+        'actions': (ROUTE_ACTION_PAGE,),
+        'require_url': True,
+    },
+    DISCOVERY_PROFILE_SEARCH: {
+        'actions': (ROUTE_ACTION_PAGE, ROUTE_ACTION_FORM),
+        'require_url': True,
+    },
+    # A landing page must be reachable with no context, so form pages are out.
+    DISCOVERY_PROFILE_LANDING: {
+        'actions': (ROUTE_ACTION_PAGE,),
+        'require_url': True,
+    },
+}
+
 # Profile page security-nudge intensity (missing 2FA / weak account health prompts).
 DEFAULT_SECURITY_NUDGE = 'subtle'
 SECURITY_NUDGE_CHOICES = (
@@ -101,6 +201,48 @@ SIDEBAR_COLLAPSE_MODE_CHOICES = (
     ('locked_expanded', 'Locked Expanded'),
 )
 SIDEBAR_COLLAPSE_MODE_VALUES = {value for value, _label in SIDEBAR_COLLAPSE_MODE_CHOICES}
+
+# Glyph on the titlebar's sidebar-toggle button. Any icon from the loaded
+# Bootstrap Icons font is allowed; the value lands in a `class` attribute, so the
+# normalizer enforces this shape rather than trusting stored input.
+DEFAULT_SIDEBAR_TOGGLE_ICON = 'bi-list'
+SIDEBAR_TOGGLE_ICON_PATTERN = r'^bi-[a-z0-9]+(?:-[a-z0-9]+)*$'
+SIDEBAR_TOGGLE_ICON_MAX_LENGTH = 64
+
+# Arrows and chevrons read as "pointing at the sidebar", which flips meaning in
+# RTL. These are mirrored by CSS; anything else renders as authored.
+SIDEBAR_TOGGLE_DIRECTIONAL_ICONS = (
+    'bi-arrow-bar-left',
+    'bi-arrow-bar-right',
+    'bi-arrow-left',
+    'bi-arrow-left-short',
+    'bi-arrow-right',
+    'bi-arrow-right-short',
+    'bi-chevron-left',
+    'bi-chevron-right',
+    'bi-chevron-double-left',
+    'bi-chevron-double-right',
+    'bi-chevron-bar-left',
+    'bi-chevron-bar-right',
+    'bi-caret-left',
+    'bi-caret-left-fill',
+    'bi-caret-right',
+    'bi-caret-right-fill',
+    'bi-text-indent-left',
+    'bi-text-indent-right',
+    'bi-indent',
+    'bi-unindent',
+    'bi-layout-sidebar',
+    'bi-layout-sidebar-reverse',
+    'bi-layout-sidebar-inset',
+    'bi-layout-sidebar-inset-reverse',
+    'bi-layout-text-sidebar',
+    'bi-layout-text-sidebar-reverse',
+    'bi-box-arrow-left',
+    'bi-box-arrow-right',
+    'bi-box-arrow-in-left',
+    'bi-box-arrow-in-right',
+)
 DEFAULT_NAVBAR_MODE = 'hierarchy'
 NAVBAR_MODE_CHOICES = (
     (DEFAULT_NAVBAR_MODE, 'Hierarchy'),

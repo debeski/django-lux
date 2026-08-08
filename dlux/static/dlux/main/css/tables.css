@@ -285,6 +285,13 @@ body.dlux-table-resizing * {
     }
 }
 
+/* Opt out of striping. The theme stylesheets stripe every bare `.table`
+   unconditionally, so an opt-out has to outrank them. */
+.dlux-no-zebra > tbody > tr > td,
+.dlux-no-zebra > tbody > tr > th {
+    background: transparent !important;
+}
+
 /* Zebra striping is an admin-toggleable layout option (default on). */
 body[data-dlux-zebra="on"] .dlux-data-table > tbody > tr:nth-child(odd) > td,
 body[data-dlux-zebra="on"] .dlux-data-table > tbody > tr:nth-child(odd) > th {

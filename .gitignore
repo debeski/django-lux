@@ -33,3 +33,4 @@ celerybeat-*
 .claude
 .codex
 db.sqlite3
+*plan.md

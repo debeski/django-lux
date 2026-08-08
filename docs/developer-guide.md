@@ -46,7 +46,7 @@ The main system-level models are:
   the profile/onboarding surface.
 
 - `Scope` and `ScopeSettings`
-  Represent the optional scope-isolation system and whether scoping is globally enabled. `ScopeSettings.auto_create_user_scope` enables automatic creation of a dedicated `Scope` for every newly registered user, providing automatic user isolation without manual assignment.
+  Represent the optional scope-isolation system and whether scoping is globally enabled. `ScopeSettings.auto_create_user_scope` enables automatic creation of a dedicated `Scope` for every newly registered user. `Scope.default_theme` provides an allowed-theme fallback for users in that scope who have not selected a valid personal theme; it is ignored while scopes are disabled.
 
 - `ScopedModel`
   Gives inheriting models audit fields, actor tracking, soft-delete behavior, and automatic scope support.
@@ -150,16 +150,66 @@ It also connects to the surrounding UI systems:
 - autofill metadata attached to generated or patched form fields
 - generic modal/list/detail views that expect convention-friendly classes
 
-Navigation discovery excludes API endpoints before they reach the sidebar,
-Nav Bar, or discovered-home selectors. `api` is matched as an exact token across
-the full URL namespace/name and resolved path, including suffixes such as
-`records_api`, nested names such as `catalog:api:records`, and callback class or
-function names such as `RecordsAPIView`. Ordinary names that merely contain the
-letters, such as `rapid_report`, remain discoverable. Stored sidebar/Nav Bar
-trees and imported/exported settings are sanitized by the same rule; when an
-old API hierarchy node contains valid page children, those children are kept.
-For an endpoint whose naming does not identify it as an API, set
-`view.sidebar_exclude = True` explicitly.
+### Route Discovery And Feature Profiles
+
+Discovery is global and excludes nothing. `discover_routes()` walks the URLconf
+once per language and returns every named route, classified rather than filtered.
+Each navigation feature then reads that shared catalog through its own profile
+(`discover_routes_for(profile)`), so one feature's rules can never quietly
+narrow another's. Profiles are declared in `dlux/system/constants.py`.
+
+Each route is classified into one `action`:
+
+| Action | Matched by | Example |
+| --- | --- | --- |
+| `page` | anything not matched below | `chapter_list` |
+| `form` | `add` / `create` route-name token | `chapter_add` |
+| `edit` | `edit` / `update` route-name token | `chapter_edit` |
+| `async` | `ajax` route-name token | `chapter_ajax_search` |
+| `api` | `api` as an exact token, or an API-looking callback | `catalog:api:records` |
+| `machinery` | auth/2FA/setup/modal names, paths and namespaces | `verify_otp_login` |
+
+Which profile accepts which action:
+
+| Profile | Accepts | Needs a reversible URL |
+| --- | --- | --- |
+| `sidebar` | `page`, `form` | yes |
+| `navbar` | `page`, `form`, `edit` | no |
+| `navbar_root` | `page` | yes |
+| `search` | `page`, `form` | yes |
+| `landing` | `page` | yes |
+
+Two consequences worth knowing. A **form page** (`chapter_add`) is a real
+destination: it is searchable, placeable in the Nav Bar hierarchy, and offered in
+the sidebar builder behind the *Show form pages* toggle — but it is never added
+to a zero-config sidebar and cannot be a landing page or a Nav Bar root. An
+**id-bound page** (`chapter_edit`, `chapter_detail`) cannot be reversed without
+arguments, so every feature that needs a real href drops it; only the Nav Bar
+hierarchy accepts it, because its nodes match on route name and a URL-less crumb
+renders as plain text.
+
+API endpoints are excluded from every navigation profile. `api` is matched as an
+exact token across the full URL namespace/name and resolved path, including
+suffixes such as `records_api`, nested names such as `catalog:api:records`, and
+callback class or function names such as `RecordsAPIView`. Ordinary names that
+merely contain the letters, such as `rapid_report`, remain discoverable. Stored
+sidebar/Nav Bar trees and imported/exported settings are sanitized by the same
+rule; when an old API hierarchy node contains valid page children, those children
+are kept.
+
+#### Overriding discovery per view
+
+Set these on the view callback when the inferred classification is wrong:
+
+```python
+class ChapterAddView(CreateView):
+    dlux_exclude = ('search',)      # hide from search only
+    dlux_include = ('landing',)     # offer despite the profile's action rules
+```
+
+Both accept a profile name, an iterable of names, or `True` for every profile.
+`dlux_exclude` always wins over `dlux_include`. The released
+`view.sidebar_exclude = True` still works and hides the view from every feature.
 
 ### Sidebar Permission Inference
 

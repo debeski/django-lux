@@ -65,7 +65,7 @@ class AppSystemConfigError(ValueError):
 
 def register_card(*, id, title, template_name, icon='bi-puzzle', order=100,
                   superuser_only=False, permission=None, context_builder=None,
-                  visible=None):
+                  visible=None, search_keywords=()):
     """Register one Options-page card. Raises ``ValueError`` on invalid input.
 
     Args:
@@ -85,6 +85,9 @@ def register_card(*, id, title, template_name, icon='bi-puzzle', order=100,
             visibility (e.g. show the card only when a feature is enabled in
             ``extra_config``). Evaluated server-side *after* the static gates and
             **fail-closed** — if it raises, the card is hidden.
+        search_keywords: Optional strings that also match this card in global
+            search, on top of its rendered title. Not translated — list the
+            synonyms for every language you ship (``('scanner', 'ماسح')``).
     """
     if not isinstance(id, str) or not id or len(id) > _MAX_ID_LEN or not _SAFE_ID.match(id):
         raise ValueError(f"register_card: invalid id {id!r} (must match {SAFE_NAMESPACE_RE}, <= {_MAX_ID_LEN} chars)")
@@ -102,6 +105,9 @@ def register_card(*, id, title, template_name, icon='bi-puzzle', order=100,
         raise ValueError(f"register_card[{id}]: context_builder must be callable or None")
     if visible is not None and not callable(visible):
         raise ValueError(f"register_card[{id}]: visible must be callable or None")
+    if isinstance(search_keywords, str) or not all(
+            isinstance(word, str) and word.strip() for word in tuple(search_keywords or ())):
+        raise ValueError(f"register_card[{id}]: search_keywords must be an iterable of non-empty strings")
 
     if id in _REGISTRY:
         # Overwrite (dev autoreload re-imports the module) but make it visible.
@@ -117,6 +123,7 @@ def register_card(*, id, title, template_name, icon='bi-puzzle', order=100,
         'permission': permission,
         'context_builder': context_builder,
         'visible': visible,
+        'search_keywords': tuple(word.strip() for word in tuple(search_keywords or ())),
     }
 
 

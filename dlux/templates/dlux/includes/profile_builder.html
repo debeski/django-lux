@@ -8,9 +8,10 @@ back into the hidden #id_profile_config field. Reuses the dlux toggle component.
   <h6 class="fw-bold my-3">{{ DLUX_STRINGS.profile_page_section|default:"Profile page" }}</h6>
 
   {% for tile in page_toggles %}
-  <div class="dlux-settings-toggle-field d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-2">
+  <div class="dlux-settings-toggle-field dlux-profile-toggle d-flex justify-content-between align-items-start gap-3 p-3 border rounded mb-2">
     <div class="dlux-settings-toggle-field__content flex-grow-1">
       <div class="dlux-settings-toggle-field__label fw-semibold">{{ tile.label }}</div>
+      {% if tile.help %}<div class="dlux-settings-toggle-field__help small text-muted mt-1">{{ tile.help }}</div>{% endif %}
     </div>
     <div class="dlux-settings-toggle-field__control form-switch">
       <input class="form-check-input dlux-settings-toggle-field__input" type="checkbox" role="switch"
@@ -21,18 +22,19 @@ back into the hidden #id_profile_config field. Reuses the dlux toggle component.
 
   <div class="mb-3 mt-3">
     <label class="form-label fw-semibold" for="dlux-profile-nudges">{{ DLUX_STRINGS.profile_security_nudges|default:"Security nudges" }}</label>
-    <select class="form-select" id="dlux-profile-nudges" data-profile-nudges>
+    <select class="form-select" id="dlux-profile-nudges" data-profile-nudges aria-describedby="dlux-profile-nudges-help">
       {% for opt in nudge_options %}
       <option value="{{ opt.key }}">{{ opt.label }}</option>
       {% endfor %}
     </select>
+    <div class="form-text" id="dlux-profile-nudges-help">{{ nudges_help }}</div>
   </div>
 
   <hr class="my-4">
 
   <h6 class="fw-bold my-3">{{ DLUX_STRINGS.initial_user_setup_section|default:"Initial User Setup (first login)" }}</h6>
 
-  <div class="dlux-settings-toggle-field d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-2">
+  <div class="dlux-settings-toggle-field dlux-profile-toggle d-flex justify-content-between align-items-start gap-3 p-3 border rounded mb-2">
     <div class="dlux-settings-toggle-field__content flex-grow-1">
       <div class="dlux-settings-toggle-field__label fw-semibold">{{ DLUX_STRINGS.profile_onboarding_enabled|default:"Show the first-login setup modal" }}</div>
       <div class="dlux-settings-toggle-field__help small text-muted mt-1">{{ DLUX_STRINGS.profile_onboarding_help|default:"New users pick their preferences on first login instead of digging into Options." }}</div>
@@ -42,8 +44,8 @@ back into the hidden #id_profile_config field. Reuses the dlux toggle component.
     </div>
   </div>
 
-  <div data-profile-onboarding-dependent>
-    <p class="text-muted small mt-3 mb-2">{{ DLUX_STRINGS.profile_onboarding_offers|default:"Preferences the modal offers:" }}</p>
+  <div data-profile-onboarding-dependent class="dlux-profile-onboarding-group p-3 border rounded mt-3">
+    <p class="text-muted small mb-3">{{ DLUX_STRINGS.profile_onboarding_offers|default:"Preferences the modal offers:" }}</p>
     {% for tile in onboarding_toggles %}
     <div class="form-check form-switch dlux-log-switch mb-2">
       <input class="form-check-input dlux-settings-toggle-field__input" type="checkbox" role="switch"

@@ -142,7 +142,9 @@ class PublicRegistrationTests(TestCase):
         response = self.client.get(reverse('user_profile'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'Public signup')
+        # Assert on the badge itself: the phrase also ships in the inlined
+        # DLUX_STRINGS blob on every page, so matching it proves nothing.
+        self.assertNotContains(response, 'bi-person-plus me-1')
 
     def test_verify_valid_token_activates_and_logs_in(self):
         self._enable_registration()

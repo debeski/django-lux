@@ -13,6 +13,7 @@ from .constants import (
     DEFAULT_ROW_ACTIONS_STYLE,
     DEFAULT_SECURITY_NUDGE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    DEFAULT_SIDEBAR_TOGGLE_ICON,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
     REGISTRATION_ACTIVATION_AUTO_LOGIN,
@@ -255,6 +256,7 @@ def default_sidebar_config():
         'density': DEFAULT_SIDEBAR_DENSITY,
         'allow_user_density': True,
         'collapse_mode': DEFAULT_SIDEBAR_COLLAPSE_MODE,
+        'toggle_icon': DEFAULT_SIDEBAR_TOGGLE_ICON,
     }
 
 

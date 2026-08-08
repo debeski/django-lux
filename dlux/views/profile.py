@@ -33,10 +33,13 @@ from ..reports import (
 )
 from ..utils import (
     get_system_config,
+    get_user_scope,
     get_user_management_tier_state_for_user,
+    is_scope_enabled,
     log_audit_event,
     log_user_action,
     normalize_activity_log_model_key,
+    resolve_user_theme_preference,
 )
 from ..translations import get_strings
 from .twofa import get_2fa_config
@@ -558,6 +561,12 @@ def initial_user_setup(request):
         return JsonResponse({'success': True, 'refresh_parent': True})
 
     prefs = profile.preferences if isinstance(profile.preferences, dict) else {}
+    resolved_prefs = resolve_user_theme_preference(
+        prefs,
+        config,
+        scope=get_user_scope(request.user),
+        scopes_enabled=is_scope_enabled(),
+    )
     allowed_font_slugs = set(config.get('allowed_fonts') or [])
     context = {
         'allow_theme': allow_theme,
@@ -567,7 +576,7 @@ def initial_user_setup(request):
         'theme_options': get_theme_options(s, config.get('allowed_themes')),
         'language_options': config.get('languages') or {},
         'font_options': [f for f in get_available_fonts() if not allowed_font_slugs or f['slug'] in allowed_font_slugs],
-        'current_theme': prefs.get('theme') or config.get('default_theme'),
+        'current_theme': resolved_prefs.get('theme') or config.get('default_theme'),
         'current_language': prefs.get('language') or config.get('default_language'),
         'current_font': prefs.get('font') or '',
         'current_home': prefs.get('user_home_url') or '',

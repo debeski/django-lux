@@ -43,6 +43,8 @@ TEST_LABELS = [
     'dlux.tests.test_utils',
     'dlux.tests.test_utils_discovery',
     'dlux.tests.test_updater',
+    'dlux.tests.test_theme_toggle',
+    'dlux.tests.test_scope_default_theme',
 ]
 
 

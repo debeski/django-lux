@@ -48,6 +48,10 @@ class DluxConfig(AppConfig):
         # Patch models and signals
         import dlux.signals
         import dlux.discovery
+
+        # Dismissible-dialog registry (Options → reset dialog prompts).
+        from dlux.dialogs import register_builtin_dialogs
+        register_builtin_dialogs()
         try:
             import dlux.updater.celery_control
         except ImportError:

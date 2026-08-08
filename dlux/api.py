@@ -425,6 +425,25 @@ def update_preferences(request):
                             prefs.pop('table_page_size', None)
                             continue
                         value = coerced_value
+                    if key in ('autofill_from_related', 'sticky_forms'):
+                        # Assisted-entry switches. Stored as strict bools; the
+                        # two features are independent, so neither implies the
+                        # other.
+                        coerced = value
+                        if isinstance(coerced, str):
+                            coerced = coerced.strip().lower() in {'1', 'true', 'yes', 'on'}
+                        value = bool(coerced)
+                    if key == 'skip_unsaved_settings_prompt':
+                        # Opt-out for the unsaved-changes prompt. Stored as a
+                        # strict bool, and dropped entirely when off so the
+                        # preferences blob does not carry dead keys.
+                        coerced = value
+                        if isinstance(coerced, str):
+                            coerced = coerced.strip().lower() in {'1', 'true', 'yes', 'on'}
+                        if not bool(coerced):
+                            prefs.pop('skip_unsaved_settings_prompt', None)
+                            continue
+                        value = True
                     if key == 'sidebar_collapsed' and sidebar_config.get('collapse_mode') == 'locked_expanded':
                         prefs.pop('sidebar_collapsed', None)
                         request.session['sidebarCollapsed'] = False
@@ -500,6 +519,37 @@ def reset_preferences(request):
             return JsonResponse({'success': False, 'error': 'Unable to reset preferences.'}, status=500)
 
     return JsonResponse({'success': False}, status=400)
+
+
+@login_required
+@require_POST
+def reset_dialog_prompts(request):
+    """Re-arm every registered dismissible dialog for the current user.
+
+    Deliberately narrower than ``reset_preferences``: it clears only the
+    "don't show again" state registered through ``dlux.dialogs``, leaving theme,
+    density, language and the rest of the user's preferences alone.
+
+    Routed under ``/sys/api/preferences/`` so the unconfigured-system middleware
+    treats it like the other preference endpoints instead of bouncing it to setup.
+    """
+    from .dialogs import get_dismissible_dialogs, reset_dismissible_dialogs
+
+    try:
+        Profile = apps.get_model('dlux', 'Profile')
+        profile, _created = Profile.all_objects.get_or_create(user=request.user)
+        reset_count = reset_dismissible_dialogs(profile)
+        log_user_action(request, "RESET", instance=request.user, model_name="dialog_prompts")
+        return JsonResponse({
+            'success': True,
+            'reset': reset_count,
+            'registered': len(get_dismissible_dialogs()),
+        })
+    except Exception:
+        logger.exception("Failed to reset dialog prompts for user pk=%s", request.user.pk)
+        return JsonResponse(
+            {'success': False, 'error': 'Unable to reset dialog prompts.'}, status=500,
+        )
 
 
 # Preferences API — Targeted, concurrent-safe write to one app-owned namespace.

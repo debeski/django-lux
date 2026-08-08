@@ -5,13 +5,13 @@ window.updatePreferences = function(data) {
 
     if (!csrfToken) {
         console.error("CSRF token not found, cannot save preferences.");
-        return;
+        return Promise.resolve();
     }
 
     const url = window.dluxEndpoint
         ? window.dluxEndpoint('preferencesUpdate', null, '/sys/api/preferences/update/')
         : (window.dluxUrl ? window.dluxUrl('/sys/api/preferences/update/') : '/sys/api/preferences/update/');
-    fetch(url, {
+    return fetch(url, {
         method: "POST",
         headers: {
             "X-CSRFToken": csrfToken,
@@ -195,7 +195,26 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // The toggle reports the sidebar it controls: `aria-expanded` for assistive
+    // tech, `is-collapsed` for the icon's facing direction. Read back off the
+    // sidebar's own class rather than the requested value, because the branches
+    // below can override the request (mobile, locked_expanded).
+    function syncToggleState() {
+        if (!sidebarToggle) {
+            return;
+        }
+        const collapsed = sidebar.classList.contains('collapsed');
+        sidebarToggle.classList.toggle('is-collapsed', collapsed);
+        sidebarToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        sidebarToggle.classList.add('is-ready');
+    }
+
     function applyCollapsedState(collapsed) {
+        applySidebarCollapsedClass(collapsed);
+        syncToggleState();
+    }
+
+    function applySidebarCollapsedClass(collapsed) {
         if (isMobileViewport()) {
             sidebar.classList.toggle('collapsed', collapsed);
             deinitializeTooltips();
@@ -231,6 +250,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (isMobileViewport()) {
                 sidebar.classList.toggle("collapsed");
+                syncToggleState();
                 return;
             }
 
@@ -355,6 +375,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (!sidebar.contains(event.target) && !sidebarToggle.contains(event.target) && !sidebar.classList.contains("collapsed")) {
             sidebar.classList.add("collapsed");
+            syncToggleState();
         }
     });
 });

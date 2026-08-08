@@ -322,7 +322,13 @@ for the pattern that would have caught the whitelist drop.
    breaks migration callables and startup with circular imports. Keep them leaf.
 8. **Choice not validated in the normalizer** — always check membership in a
    `*_VALUES` set and fall back to the default, or garbage persists.
-9. **JSON-only key not routed in `apply_system_settings_import`** — `legacy_flat`
+9. **Converting a step's dependents from hidden to disabled without a save guard**
+   — a disabled control is absent from POST, so a group pack that rebuilds from
+   flat fields reads every dependent as its default and wipes the configuration
+   the admin was only switching off. Guard the pack on the master toggle (see
+   `if sidebar['enabled']` / `notifications_master_off` in `SystemSettingsForm`)
+   and prove it with a test that saves the step with the master off.
+10. **JSON-only key not routed in `apply_system_settings_import`** — `legacy_flat`
    keys route via the generic setter; JSON-only keys need an explicit `elif`
    (mirror the `options_style` branch) or import/bootstrap silently skips them.
 

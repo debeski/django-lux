@@ -18,6 +18,7 @@ from .constants import (
     DEFAULT_NAVBAR_ROOT_MODE,
     DEFAULT_SECURITY_NUDGE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    DEFAULT_SIDEBAR_TOGGLE_ICON,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_TABLE_DENSITY,
     EMAIL_CONFIG_MAX_FAILURE_RECIPIENTS,
@@ -46,6 +47,8 @@ from .constants import (
     REGISTRATION_ACTIVATION_VALUES,
     SECURITY_NUDGE_VALUES,
     SIDEBAR_COLLAPSE_MODE_VALUES,
+    SIDEBAR_TOGGLE_ICON_MAX_LENGTH,
+    SIDEBAR_TOGGLE_ICON_PATTERN,
     SIDEBAR_DENSITY_VALUES,
     TABLE_DENSITY_VALUES,
     TITLEBAR_ACTIONS_ORDER,
@@ -631,10 +634,29 @@ def normalize_sidebar_behavior(sidebar_config):
     if collapse_mode in SIDEBAR_COLLAPSE_MODE_VALUES:
         normalized['collapse_mode'] = collapse_mode
 
+    normalized['toggle_icon'] = normalize_sidebar_toggle_icon(config.get('toggle_icon'))
+
     if not normalized['show_icons'] and normalized['collapse_mode'] == 'icons':
         normalized['collapse_mode'] = 'hidden'
 
     return normalized
+
+
+def normalize_sidebar_toggle_icon(value):
+    """Coerce a stored toggle glyph to a safe Bootstrap Icons class name.
+
+    The value is rendered straight into a `class` attribute, so anything that is
+    not a plain `bi-*` token falls back to the default rather than being escaped
+    into the markup.
+    """
+    icon = str(value or '').strip().lower()
+    if not icon:
+        return DEFAULT_SIDEBAR_TOGGLE_ICON
+    if len(icon) > SIDEBAR_TOGGLE_ICON_MAX_LENGTH:
+        return DEFAULT_SIDEBAR_TOGGLE_ICON
+    if not re.fullmatch(SIDEBAR_TOGGLE_ICON_PATTERN, icon):
+        return DEFAULT_SIDEBAR_TOGGLE_ICON
+    return icon
 
 
 def _normalize_navbar_labels(value):
@@ -964,6 +986,7 @@ __all__ = [
     'normalize_public_root_config',
     'normalize_registration_config',
     'normalize_sidebar_behavior',
+    'normalize_sidebar_toggle_icon',
     'normalize_theme_config',
     'normalize_titlebar_actions_order',
     'normalize_titlebar_config',

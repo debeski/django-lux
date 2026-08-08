@@ -63,6 +63,7 @@ from ..system.defaults import (
 from ..system.normalizers import (
     normalize_navbar_config as _system_normalize_navbar_config,
     normalize_sidebar_behavior as _system_normalize_sidebar_behavior,
+    normalize_sidebar_toggle_icon as _system_normalize_sidebar_toggle_icon,
 )
 from .localization import _normalize_language_code
 
@@ -87,6 +88,10 @@ def default_sidebar_config():
 # Sidebar Config - Function validates sidebar behavior flags.
 def normalize_sidebar_behavior(sidebar_config):
     return _system_normalize_sidebar_behavior(sidebar_config)
+
+
+def normalize_sidebar_toggle_icon(value):
+    return _system_normalize_sidebar_toggle_icon(value)
 
 # Navbar Config - Function returns default navbar structure and mode settings.
 def default_navbar_config():

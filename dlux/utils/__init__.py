@@ -40,6 +40,7 @@ from .navigation import (
     default_sidebar_config,
     normalize_navbar_config,
     normalize_sidebar_behavior,
+    normalize_sidebar_toggle_icon,
     resolve_sidebar_collapsed_preference,
     resolve_sidebar_density_preference,
     seed_navbar_config_from_sidebar,
@@ -137,6 +138,8 @@ from .crud import (
     set_field_attrs,
     set_first_choice,
     setup_filter_helper,
+    sticky_form_initial,
+    sticky_forms_enabled,
     translate_choices,
 )
 from .sections import (
@@ -385,6 +388,7 @@ __all__ = [
     "normalize_public_root_config",
     "normalize_registration_config",
     "normalize_sidebar_behavior",
+    "normalize_sidebar_toggle_icon",
     "normalize_system_names",
     "normalize_theme_config",
     "normalize_system_settings_import_payload",
@@ -410,6 +414,8 @@ __all__ = [
     "strip_manage_scopes_permissions",
     "toggle_sidebar",
     "translate_activity_log_model_name",
+    "sticky_form_initial",
+    "sticky_forms_enabled",
     "translate_choices",
     "AUDIT_FIELD_NAMES",
     "audit_fields_visible",

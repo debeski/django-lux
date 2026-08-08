@@ -2,6 +2,9 @@
 .current-theme-indicator {
     width: var(--sidebar-toolbar-slot-size, 36px);
     height: var(--sidebar-toolbar-slot-size, 36px);
+    flex: 0 0 var(--sidebar-toolbar-slot-size, 36px);
+    padding: 0;
+    appearance: none;
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid rgba(255, 255, 255, 0.78);
@@ -44,6 +47,11 @@
 .current-theme-indicator:hover {
     transform: translateY(-1px) scale(1.06);
     box-shadow: 0 8px 16px rgba(56, 82, 120, 0.2);
+}
+
+.current-theme-indicator:focus-visible {
+    outline: 3px solid rgba(var(--primal-rgb, 35, 99, 195), 0.34);
+    outline-offset: 2px;
 }
 
 /* Theme Popup Menu */
@@ -119,6 +127,8 @@
 .theme-option-circle {
     width: 24px;
     height: 24px;
+    padding: 0;
+    appearance: none;
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid transparent;

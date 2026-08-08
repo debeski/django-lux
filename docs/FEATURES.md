@@ -75,12 +75,14 @@
 - Double-width System Info card inside the shared Options card grid
 - Generated-Compose DjangoLux updater state with Global Staff read-only visibility and superuser-only verified check/apply/rollback controls
 - Standalone Autofill and Reset Defaults cards using shared external CSS/JS assets
+- **Reset dialog prompts** footer action that re-arms every dismissed "don't show again" prompt (registered through `dlux.dialogs.register_dismissible_dialog`, including project-owned ones) without touching any other preference
 - Titlebar notification icon with unread badge, drawer list, detail view, dismiss, mark-all-read, and clear-read actions
 - App-owned project settings can register superuser-only admin tiles with `register_app_settings(...)`, saving only the app namespace under `SystemSettings.extra_config['app']` through a separate form/modal instead of the core System Settings form
 
 ### Global Search (titlebar)
 - Live "search everywhere" dropdown in the titlebar (Ctrl/⌘-K to focus) that jumps to **pages**, **System Settings sections** (deep-linked to the exact settings step), and **titlebar/nav actions**, with results grouped and ranked as you type
 - Permission-aware and translated: pages filter by route permissions, settings are superuser-only, everything reads through `DLUX_STRINGS`; theme- and RTL-aware dropdown
+- **Options cards** are searchable too — the built-in ones and any app card registered with `register_card(...)`, which resolves its title per request and honours `superuser_only`/`permission`/`visible`; add synonyms with `search_keywords=(...)`
 - Optional **data search** (per-toggle) matches `icontains` across the text fields of the project's real models (plus User/Profile), gated by each model's `view` permission and auto-scoped for `ScopedModel` records; tunable via `DLUX_SEARCH_DATA_MODELS` and `DLUX_SEARCH_DATA_URL_RESOLVER`
 - Titlebar selector modes: **always visible**, **icon that expands on focus** (default), or **disabled**; served by the `login_required` `/search/` JSON endpoint
 
@@ -171,6 +173,7 @@
 ### Scope & ScopeSettings Models
 - Scope isolation for multi-tenant scenarios
 - Optional nullable `Scope.description`
+- Optional `Scope.default_theme`; the scope create/edit form offers the current allowed themes only when scopes are enabled and at least two themes are available. It becomes the runtime fallback for scoped users without a valid personal theme.
 - Single `Scope.is_public_registration_default` marker for public-registration landing scope
 - Toggle for scope system enable/disable
 - Auto-create scope per user option
@@ -329,6 +332,7 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 
 **Theme Features:**
 - Runtime theme switching
+- Direct one-click switching when exactly two themes are allowed
 - User preference persistence
 - Admin-configurable allowed themes
 - CSS variable-based theming
@@ -347,12 +351,14 @@ UI visibility and shortcut behavior. See [DSRP-1 Security Standard](security-dsr
 - **Accordion groups** with state persistence
 - **Active state highlighting**
 - **Desktop collapse modes:** `icons`, `hidden`, `locked_expanded`
+- **Configurable toggle icon** — Step 5 picks the titlebar toggle glyph from a searchable Bootstrap Icons picker (default `bi-list`); directional arrows/chevrons auto-mirror in RTL
 - **Density options:** dense, balanced, roomy
 - **Icon visibility toggle**
 
 ### Sidebar Toolbar
 - Theme picker indicator (circle showing current theme)
-- Theme picker popover with color circles
+- Exactly two allowed themes make the indicator a direct toggle to the other theme
+- Three or more allowed themes use the color-circle popover
 - Sidebar density picker with icon chips
 - Sections manager link (when models registered)
 - Reorder toggle
@@ -707,9 +713,13 @@ Provides to all templates:
 
 ## 15. Discovery System
 
-### Sidebar Discovery
-- **URL resolver scanning** for list views
-- **Name-based exclusion** (login, logout, modal, delete, etc.)
+### Route Discovery
+- **Global catalog** — `discover_routes()` scans the URL resolver once per language and returns every named route, excluding nothing
+- **Classification, not filtering** — each route gets an `action` (`page`, `form`, `edit`, `async`, `api`, `machinery`) plus `requires_args`, `is_form_page`, and `is_system` flags
+- **Per-feature profiles** — sidebar, Nav Bar hierarchy, Nav Bar root, search, and landing picker each project that one catalog through their own rules, so no feature inherits another's exclusions
+- **Form pages are destinations** — an `add`/`create` page is searchable and placeable in the Nav Bar hierarchy, and pickable in the sidebar builder behind a *Show form pages* toggle, but never auto-added to a default sidebar
+- **Id-bound pages** — an `edit`/detail route that cannot be reversed without arguments is still catalogued, and the Nav Bar hierarchy can parent it as a non-clickable crumb
+- **Per-view overrides** — `dlux_exclude` / `dlux_include` target named profiles; `sidebar_exclude` still hides a view everywhere
 - **Permission filtering** — only show routes user can access
 - **Permission inference** from model metadata, URL namespace/name patterns, and explicit decorators
 - **Auto-grouping** by app label

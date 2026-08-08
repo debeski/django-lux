@@ -507,44 +507,98 @@
 }
 
 
+/* The sidebar toggle is the only titlebar control the user operates constantly,
+   so it carries the same surface language as the action buttons on the other end
+   (rest → hover lift → press) plus a state of its own: the sidebar it controls is
+   either open or closed, and the button says which. */
 .sidebar-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    position: relative;
     background-color: transparent;
     color: #7a8794;
-    border: none;
+    border: 1px solid transparent;
     box-shadow: none;
-    transition: color 0.2s ease, transform 0.1s ease;
+    transition:
+        color 0.2s ease,
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.15s cubic-bezier(0.34, 1.3, 0.64, 1);
     min-width: 40px;
     min-height: 40px;
     padding: 0;
     font-size: 1rem;
     line-height: 1;
-    border-radius: 0;
+    border-radius: 12px;
 }
 
 .sidebar-toggle:hover {
-    background-color: transparent !important;
-    border-color: transparent !important;
     color: var(--primal) !important;
+    background-color: rgba(var(--primal-rgb), 0.1) !important;
+    border-color: rgba(var(--primal-rgb), 0.16) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
 }
 
-.sidebar-toggle:focus,
+/* The old rule killed the ring with `box-shadow: none !important`, leaving
+   keyboard users no focus indicator at all. */
 .sidebar-toggle:focus-visible {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
     color: var(--primal) !important;
+    background-color: rgba(var(--primal-rgb), 0.1) !important;
+    border-color: rgba(var(--primal-rgb), 0.35) !important;
+    outline: 2px solid rgba(var(--primal-rgb), 0.55);
+    outline-offset: 2px;
+}
+
+.sidebar-toggle:focus:not(:focus-visible) {
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    outline: none;
 }
 
 .sidebar-toggle:active {
-    transform: scale(0.95);
+    transform: scale(0.9);
+    transition-duration: 0.08s;
+}
+
+/* Sidebar open: the button reads as engaged, which is the only state cue a
+   symmetric glyph (bi-list, bi-menu-app) can carry. */
+.sidebar-toggle[aria-expanded="true"] {
+    color: var(--primal);
+    background-color: rgba(var(--primal-rgb), 0.07);
+    border-color: rgba(var(--primal-rgb), 0.1);
 }
 
 .sidebar-toggle .bi {
     font-size: 1.65rem;
     line-height: 1;
+}
+
+/* A directional glyph additionally turns to face what the next click will do.
+   `--dlux-icon-state` multiplies with the RTL flip in main.css. */
+.sidebar-toggle.is-collapsed .dlux-icon-directional {
+    --dlux-icon-state: -1;
+}
+
+/* Only animate once the state has been synced from the sidebar, so a collapsed
+   sidebar does not visibly flip its icon on first paint. */
+.sidebar-toggle.is-ready .dlux-icon-directional {
+    transition: transform 0.28s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-toggle,
+    .sidebar-toggle.is-ready .dlux-icon-directional {
+        transition-duration: 0.01ms;
+    }
+
+    .sidebar-toggle:hover,
+    .sidebar-toggle:active {
+        transform: none;
+    }
 }
 
 .sidebar-toolbar {

@@ -45,6 +45,7 @@ from .system.constants import (
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
     DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    DEFAULT_SIDEBAR_TOGGLE_ICON,
     DEFAULT_SIDEBAR_DENSITY,
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
@@ -67,6 +68,8 @@ from .system.constants import (
     NAVBAR_MODE_CHOICES,
     NAVBAR_MODE_VALUES,
     SIDEBAR_COLLAPSE_MODE_CHOICES,
+    SIDEBAR_TOGGLE_DIRECTIONAL_ICONS,
+    SIDEBAR_TOGGLE_ICON_MAX_LENGTH,
     SIDEBAR_COLLAPSE_MODE_VALUES,
     SIDEBAR_DENSITY_CHOICES,
     SIDEBAR_DENSITY_VALUES,
@@ -117,11 +120,14 @@ from .utils import (
     apply_system_settings_import,
     get_email_service_status,
     email_features_unlocked,
+    get_effective_allowed_themes,
+    get_system_config,
     get_user_management_tier_state,
     get_user_scope,
     has_section_models,
     is_central_staff,
     is_global_staff,
+    is_scope_enabled,
     normalize_system_settings_import_payload,
     normalize_email_config,
     normalize_client_ip_config,
@@ -135,6 +141,7 @@ from .utils import (
     normalize_navbar_config,
     normalize_notification_config,
     normalize_sidebar_behavior,
+    normalize_sidebar_toggle_icon,
     normalize_system_names,
     normalize_titlebar_actions_order,
     normalize_titlebar_config,
@@ -1836,9 +1843,11 @@ class CustomPasswordChangeForm(DluxPasswordMustChangeMixin, PasswordChangeForm):
         self.helper.layout = Layout(*layout_fields)
 
 class ScopeForm(forms.ModelForm):
+    default_theme = forms.ChoiceField(required=True, choices=())
+
     class Meta:
         model = apps.get_model('dlux', 'Scope')
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'default_theme']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1850,12 +1859,38 @@ class ScopeForm(forms.ModelForm):
         self.fields['description'].label = s.get('form_scope_description', "Description")
         self.fields['description'].required = False
         self.fields['description'].widget.attrs.update({'rows': 3})
-        self.helper = FormHelper()
-        self.helper.form_tag = False
-        self.helper.layout = Layout(
+        layout_fields = [
             Field('name', css_class='col-12'),
             Field('description', css_class='col-12'),
-        )
+        ]
+        config = get_system_config()
+        allowed_themes = list(get_effective_allowed_themes(config))
+        if is_scope_enabled() and len(allowed_themes) > 1:
+            theme_options = get_theme_options(s, allowed_themes)
+            self.fields['default_theme'].choices = [
+                (theme['slug'], theme['label']) for theme in theme_options
+            ]
+            stored_theme = getattr(self.instance, 'default_theme', '')
+            system_default = config.get('default_theme', '')
+            self.initial['default_theme'] = (
+                stored_theme if stored_theme in allowed_themes
+                else system_default if system_default in allowed_themes
+                else allowed_themes[0]
+            )
+            self.fields['default_theme'].label = s.get(
+                'form_scope_default_theme',
+                'Default Theme',
+            )
+            self.fields['default_theme'].help_text = s.get(
+                'help_scope_default_theme',
+                'Used when a user in this scope has not selected a personal theme.',
+            )
+            layout_fields.append(Field('default_theme', css_class='col-12'))
+        else:
+            self.fields.pop('default_theme', None)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(*layout_fields)
 
 
 class GroupPresetForm(forms.ModelForm):
@@ -2008,6 +2043,21 @@ class GroupMembersForm(forms.Form):
             manageable_users=self.fields['members'].queryset,
         )
         return self.group
+
+
+EMAIL_CONNECTION_FIELDS = (
+    'email_config_transport',
+    'email_config_secret_storage',
+    'email_config_host',
+    'email_config_port',
+    'email_config_use_tls',
+    'email_config_use_ssl',
+    'email_config_username',
+    'email_config_password',
+    'email_config_default_from_email',
+    'email_config_provider_preset',
+    'email_config_failure_recipients',
+)
 
 
 class SystemSettingsForm(forms.ModelForm):
@@ -2260,6 +2310,12 @@ class SystemSettingsForm(forms.ModelForm):
         required=False,
         choices=SIDEBAR_COLLAPSE_MODE_CHOICES,
         initial=DEFAULT_SIDEBAR_COLLAPSE_MODE,
+    )
+    sidebar_toggle_icon = forms.CharField(
+        required=False,
+        initial=DEFAULT_SIDEBAR_TOGGLE_ICON,
+        max_length=SIDEBAR_TOGGLE_ICON_MAX_LENGTH,
+        widget=forms.HiddenInput(),
     )
     navbar_enabled = forms.BooleanField(
         required=False,
@@ -2636,6 +2692,7 @@ class SystemSettingsForm(forms.ModelForm):
             'translations_override',
             'sidebar_config',
             'sidebar_show_notification_badges',
+            'sidebar_toggle_icon',
             'navbar_config',
             'log_config',
             'profile_config',
@@ -2700,6 +2757,8 @@ class SystemSettingsForm(forms.ModelForm):
                 logger.warning("SystemSettingsForm: could not refresh instance from DB before save.", exc_info=True)
         self.refresh_parent = True
         self.extra_form_class = 'dlux-system-setup-form'
+        # Closing this modal with pending edits prompts before discarding.
+        self.dlux_unsaved_guard = True
         self.single_step_mode = False
         self.single_step_index = None
         s = get_strings()
@@ -2722,7 +2781,13 @@ class SystemSettingsForm(forms.ModelForm):
             self.fields['default_theme'].required = False
             self.fields['default_table_density'].required = False
 
-        from dlux.discovery import discover_sidebar_catalog, sanitize_navbar_config, sanitize_sidebar_config
+        from dlux.discovery import (
+            discover_routes_for,
+            discover_sidebar_catalog,
+            sanitize_navbar_config,
+            sanitize_sidebar_config,
+        )
+        from dlux.system.constants import DISCOVERY_PROFILE_LANDING, DISCOVERY_PROFILE_NAVBAR
         from dlux.utils import get_system_config
 
         config = get_system_config()
@@ -3023,6 +3088,11 @@ class SystemSettingsForm(forms.ModelForm):
             ('icons', s.get('sidebar_collapse_icons', 'Icons only')),
             ('hidden', s.get('sidebar_collapse_hidden', 'Hide completely')),
             ('locked_expanded', s.get('sidebar_collapse_locked_expanded', 'Always expanded')),
+        )
+        self.fields['sidebar_toggle_icon'].label = s.get('form_sys_sidebar_toggle_icon', 'Sidebar toggle icon')
+        self.fields['sidebar_toggle_icon'].help_text = s.get(
+            'help_sys_sidebar_toggle_icon',
+            'Choose the icon shown on the titlebar button that opens and closes the sidebar.',
         )
         self.fields['navbar_config'].label = s.get('form_sys_navbar', '')
         self.fields['log_config'].label = s.get('form_sys_log', 'Logging Configuration')
@@ -4251,6 +4321,9 @@ class SystemSettingsForm(forms.ModelForm):
         self.initial['sidebar_density'] = initial_sidebar_config.get('density', DEFAULT_SIDEBAR_DENSITY)
         self.initial['sidebar_allow_user_density'] = bool(initial_sidebar_config.get('allow_user_density', True))
         self.initial['sidebar_collapse_mode'] = initial_sidebar_config.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+        self.initial['sidebar_toggle_icon'] = normalize_sidebar_toggle_icon(
+            initial_sidebar_config.get('toggle_icon')
+        )
         if self.mode == 'setup' and not getattr(self.instance, 'is_configured', False):
             initial_navbar_config = seed_navbar_config_from_sidebar(
                 initial_navbar_config,
@@ -4333,9 +4406,17 @@ class SystemSettingsForm(forms.ModelForm):
             or self.instance.default_language
             or config.get('default_language', 'en')
         )
-        public_sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=False)
+        # One global catalog, three projections: a landing picker needs a
+        # context-free page, the sidebar offers form pages behind a toggle, and
+        # the Nav Bar hierarchy also accepts id-bound routes as parents/children.
+        landing_catalog = discover_routes_for(
+            DISCOVERY_PROFILE_LANDING, lang_code=catalog_lang, include_system_items=False,
+        )
         self.sidebar_catalog = discover_sidebar_catalog(lang_code=catalog_lang, include_system_items=True)
         self.sidebar_catalog_fallback = discover_sidebar_catalog(lang_code='en', include_system_items=True)
+        self.navbar_catalog = discover_routes_for(
+            DISCOVERY_PROFILE_NAVBAR, lang_code=catalog_lang, include_system_items=True,
+        )
         seen_home_urls = set()
         home_url_choices = [('', s.get('form_sys_home_url_custom', 'Use a custom URL'))]
         home_url_option_meta = {
@@ -4343,7 +4424,7 @@ class SystemSettingsForm(forms.ModelForm):
                 'description': s.get('home_url_custom_desc', 'Keep a custom titlebar home URL instead of a discovered page.'),
             }
         }
-        for entry in public_sidebar_catalog:
+        for entry in landing_catalog:
             url_name = entry.get('url_name')
             if not url_name:
                 continue
@@ -4515,6 +4596,27 @@ class SystemSettingsForm(forms.ModelForm):
             },
         )
 
+        self.sidebar_toggle_icon_html = self._step_render(SETUP_STEP_SIDEBAR,
+            'dlux/includes/icon_picker.html',
+            {
+                'field_name': 'sidebar_toggle_icon',
+                'label': self.fields['sidebar_toggle_icon'].label,
+                'help_text': self.fields['sidebar_toggle_icon'].help_text,
+                'current_icon': self.initial.get('sidebar_toggle_icon') or DEFAULT_SIDEBAR_TOGGLE_ICON,
+                'default_icon': DEFAULT_SIDEBAR_TOGGLE_ICON,
+                # Single source for the RTL/state mirror set: the live preview reads
+                # it back off the element instead of keeping a second copy in JS.
+                'directional_icons': ' '.join(SIDEBAR_TOGGLE_DIRECTIONAL_ICONS),
+                # `locked_expanded` hides the toggle on desktop, so its glyph has
+                # nothing to style there.
+                'disabled': (
+                    not self.initial.get('sidebar_enabled', True)
+                    or self.initial.get('sidebar_collapse_mode') == 'locked_expanded'
+                ),
+                'mode': self.mode,
+                'DLUX_STRINGS': s,
+            },
+        )
         self.sidebar_builder_html = self._step_render(SETUP_STEP_SIDEBAR,
             'dlux/includes/sidebar_builder.html',
             {
@@ -4530,7 +4632,7 @@ class SystemSettingsForm(forms.ModelForm):
         self.navbar_builder_html = self._step_render(SETUP_STEP_NAVBAR,
             'dlux/includes/navbar_builder.html',
             {
-                'navbar_catalog_json': _json_dump(self.sidebar_catalog, ensure_ascii=False),
+                'navbar_catalog_json': _json_dump(self.navbar_catalog, ensure_ascii=False),
                 'navbar_config_json': _json_dump(initial_navbar_config, ensure_ascii=False),
                 'languages_json': _json_dump(current_languages, ensure_ascii=False),
                 'mode': self.mode,
@@ -4580,9 +4682,30 @@ class SystemSettingsForm(forms.ModelForm):
             {
                 'profile_config_json': _json_dump(initial_profile_config, ensure_ascii=False),
                 'page_toggles': [
-                    {'key': 'show_completion_widget', 'label': s.get('profile_show_completion', 'Show profile completion widget')},
-                    {'key': 'show_session_device_cards', 'label': s.get('profile_show_devices', 'Show session/device cards')},
-                    {'key': 'show_activity_feed', 'label': s.get('profile_show_activity', 'Show activity feed')},
+                    {
+                        'key': 'show_completion_widget',
+                        'label': s.get('profile_show_completion', 'Show profile completion widget'),
+                        'help': s.get(
+                            'profile_show_completion_help',
+                            'A progress meter on the profile page prompting the user to finish setting up their account.',
+                        ),
+                    },
+                    {
+                        'key': 'show_session_device_cards',
+                        'label': s.get('profile_show_devices', 'Show session/device cards'),
+                        'help': s.get(
+                            'profile_show_devices_help',
+                            'Lets users review their active sessions and known devices, and sign other sessions out.',
+                        ),
+                    },
+                    {
+                        'key': 'show_activity_feed',
+                        'label': s.get('profile_show_activity', 'Show activity feed'),
+                        'help': s.get(
+                            'profile_show_activity_help',
+                            "A reverse-chronological list of the user's own recent actions on their profile page.",
+                        ),
+                    },
                 ],
                 'nudge_options': [
                     {'key': 'off', 'label': s.get('nudge_off', 'Off')},
@@ -4594,6 +4717,10 @@ class SystemSettingsForm(forms.ModelForm):
                     {'key': 'language', 'label': s.get('options_language', 'Language')},
                     {'key': 'fonts', 'label': s.get('options_font', 'Font')},
                 ],
+                'nudges_help': s.get(
+                    'profile_security_nudges_help',
+                    'How insistently the profile page prompts a user to fix account-health gaps such as missing two-factor authentication.',
+                ),
                 'DLUX_STRINGS': s,
             },
         )
@@ -4667,9 +4794,9 @@ class SystemSettingsForm(forms.ModelForm):
                         Div(Field('public_root_meta_description', dir='auto'), css_class='col-lg-12'),
                         css_class='g-3 mb-3',
                     ),
-                    css_class=f"dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                    css_class=f"dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
                     data_public_root_dependent='true',
-                    aria_hidden='false' if self.initial.get('public_root', False) else 'true',
+                    aria_disabled='false' if self.initial.get('public_root', False) else 'true',
                 ),
                 # Footer lives in Identity — it's branding/credit copy for every page.
                 HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'>{s.get('footer_settings_title', 'Footer')}</h6>"),
@@ -4710,7 +4837,9 @@ class SystemSettingsForm(forms.ModelForm):
                     css_class='g-3 mb-3',
                 ),
                 HTML(
-                    f"<div class='dlux-email-config-section{'' if self.initial.get('email_config_enabled', False) else ' d-none'}' "
+                    f"<div class='dlux-dependent-settings dlux-email-config-section"
+                    f"{'' if self.initial.get('email_config_enabled', False) else ' is-disabled'}' "
+                    f"aria-disabled='{'false' if self.initial.get('email_config_enabled', False) else 'true'}' "
                     f"data-email-config-section>"
                     f"<p class='small text-muted mb-3'>"
                     f"{s.get('email_delivery_settings_desc', 'Visible when public signup or email 2FA is enabled. If the web service is isolated, choose Internal SMTP relay and enter the upstream SMTP server below; the generated relay reads this UI config and handles internet egress. If the web service can reach SMTP directly, choose Direct SMTP from web service. Use Encrypted database secret for UI-managed passwords, or Environment / secrets when deployers intentionally keep mail secrets outside the UI.')}"
@@ -4849,10 +4978,10 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(
                         self,
                         'public_root_split_enabled',
-                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        css_class=f"col-lg-12 dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
                         attrs={
                             'data_public_root_dependent': 'true',
-                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
+                            'aria_disabled': 'false' if self.initial.get('public_root', False) else 'true',
                         },
                     ),
                     css_class='g-3 mb-3',
@@ -4861,20 +4990,20 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(
                         Field('public_root_url_discovered'),
                         css_class=(
-                            "col-lg-6 dlux-public-root-split-dependent"
-                            f"{' d-none' if not (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ''}"
+                            "col-lg-6 dlux-public-root-split-dependent dlux-dependent-settings"
+                            f"{'' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ' is-disabled'}"
                         ),
                         data_public_root_split_dependent='true',
-                        aria_hidden='false' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else 'true',
+                        aria_disabled='false' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else 'true',
                     ),
                     Div(
                         Field('public_root_url', dir='ltr'),
                         css_class=(
-                            "col-lg-6 dlux-public-root-split-dependent"
-                            f"{' d-none' if not (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ''}"
+                            "col-lg-6 dlux-public-root-split-dependent dlux-dependent-settings"
+                            f"{'' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ' is-disabled'}"
                         ),
                         data_public_root_split_dependent='true',
-                        aria_hidden='false' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else 'true',
+                        aria_disabled='false' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else 'true',
                     ),
                 ),
                 Row(
@@ -4884,35 +5013,35 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(
                         Field('registration_activation_mode'),
-                        css_class=f"col-lg-6 dlux-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        css_class=f"col-lg-6 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
                         data_public_registration_dependent='true',
-                        aria_hidden='false' if self.initial.get('public_registration_enabled', False) else 'true',
+                        aria_disabled='false' if self.initial.get('public_registration_enabled', False) else 'true',
                     ),
                     build_settings_toggle_field(
                         self,
                         'registration_throttle_enabled',
-                        css_class=f"col-lg-6 dlux-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        css_class=f"col-lg-6 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
                         attrs={
                             'data_public_registration_dependent': 'true',
-                            'aria_hidden': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
+                            'aria_disabled': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
                         },
                     ),
                     build_settings_toggle_field(
                         self,
                         'honeypot_enabled',
-                        css_class=f"col-lg-6 dlux-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        css_class=f"col-lg-6 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
                         attrs={
                             'data_public_registration_dependent': 'true',
-                            'aria_hidden': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
+                            'aria_disabled': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
                         },
                     ),
                     build_settings_toggle_field(
                         self,
                         'registration_require_consent',
-                        css_class=f"col-lg-6 dlux-public-registration-dependent{' d-none' if not self.initial.get('public_registration_enabled', False) else ''}",
+                        css_class=f"col-lg-6 dlux-public-registration-dependent dlux-dependent-settings{'' if self.initial.get('public_registration_enabled', False) else ' is-disabled'}",
                         attrs={
                             'data_public_registration_dependent': 'true',
-                            'aria_hidden': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
+                            'aria_disabled': 'false' if self.initial.get('public_registration_enabled', False) else 'true',
                         },
                     ),
                     css_class='g-3',
@@ -5039,10 +5168,10 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(
                         self,
                         'show_sidebar_on_public',
-                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        css_class=f"col-lg-12 dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
                         attrs={
                             'data_public_root_dependent': 'true',
-                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
+                            'aria_disabled': 'false' if self.initial.get('public_root', False) else 'true',
                         },
                     ),
                     css_class='g-3 mb-3',
@@ -5057,9 +5186,14 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(Field('sidebar_density'), css_class='col-lg-6'),
                     Div(Field('sidebar_collapse_mode'), css_class='col-lg-6'),
                 ),
+                Row(
+                    Div(HTML(self.sidebar_toggle_icon_html), css_class='col-lg-12'),
+                    css_class='g-3 mb-3',
+                ),
                 HTML(self.sidebar_builder_html),
                 HTML("</div>"),
                 Field('sidebar_config'),
+                Field('sidebar_toggle_icon'),
                 css_class=_step_css_class(SETUP_STEP_SIDEBAR),
             ),
             Div(
@@ -5071,7 +5205,9 @@ class SystemSettingsForm(forms.ModelForm):
                     css_class='g-3 mb-3',
                 ),
                 HTML(
-                    f"<div class='dlux-navbar-dependent-settings{' d-none' if not self.initial.get('navbar_enabled', False) else ''}' "
+                    f"<div class='dlux-dependent-settings dlux-navbar-dependent-settings"
+                    f"{'' if self.initial.get('navbar_enabled', False) else ' is-disabled'}' "
+                    f"aria-disabled='{'false' if self.initial.get('navbar_enabled', False) else 'true'}' "
                     f"data-navbar-dependent>"
                 ),
                 Row(
@@ -5098,10 +5234,10 @@ class SystemSettingsForm(forms.ModelForm):
                     build_settings_toggle_field(
                         self,
                         'show_titlebar_on_public',
-                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        css_class=f"col-lg-12 dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
                         attrs={
                             'data_public_root_dependent': 'true',
-                            'aria_hidden': 'false' if self.initial.get('public_root', False) else 'true',
+                            'aria_disabled': 'false' if self.initial.get('public_root', False) else 'true',
                         },
                     ),
                     css_class='g-3 mb-3',
@@ -5142,11 +5278,11 @@ class SystemSettingsForm(forms.ModelForm):
                     Div(
                         Field('titlebar_logo_treatment'),
                         css_class=(
-                            "col-lg-8 dlux-logo-treatment-primary dlux-titlebar-logo-dependent dlux-titlebar-logo-treatment-primary"
-                            f"{' d-none' if not self.initial.get('titlebar_show_logo', True) else ''}"
+                            "col-lg-8 dlux-logo-treatment-primary dlux-titlebar-logo-dependent dlux-dependent-settings dlux-titlebar-logo-treatment-primary"
+                            f"{'' if self.initial.get('titlebar_show_logo', True) else ' is-disabled'}"
                             f"{' dlux-logo-treatment-primary--wide' if self.initial.get('titlebar_show_logo', True) and self.initial.get('titlebar_logo_treatment', 'none') != 'plate' else ''}"
                         ),
-                        aria_hidden='false' if self.initial.get('titlebar_show_logo', True) else 'true',
+                        aria_disabled='false' if self.initial.get('titlebar_show_logo', True) else 'true',
                     ),
                     Div(
                         Field('titlebar_logo_treatment_shape'),
@@ -5171,7 +5307,9 @@ class SystemSettingsForm(forms.ModelForm):
                     css_class='g-3 mb-3',
                 ),
                 HTML(
-                    f"<div class='dlux-notifications-dependent-settings{' d-none' if not self.initial.get('notifications_enabled', True) else ''}' "
+                    f"<div class='dlux-dependent-settings dlux-notifications-dependent-settings"
+                    f"{'' if self.initial.get('notifications_enabled', True) else ' is-disabled'}' "
+                    f"aria-disabled='{'false' if self.initial.get('notifications_enabled', True) else 'true'}' "
                     f"data-notifications-dependent>"
                 ),
                 Row(
@@ -5223,9 +5361,9 @@ class SystemSettingsForm(forms.ModelForm):
                 Row(
                     Div(
                         Field('public_root_theme'),
-                        css_class=f"col-lg-12 dlux-public-root-dependent{' d-none' if not self.initial.get('public_root', False) else ''}",
+                        css_class=f"col-lg-12 dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
                         data_public_root_dependent='true',
-                        aria_hidden='false' if self.initial.get('public_root', False) else 'true',
+                        aria_disabled='false' if self.initial.get('public_root', False) else 'true',
                     ),
                     css_class='g-3 mb-3',
                 ),
@@ -5723,6 +5861,11 @@ class SystemSettingsForm(forms.ModelForm):
             raise ValidationError("Invalid sidebar collapse mode.")
         return value
 
+    def clean_sidebar_toggle_icon(self):
+        # Rendered into a class attribute, so an unknown shape falls back to the
+        # default instead of reaching the template.
+        return normalize_sidebar_toggle_icon(self.cleaned_data.get('sidebar_toggle_icon'))
+
     def clean_titlebar_home_shape(self):
         value = self.cleaned_data.get('titlebar_home_shape') or 'circle'
         if value not in TITLEBAR_HOME_SHAPE_VALUES:
@@ -5850,6 +5993,7 @@ class SystemSettingsForm(forms.ModelForm):
             'density': parsed.get('density', DEFAULT_SIDEBAR_DENSITY),
             'allow_user_density': parsed.get('allow_user_density', True),
             'collapse_mode': parsed.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE),
+            'toggle_icon': parsed.get('toggle_icon', DEFAULT_SIDEBAR_TOGGLE_ICON),
         }, allow_system_items=True)
 
     def clean_navbar_config(self):
@@ -5949,6 +6093,18 @@ class SystemSettingsForm(forms.ModelForm):
 
     def clean_email_config(self):
         existing = normalize_email_config(getattr(self.instance, 'email_config', {}))
+
+        # The connection fields are disabled while the step's master toggle is
+        # off, so they are absent from POST and every `cleaned_data.get(...) or
+        # ''` below reads empty. Rebuilding from them wiped the stored SMTP host,
+        # username and sender. Keep the stored connection and apply only the
+        # controls that are still live.
+        if not any(name in self.data for name in EMAIL_CONNECTION_FIELDS):
+            preserved = dict(existing)
+            preserved['enabled'] = self._email_scalar('email_config_enabled', 'enabled', False)
+            preserved['timeout'] = self._email_scalar('email_config_timeout', 'timeout', 0) or 0
+            return normalize_email_config(preserved)
+
         transport = self.cleaned_data.get('email_config_transport') or existing.get('transport', 'direct')
         secret_storage = self.cleaned_data.get('email_config_secret_storage') or existing.get('secret_storage', 'env')
         existing_verified = existing if isinstance(existing, dict) else {}
@@ -6087,6 +6243,7 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['sidebar_density'] = sidebar.get('density', DEFAULT_SIDEBAR_DENSITY)
             cleaned['sidebar_allow_user_density'] = bool(sidebar.get('allow_user_density', True))
             cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+            cleaned['sidebar_toggle_icon'] = sidebar.get('toggle_icon', DEFAULT_SIDEBAR_TOGGLE_ICON)
 
         navbar = imported.get('navbar_config')
         if isinstance(navbar, dict):
@@ -6223,6 +6380,7 @@ class SystemSettingsForm(forms.ModelForm):
                 sidebar['density'] = cleaned.get('sidebar_density', DEFAULT_SIDEBAR_DENSITY)
                 sidebar['allow_user_density'] = bool(cleaned.get('sidebar_allow_user_density', True))
                 sidebar['collapse_mode'] = cleaned.get('sidebar_collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+                sidebar['toggle_icon'] = cleaned.get('sidebar_toggle_icon', DEFAULT_SIDEBAR_TOGGLE_ICON)
             if sidebar['enabled'] and not _system_settings_sidebar_tools_available(cleaned):
                 sidebar['show_toolbar'] = False
                 cleaned['sidebar_enable_toolbar'] = False
@@ -6238,14 +6396,19 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['sidebar_density'] = sidebar.get('density', DEFAULT_SIDEBAR_DENSITY)
             cleaned['sidebar_allow_user_density'] = bool(sidebar.get('allow_user_density', True))
             cleaned['sidebar_collapse_mode'] = sidebar.get('collapse_mode', DEFAULT_SIDEBAR_COLLAPSE_MODE)
+            cleaned['sidebar_toggle_icon'] = sidebar.get('toggle_icon', DEFAULT_SIDEBAR_TOGGLE_ICON)
         navbar = cleaned.get('navbar_config')
         if isinstance(navbar, dict):
             from dlux.discovery import sanitize_navbar_config
 
             navbar['enabled'] = bool(cleaned.get('navbar_enabled', False))
-            mode = cleaned.get('navbar_default_mode') or DEFAULT_NAVBAR_MODE
-            navbar['default_mode'] = mode if mode in NAVBAR_MODE_VALUES else DEFAULT_NAVBAR_MODE
-            navbar['allow_user_mode_override'] = bool(cleaned.get('navbar_allow_user_mode_override', True))
+            # Mirrors the sidebar contract: while the step is off its dependent
+            # controls are disabled and therefore absent from POST, so the stored
+            # values are kept rather than collapsing to defaults.
+            if navbar['enabled']:
+                mode = cleaned.get('navbar_default_mode') or DEFAULT_NAVBAR_MODE
+                navbar['default_mode'] = mode if mode in NAVBAR_MODE_VALUES else DEFAULT_NAVBAR_MODE
+                navbar['allow_user_mode_override'] = bool(cleaned.get('navbar_allow_user_mode_override', True))
             navbar = sanitize_navbar_config(navbar)
             cleaned['navbar_config'] = navbar
             cleaned['navbar_enabled'] = navbar.get('enabled', False)
@@ -6293,30 +6456,26 @@ class SystemSettingsForm(forms.ModelForm):
             })
         existing_email_config = normalize_email_config(getattr(self.instance, 'email_config', {}))
         email_features_enabled = bool(cleaned.get('public_registration_enabled') or cleaned.get('email_2fa'))
-        email_fields_posted = any(
-            field_name in self.data
-            for field_name in (
-                'email_config_transport',
-                'email_config_secret_storage',
-                'email_config_host',
-                'email_config_port',
-                'email_config_use_tls',
-                'email_config_use_ssl',
-                'email_config_username',
-                'email_config_password',
-                'email_config_default_from_email',
-                'email_config_provider_preset',
-                'email_config_failure_recipients',
-            )
-        )
+        email_fields_posted = any(name in self.data for name in EMAIL_CONNECTION_FIELDS)
         imported_email_config = cleaned.get('email_config') if isinstance(cleaned.get('email_config'), dict) else {}
         imported_email_config = normalize_email_config(imported_email_config) if imported_email_config else {}
         if imported_email_config.get('secret_storage') == 'encrypted_db' and not imported_email_config.get('encrypted_password'):
             imported_email_config['password_configured'] = False
+        preserved_email_config = None
         if not email_fields_posted and imported_email_config and imported_email_config != default_email_config():
-            cleaned['email_config'] = imported_email_config
+            preserved_email_config = dict(imported_email_config)
         elif not email_features_enabled and not email_fields_posted and existing_email_config:
-            cleaned['email_config'] = existing_email_config
+            preserved_email_config = dict(existing_email_config)
+
+        if preserved_email_config is not None:
+            # The step's dependent fields are disabled while email is off, so none
+            # of them post and the connection details are preserved above. The
+            # enable toggle is not one of those fields, so it must not be
+            # preserved with them or turning email off never sticks.
+            preserved_email_config['enabled'] = bool(
+                cleaned.get('email_config_enabled', preserved_email_config.get('enabled', False))
+            )
+            cleaned['email_config'] = normalize_email_config(preserved_email_config)
         else:
             email_transport = cleaned.get('email_config_transport') or existing_email_config.get('transport', 'direct')
             email_secret_storage = cleaned.get('email_config_secret_storage') or existing_email_config.get('secret_storage', 'env')
@@ -6420,6 +6579,15 @@ class SystemSettingsForm(forms.ModelForm):
             'notification_auto_delete',
         )
         notification_fields_posted = any(field_name in self.data for field_name in notification_split_fields)
+        # Turning the master toggle off disables the dependent controls, so they
+        # stop posting. Rebuilding the group from them would read every absent
+        # field as its default and wipe the configuration the admin is only
+        # switching off — keep the stored group and flip `enabled` instead.
+        notifications_master_off = (
+            self.is_bound
+            and 'notifications_enabled' in self.data
+            and not cleaned.get('notifications_enabled', True)
+        )
         if (
             self.is_bound
             and self.mode != 'setup'
@@ -6430,6 +6598,12 @@ class SystemSettingsForm(forms.ModelForm):
             cleaned['notification_config'] = normalize_notification_config(
                 getattr(self.instance, 'notification_config', None) or cleaned.get('notification_config')
             )
+        elif notifications_master_off:
+            stored = normalize_notification_config(
+                getattr(self.instance, 'notification_config', None) or cleaned.get('notification_config')
+            )
+            stored['enabled'] = False
+            cleaned['notification_config'] = normalize_notification_config(stored)
         else:
             notification_email_enabled = bool(cleaned.get('notification_email_enabled', False))
             cleaned['notification_config'] = normalize_notification_config({

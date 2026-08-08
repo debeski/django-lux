@@ -857,12 +857,16 @@ def get_effective_allowed_themes(config):
     return tuple(normalize_allowed_themes(config.get('allowed_themes')))
 
 # Theme Config - Function resolves user theme preference under system policy.
-def resolve_user_theme_preference(user_prefs, config):
+def resolve_user_theme_preference(user_prefs, config, *, scope=None, scopes_enabled=False):
     prefs = dict(user_prefs or {})
     allowed_themes = set(get_effective_allowed_themes(config))
     default_theme = config.get('default_theme', 'light')
     if default_theme not in allowed_themes:
         default_theme = next(iter(allowed_themes), 'light')
+    if scopes_enabled and scope is not None:
+        scope_theme = str(getattr(scope, 'default_theme', '') or '').strip()
+        if scope_theme in allowed_themes:
+            default_theme = scope_theme
 
     if not config.get('allow_user_theme_override', True):
         prefs.pop('theme', None)

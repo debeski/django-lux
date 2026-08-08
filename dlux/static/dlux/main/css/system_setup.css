@@ -352,11 +352,23 @@
   }
 }
 
+/* A step whose master toggle is off keeps its settings on screen, dimmed and
+   inert, rather than hiding them: the admin can see what turning it back on
+   will restore instead of having to enable it to find out. The dependent
+   fields are also `disabled`, so the save path must preserve values for a
+   step whose controls did not post — see the `if <enabled>` guards in
+   SystemSettingsForm's group packing. */
+.dlux-dependent-settings.is-disabled,
 .dlux-sidebar-dependent-settings.is-disabled {
   opacity: 0.58;
 }
 
+.dlux-dependent-settings.is-disabled [data-dlux-selector],
+.dlux-dependent-settings.is-disabled .dlux-icon-picker-field,
+.dlux-dependent-settings.is-disabled .dlux-setup-builder,
+.dlux-dependent-settings.is-disabled .dlux-navbar-builder,
 .dlux-sidebar-dependent-settings.is-disabled [data-dlux-selector],
+.dlux-sidebar-dependent-settings.is-disabled .dlux-icon-picker-field,
 .dlux-sidebar-dependent-settings.is-disabled .dlux-setup-builder {
   pointer-events: none;
 }
@@ -721,6 +733,37 @@
 .dlux-builder-icon-picker {
   background: var(--dlux-setup-pane-bg);
   border-color: var(--dlux-setup-pane-border) !important;
+}
+
+/* The current icon doubles as the disclosure for the grid, so it has to read as
+   pressable rather than as a decorative input-group cap. */
+.dlux-icon-picker-trigger {
+  cursor: pointer;
+  gap: 0.35rem;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.dlux-icon-picker-trigger:hover,
+.dlux-icon-picker-trigger[aria-expanded="true"] {
+  color: var(--primal);
+  background: var(--dlux-setup-item-hover-bg);
+}
+
+.dlux-icon-picker-caret {
+  font-size: 0.7rem;
+  opacity: 0.65;
+  transition: transform 0.2s ease;
+}
+
+.dlux-icon-picker-trigger[aria-expanded="true"] .dlux-icon-picker-caret {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dlux-icon-picker-trigger,
+  .dlux-icon-picker-caret {
+    transition-duration: 0.01ms;
+  }
 }
 
 .dlux-builder-icon-suggestions {
@@ -1389,4 +1432,17 @@
 
 .dlux-email-test-btn--busy {
     cursor: progress;
+}
+
+/* Profile step: its toggles are hand-rolled rather than built by
+   build_settings_toggle_field, and used Bootstrap's `bg-light`, which ignores
+   the theme and made the step look foreign next to the others. */
+.dlux-profile-toggle,
+.dlux-profile-onboarding-group {
+  border-color: var(--dlux-setup-item-border) !important;
+  background: var(--dlux-setup-item-bg);
+}
+
+.dlux-profile-onboarding-group .form-check:last-child {
+  margin-bottom: 0 !important;
 }

@@ -1047,6 +1047,11 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             'DLUX_STRINGS': get_strings(),
             'hide_form_buttons': getattr(form, "_auto_helper", False) or has_submit_button(form),
             'wizard_initial_step': self._get_wizard_initial_step(model),
+            # Sticky-forms markers. Create only: refilling an existing record
+            # from a different one would be data loss. Template variables cannot
+            # read `_meta` (leading underscore), so resolve them here.
+            'sticky_app_label': '' if instance else model._meta.app_label,
+            'sticky_model_name': '' if instance else model._meta.model_name,
         }
 
         # Auto-merge model-defined modal context (convention: get_modal_context)
@@ -1120,6 +1125,11 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             'DLUX_STRINGS': get_strings(),
             'hide_form_buttons': getattr(form, "_auto_helper", False) or has_submit_button(form),
             'wizard_initial_step': self._get_wizard_initial_step(model),
+            # Sticky-forms markers. Create only: refilling an existing record
+            # from a different one would be data loss. Template variables cannot
+            # read `_meta` (leading underscore), so resolve them here.
+            'sticky_app_label': '' if instance else model._meta.app_label,
+            'sticky_model_name': '' if instance else model._meta.model_name,
         }
         if self._is_system_settings_model(model):
             logger.warning(

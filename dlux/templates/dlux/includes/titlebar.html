@@ -20,8 +20,8 @@
 >
     <div class="titlebar__side titlebar__side--start{% if request.user.is_authenticated and sidebar_enabled and not hide_sidebar_toggle and sidebar.collapse_mode == 'locked_expanded' %} titlebar__side--mobile-toggle{% elif request.user.is_authenticated and sidebar_enabled and not hide_sidebar_toggle %} titlebar__side--has-toggle{% else %} titlebar__side--empty{% endif %}">
         {% if request.user.is_authenticated and sidebar_enabled and not hide_sidebar_toggle %}
-        <button id="sidebarToggle" class="sidebar-toggle ms-2{% if sidebar.collapse_mode == 'locked_expanded' %} sidebar-toggle--desktop-disabled{% endif %} flex-shrink-0" type="button" aria-label="{{ DLUX_STRINGS.tut_sidebar_title|default:'Sidebar' }}">
-            <i class="bi bi-list"></i>
+        <button id="sidebarToggle" class="sidebar-toggle ms-2{% if sidebar.collapse_mode == 'locked_expanded' %} sidebar-toggle--desktop-disabled{% endif %}{% if sidebar_collapsed %} is-collapsed{% endif %} flex-shrink-0" type="button" aria-label="{{ DLUX_STRINGS.tut_sidebar_title|default:'Sidebar' }}" aria-controls="sidebar" aria-expanded="{{ sidebar_collapsed|yesno:'false,true' }}">
+            <i class="bi {{ sidebar.toggle_icon|default:'bi-list' }}{% if sidebar.toggle_icon_directional %} dlux-icon-directional{% endif %}"></i>
         </button>
         {% endif %}
     </div>

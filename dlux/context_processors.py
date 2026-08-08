@@ -8,12 +8,14 @@ from .system.constants import (
     FORM_DENSITY_VALUES,
     MODAL_SIZE_CHOICES,
     MODAL_SIZE_VALUES,
+    SIDEBAR_TOGGLE_DIRECTIONAL_ICONS,
     TABLE_DENSITY_CHOICES,
     TABLE_DENSITY_VALUES,
 )
 from .navbar import resolve_navbar_mode, strip_navbar_mode_preference
 from .utils import (
     get_effective_allowed_themes,
+    get_user_scope,
     get_user_management_tier_state_for_user,
     has_section_models,
     is_scope_enabled,
@@ -435,7 +437,8 @@ def dlux_context(request):
 
     # 2. Scope Settings
     # We add this boolean so templates know if the scope feature is ON globally
-    context['scope_settings'] = {'is_enabled': is_scope_enabled()}
+    scopes_enabled = is_scope_enabled()
+    context['scope_settings'] = {'is_enabled': scopes_enabled}
     context['can_view_user_directory'] = user_can_view_user_directory(request.user)
     context['can_view_activity_log'] = user_can_view_activity_log(request.user)
     context['can_view_reports'] = user_can_view_reports(request.user)
@@ -450,7 +453,13 @@ def dlux_context(request):
         user_prefs = {}
     if not allow_user_language_override and not request.session.get('dlux_force_language_preview'):
         user_prefs = {key: value for key, value in user_prefs.items() if key != 'language'}
-    user_prefs = resolve_user_theme_preference(user_prefs, final_config)
+    user_scope = get_user_scope(request.user) if scopes_enabled else None
+    user_prefs = resolve_user_theme_preference(
+        user_prefs,
+        final_config,
+        scope=user_scope,
+        scopes_enabled=scopes_enabled,
+    )
     navbar_runtime_config = normalize_navbar_config(final_config.get('navbar', {}))
     user_prefs = strip_navbar_mode_preference(user_prefs, navbar_runtime_config)
     default_table_density = final_config.get('default_table_density', DEFAULT_TABLE_DENSITY)
@@ -560,6 +569,9 @@ def dlux_context(request):
     context['sidebar_theme_picker_enabled'] = bool(
         sidebar_enabled and final_config.get('allow_user_theme_override', True) and len(allowed_theme_names) > 1
     )
+    context['sidebar_theme_toggle_enabled'] = bool(
+        context['sidebar_theme_picker_enabled'] and len(allowed_theme_names) == 2
+    )
     context['language_picker_enabled'] = bool(
         final_config.get('allow_user_language_override', True) and len(languages) > 1
     )
@@ -599,6 +611,11 @@ def dlux_context(request):
     context['translations'] = dlux_strings
     context['sidebar'] = {
         **sidebar_runtime_config,
+        # Render-only: arrows and chevrons point "at" the sidebar, so they have to
+        # be mirrored in RTL. Not stored — derived from the chosen glyph.
+        'toggle_icon_directional': (
+            sidebar_runtime_config.get('toggle_icon') in SIDEBAR_TOGGLE_DIRECTIONAL_ICONS
+        ),
         'entries': context['sidebar_entries'],
         'auto_items': context['sidebar_auto_items'],
         'extra_groups': context['sidebar_extra_groups'],

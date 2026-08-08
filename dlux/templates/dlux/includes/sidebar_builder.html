@@ -54,11 +54,19 @@
                             <h6 class="fw-bold mb-1">{{ DLUX_STRINGS.sidebar_available_title|default:"Available Entries" }}</h6>
                             <p class="text-muted small mb-0">{{ DLUX_STRINGS.sidebar_available_desc|default:"These routes were discovered automatically and can be added to the sidebar." }}</p>
                         </div>
-                        <div class="form-check form-switch small mb-0">
-                            <input class="form-check-input" type="checkbox" id="sidebarSystemItemsToggle-{{ mode }}" data-builder-system-toggle>
-                            <label class="form-check-label fw-semibold" for="sidebarSystemItemsToggle-{{ mode }}">
-                                {{ DLUX_STRINGS.sidebar_show_system_items|default:"Show system items" }}
-                            </label>
+                        <div class="d-flex flex-column gap-1">
+                            <div class="form-check form-switch small mb-0">
+                                <input class="form-check-input" type="checkbox" id="sidebarSystemItemsToggle-{{ mode }}" data-builder-system-toggle>
+                                <label class="form-check-label fw-semibold" for="sidebarSystemItemsToggle-{{ mode }}">
+                                    {{ DLUX_STRINGS.sidebar_show_system_items|default:"Show system items" }}
+                                </label>
+                            </div>
+                            <div class="form-check form-switch small mb-0">
+                                <input class="form-check-input" type="checkbox" id="sidebarFormPagesToggle-{{ mode }}" data-builder-form-toggle>
+                                <label class="form-check-label fw-semibold" for="sidebarFormPagesToggle-{{ mode }}">
+                                    {{ DLUX_STRINGS.sidebar_show_form_pages|default:"Show form pages" }}
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>

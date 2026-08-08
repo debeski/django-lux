@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -7,15 +8,33 @@ setup_test_environment()
 
 from django.core.cache import cache
 from django.template.loader import render_to_string
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 from dlux.discovery import (
+    _classify_route,
+    _discover_routes_uncached,
     _is_candidate,
     annotate_sidebar_notification_counts,
+    build_default_sidebar_config,
     build_sidebar_navigation,
+    discover_routes,
+    discover_routes_for,
     discover_sidebar_catalog,
     sanitize_navbar_config,
     sanitize_sidebar_config,
+)
+from dlux.system.constants import (
+    DISCOVERY_PROFILE_LANDING,
+    DISCOVERY_PROFILE_NAVBAR,
+    DISCOVERY_PROFILE_NAVBAR_ROOT,
+    DISCOVERY_PROFILE_SEARCH,
+    DISCOVERY_PROFILE_SIDEBAR,
+    ROUTE_ACTION_API,
+    ROUTE_ACTION_ASYNC,
+    ROUTE_ACTION_EDIT,
+    ROUTE_ACTION_FORM,
+    ROUTE_ACTION_MACHINERY,
+    ROUTE_ACTION_PAGE,
 )
 
 
@@ -35,13 +54,84 @@ class SidebarDiscoveryTests(SimpleTestCase):
     def setUp(self):
         cache.clear()
 
-    def test_discovery_excludes_ajax_and_add_edit_route_names(self):
-        self.assertFalse(_is_candidate("ajax_search_decrees", "/ajax/search/decrees/", callback=None))
-        self.assertFalse(_is_candidate("ajax-check-duplicate", "/ajax/check-duplicate/", callback=None))
-        self.assertFalse(_is_candidate("edit_user", "/users/edit/1/", callback=None))
-        self.assertFalse(_is_candidate("user_edit", "/users/1/edit/", callback=None))
-        self.assertFalse(_is_candidate("add_chapter", "/chapters/add/", callback=None))
-        self.assertFalse(_is_candidate("chapter_add", "/chapters/add/", callback=None))
+    def test_route_classification_is_feature_agnostic(self):
+        self.assertEqual(_classify_route("ajax_search_decrees", "/ajax/search/decrees/", "", None), ROUTE_ACTION_ASYNC)
+        self.assertEqual(_classify_route("edit_user", "", "/users/edit/<int:pk>/", None), ROUTE_ACTION_EDIT)
+        self.assertEqual(_classify_route("user_update", "", "/users/<int:pk>/update/", None), ROUTE_ACTION_EDIT)
+        self.assertEqual(_classify_route("add_chapter", "/chapters/add/", "", None), ROUTE_ACTION_FORM)
+        self.assertEqual(_classify_route("chapter_create", "/chapters/create/", "", None), ROUTE_ACTION_FORM)
+        self.assertEqual(_classify_route("credit_report", "/finance/credit-report/", "", None), ROUTE_ACTION_PAGE)
+        self.assertEqual(_classify_route("set_active_model", "/models/set-active/", "", None), ROUTE_ACTION_MACHINERY)
+
+    def test_ajax_and_async_routes_are_excluded_from_every_profile(self):
+        for profile in (
+            DISCOVERY_PROFILE_SIDEBAR,
+            DISCOVERY_PROFILE_NAVBAR,
+            DISCOVERY_PROFILE_NAVBAR_ROOT,
+            DISCOVERY_PROFILE_SEARCH,
+            DISCOVERY_PROFILE_LANDING,
+        ):
+            with self.subTest(profile=profile):
+                self.assertFalse(_is_candidate(
+                    "ajax_search_decrees", "/ajax/search/decrees/", callback=None, profile=profile,
+                ))
+                self.assertFalse(_is_candidate(
+                    "set_active_model", "/models/set-active/", callback=None, profile=profile,
+                ))
+
+    def test_form_pages_reach_the_features_that_want_them(self):
+        # An `add` page is a real destination: findable in search, placeable in
+        # the Nav Bar hierarchy, and pickable (behind the builder toggle) in the
+        # sidebar. It is still not a landing page or a Nav Bar root.
+        for profile in (DISCOVERY_PROFILE_SIDEBAR, DISCOVERY_PROFILE_NAVBAR, DISCOVERY_PROFILE_SEARCH):
+            with self.subTest(profile=profile):
+                self.assertTrue(_is_candidate("add_chapter", "/chapters/add/", callback=None, profile=profile))
+        for profile in (DISCOVERY_PROFILE_LANDING, DISCOVERY_PROFILE_NAVBAR_ROOT):
+            with self.subTest(profile=profile):
+                self.assertFalse(_is_candidate("add_chapter", "/chapters/add/", callback=None, profile=profile))
+
+    def test_id_bound_routes_reach_the_navbar_hierarchy_only(self):
+        # An edit page cannot be reversed without an id, so every feature that
+        # needs a real href drops it; the Nav Bar matches on route name and
+        # renders a URL-less node as a non-clickable crumb.
+        self.assertTrue(_is_candidate("edit_user", "", callback=None, profile=DISCOVERY_PROFILE_NAVBAR))
+        for profile in (
+            DISCOVERY_PROFILE_SIDEBAR,
+            DISCOVERY_PROFILE_NAVBAR_ROOT,
+            DISCOVERY_PROFILE_SEARCH,
+            DISCOVERY_PROFILE_LANDING,
+        ):
+            with self.subTest(profile=profile):
+                self.assertFalse(_is_candidate("edit_user", "", callback=None, profile=profile))
+
+    def test_per_feature_opt_out_and_opt_in(self):
+        hidden_from_search = SimpleNamespace(dlux_exclude=("search",))
+        self.assertFalse(_is_candidate(
+            "chapter_list", "/chapters/", callback=hidden_from_search, profile=DISCOVERY_PROFILE_SEARCH,
+        ))
+        self.assertTrue(_is_candidate(
+            "chapter_list", "/chapters/", callback=hidden_from_search, profile=DISCOVERY_PROFILE_SIDEBAR,
+        ))
+
+        forced_landing = SimpleNamespace(dlux_include=("landing",))
+        self.assertTrue(_is_candidate(
+            "add_chapter", "/chapters/add/", callback=forced_landing, profile=DISCOVERY_PROFILE_LANDING,
+        ))
+
+        # The released blanket flag still hides a view from everything.
+        legacy = SimpleNamespace(sidebar_exclude=True)
+        for profile in (DISCOVERY_PROFILE_SIDEBAR, DISCOVERY_PROFILE_NAVBAR, DISCOVERY_PROFILE_SEARCH):
+            with self.subTest(profile=profile):
+                self.assertFalse(_is_candidate("chapter_list", "/chapters/", callback=legacy, profile=profile))
+
+    def test_global_catalog_keeps_what_profiles_drop(self):
+        # The point of the split: discovery itself excludes nothing, so a route a
+        # feature rejects is still available to every other feature.
+        actions = {entry["action"] for entry in discover_routes(lang_code="en")}
+        self.assertIn(ROUTE_ACTION_MACHINERY, actions)
+        sidebar_ids = {entry["id"] for entry in discover_routes_for(DISCOVERY_PROFILE_SIDEBAR, lang_code="en")}
+        global_ids = {entry["id"] for entry in discover_routes(lang_code="en")}
+        self.assertTrue(sidebar_ids < global_ids)
 
     def test_discovery_excludes_set_active_model_route_name(self):
         self.assertFalse(_is_candidate("set_active_model", "/models/set-active/", callback=None))
@@ -803,3 +893,196 @@ class SidebarDiscoveryTests(SimpleTestCase):
         )
 
         self.assertEqual(navigation["entries"], [])
+
+
+@override_settings(ROOT_URLCONF='dlux.tests.urls_with_crud_app')
+class DiscoveryProfileProjectionTests(SimpleTestCase):
+    """The refactor's contract, against a real URLconf rather than stub routes."""
+
+    def setUp(self):
+        cache.clear()
+
+    def _ids(self, profile):
+        return {
+            entry['id']
+            for entry in discover_routes_for(profile, lang_code='en', include_system_items=True)
+        }
+
+    def test_global_catalog_contains_every_route_shape(self):
+        catalog = {entry['id']: entry for entry in discover_routes(lang_code='en')}
+
+        self.assertEqual(catalog['chapter_list']['action'], ROUTE_ACTION_PAGE)
+        self.assertEqual(catalog['chapter_add']['action'], ROUTE_ACTION_FORM)
+        self.assertEqual(catalog['chapter_edit']['action'], ROUTE_ACTION_EDIT)
+        self.assertEqual(catalog['chapter_ajax_search']['action'], ROUTE_ACTION_ASYNC)
+        self.assertEqual(catalog['chapter_api_list']['action'], ROUTE_ACTION_API)
+
+        # An id-bound route carries no URL but is catalogued all the same.
+        self.assertTrue(catalog['chapter_edit']['requires_args'])
+        self.assertEqual(catalog['chapter_edit']['url'], '')
+        self.assertEqual(catalog['chapter_edit']['path_template'], '/chapters/<int:pk>/edit/')
+        self.assertFalse(catalog['chapter_add']['requires_args'])
+
+    def test_navbar_can_parent_add_and_edit_pages(self):
+        navbar_ids = self._ids(DISCOVERY_PROFILE_NAVBAR)
+
+        self.assertIn('chapter_add', navbar_ids)
+        self.assertIn('chapter_edit', navbar_ids)
+        self.assertIn('chapter_detail', navbar_ids)
+        self.assertNotIn('chapter_ajax_search', navbar_ids)
+        self.assertNotIn('chapter_api_list', navbar_ids)
+
+    def test_search_finds_add_pages_but_not_id_bound_ones(self):
+        search_ids = self._ids(DISCOVERY_PROFILE_SEARCH)
+
+        self.assertIn('chapter_add', search_ids)
+        self.assertIn('chapter_list', search_ids)
+        self.assertNotIn('chapter_edit', search_ids)
+        self.assertNotIn('chapter_ajax_search', search_ids)
+
+    def test_sidebar_offers_add_pages_flagged_for_the_builder_toggle(self):
+        catalog = {
+            entry['id']: entry
+            for entry in discover_sidebar_catalog(lang_code='en', include_system_items=True)
+        }
+
+        self.assertTrue(catalog['chapter_add']['is_form_page'])
+        self.assertFalse(catalog['chapter_list']['is_form_page'])
+        self.assertNotIn('chapter_edit', catalog)
+
+    def test_default_sidebar_never_auto_adds_a_form_page(self):
+        config = build_default_sidebar_config(lang_code='en')
+
+        def _ids(entries):
+            for entry in entries:
+                if entry.get('kind') == 'group':
+                    yield from _ids(entry.get('items', []))
+                else:
+                    yield entry.get('url_name')
+
+        placed = set(_ids(config['entries']))
+        self.assertIn('chapter_list', placed)
+        self.assertNotIn('chapter_add', placed)
+
+    def test_landing_and_navbar_root_stay_context_free(self):
+        for profile in (DISCOVERY_PROFILE_LANDING, DISCOVERY_PROFILE_NAVBAR_ROOT):
+            with self.subTest(profile=profile):
+                ids = self._ids(profile)
+                self.assertIn('chapter_list', ids)
+                self.assertNotIn('chapter_add', ids)
+                self.assertNotIn('chapter_edit', ids)
+
+    def test_one_global_catalog_backs_every_profile(self):
+        # Discovery must walk the URLconf once per language, not once per feature.
+        with patch(
+            'dlux.discovery._discover_routes_uncached',
+            wraps=_discover_routes_uncached,
+        ) as walked:
+            self._ids(DISCOVERY_PROFILE_SIDEBAR)
+            self._ids(DISCOVERY_PROFILE_NAVBAR)
+            self._ids(DISCOVERY_PROFILE_SEARCH)
+            self._ids(DISCOVERY_PROFILE_LANDING)
+
+        self.assertEqual(walked.call_count, 1)
+
+
+class DiscoveryBuilderAssetTests(SimpleTestCase):
+    """The builders must honour the flags the profiles now emit."""
+
+    @property
+    def _setup_js(self):
+        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
+        return script.read_text(encoding='utf-8')
+
+    def test_sidebar_builder_hides_form_pages_until_toggled(self):
+        contents = self._setup_js
+
+        self.assertIn('(state.showFormPages || !item.is_form_page)', contents)
+        self.assertIn("formToggle: builder.querySelector('[data-builder-form-toggle]')", contents)
+        # The flag has to survive catalog normalization or the filter is inert.
+        self.assertIn('is_form_page: Boolean(entry.is_form_page),', contents)
+
+    def test_navbar_root_picker_rejects_routes_that_need_context(self):
+        contents = self._setup_js
+
+        self.assertIn('if (entry.requires_args || entry.is_form_page) {', contents)
+
+    def test_sidebar_builder_template_renders_the_form_pages_toggle(self):
+        contents = render_to_string('dlux/includes/sidebar_builder.html', {
+            'mode': 'setup',
+            'sidebar_catalog_json': '[]',
+            'sidebar_catalog_fallback_json': '[]',
+            'sidebar_config_json': '{}',
+            'languages_json': '{}',
+            'DLUX_STRINGS': {},
+        })
+
+        self.assertIn('data-builder-form-toggle', contents)
+        self.assertIn('Show form pages', contents)
+
+
+@override_settings(ROOT_URLCONF='dlux.tests.urls_with_crud_app')
+class NavbarRouteLabelMapTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
+    def test_id_bound_routes_do_not_claim_the_root_path_label(self):
+        # The navbar profile carries URL-less routes; keyed naively they all
+        # normalize to '/' and the last one wins the root label.
+        from dlux.navbar import build_navbar_route_label_map
+
+        labels = build_navbar_route_label_map('en')
+
+        self.assertEqual(labels.get('/chapters'), 'Chapter List')
+        self.assertNotIn('Chapter Edit', labels.values())
+        self.assertNotIn('Chapter Detail', labels.values())
+
+
+class HalfBuiltUrlconfTests(SimpleTestCase):
+    """A project's urls.py calls `include('dlux.urls')` inside the urlpatterns
+    list literal, so dlux code can run while that module exists without
+    `urlpatterns`. Resolving a URL then makes Django cache the half-built module
+    on the resolver, and every later system check fails with "The included
+    URLconf does not appear to have any patterns in it"."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_reverse_is_skipped_while_the_root_urlconf_is_loading(self):
+        import sys as _sys
+        import types
+
+        from dlux.discovery import _is_api_navigation_route, _root_urlconf_is_loading
+
+        half_built = types.ModuleType('dlux_tests_half_built_urls')  # no urlpatterns
+        with patch.dict(_sys.modules, {'dlux_tests_half_built_urls': half_built}):
+            with self.settings(ROOT_URLCONF='dlux_tests_half_built_urls'):
+                self.assertTrue(_root_urlconf_is_loading())
+                with patch('dlux.discovery.reverse') as reverse_spy:
+                    _is_api_navigation_route('options_view', '', None)
+                    reverse_spy.assert_not_called()
+
+    def test_reverse_still_runs_once_the_urlconf_is_complete(self):
+        from dlux.discovery import _is_api_navigation_route, _root_urlconf_is_loading
+
+        self.assertFalse(_root_urlconf_is_loading())
+        with patch('dlux.discovery.reverse', return_value='/sys/api/x/') as reverse_spy:
+            self.assertTrue(_is_api_navigation_route('some_route', '', None))
+            reverse_spy.assert_called_once()
+
+    def test_sanitizing_a_stored_sidebar_is_safe_mid_import(self):
+        # This is the exact path: get_system_config() -> sanitize_sidebar_config()
+        # -> _is_hidden_sidebar_entry() -> _is_api_navigation_route() -> reverse().
+        import sys as _sys
+        import types
+
+        half_built = types.ModuleType('dlux_tests_half_built_urls2')
+        stored = {
+            'home_url_name': None,
+            'entries': [{'kind': 'item', 'id': 'catalog:products', 'url_name': 'catalog:products'}],
+        }
+        with patch.dict(_sys.modules, {'dlux_tests_half_built_urls2': half_built}):
+            with self.settings(ROOT_URLCONF='dlux_tests_half_built_urls2'):
+                with patch('dlux.discovery.reverse') as reverse_spy:
+                    sanitize_sidebar_config(stored, allow_system_items=True)
+                    reverse_spy.assert_not_called()
