@@ -47,7 +47,7 @@
 - **Step 4 Login Page** controls login layout style (Split / Centered / Minimal / Full-page split), show-logo toggle, logo treatment, banner colour, and per-language Markdown hero message
 - **Step 7 Titlebar** includes titlebar button-shape controls, Dropdown vs Titlebar Actions user-hub layout, and orderable titlebar actions
 - **Step 8 Notifications** is a dedicated step (notifications were split out of the Titlebar step) with a top-level `notifications_enabled` master toggle — like the sidebar/nav-bar enablement switches — gating flash/drawer/badge/bridge/email and automatic CRUD controls; when off, the whole notification subsystem (including `notify(...)`) is suppressed
-- **Step 9 Themes and Typography** contains only theme, colour, and font controls; **Step 10 Layout** owns table, form, modal, Options-page, and record-visibility controls
+- **Step 9 Themes and Typography** contains only theme, colour, and font controls, including **theme picker location** (sidebar toolbar / titlebar action / Options only); **Step 10 Layout** owns table, form, modal, Options-page, and record-visibility controls
 - **Category-owned public-root controls** appear only while public root access is enabled: identity metadata in Identity, public sidebar visibility in Sidebar, public titlebar visibility in Titlebar, and the public theme in Themes and Typography
 - **Setup import/export path** for reusing System Settings payloads across environments
 - **Setup language gate** on first launch accepts either built-in English or Arabic and chooses only the setup UI language/direction before the wizard renders; the persisted system default language remains an editable Localization setting and may be different
@@ -112,7 +112,7 @@
 | `python -m dlux startproject <name> [--image name:tag] [--repo owner/name] [--no-input]` | Create new DjangoLux-ready Django project; prompts for image/repo on a TTY |
 | `python -m dlux startapp <name>` | Create DjangoLux-native app skeleton |
 | `python -m dlux startapp <name> --register` | Create app + auto-register in settings/URLs |
-| `python -m dlux enable-updater [--apply]` | Dry-run/apply the guarded one-time inline-updater bootstrap for an existing generated Compose project |
+| `python -m dlux enable-updater [--apply]` | **Deprecated (removed in 1.9.0)** — dry-run/apply the guarded one-time inline-updater bootstrap. Since 1.8.0 Composer executes inline updates; see [Verified Inline Updater](inline-updater.md) |
 | `./start.sh enable-agent [--apply]` | Composer-owned dry-run/apply migration from `composer-updater` to the outbound agent, with pre-write validation and `.xpose/` preservation |
 
 ### Generated Project Structure
@@ -129,10 +129,10 @@
 
 ### Generated App Structure
 - `models.py` — with `ScopedModel` base import
-- [`forms.py`](../dlux/scaffold_templates/app/forms.py.tmpl), [`tables.py`](../dlux/scaffold_templates/app/tables.py.tmpl), and [`filters.py`](../dlux/scaffold_templates/app/filters.py.tmpl) — with Dlux imports
+- [`forms.py`](../dlux/scaffold/templates/app/forms.py.tmpl), [`tables.py`](../dlux/scaffold/templates/app/tables.py.tmpl), and [`filters.py`](../dlux/scaffold/templates/app/filters.py.tmpl) — with Dlux imports
 - `views.py` — with list/create/update/delete views
-- [`urls.py`](../dlux/scaffold_templates/app/urls.py.tmpl) — with namespace routing
-- [`translations.py`](../dlux/scaffold_templates/app/translations.py.tmpl) — `DLUX_STRINGS` dictionary
+- [`urls.py`](../dlux/scaffold/templates/app/urls.py.tmpl) — with namespace routing
+- [`translations.py`](../dlux/scaffold/templates/app/translations.py.tmpl) — `DLUX_STRINGS` dictionary
 - Templates: list and form HTML templates
 - Tests: app-specific test scaffold
 
@@ -444,7 +444,9 @@ class Meta:
 ### Custom Widgets
 - `DluxChoiceSelectorWidget` — card/chip selector for single choice
 - `DluxMultipleChoiceSelectorWidget` — searchable multi-select with chips
-- `ArchiveFileInput` — file upload with preview, visible server errors, and optional declarative `data-max-file-bytes` client validation (used for logo/favicon and project archives)
+- `DluxFileInput` — file-card upload with preview, toolbar, visible server errors, drag/drop, and optional declarative `data-max-file-bytes` client validation
+- `AssetPickerField` — `DluxFileInput` variant whose primary action opens a non-layout-shifting saved-asset popover while upload/open/clear remain toolbar actions
+- Dlux icon picker — `dlux/helpers/icon_picker.html` + `initIconPickers()` provide the searchable Bootstrap Icons selector for settings/setup icon fields
 - Shared crispy file/toggle helpers keep System Settings and setup widgets aligned without relying on app-order template shadowing
 
 ### Filter Helpers
@@ -625,15 +627,15 @@ ActivityLog.safe_log(
 ### JavaScript Helpers
 | File | Purpose |
 |------|---------|
-| [`prevent_double_submit.js`](../dlux/static/dlux/helpers/prevent_double_submit.js) | Preserve the named submitter, block repeat submits, and re-enable after 5s |
+| [`prevent_double_submit.js`](../dlux/static/dlux/forms/js/prevent_double_submit.js) | Preserve the named submitter, block repeat submits, and re-enable after 5s |
 | [`dynamic_modal/js/main.js`](../dlux/static/dlux/helpers/dynamic_modal/js/main.js) | AJAX modal CRUD with fetch |
 | [`context_menu/js/main.js`](../dlux/static/dlux/helpers/context_menu/js/main.js) | Row-level context menu events |
 | [`context_menu/js/section_manager.js`](../dlux/static/dlux/helpers/context_menu/js/section_manager.js) | Section tree interactions |
 | [`wizard/js/main.js`](../dlux/static/dlux/helpers/wizard/js/main.js) | Multi-step form controller |
 | [`autofill/js/main.js`](../dlux/static/dlux/helpers/autofill/js/main.js) | Sticky form autofill |
-| [`scan_link/js/main.js`](../dlux/static/dlux/helpers/scan_link/js/main.js) | QR/barcode scanning |
-| [`scan_link/js/scan_button.js`](../dlux/static/dlux/helpers/scan_link/js/scan_button.js) | Scan button widget |
-| [`main/js/options.js`](../dlux/static/dlux/main/js/options.js) | Options card reordering, reset/defaults, and shared page behavior |
+| [`scan_link/js/main.js`](../dlux/static/dlux/helpers/scanlink/js/main.js) | QR/barcode scanning |
+| [`scan_link/js/scan_button.js`](../dlux/static/dlux/helpers/scanlink/js/scan_button.js) | Scan button widget |
+| [`system/js/options.js`](../dlux/static/dlux/system/js/options.js) | Options card reordering, reset/defaults, and shared page behavior |
 | [`users/js/profile_2fa.js`](../dlux/static/dlux/users/js/profile_2fa.js) | POST-backed profile 2FA flows and current-password-confirmed destructive actions |
 
 ### CSS Structure
@@ -649,14 +651,18 @@ ActivityLog.safe_log(
 | `tutorial/css/` | Tutorial overlay styles |
 
 ### Key CSS Files
-- [`main.css`](../dlux/static/dlux/main/css/main.css) — Core layout and variables
-- [`tables.css`](../dlux/static/dlux/main/css/tables.css) — Table platform with density tokens
-- [`buttons.css`](../dlux/static/dlux/main/css/buttons.css) — Button variants
-- [`titlebar.css`](../dlux/static/dlux/main/css/titlebar.css) — Titlebar layout
-- [`options.css`](../dlux/static/dlux/main/css/options.css) — Shared Options card system and drag layout
-- [`system_setup.css`](../dlux/static/dlux/main/css/system_setup.css) — Setup wizard styling
-- [`selectors.css`](../dlux/static/dlux/main/css/selectors.css) — Choice selector widgets
-- [`template_cleanup.css`](../dlux/static/dlux/main/css/template_cleanup.css) — Shared CSS replacements for previously inline template styling
+- [`main.css`](../dlux/static/dlux/base/css/main.css) — Core layout and variables
+- [`tables/main.css`](../dlux/static/dlux/tables/css/main.css) — Table platform with density tokens
+- [`buttons.css`](../dlux/static/dlux/base/css/buttons.css) — Button variants
+- [`titlebar/main.css`](../dlux/static/dlux/titlebar/css/main.css) — Titlebar layout
+- [`system/options.css`](../dlux/static/dlux/system/css/options.css) — Shared Options card system and drag layout
+- [`setup/main.css`](../dlux/static/dlux/setup/css/main.css) — Setup wizard styling
+- [`helpers/selector/main.css`](../dlux/static/dlux/helpers/selector/css/main.css) — Choice selector widgets
+- [`template_cleanup.css`](../dlux/static/dlux/base/css/template_cleanup.css) — Long tail of one-off page rules that used to be inline in templates
+- [`alerts.css`](../dlux/static/dlux/notifications/css/alerts.css) — Flash message and page alert containers, variants, and close behavior
+- [`users/reports.css`](../dlux/static/dlux/users/css/reports.css) — User report modal and user-detail timeline surfaces
+- [`system/signature.css`](../dlux/static/dlux/system/css/signature.css) — Signature popover
+- [`themes/previews.css`](../dlux/static/dlux/themes/css/previews.css) — Per-theme preview swatches
 
 ---
 
@@ -882,3 +888,6 @@ Auto-handles:
 ---
 
 *Verified against the unreleased DjangoLux 1.2.5 source tree on 2026-06-23.*
+## Managed asset library
+
+Superusers can open the Asset Manager from the Options admin action rail to upload and reuse validated images and WOFF2 fonts. System logo, login logo, favicon, and login background use the shared picker with protected deletion and legacy-branding fallback. See [Managed assets](managed-assets.md).

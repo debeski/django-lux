@@ -361,6 +361,27 @@ def _check_cache(ctx):
     return ok(f'Round-trip succeeded on {backend}.')
 
 
+@check('updater.runtime_volume', 'services', 'Inline-update runtime volume is usable')
+def _check_updater_runtime_volume(ctx):
+    """Inline updates are opt-in; when they are on, the volume must be writable.
+
+    Without this the failure is invisible until someone clicks Update: the run
+    queues and nothing can drain it.
+    """
+    from .updater.service import runtime_volume_problem, updates_enabled
+
+    if not updates_enabled():
+        return skip('Skipped: inline updates are disabled for this deployment.')
+    problem = runtime_volume_problem()
+    if problem:
+        return fail(
+            problem,
+            'Mount the dlux_runtime volume, or set DLUX_UPDATE_RUNTIME_ROOT to a writable path.',
+        )
+    root = getattr(settings, 'DLUX_UPDATE_RUNTIME_ROOT', '/opt/dlux-runtime')
+    return ok(f'Runtime volume at {root} is writable.')
+
+
 @check('email.configured', 'services', 'Email backend is configured')
 def _check_email_config(ctx):
     backend = getattr(settings, 'EMAIL_BACKEND', '')

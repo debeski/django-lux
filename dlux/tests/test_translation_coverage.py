@@ -41,16 +41,19 @@ def _dict_literal(path, name):
 
 
 def _catalogue():
-    node = _dict_literal(_ROOT / 'translations.py', 'DLUX_STRINGS')
-    return {
-        lang.value: {k.value for k in body.keys if isinstance(k, ast.Constant)}
-        for lang, body in zip(node.keys, node.values)
-        if isinstance(lang, ast.Constant) and isinstance(body, ast.Dict)
-    }
+    # One module per language since the translations package split; each holds a
+    # plain `STRINGS` dict literal, still read statically rather than imported.
+    catalogue = {}
+    for path in sorted((_ROOT / 'translations' / 'strings').glob('*.py')):
+        if path.name == '__init__.py':
+            continue
+        node = _dict_literal(path, 'STRINGS')
+        catalogue[path.stem] = {k.value for k in node.keys if isinstance(k, ast.Constant)}
+    return catalogue
 
 
 def _aliases():
-    node = _dict_literal(_ROOT / 'translation_aliases.py', 'STRING_ALIASES')
+    node = _dict_literal(_ROOT / 'translations' / 'aliases.py', 'STRING_ALIASES')
     return {k.value: v.value for k, v in zip(node.keys, node.values)}
 
 
@@ -61,7 +64,8 @@ def _referenced_keys():
         for match in _TEMPLATE_REF.finditer(body):
             refs[match.group(1)].add(str(path.relative_to(_ROOT)))
     for path in _ROOT.rglob('*.py'):
-        if path.name in {'translations.py', 'translation_aliases.py'} or '/tests/' in str(path):
+        if (path.parts[-2:] == ('translations', 'aliases.py') or '/tests/' in str(path)
+                or '/translations/' in str(path)):
             continue
         for match in _PYTHON_REF.finditer(path.read_text(encoding='utf-8')):
             refs[match.group(1)].add(str(path.relative_to(_ROOT)))

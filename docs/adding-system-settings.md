@@ -84,8 +84,8 @@ Trace one save so you know every function your key must pass through:
 
 ```
 SystemSettingsForm (POST)
-  → clean_<name>()                     validate/preserve per-step   (forms.py)
-  → SystemSettingsForm.save()          packs group dict + normalizes (forms.py)
+  → clean_<name>()                     validate/preserve per-step   (forms/system_settings.py)
+  → SystemSettingsForm.save()          packs group dict + normalizes (forms/system_settings.py)
   → SystemSettings.<group>_config = …  persisted JSON
 
 Export / Import / config.json bootstrap
@@ -154,7 +154,7 @@ _field('layout', 'show_audit_fields', field_type='bool', default=False,
 `form_sys_<name>` / `help_sys_<name>` label/help keys. `field_type` ∈
 `str|bool|int|email|dict|list`; `widget` ∈ `switch|choice|multiselect|json|text`.
 
-### Step 5 — Form field (`forms.py`, `SystemSettingsForm`) — FIVE edits
+### Step 5 — Form field (`forms/system_settings.py`, `SystemSettingsForm`) — FIVE edits
 1. **Declare** the field near the other group fields:
    ```python
    show_audit_fields = forms.BooleanField(required=False, initial=False)
@@ -254,8 +254,8 @@ Both still **must** be in `SYSTEM_SETTINGS_EXPORT_FIELDS`.
 | Choices / **export whitelist** | `dlux/system/constants.py` · `*_CHOICES`, `SYSTEM_SETTINGS_EXPORT_FIELDS` |
 | Typed field | `dlux/system/schema.py` · `SYSTEM_SETTING_GROUPS` → `_field(...)` |
 | Flat property generation | `dlux/models.py` · `get_flat_config_fields()` loop (auto) |
-| Form field / clean / save | `dlux/forms.py` · `SystemSettingsForm` |
-| Per-step preservation | `dlux/forms.py` · `_clean_preserved_toggle/_choice/_text` |
+| Form field / clean / save | `dlux/forms/system_settings.py` · `SystemSettingsForm` |
+| Per-step preservation | `dlux/forms/system_settings.py` · `_clean_preserved_toggle/_choice/_text` |
 | Import whitelist + apply | `dlux/utils/import_export.py` · `normalize_system_settings_import_payload`, `apply_system_settings_import` |
 | Flat⇄group reconcile | `dlux/utils/config.py` · `expand_system_config_groups` |
 | Runtime merge/expose | `dlux/utils/config.py` · `get_system_config` |

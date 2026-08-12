@@ -18,6 +18,8 @@ from dlux.system.normalizers import normalize_sidebar_behavior, normalize_sideba
 from dlux.utils.config import get_system_config
 from dlux.utils.import_export import apply_system_settings_import
 
+_STATIC = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
+
 
 class SidebarToggleIconNormalizerTests(SimpleTestCase):
     def test_default_is_the_plain_list_glyph(self):
@@ -157,7 +159,7 @@ class SidebarToggleIconRenderTests(TestCase):
     def _titlebar(self, sidebar):
         request = RequestFactory().get('/')
         request.user = _AuthedUser()
-        return render_to_string('dlux/includes/titlebar.html', {
+        return render_to_string('dlux/titlebar/main.html', {
             'request': request,
             'user': request.user,
             'sidebar_enabled': True,
@@ -213,7 +215,7 @@ class _AuthedUser:
 class SidebarToggleIconAssetTests(SimpleTestCase):
     @property
     def _static(self):
-        return Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main'
+        return Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'base'
 
     def test_rtl_and_state_flips_compose_into_one_transform(self):
         # Two separate `transform` rules would let the later one win, silently
@@ -226,7 +228,7 @@ class SidebarToggleIconAssetTests(SimpleTestCase):
         self.assertIn('--dlux-icon-rtl: -1;', css)
 
     def test_picker_offers_the_default_and_the_sidebar_cluster(self):
-        js = (self._static / 'js' / 'system_setup.js').read_text(encoding='utf-8')
+        js = (self._static.parent / 'helpers' / 'icon_picker' / 'js' / 'main.js').read_text(encoding='utf-8')
         block = js[js.index('const ICON_SUGGESTIONS = ['):]
         block = block[:block.index('\n    ];')]
 
@@ -243,14 +245,16 @@ class SidebarToggleIconAssetTests(SimpleTestCase):
                 self.assertIn(f"'{icon}',", block)
 
     def test_picker_is_initialized_and_writes_to_the_posted_field(self):
-        js = (self._static / 'js' / 'system_setup.js').read_text(encoding='utf-8')
+        js = (self._static.parent / 'helpers' / 'icon_picker' / 'js' / 'main.js').read_text(encoding='utf-8')
+        setup_js = (self._static.parent / 'setup' / 'js' / 'main.js').read_text(encoding='utf-8')
 
         self.assertIn('function initIconPickers(root)', js)
-        self.assertIn('initIconPickers(root);', js)
+        self.assertIn('initIconPickers(root || document);', js)
         self.assertIn('setNamedFieldValue(form, fieldName, value);', js)
+        self.assertIn('window.DluxIconPicker.init(root);', setup_js)
         # The icon must round-trip into the serialized sidebar config.
-        self.assertIn("nextConfig.toggle_icon = getNamedFieldValue(form, 'sidebar_toggle_icon')", js)
-        self.assertIn("setNamedFieldValue(form, 'sidebar_toggle_icon', sidebar.toggle_icon", js)
+        self.assertIn("nextConfig.toggle_icon = getNamedFieldValue(form, 'sidebar_toggle_icon')", setup_js)
+        self.assertIn("setNamedFieldValue(form, 'sidebar_toggle_icon', sidebar.toggle_icon", setup_js)
 
     def test_picker_template_binds_to_the_field(self):
         html = _render_picker()
@@ -263,7 +267,7 @@ class SidebarToggleIconAssetTests(SimpleTestCase):
 
 
 def _render_picker():
-    return render_to_string('dlux/includes/icon_picker.html', {
+    return render_to_string('dlux/helpers/icon_picker.html', {
         'field_name': 'sidebar_toggle_icon',
         'label': 'Sidebar toggle icon',
         'help_text': 'Pick one.',
@@ -278,15 +282,18 @@ class IconPickerDisclosureTests(SimpleTestCase):
     """The grid is ~600 buttons, so it must not exist until it is asked for."""
 
     @property
-    def _setup_js(self):
-        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
+    def _picker_js(self):
+        script = (
+            Path(__file__).resolve().parents[1]
+            / 'static' / 'dlux' / 'helpers' / 'icon_picker' / 'js' / 'main.js'
+        )
         return script.read_text(encoding='utf-8')
 
     def test_grid_starts_collapsed(self):
         html = _render_picker()
 
         self.assertIn('data-icon-picker-body', html)
-        self.assertIn('class="dlux-builder-icon-picker p-2 rounded-4 border d-none"', html)
+        self.assertIn('class="dlux-builder-icon-picker p-2 rounded-4 border d-none', html)
         self.assertIn('aria-expanded="false"', html)
 
     def test_current_icon_is_the_disclosure_trigger(self):
@@ -306,9 +313,9 @@ class IconPickerDisclosureTests(SimpleTestCase):
         self.assertNotIn('>Reset<', html)
 
     def test_grid_is_built_on_open_and_dropped_on_close(self):
-        js = self._setup_js
+        js = self._picker_js
         block = js[js.index('function initIconPickers(root)'):]
-        block = block[:block.index('\n    function scan(root)')]
+        block = block[:block.index('\n    window.DluxIconPicker')]
 
         self.assertIn('function open()', block)
         self.assertIn('function close(', block)
@@ -321,32 +328,32 @@ class IconPickerDisclosureTests(SimpleTestCase):
         self.assertIn("suggestions.innerHTML = '';\n                if (search) {", block)
 
     def test_picking_an_icon_collapses_the_grid(self):
-        js = self._setup_js
+        js = self._picker_js
         block = js[js.index('function initIconPickers(root)'):]
-        block = block[:block.index('\n    function scan(root)')]
+        block = block[:block.index('\n    window.DluxIconPicker')]
 
         self.assertIn("apply(icon, { rerender: false });\n                        close({ focusTrigger: true });", block)
 
     def test_escape_closes_and_returns_focus(self):
-        js = self._setup_js
+        js = self._picker_js
         block = js[js.index('function initIconPickers(root)'):]
-        block = block[:block.index('\n    function scan(root)')]
+        block = block[:block.index('\n    window.DluxIconPicker')]
 
         self.assertIn("event.key === 'Escape'", block)
         self.assertIn('toggle.focus();', block)
 
     def test_rerender_is_skipped_while_collapsed(self):
         # Typing in the text field must not rebuild a grid nobody is looking at.
-        js = self._setup_js
+        js = self._picker_js
         block = js[js.index('function initIconPickers(root)'):]
-        block = block[:block.index('\n    function scan(root)')]
+        block = block[:block.index('\n    window.DluxIconPicker')]
 
         self.assertIn('if (rerender && isOpen()) {', block)
 
     def test_trigger_has_pressable_styling(self):
         css = (
             Path(__file__).resolve().parents[1]
-            / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
+            / 'static' / 'dlux' / 'helpers' / 'icon_picker' / 'css' / 'main.css'
         ).read_text(encoding='utf-8')
 
         self.assertIn('.dlux-icon-picker-trigger', css)
@@ -422,7 +429,7 @@ class SidebarToggleInteractionTests(SimpleTestCase):
         self.assertIn('@media (prefers-reduced-motion: reduce)', block)
 
     def test_toggle_follows_the_titlebar_button_shape(self):
-        css = (self._root / 'main' / 'css' / 'titlebar.css').read_text(encoding='utf-8')
+        css = (self._root / 'titlebar' / 'css' / 'main.css').read_text(encoding='utf-8')
 
         self.assertIn('.titlebar[data-titlebar-buttons-shape="square"] .sidebar-toggle', css)
         self.assertIn('.titlebar[data-titlebar-buttons-shape="squircle"] .sidebar-toggle', css)
@@ -432,7 +439,7 @@ class SidebarToggleMarkupTests(TestCase):
     def test_button_exposes_expanded_state_and_target(self):
         request = RequestFactory().get('/')
         request.user = _AuthedUser()
-        html = render_to_string('dlux/includes/titlebar.html', {
+        html = render_to_string('dlux/titlebar/main.html', {
             'request': request,
             'user': request.user,
             'sidebar_enabled': True,
@@ -453,7 +460,7 @@ class SidebarToggleInitialStateTests(TestCase):
     def _render(self, *, collapsed):
         request = RequestFactory().get('/')
         request.user = _AuthedUser()
-        return render_to_string('dlux/includes/titlebar.html', {
+        return render_to_string('dlux/titlebar/main.html', {
             'request': request,
             'user': request.user,
             'sidebar_enabled': True,
@@ -483,7 +490,7 @@ class IconPickerLivePreviewTests(TestCase):
 
     @property
     def _setup_js(self):
-        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
+        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
         return script.read_text(encoding='utf-8')
 
     def test_sidebar_preview_applies_the_chosen_glyph(self):
@@ -514,7 +521,7 @@ class IconPickerLivePreviewTests(TestCase):
         self.assertIn('if (toggleIconPicker && toggleGlyph) {', block)
 
     def test_directional_list_is_served_from_python_not_duplicated_in_js(self):
-        html = render_to_string('dlux/includes/icon_picker.html', {
+        html = render_to_string('dlux/helpers/icon_picker.html', {
             'field_name': 'sidebar_toggle_icon',
             'label': 'Sidebar toggle icon',
             'help_text': '',
@@ -584,7 +591,7 @@ class ToggleIconLockedExpandedTests(TestCase):
 class ToggleIconLockedExpandedAssetTests(SimpleTestCase):
     @property
     def _js(self):
-        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
+        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
         return script.read_text(encoding='utf-8')
 
     def test_availability_follows_both_the_switch_and_the_collapse_mode(self):
@@ -606,3 +613,72 @@ class ToggleIconLockedExpandedAssetTests(SimpleTestCase):
         js = self._js
 
         self.assertIn("t('sidebar_toggle_icon_locked_reason'", js)
+
+
+class IconPickerPopoverModeTests(SimpleTestCase):
+    """The picker opens as a popover by default; `inline` keeps the old grid."""
+
+    _TEMPLATE = 'dlux/helpers/icon_picker.html'
+
+    def _render(self, **extra):
+        from django.template.loader import render_to_string
+
+        context = {'field_name': 'sidebar_toggle_icon', 'label': 'Icon', 'mode': 'setup'}
+        context.update(extra)
+        return render_to_string(self._TEMPLATE, context)
+
+    def test_popover_is_the_default(self):
+        html = self._render()
+
+        self.assertIn('dlux-icon-picker-field--popover', html)
+        self.assertIn('dlux-builder-icon-picker--popover', html)
+        self.assertIn('data-icon-popover="true"', html)
+
+    def test_inline_opts_out(self):
+        html = self._render(inline=True)
+
+        self.assertNotIn('dlux-icon-picker-field--popover', html)
+        self.assertNotIn('dlux-builder-icon-picker--popover', html)
+        self.assertNotIn('data-icon-popover', html)
+
+    def test_popover_geometry_matches_the_asset_picker_library(self):
+        # Same panel treatment, so the two read as one component.
+        css = (_STATIC / 'helpers' / 'icon_picker' / 'css' / 'main.css').read_text(encoding='utf-8')
+        block = css[css.index('.dlux-builder-icon-picker--popover {'):]
+        block = block[:block.index('}')]
+
+        self.assertIn('position: absolute;', block)
+        self.assertIn('inset-block-start: calc(100% + 0.45rem);', block)
+        self.assertIn('inset-inline: 0;', block)
+        self.assertIn('width: 100%;', block)
+        self.assertIn('.dlux-icon-picker-field--popover {\n  position: relative;', css)
+
+    def test_the_popover_is_opaque(self):
+        # `--dlux-setup-pane-bg` is a ~3% tint; a floating panel needs a real
+        # surface under it or the fields below show through.
+        css = (_STATIC / 'helpers' / 'icon_picker' / 'css' / 'main.css').read_text(encoding='utf-8')
+        block = css[css.index('.dlux-builder-icon-picker--popover {'):]
+        block = block[:block.index('\n}')]
+
+        self.assertIn('background-color: var(--bs-body-bg, #fff);', block)
+        for theme in ('dark', 'gothic', 'neon', 'retro', 'prism', 'mono', 'aether'):
+            with self.subTest(theme=theme):
+                theme_css = (_STATIC / 'themes' / 'css' / f'{theme}.css').read_text(encoding='utf-8')
+                self.assertIn('--bs-body-bg:', theme_css)
+
+    def test_a_popover_closes_on_an_outside_click(self):
+        js = (_STATIC / 'helpers' / 'icon_picker' / 'js' / 'main.js').read_text(encoding='utf-8')
+
+        self.assertIn("const isPopover = picker.getAttribute('data-icon-popover') === 'true';", js)
+        self.assertIn('function onOutsideClick(event)', js)
+        self.assertIn("document.addEventListener('click', onOutsideClick);", js)
+        self.assertIn("document.removeEventListener('click', onOutsideClick);", js)
+
+    def test_the_settings_form_asks_for_the_popover(self):
+        forms_src = (
+            Path(__file__).resolve().parents[1] / 'forms' / 'system_settings.py'
+        ).read_text(encoding='utf-8')
+        block = forms_src[forms_src.index("'dlux/helpers/icon_picker.html',"):]
+        block = block[:block.index('self.sidebar_builder_html')]
+
+        self.assertIn("'inline': False,", block)

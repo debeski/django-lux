@@ -84,8 +84,7 @@
         <div class="col-12">
             <section class="glass-container dlux-backup-card">
                 <h5 class="mb-3">{{ DLUX_STRINGS.sysbackup_existing }}</h5>
-                <div class="dlux-table-shell" data-dlux-table-density="balanced">
-                    <div class="dlux-table-scroll">
+                {% dlux_table_shell %}
                     <table class="table table-hover align-middle dlux-data-table">
                         <thead>
                             <tr>
@@ -106,8 +105,7 @@
                             {% include 'dlux/backup/_backup_rows.html' %}
                         </tbody>
                     </table>
-                    </div>
-                </div>
+                {% enddlux_table_shell %}
             </section>
         </div>
 
@@ -115,8 +113,7 @@
             <section class="glass-container dlux-backup-card h-100">
                 <h5 class="mb-3">{{ DLUX_STRINGS.sysbackup_orphans }}</h5>
                 <p class="text-muted small">{{ DLUX_STRINGS.sysbackup_orphans_hint }}</p>
-                <div class="dlux-table-shell" data-dlux-table-density="balanced">
-                    <div class="dlux-table-scroll">
+                {% dlux_table_shell %}
                     <table class="table table-hover align-middle dlux-data-table">
                         <tbody>
                             {% for orphan in orphan_files %}
@@ -133,16 +130,15 @@
                                     </td>
                                 </tr>
                             {% empty %}
-                                <tr><td class="text-muted text-center py-3">{{ DLUX_STRINGS.sysbackup_no_orphans }}</td></tr>
+                                {% include 'dlux/tables/empty_row.html' with text=DLUX_STRINGS.sysbackup_no_orphans padding=3 %}
                             {% endfor %}
                         </tbody>
                     </table>
-                    </div>
-                </div>
+                {% enddlux_table_shell %}
                 <hr class="dlux-backup-divider">
                 <form method="post" action="{% url 'system_backup_upload' %}" enctype="multipart/form-data" class="dlux-form dlux-backup-upload-form">
                     {% csrf_token %}
-                    <input type="file" name="backup_file" accept=".dlb" class="form-control form-control-sm glass-input" required>
+                    {{ backup_upload_form.backup_file }}
                     <button type="submit" class="btn btn-outline-primary btn-sm rounded-pill text-nowrap">
                         <i class="bi bi-upload me-1"></i>{{ DLUX_STRINGS.sysbackup_upload }}
                     </button>
@@ -154,8 +150,7 @@
         <div class="col-lg-6">
             <section class="glass-container dlux-backup-card h-100">
                 <h5 class="mb-3">{{ DLUX_STRINGS.sysrestore_history }}</h5>
-                <div class="dlux-table-shell" data-dlux-table-density="balanced">
-                    <div class="dlux-table-scroll">
+                {% dlux_table_shell %}
                     <table class="table table-hover align-middle dlux-data-table">
                         <thead>
                             <tr>
@@ -171,8 +166,7 @@
                             {% include 'dlux/backup/_restore_rows.html' %}
                         </tbody>
                     </table>
-                    </div>
-                </div>
+                {% enddlux_table_shell %}
             </section>
         </div>
     </div>

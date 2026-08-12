@@ -330,7 +330,7 @@ class SearchActivationWiringTests(TestCase):
 
     def test_modal_listener_and_dispatcher_share_a_target(self):
         helper = self._asset('helpers', 'dynamic_modal', 'js', 'main.js')
-        search = self._asset('main', 'js', 'global_search.js')
+        search = self._asset('search', 'js', 'main.js')
         # The listener must be on document so it also catches events bubbling up
         # from an element, which is how table row actions reach it.
         self.assertIn("document.addEventListener('dlux:dynamic_modal:open'", helper)
@@ -361,7 +361,7 @@ class SearchActivationWiringTests(TestCase):
         import dlux
 
         template = (
-            Path(dlux.__file__).parent / 'templates' / 'dlux' / 'includes' / 'options.html'
+            Path(dlux.__file__).parent / 'templates' / 'dlux' / 'system' / 'options.html'
         ).read_text(encoding='utf-8')
         self.assertIn('dlux-admin-panel-card" data-options-deeplink="admin-panel"', template)
         # data-options-card is what drag-reordering keys off, so the admin panel
@@ -369,7 +369,7 @@ class SearchActivationWiringTests(TestCase):
         self.assertNotIn('dlux-admin-panel-card" data-options-card=', template)
 
     def test_options_deep_link_reveals_its_tab_and_survives_repeat_clicks(self):
-        options_js = self._asset('main', 'js', 'options.js')
+        options_js = self._asset('system', 'js', 'options.js')
         # The deep link resolves either hook.
         self.assertIn('data-options-deeplink="', options_js)
         # It activates the pane that holds the target instead of scrolling to a

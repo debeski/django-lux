@@ -1,0 +1,3 @@
+{# Empty state for a data grid body.                                          #}
+{# Usage: {% include 'dlux/tables/empty_row.html' with colspan=4 text=STRINGS.x %} #}
+<tr><td{% if colspan %} colspan="{{ colspan }}"{% endif %} class="text-muted text-center py-{{ padding|default:4 }}">{{ text }}</td></tr>

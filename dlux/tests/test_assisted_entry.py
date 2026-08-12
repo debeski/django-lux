@@ -24,7 +24,12 @@ _TEMPLATES = Path(__file__).resolve().parents[1] / 'templates' / 'dlux'
 class AssistedEntryHelperTests(SimpleTestCase):
     @property
     def _js(self):
-        return (_STATIC / 'helpers' / 'autofill' / 'js' / 'main.js').read_text(encoding='utf-8')
+        # Two sibling modules, one behaviour contract: related lives in
+        # helpers/autofill, sticky in helpers/sticky.
+        return (
+            (_STATIC / 'helpers' / 'autofill' / 'js' / 'main.js').read_text(encoding='utf-8')
+            + (_STATIC / 'helpers' / 'sticky' / 'js' / 'main.js').read_text(encoding='utf-8')
+        )
 
     def test_the_two_features_read_separate_preferences(self):
         js = self._js
@@ -75,7 +80,8 @@ class AssistedEntryHelperTests(SimpleTestCase):
 
         self.assertIn("if (form.querySelector('[data-dlux-assist-bar]') || !formCapabilities(form).sticky) {", js)
         self.assertNotIn('t(\'assist_related_label\', \'Fill from related record\'),\n                relatedEnabled()', js)
-        block = js[js.index('function renderControl(form)'):]
+        sticky_js = (_STATIC / 'helpers' / 'sticky' / 'js' / 'main.js').read_text(encoding='utf-8')
+        block = sticky_js[sticky_js.index('function renderControl(form)'):]
         block = block[:block.index('\n    function ', 10)]
         self.assertIn('PREF_STICKY', block)
         self.assertNotIn('PREF_RELATED', block)
@@ -111,7 +117,7 @@ class AssistedEntryHelperTests(SimpleTestCase):
 
 class AssistedEntryOptionsCardTests(SimpleTestCase):
     def test_card_offers_both_switches_with_descriptions(self):
-        html = (_TEMPLATES / 'includes' / 'options.html').read_text(encoding='utf-8')
+        html = (_TEMPLATES / 'system' / 'options.html').read_text(encoding='utf-8')
 
         self.assertIn('data-assist-pref="autofill_from_related"', html)
         self.assertIn('data-assist-pref="sticky_forms"', html)
@@ -120,7 +126,7 @@ class AssistedEntryOptionsCardTests(SimpleTestCase):
         self.assertNotIn('id="autofillToggle"', html)
 
     def test_options_js_binds_both_and_drops_the_cookie_store(self):
-        js = (_STATIC / 'main' / 'js' / 'options.js').read_text(encoding='utf-8')
+        js = (_STATIC / 'system' / 'js' / 'options.js').read_text(encoding='utf-8')
 
         self.assertIn('function initAssistedEntry()', js)
         self.assertIn('initAssistedEntry();', js)
@@ -130,7 +136,7 @@ class AssistedEntryOptionsCardTests(SimpleTestCase):
         self.assertNotIn('function getCookie', js)
 
     def test_reset_defaults_sheds_the_retired_keys(self):
-        js = (_STATIC / 'main' / 'js' / 'options.js').read_text(encoding='utf-8')
+        js = (_STATIC / 'system' / 'js' / 'options.js').read_text(encoding='utf-8')
 
         self.assertIn("key === 'enable_prefill'", js)
         self.assertIn("key.startsWith('dlux_autofill_')", js)
@@ -317,7 +323,12 @@ class StickyFormsServerHelperTests(TestCase):
 class StickyServerFormTests(SimpleTestCase):
     @property
     def _js(self):
-        return (_STATIC / 'helpers' / 'autofill' / 'js' / 'main.js').read_text(encoding='utf-8')
+        # Two sibling modules, one behaviour contract: related lives in
+        # helpers/autofill, sticky in helpers/sticky.
+        return (
+            (_STATIC / 'helpers' / 'autofill' / 'js' / 'main.js').read_text(encoding='utf-8')
+            + (_STATIC / 'helpers' / 'sticky' / 'js' / 'main.js').read_text(encoding='utf-8')
+        )
 
     def test_server_prefilled_forms_are_not_also_filled_client_side(self):
         js = self._js
@@ -347,18 +358,23 @@ class AssistControlUsesTheSettingsSwitchTests(SimpleTestCase):
     """A thin bar at the top of the form, carrying the System Settings switch.
 
     The bar is dlux's own; the switch inside it must be the shared control from
-    `build_settings_toggle_field`, because system_setup.css and the themes style
+    `build_settings_toggle_field`, because helpers/toggle/css/main.css and the themes style
     it by those exact class names — a hand-rolled `form-check form-switch` gets
     none of that and renders as a bare browser checkbox.
     """
 
     @property
     def _js(self):
-        return (_STATIC / 'helpers' / 'autofill' / 'js' / 'main.js').read_text(encoding='utf-8')
+        # Two sibling modules, one behaviour contract: related lives in
+        # helpers/autofill, sticky in helpers/sticky.
+        return (
+            (_STATIC / 'helpers' / 'autofill' / 'js' / 'main.js').read_text(encoding='utf-8')
+            + (_STATIC / 'helpers' / 'sticky' / 'js' / 'main.js').read_text(encoding='utf-8')
+        )
 
     @property
     def _bar_css(self):
-        css = (_STATIC / 'main' / 'css' / 'main.css').read_text(encoding='utf-8')
+        css = (_STATIC / 'base' / 'css' / 'main.css').read_text(encoding='utf-8')
         return '\n'.join(
             rule for rule in css.split('\n}')
             if '.dlux-assist-bar' in rule.split('{')[0]
@@ -366,7 +382,7 @@ class AssistControlUsesTheSettingsSwitchTests(SimpleTestCase):
 
     @property
     def _builder(self):
-        src = (Path(__file__).resolve().parents[1] / 'forms.py').read_text(encoding='utf-8')
+        src = (Path(__file__).resolve().parents[1] / 'forms' / 'builders.py').read_text(encoding='utf-8')
         builder = src[src.index('def build_settings_toggle_field'):]
         cut = builder.find('\ndef ', 10)
         return builder[:cut] if cut != -1 else builder
@@ -412,7 +428,7 @@ class AssistControlUsesTheSettingsSwitchTests(SimpleTestCase):
         js = self._js
 
         self.assertLess(js.index('bar.appendChild(legend);'), js.index('bar.appendChild(buildSwitch('))
-        self.assertIn('margin-inline-end: auto;', (_STATIC / 'main' / 'css' / 'main.css').read_text(encoding='utf-8'))
+        self.assertIn('margin-inline-end: auto;', (_STATIC / 'base' / 'css' / 'main.css').read_text(encoding='utf-8'))
 
     def test_the_switch_cannot_be_squeezed_flat(self):
         # It inherits the bar's 0.85rem text size, and Bootstrap sizes the switch

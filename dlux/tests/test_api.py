@@ -81,7 +81,7 @@ class APIHelperSecurityTests(TestCase):
             has_perm=lambda perm: perm in permissions,
         )
 
-    @patch("dlux.api.is_scope_enabled", return_value=True)
+    @patch("dlux.api.introspection.is_scope_enabled", return_value=True)
     def test_scope_filter_limits_scoped_model_to_user_scope(self, _scope_enabled):
         user_scope = object()
         qs = _FakeQuerySet(_FakeModel(has_scope=True))
@@ -91,7 +91,7 @@ class APIHelperSecurityTests(TestCase):
         self.assertIs(filtered.filtered_scope, user_scope)
         self.assertFalse(filtered.none_called)
 
-    @patch("dlux.api.is_scope_enabled", return_value=True)
+    @patch("dlux.api.introspection.is_scope_enabled", return_value=True)
     def test_scope_filter_fails_closed_for_scopeless_user_on_scoped_model(self, _scope_enabled):
         qs = _FakeQuerySet(_FakeModel(has_scope=True))
 
@@ -99,7 +99,7 @@ class APIHelperSecurityTests(TestCase):
 
         self.assertTrue(filtered.none_called)
 
-    @patch("dlux.api.is_scope_enabled", return_value=True)
+    @patch("dlux.api.introspection.is_scope_enabled", return_value=True)
     def test_scope_filter_allows_global_staff(self, _scope_enabled):
         qs = _FakeQuerySet(_FakeModel(has_scope=True))
 
@@ -405,7 +405,7 @@ class APIEndpointsTests(TestCase):
         self.assertEqual(response.status_code, 405)  # Method not allowed
 
     def test_update_preferences_returns_sanitized_error_payload(self):
-        with patch('dlux.api.get_system_config', side_effect=RuntimeError('secret backend failure')):
+        with patch('dlux.api.preferences.get_system_config', side_effect=RuntimeError('secret backend failure')):
             response = self.client.post(
                 reverse('update_preferences'),
                 json.dumps({'theme': 'dark'}),
@@ -460,7 +460,7 @@ class APIEndpointsTests(TestCase):
         self.assertEqual(response.status_code, 400)  # Bad request
 
     def test_reset_preferences_returns_sanitized_error_payload(self):
-        with patch('dlux.api.log_user_action', side_effect=RuntimeError('sensitive failure')):
+        with patch('dlux.api.preferences.log_user_action', side_effect=RuntimeError('sensitive failure')):
             response = self.client.post(reverse('reset_preferences'))
 
         self.assertEqual(response.status_code, 500)

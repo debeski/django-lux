@@ -24,5 +24,5 @@
         </td>
     </tr>
 {% empty %}
-    <tr><td colspan="4" class="text-muted text-center py-3">{{ DLUX_STRINGS.sysrestore_none }}</td></tr>
+    {% include 'dlux/tables/empty_row.html' with colspan=4 text=DLUX_STRINGS.sysrestore_none padding=3 %}
 {% endfor %}

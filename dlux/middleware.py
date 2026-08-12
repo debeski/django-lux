@@ -9,6 +9,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 from .system.constants import DEFAULT_HOME_URL
+from .fonts import clear_font_cache
 
 _thread_locals = threading.local()
 
@@ -165,7 +166,7 @@ class DluxMiddleware:
         }
 
     def _remember_session_device(self, request):
-        from .session_history import remember_request_presence
+        from .auth.session_history import remember_request_presence
 
         remember_request_presence(request)
 
@@ -195,7 +196,7 @@ class DluxMiddleware:
             # Ignore a bare "/" prefix (a common MEDIA_URL default) — it would match every path.
             if prefix and prefix != '/' and request.path.startswith(prefix):
                 return None
-        from .session_history import clear_session_revoked_flag, get_session_revoked_reason
+        from .auth.session_history import clear_session_revoked_flag, get_session_revoked_reason
         reason = get_session_revoked_reason(raw_session_key)
         if not reason:
             return None
@@ -405,6 +406,7 @@ class DluxMiddleware:
     def __call__(self, request):
         _thread_locals.user = getattr(request, 'user', None)
         _thread_locals.request = request
+        clear_font_cache()
 
         try:
             self._activate_display_language(request)
@@ -423,13 +425,13 @@ class DluxMiddleware:
 
             setup_redirect = self._setup_redirect_response(request)
             if setup_redirect is not None:
-                from .session_history import attach_presence_cookie
+                from .auth.session_history import attach_presence_cookie
 
                 return attach_presence_cookie(setup_redirect, request)
 
             force_password_redirect = self._force_password_change_response(request)
             if force_password_redirect is not None:
-                from .session_history import attach_presence_cookie
+                from .auth.session_history import attach_presence_cookie
 
                 return attach_presence_cookie(force_password_redirect, request)
 
@@ -445,11 +447,11 @@ class DluxMiddleware:
 
             root_redirect = self._root_redirect(request, response)
             if root_redirect is not None:
-                from .session_history import attach_presence_cookie
+                from .auth.session_history import attach_presence_cookie
 
                 return attach_presence_cookie(root_redirect, request)
 
-            from .session_history import attach_presence_cookie
+            from .auth.session_history import attach_presence_cookie
 
             self._remember_session_device(request)
             attach_presence_cookie(response, request)

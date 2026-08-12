@@ -1,7 +1,12 @@
 from functools import lru_cache
 import re
+import threading
 
 from django.conf import settings
+from django.apps import apps
+from django.db import OperationalError, ProgrammingError, transaction
+from django.core.signals import setting_changed
+from django.dispatch import receiver
 from django.templatetags.static import static
 
 DEFAULT_FONT_SLUG = 'cairo'
@@ -107,20 +112,93 @@ def _normalize_custom_font(value):
     }
 
 
+_request_cache = threading.local()
+
+
+def clear_font_cache(**_kwargs):
+    """Drop the per-request font memo.
+
+    Called by DluxMiddleware at the start of every request, by managed-font
+    writes, and whenever a setting the font list depends on changes.
+    """
+    _request_cache.fonts = None
+
+
+@receiver(setting_changed)
+def _clear_font_cache_on_setting_change(sender, setting=None, **kwargs):
+    # The list folds in settings.DLUX_CUSTOM_FONTS, so an override_settings block
+    # (or any runtime settings change) must not be served a memo built under the
+    # previous value.
+    if setting in {'DLUX_CUSTOM_FONTS', 'STATIC_URL', 'DLUX_CONFIG'}:
+        clear_font_cache()
+
+
 def get_available_fonts():
-    """Return bundled fonts plus valid project fonts from DLUX_CUSTOM_FONTS."""
+    """Return bundled, configured, and active UI-managed fonts.
+
+    Memoised for the duration of a request. Config normalisation calls this from
+    several places (allowed-font validation, defaults, theme resolution), so a
+    single page used to run the managed-font query a few hundred times — cheap on
+    SQLite, a few hundred round trips on PostgreSQL. The font list cannot change
+    mid-request, so one lookup per request is equivalent and vastly cheaper.
+    """
+    cached = getattr(_request_cache, 'fonts', None)
+    if cached is not None:
+        return cached
+    fonts = _build_available_fonts()
+    _request_cache.fonts = fonts
+    return fonts
+
+
+def _build_available_fonts():
     fonts = list(get_builtin_fonts())
     known_slugs = {font['slug'] for font in fonts}
     configured = getattr(settings, 'DLUX_CUSTOM_FONTS', ())
-    if not isinstance(configured, (list, tuple)):
-        return tuple(fonts)
+    if isinstance(configured, (list, tuple)):
+        for value in configured:
+            font = _normalize_custom_font(value)
+            if not font or font['slug'] in known_slugs:
+                continue
+            fonts.append(font)
+            known_slugs.add(font['slug'])
 
-    for value in configured:
-        font = _normalize_custom_font(value)
-        if not font or font['slug'] in known_slugs:
-            continue
-        fonts.append(font)
-        known_slugs.add(font['slug'])
+    if apps.ready:
+        try:
+            # Savepoint, not just a try/except. On a bootstrap-from-empty database
+            # this query fails because dlux_managedfontfamily does not exist yet —
+            # and on PostgreSQL, catching the Python exception does not un-abort the
+            # server-side transaction. Without the savepoint the *next* statement in
+            # the enclosing atomic block dies instead, which is why the traceback
+            # points at an unrelated migration operation and says nothing useful.
+            with transaction.atomic():
+                FontFamily = apps.get_model('dlux', 'ManagedFontFamily')
+                managed_fonts = FontFamily.objects.filter(
+                    is_active=True,
+                    variants__asset__is_active=True,
+                ).prefetch_related('variants__asset').distinct()
+                for managed in managed_fonts:
+                    if managed.slug in known_slugs:
+                        continue
+                    variants = [
+                        {
+                            'weight': variant.weight,
+                            'style': variant.style,
+                            'url': variant.asset.url,
+                        }
+                        for variant in managed.variants.all()
+                        if variant.asset.is_active and variant.asset.url
+                    ]
+                    if not variants:
+                        continue
+                    fonts.append({
+                        'slug': managed.slug,
+                        'family': managed.family,
+                        'label': managed.label,
+                        'variants': variants,
+                    })
+                    known_slugs.add(managed.slug)
+        except (AssertionError, LookupError, OperationalError, ProgrammingError, RuntimeError):
+            pass
     return tuple(fonts)
 
 
@@ -158,12 +236,11 @@ def generate_font_face_css(allowed_fonts=None):
     css_lines = []
     for font in fonts_to_load:
         for variant in font['variants']:
-            # We use static() to resolve the path correctly
-            url = static(variant['path'])
+            url = variant.get('url') or static(variant['path'])
             css_lines.append(f"@font-face {{")
             css_lines.append(f"    font-family: '{font['family']}';")
             css_lines.append(f"    font-weight: {variant['weight']};")
-            css_lines.append(f"    font-style: normal;")
+            css_lines.append(f"    font-style: {variant.get('style', 'normal')};")
             css_lines.append(f"    src: url('{url}') format('woff2');")
             css_lines.append(f"    font-display: swap;")
             css_lines.append(f"}}")

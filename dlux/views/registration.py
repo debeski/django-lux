@@ -11,7 +11,7 @@ from ..system.constants import (
 from ..forms import PublicRegistrationForm
 from ..models import PublicRegistration
 from ..notifications import notify
-from ..registration import (
+from ..auth.registration import (
     create_inactive_registration_user,
     existing_registration_email,
     public_registration_available,
@@ -152,7 +152,7 @@ def pending_registrations_view(request):
     registrations = PublicRegistration.objects.filter(
         status=REGISTRATION_STATUS_PENDING_APPROVAL,
     ).select_related('user').order_by('created_at')
-    return render(request, 'dlux/registration/pending.html', {'registrations': registrations})
+    return render(request, 'registration/pending.html', {'registrations': registrations})
 
 
 @user_passes_test(_superuser_required)

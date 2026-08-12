@@ -1,0 +1,1280 @@
+.dlux-setup-page {
+  background: var(--dlux-setup-shell-bg);
+  border: 1px solid var(--dlux-setup-shell-border);
+  border-radius: 1.5rem;
+}
+
+.dlux-setup-page-logo {
+  max-height: 88px;
+  width: auto;
+}
+
+.dlux-setup-step-nav {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(6.2rem, 1fr));
+  gap: 0.45rem;
+  margin: 0 0 1.25rem;
+  padding: 0.55rem;
+  overflow-x: auto;
+  border: 1px solid var(--dlux-setup-pane-border);
+  border-radius: 1.3rem;
+  background:
+    linear-gradient(135deg, rgba(var(--primal-rgb), 0.08), transparent 38%),
+    var(--dlux-setup-pane-bg);
+  box-shadow:
+    var(--dlux-setup-item-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px);
+  scrollbar-width: thin;
+}
+
+.dlux-setup-step-nav__item {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.48rem;
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.48rem 0.58rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  background: transparent;
+  color: var(--dlux-setup-muted);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.dlux-setup-step-nav__item:hover,
+.dlux-setup-step-nav__item:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(var(--primal-rgb), 0.28);
+  background: var(--dlux-setup-item-hover-bg);
+  color: var(--dlux-setup-text);
+}
+
+.dlux-setup-step-nav__item.is-active {
+  border-color: rgba(var(--primal-rgb), 0.42);
+  background: var(--dlux-setup-item-active-bg);
+  color: var(--dlux-setup-text);
+  box-shadow: 0 0 0 3px var(--dlux-setup-item-active-ring);
+}
+
+.dlux-setup-step-nav__item.is-complete {
+  color: color-mix(in srgb, var(--dlux-setup-text) 74%, var(--primal));
+}
+
+.dlux-setup-step-nav__item.has-validation-error {
+  border-color: rgba(245, 158, 11, 0.8);
+  background: color-mix(in srgb, #f59e0b 14%, var(--dlux-setup-pane-bg));
+  color: color-mix(in srgb, #92400e 78%, var(--dlux-setup-text));
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+}
+
+.dlux-setup-step-nav__bullet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  background: var(--dlux-setup-badge-bg);
+  color: var(--dlux-setup-badge-color);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(var(--primal-rgb), 0.12);
+}
+
+.dlux-setup-step-nav__item.is-active .dlux-setup-step-nav__bullet {
+  background: var(--primal);
+  color: #fff;
+}
+
+.dlux-setup-step-nav__item.is-complete .dlux-setup-step-nav__bullet {
+  background: color-mix(in srgb, var(--primal) 18%, var(--dlux-setup-badge-bg));
+  color: var(--primal);
+}
+
+.dlux-setup-step-nav__item.has-validation-error .dlux-setup-step-nav__bullet {
+  background: #f59e0b;
+  color: #111827;
+  box-shadow:
+    inset 0 0 0 1px rgba(146, 64, 14, 0.24),
+    0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+
+.dlux-setup-step-nav__label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 760;
+  line-height: 1.08;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dlux-system-settings-shell .wizard-step {
+  border: 1px solid transparent;
+  border-radius: 0.9rem;
+  padding: 1rem 0;
+}
+
+.dlux-system-settings-shell.mode-setup .wizard-step.dlux-setup-step-has-error {
+  border-color: rgba(245, 158, 11, 0.72);
+  box-shadow:
+    0 0 0 3px rgba(245, 158, 11, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.dlux-email-toggle-field {
+  width: 100%;
+  min-width: 0;
+}
+
+.dlux-email-toggle-field__row {
+  min-width: 0;
+}
+
+.dlux-email-toggle-field__label,
+.dlux-email-toggle-field__help {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.dlux-email-toggle-field__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.dlux-email-toggle-field__input.form-check-input {
+  margin: 0;
+  float: none;
+  position: static;
+  flex: 0 0 auto;
+}
+
+.dlux-titlebar-actions-order-builder {
+  min-width: 0;
+}
+
+.dlux-titlebar-actions-order-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dlux-titlebar-action-order-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--dlux-setup-item-border);
+  border-radius: 0.7rem;
+  background: var(--dlux-setup-item-bg);
+  box-shadow: var(--dlux-setup-item-shadow);
+}
+
+.dlux-titlebar-action-order-handle {
+  color: var(--dlux-setup-muted);
+  line-height: 1;
+}
+
+.dlux-titlebar-action-order-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 0.55rem;
+  color: var(--primal);
+  background: rgba(var(--primal-rgb), 0.08);
+}
+
+.dlux-titlebar-action-order-label {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dlux-titlebar-action-order-controls {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+@media (min-width: 992px) {
+  .dlux-logo-treatment-primary.dlux-logo-treatment-primary--wide {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .dlux-setup-step-nav {
+    grid-template-columns: repeat(7, minmax(5.8rem, 1fr));
+    margin-inline: -0.25rem;
+  }
+
+  .dlux-email-toggle-field {
+    min-height: auto;
+  }
+
+  .dlux-navbar-builder__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dlux-navbar-builder__header {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .dlux-setup-step-nav {
+    top: 0.35rem;
+    grid-template-columns: repeat(7, minmax(4.55rem, 1fr));
+    padding: 0.45rem;
+    border-radius: 1rem;
+  }
+
+  .dlux-setup-step-nav__item {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 0.28rem;
+    min-height: 3.35rem;
+    padding: 0.42rem 0.38rem;
+    text-align: center;
+  }
+
+  .dlux-setup-step-nav__label {
+    max-width: 100%;
+    font-size: 0.68rem;
+  }
+}
+
+/* A step whose master toggle is off keeps its settings on screen, dimmed and
+   inert, rather than hiding them: the admin can see what turning it back on
+   will restore instead of having to enable it to find out. The dependent
+   fields are also `disabled`, so the save path must preserve values for a
+   step whose controls did not post — see the `if <enabled>` guards in
+   SystemSettingsForm's group packing. */
+.dlux-dependent-settings.is-disabled,
+.dlux-sidebar-dependent-settings.is-disabled {
+  opacity: 0.58;
+}
+
+.dlux-dependent-settings.is-disabled [data-dlux-selector],
+.dlux-dependent-settings.is-disabled .dlux-icon-picker-field,
+.dlux-dependent-settings.is-disabled .dlux-setup-builder,
+.dlux-dependent-settings.is-disabled .dlux-navbar-builder,
+.dlux-sidebar-dependent-settings.is-disabled [data-dlux-selector],
+.dlux-sidebar-dependent-settings.is-disabled .dlux-icon-picker-field,
+.dlux-sidebar-dependent-settings.is-disabled .dlux-setup-builder {
+  pointer-events: none;
+}
+
+.dlux-navbar-builder {
+  padding: clamp(0.8rem, 1.8vw, 1.15rem);
+  border: 1px solid var(--dlux-setup-card-border);
+  border-radius: 1.1rem;
+  background:
+    linear-gradient(135deg, rgba(var(--primal-rgb), 0.08), transparent 34%),
+    var(--dlux-setup-card-bg);
+}
+
+.dlux-navbar-builder__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.dlux-navbar-builder__grid {
+  display: grid;
+  grid-template-columns: minmax(15rem, 1fr) minmax(16rem, 1fr);
+  gap: 0.85rem;
+}
+
+.dlux-navbar-root-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.8fr);
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--dlux-setup-pane-border);
+}
+
+.dlux-navbar-root-control__label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.dlux-navbar-root-control__label > i {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+  color: var(--primal);
+  font-size: 1.05rem;
+}
+
+.dlux-navbar-root-control .form-select {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 991.98px) {
+  .dlux-navbar-root-control {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The node inspector lives on its own full-width row above the tree/routes grid.
+   Add Group is always shown; the selection-dependent actions appear inline after it
+   once a node is inspected. Toggling only `d-none` (Bootstrap's none is !important)
+   reliably hides it; when shown, this rule restores the inline-flex layout. */
+.dlux-navbar-inspector-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dlux-navbar-builder__pane {
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--dlux-setup-pane-border);
+  border-radius: 1rem;
+  background: var(--dlux-setup-pane-bg);
+}
+
+.dlux-navbar-tree,
+.dlux-navbar-route-list {
+  min-height: 16rem;
+  max-height: 30rem;
+  overflow: auto;
+}
+
+.dlux-navbar-node + .dlux-navbar-node,
+.dlux-navbar-route + .dlux-navbar-route {
+  margin-top: 0.45rem;
+}
+
+.dlux-navbar-node__surface,
+.dlux-navbar-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.68rem 0.72rem;
+  border: 1px solid var(--dlux-setup-item-border);
+  border-radius: 0.82rem;
+  color: var(--dlux-setup-text);
+  background: var(--dlux-setup-item-bg);
+  text-align: start;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dlux-navbar-node__surface:hover,
+.dlux-navbar-node__surface.is-active,
+.dlux-navbar-route:hover {
+  border-color: rgba(var(--primal-rgb), 0.42);
+  background: var(--dlux-setup-item-active-bg);
+}
+
+.dlux-navbar-node__surface.is-active {
+  border-color: var(--primal);
+  box-shadow: 0 0 0 3px var(--dlux-setup-item-active-ring);
+}
+
+.dlux-navbar-node__label,
+.dlux-navbar-route span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.52rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dlux-navbar-node__surface small,
+.dlux-navbar-route small {
+  max-width: 46%;
+  overflow: hidden;
+  color: var(--dlux-setup-muted);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dlux-navbar-node__children {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+  margin-inline-start: 0.8rem;
+  padding-inline-start: 0.8rem;
+  border-inline-start: 2px solid var(--dlux-setup-connector);
+}
+
+.dlux-navbar-route-group + .dlux-navbar-route-group {
+  margin-top: 0.95rem;
+}
+
+.dlux-navbar-route-group h6 {
+  margin-bottom: 0.48rem;
+  color: var(--dlux-setup-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dlux-navbar-label-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.dlux-navbar-label-field + .dlux-navbar-label-field {
+  margin-top: 0.75rem;
+}
+
+.dlux-navbar-label-field small {
+  color: var(--dlux-setup-muted);
+}
+
+.dlux-setup-builder .card {
+  border-radius: 1rem;
+  background: var(--dlux-setup-card-bg) !important;
+  border: 1px solid var(--dlux-setup-card-border) !important;
+}
+
+.dlux-sidebar-tree,
+.dlux-sidebar-available {
+  min-height: 280px;
+  max-height: 460px;
+  overflow: auto;
+  padding: 0.25rem;
+  border: 1px dashed var(--dlux-setup-pane-border);
+  border-radius: 0.9rem;
+  background: var(--dlux-setup-pane-bg);
+}
+
+.dlux-builder-available-group + .dlux-builder-available-group {
+  margin-top: 1rem;
+}
+
+.dlux-builder-available-group {
+  position: relative;
+}
+
+.dlux-builder-available-items {
+  margin-top: 0.55rem;
+  margin-inline-start: 1rem;
+  padding-inline-start: 1rem;
+  border-inline-start: 1px solid var(--dlux-setup-connector);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.dlux-builder-item,
+.dlux-builder-node {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.8rem 0.95rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--dlux-setup-item-border);
+  border-radius: 0.9rem;
+  background: var(--dlux-setup-item-bg);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.dlux-builder-item:hover,
+.dlux-builder-node:hover {
+  background: var(--dlux-setup-item-hover-bg);
+  border-color: rgba(var(--primal-rgb), 0.35);
+  box-shadow: var(--dlux-setup-item-shadow);
+}
+
+.dlux-builder-item.is-active,
+.dlux-builder-node.is-active {
+  background: var(--dlux-setup-item-active-bg);
+  border-color: var(--primal);
+  box-shadow: 0 0 0 3px var(--dlux-setup-item-active-ring);
+}
+
+.dlux-builder-item.available-item.is-child,
+.dlux-builder-group-items .dlux-builder-node.is-item {
+  position: relative;
+}
+
+.dlux-builder-item.available-item.is-child::before,
+.dlux-builder-group-items .dlux-builder-node.is-item::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -0.92rem;
+  top: 50%;
+  width: 0.7rem;
+  border-top: 1px solid var(--dlux-setup-connector);
+  transform: translateY(-50%);
+}
+
+.dlux-builder-node {
+  cursor: pointer;
+}
+
+.dlux-builder-item[draggable="true"],
+.dlux-builder-node[draggable="true"] {
+  cursor: grab;
+}
+
+.dlux-builder-node.is-group {
+  display: block;
+  padding: 0.75rem;
+}
+
+.dlux-builder-group-header,
+.dlux-builder-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.dlux-builder-item-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dlux-builder-item-label {
+  font-weight: 600;
+  color: var(--dlux-setup-text);
+  line-height: 1.2;
+}
+
+.dlux-builder-item-meta {
+  font-size: 0.78rem;
+  color: var(--dlux-setup-muted);
+  line-height: 1.15;
+}
+
+.dlux-builder-item-main span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dlux-builder-item-copy .dlux-builder-item-label,
+.dlux-builder-item-copy .dlux-builder-item-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dlux-builder-group-items {
+  margin-top: 0.75rem;
+  margin-inline-start: 0.5rem;
+  padding: 0.85rem 0.85rem 0.85rem 1rem;
+  border-radius: 0.8rem;
+  background: var(--dlux-setup-tree-bg);
+  border: 1px dashed var(--dlux-setup-pane-border);
+  border-inline-start: 3px solid var(--dlux-setup-tree-accent);
+}
+
+.dlux-builder-group-items .dlux-builder-node {
+  margin-bottom: 0.45rem;
+}
+
+.dlux-builder-group-header {
+  justify-content: space-between;
+  padding: 0.2rem 0.1rem 0.2rem 0.15rem;
+  font-weight: 700;
+  color: var(--dlux-setup-text);
+}
+
+.dlux-builder-group-header .badge,
+.dlux-builder-item.available-item.fw-semibold .badge {
+  background: var(--dlux-setup-badge-bg) !important;
+  color: var(--dlux-setup-badge-color) !important;
+}
+
+.dlux-builder-drop-target {
+  border-color: var(--primal) !important;
+  background: var(--dlux-setup-item-active-bg) !important;
+}
+
+.dlux-builder-drop-before {
+  box-shadow: inset 0 3px 0 var(--primal);
+}
+
+.dlux-builder-drop-after {
+  box-shadow: inset 0 -3px 0 var(--primal);
+}
+
+.dlux-builder-item.is-dragging,
+.dlux-builder-node.is-dragging {
+  opacity: 0.55;
+}
+
+.dlux-setup-builder .glass-input,
+.dlux-setup-builder .input-group-text {
+  background: var(--glass-input-bg) !important;
+  border-color: var(--glass-input-border) !important;
+}
+
+:root.theme-dark .dlux-setup-builder .btn[class*="btn-outline-"],
+:root.theme-retro .dlux-setup-builder .btn[class*="btn-outline-"],
+:root.theme-gothic .dlux-setup-builder .btn[class*="btn-outline-"],
+:root.theme-neon .dlux-setup-builder .btn[class*="btn-outline-"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.16rem;
+  background:
+    linear-gradient(135deg, rgba(var(--primal-rgb), 0.07), rgba(255, 255, 255, 0.018)) !important;
+  border-color: rgba(var(--primal-rgb), 0.26) !important;
+  color: color-mix(in srgb, var(--primal) 78%, var(--title)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 8px 18px -18px rgba(0, 0, 0, 0.72) !important;
+}
+
+:root.theme-dark .dlux-setup-builder .btn[class*="btn-outline-"] i,
+:root.theme-retro .dlux-setup-builder .btn[class*="btn-outline-"] i,
+:root.theme-gothic .dlux-setup-builder .btn[class*="btn-outline-"] i,
+:root.theme-neon .dlux-setup-builder .btn[class*="btn-outline-"] i {
+  color: currentColor !important;
+}
+
+:root.theme-dark .dlux-setup-builder .btn.btn-outline-primary:hover,
+:root.theme-retro .dlux-setup-builder .btn.btn-outline-primary:hover,
+:root.theme-gothic .dlux-setup-builder .btn.btn-outline-primary:hover,
+:root.theme-neon .dlux-setup-builder .btn.btn-outline-primary:hover,
+:root.theme-dark .dlux-setup-builder .btn.btn-outline-primary:focus-visible,
+:root.theme-retro .dlux-setup-builder .btn.btn-outline-primary:focus-visible,
+:root.theme-gothic .dlux-setup-builder .btn.btn-outline-primary:focus-visible,
+:root.theme-neon .dlux-setup-builder .btn.btn-outline-primary:focus-visible {
+  background:
+    linear-gradient(135deg, rgba(var(--primal-rgb), 0.15), rgba(255, 255, 255, 0.032)) !important;
+  border-color: rgba(var(--primal-rgb), 0.45) !important;
+  color: color-mix(in srgb, var(--primal) 90%, var(--htitle, var(--title))) !important;
+  box-shadow:
+    0 0 0 0.14rem rgba(var(--primal-rgb), 0.1),
+    0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
+}
+
+:root.theme-dark .dlux-setup-builder .btn.btn-outline-secondary,
+:root.theme-retro .dlux-setup-builder .btn.btn-outline-secondary,
+:root.theme-gothic .dlux-setup-builder .btn.btn-outline-secondary,
+:root.theme-neon .dlux-setup-builder .btn.btn-outline-secondary {
+  color: color-mix(in srgb, var(--title) 86%, var(--primal)) !important;
+  border-color: rgba(var(--primal-rgb), 0.18) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(var(--primal-rgb), 0.018)) !important;
+}
+
+:root.theme-dark .dlux-setup-builder .btn.btn-outline-secondary:hover,
+:root.theme-retro .dlux-setup-builder .btn.btn-outline-secondary:hover,
+:root.theme-gothic .dlux-setup-builder .btn.btn-outline-secondary:hover,
+:root.theme-neon .dlux-setup-builder .btn.btn-outline-secondary:hover,
+:root.theme-dark .dlux-setup-builder .btn.btn-outline-secondary:focus-visible,
+:root.theme-retro .dlux-setup-builder .btn.btn-outline-secondary:focus-visible,
+:root.theme-gothic .dlux-setup-builder .btn.btn-outline-secondary:focus-visible,
+:root.theme-neon .dlux-setup-builder .btn.btn-outline-secondary:focus-visible {
+  color: color-mix(in srgb, var(--title) 92%, var(--primal)) !important;
+  border-color: rgba(var(--primal-rgb), 0.34) !important;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(var(--primal-rgb), 0.035)) !important;
+  box-shadow:
+    0 0 0 0.14rem rgba(var(--primal-rgb), 0.075),
+    0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
+}
+
+:root.theme-dark .dlux-setup-builder .btn.btn-outline-danger,
+:root.theme-retro .dlux-setup-builder .btn.btn-outline-danger,
+:root.theme-gothic .dlux-setup-builder .btn.btn-outline-danger,
+:root.theme-neon .dlux-setup-builder .btn.btn-outline-danger {
+  background:
+    linear-gradient(135deg, rgba(248, 113, 113, 0.08), rgba(255, 255, 255, 0.018)) !important;
+  border-color: rgba(248, 113, 113, 0.34) !important;
+  color: #fca5a5 !important;
+}
+
+:root.theme-dark .dlux-setup-builder .btn.btn-outline-danger:hover,
+:root.theme-retro .dlux-setup-builder .btn.btn-outline-danger:hover,
+:root.theme-gothic .dlux-setup-builder .btn.btn-outline-danger:hover,
+:root.theme-neon .dlux-setup-builder .btn.btn-outline-danger:hover,
+:root.theme-dark .dlux-setup-builder .btn.btn-outline-danger:focus-visible,
+:root.theme-retro .dlux-setup-builder .btn.btn-outline-danger:focus-visible,
+:root.theme-gothic .dlux-setup-builder .btn.btn-outline-danger:focus-visible,
+:root.theme-neon .dlux-setup-builder .btn.btn-outline-danger:focus-visible {
+  background:
+    linear-gradient(135deg, rgba(248, 113, 113, 0.16), rgba(255, 255, 255, 0.032)) !important;
+  border-color: rgba(248, 113, 113, 0.52) !important;
+  color: #fecaca !important;
+  box-shadow:
+    0 0 0 0.14rem rgba(248, 113, 113, 0.1),
+    0 12px 24px -20px rgba(0, 0, 0, 0.8) !important;
+}
+
+.dlux-theme-settings-option .dlux-choice-option__surface {
+  padding: 0.85rem;
+  cursor: pointer;
+}
+
+.dlux-theme-settings-option__header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.dlux-theme-settings-option__allow {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+.dlux-theme-settings-option__checkbox {
+  margin: 0;
+}
+
+.dlux-theme-settings-option__select {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: inherit;
+  min-width: 0;
+}
+
+.dlux-theme-settings-option__preview {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent !important;
+  color: inherit;
+  cursor: pointer;
+  line-height: 0;
+  box-shadow: none !important;
+}
+
+.dlux-theme-settings-option__preview:focus-visible {
+  outline: none;
+}
+
+.dlux-theme-settings-option__preview:focus-visible .theme-preview {
+  box-shadow: 0 0 0 4px rgba(var(--primal-rgb), 0.2);
+}
+
+.dlux-theme-settings-option.is-default .dlux-choice-option__surface {
+  background: var(--dlux-choice-surface-active, rgba(var(--primal-rgb, 35, 99, 195), 0.1));
+  border-color: var(--dlux-choice-border-active, var(--primal, #2363c3));
+  box-shadow: 0 0 0 3px var(--dlux-choice-ring, rgba(var(--primal-rgb, 35, 99, 195), 0.16));
+}
+
+.dlux-theme-settings-option.is-default .theme-preview.active {
+  box-shadow:
+    0 0 0 3px rgba(var(--primal-rgb), 0.2),
+    0 0 0 6px rgba(var(--primal-rgb), 0.08);
+}
+
+.dlux-theme-settings-option:not(.is-default) .theme-preview.active {
+  box-shadow: none;
+}
+
+.dlux-language-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.dlux-language-row {
+  display: grid;
+  grid-template-columns: minmax(3.5rem, 0.5fr) minmax(8rem, 1fr) minmax(5rem, 0.55fr) minmax(4rem, 0.45fr) minmax(7rem, 0.7fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.7rem;
+  border: 1px solid var(--dlux-setup-item-border);
+  border-radius: 0.8rem;
+  background: var(--dlux-setup-item-bg);
+}
+
+.dlux-language-row__code {
+  font-weight: 700;
+  text-transform: lowercase;
+  color: var(--dlux-setup-text);
+}
+
+.dlux-system-names-editor {
+  margin-bottom: 1rem;
+}
+
+.dlux-system-name-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.dlux-system-name-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.5fr) minmax(14rem, 1.5fr);
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.7rem;
+  border: 1px solid var(--dlux-setup-item-border);
+  border-radius: 0.8rem;
+  background: var(--dlux-setup-item-bg);
+}
+
+.dlux-system-name-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.dlux-system-name-row__code {
+  font-weight: 700;
+  text-transform: lowercase;
+  color: var(--dlux-setup-text);
+}
+
+.dlux-system-name-row__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dlux-setup-muted);
+}
+
+.dlux-language-flag-input {
+  max-width: 5rem;
+}
+
+.dlux-language-default {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.dlux-translation-table-wrap {
+  max-height: 30rem;
+  overflow: auto;
+  border: 1px solid var(--dlux-setup-pane-border);
+  border-radius: 0.9rem;
+  background: var(--dlux-setup-pane-bg);
+}
+
+.dlux-translation-tabs .nav-link {
+  border: 1px solid var(--dlux-setup-item-border);
+  border-radius: 999px;
+  color: var(--dlux-setup-text);
+  background: var(--dlux-setup-item-bg);
+}
+
+.dlux-translation-tabs .nav-link.active {
+  color: #fff;
+  background: var(--primal);
+  border-color: var(--primal);
+}
+
+.dlux-translation-table {
+  min-width: 780px;
+  margin: 0;
+}
+
+.dlux-translation-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--dlux-setup-pane-bg);
+}
+
+.dlux-translation-key-col,
+.dlux-translation-key {
+  width: 14rem;
+}
+
+.dlux-translation-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  color: var(--dlux-setup-muted);
+}
+
+.dlux-translation-source {
+  margin-top: 0.35rem;
+  text-transform: capitalize;
+  background: rgba(var(--primal-rgb), 0.1);
+  color: var(--dlux-setup-text);
+}
+
+.dlux-import-finish-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(var(--primal-rgb), 0.2);
+  border-radius: 1rem;
+  background: rgba(var(--primal-rgb), 0.08);
+  color: var(--dlux-setup-text);
+}
+
+.dlux-import-finish-cta small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--dlux-setup-muted);
+}
+
+@media (max-width: 991.98px) {
+  .dlux-sidebar-tree,
+  .dlux-sidebar-available {
+    max-height: 320px;
+  }
+
+  .dlux-language-row {
+    grid-template-columns: 1fr;
+  }
+
+  .dlux-system-name-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Font Previews Support */
+.dlux-font-option {
+  align-items: center;
+}
+
+.dlux-font-option__icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1rem;
+}
+
+.font-preview-sample {
+  font-weight: 500;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+/* Specific Font Mapping Rules for Previews */
+.dlux-font-option[data-font="cairo"] .font-preview-sample,
+.dlux-font-settings-option[data-font-option="cairo"] .font-preview-sample {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+.dlux-font-option[data-font="alexandria"] .font-preview-sample,
+.dlux-font-settings-option[data-font-option="alexandria"] .font-preview-sample {
+  font-family: 'Alexandria', sans-serif !important;
+}
+
+.dlux-font-option[data-font="changa"] .font-preview-sample,
+.dlux-font-settings-option[data-font-option="changa"] .font-preview-sample {
+  font-family: 'Changa', sans-serif !important;
+}
+
+.dlux-font-option[data-font="markazi_text"] .font-preview-sample,
+.dlux-font-settings-option[data-font-option="markazi_text"] .font-preview-sample {
+  font-family: 'Markazi Text', serif !important;
+}
+
+.dlux-font-option[data-font="readex_pro"] .font-preview-sample,
+.dlux-font-settings-option[data-font-option="readex_pro"] .font-preview-sample {
+  font-family: 'Readex Pro', sans-serif !important;
+}
+
+/* Font settings option spacing */
+.dlux-font-settings-option__header {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
+[dir="rtl"] .dlux-font-settings-option__header {
+  right: auto;
+  left: 8px;
+}
+.dlux-font-settings-option {
+  position: relative;
+  min-width: 120px;
+}
+
+/* ── Logging settings builder ── */
+.dlux-log-model-list {
+    max-height: 18rem;
+    overflow: auto;
+}
+.dlux-log-retention-input {
+    width: 6rem;
+}
+.dlux-log-model-row.dlux-log-row-hidden {
+    display: none !important;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   Full-viewport setup shell (initial system setup page only).
+   Matches the dynamic modal exactly: a fixed step-nav header flush under the
+   titlebar, a single scrollable body (the logo/title/desc row at its top scrolls
+   out of view, then the active step's fields), and a fixed footer holding the
+   wizard buttons. ONLY .dlux-setup-scroll scrolls, so the scrollbar runs from
+   just below the nav to the footer's top edge — never the whole page. Bounded
+   with an explicit titlebar offset and viewport height so the document never
+   scrolls. Scoped to .dlux-setup-viewport; the single-step modal render is
+   untouched. The wizard action bar is moved into .dlux-setup-footer by
+   setup/js/main.js (initSetupFooterRelocation).
+   ─────────────────────────────────────────────────────────────────────── */
+.dlux-setup-viewport {
+    /* Plain flow box that fills the space under the titlebar — the same scaffold
+       base.html's #mainContent uses. Deliberately NOT position:fixed and with NO
+       `top` offset, so nothing (including the live preview re-measuring the
+       titlebar) can shove it up behind the titlebar. The (sticky) titlebar is a
+       normal flex child of <body>; this fills the remaining height. */
+    height: calc(100vh - var(--header-height, 60px));
+    overflow: hidden;             /* the inner .dlux-setup-scroll does the scrolling */
+    display: flex;
+    padding: 0 0.6rem;
+}
+
+.dlux-setup-viewport .dlux-setup-page {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-width: none;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 0 0 1rem 1rem;
+}
+
+/* The form owns the header / scroll-body / footer rows. */
+.dlux-setup-viewport .dlux-system-setup-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The one scrollable region: from the top of the body to the footer's top edge.
+   Contains the intro row + the sticky step nav + the active step's fields. */
+.dlux-setup-viewport .dlux-setup-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 1.25rem 0.75rem;   /* no top: the sticky nav sits flush under the titlebar */
+    scrollbar-width: thin;
+}
+
+/* Step nav: sticks to the top of the scroll body, so the intro row above it
+   scrolls out of view while the nav stays pinned. Opaque background so the
+   fields scrolling underneath do not show through. */
+.dlux-setup-viewport .dlux-setup-step-nav {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    margin: 0 0 1rem;
+    border-radius: 0 0 1rem 1rem;
+    background:
+        linear-gradient(135deg, rgba(var(--primal-rgb), 0.08), transparent 38%),
+        var(--dlux-setup-shell-bg);
+}
+
+/* Title/desc at the start, logo on the opposite side (RTL-aware via logical
+   properties); this row is the top of the scroll body and scrolls out of view
+   above the sticky nav. */
+.dlux-setup-intro {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin: 0.75rem 0 1rem;
+}
+
+.dlux-setup-page-logo {
+    max-height: 72px;
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.dlux-setup-intro__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: start;
+}
+
+.dlux-setup-intro__title {
+    font-weight: 800;
+    margin: 0 0 0.25rem;
+}
+
+.dlux-setup-intro__desc {
+    color: var(--dlux-setup-muted);
+    margin: 0;
+}
+
+/* Fixed footer holding the relocated wizard buttons. */
+.dlux-setup-viewport .dlux-setup-footer {
+    flex: 0 0 auto;
+}
+
+.dlux-setup-viewport .dlux-setup-footer:empty {
+    display: none;
+}
+
+.dlux-setup-viewport .dlux-setup-footer .dlux-setup-wizard-actions {
+    margin: 0;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--dlux-setup-pane-border);
+    background: var(--dlux-setup-shell-bg);
+}
+
+.dlux-setup-viewport--language {
+    align-items: stretch;
+}
+
+.dlux-setup-language-page {
+    justify-content: center;
+}
+
+.dlux-setup-language-form {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
+.dlux-setup-language-panel {
+    width: min(100%, 900px);
+    margin: auto;
+    padding: clamp(1.2rem, 3vw, 2rem);
+}
+
+.dlux-setup-language-intro {
+    margin-top: 0;
+}
+
+.dlux-setup-language-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.8rem;
+}
+
+.dlux-setup-language-choice {
+    appearance: none;
+    -webkit-appearance: none;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.8rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.95rem 1rem;
+    border: 1px solid var(--dlux-setup-item-border);
+    border-radius: 0.95rem;
+    color: var(--dlux-setup-text);
+    background: var(--dlux-setup-item-bg);
+    text-align: start;
+    box-shadow: var(--dlux-setup-item-shadow);
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.dlux-setup-language-choice:hover,
+.dlux-setup-language-choice:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(var(--primal-rgb), 0.42);
+    background: var(--dlux-setup-item-hover-bg);
+    box-shadow: 0 0 0 3px var(--dlux-setup-item-active-ring);
+    outline: none;
+}
+
+.dlux-setup-language-choice__flag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.75rem;
+    color: var(--primal);
+    background: rgba(var(--primal-rgb), 0.1);
+    font-weight: 800;
+}
+
+.dlux-setup-language-choice__copy {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.dlux-setup-language-choice__copy strong,
+.dlux-setup-language-choice__copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dlux-setup-language-choice__copy small {
+    color: var(--dlux-setup-muted);
+}
+
+/* The recipient input and its Send-test button are one input-group, so they are
+   level by construction — no column alignment to fight with the label and help
+   text that make the field column taller. */
+.dlux-email-test-group .dlux-email-test-btn {
+    white-space: nowrap;
+}
+
+.dlux-email-test-btn--busy {
+    cursor: progress;
+}
+
+/* Profile step: its toggles are hand-rolled rather than built by
+   build_settings_toggle_field, and used Bootstrap's `bg-light`, which ignores
+   the theme and made the step look foreign next to the others. */
+.dlux-profile-toggle,
+.dlux-profile-onboarding-group {
+  border-color: var(--dlux-setup-item-border) !important;
+  background: var(--dlux-setup-item-bg);
+}
+
+.dlux-profile-onboarding-group .form-check:last-child {
+  margin-bottom: 0 !important;
+}

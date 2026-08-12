@@ -84,7 +84,7 @@ class EmailStepPlacementTests(TestCase):
 
         template = (
             Path(__file__).resolve().parents[1]
-            / 'templates' / 'dlux' / 'includes' / 'options.html'
+            / 'templates' / 'dlux' / 'system' / 'options.html'
         ).read_text(encoding='utf-8')
         steps = [int(value) for value in re.findall(r"SystemSettings' 1 %\}\?step=(\d+)", template)]
 

@@ -64,6 +64,7 @@ from .sections import (
     DynamicModalDeleteView,
 )
 
+from .sidebar import toggle_sidebar  # noqa: F401
 from .scopes import (
     manage_scopes,
     get_scope_form,
@@ -157,3 +158,5 @@ from .control_link import (
     control_panel_page,
     control_panel_status_view,
 )
+
+from .assets import asset_manager_delete, asset_manager_page

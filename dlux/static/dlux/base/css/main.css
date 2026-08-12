@@ -1,0 +1,641 @@
+/*!
+ * DjangoLux — design system stylesheet
+ * "Let there be light."  MIT License · (c) 2026 DeBeski (micro)
+ * https://github.com/debeski/django-lux
+ * Themes System refactored to sidebar app
+ */
+
+* {
+    box-sizing: border-box;
+    font-family: var(--dlux-main-font, var(--dlux-font-fallback, sans-serif)) !important;
+}
+
+:root {
+    --dlux-credit: "DjangoLux · MIT · github.com/debeski/django-lux";
+    --granour: #169c72;
+    --redanator: #d33708d3;
+    --header-height: 60px;
+    /* Fallback Default Theme Variables (Light) */
+    --title: #334155; 
+    --body: #f8fafc;   
+    --htitle: #64748b; 
+    --hbody: #f1f5f9;  
+    --table-row: #ffffff;
+    --table-row-hover: #f1f5f9;
+    --primal: #475569; 
+    --primal_dark: #334155; 
+    --primal-rgb: 71, 85, 105;
+    /* Glass Input Variables */
+    --glass-input-bg: rgba(255, 255, 255, 0.6);
+    --glass-input-focus-bg: rgba(255, 255, 255, 0.6); /* No opacity change on focus */
+    --glass-input-border: rgba(0, 0, 0, 0.1);
+    /* Setup Builder Theme Tokens */
+    --dlux-setup-shell-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.94));
+    --dlux-setup-shell-border: rgba(255, 255, 255, 0.75);
+    --dlux-setup-card-bg: rgba(255, 255, 255, 0.82);
+    --dlux-setup-card-border: rgba(255, 255, 255, 0.5);
+    --dlux-setup-pane-bg: rgba(255, 255, 255, 0.45);
+    --dlux-setup-pane-border: rgba(148, 163, 184, 0.35);
+    --dlux-setup-item-bg: rgba(255, 255, 255, 0.92);
+    --dlux-setup-item-border: rgba(203, 213, 225, 0.85);
+    --dlux-setup-item-hover-bg: rgba(var(--primal-rgb), 0.04);
+    --dlux-setup-item-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    --dlux-setup-item-active-bg: rgba(var(--primal-rgb), 0.06);
+    --dlux-setup-item-active-ring: rgba(var(--primal-rgb), 0.18);
+    --dlux-setup-tree-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(241, 245, 249, 0.92));
+    --dlux-setup-tree-accent: rgba(var(--primal-rgb), 0.24);
+    --dlux-setup-connector: rgba(148, 163, 184, 0.5);
+    --dlux-setup-badge-bg: rgba(var(--primal-rgb), 0.1);
+    --dlux-setup-badge-color: var(--primal_dark);
+    --dlux-setup-text: var(--title);
+    --dlux-setup-muted: var(--htitle);
+}
+
+:root .btn-secondary .bi,
+:root .btn-success .bi,
+:root .btn-info .bi,
+:root .btn-warning .bi,
+:root .btn-danger .bi {
+    color: #000 !important; /* Force black icons */
+}
+
+.glass-input {
+    background-color: var(--glass-input-bg) !important;
+    border: 1px solid var(--glass-input-border) !important;
+    border-radius: 8px !important;
+    transition: border-color 0.3s, box-shadow 0.3s !important;
+    font-size: 0.9rem !important;
+    padding: 0.4rem 0.8rem !important;
+}
+
+.glass-input:focus {
+    background-color: var(--glass-input-focus-bg) !important;
+    border-color: var(--glass-input-border) !important; /* Keep border same as resting state */
+    box-shadow: none !important; /* Disabled focus highlight globally */
+}
+
+/* Global specific overrides for selection inputs */
+select:focus,
+.form-select:focus, 
+.form-control:focus {
+    box-shadow: none !important;
+    outline: none !important; /* Remove native focus outline */
+    border-color: #ced4da !important; /* Prevent blue highlight, keep default gray */
+}
+
+/* Remove dropdown arrow from glass inputs */
+select.glass-input, 
+.form-select.glass-input {
+    background-image: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    padding-inline-end: 0.8rem !important; /* Reset padding reserved for arrow */
+}
+
+.bg-primary {
+    background-color: var(--primal) !important;
+}
+
+.badge.bg-primary,
+.text-bg-primary,
+.badge.text-bg-primary {
+    color: #fff !important;
+}
+
+.form-check-input:checked {
+    background-color: var(--primal) !important;
+    border-color: var(--primal) !important;
+}
+
+.form-switch .form-check-input:not(:disabled) {
+    cursor: pointer;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: var(--primal) !important;
+    border-color: var(--primal) !important;
+}
+
+/* Explicit btn-check support for all themes */
+.btn-check:checked + .btn {
+    background-color: var(--primal) !important;
+    border-color: var(--primal) !important;
+    color: #fff !important;
+}
+
+.btn-check:checked + .btn-outline-primary {
+    background-color: var(--primal) !important;
+    border-color: var(--primal) !important;
+    color: #fff !important;
+}
+
+/* Active Theme Selection Ring */
+.theme-preview {
+    transition: all 0.2s ease;
+}
+.theme-preview.active {
+    box-shadow: 0 0 0 3px #ffffff, 0 0 0 5px var(--primal) !important;
+    transform: scale(1.1);
+}
+
+.granour {
+    color: var(--granour) !important;
+}
+
+.primal {
+    color: var(--primal) !important;
+}
+
+.primal:hover {
+    color: var(--primal_dark) !important;
+}
+
+input[dir="rtl"] {
+    text-align: right;
+    direction: rtl;
+    unicode-bidi: plaintext;
+}
+
+input[dir="rtl"]::placeholder {
+    text-align: right;
+    color: #484848;
+}
+
+[dir="rtl"] input[type="number"] {
+    text-align: right !important;
+    direction: rtl !important;
+    unicode-bidi: plaintext !important;
+}
+
+[dir="rtl"] input[type="email"] {
+    text-align: right !important;
+    direction: rtl !important;
+    unicode-bidi: plaintext !important;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100% !important;
+    background-color: var(--body);
+}
+
+:root.dlux-theme-switching body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    pointer-events: none;
+    opacity: 0;
+    background: var(--dlux-theme-switch-surface, var(--body));
+    transition: opacity 0.22s ease;
+}
+
+:root.dlux-theme-switching body *,
+:root.dlux-theme-switching body *::before,
+:root.dlux-theme-switching body *::after {
+    transition-property: none !important;
+}
+
+:root.dlux-theme-switching.dlux-theme-switching-covered body::after {
+    opacity: 0.98;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root.dlux-theme-switching body::after {
+        display: none;
+    }
+}
+
+@media print {
+    .new-page {
+        page-break-inside: avoid;
+    }
+    *, .shadow, .shadow-sm {
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+    
+    body, html, .col, .row, .flex-grow-1, .d-flex {
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    #mainContent {
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        position: static !important;
+    }
+
+    .card {
+        border: 1px solid #ddd !important;
+        break-inside: avoid;
+    }
+
+    .dlux-user-report {
+        color: #111 !important;
+    }
+
+    .dlux-user-report-card,
+    .dlux-user-report-tile {
+        border: 1px solid #ddd !important;
+        break-inside: avoid;
+        background: #fff !important;
+    }
+
+    /* Keep at the bottom to ensure display:none wins over display:block utility classes */
+    .no-print, #sidebar, .sidebar-container, .sidebar-ghost, 
+    .pagination, .dropdown, .dropup, button, .btn {
+        display: none !important;
+    }
+}
+
+/* Removed: .card-body span { cursor: default; } - conflicted with stretched-link */
+
+.checkbox-inline {
+    display:inline-flex;
+    margin-left: 5px;
+    margin-right: 10px;
+}
+
+.alert {
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
+}
+
+#id_year {
+    direction: rtl;
+}
+
+.option-separator {
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 5px;
+}
+
+.option-separator:last-of-type {
+    border-bottom: none;
+}
+
+form label {
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+.dlux-log-detail-panel {
+    max-height: 26rem;
+    overflow-y: auto;
+    padding: 1rem;
+    border-radius: 18px;
+    background: var(--hbody);
+    border: 1px solid rgba(var(--primal-rgb), 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.dlux-log-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.dlux-log-detail-item {
+    border-radius: 14px;
+    padding: 0.95rem 1rem;
+    background: rgba(var(--primal-rgb), 0.045);
+    border: 1px solid rgba(var(--primal-rgb), 0.11);
+}
+
+.dlux-log-detail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.dlux-log-detail-field {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--title);
+    word-break: break-word;
+}
+
+.dlux-log-detail-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.dlux-log-detail-status.is-set {
+    background: rgba(25, 135, 84, 0.14);
+    color: #198754;
+}
+
+.dlux-log-detail-status.is-cleared {
+    background: rgba(220, 53, 69, 0.14);
+    color: #dc3545;
+}
+
+.dlux-log-detail-status.is-changed {
+    background: rgba(var(--primal-rgb), 0.14);
+    color: var(--primal_dark);
+}
+
+.dlux-log-detail-status.is-info {
+    background: rgba(13, 110, 253, 0.14);
+    color: #0d6efd;
+}
+
+.dlux-log-detail-values {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.dlux-log-detail-value {
+    min-width: 0;
+    border-radius: 12px;
+    padding: 0.8rem 0.9rem;
+    background: var(--body);
+    border: 1px solid rgba(var(--primal-rgb), 0.1);
+}
+
+.dlux-log-detail-value--single {
+    grid-column: 1 / -1;
+}
+
+.dlux-log-detail-value-label {
+    margin-bottom: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--htitle);
+}
+
+.dlux-log-detail-value-body {
+    font-size: 0.92rem;
+    color: var(--title);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.dlux-log-detail-empty {
+    font-size: 0.88rem;
+    color: var(--htitle);
+}
+
+@media (max-width: 767.98px) {
+    .dlux-log-detail-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .dlux-log-detail-values {
+        grid-template-columns: 1fr;
+    }
+}
+
+.is-placeholder {
+    background-color: rgba(255, 0, 0, 0.1);
+    font-weight: bold;
+}
+
+.nav-link {
+    /* Removed hardcoded color: black; to support theme inheritance */
+}
+
+#mainContent {
+    height: calc(100vh - var(--header-height, 60px));
+    max-height: calc(100vh - var(--header-height, 60px));
+    overflow-y: auto;
+}
+
+#globalFormCard > .card-header {
+    min-height: 60px;
+}
+
+.disabler {
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+}
+
+.base-link {
+    color: var(--title) !important;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+    --bs-table-accent-bg: whitesmoke !important;
+    color: var(--bs-table-striped-color);
+}
+
+.option-section {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.page-title {
+    display: none;
+    font-weight: 800;
+    color: var(--title);
+    margin-bottom: 20px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+
+@media (max-width: 767px) {
+    .page-title {
+        display: block;
+    }
+}
+
+
+/* ============================================================
+   Dynamic Modal — refined thin scrollbar
+   The modal body scrolls (modal-dialog-scrollable). Replace the
+   chunky browser-default scrollbar with a slim one matching the
+   Dlux style. Per-theme rules color the thumb/track via the
+   global ::-webkit-scrollbar-thumb selectors; this sets the width
+   and provides the default (light) fallback colors.
+   ============================================================ */
+#universalDynamicModalBody {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--primal-rgb, 35, 99, 195), 0.32) transparent;
+}
+
+/* Dynamic-modal width preset (layout_config.default_modal_size; per-user
+   overridable via Options → Modal Size). Driven by the `data-dlux-modal-size`
+   body attribute so it resolves per-user and can be previewed live. `standard`
+   (~modal-xl) is the default/base; compact ~modal-lg; wide goes beyond modal-xl.
+   `modal-fullscreen-xl-down` still takes over below the xl breakpoint. */
+@media (min-width: 1200px) {
+    #universalDynamicModal .modal-dialog {
+        max-width: 1140px;
+    }
+    body[data-dlux-modal-size="compact"] #universalDynamicModal .modal-dialog {
+        max-width: 800px;
+    }
+    body[data-dlux-modal-size="standard"] #universalDynamicModal .modal-dialog {
+        max-width: 1140px;
+    }
+    body[data-dlux-modal-size="wide"] #universalDynamicModal .modal-dialog {
+        max-width: min(96vw, 1480px);
+    }
+}
+
+#universalDynamicModalBody::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#universalDynamicModalBody::-webkit-scrollbar-track {
+    background: transparent;
+    margin-block: 0.35rem;
+}
+
+#universalDynamicModalBody::-webkit-scrollbar-thumb {
+    background-color: rgba(var(--primal-rgb, 35, 99, 195), 0.28);
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+#universalDynamicModalBody::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(var(--primal-rgb, 35, 99, 195), 0.45);
+    background-clip: padding-box;
+}
+
+/* Pinned header/footer sit still while the body scrolls — give them
+   breathing room and a faint divider so they read as separate from
+   the scrolling content. */
+#universalDynamicModal .modal-header {
+    padding-top: 0.5rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.1);
+}
+
+#universalDynamicModal .modal-footer {
+    /* Compact pinned footer that holds the relocated action bar.
+       Equal top/bottom padding keeps the buttons' gap symmetric, and the small
+       margin-top mirrors the header so the divider sits off the scrolling body. */
+    padding: 0.7rem 1rem;
+    margin-top: 0.35rem;
+    border-top: 1px solid rgba(var(--primal-rgb, 35, 99, 195), 0.1);
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+/* Relocated action bars carry their own mt/pt/border utilities meant for
+   in-body placement; neutralize them inside the footer so they don't stack a
+   second divider/gap on top of the footer's own. */
+#universalDynamicModalFooter .dlux-form-actions,
+#universalDynamicModalFooter .dlux-setup-wizard-actions,
+#universalDynamicModalFooter .dlux-modal-form-actions,
+#universalDynamicModalFooter > [data-dlux-modal-footer] {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+
+/* Signed-out interstitial */
+.dlux-session-ended__card {
+    max-width: 480px;
+    width: 100%;
+}
+
+.dlux-session-ended__icon {
+    font-size: 3rem;
+}
+
+/* Directional icon utility.
+   A glyph that points at something (arrow, chevron, sidebar panel) carries two
+   independent flips: the writing direction, and the state of whatever it
+   controls. Both are horizontal mirrors, so they multiply into one transform —
+   applying them as separate `transform` rules would let the later one win.
+   RTL AND collapsed cancel out, which is correct: an arrow that points left in
+   an expanded LTR sidebar also points left in a collapsed RTL one. */
+.dlux-icon-directional {
+    --dlux-icon-rtl: 1;
+    --dlux-icon-state: 1;
+    display: inline-block;
+    transform: scaleX(calc(var(--dlux-icon-rtl) * var(--dlux-icon-state)));
+}
+
+[dir="rtl"] .dlux-icon-directional {
+    --dlux-icon-rtl: -1;
+}
+
+/* Stacked modal (unsaved-changes prompt over the settings modal).
+   Bootstrap gives every modal the same z-index and does not restack, so a
+   prompt declared earlier in base.html than the dynamic modal renders *under*
+   it and cannot be clicked. Raise the prompt and, while it is open, the topmost
+   backdrop with it. */
+.dlux-modal-stacked {
+    z-index: 1075;
+}
+
+body.dlux-modal-stacked-open .modal-backdrop:last-of-type {
+    z-index: 1070;
+}
+
+/* Assisted-entry inline control: a thin bar at the top of the form. The switch
+   inside it is the shared `dlux-settings-toggle-field` control (helpers/toggle/css/main.css,
+   loaded on every page), so it matches the System Settings steps. */
+.dlux-assist-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(var(--primal-rgb), 0.14);
+    border-radius: 0.75rem;
+    background: rgba(var(--primal-rgb), 0.05);
+    font-size: 0.85rem;
+}
+
+.dlux-assist-bar__legend {
+    font-weight: 650;
+    color: var(--primal);
+    margin-inline-end: auto;
+}
+
+.dlux-assist-bar__label {
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.dlux-assist-bar .dlux-settings-toggle-field__control {
+    margin-inline-start: 0;
+    align-self: center;
+    align-items: center;
+    /* Bootstrap sizes the switch in `em`, so it would shrink to the bar's
+       0.85rem text size. */
+    font-size: 1rem;
+}
+
+/* An input has no intrinsic content, so as a flex item it can be squeezed to
+   nothing; the switch needs its size stated outright. */
+.dlux-assist-bar .dlux-settings-toggle-field__input.form-check-input {
+    flex: 0 0 auto;
+    width: 2em;
+    height: 1em;
+    min-width: 2em;
+    max-width: none;
+}

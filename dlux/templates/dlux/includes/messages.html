@@ -1,28 +1,6 @@
-{% if dlux_flash_notifications %}
-    <div
-        class="{% if dlux_flash_mode == 'page' %}dlux-page-alert-container{% else %}dlux-flash-container{% endif %}"
-        aria-live="polite"
-        aria-atomic="true"
-        data-dlux-flash-position="{{ dlux_notification_config.flash.position|default:'top_center' }}"
-        data-dlux-flash-size="{{ dlux_notification_config.flash.size|default:'balanced' }}"
-        data-dlux-flash-text-size="{{ dlux_notification_config.flash.text_size|default:'md' }}"
-        data-dlux-flash-timeout="{{ dlux_notification_config.flash.timeout_ms|default:3200 }}"
-        data-dlux-flash-max-visible="{{ dlux_notification_config.flash.max_visible|default:3 }}"
-    >
-        {% for message in dlux_flash_notifications %}
-            <div class="alert alert-{{ message.tags }} {% if dlux_flash_mode == 'page' %}dlux-page-alert{% else %}dlux-global-alert dlux-flash{% endif %}" role="{% if 'danger' in message.tags or 'error' in message.tags %}alert{% else %}status{% endif %}" data-autohide="true" data-dlux-notification-id="{{ message.id|default:'' }}">
-                {% if 'success' in message.tags %}
-                    <i class="bi bi-check-circle-fill dlux-alert__icon" aria-hidden="true"></i>
-                {% elif 'warning' in message.tags %}
-                    <i class="bi bi-exclamation-triangle-fill dlux-alert__icon" aria-hidden="true"></i>
-                {% elif 'danger' in message.tags or 'error' in message.tags %}
-                    <i class="bi bi-x-octagon-fill dlux-alert__icon" aria-hidden="true"></i>
-                {% else %}
-                    <i class="bi bi-info-circle-fill dlux-alert__icon" aria-hidden="true"></i>
-                {% endif %}
-                <span class="dlux-alert__message">{{ message.message }}</span>
-                <button type="button" class="btn-close dlux-alert__close" data-bs-dismiss="alert" aria-label="{{ DLUX_STRINGS.btn_close|default:'Close' }}"></button>
-            </div>
-        {% endfor %}
-    </div>
-{% endif %}
+{# Compatibility shim. The flash/alert partial moved to                          #}
+{# `dlux/notifications/messages.html` in v1.8.0 (it belongs to the notifications #}
+{# feature — dlux.notifications owns both the drawer and the flash queue).       #}
+{# Projects including the old path keep working through this file. Point your    #}
+{# templates at the new one; this shim is removed in the next major release.     #}
+{% include 'dlux/notifications/messages.html' %}

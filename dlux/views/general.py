@@ -584,25 +584,6 @@ def _get_system_backup_summary():
     }
 
 
-def _force_password_change_for_all_non_superusers():
-    """Set the existing first-login password-change marker on every non-superuser."""
-    User = get_user_model()
-    Profile = apps.get_model('dlux', 'Profile')
-    users = User.objects.filter(is_superuser=False).only('pk')
-    updated_count = 0
-
-    with transaction.atomic():
-        for user in users.iterator():
-            profile, _created = Profile.all_objects.get_or_create(user=user)
-            preferences = dict(profile.preferences or {})
-            if preferences.get('force_password_change') is True:
-                continue
-            preferences['force_password_change'] = True
-            profile.preferences = preferences
-            profile.save(update_fields=['preferences'])
-            updated_count += 1
-
-    return updated_count, users.count()
 
 
 # Dashboard View removed as per UX enhancements
@@ -717,7 +698,7 @@ def options_view(request):
     context['dlux_app_settings'] = get_visible_app_settings(request)
 
     context.update(diagnostic_context)
-    return render(request, 'dlux/includes/options.html', context)
+    return render(request, 'dlux/system/options.html', context)
 
 
 @login_required
@@ -767,7 +748,7 @@ def app_settings_modal_view(request, namespace):
 
     strings = get_strings(get_current_language_code(request))
     html = render_to_string(
-        'dlux/includes/app_settings_form.html',
+        'dlux/system/app_settings_form.html',
         {
             'form': form,
             'app_setting': definition,
@@ -850,7 +831,9 @@ def force_password_change_all_view(request):
     if failure_response := require_current_password(request, redirect_name='options_view'):
         return failure_response
 
-    updated_count, total_count = _force_password_change_for_all_non_superusers()
+    from ..admin_actions.force_password_change import force_password_change_for_all_non_superusers
+
+    updated_count, total_count = force_password_change_for_all_non_superusers()
     message_template = strings.get(
         'force_pass_change_all_success',
         'Password change is required for {total} non-superuser account(s); {count} newly marked.',
@@ -904,7 +887,7 @@ def data_reset_preview_view(request):
         return JsonResponse({'status': 'error', 'message': strings.get('permission_denied', 'Permission denied.')}, status=403)
     if failure := require_current_password(request, redirect_name='options_view'):
         return failure
-    from dlux.data_reset import build_reset_catalog
+    from ..admin_actions.data_reset import build_reset_catalog
     return JsonResponse({'status': 'success', 'models': build_reset_catalog(request.user, strings)})
 
 
@@ -919,7 +902,7 @@ def data_reset_execute_view(request):
     if failure := require_current_password(request, redirect_name='options_view'):
         return failure
 
-    from dlux.data_reset import execute_reset
+    from ..admin_actions.data_reset import execute_reset
     selected = request.POST.getlist('models')
     if not selected:
         return JsonResponse({'status': 'error', 'message': strings.get('data_reset_no_models', 'Select at least one model to reset.')}, status=400)
@@ -1088,7 +1071,7 @@ def system_setup_view(request):
             'setup_languages': setup_languages,
             'hide_sidebar_toggle': True,
         }
-        return render(request, 'dlux/includes/system_setup_language.html', context)
+        return render(request, 'dlux/setup/language.html', context)
 
     if request.method == 'POST':
         form = SystemSettingsForm(
@@ -1122,7 +1105,7 @@ def system_setup_view(request):
         'page_title': 'System Setup',
         'hide_sidebar_toggle': True,
     }
-    return render(request, 'dlux/includes/system_setup.html', context)
+    return render(request, 'dlux/setup/main.html', context)
 
 
 @login_required

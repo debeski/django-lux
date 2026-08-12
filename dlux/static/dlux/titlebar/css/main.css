@@ -1,0 +1,452 @@
+.titlebar {
+    background: linear-gradient(90deg, #ffffff 10%, #f8fafc 90%);
+    border-bottom: 1px solid #e1e8ed;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    position: sticky;
+    top: 0;
+    z-index: 1050;
+    padding-inline: 0.5rem;
+}
+
+.titlebar__side,
+.titlebar__center,
+.titlebar__brand,
+.titlebar__heading {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.titlebar__side {
+    flex: 0 0 auto;
+}
+
+.titlebar__side--start {
+    min-width: 0;
+}
+
+.titlebar__side--has-toggle {
+    min-width: 40px;
+}
+
+.titlebar__side--end {
+    justify-content: flex-end;
+    min-width: 0;
+    max-width: min(64vw, 620px);
+}
+
+.titlebar__actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.titlebar__actions--titlebar {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    padding-block: 0.2rem;
+    scrollbar-width: thin;
+}
+
+.titlebar__actions--titlebar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.titlebar__actions--titlebar::-webkit-scrollbar-thumb {
+    background: rgba(var(--primal-rgb), 0.25);
+    border-radius: 999px;
+}
+
+.titlebar[data-titlebar-user-hub-style="dropdown"] .titlebar__actions--titlebar,
+.titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--dropdown {
+    display: none;
+}
+
+.titlebar__action-slot,
+.titlebar__action-form {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.titlebar__actions .dlux-notifications {
+    margin: 0 !important;
+}
+
+/* Style 2: the titlebar action rail is a horizontal scroll container
+   (overflow-x: auto / overflow-y: hidden), which clips the absolutely-positioned
+   notification dropdown so it opens but never shows. Pin the panel with
+   position: fixed (anchored to the titlebar's top-end corner) so it escapes the
+   rail. Mobile (<=575.98px) keeps its own full-width fixed rule in dlux/notifications/css/main.css. */
+@media (min-width: 576px) {
+    .titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--titlebar .dlux-notifications__panel {
+        position: fixed;
+        inset-block-start: calc(var(--header-height, 60px) + 0.5rem);
+        inset-inline-end: 0.5rem;
+        inset-inline-start: auto;
+    }
+}
+
+.titlebar__center {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.titlebar__brand {
+    width: 100%;
+    gap: 0.5rem;
+}
+
+.titlebar__heading {
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+}
+
+.titlebar[data-title-align="center"] .titlebar__brand {
+    justify-content: center;
+}
+
+.titlebar[data-title-align="center"] .titlebar__heading {
+    align-items: center;
+    text-align: center;
+}
+
+.titlebar[data-title-align="end"] .titlebar__brand {
+    justify-content: flex-end;
+}
+
+.titlebar[data-title-align="end"] .titlebar__heading {
+    align-items: flex-end;
+    text-align: end;
+}
+
+.titlebar[data-title-align="start"] .titlebar__brand {
+    justify-content: flex-start;
+}
+
+.titlebar[data-title-align="start"] .titlebar__heading {
+    align-items: flex-start;
+    text-align: start;
+}
+
+/* Align the name + scope row inside a (possibly full-width) truncated title. */
+.titlebar[data-title-align="center"] .titlebar__title {
+    justify-content: center;
+}
+
+.titlebar[data-title-align="end"] .titlebar__title {
+    justify-content: flex-end;
+}
+
+.titlebar__title {
+    color: #2c3e50;
+    font-weight: 800;
+    transition: all 0.3s;
+    font-size: clamp(1.1rem, 1.4vw, 1.8rem);
+    margin: 0;
+    line-height: 1.18;
+    padding-block: 0.06em 0.12em;
+    display: flex;
+    align-items: center;
+    /* max-width caps the title to its column so a long title truncates instead of
+       spilling over the home / user-hub buttons; min-width:0 lets the name shrink. */
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    flex-shrink: 1;
+}
+
+.titlebar__title-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.titlebar__title-scope {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* Adaptive brand (toggled by dlux/titlebar/js/main.js): drop the scope suffix before the system
+   name, and collapse an unreadably-narrow heading so the logo carries the brand. */
+.titlebar__title--name-only .titlebar__title-scope {
+    display: none;
+}
+
+.titlebar__heading--collapsed {
+    display: none;
+}
+
+.titlebar__header-slot {
+    min-width: 0;
+}
+
+.titlebar__header-slot:empty {
+    display: none;
+}
+
+.titlebar[data-titlebar-show-logo="false"] .titlebar__logo {
+    display: none;
+}
+
+.titlebar[data-titlebar-show-title="false"] .titlebar__title {
+    display: none !important;
+}
+
+.titlebar[data-titlebar-show-home="false"] .dlux-titlebar-home {
+    display: none;
+}
+
+.titlebar[data-titlebar-show-language-switcher="false"] .dlux-titlebar-lang-cycle {
+    display: none;
+}
+
+.titlebar[data-title-size="sm"] .titlebar__title {
+    font-size: clamp(1rem, 1.2vw, 1.4rem);
+}
+
+.titlebar[data-title-size="md"] .titlebar__title {
+    font-size: clamp(1.1rem, 1.4vw, 1.8rem);
+}
+
+.titlebar[data-title-size="lg"] .titlebar__title {
+    font-size: clamp(1.2rem, 1.8vw, 2.1rem);
+}
+
+.titlebar[data-titlebar-height="dense"] {
+    height: calc(var(--header-height) - 8px);
+}
+
+.titlebar[data-titlebar-height="roomy"] {
+    height: calc(var(--header-height) + 8px);
+}
+
+.titlebar[data-titlebar-surface="muted"] {
+    background: linear-gradient(90deg, #f8fafc 10%, #eef2f7 90%);
+}
+
+.titlebar[data-titlebar-surface="glass"] {
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.72) 10%, rgba(248, 250, 252, 0.78) 90%);
+    backdrop-filter: blur(12px);
+}
+
+.titlebar .btn-light {
+    background-color: transparent !important;
+    border: none !important;
+    color: var(--primal) !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease;
+    border-radius: 8px !important;
+}
+
+.titlebar .btn-light:hover {
+    background-color: rgba(var(--primal-rgb), 0.08) !important;
+    color: var(--primal) !important;
+    transform: translateY(-1px);
+}
+
+.titlebar .login-title-btn {
+    border: none !important;
+}
+
+.titlebar .login-title-btn:hover {
+    border-color: rgba(var(--primal-rgb), 0.2) !important;
+}
+
+.titlebar .dlux-titlebar-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: var(--title);
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(var(--primal-rgb), 0.12);
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+    font-size: 1rem;
+    flex: 0 0 auto;
+    padding: 0;
+}
+
+.titlebar button.dlux-titlebar-btn {
+    appearance: none;
+    cursor: pointer;
+}
+
+.titlebar .dlux-titlebar-lang-cycle {
+    margin-inline-end: 0.5rem;
+}
+
+.titlebar .dlux-titlebar-theme-cycle {
+    margin-inline-end: 0.5rem;
+}
+
+/* The swatch reads as the current theme, the way the language action reads as
+   the current language code. */
+.titlebar .dlux-titlebar-theme-cycle__dot {
+    display: block;
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 50%;
+    border: 1px solid rgba(127, 127, 127, 0.45);
+    background: var(--primal, #2363c3);
+}
+
+.titlebar .dlux-titlebar-lang-cycle__code {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.titlebar[data-titlebar-buttons-shape="square"] .dlux-titlebar-action,
+.titlebar[data-titlebar-buttons-shape="square"] .dlux-titlebar-home,
+.titlebar[data-titlebar-buttons-shape="square"] .dlux-notifications__trigger,
+.titlebar[data-titlebar-buttons-shape="square"] .dlux-login-round,
+.titlebar[data-titlebar-home-shape="square"] .dlux-titlebar-home,
+.titlebar[data-titlebar-home-shape="square"] .dlux-notifications__trigger,
+.titlebar[data-titlebar-home-shape="square"] .dlux-login-round {
+    border-radius: 10px;
+}
+
+.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-titlebar-action,
+.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-titlebar-home,
+.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-notifications__trigger,
+.titlebar[data-titlebar-buttons-shape="squircle"] .dlux-login-round,
+.titlebar[data-titlebar-home-shape="squircle"] .dlux-titlebar-home,
+.titlebar[data-titlebar-home-shape="squircle"] .dlux-notifications__trigger,
+.titlebar[data-titlebar-home-shape="squircle"] .dlux-login-round {
+    border-radius: 14px;
+}
+
+.titlebar .dlux-titlebar-btn:hover,
+.titlebar .dlux-titlebar-btn:focus,
+.titlebar .dlux-titlebar-btn:focus-visible {
+    color: var(--primal_dark);
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(var(--primal-rgb), 0.22);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+    outline: none;
+}
+
+.titlebar .dlux-titlebar-home i,
+.titlebar .dlux-titlebar-action i,
+.titlebar .dlux-login-round i {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.titlebar__logo {
+    height: 42px;
+    width: auto;
+    padding: 4px;
+    border-radius: 8px;
+    margin-inline-end: 10px;
+    transition: all 0.3s;
+}
+
+.titlebar[data-titlebar-logo-treatment="plate"] .titlebar__logo {
+    background:
+        linear-gradient(135deg, rgba(var(--primal-rgb, 13, 110, 253), 0.1), transparent 58%),
+        color-mix(in srgb, var(--hbody, #ffffff) 84%, transparent);
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.18);
+    box-shadow:
+        0 0.45rem 1.15rem rgba(15, 23, 42, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.titlebar[data-titlebar-logo-treatment="plate"][data-titlebar-logo-treatment-shape="soft"] .titlebar__logo {
+    border-radius: 12px;
+}
+
+.titlebar[data-titlebar-logo-treatment="plate"][data-titlebar-logo-treatment-shape="pill"] .titlebar__logo {
+    border-radius: 999px;
+    padding-inline: 8px;
+}
+
+.titlebar[data-titlebar-logo-treatment="plate"][data-titlebar-logo-treatment-shape="square"] .titlebar__logo {
+    border-radius: 4px;
+}
+
+.titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {
+    filter:
+        drop-shadow(0 0 0.35rem rgba(var(--primal-rgb, 13, 110, 253), 0.42))
+        drop-shadow(0 0.35rem 0.85rem rgba(15, 23, 42, 0.16));
+}
+
+.titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {
+    filter:
+        brightness(1.08)
+        contrast(1.12)
+        drop-shadow(0 1px 0 color-mix(in srgb, var(--hbody, #ffffff) 70%, transparent))
+        drop-shadow(0 0.18rem 0.55rem rgba(15, 23, 42, 0.22));
+}
+
+.titlebar[data-sidebar-collapse-mode="locked_expanded"] .sidebar-toggle {
+    display: none;
+}
+
+.titlebar .sidebar-toggle--desktop-disabled {
+    display: none;
+}
+
+@media (max-width: 1099.98px) {
+    .titlebar .sidebar-toggle--desktop-disabled {
+        display: inline-flex !important;
+    }
+
+    .titlebar__side--mobile-toggle {
+        min-width: 40px;
+    }
+}
+
+.titlebar[data-titlebar-buttons-shape="square"] .sidebar-toggle {
+    border-radius: 10px;
+}
+
+.titlebar[data-titlebar-buttons-shape="squircle"] .sidebar-toggle {
+    border-radius: 14px;
+}
+
+@media (max-width: 991.98px) {
+    .titlebar .sidebar-toggle {
+        display: inline-flex !important;
+    }
+
+    .titlebar .titlebar__brand {
+        justify-content: flex-start !important;
+    }
+
+    .titlebar .titlebar__heading {
+        align-items: flex-start !important;
+        text-align: start !important;
+    }
+
+    .titlebar__side--end {
+        max-width: 56vw;
+    }
+
+    .titlebar__actions--titlebar {
+        justify-content: flex-start;
+    }
+}

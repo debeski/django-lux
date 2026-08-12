@@ -44,7 +44,6 @@ from .navigation import (
     resolve_sidebar_collapsed_preference,
     resolve_sidebar_density_preference,
     seed_navbar_config_from_sidebar,
-    toggle_sidebar,
 )
 from .config import (
     CLIENT_IP_MODE_AUTO,
@@ -412,7 +411,6 @@ __all__ = [
     "set_user_group_presets",
     "setup_filter_helper",
     "strip_manage_scopes_permissions",
-    "toggle_sidebar",
     "translate_activity_log_model_name",
     "sticky_form_initial",
     "sticky_forms_enabled",

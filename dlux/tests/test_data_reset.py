@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, TestCase
 
-from dlux import data_reset as dr
+from dlux.admin_actions import data_reset as dr
 
 User = get_user_model()
 AJAX = {'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'}

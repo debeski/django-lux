@@ -1,0 +1,16 @@
+{# Label/count data grid — the repeated report breakdown table.               #}
+{# Usage: {% include 'dlux/tables/pair_table.html' with rows=overview.users   #}
+{#        label_header=STRINGS.x count_header=STRINGS.y empty_text=STRINGS.z %}
+{% load dlux_tags %}
+{% dlux_table_shell %}
+<table class="table table-hover align-middle dlux-data-table">
+    <thead><tr><th>{{ label_header }}</th><th>{{ count_header }}</th></tr></thead>
+    <tbody>
+        {% for item in rows %}
+        <tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>
+        {% empty %}
+        {% include 'dlux/tables/empty_row.html' with colspan=2 text=empty_text %}
+        {% endfor %}
+    </tbody>
+</table>
+{% enddlux_table_shell %}

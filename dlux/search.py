@@ -5,7 +5,7 @@ pages/views (from the sidebar route discovery), System Settings sections (opened
 as the same step-deep-linked dynamic modal the Options page uses), and a few
 titlebar/nav actions — plus an optional generic *data* provider that searches
 text fields of the project's real models. Powers the titlebar global-search
-dropdown (see ``global_search.js`` / ``global_search_view``).
+dropdown (see ``dlux/static/dlux/search/js/main.js`` / ``global_search_view``).
 
 Everything is translated through ``DLUX_STRINGS`` and cached per language +
 route/config version (mirroring the sidebar catalog). Results are filtered per
@@ -254,7 +254,7 @@ def _visible_option_slugs(config):
     every card unconditionally — a result for a Language card that a
     single-language install never renders, whose deep link then lands on Options
     and highlights nothing. The conditions mirror the guards in
-    ``dlux/includes/options.html``; a card missing from this map is unguarded and
+    ``dlux/system/options.html``; a card missing from this map is unguarded and
     always shown.
 
     Theme and Language are the awkward pair: below the split thresholds the page

@@ -5,6 +5,50 @@ from django.utils.html import conditional_escape, format_html
 from django.utils.safestring import mark_safe
 
 
+class DluxFileInput(forms.ClearableFileInput):
+    template_name = 'dlux/forms/file_input.html'
+
+    def __init__(self, attrs=None, *, field_label='', show_scan=False):
+        self.field_label = field_label
+        self.show_scan = show_scan
+        widget_attrs = dict(attrs or {})
+        existing_class = str(widget_attrs.get('class', '') or '').strip()
+        widget_attrs['class'] = f"{existing_class} archive-file-input".strip()
+        super().__init__(attrs=widget_attrs)
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        data = context['widget']
+        try:
+            from .translations import get_strings
+            strings = get_strings()
+        except Exception:
+            strings = {}
+        data['field_label'] = self.field_label
+        data['show_scan'] = self.show_scan
+        data['empty_title'] = strings.get('archive_file_empty_title', 'No file selected')
+        data['empty_meta'] = strings.get('archive_file_empty_meta', 'Drop a file here or use the actions.')
+        data['current_meta'] = strings.get('archive_file_current_meta', 'Current file on this record.')
+        data['selected_meta'] = strings.get('archive_file_selected_meta', 'Ready to save with this form.')
+        data['too_large_template'] = strings.get('archive_file_too_large', 'File exceeds the maximum allowed size ({limit} MB).')
+        data['open_action'] = strings.get('archive_file_open_action', 'Open file')
+        data['upload_action'] = strings.get('archive_file_upload_action', 'Upload file')
+        data['clear_action'] = strings.get('archive_file_clear_action', 'Clear file')
+        if value and hasattr(value, 'url'):
+            data['file_url'] = value.url
+            data['display_name'] = getattr(value, 'name', '').split('/')[-1] or str(value)
+            display_name = data['display_name'].lower()
+            if display_name.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico')):
+                data['icon_class'] = 'bi bi-file-earmark-image-fill'
+            else:
+                data['icon_class'] = 'bi bi-file-earmark-fill'
+        else:
+            data['file_url'] = ''
+            data['display_name'] = ''
+            data['icon_class'] = 'bi bi-file-earmark-arrow-up-fill'
+        return context
+
+
 class _DluxSelectorMixin:
     selector_variant = 'card'
     searchable = False
@@ -19,8 +63,10 @@ class _DluxSelectorMixin:
         option_meta=None,
         searchable=False,
         search_placeholder='',
+        disabled_values=(),
     ):
         self.selector_variant = variant or 'card'
+        self.disabled_values = {str(value) for value in (disabled_values or ())}
         self.option_meta = {
             str(key): dict(value or {})
             for key, value in (option_meta or {}).items()
@@ -31,7 +77,10 @@ class _DluxSelectorMixin:
 
     def create_option(self, *args, **kwargs):
         option = super().create_option(*args, **kwargs)
-        option['meta'] = self.option_meta.get(str(option.get('value')), {})
+        value = str(option.get('value'))
+        option['meta'] = self.option_meta.get(value, {})
+        if value in self.disabled_values:
+            option['attrs'] = {**(option.get('attrs') or {}), 'disabled': True}
         return option
 
     def render(self, name, value, attrs=None, renderer=None):

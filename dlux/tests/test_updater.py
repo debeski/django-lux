@@ -1426,7 +1426,7 @@ class UpdaterApiTests(TestCase):
         self.assertContains(options_response, "data-dlux-updater")
         self.assertNotContains(options_response, "data-dlux-update-check>")
         self.assertNotContains(options_response, "data-dlux-update-recheck")
-        script = Path(__file__).resolve().parents[1] / "static" / "dlux" / "main" / "js" / "updater.js"
+        script = Path(__file__).resolve().parents[1] / "static" / "dlux" / "system" / "js" / "updater.js"
         contents = script.read_text(encoding="utf-8")
         self.assertIn("if (payload.state?.can_manage)", contents)
         self.assertIn("pollReadOnlyState", contents)
@@ -1445,6 +1445,9 @@ class UpdaterApiTests(TestCase):
         self.assertNotIn("setRootStatus(message, 5000)", contents)
         self.assertNotIn("modal.hide()", contents)
 
+    # Exercises the in-container PyPI check, kept until 1.9.0; the 1.8.0 default
+    # reads what Composer published instead.
+    @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     @mock.patch("dlux.updater.service.assess_wheel")
     @mock.patch("dlux.updater.service.verify_pypi_attestation")
     @mock.patch("dlux.updater.service.download_wheel")
@@ -1471,6 +1474,110 @@ class UpdaterApiTests(TestCase):
         self.assertEqual(state.latest_version, "1.2.3")
         self.assertTrue(state.latest_compatible)
         verify.assert_called_once_with(candidate)
+
+    def _publish_availability(self, store, payload):
+        from dlux.updater import package_request
+
+        package_request.availability_path(store).write_text(
+            json.dumps(payload), encoding="utf-8")
+
+    def _run_composer_check(self, payload=None):
+        """Drain one CHECK run on the 1.8.0 default path."""
+        run = queue_run(DluxUpdateRun.ACTION_CHECK, self.user.username)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RuntimeStore(temp_dir).ensure()
+            if payload is not None:
+                self._publish_availability(store, payload)
+            UpdateService(store=store).process_next()
+        run.refresh_from_db()
+        return run, DluxUpdateState.load()
+
+    def test_the_default_check_reaches_no_network_at_all(self):
+        """1.8.0 reads Composer's report; PyPI is Composer's problem now."""
+        with mock.patch("dlux.updater.service.fetch_simple_index") as fetch:
+            run, _state = self._run_composer_check({
+                "available": True, "version": NEWER_VERSION, "inline_safe": True, "reason": "",
+            })
+
+        fetch.assert_not_called()
+        self.assertEqual(run.status, run.STATUS_COMPLETED)
+
+    def test_an_available_inline_safe_release_is_offered(self):
+        _run, state = self._run_composer_check({
+            "available": True, "version": NEWER_VERSION, "inline_safe": True, "reason": "",
+        })
+
+        self.assertEqual(state.latest_version, NEWER_VERSION)
+        self.assertTrue(state.latest_compatible)
+        self.assertEqual(state.last_check_error, "")
+
+    def test_nothing_published_is_reported_as_unknown_not_up_to_date(self):
+        """The dangerous failure: silently telling an operator they are current."""
+        _run, state = self._run_composer_check(None)
+
+        self.assertFalse(state.latest_compatible)
+        self.assertIn("has not reported", state.last_check_error)
+        self.assertIsNotNone(state.last_checked_at)
+
+    def test_a_composer_side_failure_surfaces_as_a_check_error(self):
+        _run, state = self._run_composer_check({
+            "available": False, "version": "", "inline_safe": False,
+            "error": "The wheel's PyPI Trusted Publisher attestation is invalid.",
+        })
+
+        self.assertFalse(state.latest_compatible)
+        self.assertIn("attestation is invalid", state.last_check_error)
+
+    def test_a_release_needing_an_image_rebuild_is_not_offered_inline(self):
+        _run, state = self._run_composer_check({
+            "available": True, "version": NEWER_VERSION, "inline_safe": False,
+            "reason": f"DjangoLux {NEWER_VERSION} requires a project image rebuild.",
+        })
+
+        self.assertEqual(state.latest_version, NEWER_VERSION)
+        self.assertFalse(state.latest_compatible)
+        self.assertIn("image rebuild", state.latest_reason)
+
+    def test_a_skipped_version_is_not_offered_again(self):
+        state = DluxUpdateState.load()
+        state.skipped_versions = [NEWER_VERSION]
+        state.save()
+
+        _run, state = self._run_composer_check({
+            "available": True, "version": NEWER_VERSION, "inline_safe": True, "reason": "",
+        })
+
+        self.assertFalse(state.latest_compatible)
+        self.assertIn("skipped", state.latest_reason)
+
+    def test_an_older_published_version_leaves_the_deployment_up_to_date(self):
+        _run, state = self._run_composer_check({
+            "available": True, "version": "0.0.1", "inline_safe": True, "reason": "",
+        })
+
+        self.assertFalse(state.latest_compatible)
+        self.assertIn("up to date", state.latest_reason)
+
+    def test_queueing_is_refused_when_the_runtime_volume_is_unusable(self):
+        """Otherwise the run sits at 'queued' forever — nothing can drain it."""
+        import os
+        import stat
+
+        if os.geteuid() == 0:
+            self.skipTest("root can write anywhere; the probe cannot be exercised")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            locked = Path(temp_dir) / "locked"
+            locked.mkdir()
+            os.chmod(locked, stat.S_IRUSR | stat.S_IXUSR)
+            try:
+                with override_settings(DLUX_UPDATE_RUNTIME_ROOT=str(locked / "runtime")):
+                    with self.assertRaisesRegex(UpdaterError, "not writable"):
+                        queue_run(DluxUpdateRun.ACTION_CHECK, self.user.username)
+            finally:
+                # Restore before TemporaryDirectory tries to remove the tree.
+                os.chmod(locked, 0o700)
+
+            self.assertEqual(DluxUpdateRun.objects.count(), 0)
 
     def test_status_contract_contains_full_apply_pipeline(self):
         expected = [
@@ -1539,6 +1646,9 @@ class UpdaterApiTests(TestCase):
         state.refresh_from_db()
         return run, state, store
 
+    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # the 1.8.0 default hands the operation to Composer instead.
+    @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_safe_apply_switches_release_and_preserves_previous(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run, state, store = self._apply_with_mocks(temp_dir)
@@ -1548,6 +1658,9 @@ class UpdaterApiTests(TestCase):
             self.assertEqual(store.read_active(__version__)["version"], NEWER_VERSION)
             self.assertFalse(store.maintenance_file.exists())
 
+    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # the 1.8.0 default hands the operation to Composer instead.
+    @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_successful_apply_notifies_admins(self):
         from django.core.cache import cache
         from dlux.models import DluxNotification, DluxNotificationState
@@ -1572,6 +1685,9 @@ class UpdaterApiTests(TestCase):
         self.assertIn(admin2.id, notified)
         self.assertNotIn(regular.id, notified)
 
+    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # the 1.8.0 default hands the operation to Composer instead.
+    @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_post_switch_health_failure_automatically_restores_previous(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             run, state, store = self._apply_with_mocks(
@@ -1733,6 +1849,9 @@ class UpdaterApiTests(TestCase):
             self.assertTrue(store.degraded_file.exists())
             self.assertTrue(store.maintenance_file.exists())
 
+    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # the 1.8.0 default hands the operation to Composer instead.
+    @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_manual_rollback_swaps_active_and_previous_without_reversing_migrations(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
@@ -1761,6 +1880,9 @@ class UpdaterApiTests(TestCase):
             self.assertEqual(state.previous_version, NEWER_VERSION)
             self.assertEqual(store.read_active(__version__)["source"], "image")
 
+    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # the 1.8.0 default hands the operation to Composer instead.
+    @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_manual_rollback_recovery_failure_marks_runtime_degraded(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
@@ -1796,6 +1918,9 @@ class UpdaterApiTests(TestCase):
             self.assertTrue(reconciled.degraded)
             self.assertTrue(store.degraded_file.exists())
 
+    # Exercises the in-container executor, kept until 1.9.0 behind this setting;
+    # the 1.8.0 default hands the operation to Composer instead.
+    @override_settings(DLUX_UPDATE_EXECUTOR="inline")
     def test_manual_rollback_target_failure_with_successful_recovery_is_not_degraded(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RuntimeStore(temp_dir).ensure()
@@ -1924,7 +2049,7 @@ services:
             self.assertNotIn(UPDATER_COMPOSE_START := "# DjangoLux updater start", (root / "compose.yml").read_text())
             completed = SimpleNamespace(returncode=0, stdout="ok", stderr="")
             runner = mock.Mock(return_value=completed)
-            with mock.patch("dlux.scaffold.shutil.which", return_value="/usr/bin/docker"):
+            with mock.patch("dlux.scaffold.legacy.shutil.which", return_value="/usr/bin/docker"):
                 applied = enable_updater(root, apply=True, command_runner=runner)
             self.assertTrue(applied["applied"])
             self.assertIn(UPDATER_COMPOSE_START, (root / "compose.yml").read_text())
@@ -1940,7 +2065,7 @@ services:
                 ["docker", "compose", "config"], cwd=str(root.resolve()), check=False,
                 capture_output=True, text=True,
             ), runner.mock_calls)
-            with mock.patch("dlux.scaffold.shutil.which", return_value="/usr/bin/docker"):
+            with mock.patch("dlux.scaffold.legacy.shutil.which", return_value="/usr/bin/docker"):
                 reapplied = enable_updater(root, apply=True, command_runner=runner)
             self.assertEqual(reapplied["files"], [])
 

@@ -226,3 +226,25 @@ def is_scope_enabled():
     except (LookupError, ProgrammingError, OperationalError):
         # Fallback if model or table isn't ready (e.g., during migrations or empty DB)
         return False
+
+
+def _iter_queryset_by_pk(qs, chunk_size=200):
+    """Yield model rows in bounded primary-key pages without server-side cursors."""
+    try:
+        chunk_size = int(chunk_size)
+    except (TypeError, ValueError):
+        chunk_size = 200
+    chunk_size = max(1, chunk_size)
+    pk_attname = qs.model._meta.pk.attname
+    ordered = qs.order_by(pk_attname)
+    last_pk = None
+    while True:
+        page = ordered
+        if last_pk is not None:
+            page = page.filter(**{f"{pk_attname}__gt": last_pk})
+        batch = list(page[:chunk_size])
+        if not batch:
+            break
+        for obj in batch:
+            yield obj
+        last_pk = getattr(batch[-1], pk_attname)

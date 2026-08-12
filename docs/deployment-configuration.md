@@ -99,6 +99,7 @@ namespace.
 |---|---|---|---|
 | `DLUX_APP_VERSION` | Django setting | version string, discovered | Deployed host application's version, distinct from the DjangoLux package version. Falls back to `VERSION`, then the project release manifest. |
 | `DLUX_INLINE_UPDATES_ENABLED` | Django setting or environment through `dlux_settings()` | boolean, `False` | Enables verified inline DjangoLux update checks and operator-approved apply/rollback. Generated Compose projects set it to `True`. |
+| `DLUX_UPDATE_EXECUTOR` | Django setting or environment through `dlux_settings()` | `composer` (default) or `inline` | Who performs an approved inline DjangoLux update. `composer` (since 1.8.0) writes a `package-update-request.json` intent that Composer's executor stages, activates and health-gates from outside the container — it can roll back a release that failed to start, which an in-container updater cannot. **This requires Composer running as a service in the deployment** (latest stable image), not only as the deployer; `composer check --fix` installs it. `inline` restores the legacy in-container executor for a deployment whose Composer predates the `dlux.package_update` action — a migration aid with a deadline, not a supported way to run without Composer. Both it and that path are removed in 1.9.0. |
 | `DLUX_UPDATE_CHECK_INTERVAL` | Django setting or environment through `dlux_settings()` | integer seconds, `86400`, minimum `300` | Minimum time between persisted update checks. |
 | `DLUX_UPDATE_RUNTIME_ROOT` | Django setting or environment | filesystem path, `/opt/dlux-runtime` | Durable runtime release, state, maintenance, and progress root. |
 | `DLUX_BAKED_VERSION` | Environment only | version string, package version fallback | Records the DjangoLux version baked into the application image. Generated runtime wrappers populate it. |
@@ -134,3 +135,6 @@ documentation, but they are not accepted deployment settings:
 - Prefer database System Settings for operator-editable policy and reserve
   top-level deployment settings for infrastructure, secrets, hard limits, and
   code-owned registries.
+## Managed asset upload limits
+
+`DLUX_ASSET_MAX_IMAGE_MB` controls the validated image limit and defaults to `10`. `DLUX_ASSET_MAX_FONT_MB` controls WOFF2 uploads and defaults to `20`. Managed files use Django's configured default storage; production deployments must persist or externally host that storage. See [Managed assets](managed-assets.md).

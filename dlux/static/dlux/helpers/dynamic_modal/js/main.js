@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // 1. Listen for clicks on buttons with data-dynamic-modal attribute
-    document.body.addEventListener('click', function(e) {
+    document.addEventListener('click', function(e) {
         const trigger = e.target.closest('[data-dynamic-modal]');
         if (!trigger) return;
 
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (titleText) titleText.textContent = title;
         
         openModalAndLoad(url, trigger);
-    });
+    }, true);
 
     // Programmatic trigger (Context Menu / global search / external integrations).
     // Bound to `document`, not `document.body`: an event dispatched directly on

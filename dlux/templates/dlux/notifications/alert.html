@@ -1,0 +1,4 @@
+{# Inline alert. Transient toast/drawer notifications come from dlux.notifications; #}
+{# this is the static in-page variant.                                        #}
+{# Usage: {% dlux_alert level="warning" class="x" %}…{% enddlux_alert %}      #}
+<div class="alert alert-{{ level|default:'info' }}{% if class %} {{ class }}{% endif %}" role="{{ role|default:'alert' }}"{% if attrs %} {{ attrs|safe }}{% endif %}>{{ content }}</div>

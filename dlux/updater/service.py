@@ -45,8 +45,72 @@ def updates_enabled():
     return bool(getattr(settings, "DLUX_INLINE_UPDATES_ENABLED", False))
 
 
+def composer_executes_updates():
+    """True when Composer performs inline updates and DjangoLux only states intent.
+
+    Default since 1.8.0. Composer stages and verifies a release before activating
+    it and health-gates the restart from *outside* the container being swapped —
+    a rollback guarantee an in-container updater cannot offer.
+
+    ``DLUX_UPDATE_EXECUTOR = "inline"`` restores the legacy in-container path for
+    a deployment whose Composer predates the ``dlux.package_update`` action. That
+    escape hatch is removed in 1.9.0 along with the executor itself.
+    """
+    mode = str(getattr(settings, "DLUX_UPDATE_EXECUTOR", "composer") or "composer").strip().lower()
+    return mode != "inline"
+
+
+def runtime_volume_problem():
+    """Why the runtime volume is unusable, or "" when it is fine.
+
+    A pure stat probe — no mkdir — so the panel can call it per request. Without
+    it an operator on a deployment with no writable volume gets the worst
+    outcome available: the update button is offered, the click succeeds, and the
+    run sits at "queued" forever because nothing can drain it.
+
+    Deliberately NOT a fallback to some other writable directory. The supervisor
+    and Composer both resolve releases through the path in
+    ``runtime_contract.json``; staging somewhere else would make an update look
+    like it worked while nothing ever loaded it.
+    """
+    root = Path(getattr(settings, "DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime")).expanduser()
+    probe = root
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    if not probe.exists():
+        return f"The runtime volume path {root} does not exist and cannot be created."
+    if not os.access(probe, os.W_OK):
+        return (
+            f"The runtime volume at {root} is not writable. Inline updates need a "
+            "writable runtime volume; set DLUX_UPDATE_RUNTIME_ROOT, or leave "
+            "DLUX_INLINE_UPDATES_ENABLED off outside a Compose deployment."
+        )
+    return ""
+
+
+def inline_updates_available():
+    """Updates are switched on *and* the volume backing them is usable."""
+    return updates_enabled() and not runtime_volume_problem()
+
+
 def runtime_store():
-    return RuntimeStore(getattr(settings, "DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime")).ensure()
+    """The runtime volume, created on demand.
+
+    A deployment that is not a generated Compose project may have no volume and
+    no permission to create one at the default location — running the worker on
+    a laptop, say. That is a configuration problem, not a bug, so it gets a
+    named error instead of a raw OSError from deep inside ``mkdir``. Reading the
+    panel does not come through here; only queue work does.
+    """
+    root = getattr(settings, "DLUX_UPDATE_RUNTIME_ROOT", "/opt/dlux-runtime")
+    try:
+        return RuntimeStore(root).ensure()
+    except OSError as exc:
+        raise UpdaterError(
+            f"The DjangoLux runtime volume at {root} is not usable ({exc.strerror or exc}). "
+            "Inline updates need a writable runtime volume; set DLUX_UPDATE_RUNTIME_ROOT, "
+            "or leave DLUX_INLINE_UPDATES_ENABLED off outside a Compose deployment."
+        ) from exc
 
 
 def _state_model():
@@ -65,8 +129,10 @@ def _sanitize(value, limit=4000):
 
 
 def serialize_state(state):
+    unavailable_reason = runtime_volume_problem() if updates_enabled() else ""
     return {
-        "enabled": updates_enabled(),
+        "enabled": updates_enabled() and not unavailable_reason,
+        "unavailable_reason": unavailable_reason,
         "baked_version": state.baked_version,
         "active_version": state.active_version,
         "previous_version": state.previous_version,
@@ -198,6 +264,10 @@ def set_version_skipped(version, skipped=True):
 def queue_run(action, username="", backup_mode=None):
     if not updates_enabled():
         raise UpdaterError("Inline DjangoLux updates are disabled for this project.")
+    problem = runtime_volume_problem()
+    if problem:
+        # Refuse here rather than letting the run queue: nothing could drain it.
+        raise UpdaterError(problem)
     Run = _run_model()
     if action not in {Run.ACTION_CHECK, Run.ACTION_APPLY, Run.ACTION_ROLLBACK}:
         raise UpdaterError("The requested updater action is invalid.")
@@ -683,7 +753,75 @@ class UpdateService:
         except Exception:
             logger.warning("Failed to emit the app-updated admin notification.", exc_info=True)
 
+    def _process_check_via_composer(self, run):
+        """Read what Composer published instead of reaching PyPI.
+
+        Composer resolves, downloads and verifies the wheel in
+        `composer dlux-update --check`, so the manifest — the only authority on
+        `inline_safe` — has already been read from the artifact itself. This is
+        the last piece that made DjangoLux talk to the network.
+        """
+        from . import package_request
+
+        state = _state_model().load()
+        current = state.active_version or state.baked_version
+        report = package_request.read_availability(self.store)
+        state.last_checked_at = timezone.now()
+
+        if not report:
+            state.last_check_error = (
+                "Composer has not reported DjangoLux availability yet. Inline updates "
+                "require Composer running as a service in this deployment; run "
+                "'composer check' on the host to verify it is installed and wired."
+            )
+            state.latest_compatible = False
+            state.save()
+            run.append_log(state.last_check_error)
+            run.save(update_fields=["progress_log"])
+            self._complete(run, report={"update_available": False, "unknown": True})
+            return
+
+        if report.get("error"):
+            state.last_check_error = str(report["error"])[:4000]
+            state.latest_compatible = False
+            state.save()
+            run.append_log(f"Composer could not check for updates: {state.last_check_error}")
+            run.save(update_fields=["progress_log"])
+            self._complete(run, report={"update_available": False, "error": state.last_check_error})
+            return
+
+        state.last_check_error = ""
+        version = str(report.get("version") or "").strip()
+        newer = bool(version) and self._version_is_newer(version, current)
+        skipped = version in (state.skipped_versions or [])
+        inline_safe = bool(report.get("inline_safe"))
+
+        state.latest_version = version or current
+        state.latest_compatible = bool(newer and inline_safe and not skipped)
+        if not newer:
+            state.latest_reason = "DjangoLux is up to date."
+        elif skipped:
+            state.latest_reason = f"DjangoLux {version} was skipped for this deployment."
+        elif not inline_safe:
+            state.latest_reason = report.get("reason") or (
+                f"DjangoLux {version} requires a project image rebuild."
+            )
+        else:
+            state.latest_reason = ""
+        state.save()
+
+        run.target_version = state.latest_version
+        run.append_log(state.latest_reason or f"DjangoLux {version} is available.")
+        run.save(update_fields=["target_version", "progress_log"])
+        self._complete(run, report={
+            "update_available": state.latest_compatible,
+            "version": state.latest_version,
+            "inline_safe": inline_safe,
+        })
+
     def _process_check(self, run):
+        if composer_executes_updates():
+            return self._process_check_via_composer(run)
         state = _state_model().load()
         current = state.active_version or state.baked_version
         index = fetch_simple_index()
@@ -785,7 +923,39 @@ class UpdateService:
         run.save(update_fields=["progress_log"])
         return candidate
 
+    def _handoff_to_composer(self, run, mode):
+        """Write the intent Composer's executor watches, and wait for its ack.
+
+        The run row stays the source of truth for the admin UI; Composer owns the
+        staging, the restart and the rollback decision.
+        """
+        from . import package_request
+
+        pending = package_request.pending_token(self.store)
+        if pending:
+            raise UpdaterError("Composer is already performing a DjangoLux update.")
+        state = _state_model().load()
+        target = "" if mode == package_request.ROLLBACK else (run.target_version or state.latest_version or "")
+        package_request.write_request(
+            self.store,
+            mode=mode,
+            target_version=target,
+            backup_mode=run.backup_mode,
+            token=run.token,
+            operation_id=str(run.control_operation_id or ""),
+        )
+        self._transition(
+            run,
+            run.STATUS_APPLYING,
+            f"Handed the {mode} to Composer; it stages, restarts and health-gates it.",
+        )
+        return True
+
     def _process_apply(self, run):
+        if composer_executes_updates():
+            from . import package_request
+
+            return self._handoff_to_composer(run, package_request.APPLY)
         state = _state_model().load()
         if not state.latest_compatible:
             raise UpdaterError("The selected DjangoLux release is not inline-safe.")
@@ -882,6 +1052,10 @@ class UpdateService:
         self.restart_worker = True
 
     def _process_rollback(self, run):
+        if composer_executes_updates():
+            from . import package_request
+
+            return self._handoff_to_composer(run, package_request.ROLLBACK)
         state = _state_model().load()
         target = state.previous_version
         if not target:

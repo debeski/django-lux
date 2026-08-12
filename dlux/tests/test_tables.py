@@ -208,9 +208,9 @@ class TableRenderingTests(TestCase):
         self.assertNotIn('data-dlux-table-resize-handle', html)
 
     def test_column_resize_assets_keep_resized_tables_contained(self):
-        static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main'
-        script = (static_root / 'js' / 'tables.js').read_text(encoding='utf-8')
-        stylesheet = (static_root / 'css' / 'tables.css').read_text(encoding='utf-8')
+        static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'base'
+        script = (static_root.parent / 'tables' / 'js' / 'main.js').read_text(encoding='utf-8')
+        stylesheet = (static_root.parent / 'tables' / 'css' / 'main.css').read_text(encoding='utf-8')
 
         self.assertIn('function redistributeColumnWidths(', script)
         self.assertIn("cols[index].style.width = `${(width / totalWidth) * 100}%`;", script)

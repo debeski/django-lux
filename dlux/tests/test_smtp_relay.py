@@ -197,7 +197,7 @@ class RelayPackagingTests(TestCase):
         from dlux import scaffold
 
         self.assertNotIn('smtp_relay', str(scaffold.__file__ and ''))
-        templates = Path(scaffold.__file__).parent / 'scaffold_templates' / 'project' / 'tools'
+        templates = scaffold.TEMPLATES_ROOT / 'project' / 'tools'
         self.assertFalse((templates / 'smtp_relay.py.tmpl').exists())
 
     def test_generated_compose_runs_the_packaged_relay(self):
@@ -206,8 +206,7 @@ class RelayPackagingTests(TestCase):
         from dlux import scaffold
 
         compose = (
-            Path(scaffold.__file__).parent
-            / 'scaffold_templates' / 'project' / 'compose.yml.tmpl'
+            scaffold.TEMPLATES_ROOT / 'project' / 'compose.yml.tmpl'
         ).read_text(encoding='utf-8')
 
         self.assertIn('"python", "-m", "dlux.smtp_relay"', compose)
@@ -228,7 +227,7 @@ class StackContractCommandTests(TestCase):
     """Composer owns the Compose file, so the retired entrypoint must be in the contract."""
 
     def test_contract_names_the_packaged_relay_entrypoint(self):
-        from dlux.stack_contract import load_contract
+        from dlux.contracts.stack import load_contract
 
         contract = load_contract()
         self.assertEqual(
@@ -236,14 +235,14 @@ class StackContractCommandTests(TestCase):
         )
 
     def test_retired_modules_map_old_paths_to_current_ones(self):
-        from dlux.stack_contract import load_contract, retired_command_modules
+        from dlux.contracts.stack import load_contract, retired_command_modules
 
         retired = retired_command_modules(load_contract())
         self.assertEqual(retired['tools.smtp_relay'], 'dlux.smtp_relay')
         self.assertEqual(retired['tools.dlux_runtime_supervisor'], 'dlux.updater.supervisor')
 
     def test_drift_is_reported_per_service(self):
-        from dlux.stack_contract import diff_command_modules, load_contract
+        from dlux.contracts.stack import diff_command_modules, load_contract
 
         drift = diff_command_modules(load_contract(), {
             'smtp-relay': 'python -m tools.smtp_relay',
@@ -253,7 +252,7 @@ class StackContractCommandTests(TestCase):
         self.assertEqual(drift, [('smtp-relay', 'tools.smtp_relay', 'dlux.smtp_relay')])
 
     def test_fix_rewrites_the_command_idempotently(self):
-        from dlux.stack_contract import fix_command_modules, load_contract
+        from dlux.contracts.stack import fix_command_modules, load_contract
 
         contract = load_contract()
         fixed = fix_command_modules(contract, 'command: ["python", "-m", "tools.smtp_relay"]')
@@ -263,7 +262,7 @@ class StackContractCommandTests(TestCase):
         self.assertEqual(fix_command_modules(contract, fixed), fixed)
 
     def test_a_compliant_stack_reports_no_drift(self):
-        from dlux.stack_contract import diff_command_modules, load_contract
+        from dlux.contracts.stack import diff_command_modules, load_contract
 
         self.assertEqual(diff_command_modules(load_contract(), {
             'smtp-relay': 'python -m dlux.smtp_relay',

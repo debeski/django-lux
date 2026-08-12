@@ -8,6 +8,7 @@ from django.templatetags.static import static as _django_static
 from django.http import QueryDict
 from django.utils.timesince import timesince
 from django.utils.html import avoid_wrapping
+from django.utils.safestring import mark_safe
 from django.conf import settings
 from .. import __version__ as _DLUX_VERSION
 from ..translations import get_strings
@@ -124,7 +125,7 @@ def include_once(context, template_name):
     return t.render(context.flatten())
 
 
-@register.inclusion_tag('dlux/includes/navbar.html', takes_context=True)
+@register.inclusion_tag('dlux/navbar/main.html', takes_context=True)
 def dlux_navbar(context):
     request = context.get('request')
     navbar = context.get('navbar') or {}
@@ -217,7 +218,7 @@ def get_item(dictionary, key):
     return dictionary.get(key)
 
 
-@register.inclusion_tag('dlux/includes/audit_trail.html', takes_context=True)
+@register.inclusion_tag('dlux/activitylog/audit_trail.html', takes_context=True)
 def dlux_audit_trail(context, instance):
     """Render the audit trail (created/updated/deleted by/at) for a model
     instance, gated by the show_audit_fields setting + the view_audit_fields
@@ -236,3 +237,59 @@ def dlux_audit_trail(context, instance):
         'show_deleted': visible and soft_deleted_visible(user),
         'DLUX_STRINGS': context.get('DLUX_STRINGS') or get_strings(),
     }
+
+
+class _WrapperNode(template.Node):
+    """Renders a wrapper around its block content from a template partial.
+
+    The partial receives the rendered inner HTML as ``content`` plus whatever
+    keyword arguments the tag was given, so a wrapper stays editable as markup
+    instead of being built by string concatenation in Python.
+    """
+
+    def __init__(self, nodelist, template_name, kwargs):
+        self.nodelist = nodelist
+        self.template_name = template_name
+        self.kwargs = kwargs
+        self._template = None
+
+    def render(self, context):
+        resolved = {key: value.resolve(context) for key, value in self.kwargs.items()}
+        resolved['content'] = mark_safe(self.nodelist.render(context))
+
+        # Render into the *current* context, exactly as {% include %} does.
+        #
+        # The obvious `get_template(name).render(resolved, request)` builds a new
+        # RequestContext, which re-runs every context processor — so a page with
+        # 13 wrapped cards ran `dlux_context` (and its config/font lookups) 13
+        # extra times. Pushing onto the existing context keeps the outer
+        # variables visible to the partial and costs nothing.
+        if self._template is None:
+            self._template = get_template(self.template_name).template
+        with context.push(**resolved):
+            return self._template.render(context)
+
+
+def _wrapper_tag(name, template_name):
+    """Register ``{% name key=value %}...{% endname %}`` for a wrapper partial."""
+
+    def compile_wrapper(parser, token):
+        bits = token.split_contents()[1:]
+        kwargs = {}
+        for bit in bits:
+            if '=' not in bit:
+                raise template.TemplateSyntaxError(
+                    f"{name} takes keyword arguments only, got '{bit}'")
+            key, value = bit.split('=', 1)
+            kwargs[key] = parser.compile_filter(value)
+        nodelist = parser.parse((f'end{name}',))
+        parser.delete_first_token()
+        return _WrapperNode(nodelist, template_name, kwargs)
+
+    register.tag(name, compile_wrapper)
+
+
+_wrapper_tag('dlux_table_shell', 'dlux/tables/shell.html')
+_wrapper_tag('dlux_card', 'dlux/base/card.html')
+_wrapper_tag('dlux_alert', 'dlux/notifications/alert.html')
+_wrapper_tag('dlux_option_card', 'dlux/system/option_card.html')

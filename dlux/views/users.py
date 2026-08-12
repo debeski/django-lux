@@ -40,7 +40,7 @@ from ..utils import (
     user_can_view_user_report,
     user_can_view_user_directory,
 )
-from ..user_reports import build_user_report, build_user_report_xlsx
+from ..reports.users import build_user_report, build_user_report_xlsx
 from ..translations import get_strings
 
 
@@ -55,7 +55,7 @@ class CustomLoginView(LoginView):
 
     def post(self, request, *args, **kwargs):
         """Reject the attempt up front if this IP/username is currently locked out."""
-        from ..login_throttle import login_lockout_remaining
+        from ..auth.login_throttle import login_lockout_remaining
         remaining = login_lockout_remaining(request, request.POST.get('username', ''))
         if remaining > 0:
             # Don't flash a toast/notification (it auto-dismisses and pops the
@@ -84,7 +84,7 @@ class CustomLoginView(LoginView):
 
     def form_invalid(self, form):
         """Count the failed password attempt toward the lockout threshold."""
-        from ..login_throttle import register_failed_login
+        from ..auth.login_throttle import register_failed_login
         register_failed_login(self.request, self.request.POST.get('username', ''))
         return super().form_invalid(form)
 
@@ -92,7 +92,7 @@ class CustomLoginView(LoginView):
         """
         Intercept login. If 2FA enabled, redirect to OTP verification.
         """
-        from ..login_throttle import clear_failed_logins
+        from ..auth.login_throttle import clear_failed_logins
         clear_failed_logins(self.request, self.request.POST.get('username', ''))
         user = form.get_user()
         
@@ -100,7 +100,7 @@ class CustomLoginView(LoginView):
         if hasattr(user, 'profile') and user.profile.is_2fa_enabled:
             from django.shortcuts import resolve_url
             from .twofa import get_trusted_device_for_login, prepare_login_2fa_challenge, _sync_session_device_metadata
-            from ..trust import enforce_single_active_session
+            from ..auth.trust import enforce_single_active_session
             from dlux.utils import get_system_config
 
             trusted_device = get_trusted_device_for_login(self.request, user)
@@ -135,7 +135,7 @@ class CustomLoginView(LoginView):
             return redirect('verify_otp_login')
 
         # Standard Login (no 2FA): enforce single active session on success too.
-        from ..trust import enforce_single_active_session
+        from ..auth.trust import enforce_single_active_session
         response = super().form_valid(form)
         enforce_single_active_session(self.request, user)
         return response
@@ -161,9 +161,9 @@ class CustomLoginView(LoginView):
             current_lang = self.request.session.get('lang') or config.get('default_language', 'en')
             hero = hero.get(current_lang) or next(iter(hero.values()), '') if hero else ''
         context['login_hero_message'] = hero
-        from ..registration import public_registration_config
+        from ..auth.registration import public_registration_config
         context['public_registration_enabled'] = public_registration_config().get('enabled', False)
-        from ..password_reset import forgot_password_available
+        from ..auth.password_reset import forgot_password_available
         context['forgot_password_enabled'] = forgot_password_available()
 
         return context
@@ -221,7 +221,7 @@ def session_ended_view(request):
         home_target = reverse('login')
         target_is_login = True
 
-    return render(request, 'dlux/session_ended.html', {
+    return render(request, 'dlux/system/session_ended.html', {
         'DLUX_STRINGS': get_strings(),
         'home_target': home_target,
         'target_is_login': target_is_login,
@@ -479,6 +479,12 @@ class UserDetailModalView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         context['recent_logs'] = recent_logs
         context['target_user_management_tier'] = get_user_management_tier_state_for_user(user)
         return context
+
+    def render_to_response(self, context, **response_kwargs):
+        # The dynamic-modal shell consumes the `{html: …}` contract, the same as
+        # every sibling action in the user row menu.
+        html = render_to_string(self.template_name, context, request=self.request)
+        return JsonResponse({'html': html})
 
 
 @login_required

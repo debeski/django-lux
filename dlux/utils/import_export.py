@@ -107,6 +107,12 @@ def export_system_settings_payload(instance=None):
     data = {}
     auth_export = normalize_auth_config(getattr(instance, 'auth_config', None) or {})
     layout_export = normalize_layout_config(getattr(instance, 'layout_config', None) or {})
+    asset_fields = {
+        'logo': 'logo_asset',
+        'favicon': 'favicon_asset',
+        'login_logo': 'login_logo_asset',
+        'login_background': 'login_background_asset',
+    }
     for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
         if field_name in (
             'email_2fa',
@@ -132,9 +138,14 @@ def export_system_settings_payload(instance=None):
         elif field_name == 'row_actions_style':
             # JSON-only layout key: export from layout_config.
             value = layout_export.get('row_actions_style')
+        elif field_name in asset_fields:
+            asset = getattr(instance, asset_fields[field_name], None)
+            value = getattr(asset, 'file', None)
+            if not value and field_name in {'logo', 'favicon'}:
+                value = getattr(instance, field_name, None)
         else:
             value = getattr(instance, field_name, None)
-        if field_name in {'logo', 'favicon'}:
+        if field_name in asset_fields:
             data[field_name] = _field_file_name(value)
         elif field_name == 'languages':
             data[field_name] = normalize_language_catalog(value)
@@ -294,12 +305,22 @@ def apply_system_settings_import(
         raise ValueError("A SystemSettings instance is required.")
 
     for field_name, value in normalized.items():
-        if field_name == 'logo':
+        if field_name in {'logo', 'favicon', 'login_logo', 'login_background'}:
             if value:
-                instance.logo = str(value)
-        elif field_name == 'favicon':
-            if value:
-                instance.favicon = str(value)
+                from ..assets import adopt_storage_asset
+                asset = adopt_storage_asset(str(value))
+                asset_field = {
+                    'logo': 'logo_asset',
+                    'favicon': 'favicon_asset',
+                    'login_logo': 'login_logo_asset',
+                    'login_background': 'login_background_asset',
+                }[field_name]
+                if asset:
+                    setattr(instance, asset_field, asset)
+                    if field_name in {'logo', 'favicon'}:
+                        setattr(instance, field_name, None)
+                elif field_name in {'logo', 'favicon'}:
+                    setattr(instance, field_name, str(value))
         elif field_name == 'email_config':
             source = raw_email_config if preserve_email_secret and isinstance(raw_email_config, dict) else value
             email_config = normalize_email_config(source)

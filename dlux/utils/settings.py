@@ -236,6 +236,18 @@ def dlux_settings(scope):
             "schedule": 3600.0,
         },
     )
+    # The DjangoLux write-side loop. Since 1.8.0 Composer executes updates, so
+    # what remains is writing small JSON state files — this replaced the
+    # dedicated `dlux-updater` service's worker loop. Short interval because the
+    # update panel reflects the transitions it publishes; the task is a cheap
+    # no-op when there is nothing queued.
+    beat_schedule.setdefault(
+        "dlux-state-tick",
+        {
+            "task": "dlux.tasks.dlux_state_tick",
+            "schedule": 5.0,
+        },
+    )
     scope["CELERY_BEAT_SCHEDULE"] = beat_schedule
 
     message_tags = scope.get("MESSAGE_TAGS")
@@ -260,7 +272,18 @@ def dlux_settings(scope):
     # Django's validate_password() honours the runtime setting.
     validators = scope.get("AUTH_PASSWORD_VALIDATORS")
     validators = list(validators) if isinstance(validators, (list, tuple)) else []
-    dlux_validator = "dlux.password_validation.DluxStrongPasswordValidator"
+    dlux_validator = "dlux.auth.password_validation.DluxStrongPasswordValidator"
+    # The module moved to dlux.auth in 1.8.0 and the old path was NOT kept as an
+    # alias, so rewriting a hand-pinned legacy entry is the only thing standing
+    # between such a project and an unresolvable validator at startup. It also
+    # avoids appending the new path beside the old one, which would run the
+    # validator twice and duplicate its messages.
+    legacy_validator = "dlux.password_validation.DluxStrongPasswordValidator"
+    validators = [
+        {**v, "NAME": dlux_validator}
+        if isinstance(v, dict) and v.get("NAME") == legacy_validator else v
+        for v in validators
+    ]
     if not any(isinstance(v, dict) and v.get("NAME") == dlux_validator for v in validators):
         validators.append({"NAME": dlux_validator})
     scope["AUTH_PASSWORD_VALIDATORS"] = validators

@@ -25,7 +25,7 @@ from ..backup import (
     run_system_backup,
     run_system_restore,
 )
-from ..backup_progress import read_restore_progress
+from ..utils.backup_progress import read_restore_progress
 from ..guards import require_current_password
 from ..notifications import notify
 from ..translations import get_strings
@@ -170,6 +170,8 @@ def _orphan_dlb_files():
 @login_required
 def system_backup_page(request):
     _require_superuser(request)
+    from ..forms.backup import BackupUploadForm
+
     backups = _recent_system_backups()
     restores = _recent_system_restores()
     return render(request, 'dlux/backup/manage.html', {
@@ -179,6 +181,7 @@ def system_backup_page(request):
         'restore_revision': _system_restore_revision(restores),
         'orphan_files': _orphan_dlb_files(),
         'backup_config': get_system_config().get('backup_config', {}),
+        'backup_upload_form': BackupUploadForm(max_bytes=_dlb_upload_max_mb() * 1024 * 1024),
     })
 
 

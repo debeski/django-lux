@@ -488,10 +488,16 @@ def normalize_language_config(value):
 def normalize_theme_config(value):
     from ..themes import normalize_allowed_themes
 
+    from .constants import DEFAULT_THEME_PICKER_LOCATION, THEME_PICKER_LOCATION_VALUES
+
     cfg = value if isinstance(value, dict) else {}
+    location = str(cfg.get('theme_picker_location', '') or '').strip().lower()
     return {
         'allowed_themes': list(normalize_allowed_themes(cfg.get('allowed_themes'))),
         'allow_user_theme_override': bool(cfg.get('allow_user_theme_override', True)),
+        'theme_picker_location': (
+            location if location in THEME_PICKER_LOCATION_VALUES else DEFAULT_THEME_PICKER_LOCATION
+        ),
     }
 
 

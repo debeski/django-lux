@@ -5,6 +5,9 @@ from .system.constants import (
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_TABLE_DENSITY,
+    DEFAULT_THEME_PICKER_LOCATION,
+    THEME_PICKER_LOCATION_TITLEBAR,
+    THEME_PICKER_LOCATION_VALUES,
     FORM_DENSITY_VALUES,
     MODAL_SIZE_CHOICES,
     MODAL_SIZE_VALUES,
@@ -566,11 +569,38 @@ def dlux_context(request):
         and sidebar_runtime_config.get('show_notification_badges', True)
         and final_config.get('notifications', {}).get('enabled', True)
     )
+    theme_picker_allowed = bool(
+        final_config.get('allow_user_theme_override', True) and len(allowed_theme_names) > 1
+    )
+    # The stored location is intent; the sidebar toolbar can only host the picker
+    # while it exists, so an unhostable choice resolves to the titlebar rather
+    # than silently dropping the picker.
+    sidebar_toolbar_hostable = sidebar_enabled and bool(sidebar_runtime_config.get('show_toolbar', True))
+    theme_picker_location = final_config.get('theme_picker_location', DEFAULT_THEME_PICKER_LOCATION)
+    if theme_picker_location not in THEME_PICKER_LOCATION_VALUES:
+        theme_picker_location = DEFAULT_THEME_PICKER_LOCATION
+    if theme_picker_location == DEFAULT_THEME_PICKER_LOCATION and not sidebar_toolbar_hostable:
+        theme_picker_location = THEME_PICKER_LOCATION_TITLEBAR
+    context['theme_picker_location'] = theme_picker_location
     context['sidebar_theme_picker_enabled'] = bool(
-        sidebar_enabled and final_config.get('allow_user_theme_override', True) and len(allowed_theme_names) > 1
+        sidebar_enabled
+        and theme_picker_allowed
+        and theme_picker_location == DEFAULT_THEME_PICKER_LOCATION
     )
     context['sidebar_theme_toggle_enabled'] = bool(
         context['sidebar_theme_picker_enabled'] and len(allowed_theme_names) == 2
+    )
+    context['titlebar_theme_picker_enabled'] = bool(
+        theme_picker_allowed and theme_picker_location == THEME_PICKER_LOCATION_TITLEBAR
+    )
+    context['titlebar_theme_toggle_enabled'] = bool(
+        context['titlebar_theme_picker_enabled'] and len(allowed_theme_names) == 2
+    )
+    # The Options themes card is redundant only when the chrome already offers a
+    # one-click switch between the two available themes.
+    context['options_theme_card_enabled'] = bool(
+        theme_picker_allowed
+        and not (len(allowed_theme_names) == 2 and context['sidebar_theme_toggle_enabled'])
     )
     context['language_picker_enabled'] = bool(
         final_config.get('allow_user_language_override', True) and len(languages) > 1

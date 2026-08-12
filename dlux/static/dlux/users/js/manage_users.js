@@ -1,47 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const userDetailModalBody = document.getElementById('userDetailModalBody');
 
-    document.addEventListener('dlux:view-user-details', function(e) {
-        const detail = e.detail;
-        const data = detail.data || detail.actionData?.data || detail.action?.data;
-        const url = data?.url;
-
-        if (!url) {
-            return;
-        }
-
-        const modalEl = document.getElementById('userDetailModal');
-        const modalBody = document.getElementById('userDetailModalBody');
-        if (!modalEl || !modalBody) {
-            return;
-        }
-
-        modalBody.innerHTML = `
-            <div class="text-center p-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">${modalBody.dataset.loadingText || 'Loading...'}</span>
-                </div>
-            </div>`;
-
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modal.show();
-
-        fetch(url, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(response => response.text())
-        .then(html => {
-            modalBody.innerHTML = html;
-        })
-        .catch(err => {
-            console.error('Error loading user details:', err);
-            modalBody.innerHTML = `
-                <div class="text-center p-5 text-danger">
-                    <i class="bi bi-exclamation-circle display-1 mb-3"></i>
-                    <p>${modalBody.dataset.errorText || 'Error loading details.'}</p>
-                </div>`;
-        });
-    });
 
     document.addEventListener('dlux:reset-password', function(e) {
         const eventData = e.detail.data;

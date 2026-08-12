@@ -62,6 +62,13 @@ MEDIA_URL = '/media/'
 # overrides still take precedence; this is the backstop.
 MEDIA_ROOT = tempfile.mkdtemp(prefix='dlux-test-media-')
 atexit.register(shutil.rmtree, MEDIA_ROOT, ignore_errors=True)
+
+# The updater tests simulate a deployment whose runtime volume exists and is
+# writable, so say so explicitly. Left at the default '/opt/dlux-runtime' the
+# suite's result depends on whether the runner can write to /opt — it passes as
+# root in CI and fails on a developer's machine.
+DLUX_UPDATE_RUNTIME_ROOT = tempfile.mkdtemp(prefix='dlux-test-runtime-')
+atexit.register(shutil.rmtree, DLUX_UPDATE_RUNTIME_ROOT, ignore_errors=True)
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 USE_TZ = True
 

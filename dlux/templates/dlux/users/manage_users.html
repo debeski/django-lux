@@ -178,23 +178,6 @@
         </div>
     </div>
 
-    <!-- User Detail Modal -->
-    <div class="modal fade" id="userDetailModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content glass-card border-0 shadow-lg">
-                <div class="modal-body text-center p-5"
-                     id="userDetailModalBody"
-                     data-loading-text="{{ DLUX_STRINGS.loading|default:'Loading...' }}"
-                     data-error-text="{{ DLUX_STRINGS.error_loading_details|default:'Error loading details.' }}">
-                    <!-- Content loaded via AJAX -->
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">{{ DLUX_STRINGS.loading }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
 {% endblock %}
 
 {% block scripts %}

@@ -13,7 +13,7 @@ see [Deployment Configuration](deployment-configuration.md).
 | `python -m dlux startproject myproject --no-input` | Scaffold without prompting; use `--image`/`--repo` values or their defaults (CI). |
 | `python -m dlux startapp billing` | Create a new DjangoLux-native app in the current project. |
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
-| `python -m dlux enable-updater` | Dry-run the guarded inline-updater bootstrap for an existing generated Compose project. |
+| `python -m dlux enable-updater` | **Deprecated (removed in 1.9.0).** Dry-run the guarded inline-updater bootstrap for an existing generated Compose project. Since 1.8.0 Composer stages, activates and health-gates inline updates; migrate with `composer check --fix`. |
 | `python -m dlux enable-updater --apply` | Preserve changed originals under `.xpose/`, apply idempotent updater wiring, validate with `docker compose config`, and print the one-time rebuild command. |
 | `./start.sh enable-agent` | Ask Composer 1.2+ to print the migration diff from `composer-updater` to one outbound-only `composer-agent`. |
 | `./start.sh enable-agent --apply` | Preserve `compose.yml` under `.xpose/dlux-agent-bootstrap/`, pre-validate, and atomically apply the agent/state-volume topology. |
@@ -649,7 +649,7 @@ emit them itself for sticky-forms to apply there.
 
 Forms that support sticky-forms get a thin `dlux-assist-bar` at the top, with the
 switch at its end. That switch is the shared `dlux-settings-toggle-field` control
-— `system_setup.css` (loaded on every page) and the themes style it by those
+— `helpers/toggle/css/main.css` (loaded on every page) and the themes style it by those
 exact class names, so JS building it must use them and `type="checkbox"`, or it
 renders as a bare browser checkbox.
 
@@ -678,7 +678,7 @@ form = DecreeForm(initial=initial, request=request)
 `sticky_form_initial` returns `{}` when the preference is off, on a POST, or when
 the model has no rows, so a call site never has to branch.
 
-These helpers are opt-in. A project pinned to dlux < 1.7.2 should guard the
+These helpers are opt-in. A project pinned to dlux < 1.8.0 should guard the
 import and fall back to reading the `sticky_forms` preference itself — never to
 the retired `enable_prefill` cookie, whose `'true'` default made prefill
 impossible to switch off.
@@ -696,7 +696,7 @@ project module that Django reaches through `ROOT_URLCONF` can therefore observe 
 half-initialised package, which surfaces as Django's misleading "The included
 URLconf does not appear to have any patterns in it".
 
-Both helpers arrived in 1.7.2. A project pinned to an older dlux should guard the
+Both helpers arrived in 1.8.0. A project pinned to an older dlux should guard the
 import — an `ImportError` at module scope surfaces as Django's misleading "The
 included URLconf does not appear to have any patterns in it".
 
@@ -993,12 +993,16 @@ The canonical source for those grouped settings is `dlux.system`: `constants.py`
 owns settings choices/constants, `defaults.py` owns `default_*_config()`
 factories, `normalizers.py` owns config coercion, and `schema.py`/`registry.py`
 describe groups, legacy flat keys, runtime aliases, and export/import coverage.
-New Dlux internals should import from `dlux.system`. Root `dlux.constants`
-exists only as a compatibility re-export, and the old defaults modules are not
-canonical APIs. Important migration invariant:
-published migrations `0001`, `0002`, and additive `0004` serialize default callable paths under
-`dlux.models.default_*_config`, so those wrappers must remain importable
-indefinitely. Keep the wrappers as thin delegates; do not move canonical
+Import from `dlux.system`; the old defaults modules are not canonical APIs. The
+root `dlux.constants` re-export was **removed in v1.8.0** — use
+`dlux.system.constants`.
+
+Important migration invariant, and note what it does *not* cover: published
+migrations `0001`, `0002`, and additive `0004` serialize default callable paths
+under `dlux.models.default_*_config`, so **those wrappers** must remain
+importable indefinitely. No migration references `dlux.constants`; verified by
+removing the module and running `makemigrations --check`, which reported no
+changes. The two facts sit next to each other and are easy to conflate. Keep the wrappers as thin delegates; do not move canonical
 settings logic back into `dlux.models`.
 
 `SystemSettingsForm` consumes registry schema metadata for the low-risk scalar
@@ -1040,7 +1044,7 @@ Common runtime feature flags in `get_system_config()`:
   `APP_CONFIG.security.honeypot_enabled`.
 - `privacy_policy_url` / `terms_url` — Operator-supplied policy links
   (`registration_config`). When `privacy_policy_url` is set, a privacy line/link is
-  rendered on the sign-in and sign-up pages (shared `dlux/includes/auth_privacy_notice.html`,
+  rendered on the sign-in and sign-up pages (shared `dlux/auth/privacy_notice.html`,
   reading `APP_CONFIG.security`). DjangoLux ships no legal text.
 - `privacy_notice_text` — Optional short notice shown with the privacy link.
 - `registration_require_consent` — When true, the public registration form shows a
@@ -1112,7 +1116,7 @@ Common runtime feature flags in `get_system_config()`:
 - `footer_text` — Optional copyright/description line for the global page footer
   (`layout_config.footer_text`, max 300 chars, blank by default). Edited from
   *System Settings → Identity → Footer* and exposed to templates as
-  `APP_CONFIG.appearance.footer_text`; the `dlux/includes/footer.html` partial
+  `APP_CONFIG.appearance.footer_text`; the `dlux/system/footer.html` partial
   renders it, falling back to `DLUX_STRINGS.footer_text` then `© <year> <system name>`.
 
 Theme/runtime UI notes:
@@ -1227,9 +1231,9 @@ set_profile_totp_state(request.user.profile, raw_secret="BASE32SECRET", enabled=
 
 ### Alert Auto-Close Contract
 
-`dlux/main/js/base_runtime.js` auto-closes every Bootstrap-style `.alert` after a short delay unless the alert explicitly opts out with `data-autoclose="false"`.
+`dlux/base/js/base_runtime.js` auto-closes every Bootstrap-style `.alert` after a short delay unless the alert explicitly opts out with `data-autoclose="false"`.
 
-Default Django messages render through `dlux/includes/messages.html` as compact fixed flash notices rather than full-width titlebar overlays. Authenticated pages use `.dlux-flash-container`, positioned below `--header-height`; public auth pages pass `dlux_flash_mode='page'` to use `.dlux-page-alert-container` near the viewport top. Both containers are `pointer-events: none`, while visible alerts remain closeable and `.dlux-alert--closing` disables pointer events before the removal transition.
+Default Django messages render through `dlux/notifications/messages.html` as compact fixed flash notices rather than full-width titlebar overlays. Authenticated pages use `.dlux-flash-container`, positioned below `--header-height`; public auth pages pass `dlux_flash_mode='page'` to use `.dlux-page-alert-container` near the viewport top. Both containers are `pointer-events: none`, while visible alerts remain closeable and `.dlux-alert--closing` disables pointer events before the removal transition.
 
 Use the opt-out for alerts that remain actionable after the first few seconds, such as validation blockers, missing-secret warnings, setup/import instructions, or status messages that explain why a field must be changed before the form can submit. Do not use it for normal Django flash messages that should behave like transient success/error notices.
 
@@ -1253,7 +1257,7 @@ notice.setAttribute('data-autoclose', 'false');
 
 ### Lux Signature Contract
 
-`dlux/main/js/signature.js` is the removable, client-only DjangoLux attribution layer. It reads `<html data-dlux="DjangoLux X.Y.Z ...">`, prints one quiet console credit on load, exposes non-enumerable `window.lux` / `window.dlux` console getters, and reveals a compact `.dlux-signature-pop` visual credit when a user types `dlux` on the page outside input, textarea, select, or contenteditable targets. It makes no network calls and stores no data.
+`dlux/base/js/signature.js` is the removable, client-only DjangoLux attribution layer. It reads `<html data-dlux="DjangoLux X.Y.Z ...">`, prints one quiet console credit on load, exposes non-enumerable `window.lux` / `window.dlux` console getters, and reveals a compact `.dlux-signature-pop` visual credit when a user types `dlux` on the page outside input, textarea, select, or contenteditable targets. It makes no network calls and stores no data.
 
 ## Template Tags and Filters
 
@@ -1360,7 +1364,7 @@ When you need to trace behavior in the code, these files are the usual first sto
 
 - `dlux/models.py` for `SystemSettings`, `ScopedModel`, `Profile`, notifications,
   backup/restore records, and updater state/run models
-- `dlux/forms.py` for the setup wizard form, user wizard, and runtime configuration form logic
+- `dlux/forms/` for form logic — `system_settings.py` (setup wizard), `users.py`, `auth.py`, `registration.py`, `scopes.py`, `permissions.py`, and `builders.py` (the dev-facing field builders)
 - `dlux/views/sections.py` for sections and dynamic modal flows
 - `dlux/views/updater.py` and `dlux/updater/` for updater HTTP boundaries,
   verification, persistent runtime storage, and orchestration

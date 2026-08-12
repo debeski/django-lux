@@ -888,7 +888,7 @@ DjangoLux uses [Driver.js](https://driverjs.com/) for its path-aware guided tour
 
 Recommended pattern:
 
-1.  **Keep the built-in shell**: do not override `dlux/includes/tutorial.html` unless you are intentionally changing the framework-level tutorial runtime.
+1.  **Keep the built-in shell**: do not override `dlux/tutorial/main.html` unless you are intentionally changing the framework-level tutorial runtime.
 2.  **Register the Hook**: load one small project script that defines `window.get_custom_tutorial_steps(path)`.
 3.  **Prefer global injection hooks**: in most projects, the cleanest place to register the script is `templates/dlux/includes/custom_scripts.html`, so the base template loads it automatically.
 4.  **Return extra steps only**: your hook should return an array of Driver.js step objects for the current path, or `[]` when nothing extra is needed.

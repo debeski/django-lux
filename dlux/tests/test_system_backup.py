@@ -30,7 +30,7 @@ from dlux.backup import (
     run_system_restore,
     write_system_backup,
 )
-from dlux import backup_progress as dlux_backup_progress
+from dlux.utils import backup_progress as dlux_backup_progress
 from dlux.reports import build_relation_schema
 from dlux.system.defaults import default_backup_config
 from dlux.system.normalizers import normalize_backup_config
@@ -123,7 +123,7 @@ class SystemBackupPolicyTests(TestCase):
             )
 
         backup = self.SystemBackup.objects.create(requested_by_username='boss', media_included=False)
-        with mock.patch('dlux.backup.write_system_backup', side_effect=fake_write):
+        with mock.patch('dlux.backup.create.write_system_backup', side_effect=fake_write):
             run_system_backup(backup.pk)
         self.assertFalse(captured['include_media'])
 
@@ -133,7 +133,7 @@ class SystemBackupPolicyTests(TestCase):
         self.assertEqual(self.SystemBackup.objects.count(), 0)
 
         self._save_config(scheduled_enabled=True, schedule_interval_hours=24)
-        with mock.patch('dlux.backup.run_system_backup', side_effect=lambda pk: self.SystemBackup.objects.get(pk=pk)) as runner:
+        with mock.patch('dlux.backup.dispatch.run_system_backup', side_effect=lambda pk: self.SystemBackup.objects.get(pk=pk)) as runner:
             first = run_scheduled_system_backup()
             second = run_scheduled_system_backup()
         self.assertEqual(first.pk, second.pk)
@@ -365,7 +365,7 @@ class SystemRestoreRoundTripTests(TestCase):
                     backup_file_path=backup.file_path,
                 )
                 with mock.patch(
-                    'dlux.backup.get_current_migration_state',
+                    'dlux.backup.restore.get_current_migration_state',
                     return_value=['fakeapp.0001_initial'],
                 ):
                     run_system_restore(restore.pk)
@@ -381,7 +381,7 @@ class SystemRestoreRoundTripTests(TestCase):
                     ignore_version_mismatch=True,
                 )
                 with mock.patch(
-                    'dlux.backup.get_current_migration_state',
+                    'dlux.backup.restore.get_current_migration_state',
                     return_value=['fakeapp.0001_initial'],
                 ):
                     run_system_restore(forced.pk)
@@ -418,6 +418,10 @@ class SystemBackupViewTests(TestCase):
         self.assertContains(response, 'dlux-backup-page')
         self.assertContains(response, 'dlux-form dlux-backup-create-form')
         self.assertContains(response, 'dlux-table-shell')
+        self.assertContains(response, 'data-archive-file-widget')
+        self.assertContains(response, 'data-max-file-bytes="536870912"')
+        self.assertContains(response, 'name="backup_file"')
+        self.assertNotContains(response, 'name="backup_file" accept=".dlb" class="form-control')
 
     def test_manual_backup_scope_choice_sets_media_included_flag(self):
         SystemBackup = apps.get_model('dlux', 'SystemBackup')
@@ -621,7 +625,7 @@ class RestoreProgressTests(TestCase):
     def test_in_transaction_progress_is_visible_through_the_cache_mirror(self):
         from django.db import transaction
 
-        from dlux.backup_progress import read_restore_progress, set_restore_progress
+        from dlux.utils.backup_progress import read_restore_progress, set_restore_progress
 
         restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
         # Inside an atomic block a row UPDATE is invisible to other connections;
@@ -634,7 +638,7 @@ class RestoreProgressTests(TestCase):
         self.assertEqual(live['stage'], 'database')
 
     def test_a_stale_mirror_never_drags_the_row_backwards(self):
-        from dlux.backup_progress import read_restore_progress, set_restore_progress
+        from dlux.utils.backup_progress import read_restore_progress, set_restore_progress
 
         restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
         set_restore_progress(restore, 20, 'early', stage='database')
@@ -643,7 +647,7 @@ class RestoreProgressTests(TestCase):
         self.assertEqual(read_restore_progress(restore)['progress_percent'], 80)
 
     def test_finished_restore_ignores_the_mirror_entirely(self):
-        from dlux.backup_progress import read_restore_progress, set_restore_progress
+        from dlux.utils.backup_progress import read_restore_progress, set_restore_progress
 
         restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
         set_restore_progress(restore, 55, 'mid-flight', stage='files')
@@ -654,7 +658,7 @@ class RestoreProgressTests(TestCase):
         self.assertEqual(read_restore_progress(restore)['progress_percent'], 100)
 
     def test_status_endpoint_reports_progress(self):
-        from dlux.backup_progress import set_restore_progress
+        from dlux.utils.backup_progress import set_restore_progress
 
         restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
         set_restore_progress(restore, 61, 'Restoring documents', stage='database')
@@ -667,7 +671,7 @@ class RestoreProgressTests(TestCase):
         self.assertEqual(payload['stage'], 'database')
 
     def test_list_status_renders_rows_and_tracks_activity(self):
-        from dlux.backup_progress import set_restore_progress
+        from dlux.utils.backup_progress import set_restore_progress
 
         restore = self._restore(status=self.SystemRestore.STATUS_RUNNING)
         set_restore_progress(restore, 37, 'Restoring groups', stage='database')
@@ -689,7 +693,7 @@ class RestoreProgressTests(TestCase):
         self.assertEqual(client.get(reverse('system_restore_list_status')).status_code, 403)
 
     def test_terminal_notification_is_emitted_for_a_finished_restore(self):
-        from dlux.backup_progress import finish_restore_progress
+        from dlux.utils.backup_progress import finish_restore_progress
 
         restore = self._restore(status=self.SystemRestore.STATUS_COMPLETED)
         finish_restore_progress(restore, success=True)
@@ -702,7 +706,7 @@ class RestoreProgressTests(TestCase):
         self.assertEqual(restore.progress_percent, 100)
 
     def test_failed_restore_notification_carries_the_error(self):
-        from dlux.backup_progress import finish_restore_progress
+        from dlux.utils.backup_progress import finish_restore_progress
 
         restore = self._restore(status=self.SystemRestore.STATUS_FAILED, error='boom')
         finish_restore_progress(restore, success=False, error='boom')
@@ -823,7 +827,7 @@ class ProgressCellLayoutTests(TestCase):
         import dlux
 
         css = (
-            Path(dlux.__file__).parent / 'static' / 'dlux' / 'main' / 'css' / 'notifications.css'
+            Path(dlux.__file__).parent / 'static' / 'dlux' / 'notifications' / 'css' / 'main.css'
         ).read_text(encoding='utf-8')
         block = css[css.index('.dlux-backup-progress-status'):]
         self.assertIn('display: flex', block)

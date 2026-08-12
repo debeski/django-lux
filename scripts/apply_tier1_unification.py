@@ -4,7 +4,7 @@
 For every group of keys that share the *same* English and Arabic value, one
 canonical key is kept and the rest are **retired**: their literal entries are
 removed from ``dlux/translations.py`` and recorded in a generated alias map
-(``dlux/translation_aliases.py``). At runtime ``get_strings()`` resolves each
+(``dlux/translations/aliases.py``). At runtime ``get_strings()`` resolves each
 retired key to its canonical key's value, so:
 
 * nothing breaks (retired keys still resolve — backward compatible for Dlux and
@@ -31,7 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TRANSLATIONS = ROOT / "dlux" / "translations.py"
-ALIASES_FILE = ROOT / "dlux" / "translation_aliases.py"
+ALIASES_FILE = ROOT / "dlux" / "translations/aliases.py"
 
 
 def _dlux_strings_dict(tree):

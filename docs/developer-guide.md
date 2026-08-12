@@ -223,6 +223,63 @@ Sidebar items are only visible to users who have the required view permission. T
 
 This means staff users will only see sidebar items for models they have explicit `app.view_model` permissions for. Ensure users are granted the appropriate permissions.
 
+## Dlux-owned UI primitives
+
+Dlux-owned screens must reuse the framework primitive before falling back to a raw Django widget or generic Bootstrap structure:
+
+- `DluxFileInput` from `dlux.widgets` for ordinary file uploads. Inside Crispy layouts, use `build_archive_file_field()` so the file card, validation output, drag/drop behavior, toolbar, and translations stay intact. Do not write a raw `<input type="file">` in a Dlux-owned template.
+- `AssetPickerField` from `dlux.forms.assets` when a field can select a reusable `ManagedAsset` or register a direct upload. Its file card opens the saved-file library as a dropdown popover and keeps upload/open/clear in the standard toolbar.
+- `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` from `dlux.widgets` for card, chip, searchable single-choice, and multi-choice controls.
+- Dlux icon picker through `dlux/helpers/icon_picker.html` and `initIconPickers()` for Bootstrap Icons fields inside System Settings/setup surfaces. It is lazy-rendered, searchable, keyboard-closeable, and shares the same `ICON_SUGGESTIONS` catalog as the sidebar builder. The grid opens as a popover anchored under the field (the asset picker library's geometry) and closes on an outside click or Escape; pass `inline: True` in the include context for the older in-flow disclosure that pushes the following fields down.
+- `build_settings_toggle_field()` and `build_email_toggle_field()` from `dlux.forms` for settings switches; do not hand-build Bootstrap switch markup.
+- `DluxTable` from `dlux.tables`, or the `dlux-table-shell` / `dlux-table-scroll` / `dlux-data-table` structure, for Dlux-owned data grids.
+- The universal dynamic-modal protocol (`data-dynamic-modal`, JSON `{html}` fragments, and `data-dlux-modal-footer`) for modal workflows, and `window.DluxLoadingButton` for asynchronous button state.
+- `data-dlux-context` plus the Dlux row-action schema for context menus, and `data-dlux-tooltip` for themed accessible tooltips instead of one-off menu/tooltip implementations.
+- `from dlux.notifications import notify` for user-facing success, warning, and error feedback so drawer/history behavior remains consistent.
+
+### Markup wrappers
+
+Four wrappers cover the structural markup that used to be copy-pasted. Three are
+block tags from `dlux_tags` (`{% load dlux_tags %}` first), one is a plain
+include:
+
+```html
+{% dlux_table_shell density="balanced" class="" %}
+  <table class="table table-hover align-middle dlux-data-table">…</table>
+{% enddlux_table_shell %}
+
+{% dlux_card tag="section" class="my-card" attrs="data-x" %}…{% enddlux_card %}
+
+{% dlux_alert level="warning" class="my-notice" role="status" attrs="data-y" %}
+  …
+{% enddlux_alert %}
+
+{% include 'dlux/tables/empty_row.html' with colspan=4 text=DLUX_STRINGS.x padding=3 %}
+```
+
+`dlux/tables/pair_table.html` renders the repeated label/count breakdown grid:
+pass `rows`, `label_header`, `count_header`, and `empty_text`.
+
+Options-page cards use their own wrapper, which owns the reorder handle and the
+icon heading:
+
+```html
+{% dlux_option_card slug="theme" icon="bi-palette" title=DLUX_STRINGS.themes desc=DLUX_STRINGS.theme_desc %}
+  …card body…
+{% enddlux_option_card %}
+```
+
+`slug` becomes `data-options-card` (the reorder/deep-link key). Pass `attrs` for
+extras such as `data-options-deeplink`. Cards registered through
+`dlux.options.register_card()` are rendered through the same wrapper.
+
+Block tags render their body into the partial as `content`, so the wrapper stays
+editable markup (`dlux/tables/shell.html`, `dlux/base/card.html`,
+`dlux/notifications/alert.html`) rather than HTML built in Python. Use them for
+new markup; do not hand-write `dlux-table-shell`/`dlux-table-scroll` pairs.
+
+The reusable form CSS and JavaScript are loaded by `dlux/forms/assets_head.html` and `dlux/forms/assets_scripts.html`. Keep new primitives compatible with those global, idempotent initializers so they also work after dynamic-modal replacement.
+
 ## Sections vs Dynamic Modals
 
 Use sections when:

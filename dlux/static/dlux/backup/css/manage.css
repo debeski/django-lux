@@ -78,12 +78,13 @@
 }
 
 .dlux-backup-upload-form {
-    display: flex;
-    align-items: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
     gap: 0.65rem;
 }
 
-.dlux-backup-upload-form .form-control {
+.dlux-backup-upload-form .archive-file-field {
     min-width: 0;
 }
 
@@ -114,6 +115,6 @@
 @media (max-width: 575.98px) {
     .dlux-backup-upload-form {
         align-items: stretch;
-        flex-direction: column;
+        grid-template-columns: minmax(0, 1fr);
     }
 }

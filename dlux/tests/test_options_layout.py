@@ -37,6 +37,10 @@ def _set_small_theme_language_options(style):
         'ar': {'name': 'Arabic', 'dir': 'rtl', 'flag': 'SA'},
     }
     ss.allow_user_language_override = True
+    # These are the two themes the sidebar toolbar would offer as a direct
+    # toggle, which now hides the Options card. Park the picker on the Options
+    # page so these cases still have a themes card to lay out.
+    ss.theme_picker_location = 'disabled'
     ss.save()
     cache.clear()
     return ss

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "root_env_var": "DLUX_UPDATE_RUNTIME_ROOT",
+  "default_root": "/opt/dlux-runtime",
+  "summary": "Layout of the DjangoLux runtime volume: staged releases and the pointer the supervisor reads at container start.",
+  "directories": {
+    "releases": {
+      "required": true,
+      "purpose": "One directory per staged release, named for its version; contains the unpacked package.",
+      "writer": "composer"
+    },
+    "staging": {
+      "required": false,
+      "purpose": "Scratch space for a release being assembled before it is moved into releases/.",
+      "writer": "composer"
+    },
+    "downloads": {
+      "required": false,
+      "purpose": "Downloaded wheels, isolated per digest.",
+      "writer": "composer"
+    },
+    "failed": {
+      "required": false,
+      "purpose": "Quarantined releases that failed verification or did not come back healthy. Never activated.",
+      "writer": "composer"
+    },
+    "state": {
+      "required": true,
+      "purpose": "Pointer and coordination files shared by DjangoLux and Composer.",
+      "writer": "both"
+    }
+  },
+  "active_json": {
+    "path": "state/active.json",
+    "absent_means": "The release baked into the project image is in force.",
+    "required_keys": ["version", "source", "path", "generation"],
+    "source_values": ["image", "volume"],
+    "rules": [
+      "source 'volume' requires path to name an existing directory under releases/",
+      "source 'image' requires an empty path",
+      "generation is a non-negative integer that increases on every activation",
+      "written atomically (temp file in the same directory, then rename)"
+    ],
+    "writer": "composer",
+    "readers": ["dlux supervisor", "dlux admin UI"]
+  },
+  "generation": {
+    "path": "state/generation",
+    "format": "A single non-negative integer followed by a newline.",
+    "meaning": "Bumped on every activation, including a rollback. The supervisor treats a change as 'the active release moved'.",
+    "writer": "composer"
+  },
+  "state_files": {
+    "active.json": {"writer": "composer", "purpose": "Which release is active."},
+    "generation": {"writer": "composer", "purpose": "Activation counter."},
+    "image-update-request.json": {"writer": "dlux", "purpose": "Intent: rebuild/pull the project image."},
+    "image-update-request.json.ack": {"writer": "composer", "purpose": "Terminal token and exit code for the image request."},
+    "package-update-request.json": {"writer": "dlux", "purpose": "Intent: apply or roll back an inline DjangoLux release."},
+    "package-update-request.json.ack": {"writer": "composer", "purpose": "Terminal token and exit code for the package request."},
+    "deploy-status.json": {"writer": "composer", "purpose": "Progress and terminal state of the current operation."},
+    "image-available.json": {"writer": "composer", "purpose": "What the registry currently offers."},
+    "deploy-log.txt": {"writer": "composer", "purpose": "Sanitized operation log."}
+  },
+  "mounts": {
+    "web": "ro",
+    "celery": "ro",
+    "composer-executor": "rw",
+    "note": "Only the executor writes the volume. Application containers mount it read-only and must never create directories."
+  }
+}

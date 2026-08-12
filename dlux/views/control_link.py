@@ -48,7 +48,7 @@ def _state():
 @require_GET
 def control_panel_page(request):
     _require_superuser(request)
-    return render(request, "dlux/control_link.html", {"link": _state()})
+    return render(request, "dlux/panel/main.html", {"link": _state()})
 
 
 @login_required

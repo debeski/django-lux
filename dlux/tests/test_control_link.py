@@ -41,7 +41,7 @@ class ControlLinkTests(TestCase):
             response = self.client.get(reverse("control_panel"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "dlux/main/css/control_link.css")
+        self.assertContains(response, "dlux/panel/css/main.css")
         self.assertContains(response, 'class="dlux-form dlux-control-form"')
         self.assertContains(response, "data-control-link")
         self.assertContains(response, "data-control-link-badge")

@@ -1,0 +1,91 @@
+/* Settings toggle switch — the single sanctioned switch control, built by
+   `build_settings_toggle_field()` in dlux/forms.py. Markup contract:
+   `.dlux-settings-toggle-field__control.form-switch` wrapping
+   `.form-check-input.dlux-settings-toggle-field__input[type=checkbox]`.
+   Per-theme overrides live in themes/css/*.css; host layouts that embed a
+   toggle (e.g. `.dlux-assist-bar`) keep their own rules in main/css/main.css. */
+
+.dlux-settings-toggle-field {
+  width: 100%;
+  min-width: 0;
+  /* NOTE: container-type: inline-size was removed — in the flex grid columns
+     (e.g. step 7's col-xl-3 toggle row) inline-size containment collapsed the
+     field to ~0 width, breaking the label one character per line. The row
+     layout (label + switch) wraps fine on its own at any realistic width. */
+}
+
+.dlux-settings-toggle-field__content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dlux-settings-toggle-field__label,
+.dlux-settings-toggle-field__help {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.dlux-settings-toggle-field__control {
+  margin-inline-start: auto;
+  padding: 0;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  align-self: flex-start;
+  flex: 0 0 auto;
+}
+
+.dlux-settings-toggle-field__control.form-switch {
+  padding-inline-start: 0;
+}
+
+.dlux-settings-toggle-field__input.form-check-input {
+  max-width: 100%;
+  margin: 0;
+  float: none;
+  position: static;
+}
+
+.dlux-settings-toggle-field__input.form-check-input:focus,
+.dlux-settings-toggle-field__input.form-check-input:focus-visible {
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%280%2c0%2c0%2c0.25%29'/%3e%3c/svg%3e") !important;
+}
+
+.dlux-settings-toggle-field__input.form-check-input:checked:focus,
+.dlux-settings-toggle-field__input.form-check-input:checked:focus-visible {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
+}
+
+/* Very narrow viewports: stack the switch beneath the label so neither
+   gets squeezed. Plain media query (the previous @container rule relied on
+   container-type, which was removed — see note above). */
+@media (max-width: 400px) {
+  .dlux-settings-toggle-field {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+  }
+
+  .dlux-settings-toggle-field__label {
+    font-size: 0.95rem;
+    line-height: 1.18;
+  }
+
+  .dlux-settings-toggle-field__help {
+    font-size: 0.76rem;
+    line-height: 1.2;
+    margin-top: 0.45rem !important;
+  }
+
+  .dlux-settings-toggle-field__control {
+    width: 100%;
+    margin-inline-start: 0;
+    display: flex;
+    justify-content: flex-end;
+    align-self: stretch;
+  }
+}

@@ -1,0 +1,3 @@
+{# Surface card. Wraps arbitrary content in the shared glass surface.         #}
+{# Usage: {% dlux_card tag="section" class="dlux-control-card" %}…{% enddlux_card %} #}
+<{{ tag|default:'div' }} class="glass-profile{% if class %} {{ class }}{% endif %}"{% if attrs %} {{ attrs|safe }}{% endif %}>{{ content }}</{{ tag|default:'div' }}>

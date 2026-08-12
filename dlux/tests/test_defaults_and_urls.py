@@ -160,7 +160,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         file_field_js = (
             Path(__file__).resolve().parents[1]
-            / "static/dlux/forms/js/file_field.js"
+            / "static/dlux/helpers/filefield/js/main.js"
         ).read_text(encoding="utf-8")
         self.assertIn("input.dataset.maxFileBytes", file_field_js)
         self.assertIn("input.setCustomValidity(message)", file_field_js)
@@ -975,8 +975,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('Application Options', [crumb['label'] for crumb in crumbs])
 
     def test_navbar_frontend_uses_language_aware_history_and_allows_system_routes_in_builder(self):
-        navbar_js = Path('dlux/static/dlux/main/js/navbar.js').read_text(encoding='utf-8')
-        setup_js = Path('dlux/static/dlux/main/js/system_setup.js').read_text(encoding='utf-8')
+        navbar_js = Path('dlux/static/dlux/navbar/js/main.js').read_text(encoding='utf-8')
+        setup_js = Path('dlux/static/dlux/setup/js/main.js').read_text(encoding='utf-8')
 
         self.assertIn("const HISTORY_KEY = 'dlux.navbar.history.v1';", navbar_js)
         self.assertIn('labels[language] = label;', navbar_js)
@@ -1207,9 +1207,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertTrue(form.fields['titlebar_show_language_switcher'].disabled)
 
     def test_language_switcher_uses_data_attribute_visibility_and_live_preview(self):
-        titlebar = Path('dlux/templates/dlux/includes/titlebar.html').read_text(encoding='utf-8')
-        css = Path('dlux/static/dlux/main/css/titlebar.css').read_text(encoding='utf-8')
-        setup_js = Path('dlux/static/dlux/main/js/system_setup.js').read_text(encoding='utf-8')
+        titlebar = Path('dlux/templates/dlux/titlebar/main.html').read_text(encoding='utf-8')
+        css = Path('dlux/static/dlux/titlebar/css/main.css').read_text(encoding='utf-8')
+        setup_js = Path('dlux/static/dlux/setup/js/main.js').read_text(encoding='utf-8')
 
         # Rendered like the other show_* toggles: always present when switching is
         # possible, visibility driven by a data attribute + CSS (so the setup
@@ -1296,13 +1296,26 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertEqual(html.count('data-archive-file-widget'), 3)
+        self.assertEqual(html.count('data-archive-file-widget'), 5)
+        self.assertEqual(html.count('data-asset-picker '), 4)
+        self.assertEqual(html.count('data-archive-file-primary="library"'), 4)
         self.assertIn('data-settings-import-file="true"', html)
         self.assertIn('data-settings-import-finish', html)
         self.assertIn('Finish setup from imported config', html)
         self.assertIn('id="id_settings_import_file"', html)
         self.assertIn('id="id_logo"', html)
         self.assertIn('id="id_favicon"', html)
+
+    def test_dlux_owned_templates_do_not_hand_render_generic_file_inputs(self):
+        templates_root = Path(__file__).resolve().parents[1] / 'templates' / 'dlux'
+        violations = []
+        for template_path in templates_root.rglob('*.html'):
+            if template_path.name == 'file_input.html':
+                continue
+            contents = template_path.read_text(encoding='utf-8')
+            if re.search(r'<input\b[^>]*\btype=["\']file["\']', contents, re.IGNORECASE):
+                violations.append(str(template_path.relative_to(templates_root)))
+        self.assertEqual(violations, [])
 
     def test_setup_form_import_file_overrides_posted_setup_values_on_initial_import(self):
         """On initial import (JS populated, flag not set), import overrides posted defaults."""
@@ -1902,7 +1915,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
             'help_sys_public_root_url_discovered': 'Anon root discovered help custom.',
         }
 
-        with patch('dlux.forms.get_strings', return_value=translated_strings):
+        # The labels are built in the settings-form module, which holds its own
+        # `get_strings` binding after the forms package split.
+        with patch('dlux.forms.system_settings.get_strings', return_value=translated_strings):
             form = SystemSettingsForm(
                 instance=SystemSettings(is_configured=False),
                 mode='setup',
@@ -2092,9 +2107,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
             Path(__file__).resolve().parents[1]
             / 'static'
             / 'dlux'
-            / 'main'
+            / 'setup'
             / 'js'
-            / 'system_setup.js'
+            / 'main.js'
         ).read_text(encoding='utf-8')
 
         self.assertIn("target.name !== 'public_root'", script)
@@ -2565,7 +2580,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertTrue(instance.auth_config['enforce_strong_passwords'])
 
     def test_system_setup_js_toggles_email_password_and_keeps_default_language_save_only(self):
-        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
+        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
         contents = script.read_text(encoding='utf-8')
 
         self.assertIn('dlux-email-config-password-field', contents)
@@ -2698,7 +2713,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('initSystemSetupStepValidation(root);', contents)
 
     def test_branding_modal_syncs_visible_system_names_without_language_editor(self):
-        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
+        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
         contents = script.read_text(encoding='utf-8')
 
         self.assertIn('function syncSystemNamesField(form) {', contents)
@@ -2731,7 +2746,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("container.dispatchEvent(new CustomEvent('dlux:wizard-step-change'", contents)
 
     def test_user_hub_css_clamps_mobile_dropdown_to_viewport(self):
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'users' / 'css' / 'user_hub.css'
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'titlebar' / 'css' / 'user_hub.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
         self.assertIn('width: min(var(--dlux-dropdown-width), calc(100vw - (var(--dlux-dropdown-edge-gap) * 2)))', contents)
@@ -2763,7 +2778,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn(':root.theme-prism .dlux-staff-tier-preview {', contents)
 
     def test_tables_css_hardens_staff_tier_badges_for_manage_users(self):
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'tables.css'
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'tables' / 'css' / 'main.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
         self.assertIn('.dlux-staff-tier-badge--global_staff {', contents)
@@ -2779,7 +2794,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('badge {{ target_user_management_tier.badge_classes }}', contents)
 
     def test_main_css_forces_readable_primary_badge_text(self):
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'main.css'
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'base' / 'css' / 'main.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
         self.assertIn('.badge.bg-primary,', contents)
@@ -2788,7 +2803,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('color: #fff !important;', contents)
 
     def test_navbar_current_crumb_uses_unfilled_theme_color_treatment(self):
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'navbar.css'
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'navbar' / 'css' / 'main.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
         self.assertIn('.dlux-navbar__crumb.is-current {', contents)
@@ -2798,7 +2813,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
     def test_titlebar_login_round_uses_shared_shape_and_theme_selectors(self):
         static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
-        titlebar_css = (static_root / 'main' / 'css' / 'titlebar.css').read_text(encoding='utf-8')
+        titlebar_css = (static_root / 'titlebar' / 'css' / 'main.css').read_text(encoding='utf-8')
 
         # All titlebar buttons (home/action/login/notification trigger) share the
         # `dlux-titlebar-btn` class, so base appearance + hover are styled once.
@@ -2812,9 +2827,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('.titlebar[data-titlebar-logo-treatment="halo"] .titlebar__logo {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-logo-treatment="plate"][data-titlebar-logo-treatment-shape="pill"] .titlebar__logo {', titlebar_css)
-        titlebar_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'titlebar.html'
+        titlebar_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'titlebar' / 'main.html'
         titlebar_markup = titlebar_template.read_text(encoding='utf-8')
-        notifications_markup = (Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'notifications.html').read_text(encoding='utf-8')
+        notifications_markup = (Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'notifications' / 'main.html').read_text(encoding='utf-8')
         self.assertIn('data-titlebar-logo-treatment="{{ titlebar.logo_treatment|default:\'none\' }}"', titlebar_markup)
         self.assertIn('data-titlebar-logo-treatment-shape="{{ titlebar.logo_treatment_shape|default:\'soft\' }}"', titlebar_markup)
         self.assertIn('data-titlebar-user-hub-style="{{ titlebar.user_hub_style|default:\'dropdown\' }}"', titlebar_markup)
@@ -2825,7 +2840,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('.titlebar__actions--titlebar', titlebar_css)
         self.assertIn('.titlebar[data-titlebar-user-hub-style="titlebar_actions"] .titlebar__actions--dropdown', titlebar_css)
         self.assertIn('.titlebar__actions--titlebar {', titlebar_css)
-        titlebar_surfaces_css = (static_root / 'main' / 'css' / 'titlebar_surfaces.css').read_text(encoding='utf-8')
+        titlebar_surfaces_css = (static_root / 'titlebar' / 'css' / 'surfaces.css').read_text(encoding='utf-8')
         self.assertIn(':root .titlebar[data-titlebar-surface="muted"] {', titlebar_surfaces_css)
         self.assertIn(':root .titlebar[data-titlebar-surface="glass"] {', titlebar_surfaces_css)
         self.assertIn('background:', titlebar_surfaces_css)
@@ -2869,7 +2884,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('100% {\n        background-position: 180% 0, 0 120%;', contents)
 
     def test_selector_css_adds_vertical_padding_for_toggle_card_grids(self):
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'selectors.css'
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'selector' / 'css' / 'main.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
         self.assertIn('.dlux-choice-selector--toggle .dlux-choice-selector__options {', contents)
@@ -2884,8 +2899,13 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('linear-gradient(180deg, rgba(255, 255, 255, 0.99)', contents)
 
     def test_system_setup_css_makes_shared_toggle_cards_reflow_inside_narrow_columns(self):
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
-        contents = stylesheet.read_text(encoding='utf-8')
+        static_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
+        # The switch itself is owned by helpers/toggle; the setup shell keeps the
+        # surrounding layout, so both sheets are read as one shipped surface.
+        contents = (
+            (static_root / 'setup' / 'css' / 'main.css').read_text(encoding='utf-8')
+            + (static_root / 'helpers' / 'toggle' / 'css' / 'main.css').read_text(encoding='utf-8')
+        )
 
         self.assertIn('.dlux-settings-toggle-field {', contents)
         self.assertIn('container-type: inline-size was removed', contents)
@@ -2936,7 +2956,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('dlux-theme-settings-option__default-indicator', contents)
 
     def test_system_setup_css_defines_step_validation_warning_state(self):
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'css' / 'main.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
         self.assertIn('.dlux-setup-step-nav__item.has-validation-error {', contents)
@@ -2987,7 +3007,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('dlux-email-toggle-field__input', html)
 
     def test_system_setup_css_defines_dedicated_email_toggle_layout(self):
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'css' / 'main.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
         self.assertIn('.dlux-email-toggle-field {', contents)
@@ -2996,28 +3016,33 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('.dlux-email-toggle-field__input.form-check-input {', contents)
 
     def test_shared_switch_css_uses_pointer_for_enabled_toggle_inputs(self):
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'main.css'
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'base' / 'css' / 'main.css'
         contents = stylesheet.read_text(encoding='utf-8')
 
         self.assertIn('.form-switch .form-check-input:not(:disabled) {', contents)
         self.assertIn('cursor: pointer;', contents)
 
     def test_options_template_uses_external_assets_and_draggable_cards(self):
-        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'options.html'
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'system' / 'options.html'
         contents = template_path.read_text(encoding='utf-8')
 
-        self.assertIn("dlux/main/css/options.css", contents)
-        self.assertIn("dlux/main/js/options.js", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/main/css/options.css")
-        _assert_versioned_static_asset(self, contents, "dlux/main/js/options.js")
+        self.assertIn("dlux/system/css/options.css", contents)
+        self.assertIn("dlux/system/js/options.js", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/system/css/options.css")
+        _assert_versioned_static_asset(self, contents, "dlux/system/js/options.js")
         self.assertIn('{{ server_time_backend_display }}', contents)
         self.assertIn('id="dluxOptionsGrid"', contents)
         self.assertIn('dlux-admin-panel-card', contents)
         self.assertIn('dlux-admin-tile--status', contents)
-        self.assertIn('data-options-card="autofill"', contents)
+        self.assertIn('{% dlux_option_card slug="autofill"', contents)
         self.assertIn('dlux-options-reset-footer', contents)
-        self.assertIn('data-options-card-handle', contents)
-        self.assertIn('bi-grip-vertical', contents)
+        # Card chrome (drag handle, grip icon) is owned by the shared wrapper.
+        card_partial = (
+            Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'system' / 'option_card.html'
+        ).read_text(encoding='utf-8')
+        self.assertIn('data-options-card="{{ slug }}"', card_partial)
+        self.assertIn('data-options-card-handle', card_partial)
+        self.assertIn('bi-grip-vertical', card_partial)
         self.assertNotIn('bi-arrow-left-right', contents)
         # Assisted entry is two independent switches now, not one autofill toggle.
         self.assertIn('data-assist-pref="autofill_from_related"', contents)
@@ -3030,44 +3055,60 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('DLUX_STRINGS.system_settings_security', contents)
         self.assertNotIn("default:'Access & Security'", contents)
 
+    def test_dlux_first_component_catalog_includes_icon_picker(self):
+        guide = (Path(__file__).resolve().parents[2] / 'docs' / 'developer-guide.md').read_text(encoding='utf-8')
+        features = (Path(__file__).resolve().parents[2] / 'docs' / 'FEATURES.md').read_text(encoding='utf-8')
+        template = (Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'helpers' / 'icon_picker.html').read_text(encoding='utf-8')
+        script = (
+            Path(__file__).resolve().parents[1]
+            / 'static' / 'dlux' / 'helpers' / 'icon_picker' / 'js' / 'main.js'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('Dlux icon picker', guide)
+        self.assertIn('dlux/helpers/icon_picker.html', guide)
+        self.assertIn('initIconPickers()', guide)
+        self.assertIn('Dlux icon picker', features)
+        self.assertIn('data-dlux-icon-picker', template)
+        self.assertIn('function initIconPickers(root)', script)
+
     def test_base_template_versions_shared_main_stylesheet(self):
         template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'base.html'
         contents = template_path.read_text(encoding='utf-8')
 
-        self.assertIn("dlux/main/css/main.css", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/main/css/main.css")
-        self.assertIn("dlux/main/css/system_setup.css", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/main/css/system_setup.css")
-        self.assertIn("dlux_static 'dlux/main/css/system_setup.css'", contents)
-        self.assertIn("dlux/main/css/titlebar_surfaces.css", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/main/css/titlebar_surfaces.css")
+        self.assertIn("dlux/base/css/main.css", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/base/css/main.css")
+        self.assertIn("dlux/setup/css/main.css", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/setup/css/main.css")
+        self.assertIn("dlux_static 'dlux/setup/css/main.css'", contents)
+        self.assertIn("dlux/titlebar/css/surfaces.css", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/titlebar/css/surfaces.css")
         self.assertLess(
             contents.index("{% dlux_static theme.css_path %}"),
-            contents.index("dlux/main/css/titlebar_surfaces.css"),
+            contents.index("dlux/titlebar/css/surfaces.css"),
         )
-        self.assertIn("dlux/main/js/system_setup.js", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/main/js/system_setup.js")
-        self.assertIn("dlux_static 'dlux/main/js/system_setup.js'", contents)
-        self.assertIn("dlux_static 'dlux/helpers/prevent_double_submit.js'", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/helpers/prevent_double_submit.js")
+        self.assertIn("dlux/setup/js/main.js", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/setup/js/main.js")
+        self.assertIn("dlux_static 'dlux/setup/js/main.js'", contents)
+        self.assertIn("dlux_static 'dlux/forms/js/prevent_double_submit.js'", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/forms/js/prevent_double_submit.js")
         self.assertIn("dlux/helpers/wizard/js/main.js", contents)
         self.assertLess(
-            contents.index("dlux/main/js/system_setup.js"),
+            contents.index("dlux/setup/js/main.js"),
             contents.index("dlux/helpers/wizard/js/main.js"),
         )
         # Every versioned asset now goes through {% dlux_static %} (?v=<version>).
         self.assertGreaterEqual(contents.count("{% dlux_static"), 20)
-        self.assertIn("dlux/main/js/navbar.js", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/main/js/navbar.js")
-        self.assertIn("dlux/main/css/navbar.css", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/main/css/navbar.css")
+        self.assertIn("dlux/navbar/js/main.js", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/navbar/js/main.js")
+        self.assertIn("dlux/navbar/css/main.css", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/navbar/css/main.css")
         self.assertIn("{% dlux_static theme.css_path %}", contents)
-        self.assertIn("dlux/main/css/template_cleanup.css", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/main/css/template_cleanup.css")
+        self.assertIn("dlux/base/css/template_cleanup.css", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/base/css/template_cleanup.css")
 
     def test_system_setup_hides_sidebar_toggle_but_keeps_titlebar(self):
-        titlebar_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'titlebar.html'
-        setup_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'system_setup.html'
+        titlebar_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'titlebar' / 'main.html'
+        setup_template = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'setup' / 'main.html'
         view_source = Path(__file__).resolve().parents[1] / 'views' / 'general.py'
 
         titlebar_contents = titlebar_template.read_text(encoding='utf-8')
@@ -3077,18 +3118,18 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('and not hide_sidebar_toggle', titlebar_contents)
         self.assertIn('id="sidebarToggle"', titlebar_contents)
         self.assertIn("'hide_sidebar_toggle': True,", view_contents)
-        self.assertIn("dlux_static 'dlux/main/css/system_setup.css'", setup_contents)
+        self.assertIn("dlux_static 'dlux/setup/css/main.css'", setup_contents)
         self.assertLess(
             setup_contents.index('dlux-setup-intro__text'),
             setup_contents.index('dlux-setup-page-logo'),
         )
 
-        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
+        stylesheet = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'css' / 'main.css'
         stylesheet_contents = stylesheet.read_text(encoding='utf-8')
         self.assertIn('text-align: start;', stylesheet_contents)
 
     def test_double_submit_helper_preserves_named_submitter_values(self):
-        script_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'helpers' / 'prevent_double_submit.js'
+        script_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'forms' / 'js' / 'prevent_double_submit.js'
         contents = script_path.read_text(encoding='utf-8')
 
         self.assertIn('const submitBtn = event.submitter ||', contents)
@@ -3097,13 +3138,13 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertLess(contents.index('window.setTimeout(() => {'), contents.index('submitBtn.disabled = true'))
 
     def test_system_setup_language_gate_template_uses_setup_language_choices(self):
-        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes' / 'system_setup_language.html'
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'setup' / 'language.html'
         contents = template_path.read_text(encoding='utf-8')
 
         self.assertIn('name="setup_language"', contents)
         self.assertIn('data-setup-language-start="{{ code }}"', contents)
         self.assertIn('dlux-setup-language-choice', contents)
-        self.assertIn("dlux_static 'dlux/main/css/system_setup.css'", contents)
+        self.assertIn("dlux_static 'dlux/setup/css/main.css'", contents)
         self.assertLess(
             contents.index('dlux-setup-intro__text'),
             contents.index('dlux-setup-page-logo'),
@@ -3142,7 +3183,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('disabled aria-disabled="true"', html)
 
     def test_theme_preview_surfaces_include_aether_and_light_mono(self):
-        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'template_cleanup.css'
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'themes' / 'css' / 'previews.css'
         contents = css_path.read_text(encoding='utf-8')
 
         self.assertIn('.dlux-theme-preview--mono', contents)
@@ -3172,7 +3213,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
             self.assertIn(f':root.theme-{theme_name} .titlebar[data-titlebar-logo-treatment="contrast"] .titlebar__logo {{', contents)
 
     def test_options_theme_system_settings_tiles_include_aether(self):
-        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'options.css'
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'
         contents = css_path.read_text(encoding='utf-8')
 
         self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-tile,', contents)
@@ -3183,17 +3224,17 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn(':root.theme-aether .dlux-system-settings-actions .dlux-system-settings-action--secondary,', contents)
 
     def test_verify_template_uses_versioned_auto_verify_script_and_trust_device_checkbox(self):
-        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / '2fa' / 'verify.html'
-        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'users' / 'css' / 'login.css'
-        script_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'users' / 'js' / 'twofa_verify.js'
+        template_path = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'auth' / 'verify.html'
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'auth' / 'css' / 'login.css'
+        script_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'auth' / 'js' / 'twofa_verify.js'
         contents = template_path.read_text(encoding='utf-8')
         stylesheet = css_path.read_text(encoding='utf-8')
         script = script_path.read_text(encoding='utf-8')
 
-        self.assertIn("dlux/users/css/login.css", contents)
-        self.assertIn("dlux/users/js/twofa_verify.js", contents)
-        _assert_versioned_static_asset(self, contents, "dlux/users/css/login.css")
-        _assert_versioned_static_asset(self, contents, "dlux/users/js/twofa_verify.js")
+        self.assertIn("dlux/auth/css/login.css", contents)
+        self.assertIn("dlux/auth/js/twofa_verify.js", contents)
+        _assert_versioned_static_asset(self, contents, "dlux/auth/css/login.css")
+        _assert_versioned_static_asset(self, contents, "dlux/auth/js/twofa_verify.js")
         self.assertIn('id="usePrimaryMethodBtn"', contents)
         self.assertIn('name="trust_device"', contents)
         self.assertIn('dlux-twofa-login-state', contents)
@@ -3215,9 +3256,15 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
     def test_recent_2fa_and_client_ip_surfaces_do_not_use_hardcoded_translation_fallbacks(self):
         project_root = Path(__file__).resolve().parents[1]
-        forms_contents = (project_root / 'forms.py').read_text(encoding='utf-8')
+        forms_contents = '\n'.join(
+            path.read_text(encoding='utf-8')
+            for path in sorted((project_root / 'forms').glob('*.py'))
+        )
         profile_contents = (project_root / 'templates' / 'dlux' / 'users' / 'profile.html').read_text(encoding='utf-8')
-        translation_contents = (project_root / 'translations.py').read_text(encoding='utf-8')
+        translation_contents = '\n'.join(
+            path.read_text(encoding='utf-8')
+            for path in sorted((project_root / 'translations').rglob('*.py'))
+        )
 
         self.assertNotIn("s.get('form_sys_client_ip_mode', 'Client IP source')", forms_contents)
         self.assertNotIn("s.get('client_ip_settings_title', 'Client IP Resolution')", forms_contents)
@@ -3239,6 +3286,10 @@ class DluxDefaultRouteTests(SimpleTestCase):
         _assert_versioned_static_asset(self, contents, "dlux/helpers/dynamic_modal/js/main.js")
         self.assertIn('nonce="{{ request.csp_nonce }}"', contents)
         self.assertIn("'Accept': 'application/json'", script)
+        delegated_click = script[script.index('// 1. Listen for clicks'):script.index('// Programmatic trigger')]
+        self.assertIn("document.addEventListener('click', function(e)", delegated_click)
+        self.assertNotIn("document.body.addEventListener('click'", delegated_click)
+        self.assertIn('}, true);', delegated_click)
         self.assertIn("dynamic-modal-loading-shell", script)
         self.assertIn("dynamic-modal-overlay", script)
         self.assertIn("hasUsablePreviousFallback", script)
@@ -3276,7 +3327,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn("controlFor(container, '.dlux-btn-submit')", script)
 
     def test_setup_editor_templates_use_ids_not_post_names_for_js_controls(self):
-        templates_root = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'includes'
+        templates_root = Path(__file__).resolve().parents[1] / 'templates' / 'dlux' / 'setup'
 
         language_editor = (templates_root / 'language_catalog_editor.html').read_text(encoding='utf-8')
         system_names_editor = (templates_root / 'system_names_editor.html').read_text(encoding='utf-8')
@@ -3286,9 +3337,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
             Path(__file__).resolve().parents[1]
             / 'static'
             / 'dlux'
-            / 'main'
+            / 'setup'
             / 'js'
-            / 'system_setup.js'
+            / 'main.js'
         ).read_text(encoding='utf-8')
 
         self.assertIn('id="dlux-language-code-input"', language_editor)
@@ -3320,11 +3371,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertNotIn('name="sidebarSystemItemsToggle-', html)
         # Coarse budget guarding against JS-only editor controls leaking into the
         # POST; raised for the Step 13 backup-recovery fields.
-        self.assertLess(len(re.findall(r'\sname=', html)), 215)
+        self.assertLess(len(re.findall(r'\sname=', html)), 230)
 
     def test_options_assets_define_shared_card_system_and_reorder_logic(self):
-        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'options.css'
-        js_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'options.js'
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'
+        js_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'js' / 'options.js'
 
         css_contents = css_path.read_text(encoding='utf-8')
         js_contents = js_path.read_text(encoding='utf-8')
@@ -3362,7 +3413,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('return event.clientX < midpoint;', js_contents)
 
     def test_updates_tile_metadata_wraps_inside_narrow_cards(self):
-        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'options.css'
+        css_path = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'css' / 'options.css'
         contents = css_path.read_text(encoding='utf-8')
 
         row_rule = contents.split('.dlux-upd-row {', 1)[1].split('}', 1)[0]
@@ -3386,7 +3437,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         template = template_path.read_text(encoding='utf-8')
         script = script_path.read_text(encoding='utf-8')
 
-        confirm_js = (Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'confirm_password.js').read_text(encoding='utf-8')
+        confirm_js = (Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'system' / 'js' / 'confirm_password.js').read_text(encoding='utf-8')
 
         _assert_versioned_static_asset(self, template, "dlux/users/js/profile_2fa.js")
         self.assertIn('profile-session-trust-form', template)
@@ -3412,12 +3463,12 @@ class DluxDefaultRouteTests(SimpleTestCase):
     def test_global_confirm_password_prompt_wiring(self):
         base = Path(__file__).resolve().parents[1]
         base_html = (base / 'templates' / 'dlux' / 'base.html').read_text(encoding='utf-8')
-        options_html = (base / 'templates' / 'dlux' / 'includes' / 'options.html').read_text(encoding='utf-8')
-        partial = (base / 'templates' / 'dlux' / 'includes' / 'confirm_password_modal.html').read_text(encoding='utf-8')
-        options_js = (base / 'static' / 'dlux' / 'main' / 'js' / 'options.js').read_text(encoding='utf-8')
+        options_html = (base / 'templates' / 'dlux' / 'system' / 'options.html').read_text(encoding='utf-8')
+        partial = (base / 'templates' / 'dlux' / 'system' / 'confirm_password_modal.html').read_text(encoding='utf-8')
+        options_js = (base / 'static' / 'dlux' / 'system' / 'js' / 'options.js').read_text(encoding='utf-8')
 
         # base.html renders the global prompt + loads its script for authenticated users.
-        self.assertIn("include 'dlux/includes/confirm_password_modal.html'", base_html)
+        self.assertIn("include 'dlux/system/confirm_password_modal.html'", base_html)
         self.assertIn('confirm_password.js', base_html)
         # Redesigned admin-style modal (header + warning alert + footer).
         self.assertIn('data-dlux-confirm-modal', partial)
@@ -3479,9 +3530,9 @@ class DluxDefaultRouteTests(SimpleTestCase):
             rel_path = path.relative_to(templates_root).as_posix()
             # base.html: dynamic font-face bridge. system_setup.html: a tiny
             # layout guard that forces the setup shell to a flow box, rendered
-            # live from the template so a stale collected system_setup.css cannot
+            # live from the template so a stale collected setup stylesheet cannot
             # reintroduce the position:fixed/measured-top that hid the shell.
-            inline_style_allowed = {'dlux/base.html', 'dlux/includes/system_setup.html'}
+            inline_style_allowed = {'dlux/base.html', 'dlux/setup/main.html'}
             if re.search(r'<style\b', contents, re.IGNORECASE) and rel_path not in inline_style_allowed:
                 violations.append(f'{rel_path}:style-block')
             if inline_script_pattern.search(contents):
@@ -3491,8 +3542,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
     def test_template_html_emitters_do_not_hardcode_inline_css_or_js(self):
         repo_root = Path(__file__).resolve().parents[2]
-        emitter_paths = [
-            repo_root / 'dlux' / 'forms.py',
+        emitter_paths = sorted((repo_root / 'dlux' / 'forms').glob('*.py')) + [
             repo_root / 'dlux' / 'widgets.py',
         ]
         inline_script_pattern = re.compile(
@@ -3500,9 +3550,14 @@ class DluxDefaultRouteTests(SimpleTestCase):
             re.IGNORECASE,
         )
 
+        # An emitted HTML style attribute is always quoted, and the name is never
+        # a suffix. A bare `style=` substring also matches Python keywords like
+        # `font_style=` and `style=value`, which are not inline CSS.
+        inline_style_pattern = re.compile(r'(?<![\w_])style=["\']')
+
         for path in emitter_paths:
             contents = path.read_text(encoding='utf-8')
-            self.assertNotIn('style=', contents, str(path))
+            self.assertIsNone(inline_style_pattern.search(contents), str(path))
             self.assertNotIn('<style', contents, str(path))
             self.assertIsNone(inline_script_pattern.search(contents), str(path))
 
@@ -3635,7 +3690,8 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertEqual(form.initial['default_table_density'], DEFAULT_TABLE_DENSITY)
 
     @override_settings(DLUX_CONFIG={'default_language': 'ar'})
-    @patch('dlux.discovery.discover_routes')
+    # discover_sidebar_catalog calls it from the routes module's own binding.
+    @patch('dlux.discovery.routes.discover_routes')
     def test_setup_form_provides_sidebar_builder_with_language_catalog_and_english_fallback(self, mock_discover_routes):
         # Every builder catalog is now a projection of one global catalog, so the
         # per-language behaviour is pinned at that single source.
@@ -3671,7 +3727,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
         self.assertIn('Demo', form.sidebar_builder_html)
 
     def test_system_setup_js_keeps_last_allowed_theme_postable(self):
-        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
+        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
         contents = script.read_text(encoding='utf-8')
 
         self.assertNotIn('checkbox.disabled = checkbox.checked && resolvedAllowedThemes.length === 1;', contents)
@@ -3693,7 +3749,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
     def test_theme_runtime_fades_explicit_switches_and_honors_reduced_motion(self):
         assets_root = Path(__file__).resolve().parents[1] / 'static' / 'dlux'
         theme_script = (assets_root / 'themes' / 'js' / 'main.js').read_text(encoding='utf-8')
-        main_css = (assets_root / 'main' / 'css' / 'main.css').read_text(encoding='utf-8')
+        main_css = (assets_root / 'base' / 'css' / 'main.css').read_text(encoding='utf-8')
         sidebar_css = (assets_root / 'sidebar' / 'css' / 'main.css').read_text(encoding='utf-8')
 
         self.assertIn('function fadeThemeSwitch(resolvedTheme)', theme_script)

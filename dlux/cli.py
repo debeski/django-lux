@@ -55,7 +55,8 @@ def main(argv=None):
 
     updater_parser = subparsers.add_parser(
         "enable-updater",
-        help="Bootstrap verified inline updates in a generated Compose project",
+        help="DEPRECATED (removed in 1.9.0): bootstrap the in-container updater; "
+             "use Composer-side inline updates instead",
     )
     updater_parser.add_argument(
         "--apply",
@@ -102,6 +103,18 @@ def main(argv=None):
             )
             print(f"Created app scaffold at {app_root}")
         elif args.command == "enable-updater":
+            print(
+                "Deprecated: the in-container DjangoLux updater is replaced by "
+                "Composer-side inline updates in 1.8.0 and is REMOVED in 1.9.0.\n"
+                "  Composer stages and verifies a release before activating it and "
+                "health-gates the restart from outside the container, so it can roll "
+                "back a release that failed to start.\n"
+                "  Migrate:  composer check --fix   (retires the dlux-updater service, "
+                "keeping the runtime volume)\n"
+                "  Verify:   composer dlux-update --dry-run\n"
+                "  Details:  docs/updater-consolidation.md",
+                file=sys.stderr,
+            )
             result = enable_updater(apply=args.apply)
             mode = "Applied" if result["applied"] else "Dry run"
             files = ", ".join(result["files"]) if result["files"] else "no changes"

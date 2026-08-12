@@ -12,7 +12,7 @@ from django.contrib.auth.views import (
 from django.http import Http404
 from django.urls import reverse_lazy
 
-from ..password_reset import (
+from ..auth.password_reset import (
     DluxPasswordResetForm,
     forgot_password_available,
     reset_email_system_name,

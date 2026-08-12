@@ -1,7 +1,7 @@
 # Imports of the required python modules and libraries
 ######################################################
 from django.urls import path
-from . import views, utils, api
+from . import views, api
 from django.contrib.auth import views as auth_views
 
 # app_name = 'dlux'
@@ -110,6 +110,8 @@ urlpatterns = [
     path('sys/groups/<int:pk>/public-registration-default/', views.toggle_group_public_registration_default, name='toggle_group_public_registration_default'),
     # Sections Management URLs
     path('sys/options/', views.options_view, name='options_view'),
+    path('sys/assets/', views.asset_manager_page, name='asset_manager'),
+    path('sys/assets/delete/<int:pk>/', views.asset_manager_delete, name='asset_manager_delete'),
     path('sys/options/app-settings/<str:namespace>/', views.app_settings_modal_view, name='dlux_app_settings_modal'),
     path('sys/api/celery-health/', views.celery_health_check_view, name='celery_health_check'),
     path('sys/admin/force-password-change-all/', views.force_password_change_all_view, name='dlux_force_pass_change_all'),
@@ -134,7 +136,7 @@ urlpatterns = [
     path('sys/2fa/resend/<str:intent>/', views.resend_otp, name='resend_otp'), # Generic resend
     path('sys/2fa/resend/', views.resend_otp, {'intent': 'login'}, name='resend_otp_login'),
     # Sidebar Toggle URL
-    path('sys/toggle-sidebar/', utils.toggle_sidebar, name='toggle_sidebar'),
+    path('sys/toggle-sidebar/', views.toggle_sidebar, name='toggle_sidebar'),
     # Autofill API
     path('sys/api/last-entry/<str:app_label>/<str:model_name>/', api.get_last_entry, name='api_get_last_entry'),
     # model details API

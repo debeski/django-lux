@@ -1,0 +1,24 @@
+{% load dlux_tags %}
+{# Reusable global footer: a faint, very small copyright/credit strip pinned to #}
+{# the bottom of the viewport (styled in dlux/system/css/footer.css).             #}
+{#                                                                              #}
+{# Visibility: the built-in footer (admin text/link/default line) only renders  #}
+{# when System Settings → Identity → Footer has it enabled. A dev                #}
+{# `custom_footer.html` partial or a `footer` block override is explicit code    #}
+{# and always renders, regardless of that toggle.                               #}
+{#                                                                              #}
+{# Content resolution (most specific wins):                                     #}
+{#   1. Override the `footer` block in a page template that extends base.html.   #}
+{#   2. Drop a `dlux/includes/custom_footer.html` partial (rendered as raw HTML  #}
+{#      — links / bootstrap icons allowed).                                      #}
+{#   3. System Settings Footer text (+ optional link), surfaced as              #}
+{#      APP_CONFIG.appearance.footer_text / footer_link_text / footer_link_url   #}
+{#      (the URL is scheme-validated server-side; plain text is auto-escaped).   #}
+{#   4. DLUX_STRINGS.footer_text in code as a translated fallback.               #}
+{#   5. Otherwise a default "© <year> <system name>" line.                      #}
+{% include_if_exists 'dlux/includes/custom_footer.html' as custom_footer %}
+{% if custom_footer or APP_CONFIG.appearance.footer_enabled %}
+<footer class="dlux-footer" role="contentinfo">
+    {% if custom_footer %}{{ custom_footer }}{% else %}<span class="dlux-footer__text">{% if APP_CONFIG.appearance.footer_text %}{{ APP_CONFIG.appearance.footer_text }}{% elif DLUX_STRINGS.footer_text %}{{ DLUX_STRINGS.footer_text }}{% else %}&copy; {% now "Y" %} {{ APP_CONFIG.identity.display_name|default:"DjangoLux" }}{% endif %}</span>{% if APP_CONFIG.appearance.footer_link_url %}<a class="dlux-footer__link" href="{{ APP_CONFIG.appearance.footer_link_url }}">{{ APP_CONFIG.appearance.footer_link_text|default:APP_CONFIG.appearance.footer_link_url }}</a>{% endif %}{% endif %}
+</footer>
+{% endif %}

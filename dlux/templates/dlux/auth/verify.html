@@ -1,0 +1,194 @@
+{% extends 'dlux/base.html' %}
+{% load static %}
+{% load dlux_tags %}
+{% block title %}{{ DLUX_STRINGS.2fa_verify_title }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% dlux_static 'dlux/auth/css/login.css' %}">
+{% endblock %}
+{% block titlebar %}{% endblock %}
+
+{% block layout %}
+{% with lc=login_config|default:APP_CONFIG.login %}
+{% with ls=lc.style|default:"split" lt=lc.logo_treatment|default:"none" lts=lc.logo_treatment_shape|default:"soft" lbc=lc.banner_color|default:"" sl=lc.show_logo %}
+{% include 'dlux/notifications/messages.html' with dlux_flash_mode='page' %}
+<div class="page dlux-login--{{ ls }} dlux-twofa-verify{% if user_methods %} dlux-twofa-verify--methods{% endif %}"{% if lc.background_url %} data-login-background-url="{{ lc.background_url }}"{% endif %}>
+
+    <div class="container">
+      <div class="left">
+        {% if sl %}
+        {# Mobile: shown for all styles. Desktop: shown only for fullpage (logo sits above the form). #}
+        <div class="d-flex flex-column align-items-center mb-4 dlux-login-form-logo {% if ls != 'fullpage' %}d-md-none{% endif %}">
+            <div class="logo-frame" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}">
+                <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ DLUX_STRINGS.login_logo_alt }}" class="logo-img">
+            </div>
+        </div>
+        {% endif %}
+        <form method="post" action="" class="w-100">
+            {% csrf_token %}
+
+            <div class="form m-0 mx-auto text-center">
+                {% if user_methods %}
+                    <div class="mb-4 login-2fa-panel">
+                        <div class="login-2fa-icon"><i class="bi bi-shield-lock"></i></div>
+                        <p class="text-muted small mt-2 mb-3" id="otp-instruction-text">
+                            {% if challenge_state.current_method == 'backup_code' %}
+                                {{ DLUX_STRINGS.2fa_backup_instruction }}
+                            {% elif challenge_state.current_method == 'email' %}
+                                {% if challenge_state.email_sent or challenge_state.email_auto_sent %}
+                                    {{ DLUX_STRINGS.2fa_email_sent_instruction }}
+                                {% else %}
+                                    {{ DLUX_STRINGS.2fa_email_request_instruction }}
+                                {% endif %}
+                            {% else %}
+                                {{ DLUX_STRINGS.2fa_totp_or_email_instruction }}
+                            {% endif %}
+                        </p>
+                        <div class="d-flex justify-content-center gap-2 flex-wrap login-2fa-actions">
+                            {% if user_methods.email %}
+                            <button type="button"
+                                    class="login-2fa-method-btn"
+                                    id="sendEmailOtpBtn"
+                                    data-url="{% url 'resend_otp_login' %}"
+                                    data-csrf="{{ csrf_token }}"
+                                    data-method="email"
+                                    data-send-label="{{ DLUX_STRINGS.2fa_send_email_code }}"
+                                    data-resend-label="{{ DLUX_STRINGS.2fa_resend_btn }}"
+                                    data-sent-text="{{ DLUX_STRINGS.2fa_email_sent_instruction }}"
+                                    data-request-text="{{ DLUX_STRINGS.2fa_email_request_instruction }}"
+                                    data-cooldown-seconds="{{ challenge_state.email_resend_cooldown_seconds|default:0 }}"
+                                    data-cooldown-template="{{ DLUX_STRINGS.2fa_email_resend_wait }}"
+                                    data-error-text="{{ DLUX_STRINGS.err_unable_send_code }}"
+                                    data-dlux-tooltip="{% if challenge_state.email_sent or challenge_state.email_auto_sent %}{{ DLUX_STRINGS.2fa_resend_btn }}{% elif user_methods.totp %}{{ DLUX_STRINGS.2fa_send_email_instead }}{% else %}{{ DLUX_STRINGS.2fa_send_email_code }}{% endif %}"
+                                    aria-label="{{ DLUX_STRINGS.2fa_send_email_code }}">
+                                <i class="bi bi-envelope"></i>
+                                <span class="btn-label visually-hidden">{% if challenge_state.email_sent or challenge_state.email_auto_sent %}{{ DLUX_STRINGS.2fa_resend_btn }}{% elif user_methods.totp %}{{ DLUX_STRINGS.2fa_send_email_instead }}{% else %}{{ DLUX_STRINGS.2fa_send_email_code }}{% endif %}</span>
+                            </button>
+                            {% endif %}
+                            {% if user_methods.totp and not challenge_state.email_only %}
+                            <button type="button"
+                                    class="login-2fa-method-btn"
+                                    id="useTotpBtn"
+                                    data-method="totp"
+                                    data-instruction-text="{{ DLUX_STRINGS.2fa_totp_or_email_instruction }}"
+                                    data-dlux-tooltip="{{ DLUX_STRINGS.2fa_use_authenticator }}"
+                                    aria-label="{{ DLUX_STRINGS.2fa_use_authenticator }}">
+                                <i class="bi bi-phone"></i>
+                            </button>
+                            {% endif %}
+                            {% if user_methods.backup %}
+                            <button type="button"
+                                    class="login-2fa-method-btn"
+                                    id="useBackupCodeBtn"
+                                    data-method="backup_code"
+                                    data-instruction-text="{{ DLUX_STRINGS.2fa_backup_instruction }}"
+                                    data-dlux-tooltip="{{ DLUX_STRINGS.2fa_use_backup_code }}"
+                                    aria-label="{{ DLUX_STRINGS.2fa_use_backup_code }}">
+                                <i class="bi bi-safe"></i>
+                            </button>
+                            {% endif %}
+                            <button type="button"
+                                    class="login-2fa-method-btn login-2fa-method-btn--return d-none"
+                                    id="usePrimaryMethodBtn"
+                                    data-method="{{ challenge_state.default_method|default:'email' }}"
+                                    data-label-email="{{ DLUX_STRINGS.2fa_return_to_email }}"
+                                    data-label-totp="{{ DLUX_STRINGS.2fa_return_to_authenticator }}"
+                                    data-label-default="{{ DLUX_STRINGS.2fa_return_to_default }}"
+                                    data-dlux-tooltip="{{ DLUX_STRINGS.2fa_return_to_default }}"
+                                    aria-label="{{ DLUX_STRINGS.2fa_return_to_default }}">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                                <span class="btn-label visually-hidden">{{ DLUX_STRINGS.2fa_return_to_default }}</span>
+                            </button>
+                        </div>
+                        <p class="small text-muted mt-3 mb-0" id="emailOtpStatusText"></p>
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-4">{{ DLUX_STRINGS.2fa_verify_desc }}</p>
+                {% endif %}
+
+                {% if error_message %}
+                    <div class="alert alert-danger dlux-twofa-inline-alert" role="alert" id="otp-inline-error">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ error_message }}
+                    </div>
+                {% else %}
+                    <div class="alert alert-danger dlux-twofa-inline-alert d-none" role="alert" id="otp-inline-error"></div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label for="otp_code" class="visually-hidden">{{ DLUX_STRINGS.2fa_code }}</label>
+                    <input type="text"
+                           class="login-input text-center fw-bold dlux-otp-code-input"
+                           id="otp_code"
+                           name="otp_code"
+                           placeholder="{% if challenge_state.current_method == 'backup_code' %}XXXXXXXX{% else %}XXXXXX{% endif %}"
+                           maxlength="{{ challenge_state.code_length|default:8 }}"
+                           inputmode="numeric"
+                           autocomplete="one-time-code"
+                           autofocus
+                           required>
+                </div>
+                {% if intent == 'login' %}
+                    <input type="hidden" name="method" id="otp_method" value="{{ challenge_state.current_method|default:'email' }}">
+                    <div class="form-check dlux-twofa-trust-field mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" value="1" id="trust_device" name="trust_device">
+                        <label class="form-check-label small" for="trust_device">
+                            {{ DLUX_STRINGS.2fa_trust_device_label }}
+                        </label>
+                    </div>
+                {% endif %}
+
+                <button type="submit" class="w-100 btn btn-lg mt-2" id="submit">{{ DLUX_STRINGS.2fa_verify_btn }}</button>
+
+                <div class="login-2fa-footer mt-3">
+                    {% if intent == 'login' %}
+                        <a href="{% url 'login' %}" class="login-2fa-back">
+                            <i class="bi bi-arrow-left"></i>
+                            <span>{{ DLUX_STRINGS.back_to_login }}</span>
+                        </a>
+                    {% else %}
+                        <button type="submit" form="resendOtpEnableForm" class="login-2fa-back login-2fa-back--btn">
+                            <i class="bi bi-arrow-repeat"></i>
+                            <span>{{ DLUX_STRINGS.2fa_resend_btn }}</span>
+                        </button>
+                        <a href="{% url 'user_profile' %}" class="login-2fa-back">
+                            <i class="bi bi-x-lg"></i>
+                            <span>{{ DLUX_STRINGS.btn_cancel }}</span>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+      </div>
+
+      <div class="right d-none d-md-flex" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}"{% if lbc %} data-login-banner-color="{{ lbc }}"{% endif %}>
+          {% if ls == 'fullpage' %}
+          <div class="dlux-login-hero">
+            <div class="dlux-login-hero__body" data-dlux-login-hero="{{ login_hero_message }}"></div>
+          </div>
+          {% elif sl %}
+          <div class="logo-frame" data-login-logo-treatment="{{ lt }}" data-login-logo-treatment-shape="{{ lts }}">
+            <img src="{{ APP_CONFIG.login_logo_url|default:APP_CONFIG.logo_url }}" alt="{{ DLUX_STRINGS.login_logo_alt }}" class="logo-img">
+          </div>
+          {% endif %}
+      </div>
+    </div>
+</div>
+{% endwith %}
+{% endwith %}
+
+{% if intent == 'login' %}
+<form id="resendOtpLoginForm" method="post" action="{% url 'resend_otp_login' %}" class="d-none">
+    {% csrf_token %}
+</form>
+{{ challenge_state|json_script:"dlux-twofa-login-state" }}
+{% else %}
+<form id="resendOtpEnableForm" method="post" action="{% url 'resend_otp' intent %}" class="d-none">
+    {% csrf_token %}
+    <input type="hidden" name="intent" value="{{ intent }}">
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% dlux_static 'dlux/auth/js/login.js' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% dlux_static 'dlux/auth/js/twofa_verify.js' %}" nonce="{{ request.csp_nonce }}"></script>
+{% endblock %}

@@ -45,6 +45,8 @@ from ..system.constants import (
     SIDEBAR_COLLAPSE_MODE_VALUES,
     SIDEBAR_DENSITY_VALUES,
     TABLE_DENSITY_VALUES,
+    THEME_PICKER_LOCATION_VALUES,
+    DEFAULT_THEME_PICKER_LOCATION,
     TITLEBAR_ALIGN_VALUES,
     TITLEBAR_HEIGHT_VALUES,
     TITLEBAR_HOME_SHAPE_VALUES,
@@ -417,6 +419,7 @@ def build_config_groups(config, current_language=None):
         },
         'personalization': {
             'allow_user_theme_override': bool(config.get('allow_user_theme_override', True)),
+            'theme_picker_location': config.get('theme_picker_location', DEFAULT_THEME_PICKER_LOCATION),
             'allow_user_language_override': bool(config.get('allow_user_language_override', True)),
             'allow_user_sidebar_density': bool(
                 normalize_sidebar_behavior(config.get('sidebar', {})).get('allow_user_density', True)
@@ -976,12 +979,27 @@ def get_system_config():
             )
         ):
             db_config['system_names'] = sys_settings.system_names
-        logo_url = _stored_asset_url(sys_settings.logo)
+        logo_url = _stored_asset_url(getattr(getattr(sys_settings, 'logo_asset', None), 'file', None))
+        if not logo_url:
+            logo_url = _stored_asset_url(sys_settings.logo)
         if logo_url:
             db_config['logo'] = logo_url
             db_config['logo_url'] = logo_url
+        login_logo_url = _stored_asset_url(
+            getattr(getattr(sys_settings, 'login_logo_asset', None), 'file', None)
+        )
+        if login_logo_url:
+            db_config['login_logo_url'] = login_logo_url
+        elif logo_url:
             db_config['login_logo_url'] = logo_url
-        favicon_url = _stored_asset_url(sys_settings.favicon)
+        login_background_url = _stored_asset_url(
+            getattr(getattr(sys_settings, 'login_background_asset', None), 'file', None)
+        )
+        if login_background_url:
+            db_config['login_background_url'] = login_background_url
+        favicon_url = _stored_asset_url(getattr(getattr(sys_settings, 'favicon_asset', None), 'file', None))
+        if not favicon_url:
+            favicon_url = _stored_asset_url(sys_settings.favicon)
         if favicon_url:
             db_config['favicon'] = favicon_url
             db_config['favicon_url'] = favicon_url
@@ -1019,6 +1037,14 @@ def get_system_config():
             )
         ):
             db_config['allow_user_theme_override'] = bool(sys_settings.allow_user_theme_override)
+        if (
+            hasattr(sys_settings, 'theme_picker_location')
+            and _should_apply_db_override(
+                sys_settings.theme_picker_location,
+                default_config['theme_picker_location'],
+            )
+        ):
+            db_config['theme_picker_location'] = sys_settings.theme_picker_location
         if (
             hasattr(sys_settings, 'allow_user_language_override')
             and _should_apply_db_override(
@@ -1417,6 +1443,8 @@ def get_system_config():
     elif not is_valid_theme(final_config.get('default_theme')):
         final_config['default_theme'] = final_config['allowed_themes'][0]
     final_config['allow_user_theme_override'] = bool(final_config.get('allow_user_theme_override', True))
+    if final_config.get('theme_picker_location') not in THEME_PICKER_LOCATION_VALUES:
+        final_config['theme_picker_location'] = default_config['theme_picker_location']
     final_config['allow_user_language_override'] = bool(final_config.get('allow_user_language_override', True))
     final_config['email_config'] = normalize_email_config(final_config.get('email_config', {}))
     if final_config.get('default_table_density') not in TABLE_DENSITY_VALUES:
@@ -1428,6 +1456,10 @@ def get_system_config():
     final_config['login_logo_url'] = _normalize_asset_url(
         final_config.get('login_logo_url') or final_config.get('login_logo') or final_config['logo_url']
     )
+    final_config['login_background_url'] = _normalize_asset_url(
+        final_config.get('login_background_url') or ''
+    )
+    final_config['login']['background_url'] = final_config['login_background_url']
     final_config['favicon_url'] = _normalize_asset_url(
         final_config.get('favicon_url') or final_config.get('favicon') or default_config['favicon']
     )

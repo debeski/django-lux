@@ -207,8 +207,22 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn('DJANGO_SETTINGS_MODULE: "config.settings"', compose_contents)
             self.assertIn('command: ["python", "-m", "dlux.smtp_relay"]', compose_contents)
             self.assertIn("celery:", compose_contents)
-            self.assertIn('command: ["python", "-m", "dlux.updater.supervisor", "--", "python", "-m", "celery", "-A", "config", "worker", "-B", "--loglevel=info"]', compose_contents)
-            self.assertIn("dlux-updater:", compose_contents)
+            # The dlux-updater service is retired. Celery is a plain worker
+            # (beat carries the DjangoLux state loop); Composer owns runtime
+            # reconcile and migrations via the pre-start label, and the
+            # entrypoint gate keeps web from serving before they are applied.
+            self.assertNotIn("  dlux-updater:", compose_contents)
+            self.assertIn(
+                'command: ["python", "-m", "dlux.updater.supervisor", "--", '
+                '"python", "-m", "celery", "-A", "config", "worker", "-B", '
+                '"--loglevel=info"]',
+                compose_contents,
+            )
+            # Native Compose init containers, not a composer-read label.
+            self.assertIn("    pre_start:", compose_contents)
+            self.assertIn("${DLUX_MIGRATOR_FLAGS:-}", compose_contents)
+            self.assertNotIn("org.dlux.post-start:", compose_contents)
+            self.assertNotIn("org.dlux.pre-start:", compose_contents)
             self.assertIn('DLUX_INLINE_UPDATES_ENABLED: "True"', compose_contents)
             self.assertIn("dlux_runtime:/opt/dlux-runtime:rw", compose_contents)
             self.assertIn("dlux_runtime:/opt/dlux-runtime:ro", compose_contents)
@@ -244,11 +258,16 @@ class ScaffoldTests(unittest.TestCase):
             # the same runtime-active DjangoLux release gunicorn serves templates
             # from; run raw it collects from the baked image and, running last on
             # recreate, leaves version-mismatched static.
-            self.assertIn(
-                'org.dlux.post-start: "python -m dlux.updater.supervisor'
-                ' --no-watch -- python manage.py migrator"',
-                compose_contents,
-            )
+            # The steps are declared on celery, not web: a pre_start step
+            # inherits its service's mounts, and dlux_reconcile writes the
+            # runtime pointer, which is read-only on web.
+            celery_block = compose_contents[compose_contents.index("\n  celery:"):]
+            self.assertIn("pre_start:", celery_block)
+            self.assertIn("dlux_reconcile", celery_block)
+            self.assertIn('DLUX_BOOT_GATE: "off"', celery_block)
+            web_block = compose_contents[
+                compose_contents.index("\n  web:"):compose_contents.index("\n  celery:")]
+            self.assertNotIn("pre_start:", web_block)
             self.assertNotIn("- command: python manage.py migrator\n", compose_contents)
             self.assertIn('image: !reset null', compose_dev_contents)
             self.assertIn("celery:", compose_dev_contents)
@@ -318,7 +337,7 @@ class ScaffoldTests(unittest.TestCase):
         """
         expected = 1
         marker = re.compile(r"^#\s*composer-wrapper:\s*(\d+)\s*$", re.MULTILINE)
-        templates = Path(__file__).resolve().parents[1] / "scaffold_templates" / "project"
+        templates = Path(__file__).resolve().parents[1] / "scaffold" / "templates" / "project"
         for name in ("start.sh.tmpl", "start.ps1.tmpl"):
             with self.subTest(template=name):
                 found = marker.search((templates / name).read_text(encoding="utf-8"))
@@ -448,6 +467,159 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("from django.urls import include, path", urls_contents)
 
 
+class TemplatePackagingTests(unittest.TestCase):
+    """Every template must be declared as package data.
+
+    Today `include-package-data = true` and `MANIFEST.in`'s
+    `recursive-include dlux *` are what actually put the templates in the wheel,
+    so the package-data declaration is belt-and-braces. This guard keeps that
+    second belt honest: if `include-package-data` is turned off or MANIFEST.in
+    is narrowed, package-data becomes the mechanism, and an uncovered template
+    then breaks `startproject` only for someone who installed the wheel — never
+    in the source tree, and never in this suite.
+    """
+
+    def _globs(self):
+        import tomllib
+
+        root = Path(__file__).resolve().parents[2]
+        data = tomllib.loads((root / 'pyproject.toml').read_text(encoding='utf-8'))
+        return root, data['tool']['setuptools']['package-data']
+
+    def test_every_template_on_disk_is_covered_by_a_package_data_glob(self):
+        root, package_data = self._globs()
+        uncovered = []
+        for path in sorted((root / 'dlux' / 'scaffold' / 'templates').rglob('*.tmpl')):
+            relative = path.relative_to(root / 'dlux' / 'scaffold')
+            # full_match, not match: only the former expands `**` recursively,
+            # which is exactly what the declaration relies on.
+            if not any(relative.full_match(pattern)
+                       for pattern in package_data.get('dlux.scaffold', [])):
+                uncovered.append(str(relative))
+
+        self.assertEqual(uncovered, [], 'Template(s) not declared as package data: '
+                                        + ', '.join(uncovered))
+
+    def test_the_templates_directory_is_inside_the_scaffold_package(self):
+        """TEMPLATES_ROOT is derived from the module file, so a move must update it."""
+        from dlux.scaffold import TEMPLATES_ROOT
+
+        self.assertTrue(TEMPLATES_ROOT.is_dir())
+        self.assertEqual(TEMPLATES_ROOT.name, 'templates')
+        self.assertEqual(TEMPLATES_ROOT.parent.name, 'scaffold')
+        self.assertTrue(any(TEMPLATES_ROOT.rglob('*.tmpl')))
+
+    def test_the_declared_package_owns_the_templates(self):
+        """package-data is keyed by package; a template outside it is never shipped."""
+        _root, package_data = self._globs()
+
+        self.assertIn('dlux.scaffold', package_data)
+        for pattern in package_data['dlux.scaffold']:
+            self.assertTrue(pattern.startswith('templates/'), pattern)
+
+
+class InitContainerTests(unittest.TestCase):
+    """The boot chain now rests on Compose primitives, so assert them as Compose
+    resolves them — not as substrings. `docker compose config` is the authority
+    on whether `pre_start` is even accepted, and it is skipped when the binary is
+    absent or too old rather than silently passing."""
+
+    MINIMUM_COMPOSE = (5, 3, 0)
+
+    @classmethod
+    def setUpClass(cls):
+        import shutil
+        import subprocess
+
+        cls.compose_version = None
+        if not shutil.which("docker"):
+            return
+        probe = subprocess.run(["docker", "compose", "version", "--short"],
+                               capture_output=True, text=True)
+        if probe.returncode != 0:
+            return
+        raw = probe.stdout.strip().lstrip("v").split("-")[0]
+        try:
+            cls.compose_version = tuple(int(p) for p in raw.split(".")[:3])
+        except ValueError:
+            cls.compose_version = None
+
+    def setUp(self):
+        if self.compose_version is None:
+            self.skipTest("docker compose is not available to validate the generated file")
+        if self.compose_version < self.MINIMUM_COMPOSE:
+            self.skipTest(
+                f"docker compose {'.'.join(map(str, self.compose_version))} predates "
+                f"pre_start ({'.'.join(map(str, self.MINIMUM_COMPOSE))})"
+            )
+
+    def _resolved(self, env=None):
+        import json
+        import os
+        import subprocess
+        import tempfile
+
+        target = Path(tempfile.mkdtemp()) / "demo"
+        create_project("demo", str(target), image="demo:latest",
+                       repo="acme/demo", interactive=False)
+        environment = dict(os.environ)
+        environment.update(env or {})
+        result = subprocess.run(
+            ["docker", "compose", "config", "--format", "json"],
+            cwd=str(target), capture_output=True, text=True, env=environment,
+        )
+        self.assertEqual(result.returncode, 0,
+                         f"generated compose.yml is not valid:\n{result.stderr}")
+        return json.loads(result.stdout)
+
+    def test_the_generated_file_is_valid_to_compose_itself(self):
+        self.assertIn("celery", self._resolved()["services"])
+
+    def test_the_init_containers_are_declared_on_celery(self):
+        services = self._resolved()["services"]
+
+        self.assertIn("pre_start", services["celery"])
+        self.assertNotIn("pre_start", services["web"])
+
+    def test_they_run_reconcile_then_migrate_in_that_order(self):
+        """Reconcile resets a stale pinned release; migrating first would run
+        against exactly the release it exists to step away from."""
+        steps = self._resolved()["services"]["celery"]["pre_start"]
+        rendered = [" ".join(step["command"]) for step in steps]
+
+        self.assertEqual(len(rendered), 2)
+        self.assertIn("dlux_reconcile", rendered[0])
+        self.assertIn("migrator", rendered[1])
+
+    def test_every_step_bypasses_the_boot_gate(self):
+        """A step inherits the entrypoint, whose gate waits on these migrations."""
+        for step in self._resolved()["services"]["celery"]["pre_start"]:
+            with self.subTest(command=step["command"][-1][:40]):
+                self.assertEqual(step.get("environment", {}).get("DLUX_BOOT_GATE"), "off")
+
+    def test_migrator_flags_reach_the_step(self):
+        steps = self._resolved({"DLUX_MIGRATOR_FLAGS": "-mm -a inventory"})[
+            "services"]["celery"]["pre_start"]
+
+        self.assertIn("-mm -a inventory", " ".join(steps[1]["command"]))
+
+    def test_absent_flags_leave_a_bare_migrator(self):
+        steps = self._resolved({"DLUX_MIGRATOR_FLAGS": ""})["services"]["celery"]["pre_start"]
+        rendered = " ".join(steps[1]["command"])
+
+        self.assertIn("manage.py migrator", rendered)
+        for flag in ("-mm", "-nm", "-a"):
+            self.assertNotIn(flag, rendered)
+
+    def test_the_steps_inherit_the_project_image(self):
+        """They must run the project's code, not some other image."""
+        resolved = self._resolved()
+        expected = resolved["services"]["celery"]["image"]
+
+        for step in resolved["services"]["celery"]["pre_start"]:
+            self.assertEqual(step.get("image"), expected)
+
+
 class ComposeNetworkTopologyTests(unittest.TestCase):
     """The generated Compose file segregates traffic into four networks. Substring
     assertions cannot catch a service attached to the wrong one, so parse the
@@ -455,7 +627,7 @@ class ComposeNetworkTopologyTests(unittest.TestCase):
     spec Composer's drift-diff checks a deployed compose.yml against."""
 
     def setUp(self):
-        from dlux import stack_contract
+        from dlux.contracts import stack as stack_contract
 
         self.contract = stack_contract.load_contract()
         self.stack_contract = stack_contract
@@ -632,7 +804,7 @@ class StackContractTests(unittest.TestCase):
     so its behaviour is pinned here."""
 
     def setUp(self):
-        from dlux import stack_contract
+        from dlux.contracts import stack as stack_contract
 
         self.stack_contract = stack_contract
         self.contract = stack_contract.load_contract()
@@ -762,8 +934,8 @@ class ProjectReleaseScaffoldTests(unittest.TestCase):
             compose = (target / "compose.yml").read_text(encoding="utf-8")
             self.assertNotIn("demo_project:latest", compose)
             # +1 vs pre-executor: composer-executor also carries a WEB_IMAGE default.
-            self.assertEqual(compose.count("acme/demo:stable"), 8)
-
+            # 7, not 8: the dlux-updater service was retired into celery.
+            self.assertEqual(compose.count("acme/demo:stable"), 7)
             workflow = (target / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
             self.assertIn("${{ env.IMAGE }}:stable", workflow)
 

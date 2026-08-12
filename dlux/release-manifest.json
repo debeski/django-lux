@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "1.7.2",
+  "version": "1.8.0",
   "inline_safe": true,
   "minimum_updater_schema": 1,
   "migration_policy": "backward_compatible",
@@ -12,5 +12,5 @@
     "Options cards the configuration does not render (a Language card on a single-language install) no longer appear as search results.",
     "Progress percentage and its status message stay on one line in the backup and restore tables, whatever the message length."
   ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.7.2"
+  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.0"
 }

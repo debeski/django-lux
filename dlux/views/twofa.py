@@ -38,7 +38,7 @@ from ..system.constants import DEFAULT_HOME_URL
 from ..guards import require_current_password
 from ..notifications import notify
 from ..translations import get_strings
-from ..trust import (
+from ..auth.trust import (
     TRUSTED_DEVICE_COOKIE_NAME,
     TRUSTED_DEVICE_COOKIE_SALT,
     TRUSTED_DEVICE_MAX_AGE,
@@ -564,7 +564,7 @@ def verify_otp_view(request, intent='login'):
             if is_ajax:
                 return JsonResponse({'status': 'error', 'message': error_msg}, status=429)
             error_message = error_msg
-            return render(request, 'dlux/2fa/verify.html', {
+            return render(request, 'dlux/auth/verify.html', {
                 'intent': intent,
                 'error_message': error_message,
                 'DLUX_STRINGS': s,
@@ -600,7 +600,7 @@ def verify_otp_view(request, intent='login'):
             if intent == 'login':
                 login(request, user)
                 _sync_session_device_metadata(request)
-                from ..trust import enforce_single_active_session
+                from ..auth.trust import enforce_single_active_session
                 enforce_single_active_session(request, user)
                 redirect_url = _resolve_safe_login_redirect(request)
                 should_trust_device = str(request.POST.get('trust_device') or '').strip().lower() in {'1', 'true', 'on', 'yes'}
@@ -658,7 +658,7 @@ def verify_otp_view(request, intent='login'):
             return JsonResponse({'status': 'error', 'message': error_msg})
         error_message = error_msg
 
-    return render(request, 'dlux/2fa/verify.html', {
+    return render(request, 'dlux/auth/verify.html', {
         'intent': intent,
         'error_message': error_message,
         'DLUX_STRINGS': s,

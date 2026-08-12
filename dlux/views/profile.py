@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 from django.utils.module_loading import import_string
 from ..guards import require_current_password
 from ..notifications import notify
-from ..trust import (
+from ..auth.trust import (
     current_session_trusted_device,
     enforce_single_active_session,
     issue_trusted_device,
@@ -24,7 +24,7 @@ from ..trust import (
     terminate_other_user_sessions,
     trusted_device_for_session,
 )
-from ..session_history import flag_sessions_revoked, hash_session_key, mark_presence_sessions_ended
+from ..auth.session_history import flag_sessions_revoked, hash_session_key, mark_presence_sessions_ended
 from ..reports import (
     exclude_log_noise,
     filter_report_eligible_activity,
@@ -587,5 +587,5 @@ def initial_user_setup(request):
     # gets the rendered fragment.
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         from django.template.loader import render_to_string
-        return JsonResponse({'html': render_to_string('dlux/includes/initial_user_setup.html', context, request=request)})
-    return render(request, 'dlux/includes/initial_user_setup.html', context)
+        return JsonResponse({'html': render_to_string('dlux/users/initial_setup.html', context, request=request)})
+    return render(request, 'dlux/users/initial_setup.html', context)

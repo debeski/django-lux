@@ -234,7 +234,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
             ["catalog:products"],
         )
 
-    @patch("dlux.discovery.reverse", return_value="/staff/api/products/")
+    @patch("dlux.discovery.routes.reverse", return_value="/staff/api/products/")
     def test_stored_route_with_safe_name_is_removed_when_it_resolves_to_api_path(self, _mock_reverse):
         sidebar = sanitize_sidebar_config({
             "entries": [{"kind": "item", "id": "catalog:feed", "url_name": "catalog:feed"}],
@@ -417,7 +417,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
         })
         self.assertIn('dlux-sidebar-notification-badge d-none', disabled_html)
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_renders_saved_system_sidebar_items(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
@@ -461,7 +461,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
         self.assertEqual([entry["url_name"] for entry in navigation["entries"]], ["options_view"])
         self.assertTrue(navigation["entries"][0]["active"])
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_applies_per_language_label_override(self, mock_get_system_config, mock_discover_sidebar_catalog):
         # Item overrides EN + AR explicitly; leaves FR unset to test fall-through.
@@ -521,7 +521,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
         # Codes normalized/lowercased, values trimmed, empty labels dropped.
         self.assertEqual(labels, {"en": "My Options", "ar": "خياراتي"})
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_hides_manage_users_without_directory_access(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
@@ -564,7 +564,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         self.assertEqual(navigation["entries"], [])
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_shows_manage_users_for_staff_with_view_permission(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
@@ -608,7 +608,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
         self.assertEqual([entry["url_name"] for entry in navigation["entries"]], ["manage_users"])
         self.assertTrue(navigation["entries"][0]["active"])
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_reuses_cached_render_base_without_stale_active_state(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
@@ -659,7 +659,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
         self.assertFalse(second["entries"][0]["active"])
         self.assertTrue(second["entries"][1]["active"])
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_cache_keeps_user_permissions_separate(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
@@ -701,7 +701,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
         self.assertEqual(denied["entries"], [])
         self.assertEqual([entry["url_name"] for entry in allowed["entries"]], ["manage_users"])
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_renders_saved_grouped_sidebar_items(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
@@ -754,7 +754,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
         self.assertEqual(navigation["entries"][0]["kind"], "group")
         self.assertEqual(navigation["entries"][0]["items"][0]["url_name"], "options_view")
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_exact_match_wins_over_parent_prefix(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
@@ -796,7 +796,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
         self.assertTrue(navigation["entries"][1]["items"][0]["active"])
         self.assertTrue(navigation["entries"][1]["has_active"])
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_falls_back_to_system_sidebar_for_stale_override(self, mock_get_system_config, mock_discover_sidebar_catalog):
         mock_get_system_config.return_value = {
@@ -849,7 +849,7 @@ class SidebarDiscoveryTests(SimpleTestCase):
 
         self.assertEqual([entry["url_name"] for entry in navigation["entries"]], ["options_view"])
 
-    @patch("dlux.discovery.discover_sidebar_catalog")
+    @patch("dlux.discovery.render.discover_sidebar_catalog")
     @patch("dlux.utils.get_system_config")
     def test_build_sidebar_navigation_hides_explicit_empty_permission_items_from_staff(self, mock_get_system_config, mock_discover_sidebar_catalog):
         """Items with explicitly empty permissions are hidden from non-superusers."""
@@ -975,7 +975,7 @@ class DiscoveryProfileProjectionTests(SimpleTestCase):
     def test_one_global_catalog_backs_every_profile(self):
         # Discovery must walk the URLconf once per language, not once per feature.
         with patch(
-            'dlux.discovery._discover_routes_uncached',
+            'dlux.discovery.routes._discover_routes_uncached',
             wraps=_discover_routes_uncached,
         ) as walked:
             self._ids(DISCOVERY_PROFILE_SIDEBAR)
@@ -991,7 +991,7 @@ class DiscoveryBuilderAssetTests(SimpleTestCase):
 
     @property
     def _setup_js(self):
-        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
+        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
         return script.read_text(encoding='utf-8')
 
     def test_sidebar_builder_hides_form_pages_until_toggled(self):
@@ -1008,7 +1008,7 @@ class DiscoveryBuilderAssetTests(SimpleTestCase):
         self.assertIn('if (entry.requires_args || entry.is_form_page) {', contents)
 
     def test_sidebar_builder_template_renders_the_form_pages_toggle(self):
-        contents = render_to_string('dlux/includes/sidebar_builder.html', {
+        contents = render_to_string('dlux/setup/sidebar_builder.html', {
             'mode': 'setup',
             'sidebar_catalog_json': '[]',
             'sidebar_catalog_fallback_json': '[]',
@@ -1058,7 +1058,7 @@ class HalfBuiltUrlconfTests(SimpleTestCase):
         with patch.dict(_sys.modules, {'dlux_tests_half_built_urls': half_built}):
             with self.settings(ROOT_URLCONF='dlux_tests_half_built_urls'):
                 self.assertTrue(_root_urlconf_is_loading())
-                with patch('dlux.discovery.reverse') as reverse_spy:
+                with patch('dlux.discovery.routes.reverse') as reverse_spy:
                     _is_api_navigation_route('options_view', '', None)
                     reverse_spy.assert_not_called()
 
@@ -1066,7 +1066,7 @@ class HalfBuiltUrlconfTests(SimpleTestCase):
         from dlux.discovery import _is_api_navigation_route, _root_urlconf_is_loading
 
         self.assertFalse(_root_urlconf_is_loading())
-        with patch('dlux.discovery.reverse', return_value='/sys/api/x/') as reverse_spy:
+        with patch('dlux.discovery.routes.reverse', return_value='/sys/api/x/') as reverse_spy:
             self.assertTrue(_is_api_navigation_route('some_route', '', None))
             reverse_spy.assert_called_once()
 
@@ -1083,6 +1083,6 @@ class HalfBuiltUrlconfTests(SimpleTestCase):
         }
         with patch.dict(_sys.modules, {'dlux_tests_half_built_urls2': half_built}):
             with self.settings(ROOT_URLCONF='dlux_tests_half_built_urls2'):
-                with patch('dlux.discovery.reverse') as reverse_spy:
+                with patch('dlux.discovery.routes.reverse') as reverse_spy:
                     sanitize_sidebar_config(stored, allow_system_items=True)
                     reverse_spy.assert_not_called()

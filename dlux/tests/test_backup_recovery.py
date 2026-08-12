@@ -70,7 +70,7 @@ class BackupRecoveryTestCase(TestCase):
 
     def _with_worker(self):
         """Pretend a Celery worker is reachable — automatic retries need one."""
-        return mock.patch('dlux.backup.system_backup_celery_available', return_value=True)
+        return mock.patch('dlux.backup.retry.system_backup_celery_available', return_value=True)
 
 
 class StallReaperTests(BackupRecoveryTestCase):
@@ -121,7 +121,7 @@ class StallReaperTests(BackupRecoveryTestCase):
         )
 
         with mock.patch(
-            'dlux.backup.run_system_backup',
+            'dlux.backup.dispatch.run_system_backup',
             side_effect=lambda pk, **kw: self.SystemBackup.objects.get(pk=pk),
         ) as runner:
             created = run_scheduled_system_backup()
@@ -185,7 +185,7 @@ class AutomaticRetryTests(BackupRecoveryTestCase):
         self._save_config(auto_retry_enabled=True, max_attempts=3)
         backup = self._running()
 
-        with mock.patch('dlux.backup.system_backup_celery_available', return_value=False):
+        with mock.patch('dlux.backup.retry.system_backup_celery_available', return_value=False):
             self.assertIsNone(fail_system_backup(backup, 'inline build failed'))
 
         backup.refresh_from_db()
@@ -205,8 +205,8 @@ class AutomaticRetryTests(BackupRecoveryTestCase):
             next_attempt_at=timezone.now() - timedelta(minutes=1),
         )
 
-        with mock.patch('dlux.backup.dispatch_system_backup', return_value=False), \
-                mock.patch('dlux.backup.run_system_backup') as runner:
+        with mock.patch('dlux.backup.dispatch.dispatch_system_backup', return_value=False), \
+                mock.patch('dlux.backup.dispatch.run_system_backup') as runner:
             started = dispatch_due_backup_retries()
 
         self.assertEqual(started, 1)
@@ -225,7 +225,7 @@ class AutomaticRetryTests(BackupRecoveryTestCase):
         backup = self._running(quiet_minutes=0)
 
         # Already running: a second dispatcher reaching the same row is a no-op.
-        with mock.patch('dlux.backup.write_system_backup') as writer:
+        with mock.patch('dlux.backup.create.write_system_backup') as writer:
             run_system_backup(backup.pk)
 
         writer.assert_not_called()
@@ -255,8 +255,8 @@ class ResumeTests(BackupRecoveryTestCase):
     def test_resume_reruns_the_same_row_as_a_new_attempt(self):
         backup = self._failed()
 
-        with mock.patch('dlux.backup.dispatch_system_backup', return_value=False), \
-                mock.patch('dlux.backup.run_system_backup') as runner:
+        with mock.patch('dlux.backup.dispatch.dispatch_system_backup', return_value=False), \
+                mock.patch('dlux.backup.dispatch.run_system_backup') as runner:
             resume_system_backup(backup, requested_by='root')
 
         backup.refresh_from_db()
@@ -271,7 +271,7 @@ class ResumeTests(BackupRecoveryTestCase):
         with self.assertRaises(ValueError):
             resume_system_backup(backup)
 
-        with mock.patch('dlux.backup.dispatch_system_backup', return_value=True) as dispatch:
+        with mock.patch('dlux.backup.dispatch.dispatch_system_backup', return_value=True) as dispatch:
             resume_system_backup(backup, passphrase='vault-pass')
         dispatch.assert_called_once()
         self.assertEqual(dispatch.call_args.kwargs['passphrase'], 'vault-pass')

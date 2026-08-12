@@ -191,7 +191,6 @@
                                                 data-url="{% url 'disable_2fa' %}"
                                                 data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_disable_2fa }}">
                                             <span class="btn-label">{{ DLUX_STRINGS.2fa_disable }}</span>
-                                            <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
                                         <button class="btn btn-sm btn-primary setup-2fa-btn"
@@ -199,7 +198,6 @@
                                                 data-url="{% url 'enable_2fa' %}"
                                                 data-email="{{ user.email|default:'' }}">
                                             <span class="btn-label">{{ DLUX_STRINGS.enable }}</span>
-                                            <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% endif %}
                                 </div>
@@ -220,12 +218,10 @@
                                                 data-url="{% url 'disable_2fa' %}"
                                                 data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_disable_2fa }}">
                                             <span class="btn-label">{{ DLUX_STRINGS.2fa_disable }}</span>
-                                            <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
                                         <button class="btn btn-sm btn-primary setup-2fa-btn" data-method="phone" data-url="{% url 'enable_2fa' %}">
                                             <span class="btn-label">{{ DLUX_STRINGS.enable }}</span>
-                                            <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% endif %}
                                 </div>
@@ -246,12 +242,10 @@
                                                 data-url="{% url 'disable_2fa' %}"
                                                 data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_disable_2fa }}">
                                             <span class="btn-label">{{ DLUX_STRINGS.2fa_disable }}</span>
-                                            <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% else %}
                                         <button class="btn btn-sm btn-primary setup-2fa-btn" data-method="totp" data-url="{% url 'setup_totp' %}">
                                             <span class="btn-label">{{ DLUX_STRINGS.enable }}</span>
-                                            <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                                         </button>
                                     {% endif %}
                                 </div>
@@ -270,7 +264,6 @@
                                             data-url="{% url 'generate_backup_codes' %}"
                                             data-confirm-msg="{{ DLUX_STRINGS.msg_confirm_generate_backup }}">
                                         <i class="bi bi-arrow-clockwise"></i> {{ DLUX_STRINGS.btn_generate_new }}
-                                        <span class="spinner-border spinner-border-sm d-none ms-1" aria-hidden="true"></span>
                                     </button>
                                 </div>
                             </div>
@@ -570,7 +563,6 @@
                     </p>
                     <button type="button" class="btn btn-primary w-100" id="email2faConfirmBtn">
                         <span class="btn-label">{{ DLUX_STRINGS.2fa_confirm_email_send }}</span>
-                        <span class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
                     </button>
                 </div>
 
@@ -655,7 +647,7 @@
 </div>
 
 {# Confirm-password prompts now use the global dluxConfirmPassword modal        #}
-{# (dlux/includes/confirm_password_modal.html, rendered in base.html).          #}
+{# (dlux/system/confirm_password_modal.html, rendered in base.html).          #}
 {% endblock %}
 
 {% block scripts %}

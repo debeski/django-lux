@@ -1,0 +1,8 @@
+{% load static %}
+{% load dlux_tags %}
+<!-- Driver.js for Tutorial -->
+<link rel="stylesheet" href="{% dlux_static 'dlux/tutorial/css/main.css' %}"/>
+<script src="{% dlux_static 'dlux/tutorial/js/driver.js' %}" nonce="{{ request.csp_nonce }}"></script>
+{{ DLUX_STRINGS|json_script:"tutorial-strings-data" }}
+
+<script src="{% dlux_static 'dlux/tutorial/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>

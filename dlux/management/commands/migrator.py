@@ -202,14 +202,20 @@ class Command(BaseCommand):
             warnings.append(f"superuser creation failed: {e}")
 
     def run_populate(self, target_apps, warnings):
-        from django.db import OperationalError, ProgrammingError
+        from django.db import OperationalError, ProgrammingError, transaction
 
         data_exists = False
         self.stdout.write("Checking for existing data in target apps...")
         for app_config in target_apps:
             for model in app_config.get_models():
                 try:
-                    if model.objects.exists():
+                    # Savepoint per model: without it, the first missing table
+                    # aborts the transaction on PostgreSQL and every later
+                    # `.exists()` fails too, so the command concludes "no data"
+                    # on a database that has plenty and repopulates it.
+                    with transaction.atomic():
+                        exists = model.objects.exists()
+                    if exists:
                         data_exists = True
                         self.stdout.write(f"Data found in {app_config.name}.{model.__name__}.")
                         break

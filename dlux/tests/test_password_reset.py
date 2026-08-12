@@ -11,7 +11,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from dlux.models import SystemSettings
-from dlux import password_reset as pr
+from dlux.auth import password_reset as pr
 from dlux.system.normalizers import normalize_auth_config
 
 User = get_user_model()

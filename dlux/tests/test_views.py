@@ -57,6 +57,16 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
         self.assertEqual(response.status_code, 200)
 
+    def test_options_cards_render_their_wrapper_chrome(self):
+        """The card wrapper must emit the reorder chrome the page's JS binds to."""
+        html = self.client.get(reverse('options_view')).content.decode()
+
+        self.assertIn('class="dlux-options-card no-print"', html)
+        self.assertIn('data-options-card="accessibility"', html)
+        self.assertIn('data-options-card-handle', html)
+        self.assertIn('bi-grip-vertical', html)
+        self.assertIn('glass-profile option-section h-100 dlux-options-panel', html)
+
     def test_options_view_context_data(self):
         """Test that options_view includes required context data."""
         response = self.client.get(reverse('options_view'))
@@ -431,7 +441,7 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, 'dlux-density-options')
         self.assertContains(response, 'data-font="cairo"')
         self.assertContains(response, 'data-font="alexandria"')
-        self.assertContains(response, 'dlux/main/js/options.js?v=')
+        self.assertContains(response, 'dlux/system/js/options.js?v=')
         self.assertNotContains(response, 'dlux-font-preview-card')
 
     def test_options_view_uses_real_font_family_for_underscore_slug(self):
@@ -638,7 +648,7 @@ class GeneralViewsTests(TestCase):
         with patch('dlux.models.UserActivityLog.safe_log') as safe_log, \
              patch('dlux.signals.get_current_user', return_value=self.user), \
              patch('dlux.signals.get_current_request', return_value=fake_request), \
-             patch('dlux.session_history.remember_request_presence'):
+             patch('dlux.auth.session_history.remember_request_presence'):
             response = self.client.post(
                 reverse('modal_manager', args=['dlux', 'Scope', 'new']),
                 {'name': 'NoDupScope'},
@@ -657,7 +667,7 @@ class GeneralViewsTests(TestCase):
         with patch('dlux.models.UserActivityLog.safe_log') as safe_log, \
              patch('dlux.signals.get_current_user', return_value=self.user), \
              patch('dlux.signals.get_current_request', return_value=fake_request), \
-             patch('dlux.session_history.remember_request_presence'):
+             patch('dlux.auth.session_history.remember_request_presence'):
             response = self.client.post(
                 reverse('modal_delete', args=['dlux', 'Scope', scope.pk]),
                 HTTP_X_REQUESTED_WITH='XMLHttpRequest',
@@ -933,7 +943,7 @@ class ProfileViewsTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Session.objects.filter(session_key=other_session_key).exists())
         self.assertTrue(Session.objects.filter(session_key=self.client.session.session_key).exists())
-        from dlux.session_history import get_session_revoked_reason
+        from dlux.auth.session_history import get_session_revoked_reason
         self.assertEqual(get_session_revoked_reason(other_session_key), 'signed_out_remotely')
         notification = apps.get_model('dlux', 'DluxNotification').objects.get(action='password_changed')
         self.assertEqual(notification.metadata['sessions_ended'], 1)
@@ -2955,7 +2965,7 @@ class ProfileSessionDeviceTests(TestCase):
 
     def test_single_session_enforcement_no_op_without_current_session_key(self):
         from types import SimpleNamespace
-        from dlux.trust import enforce_single_active_session
+        from dlux.auth.trust import enforce_single_active_session
         settings_obj = SystemSettings.load()
         settings_obj.auth_config = {**(settings_obj.auth_config or {}), "prevent_multiple_active_sessions": True}
         settings_obj.save()
@@ -2984,7 +2994,7 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertFalse(Session.objects.filter(session_key=first_session_key).exists())
 
         # The evicted device's next page load is intercepted and pointed at the interstitial.
-        from dlux.session_history import get_session_revoked_reason
+        from dlux.auth.session_history import get_session_revoked_reason
         bounced = first_client.get(reverse('user_profile'))
         self.assertEqual(bounced.status_code, 302)
         self.assertIn(reverse('session_ended'), bounced.url)
@@ -3113,7 +3123,7 @@ class ProfileSessionDeviceTests(TestCase):
         self.assertGreater(len(xlsx.content), 1000)
 
     def test_user_report_filters_operational_activity_and_exports_selected_window(self):
-        from dlux.user_reports import build_user_report
+        from dlux.reports.users import build_user_report
 
         ActivityLog = apps.get_model('dlux', 'ActivityLog')
         project_log = ActivityLog.objects.create(
@@ -3266,7 +3276,7 @@ class ProfileSessionDeviceTests(TestCase):
             is_report_eligible_activity_model_name,
             build_reports_overview,
         )
-        from dlux.user_reports import build_user_report
+        from dlux.reports.users import build_user_report
 
         ActivityLog = apps.get_model('dlux', 'ActivityLog')
         arabic_label = 'قرار'  # "decree" — a host-model verbose name in Arabic

@@ -1,0 +1,30 @@
+#!/bin/sh
+set -e
+
+until nc -z -v -w30 db 5432; do
+  echo "Waiting for database..."
+  sleep 1
+done
+
+# Do not serve against an unmigrated database. Compose applies migrations as
+# init containers (celery's pre_start) before that service starts; this gate is
+# the net for the path pre_start does NOT cover — Compose skips a step when the
+# container restarts under its restart policy, which is what a host reboot does.
+# It is also what lets `web` wait for the migrations themselves rather than
+# declaring a dependency on the service that applies them.
+#
+# Self-validating on purpose: `migrate --check` exits non-zero only while
+# unapplied migrations exist, so there is no readiness flag to set, clear, or
+# leave stale. Once they are applied it returns immediately and costs nothing.
+# Run under the supervisor so it evaluates the runtime-active release rather
+# than the copy baked into the image.
+# DLUX_BOOT_GATE=off is set on the pre_start steps that APPLY the migrations.
+# A step inherits this entrypoint, so without it that container waits on itself.
+if [ "${DLUX_BOOT_GATE:-on}" != "off" ]; then
+  until python -m dlux.updater.supervisor --no-watch -- python manage.py migrate --check >/dev/null 2>&1; do
+    echo "Waiting for migrations (celery's pre_start applies them)..."
+    sleep 2
+  done
+fi
+
+exec "$@"

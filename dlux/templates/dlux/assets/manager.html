@@ -1,0 +1,73 @@
+{% load dlux_tags %}
+<link rel="stylesheet" href="{% dlux_static 'dlux/assets/css/main.css' %}">
+<div class="dlux-asset-manager">
+    <p class="text-muted small mb-3">{{ DLUX_STRINGS.asset_manager_desc|default:'Reusable images and WOFF2 fonts. CSS and JavaScript uploads are never accepted.' }}</p>
+
+    <form method="post" enctype="multipart/form-data" action="{% url 'asset_manager' %}" data-managed-asset-form>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                {{ form.title }}{{ form.title.errors }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="{{ form.kind.id_for_label }}">{{ form.kind.label }}</label>
+                {{ form.kind }}{{ form.kind.errors }}
+            </div>
+            <div class="col-12">
+                <label class="visually-hidden" for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
+                {{ form.file }}{{ form.file.errors }}
+            </div>
+        </div>
+        <div class="row g-3 mt-1" data-managed-font-fields>
+            <div class="col-md-4"><label class="form-label" for="{{ form.font_slug.id_for_label }}">{{ form.font_slug.label }}</label>{{ form.font_slug }}{{ form.font_slug.errors }}</div>
+            <div class="col-md-4"><label class="form-label" for="{{ form.font_family.id_for_label }}">{{ form.font_family.label }}</label>{{ form.font_family }}{{ form.font_family.errors }}</div>
+            <div class="col-md-4"><label class="form-label" for="{{ form.font_label.id_for_label }}">{{ form.font_label.label }}</label>{{ form.font_label }}{{ form.font_label.errors }}</div>
+            <div class="col-md-3"><label class="form-label" for="{{ form.font_weight.id_for_label }}">{{ form.font_weight.label }}</label>{{ form.font_weight }}{{ form.font_weight.errors }}</div>
+            <div class="col-md-3"><label class="form-label" for="{{ form.font_style.id_for_label }}">{{ form.font_style.label }}</label>{{ form.font_style }}{{ form.font_style.errors }}</div>
+        </div>
+        <div class="d-flex justify-content-end" data-dlux-modal-footer>
+            <button type="submit" class="btn btn-primary rounded-pill"><i class="bi bi-upload me-1"></i>{{ DLUX_STRINGS.asset_upload_action|default:'Upload' }}</button>
+        </div>
+    </form>
+
+    <div class="d-flex align-items-center justify-content-between mt-4 mb-3">
+        <h6 class="mb-0">{{ DLUX_STRINGS.asset_library_title|default:'Saved files' }}</h6>
+        <span class="badge text-bg-secondary">{{ assets|length }}</span>
+    </div>
+    <div class="dlux-managed-assets-grid">
+        {% for asset in assets %}
+        <article class="glass-profile dlux-managed-asset-card">
+            <div class="dlux-managed-asset-preview">
+                {% if asset.kind == 'image' and asset.url %}<img src="{{ asset.url }}" alt="{{ asset.title }}">{% else %}<i class="bi bi-file-earmark-font-fill"></i>{% endif %}
+            </div>
+            <div class="dlux-managed-asset-body">
+                <div class="d-flex align-items-start justify-content-between gap-2">
+                    <div><h6 class="mb-1">{{ asset.title }}</h6><code>{{ asset.slug }}</code></div>
+                    <span class="badge text-bg-light">{% if asset.kind == 'font' %}{{ DLUX_STRINGS.asset_kind_font|default:'Font' }}{% else %}{{ DLUX_STRINGS.asset_kind_image|default:'Image' }}{% endif %}</span>
+                </div>
+                <p class="small text-muted mt-2 mb-2">{{ asset.filename }} · {{ asset.size_bytes }} B{% if asset.width %} · {{ asset.width }}×{{ asset.height }}{% endif %}</p>
+                {% if asset.usage_report %}
+                <p class="small text-warning mb-2"><i class="bi bi-shield-lock me-1"></i>{{ DLUX_STRINGS.asset_used_by|default:'Used by' }}: {% for relation, items in asset.usage_report.items %}{{ relation }} ({{ items|length }}){% if not forloop.last %}, {% endif %}{% endfor %}</p>
+                {% else %}
+                <p class="small text-success mb-2"><i class="bi bi-check-circle me-1"></i>{{ DLUX_STRINGS.asset_unused|default:'Not currently referenced' }}</p>
+                {% endif %}
+                <button class="archive-file-tool archive-file-tool-clear dynamic-delete-btn" type="button" data-pk="{{ asset.pk }}" title="{{ DLUX_STRINGS.delete_label|default:'Delete' }}" aria-label="{{ DLUX_STRINGS.delete_label|default:'Delete' }}"{% if asset.usage_report %} disabled{% endif %}>
+                    <i class="bi bi-trash3"></i>
+                </button>
+            </div>
+        </article>
+        {% empty %}
+        <div class="glass-profile p-4 text-center text-muted">{{ DLUX_STRINGS.asset_library_empty|default:'No saved files yet.' }}</div>
+        {% endfor %}
+    </div>
+
+    {% if managed_fonts %}
+    <div class="mt-4">
+        <h6>{{ DLUX_STRINGS.asset_fonts_title|default:'Registered fonts' }}</h6>
+        {% for font in managed_fonts %}<span class="badge text-bg-light me-2 mb-2">{{ font.label }} · {{ font.variants.count }}</span>{% endfor %}
+    </div>
+    {% endif %}
+</div>
+<script src="{% dlux_static 'dlux/assets/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>

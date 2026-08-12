@@ -189,9 +189,12 @@ def default_language_config():
 def default_theme_config():
     from ..themes import get_theme_names
 
+    from .constants import DEFAULT_THEME_PICKER_LOCATION
+
     return {
         'allowed_themes': list(get_theme_names()),
         'allow_user_theme_override': True,
+        'theme_picker_location': DEFAULT_THEME_PICKER_LOCATION,
     }
 
 

@@ -353,6 +353,18 @@ DEFAULT_LANGUAGE_CATALOG = {
 # literal that drifts out of step with the layout does not raise — the cleaner
 # reads an absent checkbox as False and silently wipes another step's value
 # (docs/adding-system-settings.md, trap 2). Names make that drift impossible.
+THEME_PICKER_LOCATION_SIDEBAR = 'sidebar_toolbar'
+THEME_PICKER_LOCATION_TITLEBAR = 'titlebar'
+THEME_PICKER_LOCATION_DISABLED = 'disabled'
+DEFAULT_THEME_PICKER_LOCATION = THEME_PICKER_LOCATION_SIDEBAR
+THEME_PICKER_LOCATION_CHOICES = (
+    (THEME_PICKER_LOCATION_SIDEBAR, 'Sidebar toolbar'),
+    (THEME_PICKER_LOCATION_TITLEBAR, 'Titlebar action'),
+    (THEME_PICKER_LOCATION_DISABLED, 'Options only'),
+)
+THEME_PICKER_LOCATION_VALUES = frozenset(value for value, _ in THEME_PICKER_LOCATION_CHOICES)
+
+
 SETUP_STEP_IDENTITY = 0
 SETUP_STEP_LANGUAGES = 1
 SETUP_STEP_EMAIL = 2
@@ -453,10 +465,13 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'system_names',
     'logo',
     'favicon',
+    'login_logo',
+    'login_background',
     'home_url',
     'default_language',
     'default_theme',
     'allowed_themes',
+    'theme_picker_location',
     'allow_user_theme_override',
     'allowed_fonts',
     'default_fonts',

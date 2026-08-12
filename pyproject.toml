@@ -64,12 +64,13 @@ version = { attr = "dlux.__version__" }
 [tool.setuptools.package-data]
 dlux = [
     "release-manifest.json",
-    "stack_contract.json",
-    "scaffold_templates/*.tmpl",
-    "scaffold_templates/*/*.tmpl",
-    "scaffold_templates/*/*/*.tmpl",
-    "scaffold_templates/*/*/*/*.tmpl",
 ]
+"dlux.contracts" = ["*.json"]
+# Recursive on purpose. This used to be four hardcoded depths under dlux/, and
+# the tree already reached the deepest one — a fifth directory level would have
+# been dropped from the wheel with no error anywhere, failing only for installed
+# users. dlux/tests/test_scaffold.py asserts every .tmpl on disk is covered.
+"dlux.scaffold" = ["templates/**/*.tmpl"]
 
 [project.urls]
 Homepage = "https://github.com/debeski/django-lux"

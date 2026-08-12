@@ -256,32 +256,3 @@ def resolve_sidebar_collapsed_preference(user_prefs, config, session_collapsed=F
     return bool(raw_value), prefs
 
 # Sidebar Runtime - Function toggles collapsed sidebar state in the session.
-def toggle_sidebar(request):
-    if request.method == "POST" and request.user.is_authenticated:
-        collapsed = request.POST.get("collapsed") == "true"
-        
-        # 1. Update Session
-        request.session["sidebarCollapsed"] = collapsed
-        
-        # 2. Update Profile Preferences if profile exists
-        if hasattr(request.user, 'profile'):
-            profile = request.user.profile
-            if not profile.preferences:
-                profile.preferences = {}
-            
-            # Ensure it's a dict
-            if isinstance(profile.preferences, str):
-                import json
-                try:
-                    profile.preferences = json.loads(profile.preferences)
-                except:
-                    profile.preferences = {}
-            
-            # Use a copy to ensure Django detects changes
-            prefs = dict(profile.preferences)
-            prefs['sidebar_collapsed'] = collapsed
-            profile.preferences = prefs
-            profile.save(update_fields=['preferences'])
-
-        return JsonResponse({"status": "success"})
-    return JsonResponse({"status": "error"}, status=400)

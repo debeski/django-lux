@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from .constants import DEFAULT_THEME_PICKER_LOCATION
 from .defaults import (
     default_auth_config,
     default_backup_config,
@@ -264,6 +265,8 @@ SYSTEM_SETTING_GROUPS = (
         fields=(
             _field('theme', 'allowed_themes', field_type='list', default=[], widget='multiselect', legacy_flat=True),
             _field('theme', 'allow_user_theme_override', field_type='bool', default=True, widget='switch', legacy_flat=True),
+            _field('theme', 'theme_picker_location', default=DEFAULT_THEME_PICKER_LOCATION,
+                   widget='choice', legacy_flat=True),
         ),
     ),
     SettingGroup(

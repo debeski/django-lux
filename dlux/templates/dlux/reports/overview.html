@@ -178,38 +178,36 @@
     <div class="dlux-report-table-grid">
         <section class="glass-container dlux-report-table-card">
             <h2>{{ DLUX_STRINGS.reports_by_user }}</h2>
-            <div class="dlux-table-shell" data-dlux-table-density="balanced"><div class="dlux-table-scroll"><table class="table table-hover align-middle dlux-data-table"><thead><tr><th>{{ DLUX_STRINGS.user_report_username }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead><tbody>{% for item in overview.users %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}</tbody></table></div></div>
+            {% include 'dlux/tables/pair_table.html' with rows=overview.users label_header=DLUX_STRINGS.user_report_username count_header=DLUX_STRINGS.user_report_count empty_text=DLUX_STRINGS.reports_empty %}
         </section>
         <section class="glass-container dlux-report-table-card">
             <h2>{{ DLUX_STRINGS.reports_by_model }}</h2>
-            <div class="dlux-table-shell" data-dlux-table-density="balanced"><div class="dlux-table-scroll"><table class="table table-hover align-middle dlux-data-table"><thead><tr><th>{{ DLUX_STRINGS.user_report_model }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead><tbody>{% for item in overview.models %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}</tbody></table></div></div>
+            {% include 'dlux/tables/pair_table.html' with rows=overview.models label_header=DLUX_STRINGS.user_report_model count_header=DLUX_STRINGS.user_report_count empty_text=DLUX_STRINGS.reports_empty %}
         </section>
         <section class="glass-container dlux-report-table-card">
             <h2>{{ DLUX_STRINGS.reports_by_action }}</h2>
-            <div class="dlux-table-shell" data-dlux-table-density="balanced"><div class="dlux-table-scroll"><table class="table table-hover align-middle dlux-data-table"><thead><tr><th>{{ DLUX_STRINGS.user_report_action }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead><tbody>{% for item in overview.actions %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}</tbody></table></div></div>
+            {% include 'dlux/tables/pair_table.html' with rows=overview.actions label_header=DLUX_STRINGS.user_report_action count_header=DLUX_STRINGS.user_report_count empty_text=DLUX_STRINGS.reports_empty %}
         </section>
         <section class="glass-container dlux-report-table-card">
             <h2>{{ DLUX_STRINGS.reports_by_day }}</h2>
-            <div class="dlux-table-shell" data-dlux-table-density="balanced"><div class="dlux-table-scroll"><table class="table table-hover align-middle dlux-data-table"><thead><tr><th>{{ DLUX_STRINGS.user_report_timestamp }}</th><th>{{ DLUX_STRINGS.user_report_count }}</th></tr></thead><tbody>{% for item in overview.days %}<tr><td>{{ item.label }}</td><td>{{ item.count }}</td></tr>{% empty %}<tr><td colspan="2" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>{% endfor %}</tbody></table></div></div>
+            {% include 'dlux/tables/pair_table.html' with rows=overview.days label_header=DLUX_STRINGS.user_report_timestamp count_header=DLUX_STRINGS.user_report_count empty_text=DLUX_STRINGS.reports_empty %}
         </section>
     </div>
 
     <section class="glass-container dlux-report-table-card dlux-report-users">
         <h2>{{ DLUX_STRINGS.reports_user_drilldown }}</h2>
-        <div class="dlux-table-shell" data-dlux-table-density="balanced">
-            <div class="dlux-table-scroll">
+        {% dlux_table_shell %}
                 <table class="table table-hover align-middle dlux-data-table">
                     <thead><tr><th>{{ DLUX_STRINGS.user_report_username }}</th><th>{{ DLUX_STRINGS.tbl_full_name }}</th><th>{{ DLUX_STRINGS.tbl_staff_tier }}</th><th></th></tr></thead>
                     <tbody>
                         {% for visible_user in overview.visible_users %}
                         <tr><td>{{ visible_user.username }}</td><td>{{ visible_user.get_full_name|default:visible_user.username }}</td><td>{% if visible_user.is_staff %}{{ DLUX_STRINGS.badge_staff }}{% else %}{{ DLUX_STRINGS.regular_user|default:'User' }}{% endif %}</td><td class="text-end"><button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-dynamic-modal="{% url 'user_report_modal' visible_user.pk %}?window={{ overview.window }}" data-modal-title="{{ DLUX_STRINGS.user_report_title }}"><i class="bi bi-file-earmark-person me-1"></i>{{ DLUX_STRINGS.user_report_title }}</button></td></tr>
                         {% empty %}
-                        <tr><td colspan="4" class="text-muted text-center py-4">{{ DLUX_STRINGS.reports_empty }}</td></tr>
+                        {% include 'dlux/tables/empty_row.html' with colspan=4 text=DLUX_STRINGS.reports_empty %}
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-        </div>
+        {% enddlux_table_shell %}
     </section>
 </div>
 {% endblock %}

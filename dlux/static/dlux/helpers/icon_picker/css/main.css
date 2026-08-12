@@ -1,0 +1,112 @@
+/* Icon picker (dlux/includes/icon_picker.html + helpers/icon_picker/js/main.js).
+   Uses the global `--dlux-setup-*` surface tokens defined in main/css/main.css and
+   the themes, so it renders identically inside and outside the setup shell. */
+
+.dlux-builder-icon-picker {
+  background: var(--dlux-setup-pane-bg);
+  border-color: var(--dlux-setup-pane-border) !important;
+}
+
+/* Popover presentation (the default). Same geometry as the asset picker's
+   library panel: anchored under the whole field, full field width. Pass
+   `inline` to the include to keep the old in-flow disclosure instead. */
+.dlux-icon-picker-field--popover {
+  position: relative;
+}
+
+.dlux-builder-icon-picker--popover {
+  position: absolute;
+  inset-block-start: calc(100% + 0.45rem);
+  inset-inline: 0;
+  z-index: 25;
+  width: 100%;
+  box-shadow: 0 1rem 2.5rem rgba(15, 23, 42, 0.18);
+  /* `--dlux-setup-pane-bg` is a ~3% tint meant to sit on the setup shell, so a
+     floating panel would show the fields through it. Opaque theme surface
+     underneath, tint kept on top — the asset picker library's base. */
+  background-color: var(--bs-body-bg, #fff);
+  background-image: linear-gradient(
+    var(--dlux-setup-pane-bg, transparent),
+    var(--dlux-setup-pane-bg, transparent)
+  );
+}
+
+/* The current icon doubles as the disclosure for the grid, so it has to read as
+   pressable rather than as a decorative input-group cap. */
+.dlux-icon-picker-trigger {
+  cursor: pointer;
+  gap: 0.35rem;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.dlux-icon-picker-trigger:hover,
+.dlux-icon-picker-trigger[aria-expanded="true"] {
+  color: var(--primal);
+  background: var(--dlux-setup-item-hover-bg);
+}
+
+.dlux-icon-picker-caret {
+  font-size: 0.7rem;
+  opacity: 0.65;
+  transition: transform 0.2s ease;
+}
+
+.dlux-icon-picker-trigger[aria-expanded="true"] .dlux-icon-picker-caret {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dlux-icon-picker-trigger,
+  .dlux-icon-picker-caret {
+    transition-duration: 0.01ms;
+  }
+}
+
+.dlux-builder-icon-suggestions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
+  gap: 0.6rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  padding-inline-end: 0.15rem;
+}
+
+.dlux-builder-icon-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.25rem;
+  padding: 0.35rem;
+  border: 1px solid var(--dlux-setup-item-border);
+  border-radius: 0.9rem;
+  background: var(--dlux-setup-item-bg);
+  color: var(--dlux-setup-text);
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.dlux-builder-icon-choice:hover {
+  background: var(--dlux-setup-item-hover-bg);
+  border-color: rgba(var(--primal-rgb), 0.35);
+  box-shadow: var(--dlux-setup-item-shadow);
+  transform: translateY(-1px);
+}
+
+.dlux-builder-icon-choice.is-active {
+  background: var(--dlux-setup-item-active-bg);
+  border-color: var(--primal);
+  box-shadow: 0 0 0 3px var(--dlux-setup-item-active-ring);
+}
+
+.dlux-builder-icon-choice i {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+@media (max-width: 991.98px) {
+  .dlux-builder-icon-suggestions {
+    max-height: 14rem;
+  }
+}

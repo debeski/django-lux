@@ -323,7 +323,7 @@ class WriteBackupZipWindowTests(TestCase):
                 'include_models': ['documents.internalrecord'],
                 'include_activity': ['documents.internalrecord'],
             },
-        }), patch('dlux.reports.resolve_model_by_name', return_value=model):
+        }), patch('dlux.reports.eligibility.resolve_model_by_name', return_value=model):
             self.assertFalse(is_report_eligible_model(model))
             self.assertFalse(
                 is_report_eligible_activity_model_name('documents.internalrecord')
@@ -335,7 +335,7 @@ class WriteBackupZipWindowTests(TestCase):
                 'exclude_models': ['documents.internalrecord'],
                 'include_activity': ['documents.internalrecord'],
             },
-        }), patch('dlux.reports.resolve_model_by_name', return_value=model):
+        }), patch('dlux.reports.eligibility.resolve_model_by_name', return_value=model):
             self.assertFalse(is_report_eligible_model(model))
             self.assertFalse(
                 is_report_eligible_activity_model_name('documents.internalrecord')
@@ -354,7 +354,7 @@ class WriteBackupZipWindowTests(TestCase):
                 'include_activity': ['documents.internalrecord'],
             },
         }), patch(
-            'dlux.reports.resolve_model_by_name',
+            'dlux.reports.eligibility.resolve_model_by_name',
             side_effect=lambda value: model if value == 'documents.internalrecord' else None,
         ):
             overview = build_reports_overview(self.actor, window='all')
@@ -487,7 +487,7 @@ class WriteBackupZipWindowTests(TestCase):
         self.assertNotIn('RESTORE', available_operations)
         self.assertNotIn('PASSWORD_RESET', available_operations)
 
-        from dlux.user_reports import build_user_report
+        from dlux.reports.users import build_user_report
         user_report = build_user_report(self.actor, actor=self.actor, window='all')
         self.assertEqual(user_report['summary']['activity_count'], 1)
 

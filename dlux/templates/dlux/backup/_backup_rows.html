@@ -79,5 +79,5 @@
     </tr>
     {% endwith %}
 {% empty %}
-    <tr><td colspan="9" class="text-muted text-center py-4">{{ DLUX_STRINGS.sysbackup_empty }}</td></tr>
+    {% include 'dlux/tables/empty_row.html' with colspan=9 text=DLUX_STRINGS.sysbackup_empty %}
 {% endfor %}

@@ -165,7 +165,7 @@ def _report_backup_page_state(user):
             completed_at=now,
             error=error,
         )
-        from ..backup_progress import finish_backup_progress
+        from ..utils.backup_progress import finish_backup_progress
         for backup in stale_backups:
             backup.status = ReportBackup.STATUS_FAILED
             backup.completed_at = now

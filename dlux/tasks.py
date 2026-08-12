@@ -58,6 +58,44 @@ if shared_task is not None:
         from .updater.service import queue_daily_check_if_due
         queue_daily_check_if_due()
 
+    @shared_task(name='dlux.tasks.dlux_state_tick', ignore_result=True)
+    def dlux_state_tick_task():
+        """One iteration of the DjangoLux write-side loop, run under Celery.
+
+        This is what the `dlux-updater` service's worker loop used to do. It
+        moved here once Composer took over executing updates: the only writes
+        left are small JSON files in the runtime volume's `state/` directory —
+        update intents, the agent bridge, control-link pairing and the snapshot
+        — so a dedicated always-on container is no longer warranted. Celery is
+        already resident, already runs under the release supervisor, and is not
+        network-facing.
+
+        Guarded by a short cache lock: beat can fire the next tick before this
+        one finishes, and two concurrent ticks would race over the same files.
+        `process_next()` is separately safe (it claims rows with
+        `select_for_update`), but the bridge writes are not.
+        """
+        from django.core.cache import cache
+
+        # add() is atomic; the timeout bounds a tick that dies mid-flight.
+        if not cache.add('dlux.state_tick.lock', '1', 120):
+            return
+        try:
+            from .updater.agent_bridge import (
+                consume_agent_requests, publish_agent_results, publish_agent_snapshot,
+            )
+            from .updater.service import UpdateService
+
+            service = UpdateService()
+            consume_agent_requests(service)
+            service.process_next()
+            service.tick_image_update()
+            service.tick_control_link()
+            publish_agent_results(service.store)
+            publish_agent_snapshot(service.store)
+        finally:
+            cache.delete('dlux.state_tick.lock')
+
     @shared_task(name='dlux.tasks.reap_stalled_system_backups', ignore_result=True)
     def reap_stalled_system_backups_task():
         from .backup import reap_stalled_system_backups

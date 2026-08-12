@@ -3,7 +3,7 @@
 {% load dlux_tags %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% dlux_static 'dlux/users/css/login.css' %}">
+<link rel="stylesheet" href="{% dlux_static 'dlux/auth/css/login.css' %}">
 {% endblock %}
 
 {% block titlebar %}{% endblock %}
@@ -11,8 +11,8 @@
 {% block layout %}
 {% with lc=login_config|default:APP_CONFIG.login %}
 {% with ls=lc.style|default:"split" lt=lc.logo_treatment|default:"none" lts=lc.logo_treatment_shape|default:"soft" lbc=lc.banner_color|default:"" sl=lc.show_logo %}
-{% include 'dlux/includes/messages.html' with dlux_flash_mode='page' %}
-<div class="page dlux-login--{{ ls }} dlux-public-auth-page {% block public_auth_page_class %}{% endblock %}">
+{% include 'dlux/notifications/messages.html' with dlux_flash_mode='page' %}
+<div class="page dlux-login--{{ ls }} dlux-public-auth-page {% block public_auth_page_class %}{% endblock %}"{% if lc.background_url %} data-login-background-url="{{ lc.background_url }}"{% endif %}>
     {% if language_picker_enabled %}
     <div class="lang-toggle-container desktop-lang-toggle dlux-login-lang-toggle d-none d-md-flex">
         {% for code, meta in LANGUAGES.items %}
@@ -70,5 +70,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{% dlux_static 'dlux/users/js/login.js' %}" nonce="{{ request.csp_nonce }}"></script>
+<script src="{% dlux_static 'dlux/auth/js/login.js' %}" nonce="{{ request.csp_nonce }}"></script>
 {% endblock %}

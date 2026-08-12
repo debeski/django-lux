@@ -671,7 +671,7 @@ class UtilsTests(TestCase):
 
         label = lazy_translator('label_name', 'Name')
 
-        with patch('dlux.translations.get_strings', return_value={'label_name': 'الاسم'}):
+        with patch('dlux.translations.runtime.get_strings', return_value={'label_name': 'الاسم'}):
             self.assertEqual(str(label), 'الاسم')
 
         serialized, imports = serializer_factory(label).serialize()
@@ -687,16 +687,16 @@ class UtilsTests(TestCase):
                                 fallback_keys=['model_category'])
 
         # Primary key wins when present.
-        with patch('dlux.translations.get_strings',
+        with patch('dlux.translations.runtime.get_strings',
                    return_value={'models_category': 'الأصناف', 'model_category': 'صنف'}):
             self.assertEqual(str(label), 'الأصناف')
 
         # Falls back to the secondary key when the primary is absent.
-        with patch('dlux.translations.get_strings', return_value={'model_category': 'صنف'}):
+        with patch('dlux.translations.runtime.get_strings', return_value={'model_category': 'صنف'}):
             self.assertEqual(str(label), 'صنف')
 
         # Falls back to the raw default when neither key exists.
-        with patch('dlux.translations.get_strings', return_value={}):
+        with patch('dlux.translations.runtime.get_strings', return_value={}):
             self.assertEqual(str(label), 'Categories')
 
         # Fallback keys never leak into migration serialization.
@@ -757,8 +757,8 @@ class UtilsTests(TestCase):
 
         _discover_and_merge_translations.cache_clear()
         _discover_translation_source_layers.cache_clear()
-        with patch('dlux.translations.apps.get_app_configs', return_value=[app_config]), \
-             patch('dlux.translations.import_module', return_value=app_module):
+        with patch('dlux.translations.runtime.apps.get_app_configs', return_value=[app_config]), \
+             patch('dlux.translations.runtime.import_module', return_value=app_module):
             groups = build_translation_matrix_groups({'en': {'name': 'English'}})
         _discover_and_merge_translations.cache_clear()
         _discover_translation_source_layers.cache_clear()

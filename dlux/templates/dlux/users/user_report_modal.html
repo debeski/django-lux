@@ -165,9 +165,7 @@
                                     </td>
                                 </tr>
                             {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-muted text-center py-4">{{ DLUX_STRINGS.user_report_empty_devices }}</td>
-                                </tr>
+                                {% include 'dlux/tables/empty_row.html' with colspan=5 text=DLUX_STRINGS.user_report_empty_devices %}
                             {% endfor %}
                         </tbody>
                     </table>

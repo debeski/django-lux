@@ -11,7 +11,7 @@ import json
 
 from django.core.management.base import BaseCommand
 
-from dlux import stack_contract
+from dlux.contracts import stack as stack_contract
 
 
 class Command(BaseCommand):

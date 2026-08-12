@@ -1,0 +1,40 @@
+# Development override for compose.yml
+# Usage: docker compose -f compose.yml -f compose.dev.yml up
+
+name: {{ project_slug }}
+
+services:
+  smtp-relay:
+    build: .
+    image: !reset null
+
+  caddy:
+    ports: !override
+      - target: 80
+        published: "90"
+        protocol: tcp
+
+  web:
+    build: .
+    image: !reset null
+    volumes: !override
+      - ./:/app:rw
+      - static:/app/staticfiles:rw
+      - ./media/:/app/media/:rw
+      - ./logs/:/app/logs:rw
+      - ./imports/:/app/imports:ro
+      - dlux_runtime:/opt/dlux-runtime:ro
+    environment:
+      BASE_URL: "http://localhost:90"
+      DEBUG_STATUS: "True"
+      CADDY_PORT: "90"
+
+  celery:
+    build: .
+    image: !reset null
+    volumes: !override
+      - ./:/app:rw
+      - static:/app/staticfiles:rw
+      - ./media/:/app/media/:rw
+      - ./logs/:/app/logs:rw
+      - dlux_runtime:/opt/dlux-runtime:rw

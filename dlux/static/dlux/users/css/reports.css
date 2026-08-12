@@ -1,0 +1,209 @@
+/* User report and user-detail surfaces — the report modal (self-service from
+   the profile, and per-user from General Reports), its tiles/chips/meters, the
+   activity timeline, and the user-hub placeholder. */
+
+.dlux-user-hub-placeholder-icon {
+    font-size: 3rem;
+}
+
+.dlux-user-detail-timeline {
+    max-height: 250px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.dlux-user-detail-timeline-content {
+    background: rgba(var(--bs-primary-rgb), 0.03);
+}
+
+.dlux-user-detail-empty-icon {
+    font-size: 1.5rem;
+}
+
+.dlux-user-report {
+    --dlux-user-report-border: rgba(var(--primal-rgb, 13, 110, 253), 0.16);
+    --dlux-user-report-surface: color-mix(in srgb, var(--hbody, #f8fafc) 88%, transparent);
+    --dlux-user-report-surface-strong: color-mix(in srgb, var(--table-row, var(--hbody, #ffffff)) 88%, transparent);
+    --dlux-user-report-muted-surface: color-mix(in srgb, var(--body, #f8fafc) 78%, var(--hbody, #ffffff));
+    --dlux-user-report-text: var(--title, #334155);
+    --dlux-user-report-muted: var(--htitle, #64748b);
+    color: var(--dlux-user-report-text);
+}
+
+.dlux-user-report-tile,
+.dlux-user-report-card {
+    border: 1px solid var(--dlux-user-report-border);
+    border-radius: 1.1rem;
+    background:
+        linear-gradient(135deg, rgba(var(--primal-rgb, 13, 110, 253), 0.055), transparent 44%),
+        var(--dlux-user-report-surface);
+    color: var(--dlux-user-report-text);
+    box-shadow: 0 0.75rem 1.8rem rgba(0, 0, 0, 0.08);
+}
+
+.dlux-user-report-tile {
+    padding: 1rem;
+    min-height: 6rem;
+}
+
+.dlux-user-report-tile span,
+.dlux-user-report-list dt {
+    display: block;
+    color: var(--dlux-user-report-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.dlux-user-report-tile strong {
+    display: block;
+    color: var(--dlux-user-report-text);
+    font-size: 1.55rem;
+    margin-top: 0.35rem;
+}
+
+.dlux-user-report-card {
+    height: 100%;
+    padding: 1.1rem;
+}
+
+.dlux-user-report-card h5 {
+    color: color-mix(in srgb, var(--primal, #0d6efd) 84%, var(--dlux-user-report-text));
+    font-weight: 800;
+    margin-bottom: 1rem;
+}
+
+.dlux-user-report-list {
+    display: grid;
+    gap: 0.65rem 1rem;
+    grid-template-columns: minmax(8rem, 0.45fr) 1fr;
+    margin: 0;
+}
+
+.dlux-user-report-list dd {
+    color: var(--dlux-user-report-text);
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.dlux-user-report-stack,
+.dlux-user-report-timeline {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.dlux-user-report-meter,
+.dlux-user-report-log {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.13);
+    border-radius: 0.85rem;
+    background: var(--dlux-user-report-muted-surface);
+    color: var(--dlux-user-report-text);
+}
+
+.dlux-user-report-log {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+.dlux-user-report-log small {
+    color: var(--dlux-user-report-muted);
+    margin-inline-start: auto;
+}
+
+.dlux-user-report-badge {
+    background: color-mix(in srgb, var(--primal, #0d6efd) 14%, var(--dlux-user-report-surface-strong)) !important;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.22);
+    color: color-mix(in srgb, var(--primal, #0d6efd) 78%, var(--dlux-user-report-text)) !important;
+}
+
+/* Merged per-model activity breakdown (model header + its action-type chips) */
+
+.dlux-user-report-model {
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.13);
+    border-radius: 0.95rem;
+    background: var(--dlux-user-report-muted-surface);
+    color: var(--dlux-user-report-text);
+}
+
+.dlux-user-report-model-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.7rem;
+}
+
+.dlux-user-report-model-head strong {
+    color: var(--dlux-user-report-text);
+    font-weight: 700;
+}
+
+.dlux-user-report-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.dlux-user-report-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    border: 1px solid rgba(var(--primal-rgb, 13, 110, 253), 0.18);
+    background: color-mix(in srgb, var(--primal, #0d6efd) 8%, var(--dlux-user-report-surface));
+    color: var(--dlux-user-report-text);
+}
+
+.dlux-user-report-chip-count {
+    font-weight: 800;
+    color: color-mix(in srgb, var(--primal, #0d6efd) 78%, var(--dlux-user-report-text));
+}
+
+.dlux-user-report-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.65rem;
+    margin-top: 0.9rem;
+    color: var(--dlux-user-report-muted);
+}
+
+.dlux-user-report-pagination .btn:disabled {
+    opacity: 0.55;
+}
+
+.dlux-user-report .table {
+    --bs-table-bg: var(--dlux-user-report-surface);
+    --bs-table-color: var(--dlux-user-report-text);
+    --bs-table-border-color: var(--dlux-user-report-border);
+    --bs-table-striped-bg: var(--dlux-user-report-muted-surface);
+    --bs-table-hover-bg: color-mix(in srgb, var(--dlux-user-report-muted-surface) 84%, var(--primal, #0d6efd));
+    color: var(--dlux-user-report-text);
+}
+
+.dlux-user-report .text-muted,
+.dlux-user-report .text-secondary,
+.dlux-user-report .small {
+    color: var(--dlux-user-report-muted) !important;
+}
+
+.dlux-user-report .alert-info {
+    background:
+        linear-gradient(135deg, rgba(var(--primal-rgb, 13, 110, 253), 0.12), transparent 56%),
+        var(--dlux-user-report-muted-surface);
+    color: var(--dlux-user-report-text);
+    border: 1px solid var(--dlux-user-report-border) !important;
+}
+
+.dlux-user-report .bg-light {
+    background-color: var(--dlux-user-report-muted-surface) !important;
+}

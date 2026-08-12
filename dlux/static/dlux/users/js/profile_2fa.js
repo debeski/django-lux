@@ -1,12 +1,28 @@
 let needsReload = false;
 let pendingEmailSetup = null;
 
+const dluxLoadingHandles = new WeakMap();
+
+// Thin adapter over window.DluxLoadingButton so every 2FA button gets the shared
+// spinner, disable, aria-busy and restore behaviour instead of a local toggle.
 function setButtonLoading(button, loading) {
     if (!button) return;
-    button.disabled = loading;
     button.classList.toggle("is-loading", loading);
-    const spinner = button.querySelector(".spinner-border");
-    if (spinner) spinner.classList.toggle("d-none", !loading);
+    if (!window.DluxLoadingButton) {
+        button.disabled = loading;
+        return;
+    }
+    if (loading) {
+        dluxLoadingHandles.set(button, window.DluxLoadingButton.start(button));
+        return;
+    }
+    const handle = dluxLoadingHandles.get(button);
+    if (handle) {
+        handle.done();
+        dluxLoadingHandles.delete(button);
+    } else {
+        button.disabled = false;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {

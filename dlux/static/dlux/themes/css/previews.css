@@ -1,0 +1,56 @@
+/* Theme preview swatches — the per-theme gradient chips used by the theme
+   picker surfaces (includes/theme_previews.html). */
+
+.dlux-theme-preview {
+    width: 45px;
+    height: 45px;
+    cursor: pointer;
+}
+
+.dlux-theme-preview--light {
+    background: #f6f7f9;
+}
+
+.dlux-theme-preview--blue {
+    background: #2363c3;
+}
+
+.dlux-theme-preview--gold {
+    background: #d97706;
+}
+
+.dlux-theme-preview--green {
+    background: #166534;
+}
+
+.dlux-theme-preview--red {
+    background: #7f1d1d;
+}
+
+.dlux-theme-preview--mono {
+    background: linear-gradient(135deg, #ffffff 0%, #f4f6f8 48%, #cbd5df 49%, #94a3b8 100%);
+}
+
+.dlux-theme-preview--dark {
+    background: #0f172a;
+}
+
+.dlux-theme-preview--gothic {
+    background: linear-gradient(135deg, #00b4d8 0%, #9d4edd 55%, #0a0510 100%);
+}
+
+.dlux-theme-preview--retro {
+    background: linear-gradient(135deg, #d4a574 0%, #b87333 55%, #0d0b0a 100%);
+}
+
+.dlux-theme-preview--neon {
+    background: linear-gradient(135deg, #00ffff 0%, #ff00ff 50%, #0a0a0f 100%);
+}
+
+.dlux-theme-preview--prism {
+    background: linear-gradient(145deg, #eef2f7 0%, #9aa8bc 24%, #3a4150 52%, #181b22 100%);
+}
+
+.dlux-theme-preview--aether {
+    background: linear-gradient(135deg, #0d1116 0%, #19212b 34%, #a8ffe4 56%, #83c9ff 72%, #c8a4ff 100%);
+}

@@ -18,14 +18,14 @@ from django.urls import reverse
 from dlux.forms import SystemSettingsForm
 from dlux.models import Profile, SystemSettings
 
-_STATIC = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main'
+_STATIC = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'base'
 _TEMPLATES = Path(__file__).resolve().parents[1] / 'templates' / 'dlux'
 
 
 class UnsavedGuardAssetTests(SimpleTestCase):
     @property
     def _js(self):
-        return (_STATIC / 'js' / 'unsaved_guard.js').read_text(encoding='utf-8')
+        return (_STATIC.parent / 'system' / 'js' / 'unsaved_guard.js').read_text(encoding='utf-8')
 
     def test_guard_intercepts_every_way_out_of_the_modal(self):
         js = self._js
@@ -89,7 +89,7 @@ class UnsavedGuardAssetTests(SimpleTestCase):
 
 class UnsavedGuardMarkupTests(SimpleTestCase):
     def test_prompt_offers_save_discard_and_go_back(self):
-        html = render_to_string('dlux/includes/unsaved_changes_modal.html', {'DLUX_STRINGS': {}})
+        html = render_to_string('dlux/system/unsaved_changes_modal.html', {'DLUX_STRINGS': {}})
 
         self.assertIn('data-dlux-unsaved-save', html)
         self.assertIn('data-dlux-unsaved-discard', html)
@@ -99,7 +99,7 @@ class UnsavedGuardMarkupTests(SimpleTestCase):
         self.assertIn('Go back', html)
 
     def test_prompt_offers_the_dont_ask_again_switch(self):
-        html = render_to_string('dlux/includes/unsaved_changes_modal.html', {'DLUX_STRINGS': {}})
+        html = render_to_string('dlux/system/unsaved_changes_modal.html', {'DLUX_STRINGS': {}})
 
         self.assertIn('data-dlux-unsaved-skip', html)
         self.assertIn("Don't ask again", html)
@@ -107,7 +107,7 @@ class UnsavedGuardMarkupTests(SimpleTestCase):
     def test_prompt_x_button_goes_back_rather_than_dismissing(self):
         # A bare data-bs-dismiss would close the prompt without telling the guard
         # which outcome was chosen, leaving the settings modal in limbo.
-        html = render_to_string('dlux/includes/unsaved_changes_modal.html', {'DLUX_STRINGS': {}})
+        html = render_to_string('dlux/system/unsaved_changes_modal.html', {'DLUX_STRINGS': {}})
         header = html[html.index('modal-header'):html.index('modal-body')]
 
         self.assertIn('data-dlux-unsaved-stay', header)
@@ -116,8 +116,8 @@ class UnsavedGuardMarkupTests(SimpleTestCase):
     def test_base_template_ships_the_prompt_and_script(self):
         base = (_TEMPLATES / 'base.html').read_text(encoding='utf-8')
 
-        self.assertIn("dlux/includes/unsaved_changes_modal.html", base)
-        self.assertIn("dlux/main/js/unsaved_guard.js", base)
+        self.assertIn("dlux/system/unsaved_changes_modal.html", base)
+        self.assertIn("dlux/system/js/unsaved_guard.js", base)
 
 
 class UnsavedGuardFormOptInTests(TestCase):
@@ -201,11 +201,11 @@ class UnsavedGuardPreferenceTests(TestCase):
 
 class UnsavedGuardOptionsCardTests(SimpleTestCase):
     def test_options_page_can_turn_the_prompt_back_on(self):
-        options = (_TEMPLATES / 'includes' / 'options.html').read_text(encoding='utf-8')
-        js = (_STATIC / 'js' / 'options.js').read_text(encoding='utf-8')
+        options = (_TEMPLATES / 'system' / 'options.html').read_text(encoding='utf-8')
+        js = (_STATIC.parent / 'system' / 'js' / 'options.js').read_text(encoding='utf-8')
 
         self.assertIn('data-unsaved-warning-toggle', options)
-        self.assertIn('data-options-card="unsaved-warning"', options)
+        self.assertIn('{% dlux_option_card slug="unsaved-warning"', options)
         self.assertIn('function initUnsavedWarningToggle()', js)
         self.assertIn('initUnsavedWarningToggle();', js)
         # The card reads as "warn me", so it is the inverse of the stored skip flag.
@@ -225,7 +225,7 @@ class UnsavedPromptStackingTests(SimpleTestCase):
     be clicked."""
 
     def test_prompt_declares_the_stacked_class(self):
-        html = render_to_string('dlux/includes/unsaved_changes_modal.html', {'DLUX_STRINGS': {}})
+        html = render_to_string('dlux/system/unsaved_changes_modal.html', {'DLUX_STRINGS': {}})
 
         self.assertIn('dlux-modal-stacked', html)
 
@@ -237,7 +237,7 @@ class UnsavedPromptStackingTests(SimpleTestCase):
         self.assertIn('body.dlux-modal-stacked-open .modal-backdrop:last-of-type', css)
 
     def test_body_class_is_added_and_removed_around_the_prompt(self):
-        js = (_STATIC / 'js' / 'unsaved_guard.js').read_text(encoding='utf-8')
+        js = (_STATIC.parent / 'system' / 'js' / 'unsaved_guard.js').read_text(encoding='utf-8')
 
         self.assertIn("document.body.classList.add('dlux-modal-stacked-open');", js)
         self.assertIn("document.body.classList.remove('dlux-modal-stacked-open');", js)
@@ -245,7 +245,7 @@ class UnsavedPromptStackingTests(SimpleTestCase):
     def test_closing_the_prompt_keeps_the_page_scroll_locked(self):
         # Bootstrap strips `modal-open` whenever any modal hides, including this
         # prompt closing over a settings modal that is staying open.
-        js = (_STATIC / 'js' / 'unsaved_guard.js').read_text(encoding='utf-8')
+        js = (_STATIC.parent / 'system' / 'js' / 'unsaved_guard.js').read_text(encoding='utf-8')
 
         self.assertIn("if (document.querySelector('.modal.show')) {", js)
         self.assertIn("document.body.classList.add('modal-open');", js)

@@ -1,0 +1,5 @@
+{# Table shell: the scroll container every Dlux data grid sits in.            #}
+{# Usage: {% dlux_table_shell %}<table class="table ...">…</table>{% enddlux_table_shell %} #}
+<div class="dlux-table-shell{% if class %} {{ class }}{% endif %}" data-dlux-table-density="{{ density|default:'balanced' }}">
+    <div class="dlux-table-scroll">{{ content }}</div>
+</div>

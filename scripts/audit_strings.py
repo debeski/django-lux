@@ -1,6 +1,6 @@
 """Report translation keys referenced in templates/python that do not resolve.
 
-Alias-aware (dlux/translation_aliases.py). The same check runs in the suite as
+Alias-aware (dlux/translations/aliases.py). The same check runs in the suite as
 dlux/tests/test_translation_coverage.py; this script is for ad-hoc inspection.
 Run from the repository root.
 """
@@ -16,7 +16,7 @@ for node in ast.walk(ast.parse(src)):
                 cat[k.value] = {kk.value for kk in v.keys if isinstance(kk, ast.Constant)}
 ar, en = cat['ar'], cat['en']
 
-al_src = (root/'dlux/translation_aliases.py').read_text(encoding='utf-8')
+al_src = (root/'dlux/translations/aliases.py').read_text(encoding='utf-8')
 ALIASES = {}
 for node in ast.walk(ast.parse(al_src)):
     if isinstance(node, ast.Assign) and getattr(node.targets[0], 'id', '') == 'STRING_ALIASES':
@@ -38,7 +38,7 @@ for p in (root/'dlux/templates').rglob('*.html'):
         d = m.group(2) if m.group(2) is not None else m.group(3)
         if d: defaults[m.group(1)].add(d)
 for p in (root/'dlux').rglob('*.py'):
-    if 'translations.py' in str(p) or '/tests/' in str(p) or 'translation_aliases' in str(p): continue
+    if 'translations.py' in str(p) or '/tests/' in str(p) or 'translations/aliases' in str(p): continue
     for m in pyp.finditer(p.read_text(encoding='utf-8')):
         used[m.group(1)].add(str(p.relative_to(root)))
         d = m.group(2) if m.group(2) is not None else m.group(3)

@@ -20,6 +20,7 @@ autorun.ini
 /scratch/
 .pytest*/
 .ruff_cache/
+/.neonloc/
 
 # Ignore Celery-related files
 celerybeat-*

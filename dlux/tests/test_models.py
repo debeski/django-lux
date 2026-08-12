@@ -28,6 +28,10 @@ class SystemSettingsTests(TestCase):
             'system_names',
             'logo',
             'favicon',
+            'logo_asset',
+            'login_logo_asset',
+            'favicon_asset',
+            'login_background_asset',
             'default_language',
             'default_theme',
             'home_url',
@@ -153,7 +157,7 @@ class SystemSettingsTests(TestCase):
         instance = SystemSettings.load()
         instance.is_configured = True
         instance.save()
-        with patch('dlux.models.cache.get', side_effect=Exception('unpickle boom')):
+        with patch('dlux.models.base.cache.get', side_effect=Exception('unpickle boom')):
             result = SystemSettings.load()
         self.assertEqual(result.pk, 1)
         self.assertTrue(result.is_configured)
@@ -166,7 +170,7 @@ class SystemSettingsTests(TestCase):
         instance = SystemSettings.load()
         instance.is_configured = True
         instance.save()
-        with patch('dlux.models.cache.get', side_effect=Exception('unpickle boom')):
+        with patch('dlux.models.base.cache.get', side_effect=Exception('unpickle boom')):
             config = get_system_config()
         self.assertTrue(config.get('is_configured'))
 

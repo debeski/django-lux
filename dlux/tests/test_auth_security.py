@@ -3,7 +3,7 @@ from dlux.tests.harness import setup_test_environment
 setup_test_environment()
 
 from django.core.cache import cache
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from dlux.system.normalizers import normalize_auth_config
 
@@ -174,7 +174,7 @@ class LoginLockoutConfigTests(TestCase):
         return self.factory.post('/accounts/login/', REMOTE_ADDR='10.9.8.7')
 
     def test_threshold_and_duration_come_from_config(self):
-        from dlux import login_throttle
+        from dlux.auth import login_throttle
 
         with override_settings(DLUX_CONFIG={
             'auth_config': {
@@ -195,7 +195,7 @@ class LoginLockoutConfigTests(TestCase):
             self.assertLessEqual(remaining, 30 * 60)
 
     def test_successful_login_clears_counters(self):
-        from dlux import login_throttle
+        from dlux.auth import login_throttle
 
         with override_settings(DLUX_CONFIG={
             'auth_config': {
@@ -218,7 +218,7 @@ class StrongPasswordMinLengthTests(TestCase):
         _fresh_config_state()
 
     def test_configured_min_length_drives_failures(self):
-        from dlux.password_validation import strong_password_failures, strong_password_min_length
+        from dlux.auth.password_validation import strong_password_failures, strong_password_min_length
 
         with override_settings(DLUX_CONFIG={
             'auth_config': {
@@ -234,7 +234,7 @@ class StrongPasswordMinLengthTests(TestCase):
             self.assertEqual(strong_password_failures('Abcdef1!Abcdefgh'), [])
 
     def test_default_min_length_is_twelve(self):
-        from dlux.password_validation import strong_password_min_length
+        from dlux.auth.password_validation import strong_password_min_length
         self.assertEqual(strong_password_min_length(), 12)
 
 
@@ -287,3 +287,51 @@ class AuthConfigPersistenceTests(TestCase):
         self.assertEqual(stored['login_lockout_window_minutes'], 20)
         self.assertEqual(stored['login_lockout_duration_minutes'], 60)
         self.assertEqual(stored['strong_password_min_length'], 14)
+
+
+class LegacyValidatorPathTests(SimpleTestCase):
+    """The validator module moved and the old path was not kept as an alias.
+
+    So a project that hardcoded `dlux.password_validation...` in its own
+    AUTH_PASSWORD_VALIDATORS depends entirely on `dlux_settings()` rewriting it.
+    Without that rewrite the project fails at startup on an unresolvable
+    validator — which is why this is a test and not a comment.
+    """
+
+    NEW = "dlux.auth.password_validation.DluxStrongPasswordValidator"
+    OLD = "dlux.password_validation.DluxStrongPasswordValidator"
+
+    def _settings(self, validators=None):
+        from dlux.utils.settings import dlux_settings
+
+        scope = {"BASE_DIR": "/tmp", "INSTALLED_APPS": [], "MIDDLEWARE": [], "TEMPLATES": []}
+        if validators is not None:
+            scope["AUTH_PASSWORD_VALIDATORS"] = validators
+        return [v["NAME"] for v in dlux_settings(scope)["AUTH_PASSWORD_VALIDATORS"]]
+
+    def test_the_old_module_path_no_longer_exists(self):
+        import importlib
+
+        with self.assertRaises(ImportError):
+            importlib.import_module("dlux.password_validation")
+
+    def test_a_fresh_project_gets_the_new_path(self):
+        self.assertEqual(self._settings(), [self.NEW])
+
+    def test_a_pinned_legacy_path_is_rewritten_not_duplicated(self):
+        names = self._settings([{"NAME": self.OLD}])
+
+        self.assertEqual(names, [self.NEW])
+        self.assertNotIn(self.OLD, names)
+
+    def test_the_rewrite_preserves_other_validators_and_their_options(self):
+        django_validator = "django.contrib.auth.password_validation.MinimumLengthValidator"
+        names = self._settings([
+            {"NAME": django_validator, "OPTIONS": {"min_length": 12}},
+            {"NAME": self.OLD},
+        ])
+
+        self.assertEqual(names, [django_validator, self.NEW])
+
+    def test_an_already_current_project_is_untouched(self):
+        self.assertEqual(self._settings([{"NAME": self.NEW}]), [self.NEW])

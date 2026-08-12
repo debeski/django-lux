@@ -1,12 +1,13 @@
 <div
-    class="archive-file-field"
+    class="archive-file-field{% if widget.asset_picker %} archive-file-field--asset{% endif %}"
     data-archive-file-widget
+    {% if widget.asset_picker %}data-asset-picker data-asset-kind="{{ widget.kind }}" data-archive-file-primary="library"{% endif %}
     data-field-label="{{ widget.field_label }}"
-    data-empty-title="{{ DLUX_STRINGS.archive_file_empty_title|default:'No file selected' }}"
-    data-empty-meta="{{ DLUX_STRINGS.archive_file_empty_meta|default:'Drop a file here or use the actions.' }}"
-    data-current-meta="{{ DLUX_STRINGS.archive_file_current_meta|default:'Current file on this record.' }}"
-    data-selected-meta="{{ DLUX_STRINGS.archive_file_selected_meta|default:'Ready to save with this form.' }}"
-    data-too-large-template="{{ DLUX_STRINGS.archive_file_too_large|default:'File exceeds the maximum allowed size ({limit} MB).' }}"
+    data-empty-title="{{ widget.empty_title }}"
+    data-empty-meta="{{ widget.empty_meta }}"
+    data-current-meta="{{ widget.current_meta }}"
+    data-selected-meta="{{ widget.selected_meta }}"
+    data-too-large-template="{{ widget.too_large_template }}"
     data-initial-name="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.display_name }}{% endif %}"
     data-initial-url="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.file_url }}{% endif %}"
     data-initial-icon="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.icon_class }}{% else %}bi bi-file-earmark-arrow-up-fill{% endif %}"
@@ -23,19 +24,33 @@
                     href="{% if widget.is_initial and not widget.attrs.checked %}{{ widget.file_url }}{% else %}#{% endif %}"
                     target="_blank"
                     rel="noopener"
-                    title="{{ DLUX_STRINGS.archive_file_open_action|default:'Open file' }}"
-                    aria-label="{{ DLUX_STRINGS.archive_file_open_action|default:'Open file' }}"
+                    title="{{ widget.open_action }}"
+                    aria-label="{{ widget.open_action }}"
                     {% if not widget.is_initial or widget.attrs.checked %}hidden{% endif %}
                 >
                     <i class="bi bi-box-arrow-up-right"></i>
                 </a>
 
+                {% if widget.asset_picker %}
+                    <button
+                        type="button"
+                        class="archive-file-tool archive-file-tool-library"
+                        data-archive-file-library
+                        title="{{ widget.choose_existing_action }}"
+                        aria-label="{{ widget.choose_existing_action }}"
+                        aria-controls="{{ widget.attrs.id }}_library"
+                        aria-expanded="false"
+                    >
+                        <i class="bi bi-collection"></i>
+                    </button>
+                {% endif %}
+
                 <button
                     type="button"
                     class="archive-file-tool archive-file-tool-upload"
                     data-archive-file-upload
-                    title="{{ DLUX_STRINGS.archive_file_upload_action|default:'Upload file' }}"
-                    aria-label="{{ DLUX_STRINGS.archive_file_upload_action|default:'Upload file' }}"
+                    title="{{ widget.upload_action }}"
+                    aria-label="{{ widget.upload_action }}"
                 >
                     <i class="bi bi-upload"></i>
                 </button>
@@ -73,9 +88,9 @@
                         type="button"
                         class="archive-file-tool archive-file-tool-clear"
                         data-archive-file-clear
-                        title="{{ DLUX_STRINGS.archive_file_clear_action|default:'Clear file' }}"
-                        aria-label="{{ DLUX_STRINGS.archive_file_clear_action|default:'Clear file' }}"
-                        {% if not widget.is_initial or widget.attrs.checked %}hidden{% endif %}
+                        title="{{ widget.clear_action }}"
+                        aria-label="{{ widget.clear_action }}"
+                    {% if not widget.is_initial or widget.attrs.checked %}hidden{% endif %}
                     >
                         <i class="bi bi-x-lg"></i>
                     </button>
@@ -91,20 +106,40 @@
                 {% if widget.is_initial and not widget.attrs.checked %}
                     {{ widget.display_name }}
                 {% else %}
-                    {{ DLUX_STRINGS.archive_file_empty_title|default:"No file selected" }}
+                    {{ widget.empty_title }}
                 {% endif %}
             </div>
             <div class="archive-file-meta" data-archive-file-meta>
                 {% if widget.is_initial and not widget.attrs.checked %}
-                    {{ DLUX_STRINGS.archive_file_current_meta|default:"Current file on this record." }}
+                    {{ widget.current_meta }}
                 {% else %}
-                    {{ DLUX_STRINGS.archive_file_empty_meta|default:"Drop a file here or use the actions." }}
+                    {{ widget.empty_meta }}
                 {% endif %}
             </div>
         </div>
     </div>
 
-    {% if widget.is_initial and not widget.required %}
+    {% if widget.asset_picker %}
+        <input type="hidden" id="{{ widget.attrs.id }}" name="{{ widget.asset_input_name }}" value="{{ widget.selected_id }}" data-asset-picker-value>
+        <input type="checkbox" name="{{ widget.clear_input_name }}" class="archive-file-clear-checkbox d-none" data-asset-picker-clear-value>
+        <input type="file" id="{{ widget.attrs.id }}_upload" name="{{ widget.upload_input_name }}" accept="{{ widget.accept }}" class="archive-file-input" data-archive-file-input="true" data-asset-picker-upload>
+        <div id="{{ widget.attrs.id }}_library" class="archive-file-library" data-asset-picker-library hidden>
+            <div class="archive-file-library__search">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input type="search" class="form-control glass-input" placeholder="{{ widget.search_assets }}" aria-label="{{ widget.search_assets }}" data-asset-picker-search>
+            </div>
+            <div class="archive-file-library__grid" data-asset-picker-grid>
+                {% for asset in widget.assets %}
+                    <button type="button" class="archive-file-library__option{% if widget.selected_id == asset.pk|stringformat:'s' %} is-selected{% endif %}" data-asset-picker-option data-asset-id="{{ asset.pk }}" data-asset-name="{{ asset.title }}" data-asset-url="{{ asset.url }}">
+                        {% if asset.kind == 'image' and asset.url %}<img src="{{ asset.url }}" alt="">{% else %}<i class="bi bi-file-earmark-font-fill" aria-hidden="true"></i>{% endif %}
+                        <span>{{ asset.title }}</span>
+                    </button>
+                {% empty %}
+                    <p class="small text-muted mb-0">{{ widget.library_empty }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    {% elif widget.is_initial and not widget.required %}
         <input
             type="checkbox"
             name="{{ widget.checkbox_name }}"
@@ -115,6 +150,6 @@
         >
     {% endif %}
 
-    <input type="{{ widget.type }}" name="{{ widget.name }}" data-archive-file-input="true"{% include "django/forms/widgets/attrs.html" %}>
+    {% if not widget.asset_picker %}<input type="{{ widget.type }}" name="{{ widget.name }}" data-archive-file-input="true"{% include "django/forms/widgets/attrs.html" %}>{% endif %}
     <div class="invalid-feedback" role="alert" data-archive-file-client-error hidden></div>
 </div>

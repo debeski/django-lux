@@ -17,8 +17,8 @@ from django.test import RequestFactory, SimpleTestCase, TestCase
 from dlux.forms import SystemSettingsForm
 from dlux.models import SystemSettings
 
-_SETUP_JS = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'js' / 'system_setup.js'
-_SETUP_CSS = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main' / 'css' / 'system_setup.css'
+_SETUP_JS = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
+_SETUP_CSS = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'css' / 'main.css'
 
 _BASE_DATA = {
     'system_names': '{"en": "System", "ar": "System"}',

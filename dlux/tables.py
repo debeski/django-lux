@@ -5,6 +5,7 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.functional import lazy
 from django.utils.safestring import mark_safe
 
 from .system.constants import DEFAULT_TABLE_PAGE_SIZE, TABLE_PAGE_SIZE_OPTIONS
@@ -13,6 +14,12 @@ from .utils import get_user_management_tier_state_for_user, translate_activity_l
 
 User = get_user_model()
 
+
+
+# Column labels are evaluated when the class body runs — i.e. at import, before
+# any request or language is known. Resolving them lazily keeps the header in the
+# viewer's language and keeps module import free of translation lookups.
+_lazy_label = lazy(lambda key, default: get_strings().get(key, default), str)
 
 class DluxTable(tables.Table):
     """
@@ -107,9 +114,9 @@ class UserTable(DluxTable):
         accessor='profile.full_name',
         order_by='first_name'
     )
-    staff_tier = tables.Column(verbose_name=get_strings().get('tbl_staff_tier', 'Staff Tier'), empty_values=())
+    staff_tier = tables.Column(verbose_name=_lazy_label('tbl_staff_tier', 'Staff Tier'), empty_values=())
     twofa_status = tables.Column(
-        verbose_name=get_strings().get('tbl_2fa_status', '2FA'),
+        verbose_name=_lazy_label('tbl_2fa_status', '2FA'),
         empty_values=(),
         orderable=False,
     )
@@ -345,8 +352,11 @@ def _build_user_row_actions(record):
             "label": s.get("view_label", "View"),
             "icon": "bi bi-eye",
             "type": "event",
-            "event": "dlux:view-user-details",
-            "data": {"url": reverse('user_detail_modal', args=[record.pk])},
+            "event": "dlux:dynamic_modal:open",
+            "data": {
+                "url": reverse('user_detail_modal', args=[record.pk]),
+                "title": f"{s.get('view_label', 'View')} {display_name}".strip(),
+            },
             "dblclick": True,
             "permissions": ["auth.view_user"],
         },

@@ -22,7 +22,7 @@ from dlux.dialogs import (
 )
 from dlux.models import Profile
 
-_STATIC = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'main'
+_STATIC = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'base'
 _TEMPLATES = Path(__file__).resolve().parents[1] / 'templates' / 'dlux'
 
 
@@ -209,11 +209,11 @@ class DialogResetEndpointTests(_RegistryIsolation, TestCase):
 class DialogResetUiTests(SimpleTestCase):
     @property
     def _options_html(self):
-        return (_TEMPLATES / 'includes' / 'options.html').read_text(encoding='utf-8')
+        return (_TEMPLATES / 'system' / 'options.html').read_text(encoding='utf-8')
 
     @property
     def _options_js(self):
-        return (_STATIC / 'js' / 'options.js').read_text(encoding='utf-8')
+        return (_STATIC.parent / 'system' / 'js' / 'options.js').read_text(encoding='utf-8')
 
     def test_both_actions_live_on_one_bar(self):
         html = self._options_html

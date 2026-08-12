@@ -1,0 +1,17 @@
+{# Options-page card: reorderable panel with drag handle, icon heading and     #}
+{# optional description. Body is the tag's block content.                      #}
+{# Usage: {% dlux_option_card slug="theme" icon="bi-palette" title=DLUX_STRINGS.theme desc=DLUX_STRINGS.theme_desc %}…{% enddlux_option_card %} #}
+<div class="dlux-options-card no-print{% if class %} {{ class }}{% endif %}" data-options-card="{{ slug }}"{% if attrs %} {{ attrs|safe }}{% endif %}>
+    <div class="glass-profile option-section h-100 dlux-options-panel">
+        <button class="dlux-options-card-handle"
+                type="button"
+                data-options-card-handle
+                aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
+                title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
+            <i class="bi bi-grip-vertical"></i>
+        </button>
+        <h4 class="mb-3"><i class="bi {{ icon }} me-2"></i> {{ title }}</h4>
+        {% if desc %}<p class="text-muted small mb-4">{{ desc }}</p>{% endif %}
+        {{ content }}
+    </div>
+</div>
