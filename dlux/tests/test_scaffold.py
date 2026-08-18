@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from datetime import date
+from fnmatch import fnmatchcase
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -502,9 +503,7 @@ class TemplatePackagingTests(unittest.TestCase):
         uncovered = []
         for path in sorted((root / 'dlux' / 'scaffold' / 'templates').rglob('*.tmpl')):
             relative = path.relative_to(root / 'dlux' / 'scaffold')
-            # full_match, not match: only the former expands `**` recursively,
-            # which is exactly what the declaration relies on.
-            if not any(relative.full_match(pattern)
+            if not any(fnmatchcase(relative.as_posix(), pattern)
                        for pattern in package_data.get('dlux.scaffold', [])):
                 uncovered.append(str(relative))
 

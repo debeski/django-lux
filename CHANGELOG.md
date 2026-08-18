@@ -9,6 +9,7 @@ This file owns the release history for `django-lux`.
 
 ## v1.8.0
 
+- **Python 3.12 Template Package Guard**: `TemplatePackagingTests` now uses a portable package-data glob matcher instead of `Path.full_match()`, which is unavailable on Python 3.12.
 - **CI Package Integrity Guards**: `dlux/tests/test_package_facades.py` now imports committed split-package modules, validates `__all__` exports, model registration, and System Settings form mixins without reading ignored `.xpose/` archives.
 - **Report-Aware Project Seeding**: `dlux_seed --log` now creates a linked `user`-category `CREATE` activity row for every seeded project row, with optional fixed `--user-id` and `--scope-id` attribution; the disconnected `seed_activity_log` command is retired.
 - **Optional Form Submit Footer**: `dlux/form_base.html` now offers opt-in `form_content` and `form_footer` blocks, with a shared `.dlux-form-footer` rail for submit controls associated through an HTML form ID. The desktop rail uses a page-local layout boundary and the main-content padding offset to meet the global footer without document overscroll or artificial final-field spacing; it returns to normal flow below 768px. Existing `content` overrides remain unchanged.
