@@ -6,7 +6,7 @@
     "highlights": [
       "Package-facade checks inspect committed split modules instead of ignored local archives."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.0"
   },
   "requires": {
     "updater_schema": ">=1",
