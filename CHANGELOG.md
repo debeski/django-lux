@@ -6,6 +6,7 @@ This file owns the release history for `django-lux`.
 > [`django-microsys`](https://github.com/debeski/django-microsys) (now archived).
 > Release history prior to v1.0.0 lives in that archived repository.
 
+
 ## v1.8.0
 
 - **Report-Aware Project Seeding**: `dlux_seed --log` now creates a linked `user`-category `CREATE` activity row for every seeded project row, with optional fixed `--user-id` and `--scope-id` attribution; the disconnected `seed_activity_log` command is retired.

@@ -2,15 +2,11 @@
   "schema_version": 2,
   "version": "1.8.0",
   "display": {
-    "summary": "ScanLink scanner support moves into DjangoLux and stays off until you switch it on.",
+    "summary": "Package split integrity checks now run consistently in clean CI checkouts.",
     "highlights": [
-      "ScanLink is opt-in per system, under the new Extra Features settings step.",
-      "Publish scanner installers from Options; they are served only to signed-in users.",
-      "Import a configuration file into System Settings and review every change before applying.",
-      "Admin panel actions are usable on phone-width screens.",
-      "Setup wizard step buttons now open the step they name."
+      "Package-facade checks inspect committed split modules instead of ignored local archives."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.0"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.1"
   },
   "requires": {
     "updater_schema": ">=1",

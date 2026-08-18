@@ -120,8 +120,9 @@ downstream project; anything else should just be deleted.
   single module exposed (51/59/93/67/53/17 names respectively).
 - **Why it is listed here:** the re-exports look like dead code to a linter, and
   a "tidy up the unused imports" pass would break every downstream project.
-  `dlux/tests/test_package_facades.py` fails if any name disappears, and
-  `dlux/models/__init__.py` additionally keeps Django's app registry populated.
+  `dlux/tests/test_package_facades.py` imports the committed split modules,
+  verifies declared facade exports, and confirms `dlux/models/__init__.py` keeps
+  Django's app registry populated. It never reads `.xpose/` archives.
 
 ### Legacy modal chrome normalisation
 
