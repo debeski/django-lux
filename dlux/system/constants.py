@@ -158,6 +158,12 @@ PREFERENCES_APP_NAMESPACE_MAXLEN = 128
 # extra_config['app']['myproject.settings']). Only superusers may write it, via a
 # namespace-scoped endpoint; Dlux never validates its shape. Bounded by the cap
 # below to protect the get_system_config() payload (loaded app-wide).
+# Origins the ScanLink tray app listens on, on the operator's OWN workstation.
+# They must appear in connect-src or the browser blocks the helper regardless of
+# the Extra Features toggle. Listing them is safe while ScanLink is off: CSP only
+# permits requests, it never causes them.
+SCANLINK_CONNECT_ORIGINS = ('https://localhost:5443', 'http://localhost:5000')
+
 SYSTEM_APP_CONFIG_NAMESPACE = 'app'
 DEFAULT_MAX_SYSTEM_APP_CONFIG_BYTES = 64 * 1024
 # Namespace keys and card ids must match this to keep them injection-safe in
@@ -367,19 +373,22 @@ THEME_PICKER_LOCATION_VALUES = frozenset(value for value, _ in THEME_PICKER_LOCA
 
 SETUP_STEP_IDENTITY = 0
 SETUP_STEP_LANGUAGES = 1
-SETUP_STEP_EMAIL = 2
-SETUP_STEP_SECURITY = 3
-SETUP_STEP_LOGIN = 4
-SETUP_STEP_SIDEBAR = 5
-SETUP_STEP_NAVBAR = 6
-SETUP_STEP_TITLEBAR = 7
-SETUP_STEP_NOTIFICATIONS = 8
-SETUP_STEP_APPEARANCE = 9
-SETUP_STEP_LAYOUT = 10
-SETUP_STEP_LOGGING = 11
-SETUP_STEP_PROFILE = 12
-SETUP_STEP_BACKUPS = 13
-SETUP_STEP_COUNT = 14
+SETUP_STEP_HOMEPAGE = 2
+SETUP_STEP_EMAIL = 3
+SETUP_STEP_SECURITY = 4
+SETUP_STEP_LOGIN = 5
+SETUP_STEP_SIDEBAR = 6
+SETUP_STEP_NAVBAR = 7
+SETUP_STEP_TITLEBAR = 8
+SETUP_STEP_SEARCH = 9
+SETUP_STEP_NOTIFICATIONS = 10
+SETUP_STEP_APPEARANCE = 11
+SETUP_STEP_LAYOUT = 12
+SETUP_STEP_LOGGING = 13
+SETUP_STEP_PROFILE = 14
+SETUP_STEP_BACKUPS = 15
+SETUP_STEP_EXTRAS = 16
+SETUP_STEP_COUNT = 17
 
 EMAIL_CONFIG_TRANSPORTS = {'direct', 'relay'}
 EMAIL_CONFIG_SECRET_STORAGES = {'env', 'encrypted_db'}
@@ -445,6 +454,7 @@ SYSTEM_SETTINGS_CONFIG_FIELDS = (
     'email_config',
     'registration_config',
     'public_root_config',
+    'homepage_config',
     'client_ip_config',
     'notification_config',
     'layout_config',
@@ -453,6 +463,7 @@ SYSTEM_SETTINGS_CONFIG_FIELDS = (
     'typography_config',
     'login_config',
     'titlebar_config',
+    'search_config',
     'sidebar_config',
     'navbar_config',
     'log_config',
@@ -468,6 +479,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'login_logo',
     'login_background',
     'home_url',
+    'homepage_config',
     'default_language',
     'default_theme',
     'allowed_themes',
@@ -529,6 +541,7 @@ SYSTEM_SETTINGS_EXPORT_FIELDS = (
     'profile_config',
     'backup_config',
     'titlebar_config',
+    'search_config',
     'notification_config',
     'login_config',
     'extra_config',

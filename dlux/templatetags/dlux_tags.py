@@ -139,7 +139,7 @@ def dlux_navbar(context):
         context.get('CURRENT_LANG', 'en'),
         context.get('DLUX_STRINGS') or {},
         runtime_crumbs=context.get('dlux_navbar_crumbs'),
-        home_url=app_config.get('home_url') or '',
+        home_url=(app_config.get('homepage_config') or {}).get('default_url') or app_config.get('home_url') or '',
     )
     page_crumb = hierarchy_crumbs[-1] if hierarchy_crumbs else {}
     return {

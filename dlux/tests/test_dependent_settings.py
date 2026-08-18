@@ -17,7 +17,19 @@ from django.test import RequestFactory, SimpleTestCase, TestCase
 from dlux.forms import SystemSettingsForm
 from dlux.models import SystemSettings
 
-_SETUP_JS = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
+_SETUP_JS_DIR = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js'
+
+
+def _setup_js_source():
+    """Every script in the wizard's directory.
+
+    The wizard's JS is split into modules — the dependent-field helpers this
+    file asserts on now live in setup/js/dom.js. These assertions are about
+    behaviour existing in the wizard, not which file holds it.
+    """
+    return '\n'.join(
+        path.read_text(encoding='utf-8') for path in sorted(_SETUP_JS_DIR.glob('*.js'))
+    )
 _SETUP_CSS = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'css' / 'main.css'
 
 _BASE_DATA = {
@@ -35,7 +47,7 @@ _BASE_DATA = {
 class DependentSectionAssetTests(SimpleTestCase):
     @property
     def _js(self):
-        return _SETUP_JS.read_text(encoding='utf-8')
+        return _setup_js_source()
 
     def test_one_helper_owns_the_disabled_state(self):
         js = self._js
@@ -236,7 +248,7 @@ class DependentFieldConversionTests(SimpleTestCase):
 
     @property
     def _js(self):
-        return _SETUP_JS.read_text(encoding='utf-8')
+        return _setup_js_source()
 
     def test_field_level_helper_matches_the_section_contract(self):
         js = self._js
@@ -284,7 +296,7 @@ class DisabledReasonTooltipTests(SimpleTestCase):
 
     @property
     def _js(self):
-        return _SETUP_JS.read_text(encoding='utf-8')
+        return _setup_js_source()
 
     def test_reason_is_taken_from_the_controlling_toggles_own_label(self):
         js = self._js

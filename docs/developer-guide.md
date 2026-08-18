@@ -231,8 +231,9 @@ Dlux-owned screens must reuse the framework primitive before falling back to a r
 - `AssetPickerField` from `dlux.forms.assets` when a field can select a reusable `ManagedAsset` or register a direct upload. Its file card opens the saved-file library as a dropdown popover and keeps upload/open/clear in the standard toolbar.
 - `DluxChoiceSelectorWidget` and `DluxMultipleChoiceSelectorWidget` from `dlux.widgets` for card, chip, searchable single-choice, and multi-choice controls.
 - Dlux icon picker through `dlux/helpers/icon_picker.html` and `initIconPickers()` for Bootstrap Icons fields inside System Settings/setup surfaces. It is lazy-rendered, searchable, keyboard-closeable, and shares the same `ICON_SUGGESTIONS` catalog as the sidebar builder. The grid opens as a popover anchored under the field (the asset picker library's geometry) and closes on an outside click or Escape; pass `inline: True` in the include context for the older in-flow disclosure that pushes the following fields down.
-- `build_settings_toggle_field()` and `build_email_toggle_field()` from `dlux.forms` for settings switches; do not hand-build Bootstrap switch markup.
+- `build_settings_toggle_field()` and `build_email_toggle_field()` from `dlux.forms` for settings switches; do not hand-build Bootstrap switch markup. For a server-locked toggle, set `field.disabled = True` and `field.dlux_lock_reason`: the builder applies the shared dimmed dependent state, `aria-disabled`, and a Dlux tooltip to the whole card.
 - `DluxTable` from `dlux.tables`, or the `dlux-table-shell` / `dlux-table-scroll` / `dlux-data-table` structure, for Dlux-owned data grids.
+- Compact auxiliary tables inside System Settings that do not need the full `DluxTable` shell must still own a surface. Use the setup theme tokens such as `--dlux-setup-item-bg` and `--dlux-setup-item-border`; do not leave the body transparent against the modal. A sticky auxiliary header must layer `--dlux-table-header-surface` over an opaque `--table-row` backdrop so scrolling content cannot bleed through translucent theme gradients.
 - The universal dynamic-modal protocol (`data-dynamic-modal`, JSON `{html}` fragments, and `data-dlux-modal-footer`) for modal workflows, and `window.DluxLoadingButton` for asynchronous button state.
 - `data-dlux-context` plus the Dlux row-action schema for context menus, and `data-dlux-tooltip` for themed accessible tooltips instead of one-off menu/tooltip implementations.
 - `from dlux.notifications import notify` for user-facing success, warning, and error feedback so drawer/history behavior remains consistent.
@@ -279,6 +280,53 @@ editable markup (`dlux/tables/shell.html`, `dlux/base/card.html`,
 new markup; do not hand-write `dlux-table-shell`/`dlux-table-scroll` pairs.
 
 The reusable form CSS and JavaScript are loaded by `dlux/forms/assets_head.html` and `dlux/forms/assets_scripts.html`. Keep new primitives compatible with those global, idempotent initializers so they also work after dynamic-modal replacement.
+
+### Template comment audit
+
+The repository utility scans HTML templates recursively for malformed short
+comments that Django would leak as text: a wrong `%}` closer such as
+`{# note %}`, or an unclosed `{# note`. It lists every match with its file and
+line range and asks before removing anything:
+
+```bash
+python scripts/find_template_comments.py
+python scripts/find_template_comments.py dlux/templates project/templates
+python scripts/find_template_comments.py --include-valid
+```
+
+Use `--check` for a read-only CI-style run; it exits with status 1 when comments
+exist. Use `--remove` for an explicit non-interactive cleanup. Correctly closed
+`{# ... #}` and `{% comment %}...{% endcomment %}` comments are server-stripped
+and omitted by default; `--include-valid` adds them to the inventory/removal.
+Recursive scans skip dependency, generated-output, cache, and `.xpose`
+directories by default; additional directory names can be excluded with
+repeatable `--exclude` flags.
+
+### Authenticated-page scroll boundaries
+
+On authenticated screens, `#mainContent` is the viewport-height scroll pane; the
+document itself must have no vertical scroll range. A Backup & Restore regression
+showed why this distinction matters: its grid's overflow reached the document
+scroller even though `document.body.scrollHeight` still matched the viewport.
+After the inner pane reached its end, another wheel gesture scrolled the document,
+revealing the transparent `<html>` canvas as a white block and moving the sidebar.
+
+For a feature root that uses grid layout inside this shell, establish a page-local
+layout boundary:
+
+```css
+.feature-page {
+    contain: layout;
+    display: grid;
+}
+```
+
+Keep the boundary on the feature root, not `#mainContent`: global containment can
+change the containing block for page overlays. Do not add wrappers as direct
+children of a grid root unless they are meant to be another row. Browser coverage
+must inspect `document.scrollingElement`, scroll `#mainContent` to its end, then
+wheel once more and confirm the document remains at zero and the sidebar stays
+under the titlebar. `tests-e2e/backup_page.test.mjs` is the reference guard.
 
 ## Sections vs Dynamic Modals
 
@@ -342,6 +390,20 @@ Two recent themes in DjangoLux are worth treating as first-class features, not s
 - scope behavior is auto-injected when enabled and removed when disabled
 
 That means you should usually extend the system by leaning into those mechanisms rather than rebuilding them locally in each form, table, or view.
+
+## Guided Tutorial Contract
+
+The built-in tutorial reads the same resolved `window.DLUX_STRINGS` object as the rest of the active page. Do not add a tutorial-only JSON payload or global translation object. The previous implementation did both: step text requested unprefixed names such as `sidebar_title` even though the catalog key was `tut_sidebar_title`, while the control bar read a nonexistent `window.TUT_STRINGS`. Both paths silently reached their English literals even when the page language was Arabic.
+
+Keep these invariants when extending the framework tour:
+
+- pass exact catalog keys, including the `tut_` prefix, to the tutorial text helper
+- define every new `tut_*` key in every shipped language; `test_translation_coverage.py` scans the tutorial JavaScript and enforces this
+- target stable component classes or `data-*` hooks; candidates are resolved when the tour starts and only rendered elements become steps
+- avoid assigning two descriptions to the same target; the resolver collapses duplicate elements
+- keep Driver.js positioning LTR internally, but derive popover content, control direction, and alignment from the document `dir`
+
+The browser regression in `tests-e2e/tutorial.test.mjs` changes a real user preference to Arabic, reloads Options, starts the real tour, and verifies Arabic step text, translated controls, RTL presentation, and current component coverage.
 
 ## Audit, Interaction, and Utility Subsystems
 

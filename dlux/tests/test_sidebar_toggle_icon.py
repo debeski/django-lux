@@ -11,6 +11,8 @@ from dlux.forms import SystemSettingsForm
 from dlux.models import SystemSettings
 from dlux.system.constants import (
     DEFAULT_SIDEBAR_TOGGLE_ICON,
+    SETUP_STEP_HOMEPAGE,
+    SETUP_STEP_SIDEBAR,
     SIDEBAR_TOGGLE_DIRECTIONAL_ICONS,
 )
 from dlux.system.defaults import default_sidebar_config, default_titlebar_config
@@ -87,7 +89,9 @@ class SidebarToggleIconPersistenceTests(TestCase):
         )
 
     def test_sidebar_step_save_stores_the_chosen_icon(self):
-        request = RequestFactory().get('/sys/modals/dlux/systemsettings/1/?step=5')
+        request = RequestFactory().get(
+            f'/sys/modals/dlux/systemsettings/1/?step={SETUP_STEP_SIDEBAR}'
+        )
         form = SystemSettingsForm(
             data={
                 'system_names': '{"en": "System", "ar": "System"}',
@@ -116,7 +120,9 @@ class SidebarToggleIconPersistenceTests(TestCase):
     def test_saving_another_step_does_not_reset_the_icon(self):
         # Trap 2 in docs/adding-system-settings.md: a field absent from a
         # single-step POST must not be written back as its default.
-        request = RequestFactory().get('/sys/modals/dlux/systemsettings/1/?step=2')
+        request = RequestFactory().get(
+            f'/sys/modals/dlux/systemsettings/1/?step={SETUP_STEP_HOMEPAGE}'
+        )
         form = SystemSettingsForm(
             data={
                 'system_names': '{"en": "System", "ar": "System"}',
@@ -490,8 +496,14 @@ class IconPickerLivePreviewTests(TestCase):
 
     @property
     def _setup_js(self):
-        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
-        return script.read_text(encoding='utf-8')
+        # Every script in the wizard's directory: the wizard's JS is split into
+        # modules, so `setNamedFieldValue` and friends now live in
+        # setup/js/dom.js. These assertions are about behaviour existing in the
+        # wizard, not which file holds it.
+        js_dir = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js'
+        return '\n'.join(
+            path.read_text(encoding='utf-8') for path in sorted(js_dir.glob('*.js'))
+        )
 
     def test_sidebar_preview_applies_the_chosen_glyph(self):
         js = self._setup_js

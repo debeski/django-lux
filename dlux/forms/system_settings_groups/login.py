@@ -7,6 +7,7 @@ from django.conf import settings
 from ...system.constants import (
     SETUP_STEP_IDENTITY,
     SETUP_STEP_LANGUAGES,
+    SETUP_STEP_HOMEPAGE,
     SETUP_STEP_SECURITY,
     SETUP_STEP_EMAIL,
     SETUP_STEP_LOGIN,
@@ -83,6 +84,12 @@ from ...themes import get_theme_choices, get_theme_options, is_valid_theme, norm
 
 
 class LoginCleanMixin:
+    def clean_public_root(self):
+        return self._clean_preserved_toggle('public_root', SETUP_STEP_HOMEPAGE, False)
+
+    def clean_public_root_split_enabled(self):
+        return self._clean_preserved_toggle('public_root_split_enabled', SETUP_STEP_HOMEPAGE, False)
+
     def clean_public_root_url(self):
         value = str(self.cleaned_data.get('public_root_url') or '').strip()
         discovered_value = str(self.cleaned_data.get('public_root_url_discovered') or '').strip()
@@ -111,7 +118,7 @@ class LoginCleanMixin:
         valid = {''} | {value for value, _, _ in get_theme_choices()}
         if (
             self.is_bound and self.mode != 'setup' and self.single_step_mode
-            and self.single_step_index != SETUP_STEP_APPEARANCE and 'public_root_theme' not in self.data
+            and self.single_step_index != SETUP_STEP_HOMEPAGE and 'public_root_theme' not in self.data
         ):
             value = getattr(self.instance, 'public_root_theme', '') or self.initial.get('public_root_theme', '')
         else:
@@ -121,17 +128,17 @@ class LoginCleanMixin:
 
     def clean_public_root_meta_description(self):
         return self._clean_preserved_text(
-            'public_root_meta_description', 0, PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH
+            'public_root_meta_description', SETUP_STEP_HOMEPAGE, PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH
         )
 
     def clean_public_root_title(self):
-        return self._clean_preserved_text('public_root_title', SETUP_STEP_IDENTITY, PUBLIC_ROOT_TITLE_MAX_LENGTH)
+        return self._clean_preserved_text('public_root_title', SETUP_STEP_HOMEPAGE, PUBLIC_ROOT_TITLE_MAX_LENGTH)
 
     def clean_show_titlebar_on_public(self):
-        return self._clean_preserved_toggle('show_titlebar_on_public', SETUP_STEP_TITLEBAR, False)
+        return self._clean_preserved_toggle('show_titlebar_on_public', SETUP_STEP_HOMEPAGE, False)
 
     def clean_show_sidebar_on_public(self):
-        return self._clean_preserved_toggle('show_sidebar_on_public', SETUP_STEP_SIDEBAR, False)
+        return self._clean_preserved_toggle('show_sidebar_on_public', SETUP_STEP_HOMEPAGE, False)
 
     def clean_forgot_password_enabled(self):
         return self._auth_toggle_clean('forgot_password_enabled', False)

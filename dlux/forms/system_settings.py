@@ -22,18 +22,21 @@ from django.urls import NoReverseMatch, reverse
 from ..system.constants import (
     SETUP_STEP_IDENTITY,
     SETUP_STEP_LANGUAGES,
+    SETUP_STEP_HOMEPAGE,
     SETUP_STEP_SECURITY,
     SETUP_STEP_EMAIL,
     SETUP_STEP_LOGIN,
     SETUP_STEP_SIDEBAR,
     SETUP_STEP_NAVBAR,
     SETUP_STEP_TITLEBAR,
+    SETUP_STEP_SEARCH,
     SETUP_STEP_NOTIFICATIONS,
     SETUP_STEP_APPEARANCE,
     SETUP_STEP_LAYOUT,
     SETUP_STEP_LOGGING,
     SETUP_STEP_PROFILE,
     SETUP_STEP_BACKUPS,
+    SETUP_STEP_EXTRAS,
     SETUP_STEP_COUNT,
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
@@ -107,10 +110,12 @@ from ..utils import (
     default_auth_config,
     default_backup_config,
     default_log_config,
+    default_homepage_config,
     default_profile_config,
     default_login_config,
     default_navbar_config,
     default_notification_config,
+    default_search_config,
     default_titlebar_config,
     default_email_config,
     encrypt_email_secret,
@@ -126,9 +131,11 @@ from ..utils import (
     normalize_auth_config,
     normalize_backup_config,
     normalize_log_config,
+    normalize_homepage_config,
     normalize_profile_config,
     normalize_login_config,
     normalize_notification_config,
+    normalize_search_config,
     normalize_sidebar_behavior,
     normalize_sidebar_toggle_icon,
     normalize_system_names,
@@ -408,7 +415,11 @@ class SystemSettingsForm(
         widget=forms.HiddenInput(),
         required=False,
     )
+    homepage_config = forms.CharField(widget=forms.HiddenInput(), required=False)
     backup_config = forms.CharField(widget=forms.HiddenInput(), required=False)
+    # Extra Features. Not a model field: it lives in the dlux-owned top level of
+    # `extra_config`, alongside the `app` namespace that projects own.
+    scanlink_enabled = forms.BooleanField(required=False, initial=False)
     backup_scheduled_enabled = forms.BooleanField(required=False, initial=False)
     backup_schedule_interval_hours = forms.IntegerField(required=False, min_value=1, max_value=8760, initial=24)
     backup_retention_days = forms.IntegerField(required=False, min_value=0, max_value=3650, initial=0)
@@ -540,6 +551,7 @@ class SystemSettingsForm(
         required=False,
         initial=False,
     )
+    search_config = forms.CharField(widget=forms.HiddenInput(), required=False)
     notification_config = forms.CharField(
         widget=forms.HiddenInput(),
         required=False,
@@ -793,6 +805,7 @@ class SystemSettingsForm(
             'login_logo',
             'login_background',
             'home_url',
+            'homepage_config',
             'default_language',
             'default_theme',
             'allowed_themes',
@@ -843,6 +856,7 @@ class SystemSettingsForm(
             'profile_config',
             'backup_config',
             'titlebar_config',
+            'search_config',
             'notification_config',
             'login_config',
         ]
@@ -855,6 +869,12 @@ class SystemSettingsForm(
         self._user = user if user is not None else kwargs.pop('user', None)
         self.mode = mode if mode is not None else kwargs.pop('mode', 'modal')
         super().__init__(*args, **kwargs)
+        extra_config = getattr(self.instance, 'extra_config', None) or {}
+        scanlink_config = extra_config.get('scanlink') if isinstance(extra_config, dict) else None
+        self.initial.setdefault(
+            'scanlink_enabled',
+            bool(scanlink_config.get('enabled', False)) if isinstance(scanlink_config, dict) else False,
+        )
         self.fields['allowed_fonts'].choices = get_font_choices()
         # A bound (POST) settings save must source its data from the AUTHORITATIVE
         # DB row. Views hand this form ``SystemSettings.load()`` (the cached
@@ -1278,6 +1298,8 @@ class SystemSettingsForm(
         self.fields['log_config'].label = s.get('form_sys_log', 'Logging Configuration')
         self.fields['profile_config'].label = s.get('form_sys_profile', 'Profile Page Configuration')
         self.fields['backup_config'].label = s.get('form_sys_backup', 'Backup Configuration')
+        self.fields['scanlink_enabled'].label = s.get('form_sys_scanlink_enabled', 'Enable ScanLink scanning')
+        self.fields['scanlink_enabled'].help_text = s.get('help_sys_scanlink_enabled', 'Adds a Scan button to file fields, driven by the ScanLink helper installed on each operator workstation. Leave this off where the helper is not installed: the browser logs a failed connection for every scan attempt.')
         self.fields['backup_scheduled_enabled'].label = s.get('form_sys_backup_scheduled_enabled', 'Enable scheduled backups')
         self.fields['backup_scheduled_enabled'].help_text = s.get('help_sys_backup_scheduled_enabled', 'Create full encrypted system backups automatically through Celery beat.')
         self.fields['backup_schedule_interval_hours'].label = s.get('form_sys_backup_schedule_interval_hours', 'Backup interval (hours)')
@@ -1319,20 +1341,32 @@ class SystemSettingsForm(
         self.fields['titlebar_user_hub_style'].label = s.get('form_sys_titlebar_user_hub_style', 'Titlebar and user hub style')
         self.fields['titlebar_show_language_switcher'].label = s.get(
             'form_sys_titlebar_show_language_switcher', 'Show titlebar language switcher')
-        # The switcher has nothing to cycle through unless user language override is
-        # allowed and at least two languages exist — disable the toggle in that case.
-        language_switching_possible = bool(
-            config.get('allow_user_language_override', True) and len(current_languages) > 1
-        )
+        language_override_allowed = bool(config.get('allow_user_language_override', True))
+        multiple_languages_available = len(current_languages) > 1
+        language_switching_possible = language_override_allowed and multiple_languages_available
         if language_switching_possible:
             self.fields['titlebar_show_language_switcher'].help_text = s.get(
                 'help_sys_titlebar_show_language_switcher',
                 'Show a single-button switcher in the titlebar that cycles through the available languages.')
         else:
+            if not multiple_languages_available and not language_override_allowed:
+                lock_reason = s.get(
+                    'help_sys_titlebar_show_language_switcher_unavailable',
+                    'Add a second active language and allow users to change their display language to enable the titlebar language switcher.',
+                )
+            elif not multiple_languages_available:
+                lock_reason = s.get(
+                    'help_sys_titlebar_show_language_switcher_requires_languages',
+                    'Add at least two active languages to enable the titlebar language switcher.',
+                )
+            else:
+                lock_reason = s.get(
+                    'help_sys_titlebar_show_language_switcher_requires_override',
+                    'Allow users to change their display language to enable the titlebar language switcher.',
+                )
             self.fields['titlebar_show_language_switcher'].disabled = True
-            self.fields['titlebar_show_language_switcher'].help_text = s.get(
-                'help_sys_titlebar_show_language_switcher_unavailable',
-                'Add a second language and allow user language override to enable the titlebar language switcher.')
+            self.fields['titlebar_show_language_switcher'].help_text = lock_reason
+            self.fields['titlebar_show_language_switcher'].dlux_lock_reason = lock_reason
         self.fields['titlebar_actions_order'].label = s.get('form_sys_titlebar_actions_order', 'Titlebar action order')
         self.fields['titlebar_title_align'].label = s.get('form_sys_titlebar_title_align', 'Title alignment')
         self.fields['titlebar_title_size'].label = s.get('form_sys_titlebar_title_size', 'Title size')
@@ -1347,6 +1381,11 @@ class SystemSettingsForm(
         self.fields['titlebar_global_search_mode'].help_text = s.get(
             'help_sys_titlebar_global_search',
             'Show a search box in the titlebar to jump to pages, settings, and actions from anywhere.',
+        )
+        self.fields['titlebar_global_search_mode'].choices = (
+            ('always', s.get('global_search_mode_always', 'Always visible')),
+            ('icon', s.get('global_search_mode_icon', 'Icon, expand on focus')),
+            ('disabled', s.get('global_search_mode_disabled', 'Disabled')),
         )
         self.fields['titlebar_global_search_include_data'].label = s.get(
             'form_sys_titlebar_global_search_include_data', 'Include data records in search')
@@ -1430,10 +1469,30 @@ class SystemSettingsForm(
             'Show short-lived notices for user-facing events.',
         )
         self.fields['notification_flash_position'].label = s.get('form_sys_notification_flash_position', 'Flash position')
+        self.fields['notification_flash_position'].help_text = s.get(
+            'help_sys_notification_flash_position',
+            'Sets where flash notices appear on the page. Start and end automatically follow the interface direction.',
+        )
         self.fields['notification_flash_size'].label = s.get('form_sys_notification_flash_size', 'Flash size')
+        self.fields['notification_flash_size'].help_text = s.get(
+            'help_sys_notification_flash_size',
+            "Controls each flash notice's width and padding: Compact, Balanced, or Prominent.",
+        )
         self.fields['notification_flash_text_size'].label = s.get('form_sys_notification_flash_text_size', 'Flash text size')
+        self.fields['notification_flash_text_size'].help_text = s.get(
+            'help_sys_notification_flash_text_size',
+            'Controls the message text size inside flash notices.',
+        )
         self.fields['notification_flash_timeout_ms'].label = s.get('form_sys_notification_flash_timeout', 'Flash timeout (ms)')
+        self.fields['notification_flash_timeout_ms'].help_text = s.get(
+            'help_sys_notification_flash_timeout',
+            'Milliseconds before a flash notice closes automatically. Use 0 to keep it visible until dismissed.',
+        )
         self.fields['notification_flash_max_visible'].label = s.get('form_sys_notification_flash_max_visible', 'Max visible flash notices')
+        self.fields['notification_flash_max_visible'].help_text = s.get(
+            'help_sys_notification_flash_max_visible',
+            'Maximum number of flash notices rendered together (1-10).',
+        )
         self.fields['notification_drawer_enabled'].label = s.get('form_sys_notification_drawer_enabled', 'Enable titlebar notification drawer')
         self.fields['notification_drawer_enabled'].help_text = s.get(
             'help_sys_notification_drawer_enabled',
@@ -2242,25 +2301,29 @@ class SystemSettingsForm(
             self.instance.default_table_density = config.get('default_table_density', DEFAULT_TABLE_DENSITY)
         self.initial['default_table_density'] = self.instance.default_table_density or config.get('default_table_density', DEFAULT_TABLE_DENSITY)
         instance_home_url = str(self.instance.home_url or '').strip()
-        if (
-            not getattr(self.instance, 'is_configured', False)
-            and instance_home_url == _LEGACY_HOME_URL
-        ):
+        if not getattr(self.instance, 'is_configured', False) and instance_home_url == _LEGACY_HOME_URL:
             instance_home_url = ''
-
-        current_home_url = (
-            instance_home_url
-            or config.get('home_url', '')
-            or project_config.get('home_url', '')
-            or DEFAULT_HOME_URL
-        )
+        if not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False):
+            homepage_source = config.get('homepage_config') or config
+        else:
+            profile_source = getattr(self.instance, 'profile_config', None) or {}
+            legacy_homepage_source = {
+                'home_url': instance_home_url,
+                **dict(getattr(self.instance, 'public_root_config', None) or {}),
+                'allow_user_home_url': profile_source.get('allow_user_home_url', False),
+            }
+            homepage_source = getattr(self.instance, 'homepage_config', None) or legacy_homepage_source
+            if (
+                normalize_homepage_config(homepage_source) == default_homepage_config()
+                and normalize_homepage_config(legacy_homepage_source) != default_homepage_config()
+            ):
+                homepage_source = legacy_homepage_source
+        initial_homepage_config = normalize_homepage_config(homepage_source)
+        self.initial['homepage_config'] = _json_dump(initial_homepage_config, ensure_ascii=False)
+        public_homepage = initial_homepage_config['public']
+        current_home_url = initial_homepage_config['default_url']
         self.initial['home_url'] = current_home_url
-        instance_public_root_url = str(getattr(self.instance, 'public_root_url', '') or '').strip()
-        current_public_root_url = (
-            instance_public_root_url
-            or config.get('public_root_url', '')
-            or project_config.get('public_root_url', '')
-        )
+        current_public_root_url = public_homepage['url']
         self.initial['public_root_url'] = current_public_root_url
 
         if self.instance and self.instance.pk:
@@ -2298,9 +2361,7 @@ class SystemSettingsForm(
         )
         self.initial['profile_config'] = _json_dump(initial_profile_config, ensure_ascii=False)
         self._initial_profile_config = initial_profile_config
-        # allow_user_home_url lives in profile_config but is edited as a Step 3
-        # toggle; seed its checkbox from the stored value.
-        self.initial['allow_user_home_url'] = bool(initial_profile_config.get('allow_user_home_url', False))
+        self.initial['allow_user_home_url'] = bool(initial_homepage_config.get('allow_user_override', False))
         self._apply_schema_group_initials(
             'backup_config',
             getattr(self.instance, 'backup_config', None) or config.get('backup_config') or config.get('backup') or {},
@@ -2312,6 +2373,18 @@ class SystemSettingsForm(
                 else getattr(self.instance, 'titlebar_config', None)
             ) or config.get('titlebar', {})
         )
+        search_source = (
+            config.get('search_config', {})
+            if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
+            else getattr(self.instance, 'search_config', None)
+        ) or initial_titlebar_config
+        if (
+            normalize_search_config(search_source) == default_search_config()
+            and normalize_search_config(initial_titlebar_config) != default_search_config()
+        ):
+            search_source = initial_titlebar_config
+        initial_search_config = normalize_search_config(search_source)
+        self.initial['search_config'] = _json_dump(initial_search_config, ensure_ascii=False)
 
         if not self.initial.get('languages'):
             self.initial['languages'] = _json_dump(config.get('languages', {}), ensure_ascii=False, indent=2)
@@ -2368,33 +2441,14 @@ class SystemSettingsForm(
         self._apply_schema_group_initials(
             'public_root_config',
             {
-                'public_root': (
-                    getattr(self.instance, 'public_root', False)
-                    or config.get('public_root', False)
-                ),
-                'public_root_split_enabled': (
-                    config.get('public_root_split_enabled', False)
-                    if (not getattr(self.instance, 'pk', None) and not getattr(self.instance, 'is_configured', False))
-                    else getattr(self.instance, 'public_root_split_enabled', config.get('public_root_split_enabled', False))
-                ),
+                'public_root': public_homepage['enabled'],
+                'public_root_split_enabled': public_homepage['separate_url'],
                 'public_root_url': current_public_root_url,
-                'public_root_theme': (
-                    getattr(self.instance, 'public_root_theme', '')
-                    or config.get('public_root_theme', '')
-                ),
-                'public_root_title': (
-                    getattr(self.instance, 'public_root_title', '')
-                    or config.get('public_root_title', '')
-                ),
-                'public_root_meta_description': (
-                    getattr(self.instance, 'public_root_meta_description', '')
-                    or config.get('public_root_meta_description', '')
-                ),
-                # Read the migrated runtime values (get_system_config derives
-                # show_titlebar_on_public from the legacy titlebar hide flag on
-                # upgraded installs) so the toggles display the effective state.
-                'show_titlebar_on_public': bool(config.get('show_titlebar_on_public', False)),
-                'show_sidebar_on_public': bool(config.get('show_sidebar_on_public', False)),
+                'public_root_theme': public_homepage['theme'],
+                'public_root_title': public_homepage['title'],
+                'public_root_meta_description': public_homepage['meta_description'],
+                'show_titlebar_on_public': public_homepage['show_titlebar'],
+                'show_sidebar_on_public': public_homepage['show_sidebar'],
             },
             hidden_field=False,
         )
@@ -2562,9 +2616,12 @@ class SystemSettingsForm(
         self.initial['titlebar_surface'] = initial_titlebar_config.get('surface', 'default')
         self.initial['titlebar_logo_treatment'] = initial_titlebar_config.get('logo_treatment', 'none')
         self.initial['titlebar_logo_treatment_shape'] = initial_titlebar_config.get('logo_treatment_shape', 'soft')
-        self.initial['titlebar_global_search_mode'] = initial_titlebar_config.get('global_search_mode', 'icon')
-        self.initial['titlebar_global_search_include_data'] = bool(
-            initial_titlebar_config.get('global_search_include_data', False))
+        self.initial['titlebar_global_search_mode'] = (
+            initial_search_config.get('display_mode', 'icon')
+            if initial_search_config.get('enabled', True)
+            else 'disabled'
+        )
+        self.initial['titlebar_global_search_include_data'] = bool(initial_search_config.get('include_data', False))
         initial_notification_config = normalize_notification_config(
             (
                 config.get('notifications', {})
@@ -2935,15 +2992,6 @@ class SystemSettingsForm(
             visible=self.initial.get('titlebar_user_hub_style') == TITLEBAR_USER_HUB_STYLE_ACTIONS,
         )
 
-        modal_desc = s.get('system_settings_modal_desc', 'حدّث العلامة التجارية واللغات والشريط الجانبي من نافذة الإعدادات.')
-        intro_html = ''
-        if self.mode != 'setup':
-            intro_html = (
-                f"<div class='dlux-system-settings-intro mb-4'>"
-                f"<p class='text-muted mb-0'>{modal_desc}</p>"
-                f"</div>"
-            )
-
         self.helper = FormHelper()
         self.helper.form_tag = False
 
@@ -2954,7 +3002,7 @@ class SystemSettingsForm(
 
         # Build step 1 fields dynamically - import only shown in initial setup
         step_1_fields = [
-            HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step1', 'Step 1: Identity')}</span></div>"),
+            self._step_badge(s, 'system_setup_step1', 'Step 1: Identity'),
         ]
         if self.mode == 'setup':
             step_1_fields.append(build_archive_file_field('settings_import_file'))
@@ -2978,7 +3026,6 @@ class SystemSettingsForm(
 
         self.helper.layout = self._build_layout(
             s=s,
-            intro_html=intro_html,
             step_1_fields=step_1_fields,
             email_password_field_class=email_password_field_class,
             field_name=field_name,
@@ -3106,6 +3153,7 @@ class SystemSettingsForm(
             'registration_require_consent',
             'email_config',
             'notification_config',
+            'search_config',
             'backup_config',
         )
         for field_name in direct_fields:
@@ -3170,6 +3218,22 @@ class SystemSettingsForm(
         if isinstance(profile, dict):
             cleaned['profile_config'] = normalize_profile_config(profile)
 
+        homepage = imported.get('homepage_config')
+        if isinstance(homepage, dict):
+            homepage = normalize_homepage_config(homepage)
+            public = homepage['public']
+            cleaned['homepage_config'] = homepage
+            cleaned['home_url'] = homepage['default_url']
+            cleaned['allow_user_home_url'] = bool(homepage['allow_user_override'])
+            cleaned['public_root'] = bool(public['enabled'])
+            cleaned['public_root_split_enabled'] = bool(public['separate_url'])
+            cleaned['public_root_url'] = public['url']
+            cleaned['public_root_theme'] = public['theme']
+            cleaned['public_root_title'] = public['title']
+            cleaned['public_root_meta_description'] = public['meta_description']
+            cleaned['show_titlebar_on_public'] = bool(public['show_titlebar'])
+            cleaned['show_sidebar_on_public'] = bool(public['show_sidebar'])
+
         backup = imported.get('backup_config')
         if isinstance(backup, dict):
             backup = normalize_backup_config(backup)
@@ -3207,8 +3271,18 @@ class SystemSettingsForm(
             cleaned['titlebar_surface'] = titlebar.get('surface', 'default')
             cleaned['titlebar_logo_treatment'] = titlebar.get('logo_treatment', 'none')
             cleaned['titlebar_logo_treatment_shape'] = titlebar.get('logo_treatment_shape', 'soft')
-            cleaned['titlebar_global_search_mode'] = titlebar.get('global_search_mode', 'icon')
-            cleaned['titlebar_global_search_include_data'] = bool(titlebar.get('global_search_include_data', False))
+            if not isinstance(imported.get('search_config'), dict):
+                cleaned['titlebar_global_search_mode'] = titlebar.get('global_search_mode', 'icon')
+                cleaned['titlebar_global_search_include_data'] = bool(titlebar.get('global_search_include_data', False))
+
+        search = imported.get('search_config')
+        if isinstance(search, dict):
+            search = normalize_search_config(search)
+            cleaned['search_config'] = search
+            cleaned['titlebar_global_search_mode'] = (
+                search.get('display_mode', 'icon') if search.get('enabled', True) else 'disabled'
+            )
+            cleaned['titlebar_global_search_include_data'] = bool(search.get('include_data', False))
 
         notifications = imported.get('notification_config')
         if isinstance(notifications, dict):
@@ -3270,6 +3344,20 @@ class SystemSettingsForm(
             public_root_config['public_root_split_enabled'] = False
         cleaned['public_root_config'] = public_root_config
         cleaned.update(public_root_config)
+        cleaned['homepage_config'] = normalize_homepage_config({
+            'default_url': cleaned.get('home_url') or DEFAULT_HOME_URL,
+            'allow_user_override': bool(cleaned.get('allow_user_home_url', False)),
+            'public': {
+                'enabled': bool(public_root_config.get('public_root', False)),
+                'separate_url': bool(public_root_config.get('public_root_split_enabled', False)),
+                'url': public_root_config.get('public_root_url', ''),
+                'theme': public_root_config.get('public_root_theme', ''),
+                'title': public_root_config.get('public_root_title', ''),
+                'meta_description': public_root_config.get('public_root_meta_description', ''),
+                'show_titlebar': bool(public_root_config.get('show_titlebar_on_public', False)),
+                'show_sidebar': bool(public_root_config.get('show_sidebar_on_public', False)),
+            },
+        })
         registration_config = self._schema_group_from_cleaned('registration_config')
         cleaned['registration_config'] = registration_config
         cleaned.update(registration_config)
@@ -3443,6 +3531,12 @@ class SystemSettingsForm(
             'logo_treatment_shape': cleaned.get('login_logo_treatment_shape') or 'soft',
             'hero_message': hero_dict or '',
         })
+        search_mode = cleaned.get('titlebar_global_search_mode') or 'icon'
+        cleaned['search_config'] = normalize_search_config({
+            'enabled': search_mode != 'disabled',
+            'display_mode': search_mode if search_mode != 'disabled' else 'icon',
+            'include_data': bool(cleaned.get('titlebar_global_search_include_data', False)),
+        })
         cleaned['titlebar_config'] = normalize_titlebar_config({
             'show_title': bool(cleaned.get('titlebar_show_title', True)),
             'show_logo': bool(cleaned.get('titlebar_show_logo', True)),
@@ -3606,16 +3700,21 @@ class SystemSettingsForm(
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        fallback_home = getattr(settings, 'DLUX_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
+        self._apply_extra_features(instance)
+        project_homepage = normalize_homepage_config(getattr(settings, 'DLUX_CONFIG', {}))
+        fallback_home = project_homepage['default_url']
         auth_config = self.cleaned_data.get('auth_config') or default_auth_config()
         layout_config = self.cleaned_data.get('layout_config') or {}
         public_root_config = self.cleaned_data.get('public_root_config') or {}
+        homepage_config = self.cleaned_data.get('homepage_config') or default_homepage_config()
+        search_config = self.cleaned_data.get('search_config') or default_search_config()
         registration_config = self.cleaned_data.get('registration_config') or {}
         apply_system_settings_import(instance, {
             'system_names': self.cleaned_data.get('system_names', {}),
             'languages': self.cleaned_data.get('languages', normalize_language_catalog()),
             'translations_override': self.cleaned_data.get('translations_override', {}),
             'home_url': self.cleaned_data.get('home_url') or fallback_home,
+            'homepage_config': homepage_config,
             'default_language': self.cleaned_data.get('default_language') or 'en',
             'default_theme': self.cleaned_data.get('default_theme') or 'light',
             'allowed_themes': self.cleaned_data.get('allowed_themes', list(normalize_allowed_themes())),
@@ -3715,6 +3814,7 @@ class SystemSettingsForm(
             'profile_config': self.cleaned_data.get('profile_config', default_profile_config()),
             'backup_config': self.cleaned_data.get('backup_config', default_backup_config()),
             'titlebar_config': self.cleaned_data.get('titlebar_config', default_titlebar_config()),
+            'search_config': search_config,
             'notification_config': self.cleaned_data.get('notification_config', default_notification_config()),
             'login_config': self.cleaned_data.get('login_config', default_login_config()),
         }, commit=False, preserve_email_secret=True)
@@ -3777,3 +3877,21 @@ class SystemSettingsForm(
             if isinstance(login_background_selection, AssetSelection) and (login_background_selection.asset is not None or login_background_selection.clear):
                 instance.login_background_asset = login_background_selection.asset
         return instance
+
+    def _apply_extra_features(self, instance):
+        """Write the Extra Features toggles into `extra_config`.
+
+        Copy-then-set: `extra_config` also carries every downstream project's own
+        config under `app`, so this must never rebuild the dict. Only saves that
+        actually rendered the step may write, or a single-step save of another
+        step would silently reset the toggle.
+        """
+        if 'scanlink_enabled' not in self.cleaned_data:
+            return
+        if self.single_step_mode and self.single_step_index != SETUP_STEP_EXTRAS:
+            return
+        extra_config = dict(getattr(instance, 'extra_config', None) or {})
+        scanlink = dict(extra_config.get('scanlink') or {}) if isinstance(extra_config.get('scanlink'), dict) else {}
+        scanlink['enabled'] = bool(self.cleaned_data.get('scanlink_enabled', False))
+        extra_config['scanlink'] = scanlink
+        instance.extra_config = extra_config

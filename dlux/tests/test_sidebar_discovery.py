@@ -991,8 +991,14 @@ class DiscoveryBuilderAssetTests(SimpleTestCase):
 
     @property
     def _setup_js(self):
-        script = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js' / 'main.js'
-        return script.read_text(encoding='utf-8')
+        # Every script in the wizard's directory, not just main.js. The wizard's
+        # JS is being split into modules (builder_model.js holds the pure config
+        # transforms), and these assertions are about behaviour that must exist
+        # somewhere in the wizard, not about which file currently holds it.
+        js_dir = Path(__file__).resolve().parents[1] / 'static' / 'dlux' / 'setup' / 'js'
+        return '\n'.join(
+            path.read_text(encoding='utf-8') for path in sorted(js_dir.glob('*.js'))
+        )
 
     def test_sidebar_builder_hides_form_pages_until_toggled(self):
         contents = self._setup_js

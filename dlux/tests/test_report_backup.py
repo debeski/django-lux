@@ -376,6 +376,23 @@ class WriteBackupZipWindowTests(TestCase):
         self.assertIn('width: 100%;', action_rule)
         self.assertIn('justify-content: flex-end;', action_rule)
 
+    def test_report_templates_do_not_use_django_comments(self):
+        template_root = Path(__file__).resolve().parents[1] / 'templates' / 'dlux'
+        paths = (
+            template_root / 'reports' / 'overview.html',
+            template_root / 'reports' / 'print.html',
+            template_root / 'tables' / 'pair_table.html',
+            template_root / 'users' / '_user_report_activity.html',
+            template_root / 'users' / '_user_report_window.html',
+            template_root / 'users' / 'user_report_modal.html',
+        )
+
+        for path in paths:
+            with self.subTest(path=path):
+                source = path.read_text(encoding='utf-8')
+                self.assertNotIn('{#', source)
+                self.assertNotIn('#}', source)
+
     def test_period_selection_reloads_the_builder_from_external_js(self):
         """Changing the period must re-query, since every figure/export depends on it."""
         script = (

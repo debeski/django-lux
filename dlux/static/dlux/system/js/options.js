@@ -56,31 +56,6 @@
         });
     }
 
-    // Mirror of the "don't ask again" switch in the unsaved-changes prompt, so the
-    // opt-out is reversible rather than a one-way door.
-    function initUnsavedWarningToggle() {
-        const toggle = document.querySelector('[data-unsaved-warning-toggle]');
-        if (!toggle) {
-            return;
-        }
-
-        const skipped = Boolean(window.USER_PREFS && window.USER_PREFS.skip_unsaved_settings_prompt);
-        toggle.checked = !skipped;
-
-        toggle.addEventListener('change', () => {
-            const warn = Boolean(toggle.checked);
-            if (window.USER_PREFS) {
-                window.USER_PREFS.skip_unsaved_settings_prompt = !warn;
-            }
-            if (typeof window.updatePreferences === 'function') {
-                window.updatePreferences({ skip_unsaved_settings_prompt: !warn });
-            }
-            if (typeof window.showToast === 'function') {
-                window.showToast(warn ? toggle.dataset.enabledMessage : toggle.dataset.disabledMessage);
-            }
-        });
-    }
-
     function initThemePicker() {
         document.querySelectorAll('[data-theme]').forEach((element) => {
             element.addEventListener('click', function () {
@@ -844,7 +819,6 @@
             initCardOrdering(grid);
         }
         initAssistedEntry();
-        initUnsavedWarningToggle();
         initThemePicker();
         initAccessibilityToggles();
         initLandingPageControl();

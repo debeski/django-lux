@@ -4,13 +4,22 @@
  * handled with logical properties. DOM is built by dlux/search/js/main.js.
  */
 .dlux-global-search {
+    --dlux-search-titlebar-height: var(--header-height, 60px);
     position: relative;
     display: flex;
     align-items: center;
     margin-inline-end: 0.25rem;
 }
 
-/* Icon toggle — only shown in 'icon' mode while collapsed. */
+.titlebar[data-titlebar-height="dense"] .dlux-global-search {
+    --dlux-search-titlebar-height: calc(var(--header-height, 60px) - 8px);
+}
+
+.titlebar[data-titlebar-height="roomy"] .dlux-global-search {
+    --dlux-search-titlebar-height: calc(var(--header-height, 60px) + 8px);
+}
+
+/* Icon toggle — also used by always-visible mode on mobile. */
 .dlux-global-search__toggle {
     display: none;
     align-items: center;
@@ -89,11 +98,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-@media (max-width: 640px) {
-    .dlux-global-search__box { min-width: 11rem; }
-    .dlux-global-search__hint { display: none; }
-}
-
 /* Results dropdown */
 .dlux-global-search__results {
     position: absolute;
@@ -114,6 +118,49 @@
 .dlux-global-search[data-global-search-mode="icon"] .dlux-global-search__results {
     inset-inline-start: auto;
     inset-inline-end: 0;
+}
+
+@media (max-width: 767.98px) {
+    .dlux-global-search[data-global-search-mode="always"] .dlux-global-search__toggle {
+        display: inline-flex;
+    }
+
+    .dlux-global-search[data-global-search-mode="always"] .dlux-global-search__box {
+        display: none;
+    }
+
+    .dlux-global-search[data-global-search-mode="always"].dlux-global-search--open .dlux-global-search__toggle {
+        display: none;
+    }
+
+    .dlux-global-search[data-global-search-mode="always"].dlux-global-search--open .dlux-global-search__box {
+        display: flex;
+    }
+
+    .dlux-global-search.dlux-global-search--open .dlux-global-search__box {
+        position: fixed;
+        inset-block-start: calc(var(--dlux-search-titlebar-height) + 0.5rem);
+        inset-inline: 0.5rem;
+        z-index: 15000;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        background: var(--hbody, #fff);
+        box-shadow: 0 18px 45px -24px rgba(0, 0, 0, 0.55);
+    }
+
+    .dlux-global-search__hint {
+        display: none;
+    }
+
+    .dlux-global-search[data-global-search-mode="icon"] .dlux-global-search__results,
+    .dlux-global-search[data-global-search-mode="always"] .dlux-global-search__results {
+        position: fixed;
+        inset-block-start: calc(var(--dlux-search-titlebar-height) + 3.15rem);
+        inset-inline: 0.5rem;
+        width: auto;
+        max-height: calc(100dvh - var(--dlux-search-titlebar-height) - 3.65rem);
+    }
 }
 
 .dlux-global-search__group {

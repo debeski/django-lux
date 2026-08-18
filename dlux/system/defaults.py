@@ -5,6 +5,7 @@ callables and Django startup remain stable.
 """
 
 from .constants import (
+    DEFAULT_HOME_URL,
     DEFAULT_FORM_DENSITY,
     DEFAULT_MODAL_SIZE,
     DEFAULT_NAVBAR_MODE,
@@ -105,6 +106,23 @@ def default_public_root_config():
         'public_root_meta_description': '',
         'show_titlebar_on_public': False,
         'show_sidebar_on_public': False,
+    }
+
+
+def default_homepage_config():
+    return {
+        'default_url': DEFAULT_HOME_URL,
+        'allow_user_override': False,
+        'public': {
+            'enabled': False,
+            'separate_url': False,
+            'url': '',
+            'theme': '',
+            'title': '',
+            'meta_description': '',
+            'show_titlebar': False,
+            'show_sidebar': False,
+        },
     }
 
 
@@ -247,6 +265,14 @@ def default_titlebar_config():
     }
 
 
+def default_search_config():
+    return {
+        'enabled': True,
+        'display_mode': 'icon',
+        'include_data': False,
+    }
+
+
 def default_sidebar_config():
     return {
         'enabled': True,
@@ -356,7 +382,20 @@ def default_profile_config():
 
 
 def default_extra_config():
+    """Stays empty on purpose.
+
+    Dlux-owned keys sit at the top level (projects own `extra_config['app']`,
+    verified across the active projects, so there is no collision). But seeding a
+    default key here makes the default win over a host project's
+    `DLUX_CONFIG['extra']`, which silently dropped that project's own keys.
+    `scanlink` is therefore supplied by normalize_extra_config() and read
+    defensively, never seeded as a default.
+    """
     return {}
+
+
+def default_scanlink_config():
+    return {'enabled': False}
 
 
 __all__ = [
@@ -365,6 +404,8 @@ __all__ = [
     'default_client_ip_config',
     'default_email_config',
     'default_extra_config',
+    'default_homepage_config',
+    'default_scanlink_config',
     'default_language_config',
     'default_layout_config',
     'default_log_config',
@@ -374,6 +415,7 @@ __all__ = [
     'default_profile_config',
     'default_public_root_config',
     'default_registration_config',
+    'default_search_config',
     'default_sidebar_config',
     'default_theme_config',
     'default_titlebar_config',

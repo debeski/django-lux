@@ -18,15 +18,18 @@ The setup wizard lives at `/sys/setup/` and is only intended for the initial sys
 
 ![Setup wizard capture slot](assets/setup-wizard.webp)
 
-The wizard currently runs in fourteen steps:
+The wizard currently runs in seventeen steps:
 
 1. Identity
-   This step sets language-keyed system names (a JSON dict such as `{"en": "System", "ar": "النظام"}`), logo, favicon, and footer. It also includes the JSON setup import control and, while public root access is enabled, the public-root page title and meta description.
+   This step sets language-keyed system names (a JSON dict such as `{"en": "System", "ar": "النظام"}`), logo, favicon, and footer. It also includes the JSON setup import control.
 
 2. Localization
-   This step manages language-keyed system names, the explicit language catalog, default language, user language override policy, and the translation matrix editor. English and Arabic are built in; custom languages are available to users only after an admin adds them here.
+   This step manages language-keyed system names, the explicit language catalog, default language, user language override policy, and the translation matrix editor. English and Arabic are built in; custom languages are available to users only after an admin adds them here. The matrix scrolls within its own pane, with an opaque theme-backed sticky header so translation rows never bleed through its labels.
 
-3. Email
+3. Homepage
+   This step owns the default authenticated homepage, per-user homepage override, and the complete anonymous public-homepage configuration. Public access, its optional separate URL, theme, title, meta description, sidebar, and titlebar controls are stored together in `SystemSettings.homepage_config`; v1.x compatibility mirrors keep older `home_url` and `public_root_config` integrations working.
+
+4. Email
    SMTP lives in its own step, ahead of Access and security because so much of that step depends on it. An **Enable email delivery** toggle reveals transport, provider preset, secret storage, host/port/TLS, credentials, sender address, and failure-alert recipients. Use `Internal SMTP relay` for generated Docker projects where the web service is isolated, or `Direct SMTP from web service` when web has SMTP egress; secret storage can be environment/secrets or encrypted database.
 
    **Apply email settings** saves just this step in place, so you can enter SMTP details and test them without closing the modal. The test deliberately sends with the *stored* configuration rather than what is on screen: with relay transport the sending process is a separate container (`python -m dlux.smtp_relay`, shipped inside dlux) that reads config from the database, so a test against unsaved values would prove nothing about what the relay will do. Apply first, then test.
@@ -39,43 +42,48 @@ The wizard currently runs in fourteen steps:
 
    Until email is both enabled and verified, **email 2FA**, **forgot password**, **public registration**, and the **notification email** toggles render disabled with a hover tooltip explaining why. They are locked, not cleared: the stored value is preserved, so turning email off or editing SMTP can never silently disable someone's 2FA or password recovery. Mail *delivery* itself is unaffected — a deployment that configures SMTP through environment variables keeps sending exactly as before, its toggles simply read locked until someone runs the test once. Local debug email backends unlock without a test send.
 
-4. Access and security
-   This step controls public root access, the global Home URL, the optional split between authenticated Home and anonymous public-root destinations, public registration/email 2FA, and centralized Client IP resolution (auto-detect, direct, header-based, or proxy-aware modes). The mail-dependent toggles here stay locked until the Email step above is enabled and verified.
+5. Access and security
+   This step controls authentication, password and session policy, public registration/email 2FA, privacy consent, and centralized Client IP resolution (auto-detect, direct, header-based, or proxy-aware modes). The mail-dependent toggles here stay locked until the Email step above is enabled and verified.
 
-   Public root is the master switch for presentation controls in their canonical categories: page title and metadata in Identity, sidebar visibility in Sidebar, titlebar visibility in Titlebar, and the fixed anonymous theme in Themes and Typography. Those controls stay hidden while public root access is off. When public registration is enabled, a **registration honeypot** toggle (default on) governs the hidden `website` bot-trap field.
+   When public registration is enabled, a **registration honeypot** toggle (default on) governs the hidden `website` bot-trap field.
 
-5. Login Page
+6. Login Page
    This step controls how the public login screen is presented: the layout **style** (Split, Centered, Minimal, or Full-page split), a **Show Logo** toggle, the **logo treatment** (none / plate / halo / contrast, with plate shape), an optional **banner colour** (any CSS colour; empty = theme default), and — for the Full-page split style only — a per-language Markdown **hero message** shown on the start half beside the form. Settings persist to `SystemSettings.login_config`.
 
-6. Sidebar
-   This step manages the sidebar builder and sidebar behavior controls. **Show sidebar on public root** appears here only while public root access is enabled.
+7. Sidebar
+   This step manages the sidebar builder and sidebar behavior controls.
 
-7. Nav Bar
+8. Nav Bar
    This step manages the optional authenticated Nav Bar, including hierarchy/history mode, user override policy, and the static hierarchy tree. Its pinned **Navigation Root** selector keeps the existing neutral Root by default, can follow the configured homepage, or can use a specific discovered page. A selected page becomes the trail boundary for itself and its descendants without moving or rewriting nodes in the stored hierarchy. During first-launch setup, enabling an empty Nav Bar tree can seed it from the configured sidebar accordions.
 
-8. Titlebar
-   This step manages titlebar controls (logo/home visibility, logo treatment, action-button shape, Dropdown vs Titlebar Actions user-hub layout, action ordering, alignment, height, and surface style). A **Show titlebar language switcher** toggle adds a single titlebar button that cycles through the available languages; it is disabled unless user language override is allowed and more than one language exists. **Show titlebar on public root** appears here only while public root access is enabled.
-   This step also configures **Global Search**: a titlebar search box that jumps to pages, settings, and actions from anywhere (press **Ctrl/⌘-K** to focus it). Choose **Icon, expand on focus** (default), **Always visible**, or **Disabled**. While search is enabled, an **Include data records in search** toggle appears — when on, search also matches records the user is allowed to view (not just app components). Settings results deep-link straight to the right settings step, so searching e.g. "inactivity" or "backup" takes you there directly.
+9. Titlebar
+   This step manages titlebar controls (logo/home visibility, logo treatment, action-button shape, Dropdown vs Titlebar Actions user-hub layout, action ordering, alignment, height, and surface style). A **Show titlebar language switcher** toggle adds a single titlebar button that cycles through the available languages; it is disabled unless user language override is allowed and more than one language exists. When unavailable, the whole card uses the shared dimmed dependent state and its Dlux tooltip names the missing prerequisite or prerequisites.
 
-9. Notifications
-   This step controls the notification subsystem, including the flash, drawer, badge, browser bridge, email delivery, and automatic CRUD notification behavior.
+10. Global Search
+   This step configures the titlebar search that jumps to pages, settings, and actions from anywhere (press **Ctrl/⌘-K** to focus it). Choose the localized **Icon, expand on focus** default, **Always visible**, or **Disabled** mode. While search is enabled, **Include data records in search** also matches records the user is allowed to view. Settings results deep-link directly to the corresponding settings step. The canonical values live in `SystemSettings.search_config`; v1.x compatibility mirrors keep the legacy titlebar keys synchronized.
 
-10. Themes and Typography
-   This step contains only theme, colour, and Dynamic Font Management controls. The fixed public-root theme appears here only while public root access is enabled.
+11. Notifications
+   This step controls the notification subsystem, including the flash, drawer, badge, browser bridge, email delivery, and automatic CRUD notification behavior. The flash controls explain their direction-aware position, card and text sizes, auto-close duration in milliseconds (`0` keeps a notice visible until dismissed), and maximum simultaneous notice count in both English and Arabic.
 
-11. Layout
+12. Themes and Typography
+   This step contains only theme, colour, and Dynamic Font Management controls.
+
+13. Layout
    This step owns system defaults for table density and behavior, form density, modal size, Options-page style, audit-field visibility, and soft-delete review visibility.
 
-12. Logging
-   This step manages user/system activity logging, audit event logging, and retention controls.
+14. Logging
+   This step manages user/system activity logging, audit event logging, and retention controls. Each group uses the active theme's settings surface, and its compact Dlux switches align at the logical start in both LTR and RTL without Bootstrap's reserved switch gutter. Per-model create, update, and delete controls share a responsive action grid that stays contained on mobile.
 
-13. Profile Page
-   This step controls the profile page modules and first-login user setup/onboarding options.
+15. Profile Page
+   This step controls the profile page modules and first-login user setup/onboarding options. The completion, session/device, and activity-feed switches share one auto-fitting row on wide screens and wrap into narrower rows without overflowing. The first-login Theme, Language, and Font choices use a flexible horizontal rail that distributes them across the available width and wraps adjacent choices together on narrow screens.
 
-14. Backups
+16. Backups
    This step controls scheduled backup, storage, and retention policy.
 
-The first-launch page expands to the available page width and hides the runtime sidebar toggle because the runtime sidebar is not rendered during initial setup. Its bullet-style step navigation bar jumps to the corresponding setup step while staying synchronized with the wizard's Next and Previous buttons. The default-language control is save-only: changing it in first-launch setup or later System Settings modals no longer previews the language or reloads the page, and it remains editable independently of the initial setup-language choice.
+17. Extra Features
+   This step contains opt-in integrations such as ScanLink. Disabled integrations stay inert until an administrator enables them.
+
+The first-launch page expands to the available page width and hides the runtime sidebar toggle because the runtime sidebar is not rendered during initial setup. Its localized overview and numbered step badges appear only on this first-launch page; individual System Settings modals opened from Options start directly at the selected editor without setup-only chrome. Its bullet-style step navigation bar jumps to the corresponding setup step while staying synchronized with the wizard's Next and Previous buttons. The default-language control is save-only: changing it in first-launch setup or later System Settings modals no longer previews the language or reloads the page, and it remains editable independently of the initial setup-language choice.
 
 Useful language/system-name patterns:
 
@@ -236,14 +244,19 @@ The Options screen currently provides:
 - table-density switching for the current user
 - autofill enable or disable
 - reset-to-defaults for user preferences
-- a superuser-only System Settings card that opens focused Branding, Languages,
-  Access & Security, Login Page, Sidebar, Nav Bar, Titlebar, Notifications,
-  Themes & Typography, Layout, Logging, Profile Page, and Backups modals
+- a **Restore prompts** footer action that re-enables dismissed prompts, including the unsaved-changes warning; that warning has no separate Options card or always-off switch
+- a superuser-only System Settings card that opens focused Identity, Localization,
+  Homepage, Email, Access & Security, Login Page, Sidebar, Nav Bar, Titlebar,
+  Global Search, Notifications, Themes & Typography, Layout, Logging, Profile Page,
+  Backups, and Extra Features modals
 - a superuser-only setup export action for reusing System Settings across development environments
+- a superuser-only Extra Features card for enabling ScanLink and managing protected installer releases
 - a superuser-only Backup & Restore card that summarizes the latest full backup, completed/protected backup counts, and latest restore before opening `/sys/backup/`
 - generated Compose deployments also show installed/latest verified DjangoLux versions and the last update check in System Info; Global Staff see read-only state, while superusers can check, review/apply, and roll back manifest-approved releases
 
 Focused System Settings modals render only the active step's heavy theme, font, language, and builder matrices. They retain the saved theme/language catalog counts as lightweight form metadata, allowing the live preview to preserve the Options cards and sidebar theme selector when an unrelated step is opened; the active Themes or Languages step still calculates visibility from its current controls.
+
+When ScanLink is enabled, its Options card introduces the workstation check and presents Connection, Installed Version, and Latest Published as three equal bordered status tiles, matching the original project-archive card while using DjangoLux's centralized manifest and runtime hooks. **Manage installers** opens its release publisher above the published-releases table. On desktop, Version, Architecture, and a compact content-height Active switch occupy one column while the Dlux file picker fills the other; the columns stack on smaller screens. Notes then stretches across the available row beside the Publish button. The x86 and x64 architecture chips remain adjacent at both sizes, and Version/Notes use the same glass-input styling as other System Settings fields.
 
 Options layout note:
 
@@ -299,7 +312,7 @@ DjangoLux provides multiple layers of authentication security.
     - Step 3 / Access & Security includes **Prevent multiple active sessions**. When enabled, a newly trusted session signs out every other active session for the same user.
     - Revoking a device trust forces the user to complete a 2FA challenge on their next login from that browser, and revoking a session immediately logs the user out from that device.
 - **Login Lockout Tuning**: While **Enable login lockout** is on, Step 3 / Access & Security reveals three number fields — **Lockout after (attempts)** (1–50, default 5), **Counting window (minutes)** (how long failed attempts keep counting, default 15), and **Lockout duration (minutes)** (how long sign-in stays blocked once armed, default 15). Failed attempts are counted per IP *and* per username; a successful login clears the counters.
-- **Strong Password Minimum Length**: While **Enforce strong passwords** is on, a **Minimum password length** field (8–64, default 12) is revealed. The strict validator and the live password checklist both honour it.
+- **Strong Password Minimum Length**: While **Enforce strong passwords** is on, a **Minimum password length** field (8–64, default 12) is revealed. The strict validator and the live password checklist both honour it. This field shares one compact row with Inactivity timeout, but each remains disabled or enabled solely by its own switch.
 - **Live Password Checklist**: New-password fields no longer show static requirement bullets. A live checklist card appears under the field on focus and ticks each rule as it is met — the configured strong rules (minimum length + upper/lower case, digit, symbol) when enforcement is on, or Django's stock rules (at least 8 characters, not entirely numeric) when it is off.
 - **Forgot Password (Self-Service Reset)**: Step 3 / Access & Security has an **Enable "Forgot password?"** toggle. When on *and* Dlux email delivery is configured, the sign-in page shows a **Forgot password?** link and the email-based reset flow becomes available at `/accounts/password-reset/`. A user submits their account email, receives a reset link (sent through Dlux's own email transport, so it honours your relay/encrypted-secret settings), opens it to choose a new password, and is returned to sign-in — every page rendered in your configured login style, direction (RTL/LTR), and language. The whole flow **self-hides** when email is not ready: if the toggle is on but no email is configured, neither the link nor the reset URLs appear (they 404), so it never presents a dead end. Default off.
 - **Sign Out On Browser Close**: Step 3 / Access & Security has a **Sign out on browser close** toggle. When on, Dlux issues a browser-session cookie without a persistent expiry, so starting a new browser session requires signing in again. Browser tabs share that cookie: closing one tab does not sign the user out while the browser session remains open.
@@ -308,6 +321,7 @@ DjangoLux provides multiple layers of authentication security.
 - **Default scope/groups for public registrations**: These are not System Settings fields. In **Manage Scopes**, right-click or long-press a scope row and choose **Use for public registrations** to mark the one default landing scope. In **Manage Groups**, right-click or long-press a preset row and choose **Use for public registrations** to mark one or more live Group presets. After email verification or superuser approval activates a public registration, Dlux applies the marked scope (only while scopes are enabled) and assigns the marked global or matching-scope presets as normal `auth.Group` memberships. The admin-created-user **Force password change** checkbox does not apply to public registrations.
 - **Bulk Forced Password Change**: The Options **Admin panel** title row has a circular expandable admin-command button. Its **Force passwords** command is superuser-only and asks for the current password before setting `Profile.preferences["force_password_change"]` on every non-superuser account. The next login for those users is forced through the same profile password-change flow used by the create-user **Require password change on first login** checkbox; superusers are skipped.
 - **Reset Data**: The same Admin-panel command launcher has a superuser-only **Reset data** command. It asks for the current password, then opens a modal listing the discovered models with their **row counts**. Tick the models to clear, optionally enable **delete related media files** (off by default — only affects permanently-deleted models), and confirm. Deletion respects Dlux semantics: **scoped models are soft-deleted** (the recoverable `deleted_at` mechanism, so their rows and media are kept and can be restored), while non-scoped models are **permanently removed** (honouring each relation's `on_delete` — a `PROTECT` reference blocks that model and is reported, without stopping the others). **System Settings, the updater state, permission groups, and superuser accounts are never touched** — you cannot brick the install or lock yourself out. Every run is audit-logged. This is destructive; take a system backup first.
+- **Responsive Admin Commands**: The collapsed command rail contributes no layout width, so its trigger remains on the heading's inline edge in both LTR and RTL. From 768px upward, opening it uses the available space beside the title; below 768px it opens on a full-width second row. Constrained rails scroll horizontally, and layout width is never animated.
 
 ## Themes, Languages, and Home URL
 
@@ -331,7 +345,7 @@ The safest mental model is:
 
 ## Tutorial and User-Facing Runtime Behavior
 
-DjangoLux includes a built-in tutorial system that targets the current view path. Users may see different guided steps on `/sys/`, `/sys/users/`, `/sys/sections/`, and other supported pages.
+DjangoLux includes a built-in tutorial system that follows the user's active display language and targets components rendered in the current view. It covers the shared sidebar/titlebar tools plus Setup, Options, reports, backup and restore, Control Panel, registrations, users, activity logs, sections, profiles, and generic data lists. Permission-gated or disabled components that are not rendered do not create empty steps.
 
 Project-specific tutorial additions should extend this built-in system rather than replace it. The intended developer path is to load a project script through `templates/dlux/includes/custom_scripts.html` and register `window.get_custom_tutorial_steps(path)`. See the customization guide for the supported extension pattern.
 

@@ -25,7 +25,11 @@ class DluxFileInput(forms.ClearableFileInput):
         except Exception:
             strings = {}
         data['field_label'] = self.field_label
-        data['show_scan'] = self.show_scan
+        # A caller asking for a scan button only gets one where the deployment
+        # has turned ScanLink on; otherwise the button is the thing that fires
+        # the localhost probe.
+        from .utils import scanlink_enabled
+        data['show_scan'] = bool(self.show_scan and scanlink_enabled())
         data['empty_title'] = strings.get('archive_file_empty_title', 'No file selected')
         data['empty_meta'] = strings.get('archive_file_empty_meta', 'Drop a file here or use the actions.')
         data['current_meta'] = strings.get('archive_file_current_meta', 'Current file on this record.')

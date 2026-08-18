@@ -12,10 +12,16 @@ from dlux.tests.harness import setup_test_environment
 setup_test_environment()
 
 import pathlib
+from types import SimpleNamespace
+from unittest.mock import patch
 
+from django.contrib.auth.models import AnonymousUser
+from django.template import Context, Template
 from django.template import TemplateDoesNotExist
 from django.template.loader import get_template, render_to_string
-from django.test import SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase
+
+from dlux.context_processors import dlux_context
 
 PACKAGE = pathlib.Path(__file__).resolve().parents[1]
 
@@ -82,6 +88,50 @@ class TemplateCompatTests(SimpleTestCase):
         for hook in EXTENSION_HOOKS:
             with self.subTest(hook=hook):
                 self.assertIn(hook, combined)
+
+
+class FormBaseTemplateTests(SimpleTestCase):
+    def _context(self):
+        request = RequestFactory().get('/form/')
+        request.user = AnonymousUser()
+        request.session = {}
+        request.resolver_match = SimpleNamespace(url_name='form')
+        with patch('dlux.context_processors.is_scope_enabled', return_value=False):
+            return {'request': request, **dlux_context(request)}
+
+    def test_form_base_renders_an_opt_in_footer_after_form_content(self):
+        html = Template(
+            "{% extends 'dlux/form_base.html' %}"
+            "{% block form_content %}<form id=\"example-form\">Fields</form>{% endblock %}"
+            "{% block form_footer %}<footer class=\"dlux-form-footer\">"
+            "<button type=\"submit\" form=\"example-form\">Save</button>"
+            "</footer>{% endblock %}"
+        ).render(Context(self._context()))
+
+        self.assertLess(html.index('id="example-form"'), html.index('dlux-form-footer'))
+        self.assertIn('form="example-form"', html)
+        self.assertIn('class="dlux-form-page"', html)
+
+    def test_form_base_footer_has_no_default_output(self):
+        html = Template(
+            "{% extends 'dlux/form_base.html' %}"
+            "{% block form_content %}<form id=\"example-form\">Fields</form>{% endblock %}"
+        ).render(Context(self._context()))
+
+        self.assertNotIn('dlux-form-footer', html)
+
+    def test_form_footer_sticks_inside_a_page_local_scroll_boundary(self):
+        styles = (PACKAGE / 'static' / 'dlux' / 'forms' / 'css' / 'form_actions.css').read_text(encoding='utf-8')
+
+        self.assertIn('@media (min-width: 768px)', styles)
+        self.assertIn('.dlux-form-page {', styles)
+        self.assertIn('contain: layout;', styles)
+        self.assertIn('position: sticky;', styles)
+        self.assertIn('bottom: -1.5rem;', styles)
+        self.assertIn('body:has(.dlux-footer) .dlux-form-footer', styles)
+        self.assertIn('bottom: calc(1.35rem - 1.5rem);', styles)
+        self.assertNotIn('padding-block-end: 8rem;', styles)
+        self.assertNotIn('transform: translateY(1.5rem);', styles)
 
 
 class StaticCompatTests(SimpleTestCase):

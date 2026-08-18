@@ -31,6 +31,7 @@ _OPTIONAL_OVERRIDE_KEYS = {
     'footer_text',
 }
 _PYTHON_REF = re.compile(r"\b(?:s|strings|dlux_strings)\.get\(\s*'([a-z0-9_]+)'")
+_TUTORIAL_REF = re.compile(r"['\"](tut_[a-z0-9_]+)['\"]")
 
 
 def _dict_literal(path, name):
@@ -115,6 +116,29 @@ class TranslationCoverageTests(SimpleTestCase):
                     sorted(catalogue[other] - catalogue[base]), [],
                     f"defined in '{other}' but not '{base}'",
                 )
+
+    def test_tutorial_javascript_keys_resolve_in_every_language(self):
+        catalogue = _catalogue()
+        aliases = _aliases()
+        script = _ROOT / 'static' / 'dlux' / 'tutorial' / 'js' / 'main.js'
+        keys = set(_TUTORIAL_REF.findall(script.read_text(encoding='utf-8')))
+
+        def resolves(key, language_keys):
+            seen = set()
+            while key and key not in seen:
+                if key in language_keys:
+                    return True
+                seen.add(key)
+                key = aliases.get(key)
+            return False
+
+        missing = [
+            f'{key} missing from {language}'
+            for language, language_keys in sorted(catalogue.items())
+            for key in sorted(keys)
+            if not resolves(key, language_keys)
+        ]
+        self.assertEqual(missing, [], '\n'.join(missing))
 
     def test_aliases_point_at_keys_that_exist(self):
         catalogue = _catalogue()

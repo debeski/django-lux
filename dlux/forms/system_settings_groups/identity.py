@@ -9,6 +9,7 @@ from django.conf import settings
 from ...system.constants import (
     SETUP_STEP_IDENTITY,
     SETUP_STEP_LANGUAGES,
+    SETUP_STEP_HOMEPAGE,
     SETUP_STEP_SECURITY,
     SETUP_STEP_EMAIL,
     SETUP_STEP_LOGIN,
@@ -150,15 +151,16 @@ class IdentityCleanMixin:
         return value or discovered_value or getattr(settings, 'DLUX_CONFIG', {}).get('home_url') or DEFAULT_HOME_URL
 
     def clean_allow_user_home_url(self):
-        # Checkbox in the Security step (index 2). Preserve the stored value when a
-        # single-step save of another step omits it (unchecked == absent for boxes).
         if (
             self.is_bound and self.mode != 'setup' and self.single_step_mode
-            and self.single_step_index != SETUP_STEP_SECURITY
+            and self.single_step_index != SETUP_STEP_HOMEPAGE
         ):
-            stored = getattr(self.instance, 'profile_config', None)
-            if isinstance(stored, dict) and 'allow_user_home_url' in stored:
-                return bool(stored.get('allow_user_home_url'))
+            stored = getattr(self.instance, 'homepage_config', None)
+            if isinstance(stored, dict) and 'allow_user_override' in stored:
+                return bool(stored.get('allow_user_override'))
+            profile = getattr(self.instance, 'profile_config', None)
+            if isinstance(profile, dict) and 'allow_user_home_url' in profile:
+                return bool(profile.get('allow_user_home_url'))
             return bool(self.initial.get('allow_user_home_url', False))
         return bool(self.cleaned_data.get('allow_user_home_url'))
 

@@ -78,6 +78,7 @@ from ..system.defaults import (
     default_client_ip_config as _default_client_ip_config,
     default_email_config as _default_email_config,
     default_extra_config as _default_extra_config,
+    default_homepage_config as _default_homepage_config,
     default_language_config as _default_language_config,
     default_layout_config as _default_layout_config,
     default_login_config as _default_login_config,
@@ -85,6 +86,7 @@ from ..system.defaults import (
     default_notification_config as _default_notification_config,
     default_public_root_config as _default_public_root_config,
     default_registration_config as _default_registration_config,
+    default_search_config as _default_search_config,
     default_theme_config as _default_theme_config,
     default_titlebar_config as _default_titlebar_config,
     default_typography_config as _default_typography_config,
@@ -100,6 +102,8 @@ from ..system.normalizers import (
     normalize_default_fonts as _system_normalize_default_fonts,
     normalize_email_config as _system_normalize_email_config,
     normalize_extra_config as _system_normalize_extra_config,
+    homepage_config_legacy_values,
+    normalize_homepage_config as _system_normalize_homepage_config,
     normalize_language_config as _system_normalize_language_config,
     normalize_layout_config as _system_normalize_layout_config,
     normalize_log_config as _system_normalize_log_config,
@@ -109,6 +113,8 @@ from ..system.normalizers import (
     normalize_profile_config as _system_normalize_profile_config,
     normalize_public_root_config as _system_normalize_public_root_config,
     normalize_registration_config as _system_normalize_registration_config,
+    normalize_search_config as _system_normalize_search_config,
+    search_config_legacy_values,
     normalize_sidebar_behavior as _system_normalize_sidebar_behavior,
     normalize_theme_config as _system_normalize_theme_config,
     normalize_titlebar_actions_order as _system_normalize_titlebar_actions_order,
@@ -540,6 +546,14 @@ def default_public_root_config():
     return _default_public_root_config()
 
 
+def default_homepage_config():
+    return _default_homepage_config()
+
+
+def normalize_homepage_config(value):
+    return _system_normalize_homepage_config(value)
+
+
 def normalize_public_root_config(value):
     cfg = value if isinstance(value, dict) else {}
     public_root = bool(cfg.get('public_root', False))
@@ -619,6 +633,14 @@ def normalize_typography_config(value):
 
 def default_extra_config():
     return _default_extra_config()
+
+
+def default_search_config():
+    return _default_search_config()
+
+
+def normalize_search_config(value):
+    return _system_normalize_search_config(value)
 
 
 def normalize_extra_config(value):
@@ -761,12 +783,12 @@ def normalize_profile_config(value):
 
 def resolve_user_home_url(user, config=None):
     """Return the user's per-user landing page (``Profile.preferences['user_home_url']``)
-    when ``profile_config.allow_user_home_url`` is enabled, else ''. Safe/never raises."""
+    when ``homepage_config.allow_user_override`` is enabled, else ''. Safe/never raises."""
     try:
         if config is None:
             config = get_system_config()
-        profile_config = config.get('profile_config') or {}
-        if not profile_config.get('allow_user_home_url'):
+        homepage_config = normalize_homepage_config(config.get('homepage_config') or config)
+        if not homepage_config.get('allow_user_override'):
             return ''
         profile = getattr(user, 'profile', None)
         prefs = getattr(profile, 'preferences', None) if profile is not None else None
@@ -783,9 +805,9 @@ _CONFIG_GROUP_NORMALIZERS = get_config_normalizers()
 def expand_system_config_groups(config):
     """Return config with nested group aliases normalized and flattened.
 
-    Existing flat keys remain authoritative when both flat and nested keys are
-    present. This keeps the public settings contract stable while allowing the
-    storage model to use grouped JSON fields.
+    Existing flat keys remain authoritative for the established schema groups.
+    The canonical homepage/search groups are mirrored back to their deprecated
+    keys so old projects keep the same public settings contract.
     """
     if not isinstance(config, dict):
         return {}
@@ -794,6 +816,31 @@ def expand_system_config_groups(config):
     for alias, canonical in alias_map.items():
         if canonical not in expanded and isinstance(expanded.get(alias), dict):
             expanded[canonical] = deepcopy(expanded[alias])
+    if 'homepage_config' not in expanded:
+        legacy_homepage = {}
+        if 'home_url' in expanded:
+            legacy_homepage['home_url'] = expanded['home_url']
+        public_root = expanded.get('public_root_config')
+        if isinstance(public_root, dict):
+            legacy_homepage.update(public_root)
+        for legacy_key in (
+            'public_root', 'public_root_split_enabled', 'public_root_url',
+            'public_root_theme', 'public_root_title', 'public_root_meta_description',
+            'show_titlebar_on_public', 'show_sidebar_on_public',
+        ):
+            if legacy_key in expanded:
+                legacy_homepage[legacy_key] = expanded[legacy_key]
+        profile = expanded.get('profile_config')
+        if isinstance(profile, dict) and 'allow_user_home_url' in profile:
+            legacy_homepage['allow_user_home_url'] = profile['allow_user_home_url']
+        if legacy_homepage:
+            expanded['homepage_config'] = legacy_homepage
+    if 'search_config' not in expanded:
+        titlebar = expanded.get('titlebar_config')
+        if isinstance(titlebar, dict) and (
+            'global_search_mode' in titlebar or 'global_search_include_data' in titlebar
+        ):
+            expanded['search_config'] = titlebar
     # Legacy migration: titlebar_config.hide_on_public_unauthenticated_index now
     # maps to public_root_config.show_titlebar_on_public (inverted). Only seed it
     # when the new key is not already provided, so explicit values always win.
@@ -826,6 +873,8 @@ def expand_system_config_groups(config):
         'notification_config',
         'login_config',
         'titlebar_config',
+        'homepage_config',
+        'search_config',
         'navbar_config',
         'sidebar_config',
         'log_config',
@@ -840,6 +889,8 @@ def expand_system_config_groups(config):
         'notification_config': 'notifications',
         'login_config': 'login',
         'titlebar_config': 'titlebar',
+        'homepage_config': 'homepage',
+        'search_config': 'search',
         'navbar_config': 'navbar',
         'sidebar_config': 'sidebar',
         'log_config': 'log',
@@ -849,6 +900,26 @@ def expand_system_config_groups(config):
     for canonical, alias in canonical_aliases.items():
         if alias not in expanded and canonical in expanded:
             expanded[alias] = deepcopy(expanded[canonical])
+    if 'homepage_config' in expanded:
+        homepage = normalize_homepage_config(expanded['homepage_config'])
+        expanded['homepage_config'] = homepage
+        expanded['homepage'] = deepcopy(homepage)
+        legacy = homepage_config_legacy_values(homepage)
+        expanded['home_url'] = legacy['home_url']
+        expanded['public_root_config'] = legacy['public_root_config']
+        expanded.update(legacy['public_root_config'])
+        profile = dict(expanded.get('profile_config') or {})
+        profile['allow_user_home_url'] = legacy['allow_user_home_url']
+        expanded['profile_config'] = profile
+        expanded['profile'] = deepcopy(profile)
+    if 'search_config' in expanded:
+        search = normalize_search_config(expanded['search_config'])
+        expanded['search_config'] = search
+        expanded['search'] = deepcopy(search)
+        titlebar = dict(expanded.get('titlebar_config') or {})
+        titlebar.update(search_config_legacy_values(search))
+        expanded['titlebar_config'] = normalize_titlebar_config(titlebar)
+        expanded['titlebar'] = deepcopy(expanded['titlebar_config'])
     if 'translations' not in expanded and 'translations_override' in expanded:
         expanded['translations'] = deepcopy(expanded['translations_override'])
     return expanded
@@ -907,6 +978,7 @@ normalize_client_ip_config = _system_normalize_client_ip_config
 normalize_default_fonts = _system_normalize_default_fonts
 normalize_email_config = _system_normalize_email_config
 normalize_extra_config = _system_normalize_extra_config
+normalize_homepage_config = _system_normalize_homepage_config
 normalize_language_config = _system_normalize_language_config
 normalize_layout_config = _system_normalize_layout_config
 normalize_log_config = _system_normalize_log_config
@@ -916,6 +988,7 @@ normalize_notification_config = _system_normalize_notification_config
 normalize_profile_config = _system_normalize_profile_config
 normalize_public_root_config = _system_normalize_public_root_config
 normalize_registration_config = _system_normalize_registration_config
+normalize_search_config = _system_normalize_search_config
 normalize_sidebar_behavior = _system_normalize_sidebar_behavior
 normalize_theme_config = _system_normalize_theme_config
 normalize_titlebar_actions_order = _system_normalize_titlebar_actions_order
@@ -1003,6 +1076,27 @@ def get_system_config():
         if favicon_url:
             db_config['favicon'] = favicon_url
             db_config['favicon_url'] = favicon_url
+        stored_homepage_config = normalize_homepage_config(
+            getattr(sys_settings, 'homepage_config', None) or {}
+        )
+        legacy_home_url = getattr(sys_settings, 'home_url', '')
+        if not system_is_configured and legacy_home_url == _LEGACY_HOME_URL:
+            legacy_home_url = DEFAULT_HOME_URL
+        legacy_homepage_config = normalize_homepage_config({
+            'home_url': legacy_home_url,
+            **dict(getattr(sys_settings, 'public_root_config', None) or {}),
+            'allow_user_home_url': bool(
+                (getattr(sys_settings, 'profile_config', None) or {}).get('allow_user_home_url', False)
+            ),
+        })
+        homepage_config = stored_homepage_config
+        if (
+            stored_homepage_config == default_homepage_config()
+            and legacy_homepage_config != default_homepage_config()
+        ):
+            homepage_config = legacy_homepage_config
+        if _should_apply_db_override(homepage_config, default_config['homepage_config']):
+            db_config['homepage_config'] = homepage_config
         legacy_unconfigured_home_url = (
             not system_is_configured and
             getattr(sys_settings, 'home_url', '') == _LEGACY_HOME_URL
@@ -1142,6 +1236,18 @@ def get_system_config():
             )
         ):
             db_config['titlebar'] = sys_settings.titlebar_config
+        if hasattr(sys_settings, 'search_config'):
+            search_config = normalize_search_config(getattr(sys_settings, 'search_config', None) or {})
+            legacy_search_config = normalize_search_config(
+                getattr(sys_settings, 'titlebar_config', None) or {}
+            )
+            if (
+                search_config == default_search_config()
+                and legacy_search_config != default_search_config()
+            ):
+                search_config = legacy_search_config
+            if _should_apply_db_override(search_config, default_config['search_config']):
+                db_config['search_config'] = search_config
         if isinstance(getattr(sys_settings, 'login_config', None), dict) and sys_settings.login_config:
             db_config['login'] = sys_settings.login_config
         if hasattr(sys_settings, 'notification_config'):
@@ -1465,9 +1571,26 @@ def get_system_config():
     )
 
     final_config['home_url_name'] = None
-    final_config['home_url'] = final_config.get('home_url') or default_config['home_url']
-    final_config['public_root_split_enabled'] = bool(final_config.get('public_root_split_enabled', False))
-    final_config['public_root_url'] = str(final_config.get('public_root_url') or '').strip()
+    final_config['homepage_config'] = normalize_homepage_config(
+        final_config.get('homepage_config') or final_config
+    )
+    final_config['homepage'] = deepcopy(final_config['homepage_config'])
+    homepage_legacy = homepage_config_legacy_values(final_config['homepage_config'])
+    final_config['home_url'] = homepage_legacy['home_url']
+    final_config['public_root_config'] = homepage_legacy['public_root_config']
+    final_config.update(homepage_legacy['public_root_config'])
+    final_config['profile_config'] = normalize_profile_config({
+        **dict(final_config.get('profile_config') or {}),
+        'allow_user_home_url': homepage_legacy['allow_user_home_url'],
+    })
+    final_config['profile'] = deepcopy(final_config['profile_config'])
+    final_config['search_config'] = normalize_search_config(
+        final_config.get('search_config') or final_config.get('titlebar_config') or {}
+    )
+    final_config['search'] = deepcopy(final_config['search_config'])
+    final_config['titlebar'].update(search_config_legacy_values(final_config['search_config']))
+    final_config['titlebar'] = normalize_titlebar_config(final_config['titlebar'])
+    final_config['titlebar_config'] = deepcopy(final_config['titlebar'])
     if final_config.get('default_language') not in final_config['languages']:
         final_config['default_language'] = 'en' if 'en' in final_config['languages'] else next(iter(final_config['languages']), 'en')
 
@@ -1497,7 +1620,7 @@ def get_system_config():
         final_config[auth_key] = auth_value
     final_config['registration_config'] = normalize_registration_config(final_config)
     final_config.update(final_config['registration_config'])
-    final_config['public_root_config'] = normalize_public_root_config(final_config)
+    final_config['public_root_config'] = normalize_public_root_config(final_config['public_root_config'])
     final_config.update(final_config['public_root_config'])
     final_config['layout_config'] = normalize_layout_config(final_config)
     final_config.update(final_config['layout_config'])

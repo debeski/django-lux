@@ -1,6 +1,13 @@
 {% extends "dlux/base.html" %}
 {% load dlux_tags %}
 
+{% block content %}
+    <div class="dlux-form-page">
+    {% block form_content %}{% endblock %}
+    {% block form_footer %}{% endblock %}
+    </div>
+{% endblock %}
+
 {# Form assets are now loaded globally (once) from base.html so dynamic-modal #}
 {# forms work on any page. These include_once calls dedupe against that — they #}
 {# stay as an explicit record that form pages depend on these assets and as a  #}

@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 from urllib.parse import urlparse
 from csp.constants import SELF, UNSAFE_EVAL, UNSAFE_INLINE
+from dlux.system.constants import SCANLINK_CONNECT_ORIGINS
 from dlux.utils import get_project_version, get_secret, dlux_settings
 
 
@@ -180,7 +181,10 @@ CONTENT_SECURITY_POLICY = {
         "style-src": [SELF, UNSAFE_INLINE],
         "img-src": [SELF, "data:", "blob:"],
         "font-src": [SELF, "data:"],
-        "connect-src": [SELF, BASE_URL],
+        # ScanLink talks to a tray app on the operator's own workstation. Listing
+        # the origins does not cause any request; it only lets the browser make
+        # one when ScanLink is switched on under Extra Features.
+        "connect-src": [SELF, BASE_URL, *SCANLINK_CONNECT_ORIGINS],
         "frame-ancestors": [SELF],
         "form-action": [SELF],
     }

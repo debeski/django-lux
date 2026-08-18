@@ -69,6 +69,7 @@ from .defaults import (
     default_client_ip_config,
     default_email_config,
     default_extra_config,
+    default_homepage_config,
     default_language_config,
     default_layout_config,
     default_log_config,
@@ -78,6 +79,7 @@ from .defaults import (
     default_profile_config,
     default_public_root_config,
     default_registration_config,
+    default_search_config,
     default_sidebar_config,
     default_theme_config,
     default_titlebar_config,
@@ -399,6 +401,94 @@ def normalize_public_root_config(value):
     }
 
 
+def normalize_homepage_config(value):
+    config = value if isinstance(value, dict) else {}
+    defaults = default_homepage_config()
+    public = config.get('public') if isinstance(config.get('public'), dict) else {}
+    legacy_public = normalize_public_root_config(config)
+
+    default_url = str(
+        config.get('default_url', config.get('home_url', defaults['default_url'])) or ''
+    ).strip() or defaults['default_url']
+    public_url = str(
+        public.get('url', config.get('public_root_url', legacy_public['public_root_url'])) or ''
+    ).strip()
+    return {
+        'default_url': default_url,
+        'allow_user_override': _to_bool(
+            config.get(
+                'allow_user_override',
+                config.get('allow_user_home_url', defaults['allow_user_override']),
+            ),
+            defaults['allow_user_override'],
+        ),
+        'public': {
+            'enabled': _to_bool(
+                public.get('enabled', config.get('public_root', legacy_public['public_root'])),
+                legacy_public['public_root'],
+            ),
+            'separate_url': _to_bool(
+                public.get(
+                    'separate_url',
+                    config.get('public_root_split_enabled', legacy_public['public_root_split_enabled']),
+                ),
+                legacy_public['public_root_split_enabled'],
+            ),
+            'url': public_url,
+            'theme': _normalize_public_root_theme(
+                public.get('theme', config.get('public_root_theme', legacy_public['public_root_theme']))
+            ),
+            'title': _normalize_bounded_text(
+                public.get('title', config.get('public_root_title', legacy_public['public_root_title'])),
+                PUBLIC_ROOT_TITLE_MAX_LENGTH,
+            ),
+            'meta_description': _normalize_bounded_text(
+                public.get(
+                    'meta_description',
+                    config.get(
+                        'public_root_meta_description',
+                        legacy_public['public_root_meta_description'],
+                    ),
+                ),
+                PUBLIC_ROOT_META_DESCRIPTION_MAX_LENGTH,
+            ),
+            'show_titlebar': _to_bool(
+                public.get(
+                    'show_titlebar',
+                    config.get('show_titlebar_on_public', legacy_public['show_titlebar_on_public']),
+                ),
+                legacy_public['show_titlebar_on_public'],
+            ),
+            'show_sidebar': _to_bool(
+                public.get(
+                    'show_sidebar',
+                    config.get('show_sidebar_on_public', legacy_public['show_sidebar_on_public']),
+                ),
+                legacy_public['show_sidebar_on_public'],
+            ),
+        },
+    }
+
+
+def homepage_config_legacy_values(value):
+    homepage = normalize_homepage_config(value)
+    public = homepage['public']
+    return {
+        'home_url': homepage['default_url'],
+        'allow_user_home_url': homepage['allow_user_override'],
+        'public_root_config': normalize_public_root_config({
+            'public_root': public['enabled'],
+            'public_root_split_enabled': public['separate_url'],
+            'public_root_url': public['url'],
+            'public_root_theme': public['theme'],
+            'public_root_title': public['title'],
+            'public_root_meta_description': public['meta_description'],
+            'show_titlebar_on_public': public['show_titlebar'],
+            'show_sidebar_on_public': public['show_sidebar'],
+        }),
+    }
+
+
 def _normalize_footer_text_value(value):
     text = '' if value is None else str(value).strip()
     if len(text) > LAYOUT_FOOTER_TEXT_MAX_LENGTH:
@@ -512,6 +602,14 @@ def normalize_typography_config(value):
 
 
 def normalize_extra_config(value):
+    """Copy through, untouched.
+
+    `extra_config` holds two unrelated things: dlux-owned keys at the top level
+    and opaque project config under `app`, which dlux never validates. Coercing
+    a dlux key here would also mean seeding it into every project's stored
+    config, so `scanlink` is written only when the setting is saved and read
+    defensively by `scanlink_enabled()` instead.
+    """
     return dict(value) if isinstance(value, dict) else {}
 
 
@@ -587,6 +685,34 @@ def normalize_titlebar_config(titlebar_config):
         config.get('global_search_include_data', normalized['global_search_include_data'])
     )
     return normalized
+
+
+def normalize_search_config(value):
+    config = value if isinstance(value, dict) else {}
+    defaults = default_search_config()
+    legacy_mode = config.get('global_search_mode', config.get('mode'))
+    enabled = _to_bool(config.get('enabled'), legacy_mode != 'disabled')
+    display_mode = config.get('display_mode', legacy_mode)
+    if display_mode not in {'always', 'icon'}:
+        display_mode = defaults['display_mode']
+    return {
+        'enabled': enabled,
+        'display_mode': display_mode,
+        'include_data': bool(
+            config.get(
+                'include_data',
+                config.get('global_search_include_data', defaults['include_data']),
+            )
+        ),
+    }
+
+
+def search_config_legacy_values(value):
+    search = normalize_search_config(value)
+    return {
+        'global_search_mode': search['display_mode'] if search['enabled'] else 'disabled',
+        'global_search_include_data': search['include_data'],
+    }
 
 
 def normalize_login_config(value):

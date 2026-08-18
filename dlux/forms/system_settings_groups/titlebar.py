@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from ...system.constants import (
     SETUP_STEP_IDENTITY,
     SETUP_STEP_LANGUAGES,
+    SETUP_STEP_SEARCH,
     SETUP_STEP_SECURITY,
     SETUP_STEP_EMAIL,
     SETUP_STEP_LOGIN,
@@ -111,6 +112,7 @@ from ...utils import (
     normalize_backup_config,
     normalize_log_config,
     normalize_profile_config,
+    normalize_search_config,
     normalize_login_config,
     normalize_notification_config,
     normalize_sidebar_behavior,
@@ -150,10 +152,31 @@ class TitlebarCleanMixin:
         return value
 
     def clean_titlebar_global_search_mode(self):
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != SETUP_STEP_SEARCH
+        ):
+            stored = getattr(self.instance, 'search_config', None)
+            if isinstance(stored, dict):
+                normalized = normalize_search_config(stored)
+                if not normalized.get('enabled', True):
+                    return 'disabled'
+                return normalized.get('display_mode', 'icon')
         value = self.cleaned_data.get('titlebar_global_search_mode') or 'icon'
         if value not in TITLEBAR_GLOBAL_SEARCH_VALUES:
             raise ValidationError("Invalid global search mode.")
         return value
+
+    def clean_titlebar_global_search_include_data(self):
+        if (
+            self.is_bound and self.mode != 'setup' and self.single_step_mode
+            and self.single_step_index != SETUP_STEP_SEARCH
+        ):
+            stored = getattr(self.instance, 'search_config', None)
+            if isinstance(stored, dict):
+                return bool(normalize_search_config(stored).get('include_data', False))
+            return bool(self.initial.get('titlebar_global_search_include_data', False))
+        return bool(self.cleaned_data.get('titlebar_global_search_include_data'))
 
     def clean_titlebar_title_align(self):
         value = self.cleaned_data.get('titlebar_title_align') or 'start'

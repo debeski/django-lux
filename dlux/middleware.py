@@ -141,7 +141,7 @@ class DluxMiddleware:
         # When public_root is off, anonymous users must log in first
         user = getattr(request, 'user', None)
         is_authenticated = bool(user and getattr(user, 'is_authenticated', False))
-        if not config.get('public_root', False):
+        if not targets['public_enabled']:
             if not is_authenticated:
                 return redirect('login')
             if home_url and home_url != '/':
@@ -156,12 +156,16 @@ class DluxMiddleware:
 
     @staticmethod
     def _resolve_root_targets(config):
-        home_url = str(config.get('home_url') or DEFAULT_HOME_URL).strip() or DEFAULT_HOME_URL
-        public_root_split_enabled = bool(config.get('public_root_split_enabled', False))
-        public_root_url = str(config.get('public_root_url') or '').strip() or home_url
-        anonymous_public_target = public_root_url if public_root_split_enabled else home_url
+        from .utils import normalize_homepage_config
+
+        homepage = normalize_homepage_config(config.get('homepage_config') or config)
+        public = homepage['public']
+        home_url = homepage['default_url']
+        public_root_url = public['url'] or home_url
+        anonymous_public_target = public_root_url if public['separate_url'] else home_url
         return {
             'home_url': home_url,
+            'public_enabled': public['enabled'],
             'anonymous_public_target': anonymous_public_target,
         }
 

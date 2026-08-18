@@ -101,7 +101,7 @@ class CustomLoginView(LoginView):
             from django.shortcuts import resolve_url
             from .twofa import get_trusted_device_for_login, prepare_login_2fa_challenge, _sync_session_device_metadata
             from ..auth.trust import enforce_single_active_session
-            from dlux.utils import get_system_config
+            from dlux.utils import get_system_config, normalize_homepage_config
 
             trusted_device = get_trusted_device_for_login(self.request, user)
             if trusted_device:
@@ -117,7 +117,9 @@ class CustomLoginView(LoginView):
                 if user.is_superuser and not config_dict.get('is_configured', False):
                     default_redirect = resolve_url('system_setup')
                 else:
-                    home_url = config_dict.get('home_url')
+                    home_url = normalize_homepage_config(
+                        config_dict.get('homepage_config') or config_dict
+                    )['default_url']
                     if home_url:
                         try:
                             default_redirect = resolve_url(home_url)
@@ -179,7 +181,7 @@ class CustomLoginView(LoginView):
             return url
             
         # 2. Check System Config for home_url
-        from dlux.utils import get_system_config, resolve_user_home_url
+        from dlux.utils import get_system_config, normalize_homepage_config, resolve_user_home_url
         from django.shortcuts import resolve_url
         config_dict = get_system_config()
         if self.request.user.is_superuser and not config_dict.get('is_configured', False):
@@ -193,7 +195,9 @@ class CustomLoginView(LoginView):
             except Exception:
                 return user_home_url
 
-        home_url = config_dict.get('home_url')
+        home_url = normalize_homepage_config(
+            config_dict.get('homepage_config') or config_dict
+        )['default_url']
 
         if home_url:
             from django.shortcuts import resolve_url
@@ -211,11 +215,12 @@ def session_ended_view(request):
     active-session eviction, or a remote 'sign out this device'). It is a deliberate
     dead-end: a single button back to home — which, when the public home is disabled,
     resolves to the login page."""
-    from ..utils import get_system_config
+    from ..utils import get_system_config, normalize_homepage_config
 
     config = get_system_config()
-    if bool(config.get('public_root', False)):
-        home_target = str(config.get('home_url') or DEFAULT_HOME_URL).strip() or '/'
+    homepage = normalize_homepage_config(config.get('homepage_config') or config)
+    if homepage['public']['enabled']:
+        home_target = homepage['default_url']
         target_is_login = False
     else:
         home_target = reverse('login')

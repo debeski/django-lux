@@ -24,6 +24,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from dlux.models import GroupProfile, Scope, Section, SystemSettings
+from dlux.system.constants import SETUP_STEP_BACKUPS
 from dlux.translations import get_strings
 from dlux.utils import get_user_management_tier_state_for_user
 
@@ -256,7 +257,7 @@ class GeneralViewsTests(TestCase):
     def test_email_health_check_requires_privilege_and_sends_nothing(self):
         from unittest.mock import patch
 
-        with patch('dlux.views.general.send_dlux_mail') as send:
+        with patch('dlux.views.options.send_dlux_mail') as send:
             response = self.client.post(reverse('email_health_check'))
         self.assertEqual(response.status_code, 200)
         self.assertIn('state', response.json())
@@ -281,15 +282,15 @@ class GeneralViewsTests(TestCase):
         self.assertFalse(response.json()['ok'])
 
         # Valid recipient but email service not configured -> 409, no send.
-        with patch('dlux.views.general.get_email_service_status', return_value={'available': False}):
-            with patch('dlux.views.general.send_dlux_mail') as mocked:
+        with patch('dlux.views.options.get_email_service_status', return_value={'available': False}):
+            with patch('dlux.views.options.send_dlux_mail') as mocked:
                 response = self.client.post(reverse('email_send_test'), {'recipient': 'to@example.com'})
         self.assertEqual(response.status_code, 409)
         mocked.assert_not_called()
 
     def test_email_send_test_sends_when_configured(self):
-        with patch('dlux.views.general.get_email_service_status', return_value={'available': True}):
-            with patch('dlux.views.general.send_dlux_mail', return_value=1) as mocked:
+        with patch('dlux.views.options.get_email_service_status', return_value={'available': True}):
+            with patch('dlux.views.options.send_dlux_mail', return_value=1) as mocked:
                 response = self.client.post(reverse('email_send_test'), {'recipient': 'to@example.com'})
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['ok'])
@@ -424,12 +425,14 @@ class GeneralViewsTests(TestCase):
         response = self.client.get(reverse('options_view'))
 
         self.assertEqual(response.status_code, 200)
-        for step in range(13):
+        for step in range(17):
             self.assertContains(response, f'?step={step}"')
         self.assertContains(response, reverse('system_settings_export'))
         self.assertContains(response, 'dlux-admin-settings-grid')
         self.assertContains(response, 'dlux-system-settings-tile')
-        self.assertContains(response, 'data-dlux-tooltip="System names, logo, favicon, and home route."')
+        self.assertContains(response, 'data-dlux-tooltip="System names, logo, favicon, and footer identity."')
+        self.assertContains(response, 'data-modal-title="Homepage"')
+        self.assertContains(response, 'data-modal-title="Global Search"')
         self.assertContains(response, 'data-modal-title="Themes &amp; Typography"')
         self.assertContains(response, 'data-modal-title="Layout"')
 
@@ -486,6 +489,8 @@ class GeneralViewsTests(TestCase):
         self.assertNotIn('dlux-form-action-neutral', payload['html'])
         self.assertNotIn('dlux-btn-next', payload['html'])
         self.assertNotIn('dlux-btn-prev', payload['html'])
+        self.assertNotIn('dlux-system-settings-intro', payload['html'])
+        self.assertNotIn('dlux-setup-step-badge', payload['html'])
 
     def test_system_settings_modal_honors_requested_wizard_step_five(self):
         response = self.client.get(
@@ -513,14 +518,19 @@ class GeneralViewsTests(TestCase):
 
     def test_system_settings_modal_honors_final_wizard_step(self):
         response = self.client.get(
-            reverse('modal_manager', args=['dlux', 'SystemSettings', 1]) + '?step=13',
+            reverse('modal_manager', args=['dlux', 'SystemSettings', 1])
+            + f'?step={SETUP_STEP_BACKUPS}',
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)
-        self.assertIn('data-dlux-wizard-initial-step="13"', payload['html'])
-        self.assertIn('Step 14: Backups', payload['html'])
+        self.assertIn(
+            f'data-dlux-wizard-initial-step="{SETUP_STEP_BACKUPS}"',
+            payload['html'],
+        )
+        self.assertIn('name="backup_config"', payload['html'])
+        self.assertNotIn('Step 16: Backups', payload['html'])
         self.assertIn('dlux-btn-submit', payload['html'])
 
     def test_system_settings_export_downloads_setup_payload_for_superuser(self):
@@ -550,7 +560,7 @@ class GeneralViewsTests(TestCase):
         self.assertIn('fr', payload['settings']['languages'])
 
     def test_export_slug_falls_back_to_english_system_name_then_project(self):
-        from dlux.views.general import _resolve_project_export_slug
+        from dlux.views.options import _resolve_project_export_slug
 
         settings_obj = SystemSettings.load()
         settings_obj.system_names = {'en': 'My Portal', 'ar': 'بوابتي'}
@@ -570,7 +580,7 @@ class GeneralViewsTests(TestCase):
             self.assertEqual(_resolve_project_export_slug(settings_obj), 'project')
 
     def test_export_slug_skips_generic_container_dir_names(self):
-        from dlux.views.general import _resolve_project_export_slug
+        from dlux.views.options import _resolve_project_export_slug
 
         settings_obj = SystemSettings.load()
         settings_obj.system_names = {'en': 'Archive System'}
@@ -765,6 +775,9 @@ class GeneralViewsTests(TestCase):
         self.assertContains(response, 'data-dlux-wizard-step-target="6"')
         self.assertContains(response, 'data-dlux-wizard-step-target="12"')
         arabic_strings = get_strings('ar')
+        self.assertContains(response, arabic_strings['system_setup_page_desc'])
+        self.assertContains(response, 'dlux-setup-step-badge')
+        self.assertContains(response, arabic_strings['system_setup_step2'])
         self.assertContains(response, arabic_strings['system_settings_appearance'])
         self.assertContains(response, arabic_strings['system_settings_layout'])
         self.assertContains(response, 'aria-label="التنقل بين خطوات التهيئة"')

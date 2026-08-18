@@ -18,3 +18,11 @@ prune dlux/tests
 global-exclude __pycache__
 global-exclude *.py[cod]
 global-exclude .DS_Store
+
+# Browser test harness (Playwright). Versioned so it survives a clone, but
+# never packaged — it is a development tool, not part of the distribution.
+prune tests-e2e
+
+# JavaScript unit tests. Versioned (they are real tests) but never packaged —
+# they run via `node --test 'tests-js/*.test.mjs'`, outside the Python suite.
+prune tests-js

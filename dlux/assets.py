@@ -13,13 +13,19 @@ from django.db import transaction
 
 IMAGE_EXTENSIONS = {'.gif', '.ico', '.jpeg', '.jpg', '.png', '.webp'}
 FONT_EXTENSIONS = {'.woff2'}
+INSTALLER_EXTENSIONS = {'.exe'}
 FONT_SLUG_RE = re.compile(r'^[a-z][a-z0-9_-]{0,49}$')
 FONT_FAMILY_RE = re.compile(r'^\w[\w .-]{0,99}$')
 
 
 def _max_bytes(kind):
-    setting_name = 'DLUX_ASSET_MAX_FONT_MB' if kind == 'font' else 'DLUX_ASSET_MAX_IMAGE_MB'
-    default_mb = 20 if kind == 'font' else 10
+    # Installers are whole desktop applications, so they need a far larger
+    # ceiling than an image or a webfont.
+    limits = {
+        'font': ('DLUX_ASSET_MAX_FONT_MB', 20),
+        'installer': ('DLUX_ASSET_MAX_INSTALLER_MB', 200),
+    }
+    setting_name, default_mb = limits.get(kind, ('DLUX_ASSET_MAX_IMAGE_MB', 10))
     try:
         limit_mb = max(1, int(getattr(settings, setting_name, default_mb)))
     except (TypeError, ValueError):
@@ -37,7 +43,7 @@ def _checksum(upload):
 
 
 def validate_asset_upload(upload, kind):
-    if kind not in {'image', 'font'}:
+    if kind not in {'image', 'font', 'installer'}:
         raise ValidationError("Unsupported asset type.")
     if not upload:
         raise ValidationError("Choose a file to upload.")
@@ -49,7 +55,10 @@ def validate_asset_upload(upload, kind):
         raise ValidationError("The uploaded asset exceeds the configured size limit.")
 
     suffix = Path(str(getattr(upload, 'name', '') or '')).suffix.lower()
-    allowed_extensions = FONT_EXTENSIONS if kind == 'font' else IMAGE_EXTENSIONS
+    allowed_extensions = {
+        'font': FONT_EXTENSIONS,
+        'installer': INSTALLER_EXTENSIONS,
+    }.get(kind, IMAGE_EXTENSIONS)
     if suffix not in allowed_extensions:
         raise ValidationError("This file type is not allowed for the selected asset type.")
 
@@ -82,6 +91,19 @@ def validate_asset_upload(upload, kind):
         ):
             raise ValidationError("The font file is not a valid WOFF2 asset.")
         metadata['mime_type'] = 'font/woff2'
+        return metadata
+
+    if kind == 'installer':
+        # A Windows PE image starts with the DOS 'MZ' stub. This is a sanity
+        # check on what is being published, not a safety guarantee — the file is
+        # never executed here, only stored and handed to operators who asked for
+        # it. The real protection is that it stays off MEDIA_URL.
+        upload.seek(0)
+        magic = upload.read(2)
+        upload.seek(0)
+        if magic != b'MZ':
+            raise ValidationError("The installer is not a Windows executable.")
+        metadata['mime_type'] = 'application/vnd.microsoft.portable-executable'
         return metadata
 
     try:

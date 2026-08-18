@@ -9,17 +9,19 @@ from django.test import Client, RequestFactory, TestCase, override_settings
 from dlux.system.constants import (
     SETUP_STEP_COUNT,
     SETUP_STEP_EMAIL,
+    SETUP_STEP_HOMEPAGE,
     SETUP_STEP_LAYOUT,
+    SETUP_STEP_SEARCH,
     SETUP_STEP_SECURITY,
 )
 from dlux.search import get_component_index, run_search, search_components
-from dlux.system.normalizers import normalize_titlebar_config
+from dlux.system.normalizers import normalize_search_config, normalize_titlebar_config
 from dlux.utils import get_system_config
 
 User = get_user_model()
 
 
-def _configure_system(**titlebar):
+def _configure_system(search_config=None, **titlebar):
     from dlux.models import SystemSettings
 
     SystemSettings.objects.all().delete()
@@ -28,6 +30,8 @@ def _configure_system(**titlebar):
     ss.is_configured = True
     if titlebar:
         ss.titlebar_config = {**(ss.titlebar_config or {}), **titlebar}
+    if search_config is not None:
+        ss.search_config = search_config
     ss.save()
     cache.clear()
     return ss
@@ -45,6 +49,15 @@ class TitlebarSearchConfigTests(TestCase):
 
     def test_include_data_coerced_bool(self):
         self.assertTrue(normalize_titlebar_config({'global_search_include_data': 1})['global_search_include_data'])
+
+    def test_canonical_search_config_accepts_legacy_keys(self):
+        cfg = normalize_search_config({
+            'global_search_mode': 'disabled',
+            'global_search_include_data': True,
+        })
+        self.assertFalse(cfg['enabled'])
+        self.assertEqual(cfg['display_mode'], 'icon')
+        self.assertTrue(cfg['include_data'])
 
 
 class ComponentIndexTests(TestCase):
@@ -80,6 +93,13 @@ class ComponentIndexTests(TestCase):
         index = get_component_index('en')
         email = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Email')
         self.assertIn(f'?step={SETUP_STEP_EMAIL}', email['url'])
+
+    def test_homepage_and_search_have_dedicated_steps(self):
+        index = get_component_index('en')
+        homepage = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Homepage')
+        search = next(e for e in index if e['type'] == 'setting' and e['label'] == 'Global Search')
+        self.assertIn(f'?step={SETUP_STEP_HOMEPAGE}', homepage['url'])
+        self.assertIn(f'?step={SETUP_STEP_SEARCH}', search['url'])
 
     def test_index_includes_options_cards(self):
         index = get_component_index('en')
@@ -300,7 +320,7 @@ class SearchEndpointTests(TestCase):
         self.assertFalse(any(g['type'] == 'data' for g in without))
 
     def test_disabled_mode_returns_disabled(self):
-        _configure_system(global_search_mode='disabled')
+        _configure_system(search_config={'enabled': False, 'display_mode': 'icon', 'include_data': False})
         self.client.force_login(self.superuser)
         payload = self.client.get('/search/?q=security').json()
         self.assertEqual(payload['groups'], [])

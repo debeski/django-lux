@@ -59,6 +59,14 @@ everything else.
   2. `settings.DLUX_CONFIG` (project code)
   3. the `SystemSettings` DB singleton (UI edits)
 
+When replacing an already-shipped field/group, add the canonical representation
+first and keep explicit bidirectional mirrors for one major-version window.
+`homepage_config` and `search_config` are the reference implementations: their
+inline-safe migration provides database defaults, runtime resolution promotes
+pre-upgrade values without a data migration, `SystemSettings.save()` synchronizes
+old and new storage, import/runtime expansion accepts grouped aliases, and every
+temporary path is listed in `docs/deprecation-countdown.md`.
+
 ### The canonical module: `dlux/system/`
 
 All group defaults, normalizers, and the typed schema live in `dlux.system`, split

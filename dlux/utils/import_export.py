@@ -67,11 +67,13 @@ from .config import (
     normalize_default_fonts,
     normalize_email_config,
     normalize_extra_config,
+    normalize_homepage_config,
     normalize_layout_config,
     normalize_log_config,
     normalize_login_config,
     normalize_profile_config,
     normalize_notification_config,
+    normalize_search_config,
     normalize_system_names,
     normalize_titlebar_config,
 )
@@ -165,8 +167,12 @@ def export_system_settings_payload(instance=None):
             data[field_name] = normalize_email_config(value, redact_secret=True)
         elif field_name == 'client_ip_config':
             data[field_name] = normalize_client_ip_config(value)
+        elif field_name == 'homepage_config':
+            data[field_name] = normalize_homepage_config(value)
         elif field_name == 'titlebar_config':
             data[field_name] = normalize_titlebar_config(value)
+        elif field_name == 'search_config':
+            data[field_name] = normalize_search_config(value)
         elif field_name == 'notification_config':
             data[field_name] = normalize_notification_config(value)
         elif field_name == 'login_config':
@@ -198,7 +204,39 @@ def normalize_system_settings_import_payload(payload):
     raw_settings = payload.get('settings') if payload.get('format') == SYSTEM_SETTINGS_EXPORT_FORMAT else payload
     if not isinstance(raw_settings, dict):
         raise ValueError("Setup import is missing a valid settings object.")
+    original_keys = set(raw_settings)
+    explicit_homepage_config = any(
+        key in raw_settings for key in ('homepage_config', 'homepage', 'public_homepage')
+    )
+    explicit_search_config = any(
+        key in raw_settings for key in ('search_config', 'search', 'global_search')
+    )
     raw_settings = expand_system_config_groups(raw_settings)
+    if not explicit_homepage_config:
+        for key in ('homepage_config', 'homepage', 'public_homepage'):
+            raw_settings.pop(key, None)
+        public_keys = {
+            'public_root', 'public_root_split_enabled', 'public_root_url',
+            'public_root_theme', 'public_root_title', 'public_root_meta_description',
+            'show_titlebar_on_public', 'show_sidebar_on_public',
+        }
+        allowed_legacy_keys = set(original_keys)
+        if 'public_root_config' in original_keys:
+            allowed_legacy_keys.update(public_keys)
+        for key in {'home_url', *public_keys} - allowed_legacy_keys:
+            raw_settings.pop(key, None)
+    if not explicit_search_config:
+        for key in ('search_config', 'search', 'global_search'):
+            raw_settings.pop(key, None)
+    if not original_keys.intersection({'profile_config', 'profile', 'profile_page', 'onboarding'}):
+        raw_settings.pop('profile_config', None)
+        raw_settings.pop('profile', None)
+    if (
+        explicit_search_config
+        and not original_keys.intersection({'titlebar_config', 'titlebar', 'topbar'})
+    ):
+        raw_settings.pop('titlebar_config', None)
+        raw_settings.pop('titlebar', None)
 
     normalized = {}
     for field_name in SYSTEM_SETTINGS_EXPORT_FIELDS:
@@ -231,8 +269,12 @@ def normalize_system_settings_import_payload(payload):
         normalized['email_config'] = normalize_email_config(normalized['email_config'], redact_secret=True)
     if 'client_ip_config' in normalized:
         normalized['client_ip_config'] = normalize_client_ip_config(normalized['client_ip_config'])
+    if 'homepage_config' in normalized:
+        normalized['homepage_config'] = normalize_homepage_config(normalized['homepage_config'])
     if 'titlebar_config' in normalized:
         normalized['titlebar_config'] = normalize_titlebar_config(normalized['titlebar_config'])
+    if 'search_config' in normalized:
+        normalized['search_config'] = normalize_search_config(normalized['search_config'])
     if 'notification_config' in normalized:
         normalized['notification_config'] = normalize_notification_config(normalized['notification_config'])
     if 'login_config' in normalized:
@@ -373,6 +415,10 @@ def apply_system_settings_import(
             instance.auth_config = normalize_auth_config(value)
         elif field_name == 'notification_config' and isinstance(value, dict):
             instance.notification_config = normalize_notification_config(value)
+        elif field_name == 'homepage_config' and isinstance(value, dict):
+            instance.homepage_config = normalize_homepage_config(value)
+        elif field_name == 'search_config' and isinstance(value, dict):
+            instance.search_config = normalize_search_config(value)
         elif hasattr(instance, field_name):
             setattr(instance, field_name, value)
 

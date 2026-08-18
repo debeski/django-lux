@@ -35,6 +35,12 @@ urlpatterns = [
     # path('sys/', views.dashboard, name='sys_dashboard'),
     path('sys/setup/', views.system_setup_view, name='system_setup'),
     path('sys/settings/export/', views.export_system_settings_view, name='system_settings_export'),
+    # Options-page config import: review a diff, then apply only what is ticked.
+    # Distinct from the first-launch import, which fills an empty form.
+    path('sys/settings/import/preview/', views.settings_import_preview_view, name='system_settings_import_preview'),
+    path('sys/settings/import/review/', views.settings_import_review_view, name='system_settings_import_review'),
+    path('sys/settings/import/apply/', views.settings_import_apply_view, name='system_settings_import_apply'),
+    path('sys/settings/import/revert/', views.settings_import_revert_view, name='system_settings_import_revert'),
     path('sys/settings/email/health/', views.email_health_check_view, name='email_health_check'),
     path('sys/settings/email/apply/', views.email_config_apply_view, name='email_config_apply'),
     path('sys/settings/email/send-test/', views.email_send_test_view, name='email_send_test'),
@@ -112,6 +118,14 @@ urlpatterns = [
     path('sys/options/', views.options_view, name='options_view'),
     path('sys/assets/', views.asset_manager_page, name='asset_manager'),
     path('sys/assets/delete/<int:pk>/', views.asset_manager_delete, name='asset_manager_delete'),
+    # ScanLink installer distribution. The manifest is what the tray app polls;
+    # the download view is the only route to the bytes, which are stored as
+    # protected managed assets and are not reachable over MEDIA_URL.
+    path('scanlink/update.json', views.scanlink_update_manifest, name='scanlink_update_manifest'),
+    path('scanlink/download/<int:pk>/', views.scanlink_download, name='scanlink_download'),
+    path('scanlink/releases/upload/', views.scanlink_release_upload, name='scanlink_release_upload'),
+    path('scanlink/releases/', views.scanlink_releases_modal, name='scanlink_releases_modal'),
+    path('scanlink/toggle/', views.scanlink_toggle, name='scanlink_toggle'),
     path('sys/options/app-settings/<str:namespace>/', views.app_settings_modal_view, name='dlux_app_settings_modal'),
     path('sys/api/celery-health/', views.celery_health_check_view, name='celery_health_check'),
     path('sys/admin/force-password-change-all/', views.force_password_change_all_view, name='dlux_force_pass_change_all'),

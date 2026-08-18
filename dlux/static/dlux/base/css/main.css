@@ -639,3 +639,10 @@ body.dlux-modal-stacked-open .modal-backdrop:last-of-type {
     min-width: 2em;
     max-width: none;
 }
+
+/* Back links point at where they take you, which inverts in Arabic. Same idiom
+   as the table pagination chevrons. */
+[dir="rtl"] .dlux-back-link .bi-arrow-left {
+    display: inline-block;
+    transform: scaleX(-1);
+}

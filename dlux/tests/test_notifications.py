@@ -2,6 +2,8 @@ from dlux.tests.harness import setup_test_environment
 
 setup_test_environment()
 
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.backends.db import SessionStore
 from django.core.cache import cache
@@ -293,6 +295,24 @@ class NotificationPipelineTests(TestCase):
 class NotificationSettingsFormTests(TestCase):
     def setUp(self):
         cache.delete(SystemSettings.__name__)
+
+    def test_flash_controls_have_localized_help_text(self):
+        from dlux.translations import get_strings
+
+        help_keys = {
+            'notification_flash_position': 'help_sys_notification_flash_position',
+            'notification_flash_size': 'help_sys_notification_flash_size',
+            'notification_flash_text_size': 'help_sys_notification_flash_text_size',
+            'notification_flash_timeout_ms': 'help_sys_notification_flash_timeout',
+            'notification_flash_max_visible': 'help_sys_notification_flash_max_visible',
+        }
+        for language in ('en', 'ar'):
+            strings = get_strings(language)
+            with patch('dlux.forms.system_settings.get_strings', return_value=strings):
+                form = SystemSettingsForm(instance=SystemSettings.load())
+            for field_name, help_key in help_keys.items():
+                with self.subTest(language=language, field=field_name):
+                    self.assertEqual(form.fields[field_name].help_text, strings[help_key])
 
     @override_settings(
         EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',

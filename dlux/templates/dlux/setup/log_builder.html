@@ -1,13 +1,5 @@
-{% load i18n %}
-{% comment %}
-Logging settings builder. JS (setup/js/main.js) hydrates control states from
-data-config and serializes them back into the hidden #id_log_config field. Controls reuse
-the dlux toggle visual (dlux-settings-toggle-field) for consistency with the rest of setup.
-{% endcomment %}
 <div class="dlux-log-builder" data-dlux-log-root data-config='{{ log_config_json }}'>
-
-  {# ── Master gate (full dlux toggle card) ── #}
-  <div class="dlux-settings-toggle-field d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-3">
+  <div class="dlux-settings-toggle-field dlux-log-master d-flex justify-content-between align-items-start gap-3 p-3 border rounded mb-3">
     <div class="dlux-settings-toggle-field__content flex-grow-1">
       <div class="dlux-settings-toggle-field__label fw-semibold">{{ DLUX_STRINGS.form_sys_log_enabled|default:"Enable activity logging" }}</div>
     </div>
@@ -16,12 +8,11 @@ the dlux toggle visual (dlux-settings-toggle-field) for consistency with the res
     </div>
   </div>
 
-  <div data-log-dependent>
-    {# ── User + System sections ── #}
+  <div class="dlux-log-groups" data-log-dependent>
     {% for section in sections %}
-      <div class="card border-0 shadow-sm rounded-4 mb-3" data-log-section="{{ section.key }}">
-        <div class="card-body">
-          <div class="dlux-settings-toggle-field d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-3">
+      <div class="dlux-log-section" data-log-section="{{ section.key }}">
+        <div class="dlux-log-section__body">
+          <div class="dlux-settings-toggle-field dlux-log-section__toggle d-flex justify-content-between align-items-start gap-3">
             <div class="dlux-settings-toggle-field__content flex-grow-1">
               <div class="dlux-settings-toggle-field__label fw-bold">{{ section.title }}</div>
             </div>
@@ -29,17 +20,17 @@ the dlux toggle visual (dlux-settings-toggle-field) for consistency with the res
               <input class="form-check-input dlux-settings-toggle-field__input" type="checkbox" role="switch" data-log-section-enabled>
             </div>
           </div>
-          <div data-log-section-dependent>
-            <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-              <span class="text-muted small">{{ DLUX_STRINGS.form_sys_log_default_actions|default:"Default actions" }}:</span>
+          <div class="dlux-log-section__content" data-log-section-dependent>
+            <div class="dlux-log-section__toolbar">
+              <span class="dlux-log-section__toolbar-label text-muted small">{{ DLUX_STRINGS.form_sys_log_default_actions|default:"Default actions" }}:</span>
               {% for act in actions %}
-                <div class="form-check form-switch dlux-log-switch mb-0">
+                <div class="dlux-settings-toggle-field__control form-switch dlux-log-switch">
                   <input class="form-check-input dlux-settings-toggle-field__input" type="checkbox" role="switch"
                          id="dlux-log-{{ section.key }}-def-{{ act.key }}" data-log-default-action="{{ act.key }}">
                   <label class="form-check-label small" for="dlux-log-{{ section.key }}-def-{{ act.key }}">{{ act.label }}</label>
                 </div>
               {% endfor %}
-              <div class="ms-auto d-flex align-items-center gap-2">
+              <div class="dlux-log-retention">
                 <label class="text-muted small mb-0" for="dlux-log-{{ section.key }}-retention">
                   {{ DLUX_STRINGS.form_sys_log_retention_days|default:"Retention (days, 0 = keep)" }}
                 </label>
@@ -48,21 +39,21 @@ the dlux toggle visual (dlux-settings-toggle-field) for consistency with the res
               </div>
             </div>
 
-            <input type="search" class="form-control form-control-sm mb-2" data-log-model-search
+            <input type="search" class="form-control form-control-sm glass-input dlux-log-search" data-log-model-search
                    placeholder="{{ DLUX_STRINGS.form_sys_log_search_models|default:'Search models…' }}">
-            <div class="dlux-log-model-list border rounded-3">
+            <div class="dlux-log-model-list">
               {% for item in section.models %}
-                <div class="d-flex flex-wrap align-items-center gap-3 px-3 py-2 border-bottom dlux-log-model-row"
+                <div class="dlux-log-model-row"
                      data-log-model="{{ item.key }}" data-log-model-label="{{ item.label|lower }}">
-                  <div class="form-check form-switch dlux-log-switch mb-0 me-auto">
+                  <div class="dlux-settings-toggle-field__control form-switch dlux-log-switch dlux-log-model-toggle">
                     <input class="form-check-input dlux-settings-toggle-field__input" type="checkbox" role="switch"
                            id="dlux-log-{{ section.key }}-m-{{ forloop.counter }}" data-log-model-enabled>
                     <label class="form-check-label fw-semibold" for="dlux-log-{{ section.key }}-m-{{ forloop.counter }}">
-                      {{ item.label }} <span class="text-muted small fw-normal">({{ item.key }})</span>
+                      {{ item.label }}{% if item.label != item.key %}<span class="dlux-log-model-key text-muted small fw-normal">{{ item.key }}</span>{% endif %}
                     </label>
                   </div>
                   {% for act in item.display_actions %}
-                    <div class="form-check form-switch dlux-log-switch mb-0">
+                    <div class="dlux-settings-toggle-field__control form-switch dlux-log-switch dlux-log-action-toggle">
                       <input class="form-check-input dlux-settings-toggle-field__input" type="checkbox" role="switch"
                              id="dlux-log-{{ section.key }}-m-{{ forloop.parentloop.counter }}-{{ act.key }}"
                              data-log-action="{{ act.key }}">
@@ -72,7 +63,7 @@ the dlux toggle visual (dlux-settings-toggle-field) for consistency with the res
                   {% endfor %}
                 </div>
               {% empty %}
-                <div class="px-3 py-2 text-muted small">{{ DLUX_STRINGS.form_sys_log_no_models|default:"No models discovered." }}</div>
+                <div class="dlux-log-empty text-muted small">{{ DLUX_STRINGS.form_sys_log_no_models|default:"No models discovered." }}</div>
               {% endfor %}
             </div>
           </div>
@@ -80,18 +71,17 @@ the dlux toggle visual (dlux-settings-toggle-field) for consistency with the res
       </div>
     {% endfor %}
 
-    {# ── Audit section (privileged) ── #}
-    <div class="card border-0 shadow-sm rounded-4 mb-3" data-log-audit>
-      <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-2">
+    <div class="dlux-log-section dlux-log-audit" data-log-audit>
+      <div class="dlux-log-section__body">
+        <div class="dlux-log-audit__header">
           <span class="fw-bold">{{ DLUX_STRINGS.form_sys_log_audit_title|default:"Audit (security events)" }}</span>
           <span class="badge text-bg-secondary">{{ DLUX_STRINGS.form_sys_log_audit_locked|default:"Always on" }}</span>
         </div>
-        <p class="text-muted small">{{ DLUX_STRINGS.help_sys_log_audit|default:"Audit logs are append-only and never auto-pruned by default." }}</p>
-        <div class="row g-2">
+        <p class="text-muted small mb-3">{{ DLUX_STRINGS.help_sys_log_audit|default:"Audit logs are append-only and never auto-pruned by default." }}</p>
+        <div class="dlux-log-audit__events">
           {% for ev in audit_events %}
-            <div class="col-lg-4 col-md-6">
-              <div class="form-check form-switch dlux-log-switch">
+            <div class="dlux-log-audit__event">
+              <div class="dlux-settings-toggle-field__control form-switch dlux-log-switch">
                 <input class="form-check-input dlux-settings-toggle-field__input" type="checkbox" role="switch"
                        id="dlux-log-audit-{{ ev.key }}" data-log-audit-event="{{ ev.key }}">
                 <label class="form-check-label small" for="dlux-log-audit-{{ ev.key }}">{{ ev.label }}</label>
@@ -99,7 +89,7 @@ the dlux toggle visual (dlux-settings-toggle-field) for consistency with the res
             </div>
           {% endfor %}
         </div>
-        <div class="d-flex align-items-center gap-2 mt-3">
+        <div class="dlux-log-audit__retention">
           <label class="text-muted small mb-0" for="dlux-log-audit-retention">
             {{ DLUX_STRINGS.form_sys_log_audit_retention|default:"Audit retention (days, 0 = keep forever)" }}
           </label>

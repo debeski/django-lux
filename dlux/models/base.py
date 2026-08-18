@@ -98,6 +98,8 @@ class SingletonModel(models.Model):
                     obj.default_table_density = config.get('default_table_density')
                 if 'home_url' in config:
                     obj.home_url = config.get('home_url') or obj.home_url
+                if hasattr(obj, 'homepage_config') and isinstance(config.get('homepage_config'), dict):
+                    obj.homepage_config = config.get('homepage_config')
                 if hasattr(obj, 'languages') and isinstance(config.get('languages'), dict):
                     obj.languages = config.get('languages')
                 if hasattr(obj, 'translations_override') and isinstance(config.get('translations'), dict):
@@ -114,6 +116,8 @@ class SingletonModel(models.Model):
                     obj.allow_user_language_override = bool(config.get('allow_user_language_override'))
                 if hasattr(obj, 'titlebar_config') and isinstance(config.get('titlebar'), dict):
                     obj.titlebar_config = config.get('titlebar')
+                if hasattr(obj, 'search_config') and isinstance(config.get('search_config'), dict):
+                    obj.search_config = config.get('search_config')
                 if hasattr(obj, 'navbar_config') and isinstance(config.get('navbar'), dict):
                     obj.navbar_config = config.get('navbar')
                 if hasattr(obj, 'notification_config'):

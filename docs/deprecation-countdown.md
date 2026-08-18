@@ -15,6 +15,46 @@ downstream project; anything else should just be deleted.
 
 ## Active
 
+### Homepage settings compatibility mirrors
+
+- **Introduced:** v1.8.0 (`homepage_config` consolidation)
+- **Remove in:** v2.0.0 (next major)
+- **Canonical contract:** `SystemSettings.homepage_config` and runtime
+  `homepage_config`/`homepage`. The JSON contains `default_url`,
+  `allow_user_override`, and a nested `public` object with `enabled`,
+  `separate_url`, `url`, `theme`, `title`, `meta_description`,
+  `show_titlebar`, and `show_sidebar`.
+- **Compatibility kept:** model saves synchronize `home_url`,
+  `public_root_config`, and `profile_config['allow_user_home_url']` in both
+  directions. Runtime config and setup imports still accept those legacy keys
+  and emit their flat aliases. Migration `0016` adds the canonical JSON with a
+  database default; the runtime promotes pre-upgrade values immediately and the
+  first normal model save persists them canonically.
+- **Migration:** move host configuration and direct consumers to
+  `homepage_config`; `homepage` and `public_homepage` remain accepted grouped
+  aliases during the compatibility window.
+- **Safe to remove when:** active projects no longer read/write `home_url`,
+  `public_root_config`, or the profile-owned landing-page permission.
+
+### Global-search titlebar compatibility mirrors
+
+- **Introduced:** v1.8.0 (`search_config` extraction)
+- **Remove in:** v2.0.0 (next major)
+- **Canonical contract:** `SystemSettings.search_config` and runtime
+  `search_config`/`search`, containing `enabled`, `display_mode` (`icon` or
+  `always`), and `include_data`.
+- **Compatibility kept:** model saves synchronize
+  `titlebar_config.global_search_mode` and
+  `titlebar_config.global_search_include_data` in both directions. Runtime
+  config and setup imports accept the old titlebar keys. Migration `0016` adds
+  `search_config` with a database default; the runtime promotes pre-upgrade
+  titlebar values immediately and the first normal model save persists them.
+- **Migration:** move host configuration and direct consumers to
+  `search_config`; `search` and `global_search` remain accepted grouped aliases
+  during the compatibility window.
+- **Safe to remove when:** no active project stores or reads global-search
+  options from `titlebar_config`.
+
 ### Static path shims: `dlux/main/css/{main,buttons,index_cards}.css`
 
 - **Introduced:** v1.8.0 (static tree reorganisation)

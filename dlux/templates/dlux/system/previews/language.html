@@ -1,6 +1,5 @@
 <div
     class="dlux-language-picker"
-    {% if picker_mode == 'setup' %}data-setup-language-picker data-language-input="{{ input_id }}"{% endif %}
 >
     {% if label %}
     <label class="form-label d-block">{{ label }}</label>
@@ -14,7 +13,6 @@
             type="button"
             class="dlux-density-option{% if code == selected_language %} is-active{% endif %}"
             {% if picker_mode == 'options' %}data-lang="{{ code }}"{% endif %}
-            {% if picker_mode == 'setup' %}data-setup-language-choice="{{ code }}"{% endif %}
             data-dir="{{ lang.dir|default:'ltr' }}"
         >
             <span class="dlux-density-option__icon" aria-hidden="true">

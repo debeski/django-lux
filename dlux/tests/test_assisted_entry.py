@@ -12,6 +12,7 @@ from dlux.tests.harness import setup_test_environment
 setup_test_environment()
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import Client, SimpleTestCase, TestCase
 from django.urls import reverse
 
@@ -144,6 +145,7 @@ class AssistedEntryOptionsCardTests(SimpleTestCase):
 
 class AssistedEntryPreferenceTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.user = get_user_model().objects.create_user(
             username='u', password='pw-12345678', is_staff=True, is_superuser=True,
         )
@@ -231,6 +233,7 @@ class StickyFormsServerHelperTests(TestCase):
     form before it renders — so dlux owns the gate, not a cookie."""
 
     def setUp(self):
+        cache.clear()
         self.user = get_user_model().objects.create_user(
             username='sticky', password='pw-12345678',
         )

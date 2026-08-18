@@ -23,6 +23,7 @@ from .utils import (
     has_section_models,
     is_scope_enabled,
     normalize_navbar_config,
+    normalize_homepage_config,
     normalize_sidebar_behavior,
     normalize_titlebar_actions_order,
     resolve_sidebar_collapsed_preference,
@@ -63,7 +64,9 @@ def _is_public_index(request, final_config):
     Centralizes the detection previously embedded in the titlebar-hide check so
     titlebar, sidebar, public theme, and public SEO overrides all share one rule.
     """
-    if not final_config.get('public_root', False):
+    homepage = normalize_homepage_config(final_config.get('homepage_config') or final_config)
+    public = homepage['public']
+    if not public['enabled']:
         return False
     user = getattr(request, 'user', None)
     if user and getattr(user, 'is_authenticated', False):
@@ -74,7 +77,7 @@ def _is_public_index(request, final_config):
         return False
 
     public_paths = {'/'}
-    anonymous_public_path = final_config.get('public_root_url') if final_config.get('public_root_split_enabled', False) else final_config.get('home_url')
+    anonymous_public_path = public['url'] if public['separate_url'] else homepage['default_url']
     target_path = _normalize_runtime_path(anonymous_public_path)
     if target_path:
         public_paths.add(target_path)
@@ -85,7 +88,8 @@ def _should_hide_titlebar_for_public_index(request, final_config):
     # Titlebar is hidden on the public root unless explicitly shown.
     if not _is_public_index(request, final_config):
         return False
-    return not final_config.get('show_titlebar_on_public', False)
+    homepage = normalize_homepage_config(final_config.get('homepage_config') or final_config)
+    return not homepage['public']['show_titlebar']
 
 
 def _reverse_or_empty(url_name):
@@ -172,7 +176,7 @@ def _build_titlebar_actions(request, context, final_config, dlux_strings):
                 'kind': 'link',
                 'label': dlux_strings.get('btn_home', 'Home'),
                 'icon': 'bi-house-fill',
-                'url': final_config.get('home_url') or '/',
+                'url': normalize_homepage_config(final_config.get('homepage_config') or final_config)['default_url'],
             }
 
         profile_url = _reverse_or_empty('user_profile')
@@ -379,6 +383,8 @@ def dlux_context(request):
     # 1. Branding / App Config
     from .utils import build_config_groups, get_system_config, normalize_allowed_fonts
     final_config = get_system_config()
+    homepage_config = normalize_homepage_config(final_config.get('homepage_config') or final_config)
+    public_homepage = homepage_config['public']
     current_route_name = getattr(getattr(request, 'resolver_match', None), 'url_name', '')
 
     # 4. Language / i18n (resolved BEFORE branding overrides so we know current_lang)
@@ -486,7 +492,7 @@ def dlux_context(request):
     # Public-root theme override: anonymous visitors on the public root see the
     # admin-selected fixed theme instead of the system default / their own pref.
     public_index_theme = _is_public_index(request, final_config)
-    public_root_theme = str(final_config.get('public_root_theme') or '').strip()
+    public_root_theme = public_homepage['theme']
     if public_index_theme and public_root_theme:
         user_prefs = {**user_prefs, 'theme': public_root_theme}
     context['user_preferences'] = user_prefs # Injected for JS use
@@ -535,6 +541,15 @@ def dlux_context(request):
         isinstance(profile_preferences, dict)
         and profile_preferences.get('force_password_change')
     )
+    # ScanLink ships nothing to the page unless the deployment opted in; the
+    # helper only exists on operator desktops that installed the tray app.
+    from .utils import scanlink_enabled
+    context['DLUX_SCANLINK_ENABLED'] = scanlink_enabled()
+    if context['DLUX_SCANLINK_ENABLED']:
+        import json as _json
+        from .system.constants import SCANLINK_CONNECT_ORIGINS
+        context['scanlink_connect_origins_json'] = _json.dumps(list(SCANLINK_CONNECT_ORIGINS))
+
     context['DLUX_SHOW_INITIAL_USER_SETUP'] = bool(
         profile_obj is not None
         and not getattr(request.user, 'is_superuser', False)
@@ -651,6 +666,7 @@ def dlux_context(request):
         'extra_groups': context['sidebar_extra_groups'],
     }
     context['titlebar'] = final_config.get('appearance', {}).get('titlebar', final_config.get('titlebar', {}))
+    context['search'] = final_config.get('search_config') or final_config.get('search') or {}
     try:
         from .notifications import get_flash_notifications, get_notification_context
 
@@ -677,7 +693,7 @@ def dlux_context(request):
     is_public_index = _is_public_index(request, final_config)
     context['dlux_is_public_index'] = is_public_index
     context['hide_titlebar_for_public_index'] = bool(
-        is_public_index and not final_config.get('show_titlebar_on_public', False)
+        is_public_index and not public_homepage['show_titlebar']
     )
     # Sidebar visibility: always for authenticated users; for anonymous public-root
     # visitors only when explicitly enabled. Replaces the old base.html hardcode
@@ -688,7 +704,7 @@ def dlux_context(request):
         context.get('sidebar_enabled', True)
         and (
             _is_authenticated
-            or (is_public_index and final_config.get('show_sidebar_on_public', False))
+            or (is_public_index and public_homepage['show_sidebar'])
         )
     )
     # 8. Font Resolution

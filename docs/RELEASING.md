@@ -111,6 +111,119 @@ unsupported updater/Python baselines also require `inline_safe: false` even when
 their migration policy remains backward-compatible. The deployed UI then reports
 **Project image rebuild required** instead of offering an Update button.
 
+## Manifest schema 2
+
+Schema 1 published a *conclusion* — `inline_safe` — which freezes the policy in
+force on release day into an artifact that outlives it, and split the reasoning
+across `inline_safe` and `migration_policy`, whose values came from different
+axes. Schema 2 states facts and lets the updater decide:
+
+```json
+{
+  "schema_version": 2,
+  "version": "1.9.0",
+  "display": { "summary": "...", "highlights": ["..."], "release_url": "..." },
+  "requires": {
+    "updater_schema": ">=1",
+    "baked_image": ">=1.2.7",
+    "services": { "composer": ">=5.3.0" }
+  },
+  "migrations": { "effect": "additive", "rollback_compatible": true, "downtime": "none" },
+  "install":  { "inline": "allowed" },
+  "rollback": { "supported": true }
+}
+```
+
+`migrations.effect` is one of `none`, `state_only`, `additive`, `altering`,
+`destructive`. A release is offered inline only when `install.inline` is
+`allowed` **and** the effect is one of the first three — `install.inline` is a
+permission, not an override, so an author cannot wave a destructive migration
+through.
+
+`requires` describes the **deployment**, never the package. There is deliberately
+no `python` or dependency key: the wheel already declares those in
+`Requires-Python`/`Requires-Dist`, pip enforces them, and a second copy here
+could only ever disagree with the authority. `services` is what schema 1 had no
+way to state — 1.8.0 requires Composer as a running service, and the manifest
+could not say so.
+
+**Unknown values fail closed.** An unrecognised `migrations.effect`, an
+unrecognised `install.inline`, or *any* unknown key inside `requires` is refused
+rather than ignored. That last rule is what makes `requires` safely extensible:
+add `"postgres": ">=14"` in a later schema and older updaters correctly refuse
+instead of installing while ignoring a constraint they cannot evaluate. Unknown
+keys outside `requires` (display metadata) are ignored, so cosmetic additions
+never break an older reader.
+
+Schema 1 manifests are still accepted and normalised onto the same internal
+shape, so there is one code path downstream:
+
+| schema 1 | schema 2 |
+|---|---|
+| `inline_safe: true/false` | `install.inline: allowed/forbidden` |
+| `migration_policy: backward_compatible` | `migrations.rollback_compatible: true` |
+| `migration_policy: image_rebuild` | `effect: destructive`, `rollback_compatible: false` |
+| `image_baseline: "1.2.7"` | `requires.baked_image: ">=1.2.7"` |
+| `minimum_updater_schema: 1` | `requires.updater_schema: ">=1"` |
+
+`rollback.supported: false` is representable but **not yet actionable**: the
+automatic health-failure path restores the previous release by swapping the
+pointer, it does not restore the database (see `inline-updater.md`). Until that
+path can restore the pre-update backup, do not ship a release that needs it.
+
+### State-only field changes (`SeparateDatabaseAndState`)
+
+`AlterField` is rejected by the gate outright, and that is deliberate: Django
+serialises the *whole* field into the migration, so a harmless `choices` edit and
+a `max_length` shrink are byte-for-byte indistinguishable to anything reading the
+file. The gate cannot tell them apart, so it refuses the operation rather than
+guess.
+
+Some field edits genuinely touch no column — adding a value to `choices` is the
+common one, since Django validates choices in Python and never in the schema. For
+those, do not leave a bare `AlterField` and downgrade the release. Wrap it:
+
+```python
+migrations.SeparateDatabaseAndState(
+    database_operations=[],
+    state_operations=[
+        migrations.AlterField(model_name="...", name="...", field=...),
+    ],
+)
+```
+
+`makemigrations` still sees no drift, `sqlmigrate` reports `-- (no-op)`, and the
+empty `database_operations` list makes the zero-SQL claim *checkable* instead of
+assumed — the gate verifies that list is empty and accepts nothing else. A
+non-empty `database_operations` is rejected with a distinct message.
+
+**Use it only where the change genuinely needs no DDL.** The gate checks that the
+list is empty; it cannot check that the list *should* be empty. Wrapping a field
+change that really does require a column change — widening `max_length`, adding
+`null=True`, changing a type — makes Django record the new state while leaving the
+old column in place. Nothing fails at migrate time; the schema and Django's idea
+of it simply diverge, and the breakage surfaces later somewhere unrelated. That is
+a worse outcome than an honest `inline_safe: false`.
+
+The test: run `sqlmigrate` on the migration with the operation as a plain
+`AlterField` first. If it prints `-- (no-op)`, the wrapper is stating a fact. If
+it prints DDL, it is not, and the release needs `inline_safe: false` and
+`migration_policy: image_rebuild`.
+
+A non-destructive column change is still a column change. Widening a `varchar` is
+safe for the schema but not automatically safe for a rollback: the previous
+release can read the wider rows but may refuse to re-save them if its own
+validation still caps the old length. Backward compatibility covers the data the
+new release writes, not just the shape of the table.
+
+Note that Composer executing the update (`DLUX_UPDATE_EXECUTOR=composer`, the
+default from 1.8.0) does **not** relax any of this. `inline_safe` is a statement
+about the database, not about who runs the command: rollback returns the
+*previous* release to the *same* schema. Composer made rollback an automated,
+health-gated path that is actually taken, so backward-compatible migrations
+matter more under it, not less. The admission check in `queue_run()` refuses an
+APPLY of a release that is not inline-safe under either executor.
+
 ### Inline floor after an image-required release (`image_baseline`)
 
 The inline updater always offers the single **highest** available release, not a
@@ -129,10 +242,16 @@ until the project image is rebuilt to at least that baseline:
 "image_baseline": "1.7.0"
 ```
 
-Rule of thumb: once any release ships `inline_safe: false`, carry
-`image_baseline: "<that version>"` on **every** subsequent inline-safe manifest
-until the next image-required release advances the baseline. Omit the field
-entirely when there is no outstanding image dependency (the default — no floor).
+This floor is **computed, not carried by hand**. `release_check.expected_image_baseline()`
+walks the published tags and returns the highest version whose manifest forbade an
+inline install (either schema); `validate_image_baseline()` refuses a manifest that
+declares a lower floor, or none at all when one is outstanding.
+
+That replaced an authoring convention which had already failed in practice: v1.2.7
+shipped `image_rebuild`, and every release from v1.3.0 to v1.7.1 omitted the floor,
+so a box on a pre-1.2.7 image could be offered a later inline-safe release and skip
+the rebuild entirely. A rule a human has to remember on a release day is a rule
+that eventually gets missed.
 A box at or above the baseline updates inline as normal; a box below it is told to
 image-update first.
 

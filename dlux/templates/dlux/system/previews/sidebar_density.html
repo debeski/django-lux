@@ -1,6 +1,5 @@
 <div
     class="dlux-table-density-picker dlux-sidebar-density-picker"
-    {% if picker_mode == 'setup' %}data-setup-sidebar-density-picker data-sidebar-density-input="{{ input_id }}"{% endif %}
 >
     {% if label %}
     <label class="form-label d-block">{{ label }}</label>
@@ -14,7 +13,6 @@
             type="button"
             class="dlux-density-option{% if selected_density == value %} is-active{% endif %}"
             data-sidebar-density="{{ value }}"
-            {% if picker_mode == 'setup' %}data-setup-sidebar-density-choice="{{ value }}"{% endif %}
         >
             <span class="dlux-density-option__icon" aria-hidden="true">
                 {% if value == 'dense' %}

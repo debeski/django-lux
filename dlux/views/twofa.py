@@ -49,7 +49,7 @@ from ..auth.trust import (
     trusted_device_model,
     trusted_device_token_hash,
 )
-from ..utils import get_client_ip, get_profile_totp_secret, get_system_config, log_audit_event, send_dlux_mail, set_profile_totp_state
+from ..utils import get_client_ip, get_profile_totp_secret, get_system_config, log_audit_event, normalize_homepage_config, send_dlux_mail, set_profile_totp_state
 
 User = get_user_model()
 logger = logging.getLogger('dlux')
@@ -165,7 +165,8 @@ def _resolve_safe_login_redirect(request):
         return next_url
 
     try:
-        home_url = get_system_config().get('home_url')
+        config = get_system_config()
+        home_url = normalize_homepage_config(config.get('homepage_config') or config)['default_url']
     except Exception:
         home_url = None
 

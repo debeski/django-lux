@@ -1,16 +1,27 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "version": "1.8.0",
-  "inline_safe": true,
-  "minimum_updater_schema": 1,
-  "migration_policy": "backward_compatible",
-  "summary": "Global search results now actually open what they name, and the backup/restore progress tables no longer strand the percentage on its own line.",
-  "highlights": [
-    "Options cards added by an app are now found by global search, in the user's own language.",
-    "System Settings results in global search open their step modal instead of doing nothing when clicked.",
-    "Options results reveal their card in the tabbed layout, and repeat selections from the Options page work.",
-    "Options cards the configuration does not render (a Language card on a single-language install) no longer appear as search results.",
-    "Progress percentage and its status message stay on one line in the backup and restore tables, whatever the message length."
-  ],
-  "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.0"
+  "display": {
+    "summary": "ScanLink scanner support moves into DjangoLux and stays off until you switch it on.",
+    "highlights": [
+      "ScanLink is opt-in per system, under the new Extra Features settings step.",
+      "Publish scanner installers from Options; they are served only to signed-in users.",
+      "Import a configuration file into System Settings and review every change before applying.",
+      "Admin panel actions are usable on phone-width screens.",
+      "Setup wizard step buttons now open the step they name."
+    ],
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.0"
+  },
+  "requires": {
+    "updater_schema": ">=1",
+    "baked_image": ">=1.2.7",
+    "services": { "composer": ">=5.3.0" }
+  },
+  "migrations": {
+    "effect": "additive",
+    "rollback_compatible": true,
+    "downtime": "none"
+  },
+  "install": { "inline": "allowed" },
+  "rollback": { "supported": true }
 }

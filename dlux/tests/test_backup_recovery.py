@@ -460,3 +460,31 @@ class ProgressReportingTests(BackupRecoveryTestCase):
         self.assertIn('models', stages)
         self.assertIn('encrypting', stages)
         self.assertTrue(all(0 <= percent <= 99 for percent, _stage in seen))
+
+
+class BackupPageNavigationTests(TestCase):
+    """Backup and restore is a full page, not a modal, so it needs its own way
+    back — otherwise the only route to Options is the browser's Back button."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.admin = get_user_model().objects.create_superuser('navadmin', 'n@example.com', 'pw')
+        settings_row = apps.get_model('dlux', 'SystemSettings').load()
+        settings_row.is_configured = True
+        settings_row.save()
+        self.client.force_login(self.admin)
+
+    def test_the_page_links_back_to_options(self):
+        response = self.client.get(reverse('system_backup_page'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse('options_view'))
+        self.assertContains(response, 'dlux-backup-back')
+
+    def test_the_label_is_translated_not_hardcoded(self):
+        """Every other page label comes from DLUX_STRINGS; this one must too."""
+        from dlux.translations import get_strings
+        for language in ('en', 'ar'):
+            with self.subTest(language=language):
+                self.assertIn('sysbackup_back_to_options', get_strings(language))

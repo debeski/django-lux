@@ -8,7 +8,7 @@
         <div class="dlux-public-auth-status__icon"><i class="bi bi-patch-check"></i></div>
         <h1>{{ DLUX_STRINGS.account_verified|default:'Account verified' }}</h1>
         <p>{{ DLUX_STRINGS.account_active_signed_in|default:'Your account is active and you are signed in.' }}</p>
-        <a class="w-100 btn btn-lg mt-3" id="submit" href="{{ APP_CONFIG.home_url|default:'/accounts/profile/' }}">{{ DLUX_STRINGS.btn_continue|default:'Continue' }}</a>
+        <a class="w-100 btn btn-lg mt-3" id="submit" href="{{ APP_CONFIG.homepage_config.default_url|default:'/accounts/profile/' }}">{{ DLUX_STRINGS.btn_continue|default:'Continue' }}</a>
     {% elif status == 'pending_approval' %}
         <div class="dlux-public-auth-status__icon"><i class="bi bi-hourglass-split"></i></div>
         <h1>{{ DLUX_STRINGS.email_verified|default:'Email verified' }}</h1>

@@ -1,3 +1,12 @@
+"""System options views.
+
+Serves `sys/options/` (`options_view`) and the system administration actions
+that hang off it: the live service probes (database, cache, DRF/API, Celery,
+email), the System Settings dynamic modal, first-run setup, settings export,
+email configuration and test sends, and the two destructive admin actions. Was
+named `general.py` until 1.8.0, which undersold it — nothing here is general,
+it is one domain, and the route has always been `sys/options/`.
+"""
 # Fundemental imports
 import os
 import platform
@@ -43,10 +52,16 @@ from dlux.utils import (
     send_dlux_mail,
     is_global_staff,
     normalize_language_catalog,
+    normalize_homepage_config,
     normalize_system_names,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _configured_home_url():
+    config = get_system_config()
+    return normalize_homepage_config(config.get('homepage_config') or config)['default_url']
 
 try:
     import psutil
@@ -977,7 +992,7 @@ def debug_notifications_view(request):
     email = _debug_bool_param(request, 'email', False)
 
     try:
-        target_url = request.build_absolute_uri(request.GET.get('target') or get_system_config().get('home_url') or DEFAULT_HOME_URL)
+        target_url = request.build_absolute_uri(request.GET.get('target') or _configured_home_url())
     except Exception:
         target_url = request.GET.get('target') or DEFAULT_HOME_URL
 
@@ -1046,9 +1061,9 @@ def system_setup_view(request):
                     action='system_setup_import_loaded',
                     category='system',
                 )
-                return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
+                return redirect(_configured_home_url())
             if bootstrap_status == SYSTEM_SETTINGS_CONFIG_BOOTSTRAP_CONFIGURED:
-                return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
+                return redirect(_configured_home_url())
 
     config = get_system_config()
     setup_languages = normalize_language_catalog(config.get('languages', {}))
@@ -1091,7 +1106,7 @@ def system_setup_view(request):
                 request.session['django_language'] = resolved_language
             request.session.pop('dlux_initial_setup_language', None)
             request.session.pop('dlux_force_language_preview', None)
-            return redirect(get_system_config().get('home_url', DEFAULT_HOME_URL))
+            return redirect(_configured_home_url())
     else:
         form = SystemSettingsForm(
             instance=instance,
@@ -1274,32 +1289,3 @@ def email_send_test_view(request):
         'verified': True,
         'message': strings.get('email_test_sent', 'Test email sent. Check the recipient inbox.'),
     })
-
-
-@login_required
-def global_search_view(request):
-    """JSON endpoint for the titlebar global search. Returns grouped,
-    permission-filtered results for the given ``q``. Respects the titlebar
-    ``global_search_mode`` (disabled → no results) and only searches data when
-    both the ``global_search_include_data`` setting is on and the client asks
-    for it (``?data=1``)."""
-    from dlux.search import run_search
-
-    config = get_system_config()
-    titlebar = config.get('titlebar_config') or config.get('titlebar') or {}
-    if titlebar.get('global_search_mode', 'icon') == 'disabled':
-        return JsonResponse({'groups': [], 'disabled': True})
-
-    query = (request.GET.get('q') or '').strip()
-    include_data = bool(titlebar.get('global_search_include_data', False)) and \
-        request.GET.get('data') in ('1', 'true', 'yes')
-    # Resolve the actual display language the way the rest of Dlux does (session
-    # preview / user preference / session / config) — NOT request.LANGUAGE_CODE,
-    # which Dlux does not populate; otherwise results are always English and an
-    # Arabic query never matches.
-    from dlux.translations import get_current_language_code
-    lang_code = get_current_language_code(request)
-
-    groups = run_search(request.user, query, include_data=include_data, lang_code=lang_code,
-                        request=request)
-    return JsonResponse({'groups': groups, 'query': query, 'include_data': include_data})

@@ -1,8 +1,8 @@
 # Views Package — Re-exports all view functions and classes
 # so that `from . import views` and `views.XYZ` in urls.py keeps working.
 
-# General / Dashboard / Preferences
-from .general import (
+# System Options / Setup / Service health
+from .options import (
     data_reset_execute_view,
     data_reset_preview_view,
     celery_health_check_view,
@@ -12,10 +12,23 @@ from .general import (
     email_send_test_view,
     export_system_settings_view,
     force_password_change_all_view,
-    global_search_view,
     app_settings_modal_view,
     options_view,
     system_setup_view,
+)
+from .search import global_search_view
+from .scanlink import (
+    scanlink_download,
+    scanlink_release_upload,
+    scanlink_releases_modal,
+    scanlink_toggle,
+    scanlink_update_manifest,
+)
+from .settings_import import (
+    settings_import_preview_view,
+    settings_import_review_view,
+    settings_import_apply_view,
+    settings_import_revert_view,
 )
 
 # Authentication & User Management

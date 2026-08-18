@@ -1,0 +1,30 @@
+<div data-scanlink-update-card
+     data-origins="{{ scanlink_connect_origins_json }}"
+     data-manifest-url="{% url 'scanlink_update_manifest' %}">
+    <p class="text-muted" data-scanlink-card-intro>
+        {{ DLUX_STRINGS.scanlink_page_intro|default:'This computer checks its locally installed ScanLink version against the latest release published on the server.' }}
+    </p>
+    <div class="row g-3 mb-3" data-scanlink-metrics>
+        <div class="col-md-4">
+            <div class="p-3 border rounded text-center" data-scanlink-metric>
+                <div class="small text-muted">{{ DLUX_STRINGS.scanlink_connection_label|default:'Connection' }}</div>
+                <span class="badge bg-secondary" data-scanlink-connection>{{ DLUX_STRINGS.scanlink_checking|default:'Checking' }}</span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 border rounded text-center" data-scanlink-metric>
+                <div class="small text-muted">{{ DLUX_STRINGS.scanlink_local_version_label|default:'Installed version' }}</div>
+                <strong data-scanlink-local-version>{{ DLUX_STRINGS.scanlink_unknown|default:'Unknown' }}</strong>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 border rounded text-center" data-scanlink-metric>
+                <div class="small text-muted">{{ DLUX_STRINGS.scanlink_latest_version_label|default:'Latest published' }}</div>
+                <strong data-scanlink-latest-version>{{ DLUX_STRINGS.scanlink_none|default:'\u2014' }}</strong>
+            </div>
+        </div>
+    </div>
+    <p class="fw-semibold" data-scanlink-status></p>
+    <div class="d-flex flex-wrap gap-2" data-scanlink-actions></div>
+    <div class="alert alert-warning mt-3" data-scanlink-notice hidden></div>
+</div>

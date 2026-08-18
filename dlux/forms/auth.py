@@ -101,12 +101,33 @@ class ResetPasswordForm(DluxPasswordMustChangeMixin, SetPasswordForm):
 class CustomPasswordChangeForm(DluxPasswordMustChangeMixin, PasswordChangeForm):
     sign_out_other_sessions = forms.BooleanField(required=False, initial=False)
 
+    # Password managers need an account name to pair the password fields with.
+    # Without one, Chrome hunts the page for the nearest plausible text input and
+    # settles on whatever comes first — which was the titlebar search box, so it
+    # loaded pre-filled with a saved username. Naming the account here is the
+    # documented fix and also makes the manager offer the right credential.
+    #
+    # Visually hidden rather than type="hidden": some managers skip hidden
+    # inputs entirely. Never read back — the form changes the signed-in user's
+    # own password, so the account is already known.
+    autofill_username = forms.CharField(required=False)
+
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
         from dlux.utils import get_system_config
 
         s = get_strings()
-        
+
+        self.fields['autofill_username'].label = ''
+        self.fields['autofill_username'].initial = user.get_username()
+        self.fields['autofill_username'].widget.attrs.update({
+            'autocomplete': 'username',
+            'readonly': 'readonly',
+            'tabindex': '-1',
+            'aria-hidden': 'true',
+            'class': 'visually-hidden',
+        })
+
         # Current Password
         self.fields['old_password'].label = s.get('form_old_password', "Current Password")
         self.fields['old_password'].widget.attrs.pop('dir', None) # Remove fixed RTL 
@@ -132,7 +153,9 @@ class CustomPasswordChangeForm(DluxPasswordMustChangeMixin, PasswordChangeForm):
 
         self.helper = FormHelper()
         self.helper.form_tag = False
-        layout_fields = ['old_password', 'new_password1', 'new_password2']
+        # First in the layout so it precedes the password inputs in the DOM,
+        # which is where the manager looks for the account name.
+        layout_fields = ['autofill_username', 'old_password', 'new_password1', 'new_password2']
         if get_system_config().get('prevent_multiple_active_sessions', False):
             self.fields.pop('sign_out_other_sessions', None)
         else:

@@ -299,14 +299,25 @@ class SystemSettingsFormShapeTests(SimpleTestCase):
 
         archived = self._archived_form_class()
 
+        # Fields added since the split are fine; what must not happen is a
+        # pre-split field changing position, which is what moving a declaration
+        # into a mixin does (the metaclass orders mixin fields first). So compare
+        # the archived order against the current order with new names filtered
+        # out — every archived field still has to appear, in the same sequence.
+        archived_order = list(archived.base_fields)
+        current_order = [
+            name for name in SystemSettingsForm.base_fields if name in set(archived_order)
+        ]
         self.assertEqual(
-            list(archived.base_fields), list(SystemSettingsForm.base_fields),
+            archived_order, current_order,
             'Declared field order changed. Field declarations must stay in the main '
             'class — moving them into mixins reorders them via the metaclass.',
         )
+        archived_cleaners = sorted(n for n in dir(archived) if n.startswith('clean'))
+        current_cleaners = {n for n in dir(SystemSettingsForm) if n.startswith('clean')}
         self.assertEqual(
-            sorted(n for n in dir(archived) if n.startswith('clean')),
-            sorted(n for n in dir(SystemSettingsForm) if n.startswith('clean')),
+            archived_cleaners,
+            sorted(n for n in current_cleaners if n in set(archived_cleaners)),
             'A clean_* method was lost or renamed; that field silently stops '
             'being validated.',
         )

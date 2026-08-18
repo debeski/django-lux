@@ -9,18 +9,21 @@ from django.urls import NoReverseMatch, reverse
 from ...system.constants import (
     SETUP_STEP_IDENTITY,
     SETUP_STEP_LANGUAGES,
+    SETUP_STEP_HOMEPAGE,
     SETUP_STEP_SECURITY,
     SETUP_STEP_EMAIL,
     SETUP_STEP_LOGIN,
     SETUP_STEP_SIDEBAR,
     SETUP_STEP_NAVBAR,
     SETUP_STEP_TITLEBAR,
+    SETUP_STEP_SEARCH,
     SETUP_STEP_NOTIFICATIONS,
     SETUP_STEP_APPEARANCE,
     SETUP_STEP_LAYOUT,
     SETUP_STEP_LOGGING,
     SETUP_STEP_PROFILE,
     SETUP_STEP_BACKUPS,
+    SETUP_STEP_EXTRAS,
     SETUP_STEP_COUNT,
     DEFAULT_HOME_URL,
     DEFAULT_NAVBAR_MODE,
@@ -122,10 +125,21 @@ from ...utils import (
     normalize_allowed_fonts,
     seed_navbar_config_from_sidebar,
 )
+from django.urls import reverse
 from ..builders import EMAIL_DEPENDENT_SETTING_FIELDS, _bind_choice_selector_widget, _build_archive_file_widget, _get_ui_direction, build_archive_file_field, build_email_test_control, build_email_toggle_field, build_settings_toggle_field, build_titlebar_actions_order_builder
 
 
 class LayoutMixin:
+    def _step_badge(self, strings, key, fallback):
+        if self.mode != 'setup':
+            return HTML('')
+        label = strings.get(key, fallback)
+        return HTML(
+            f"<div class='dlux-setup-step-badge mb-3'>"
+            f"<span class='badge rounded-pill text-bg-primary'>{label}</span>"
+            f"</div>"
+        )
+
     def _step_css_class(self, index):
         """Wizard-step visibility class. Was a closure inside __init__; it only
         ever read `self`, so it is a plain method now."""
@@ -136,7 +150,7 @@ class LayoutMixin:
             classes.append('d-none')
         return ' '.join(classes)
 
-    def _build_layout(self, *, s, intro_html, step_1_fields, email_password_field_class, field_name):
+    def _build_layout(self, *, s, step_1_fields, email_password_field_class, field_name):
         """The crispy Layout for the settings wizard.
 
         Extracted verbatim from __init__ — it was the last statement there and the
@@ -145,24 +159,10 @@ class LayoutMixin:
         """
         return Layout(
                     HTML(
-                        (
-                            f"<div class='dlux-system-settings-shell mode-{self.mode}'>"
-                            f"{intro_html}"
-                        )
+                        f"<div class='dlux-system-settings-shell mode-{self.mode}'>"
                     ),
                     Div(
                         *step_1_fields,
-                        Div(
-                            HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'>{s.get('public_root_identity_settings_title', 'Public Root Identity')}</h6>"),
-                            Row(
-                                Div(Field('public_root_title', dir='auto'), css_class='col-lg-12'),
-                                Div(Field('public_root_meta_description', dir='auto'), css_class='col-lg-12'),
-                                css_class='g-3 mb-3',
-                            ),
-                            css_class=f"dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
-                            data_public_root_dependent='true',
-                            aria_disabled='false' if self.initial.get('public_root', False) else 'true',
-                        ),
                         # Footer lives in Identity — it's branding/credit copy for every page.
                         HTML(f"<hr class='my-4'><h6 class='fw-bold my-3'>{s.get('footer_settings_title', 'Footer')}</h6>"),
                         Row(
@@ -181,7 +181,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_IDENTITY),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step2', 'Step 2: Languages')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step2', 'Step 2: Languages'),
                         HTML(self.language_catalog_html),
                         Row(
                             Div(Field('default_language'), css_class='d-none'),
@@ -194,7 +194,66 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_LANGUAGES),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step3', 'Step 3: Email')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step3', 'Step 3: Homepage'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('root_home_settings_title', 'Home & Public Root Destinations')}</h6>"),
+                        Row(
+                            Div(Field('home_url_discovered'), css_class='col-lg-6'),
+                            Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'allow_user_home_url', css_class='col-lg-6'),
+                            build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Div(
+                            Row(
+                                build_settings_toggle_field(self, 'public_root_split_enabled', css_class='col-lg-12'),
+                                css_class='g-3 mb-3',
+                            ),
+                            Row(
+                                Div(
+                                    Field('public_root_url_discovered'),
+                                    css_class=(
+                                        "col-lg-6 dlux-public-root-split-dependent dlux-dependent-settings"
+                                        f"{'' if self.initial.get('public_root_split_enabled', False) else ' is-disabled'}"
+                                    ),
+                                    data_public_root_split_dependent='true',
+                                    aria_disabled='false' if self.initial.get('public_root_split_enabled', False) else 'true',
+                                ),
+                                Div(
+                                    Field('public_root_url', dir='ltr'),
+                                    css_class=(
+                                        "col-lg-6 dlux-public-root-split-dependent dlux-dependent-settings"
+                                        f"{'' if self.initial.get('public_root_split_enabled', False) else ' is-disabled'}"
+                                    ),
+                                    data_public_root_split_dependent='true',
+                                    aria_disabled='false' if self.initial.get('public_root_split_enabled', False) else 'true',
+                                ),
+                            ),
+                            Row(
+                                Div(Field('public_root_theme'), css_class='col-lg-12'),
+                                css_class='g-3 mb-3',
+                            ),
+                            HTML(f"<h6 class='fw-bold my-3'>{s.get('public_root_identity_settings_title', 'Public Root Identity')}</h6>"),
+                            Row(
+                                Div(Field('public_root_title', dir='auto'), css_class='col-lg-6'),
+                                Div(Field('public_root_meta_description', dir='auto'), css_class='col-lg-6'),
+                                css_class='g-3 mb-3',
+                            ),
+                            Row(
+                                build_settings_toggle_field(self, 'show_titlebar_on_public', css_class='col-lg-6'),
+                                build_settings_toggle_field(self, 'show_sidebar_on_public', css_class='col-lg-6'),
+                                css_class='g-3 mb-3',
+                            ),
+                            css_class=f"dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
+                            data_public_root_dependent='true',
+                            aria_disabled='false' if self.initial.get('public_root', False) else 'true',
+                        ),
+                        Field('homepage_config'),
+                        css_class=self._step_css_class(SETUP_STEP_HOMEPAGE),
+                    ),
+                    Div(
+                        self._step_badge(s, 'system_setup_step4', 'Step 4: Email'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('email_delivery_settings_title', 'Email Delivery')}</h6>"),
                         HTML(f"<p class='small text-muted mb-3'>{s.get('email_step_intro', '')}</p>"),
                         Row(
@@ -255,10 +314,9 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_EMAIL),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step4', 'Step 4: Access & Security')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step5', 'Step 5: Access & Security'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('access_security_settings_title', s.get('system_settings_security', 'Access & Security'))}</h6>"),
                         Row(
-                            build_settings_toggle_field(self, 'public_root', css_class='col-lg-6'),
                             build_settings_toggle_field(self, 'email_2fa', css_class='col-lg-6'),
                             build_settings_toggle_field(self, 'forgot_password_enabled', css_class='col-lg-6'),
                             build_settings_toggle_field(self, 'prevent_multiple_active_sessions', css_class='col-lg-6'),
@@ -281,25 +339,28 @@ class LayoutMixin:
                             data_auth_lockout_fields='true',
                             aria_hidden='false' if self.initial.get('login_lockout_enabled', True) else 'true',
                         ),
-                        # Strong-password tuning — revealed only while enforcement is on.
+                        # Independent conditional controls share one compact row.
                         Row(
-                            Div(Field('strong_password_min_length', css_class='form-control'), css_class='col-12 col-lg-4'),
-                            css_class=(
-                                "g-3 mb-3 dlux-auth-strong-fields"
-                                f"{'' if self.initial.get('enforce_strong_passwords', False) else ' d-none'}"
+                            Div(
+                                Field('strong_password_min_length', css_class='form-control'),
+                                css_class=(
+                                    "col-12 col-lg-4 dlux-auth-strong-fields"
+                                    f"{'' if self.initial.get('enforce_strong_passwords', False) else ' d-none'}"
+                                ),
+                                data_auth_strong_fields='true',
+                                aria_hidden='false' if self.initial.get('enforce_strong_passwords', False) else 'true',
                             ),
-                            data_auth_strong_fields='true',
-                            aria_hidden='false' if self.initial.get('enforce_strong_passwords', False) else 'true',
-                        ),
-                        # Inactivity-timeout tuning — revealed only while the toggle is on.
-                        Row(
-                            Div(Field('inactivity_timeout_minutes', css_class='form-control'), css_class='col-12 col-lg-4'),
-                            css_class=(
-                                "g-3 mb-3 dlux-auth-inactivity-fields"
-                                f"{'' if self.initial.get('inactivity_timeout_enabled', False) else ' d-none'}"
+                            Div(
+                                Field('inactivity_timeout_minutes', css_class='form-control'),
+                                css_class=(
+                                    "col-12 col-lg-4 dlux-auth-inactivity-fields"
+                                    f"{'' if self.initial.get('inactivity_timeout_enabled', False) else ' d-none'}"
+                                ),
+                                data_auth_inactivity_fields='true',
+                                aria_hidden='false' if self.initial.get('inactivity_timeout_enabled', False) else 'true',
                             ),
-                            data_auth_inactivity_fields='true',
-                            aria_hidden='false' if self.initial.get('inactivity_timeout_enabled', False) else 'true',
+                            css_class='g-3 mb-3 dlux-auth-conditional-fields',
+                            data_auth_conditional_fields='true',
                         ),
                         Field('auth_config'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('client_ip_settings_title')}</h6>"),
@@ -330,47 +391,6 @@ class LayoutMixin:
                             ),
                         ),
                         Field('client_ip_config'),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('root_home_settings_title', 'Home & Public Root Destinations')}</h6>"),
-                        Row(
-                            Div(Field('home_url_discovered'), css_class='col-lg-6'),
-                            Div(Field('home_url', dir='ltr'), css_class='col-lg-6'),
-                        ),
-                        Row(
-                            build_settings_toggle_field(self, 'allow_user_home_url', css_class='col-lg-12'),
-                            css_class='g-3 mb-3',
-                        ),
-                        Row(
-                            build_settings_toggle_field(
-                                self,
-                                'public_root_split_enabled',
-                                css_class=f"col-lg-12 dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
-                                attrs={
-                                    'data_public_root_dependent': 'true',
-                                    'aria_disabled': 'false' if self.initial.get('public_root', False) else 'true',
-                                },
-                            ),
-                            css_class='g-3 mb-3',
-                        ),
-                        Row(
-                            Div(
-                                Field('public_root_url_discovered'),
-                                css_class=(
-                                    "col-lg-6 dlux-public-root-split-dependent dlux-dependent-settings"
-                                    f"{'' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ' is-disabled'}"
-                                ),
-                                data_public_root_split_dependent='true',
-                                aria_disabled='false' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else 'true',
-                            ),
-                            Div(
-                                Field('public_root_url', dir='ltr'),
-                                css_class=(
-                                    "col-lg-6 dlux-public-root-split-dependent dlux-dependent-settings"
-                                    f"{'' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else ' is-disabled'}"
-                                ),
-                                data_public_root_split_dependent='true',
-                                aria_disabled='false' if (self.initial.get('public_root', False) and self.initial.get('public_root_split_enabled', False)) else 'true',
-                            ),
-                        ),
                         Row(
                             build_settings_toggle_field(self, 'public_registration_enabled', css_class='col-lg-12'),
                             css_class='g-3 mb-3',
@@ -424,7 +444,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_SECURITY),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step5', 'Step 5: Login Page')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step6', 'Step 6: Login Page'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('login_page_settings_title', 'Login Page Settings')}</h6>"),
                         HTML(f"<p class='small text-muted mb-3'>{s.get('login_page_settings_desc', 'Choose the login page layout and customise the side banner and logo treatment.')}</p>"),
                         # Row 1: layout style — full width, as-is
@@ -500,7 +520,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_LOGIN),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step6', 'Step 6: Sidebar')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step7', 'Step 7: Sidebar'),
                         Row(
                             build_settings_toggle_field(self, 'sidebar_enabled', css_class='col-lg-12'),
                             css_class='g-3 mb-3',
@@ -527,23 +547,7 @@ class LayoutMixin:
                             css_class='g-3 mb-3',
                         ),
                         Row(
-                            build_settings_toggle_field(
-                                self,
-                                'sidebar_show_notification_badges',
-                                css_class='col-lg-6',
-                            ),
-                            css_class='g-3 mb-3',
-                        ),
-                        Row(
-                            build_settings_toggle_field(
-                                self,
-                                'show_sidebar_on_public',
-                                css_class=f"col-lg-12 dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
-                                attrs={
-                                    'data_public_root_dependent': 'true',
-                                    'aria_disabled': 'false' if self.initial.get('public_root', False) else 'true',
-                                },
-                            ),
+                            build_settings_toggle_field(self, 'sidebar_show_notification_badges', css_class='col-lg-6'),
                             css_class='g-3 mb-3',
                         ),
                         HTML(
@@ -567,7 +571,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_SIDEBAR),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step7', 'Step 7: Nav Bar')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step8', 'Step 8: Nav Bar'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('navbar_settings_title', '')}</h6>"),
 
                         Row(
@@ -591,25 +595,13 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_NAVBAR),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step8', 'Step 8: Titlebar')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step9', 'Step 9: Titlebar'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('titlebar_settings_title', 'Titlebar Settings')}</h6>"),
                         Row(
                             build_settings_toggle_field(self, 'titlebar_show_title', css_class='col-lg-6 col-xl-4'),
                             build_settings_toggle_field(self, 'titlebar_show_logo', css_class='col-lg-6 col-xl-4'),
                             build_settings_toggle_field(self, 'titlebar_show_home_button', css_class='col-lg-6 col-xl-4'),
                             build_settings_toggle_field(self, 'titlebar_show_language_switcher', css_class='col-lg-6 col-xl-4'),
-                            css_class='g-3 mb-3'
-                        ),
-                        Row(
-                            build_settings_toggle_field(
-                                self,
-                                'show_titlebar_on_public',
-                                css_class=f"col-lg-12 dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
-                                attrs={
-                                    'data_public_root_dependent': 'true',
-                                    'aria_disabled': 'false' if self.initial.get('public_root', False) else 'true',
-                                },
-                            ),
                             css_class='g-3 mb-3',
                         ),
                         Row(
@@ -623,21 +615,6 @@ class LayoutMixin:
                         Row(
                             Div(Field('titlebar_user_hub_style'), css_class='col-lg-12'),
                             css_class='g-3 mb-3',
-                        ),
-                        HTML(f"<h6 class='fw-bold my-3'>{s.get('global_search_settings_title', 'Global Search')}</h6>"),
-                        Row(
-                            Div(Field('titlebar_global_search_mode'), css_class='col-lg-12'),
-                            css_class='g-3 mb-3',
-                        ),
-                        # Data-search toggle — shown only while global search is enabled.
-                        Row(
-                            build_settings_toggle_field(self, 'titlebar_global_search_include_data', css_class='col-lg-12'),
-                            css_class=(
-                                "g-3 mb-3 dlux-global-search-data-field"
-                                f"{' d-none' if self.initial.get('titlebar_global_search_mode', 'icon') == 'disabled' else ''}"
-                            ),
-                            data_global_search_data_field='true',
-                            aria_hidden='true' if self.initial.get('titlebar_global_search_mode', 'icon') == 'disabled' else 'false',
                         ),
                         HTML(self.titlebar_actions_order_html),
                         Field('titlebar_actions_order'),
@@ -670,7 +647,26 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_TITLEBAR),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step9', 'Step 9: Notifications')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step10', 'Step 10: Global Search'),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('global_search_settings_title', 'Global Search')}</h6>"),
+                        Row(
+                            Div(Field('titlebar_global_search_mode'), css_class='col-lg-12'),
+                            css_class='g-3 mb-3',
+                        ),
+                        Row(
+                            build_settings_toggle_field(self, 'titlebar_global_search_include_data', css_class='col-lg-12'),
+                            css_class=(
+                                "g-3 mb-3 dlux-global-search-data-field"
+                                f"{' d-none' if self.initial.get('titlebar_global_search_mode', 'icon') == 'disabled' else ''}"
+                            ),
+                            data_global_search_data_field='true',
+                            aria_hidden='true' if self.initial.get('titlebar_global_search_mode', 'icon') == 'disabled' else 'false',
+                        ),
+                        Field('search_config'),
+                        css_class=self._step_css_class(SETUP_STEP_SEARCH),
+                    ),
+                    Div(
+                        self._step_badge(s, 'system_setup_step11', 'Step 11: Notifications'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('notification_settings_title', 'Notifications')}</h6>"),
                         Row(
                             build_settings_toggle_field(self, 'notifications_enabled', css_class='col-lg-12'),
@@ -717,7 +713,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_NOTIFICATIONS),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step10', 'Step 10: Themes & Typography')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step12', 'Step 12: Themes & Typography'),
                         Row(
                             Div(
                                 HTML(self.theme_picker_html),
@@ -741,15 +737,6 @@ class LayoutMixin:
                             ),
                             css_class='g-3 mb-3',
                         ),
-                        Row(
-                            Div(
-                                Field('public_root_theme'),
-                                css_class=f"col-lg-12 dlux-public-root-dependent dlux-dependent-settings{'' if self.initial.get('public_root', False) else ' is-disabled'}",
-                                data_public_root_dependent='true',
-                                aria_disabled='false' if self.initial.get('public_root', False) else 'true',
-                            ),
-                            css_class='g-3 mb-3',
-                        ),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('typography_settings_title', 'Typography Settings')}</h6>"),
                         HTML(self.font_picker_html),
                         # Field('allowed_fonts'),
@@ -759,7 +746,7 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_APPEARANCE),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step11', 'Step 11: Layout')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step13', 'Step 13: Layout'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('tables_settings_title', 'Tables Settings')}</h6>"),
                         Row(
                             Div(Field('default_table_density'), css_class='col'),
@@ -799,21 +786,21 @@ class LayoutMixin:
                         css_class=self._step_css_class(SETUP_STEP_LAYOUT),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step12', 'Step 12: Logging')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step14', 'Step 14: Logging'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('log_settings_title', 'Activity Logging')}</h6>"),
                         HTML(self.log_builder_html),
                         Field('log_config'),
                         css_class=self._step_css_class(SETUP_STEP_LOGGING),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step13', 'Step 13: Profile Page')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step15', 'Step 15: Profile Page'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('profile_settings_title', 'Profile Page & Onboarding')}</h6>"),
                         HTML(self.profile_builder_html),
                         Field('profile_config'),
                         css_class=self._step_css_class(SETUP_STEP_PROFILE),
                     ),
                     Div(
-                        HTML(f"<div class='mb-3'><span class='badge rounded-pill text-bg-primary'>{s.get('system_setup_step14', 'Step 14: Backups')}</span></div>"),
+                        self._step_badge(s, 'system_setup_step16', 'Step 16: Backups'),
                         HTML(f"<h6 class='fw-bold my-3'>{s.get('backup_settings_title', 'System Backup Policy')}</h6>"),
                         HTML(f"<div class='alert alert-info'>{s.get('backup_settings_update_notice', 'Inline updates and rollbacks always create and verify a full system backup before maintenance. An update is stopped if that backup fails.')}</div>"),
                         build_settings_toggle_field(self, 'backup_scheduled_enabled', css_class='col-12'),
@@ -834,6 +821,24 @@ class LayoutMixin:
                         ),
                         Field('backup_config'),
                         css_class=self._step_css_class(SETUP_STEP_BACKUPS),
+                    ),
+                    Div(
+                        self._step_badge(s, 'system_setup_step17', 'Step 17: Extra Features'),
+                        HTML(f"<div class='alert alert-info'>{s.get('extras_settings_intro', 'Optional integrations that stay switched off until a deployment needs them. Each one is inert while disabled.')}</div>"),
+                        HTML(f"<h6 class='fw-bold my-3'>{s.get('scanlink_settings_title', 'ScanLink Scanning')}</h6>"),
+                        build_settings_toggle_field(self, 'scanlink_enabled', css_class='col-12'),
+                        HTML(
+                            f"<div class='mt-3'>"
+                            f"<button type='button' class='btn btn-outline-primary rounded-pill px-4'"
+                            f" data-dynamic-modal='{reverse('scanlink_releases_modal')}'"
+                            f" data-modal-title=\"{s.get('scanlink_releases_title', 'ScanLink Releases')}\">"
+                            f"<i class='bi bi-box-seam me-1'></i> "
+                            f"{s.get('scanlink_manage_releases', 'Manage installers')}</button>"
+                            f"<div class='form-text'>"
+                            f"{s.get('scanlink_manage_releases_help', 'Publish the installer that workstations download and update from.')}"
+                            f"</div></div>"
+                        ),
+                        css_class=self._step_css_class(SETUP_STEP_EXTRAS),
                     ),
                     FormActions(
                         HTML(

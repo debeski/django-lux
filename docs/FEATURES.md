@@ -84,7 +84,7 @@
 - Permission-aware and translated: pages filter by route permissions, settings are superuser-only, everything reads through `DLUX_STRINGS`; theme- and RTL-aware dropdown
 - **Options cards** are searchable too — the built-in ones and any app card registered with `register_card(...)`, which resolves its title per request and honours `superuser_only`/`permission`/`visible`; add synonyms with `search_keywords=(...)`
 - Optional **data search** (per-toggle) matches `icontains` across the text fields of the project's real models (plus User/Profile), gated by each model's `view` permission and auto-scoped for `ScopedModel` records; tunable via `DLUX_SEARCH_DATA_MODELS` and `DLUX_SEARCH_DATA_URL_RESOLVER`
-- Titlebar selector modes: **always visible**, **icon that expands on focus** (default), or **disabled**; served by the `login_required` `/search/` JSON endpoint
+- Titlebar selector modes: **always visible** on larger screens, **icon that expands below the titlebar** on mobile (also the default mode), or **disabled**; served by the `login_required` `/search/` JSON endpoint
 
 ### Keyboard Shortcuts
 - **Ctrl/⌘-K** focuses the titlebar global search box from anywhere
@@ -633,8 +633,8 @@ ActivityLog.safe_log(
 | [`context_menu/js/section_manager.js`](../dlux/static/dlux/helpers/context_menu/js/section_manager.js) | Section tree interactions |
 | [`wizard/js/main.js`](../dlux/static/dlux/helpers/wizard/js/main.js) | Multi-step form controller |
 | [`autofill/js/main.js`](../dlux/static/dlux/helpers/autofill/js/main.js) | Sticky form autofill |
-| [`scan_link/js/main.js`](../dlux/static/dlux/helpers/scanlink/js/main.js) | QR/barcode scanning |
-| [`scan_link/js/scan_button.js`](../dlux/static/dlux/helpers/scanlink/js/scan_button.js) | Scan button widget |
+| [`scanlink/js/main.js`](../dlux/static/dlux/helpers/scanlink/js/main.js) | TWAIN document scanning through the ScanLink desktop helper — opt-in, see `DLUX_SCANLINK_ENABLED` |
+| [`scanlink/js/scan_button.js`](../dlux/static/dlux/helpers/scanlink/js/scan_button.js) | Scan button widget; served only when ScanLink is enabled |
 | [`system/js/options.js`](../dlux/static/dlux/system/js/options.js) | Options card reordering, reset/defaults, and shared page behavior |
 | [`users/js/profile_2fa.js`](../dlux/static/dlux/users/js/profile_2fa.js) | POST-backed profile 2FA flows and current-password-confirmed destructive actions |
 

@@ -103,6 +103,28 @@ def get_secret(secret_name, env_var):
         return os.getenv(env_var)
 
 # Settings Bootstrap - Function applies Dlux defaults to a Django settings module.
+
+def scanlink_enabled():
+    """Is the ScanLink desktop helper integration turned on for this deployment?
+
+    Off unless asked for. ScanLink talks to a tray app on the operator's own
+    machine over ``localhost:5443``/``:5000``; on every deployment without that
+    app installed the probe is a connection the browser refuses and logs, and no
+    ``catch`` in our code can suppress that log. So the whole integration —
+    scripts and buttons alike — is opt-in, and a deployment that never enables it
+    ships no ScanLink code to the page at all.
+
+    Stored in ``SystemSettings.extra_config['scanlink']['enabled']`` and edited
+    from the Extra Features settings step, like every other dlux system setting.
+    """
+    from .config import get_system_config
+
+    extra = get_system_config().get("extra_config") or {}
+    scanlink = extra.get("scanlink") if isinstance(extra, dict) else None
+    if not isinstance(scanlink, dict):
+        return False
+    return bool(scanlink.get("enabled", False))
+
 def dlux_settings(scope):
     """
     Apply the default DjangoLux settings requirements to a Django settings module.

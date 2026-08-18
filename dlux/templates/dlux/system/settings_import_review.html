@@ -1,0 +1,104 @@
+{% load dlux_tags %}
+
+<div class="grouped-permissions-widget dlux-settings-import" data-settings-import-review>
+    <link rel="stylesheet" href="{% dlux_static 'dlux/users/css/permissions.css' %}">
+
+    <div class="dlux-settings-import__meta small text-muted mb-3">
+        <i class="bi bi-file-earmark-code me-1"></i>{{ change_set.source.filename }}
+        {% if change_set.source.dlux_version %}<span class="ms-3">DjangoLux {{ change_set.source.dlux_version }}</span>{% endif %}
+        <span class="ms-3">{{ change_set.change_count }} {{ DLUX_STRINGS.settings_import_change_count|default:"change(s)" }}</span>
+    </div>
+
+    {% if change_set.unknown_keys %}
+    <div class="alert alert-warning py-2 small" data-autoclose="false">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        {{ DLUX_STRINGS.settings_import_unknown_keys|default:"This file carries settings this version does not recognise. They are ignored:" }}
+        <code>{{ change_set.unknown_keys|join:", " }}</code>
+    </div>
+    {% endif %}
+
+    {% if not change_set.groups %}
+        <p class="text-muted mb-0">
+            {{ DLUX_STRINGS.settings_import_no_changes|default:"This file matches the current configuration. There is nothing to apply." }}
+        </p>
+    {% else %}
+    <div class="detailed-list mt-3">
+        {% for group in change_set.groups %}
+        <div class="permissions-card" data-settings-import-group="{{ group.key }}">
+            <div class="permissions-card-header collapsed"
+                 data-bs-toggle="collapse"
+                 data-bs-target="#settings_import_{{ group.key }}"
+                 aria-expanded="false">
+                <div class="d-flex align-items-center">
+                    <div class="form-check me-3 prevent-toggle">
+                        <input class="form-check-input app-master-checkbox" type="checkbox"
+                               id="settings_import_master_{{ group.key }}">
+                        <label class="form-check-label d-none" for="settings_import_master_{{ group.key }}">{{ DLUX_STRINGS.select_all }}</label>
+                    </div>
+                    <h5 class="app-title">{{ group.label }}</h5>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-soft-primary text-primary border-primary me-3 px-2 py-1">
+                        {{ group.changes|length }} {{ DLUX_STRINGS.settings_import_change_count|default:"change(s)" }}
+                    </span>
+                    <i class="bi bi-chevron-down toggle-icon"></i>
+                </div>
+            </div>
+
+            <div id="settings_import_{{ group.key }}" class="collapse">
+                <div class="permissions-card-body">
+                    <div class="model-group">
+                        <div class="model-permissions dlux-settings-import__changes">
+                            {% for change in group.changes %}
+                            <div class="permission-item dlux-settings-import__change">
+                                <div class="form-check">
+                                    <input type="checkbox"
+                                           class="form-check-input permission-checkbox"
+                                           name="apply"
+                                           value="{% if change.sub_key %}{{ change.field }}:{{ change.sub_key }}{% else %}{{ change.field }}{% endif %}"
+                                           id="settings_import_{{ group.key }}_{{ forloop.counter }}"
+                                           data-settings-import-check>
+                                    <label class="form-check-label small w-100" for="settings_import_{{ group.key }}_{{ forloop.counter }}">
+                                        <span class="dlux-settings-import__name">{{ change.label }}</span>
+                                        <code class="dlux-settings-import__key small text-muted ms-1">{{ change.field }}{% if change.sub_key %}.{{ change.sub_key }}{% endif %}</code>
+                                        {% if change.kind == 'atomic' %}
+                                        <span class="dlux-settings-import__delta text-muted">
+                                            {% if change.summary.added %}<span class="text-success">+{{ change.summary.added|length }}</span>{% endif %}
+                                            {% if change.summary.removed %}<span class="text-danger ms-1">&minus;{{ change.summary.removed|length }}</span>{% endif %}
+                                            {% if change.summary.changed %}<span class="text-warning ms-1">~{{ change.summary.changed|length }}</span>{% endif %}
+                                            {% if not change.summary.added and not change.summary.removed and not change.summary.changed %}{{ change.summary.count_current|default:"?" }} &rarr; {{ change.summary.count_incoming|default:"?" }} {{ DLUX_STRINGS.settings_import_items|default:"items" }}{% endif %}
+                                            <em class="ms-1">{{ DLUX_STRINGS.settings_import_atomic_note|default:"applied as a whole" }}</em>
+                                        </span>
+                                        {% else %}
+                                        <span class="dlux-settings-import__delta">
+                                            <span class="dlux-settings-import__from">{{ change.current|default_if_none:"—" }}</span>
+                                            <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                            <span class="dlux-settings-import__to">{{ change.incoming|default_if_none:"—" }}</span>
+                                        </span>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        {% if change_set.absent_keys %}
+        <details class="small text-muted dlux-settings-import__absent">
+            <summary>{{ DLUX_STRINGS.settings_import_absent_summary|default:"Settings this file does not cover" }} ({{ change_set.absent_keys|length }})</summary>
+            <p class="mt-2 mb-1">{{ DLUX_STRINGS.settings_import_absent_note|default:"These keep their current values. An import never resets a setting the file omits." }}</p>
+            <code>{{ change_set.absent_keys|join:", " }}</code>
+        </details>
+        {% else %}<span></span>{% endif %}
+        <button type="button" class="btn btn-primary rounded-pill" data-settings-import-apply="{{ apply_url }}">
+            {{ DLUX_STRINGS.settings_import_apply|default:"Apply selected" }}
+        </button>
+    </div>
+    {% endif %}
+</div>

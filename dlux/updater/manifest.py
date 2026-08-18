@@ -234,17 +234,113 @@ def inspect_wheel(wheel_path):
     return manifest, metadata
 
 
+#: Schema 2 states FACTS about a release and lets the updater decide admission;
+#: schema 1 published the conclusion (`inline_safe`) instead, which freezes the
+#: policy in force on release day into an artifact that outlives it.
+SUPPORTED_MANIFEST_SCHEMAS = (1, 2)
+
+#: What the database sees. Ordered least to most dangerous; anything not listed
+#: is treated as more dangerous than everything here (fail closed), so a manifest
+#: from a future release cannot be waved through by an older updater.
+MIGRATION_EFFECTS = ("none", "state_only", "additive", "altering", "destructive")
+SAFE_INLINE_EFFECTS = frozenset({"none", "state_only", "additive"})
+
+#: Preconditions about the DEPLOYMENT, never about the package. Python and
+#: dependency floors are deliberately absent: the wheel already declares them in
+#: `Requires-Python`/`Requires-Dist`, pip enforces them, and a second copy here
+#: could only ever disagree with the authority.
+KNOWN_REQUIREMENT_KEYS = frozenset({"baked_image", "updater_schema", "services"})
+
+
+def _v2_to_internal(manifest):
+    """Normalise a schema-2 manifest onto the shape the updater already consumes.
+
+    Keeping one internal shape means `assess_wheel` and everything downstream is
+    unchanged; only the reading of the file differs by schema.
+    """
+    requires = manifest.get("requires")
+    requires = requires if isinstance(requires, dict) else {}
+
+    # Fail closed on anything this updater does not understand. This is the rule
+    # that makes `requires` safely extensible: a later schema can add a
+    # precondition and OLDER updaters refuse the release instead of silently
+    # ignoring a constraint they cannot evaluate.
+    unknown = set(requires) - KNOWN_REQUIREMENT_KEYS
+    if unknown:
+        raise UpdaterError(
+            "The release manifest declares requirements this updater does not "
+            f"understand: {', '.join(sorted(unknown))}."
+        )
+
+    migrations = manifest.get("migrations")
+    migrations = migrations if isinstance(migrations, dict) else {}
+    effect = str(migrations.get("effect") or "").strip()
+    if effect not in MIGRATION_EFFECTS:
+        raise UpdaterError("The release manifest has an invalid migration effect.")
+    rollback_compatible = migrations.get("rollback_compatible")
+    if not isinstance(rollback_compatible, bool):
+        raise UpdaterError("The release manifest must state rollback_compatible.")
+
+    install = manifest.get("install")
+    install = install if isinstance(install, dict) else {}
+    inline = str(install.get("inline") or "").strip()
+    if inline not in {"allowed", "forbidden"}:
+        raise UpdaterError("The release manifest has an invalid install.inline value.")
+
+    display = manifest.get("display")
+    display = display if isinstance(display, dict) else {}
+
+    internal = {
+        "schema_version": 2,
+        "version": manifest.get("version"),
+        # A release is only offered inline when the author allows it AND the
+        # migrations are actually harmless. Two independent statements, both
+        # required — the author cannot wave through a destructive migration.
+        "inline_safe": bool(inline == "allowed" and effect in SAFE_INLINE_EFFECTS),
+        "migration_policy": "backward_compatible" if rollback_compatible else "image_rebuild",
+        "minimum_updater_schema": _requirement_floor(requires.get("updater_schema"), default=1),
+        "summary": display.get("summary", ""),
+        "highlights": display.get("highlights", []),
+        "release_url": display.get("release_url", manifest.get("release_url", "")),
+        "migration_effect": effect,
+        "rollback_compatible": rollback_compatible,
+        "required_services": dict(requires.get("services") or {}),
+    }
+    baked = requires.get("baked_image")
+    if baked:
+        internal["image_baseline"] = str(baked).lstrip(">=").strip()
+    return internal
+
+
+def _requirement_floor(value, default=1):
+    """Read `">=N"` (or a bare N) as an integer floor."""
+    if value is None:
+        return default
+    text = str(value).strip().lstrip(">=").strip()
+    try:
+        return int(text)
+    except (TypeError, ValueError) as exc:
+        raise UpdaterError("The release manifest has an invalid updater schema requirement.") from exc
+
+
 def validate_release_manifest(manifest, expected_version):
     if not isinstance(manifest, dict):
         raise UpdaterError("The release manifest must be a JSON object.")
+    schema = manifest.get("schema_version")
+    if type(schema) is not int or schema not in SUPPORTED_MANIFEST_SCHEMAS:
+        raise UpdaterError("The release manifest schema is not supported.")
+    if schema == 2:
+        if not isinstance(manifest.get("version"), str):
+            raise UpdaterError("The release manifest has an invalid version field.")
+        # Normalise first, then run the schema-1 checks over the result: the
+        # version/URL/display rules are identical and must not be duplicated.
+        manifest = _v2_to_internal(manifest)
     required = {
         "schema_version", "version", "inline_safe", "minimum_updater_schema",
         "migration_policy", "summary", "release_url",
     }
     if required.difference(manifest):
         raise UpdaterError("The release manifest is missing required fields.")
-    if type(manifest.get("schema_version")) is not int or manifest.get("schema_version") != 1:
-        raise UpdaterError("The release manifest schema is not supported.")
     if not isinstance(manifest.get("version"), str):
         raise UpdaterError("The release manifest has an invalid version field.")
     try:

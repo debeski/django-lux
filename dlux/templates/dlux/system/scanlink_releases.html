@@ -1,0 +1,66 @@
+{% load crispy_forms_tags dlux_tags %}
+<link rel="stylesheet" href="{% dlux_static 'dlux/system/css/scanlink_releases.css' %}">
+<div data-scanlink-releases>
+    <div class="d-flex justify-content-end mb-3">
+        <button type="button"
+                class="btn btn-outline-secondary rounded-pill px-4 dlux-back-link"
+                data-dynamic-modal="{{ settings_step_url }}"
+                data-modal-title="{{ DLUX_STRINGS.system_settings_extras|default:'Extra Features' }}">
+            <i class="bi bi-arrow-left me-1"></i> {{ DLUX_STRINGS.scanlink_back_to_settings|default:'Back to Extra Features' }}
+        </button>
+    </div>
+    {% if not enabled %}
+        <div class="alert alert-warning">{{ DLUX_STRINGS.scanlink_disabled_message|default:'ScanLink is switched off. Enable it under Extra Features first.' }}</div>
+    {% else %}
+        <form data-scanlink-upload-form data-upload-url="{{ upload_url }}" enctype="multipart/form-data">
+            {% crispy form %}
+            <div class="row g-3 mx-0 mt-1 align-items-end dlux-scanlink-release-form__publish-row">
+                <div class="col dlux-scanlink-release-form__notes">
+                    {{ form.notes|as_crispy_field }}
+                </div>
+                <div class="col-auto d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold" data-scanlink-publish>
+                        {{ DLUX_STRINGS.scanlink_publish|default:'Publish release' }}
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <hr class="my-4">
+        <h6 class="fw-bold mb-3">{{ DLUX_STRINGS.scanlink_published_releases|default:'Published releases' }}</h6>
+        {% if releases %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>{{ DLUX_STRINGS.scanlink_field_version|default:'Version' }}</th>
+                        <th>{{ DLUX_STRINGS.scanlink_field_arch|default:'Architecture' }}</th>
+                        <th>{{ DLUX_STRINGS.scanlink_field_is_active|default:'Advertise this release' }}</th>
+                        <th>SHA-256</th>
+                        <th>{{ DLUX_STRINGS.scanlink_field_notes|default:'Notes' }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for release in releases %}
+                    <tr>
+                        <td class="font-monospace" dir="ltr">{{ release.version }}</td>
+                        <td class="font-monospace" dir="ltr">{{ release.arch }}</td>
+                        <td>
+                            {% if release.is_active %}
+                                <span class="badge bg-success">{{ DLUX_STRINGS.reports_export_truncated_yes|default:'Yes' }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ DLUX_STRINGS.reports_export_truncated_no|default:'No' }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="font-monospace small text-muted" dir="ltr">{{ release.sha256|slice:":12" }}</td>
+                        <td class="small">{{ release.notes }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted small mb-0">{{ DLUX_STRINGS.scanlink_no_releases|default:'No installers have been published yet.' }}</p>
+        {% endif %}
+    {% endif %}
+</div>

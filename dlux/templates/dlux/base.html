@@ -6,9 +6,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="DjangoLux {{ DLUX_VERSION }}">
-    {% if dlux_is_public_index and APP_CONFIG.security.public_root_meta_description %}<meta name="description" content="{{ APP_CONFIG.security.public_root_meta_description }}">{% endif %}
-    {% if dlux_is_public_index and APP_CONFIG.security.public_root_title %}
-    <title>{{ APP_CONFIG.security.public_root_title }}</title>
+    {% if dlux_is_public_index and APP_CONFIG.homepage_config.public.meta_description %}<meta name="description" content="{{ APP_CONFIG.homepage_config.public.meta_description }}">{% endif %}
+    {% if dlux_is_public_index and APP_CONFIG.homepage_config.public.title %}
+    <title>{{ APP_CONFIG.homepage_config.public.title }}</title>
     {% else %}
     <title>{{ APP_CONFIG.identity.display_name|default:"DjangoLux" }} &nbsp;|&nbsp; {% block title %}{% endblock %}</title>
     {% endif %}
@@ -100,6 +100,16 @@
     <script src="{% dlux_static 'dlux/tables/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/selector/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/icon_picker/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/dom.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/builder_model.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/appearance.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/security.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/email.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/builders.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/state.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/previews.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/language.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/setup/js/shell.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/setup/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/helpers/wizard/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/navbar/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
@@ -108,6 +118,11 @@
     {% if request.user.is_authenticated %}<script src="{% dlux_static 'dlux/system/js/session_timeout.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/search/js/main.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/system/js/confirm_password.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    <script src="{% dlux_static 'dlux/system/js/settings_import.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    {% if DLUX_SCANLINK_ENABLED %}
+    <script src="{% dlux_static 'dlux/system/js/scanlink_update.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
+    {% endif %}
+    <script src="{% dlux_static 'dlux/system/js/scanlink_releases.js' %}" nonce="{{ request.csp_nonce }}" defer></script>
     <script src="{% dlux_static 'dlux/system/js/unsaved_guard.js' %}" nonce="{{ request.csp_nonce }}" defer></script>{% endif %}
 
 </head>

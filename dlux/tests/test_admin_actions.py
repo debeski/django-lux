@@ -1,7 +1,7 @@
 """Direct tests for the destructive superuser-only actions.
 
 `force_password_change_for_all_non_superusers` had none before 1.8.0: it was a
-private helper inside `views/general.py`, so the only way to exercise it was an
+private helper inside `views/options.py`, so the only way to exercise it was an
 HTTP POST through the view that called it. `data_reset` was always importable
 and is covered separately in `test_data_reset.py`.
 """

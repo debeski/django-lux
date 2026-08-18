@@ -62,6 +62,8 @@ Generated app scaffold baseline:
 | `python manage.py dlux_prune_activity_log` | Delete rows outside configured category retention windows. |
 | `python manage.py dlux_seed` | Dry-run auto-discovery and show the project models and empty canonical dependencies that would be seeded. |
 | `python manage.py dlux_seed --count 25 --seed 42 --apply` | Generate 25 deterministic rows per discovered project model from field metadata. |
+| `python manage.py dlux_seed --count 25 --log --apply` | Generate rows and one reportable `CREATE` activity entry per row, attributed to random active users. |
+| `python manage.py dlux_seed --user-id 1 --scope-id 1 --apply` | Generate rows attributed to one user and scope; either attribution option implies `--log`. |
 | `python manage.py dlux_seed app.Model --apply` | Seed only the named model; `--app`, `--exclude`, `--database`, and `--no-populate` further constrain the run. |
 | `python manage.py dlux_migrate_from_microsys` | Dry-run the supported Microsys 2.4.1 database relabel. |
 | `python manage.py dlux_migrate_from_microsys --yes` | Apply the database relabel after an external backup. |
@@ -81,6 +83,16 @@ Required PDF fields receive a valid one-page PDF with a complete cross-reference
 table, so downstream PDF readers can open and rewrite seeded files. Optional file
 fields remain empty. Unsupported required fields or unresolved relation cycles are
 reported and skipped without aborting valid models.
+
+Activity logging is off by default. `--log` chooses a random active user for each
+seeded row and writes a `user`-category `CREATE` entry in the same transaction, so
+the work is included in General Reports. `--user-id` fixes the actor for every row;
+`--scope-id` fixes the scope for every row; either option enables logging without a
+separate `--log`. Without a fixed scope, the command uses the selected actor's scope
+or the scope assigned to the generated model row. Standard Dlux `created_by`,
+`updated_by`, and `scope` relations receive the same attribution. The former
+standalone `seed_activity_log` command has been retired because its synthetic logs
+were not linked to seeded project records.
 
 Projects with canonical lookup data can declare ownership through their local
 `populate` command:
@@ -505,8 +517,10 @@ global default.
 
 Generated projects set `DLUX_INLINE_UPDATES_ENABLED=True`,
 `DLUX_UPDATE_CHECK_INTERVAL=86400`, and
-`DLUX_UPDATE_RUNTIME_ROOT=/opt/dlux-runtime`. Other deployments default to
-disabled. The update index is fixed to official PyPI and is not configurable in
+`DLUX_UPDATE_RUNTIME_ROOT=/opt/dlux-runtime` in `compose.yml`, and
+`compose.dev.yml` turns the first back off for `web` and `celery` — development
+runs a bind-mounted checkout, not an installed release, so there is nothing
+meaningful to update. Other deployments default to disabled. The update index is fixed to official PyPI and is not configurable in
 v1. See [Verified Inline Updater](inline-updater.md).
 
 Dlux Notifications replace Dlux-owned uses of Django message storage with a durable, inferred event pipeline. Public API:
@@ -598,24 +612,36 @@ System Settings store titlebar layout in `titlebar_config`:
 
 - `user_hub_style`: `dropdown` (default) or `titlebar_actions`
 - `actions_order`: ordered rail keys; defaults to `notifications`, `home`, `profile`, `help`, `users`, `activity`, `reports`, `settings`, `auth`
-- `global_search_mode`: `icon` (default; a search icon that expands into a field on focus), `always` (field always shown), or `disabled`
-- `global_search_include_data`: when true, global search also matches data records the user can view, not just components (pages, settings, actions); default false
 
 `dropdown` preserves the current notification/home/user-trigger layout and `dlux/users/user_hub.html` dropdown. `titlebar_actions` suppresses the dropdown card and renders available shortcuts as `.dlux-titlebar-action` buttons using the shared `titlebar.buttons_shape` setting. Runtime gates are unchanged for users/activity/reports; hidden home and disabled notification drawer settings omit those actions. Authenticated logout is always a POST form with CSRF.
 
 ### Global search
 
-The titlebar global search (configured above) is served by the `login_required`
+Global search has its own System Settings step and canonical `search_config` JSON:
+
+- `enabled`: renders the global-search control and enables its endpoint; default true
+- `display_mode`: `icon` (default; expands on focus) or `always`. Below 768px,
+  `always` intentionally uses the icon interaction too; activating either mode
+  opens the field and results below the titlebar instead of consuming its width.
+- `include_data`: also permits searching viewable data records; default false
+
+The v1.x compatibility layer still accepts `titlebar_config.global_search_mode`
+(`disabled`, `icon`, or `always`) and
+`titlebar_config.global_search_include_data`, and mirrors canonical saves back to
+them. New code should read `search_config`; the titlebar receives it as the
+`search` template context.
+
+The titlebar global search is served by the `login_required`
 JSON endpoint `global_search` (`/search/?q=…`). It returns permission-filtered,
 translated results grouped by type — `page`, `setting`, `option`, `action`, and
-(when `global_search_include_data` is on **and** the request passes `?data=1`)
+(when `search_config.include_data` is on **and** the request passes `?data=1`)
 `data`. Result labels follow the viewer's language (resolved with Dlux's own
 `get_current_language_code`, i.e. session preview → profile preference → session
 → config; the index is cached per language), so an Arabic UI returns Arabic
 results and an Arabic query matches:
 
 - **Pages** come from the global route discovery through the `search` profile, filtered by each route's inferred permissions. That profile accepts form pages, so `chapter_add` is findable by name; id-bound pages (`chapter_edit`) are not, since a search result needs a URL that resolves without arguments.
-- **Settings** are the 12 System Settings sections, each deep-linking to the same step-scoped dynamic modal the Options page uses (superuser-only). Selecting one dispatches `dlux:dynamic_modal:open` from `document.body` with `bubbles: true`; the modal helper listens on `document`, which also receives the element-dispatched events table row actions emit. Each settings result also carries a `fallback_url` pointing at the admin panel card (`#dlux-option-admin-panel`), used when the page has no dynamic-modal host so a click is never silently inert.
+- **Settings** are the 17 System Settings sections, each deep-linking to the same step-scoped dynamic modal the Options page uses (superuser-only). Selecting one dispatches `dlux:dynamic_modal:open` from `document.body` with `bubbles: true`; the modal helper listens on `document`, which also receives the element-dispatched events table row actions emit. Each settings result also carries a `fallback_url` pointing at the admin panel card (`#dlux-option-admin-panel`), used when the page has no dynamic-modal host so a click is never silently inert.
 - **Options** are the Options-page user-preference cards (theme, language, accessibility, typography, densities, modal size, nav-bar mode, landing page, autofill), visible to every authenticated user. Only cards the current configuration actually renders are indexed — a single-language install returns no Language result, a single-theme install no Theme result, and the same applies to `allow_user_home_url`, `allow_user_font_override`, `navbar.allow_user_mode_override`, and `sidebar.allow_user_density`. Below the split thresholds (non-tabs layout, at most 5 themes and 2 languages) the page merges Theme and Language into one `theme-language` card, so those two results are remapped to that slug rather than dropped. The index is keyed on the sidebar cache version, which `SystemSettings.refresh_cache()` bumps on save, so configuration changes take effect at once. A result deep-links to `/sys/options/#dlux-option-<slug>` and scrolls to the card. Under the tabbed Options layout the target card usually sits in an inactive pane, so the deep link activates that pane before scrolling. A `hashchange` handler re-runs the same logic, because selecting a second Options result while already on the page changes only the hash and never reloads.
 - **Actions** are curated titlebar/nav shortcuts (My Profile, Options).
 
@@ -725,8 +751,9 @@ preview, dispatching synthetic events that would otherwise mark it dirty
 immediately.
 
 The prompt's "don't ask again" switch stores the `skip_unsaved_settings_prompt`
-user preference; while set, a dirty close discards without prompting. The
-Options page carries an *Unsaved changes warning* card that turns it back on.
+user preference; while set, a dirty close discards without prompting. This is
+intentionally not a standalone Options toggle: use the Options footer's
+**Restore prompts** action to clear the dismissal and show the warning again.
 
 ### Never resolve a URL from a module body
 
@@ -850,26 +877,32 @@ tabs (`?category=`); the audit tab is restricted to superusers/global staff.
 
 ### Profile page + onboarding (`profile_config`)
 
-`profile_config` (Step 12 of the setup wizard) governs the user profile page and the
+`profile_config` (Step 15 of the setup wizard) governs the user profile page and the
 first-login experience — it is **not** personalization defaults (those stay in
 theme/typography/layout/language configs) and **not** per-user prefs (those live in
 `Profile.preferences`):
 
 - `show_completion_widget`, `show_session_device_cards`, `show_activity_feed` — gate the
   matching profile-page sections. The profile activity feed shows at most the latest five
-  project activity entries and latest five system interaction entries.
+  project activity entries and latest five system interaction entries. Their System Settings
+  controls share an auto-fitting row and wrap as the available width narrows.
 - `security_nudges` — `off` / `subtle` / `persistent` (account-health prompt for missing 2FA).
-- `allow_user_home_url` — let users pick their own landing page (stored as
-  `Profile.preferences['user_home_url']`; honoured at login after an explicit `?next` and
-  before the system `home_url` via `resolve_user_home_url()`).
+- `homepage_config.allow_user_override` — let users pick their own landing page
+  (stored as `Profile.preferences['user_home_url']`; honoured at login after an
+  explicit `?next` and before `homepage_config.default_url` via
+  `resolve_user_home_url()`). The old
+  `profile_config['allow_user_home_url']` value is a v1.x compatibility mirror.
 - `onboarding_enabled` + `onboarding_options` (`theme`/`language`/`fonts`) —
-  whether the first-login modal runs and which preferences it offers.
-  `allow_user_home_url` independently controls whether the same modal and the
+  whether the first-login modal runs and which preferences it offers. These three choices
+  render as an evenly distributed, wrapping horizontal rail in System Settings.
+  `homepage_config.allow_user_override` independently controls whether the same modal and the
   Options page expose the permission-filtered landing-page selector.
 
-The three landing-page values share the `*_url` family: `home_url` (system default,
-public `DLUX_CONFIG` key), `public_root_url` (anonymous public landing, in
-`public_root_config`), and `user_home_url` (per-user, in `Profile.preferences`).
+System and anonymous landing behavior now share `homepage_config`: `default_url`
+is the authenticated/system destination and `public.url` is the optional separate
+anonymous destination. Per-user `user_home_url` remains in `Profile.preferences`.
+The old `home_url`, `public_root_config`, and flat public-root keys are synchronized
+compatibility mirrors through v1.x; see `docs/deprecation-countdown.md`.
 
 **Initial User Setup** is the per-user first-login counterpart to the system setup wizard: a
 lightweight dlux dynamic modal (`/accounts/welcome/`, `initial_user_setup`) that auto-opens
@@ -882,7 +915,7 @@ always happens before optional onboarding preferences.
 
 ### Full-system backup policy (`backup_config`)
 
-`backup_config` (Step 13) is the DB-backed policy consumed by the full `.dlb`
+`backup_config` (Step 16) is the DB-backed policy consumed by the full `.dlb`
 backup subsystem:
 
 - `scheduled_enabled` — opt in to Celery-beat scheduling (off by default).
@@ -965,7 +998,7 @@ public-registration flags are the deliberate exception: their fields are injecte
 into other steps, so they stay hidden when inapplicable.
 
 `toggle_icon` is the glyph on the titlebar's sidebar-toggle button, set from
-Setup Step 5 (Sidebar) with the same searchable icon grid the sidebar builder
+Setup Step 7 (Sidebar) with the same searchable icon grid the sidebar builder
 uses. Its picker is disabled while the sidebar is off, and while
 `collapse_mode` is `locked_expanded` — that mode hides the toggle on desktop
 (it still renders below 1100px). The grid is a disclosure: clicking the current icon expands it, picking one
@@ -979,15 +1012,43 @@ falls back to the default for anything else, so a hand-edited or imported
 *toward* the sidebar, so the template tags them `dlux-icon-directional` and CSS
 mirrors them under `[dir="rtl"]`; symmetric glyphs render as authored.
 
-`SystemSettings` storage is grouped, but the public/runtime contract is flat.
-The model keeps only identity fields as standalone columns (`system_names`,
-`logo`, `favicon`, `default_language`, `default_theme`, `home_url`,
-`is_configured`). Mutable settings live in JSON groups in this order:
-`auth_config`, `email_config`, `registration_config`, `public_root_config`,
+`SystemSettings` storage is grouped. Runtime exposes normalized groups and keeps
+selected flat keys only as v1.x compatibility aliases. The model keeps identity
+and asset fields as standalone columns (`system_names`, `logo`, `favicon`,
+`default_language`, `default_theme`, `is_configured`). Mutable settings live in
+JSON groups in this order: `auth_config`, `email_config`,
+`registration_config`, `homepage_config`, `search_config`,
 `client_ip_config`, `notification_config`, `layout_config`,
 `language_config`, `theme_config`, `typography_config`, `login_config`,
 `titlebar_config`, `sidebar_config`, `navbar_config`, `log_config`,
 `profile_config`, `backup_config`, and `extra_config`.
+
+`homepage_config` is the canonical home/public-home group:
+
+```json
+{
+  "default_url": "/accounts/profile/",
+  "allow_user_override": false,
+  "public": {
+    "enabled": false,
+    "separate_url": false,
+    "url": "",
+    "theme": "",
+    "title": "",
+    "meta_description": "",
+    "show_titlebar": false,
+    "show_sidebar": false
+  }
+}
+```
+
+Migration `0016` adds the canonical JSON fields with database defaults. When an
+upgraded row still has legacy values, runtime resolution promotes `home_url`,
+`public_root_config`, `profile_config['allow_user_home_url']`, and the old
+titlebar search keys immediately; the first normal model save persists the same
+values canonically. Those database fields remain synchronized mirrors until
+v2.0.0. Asset foreign keys remain standalone protected references; they are
+intentionally not embedded in JSON.
 
 The canonical source for those grouped settings is `dlux.system`: `constants.py`
 owns settings choices/constants, `defaults.py` owns `default_*_config()`
@@ -1006,15 +1067,17 @@ changes. The two facts sit next to each other and are easy to conflate. Keep the
 settings logic back into `dlux.models`.
 
 `SystemSettingsForm` consumes registry schema metadata for the low-risk scalar
-groups (`auth_config`, `registration_config`, `public_root_config`,
+groups (`auth_config`, `registration_config`, the legacy `public_root_config`,
 `layout_config`, and `client_ip_config`) when hydrating form initials and packing
 cleaned split fields back into normalized groups. The complex builders for email
 secrets, notifications, login hero copy, titlebar, sidebar, navbar, logging,
 profile, language catalogs, theme, and font pickers remain custom.
 
-Use existing flat keys in `DLUX_CONFIG`, templates, and host code unless you
-are working on Dlux internals. `get_system_config()` flattens grouped DB values
-back to keys such as `allowed_themes`, `public_root`,
+New code should use `homepage_config` and `search_config` (or their accepted
+`homepage`/`public_homepage` and `search`/`global_search` aliases). During v1.x,
+`get_system_config()` also flattens grouped values back to legacy keys such as
+`home_url`, `public_root`, and the titlebar global-search keys, alongside
+keys such as `allowed_themes`,
 `default_table_density`, and `translations_override`, while also exposing
 normalized group aliases for internal use. `translations_override` remains
 override-only data; Dlux never stores the merged translation catalog in

@@ -1,6 +1,7 @@
 .dlux-backup-page {
     --dlux-backup-border: rgba(var(--primal-rgb, 13, 110, 253), 0.16);
     --dlux-backup-surface: color-mix(in srgb, var(--bs-body-bg, #ffffff) 84%, rgba(255, 255, 255, 0.86));
+    contain: layout;
     display: grid;
     gap: 1.35rem;
 }

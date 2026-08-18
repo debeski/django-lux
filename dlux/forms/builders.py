@@ -121,7 +121,7 @@ EMAIL_DEPENDENT_SETTING_FIELDS = (
 )
 
 
-def build_settings_toggle_field(form, field_name, css_class=None, attrs=None):
+def build_settings_toggle_field(form, field_name, css_class=None, attrs=None, *, fill_height=True):
     bound_field = form[field_name]
     field = bound_field.field
     label = conditional_escape(field.label or field_name.replace('_', ' ').title())
@@ -136,12 +136,13 @@ def build_settings_toggle_field(form, field_name, css_class=None, attrs=None):
     # A locked toggle explains itself on hover rather than just being dead.
     lock_reason = str(getattr(field, 'dlux_lock_reason', '') or '').strip()
     lock_attrs = (
-        f" data-dlux-tooltip='{conditional_escape(lock_reason)}' aria-describedby='{conditional_escape(field_name)}-lock'"
+        f" data-dlux-tooltip='{conditional_escape(lock_reason)}' aria-disabled='true'"
         if lock_reason else ""
     )
-    lock_class = ' dlux-settings-toggle-field--locked' if lock_reason else ''
+    lock_class = ' dlux-settings-toggle-field--locked dlux-dependent-settings is-disabled' if lock_reason else ''
+    height_class = ' h-100' if fill_height else ''
     wrapper_html = mark_safe(
-        f"<div class='dlux-settings-toggle-field{lock_class} d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-2 h-100' "
+        f"<div class='dlux-settings-toggle-field{lock_class} d-flex justify-content-between align-items-start gap-3 p-3 border rounded bg-light mb-2{height_class}' "
         f"data-dlux-settings-toggle-field='{conditional_escape(field_name)}'{lock_attrs}>"
         f"<div class='dlux-settings-toggle-field__content flex-grow-1'>"
         f"<div class='dlux-settings-toggle-field__label fw-semibold'>{label}</div>"

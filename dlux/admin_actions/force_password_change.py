@@ -2,8 +2,8 @@
 
 Irreversible, superuser-only and audit-logged — the same class of action as
 :mod:`dlux.admin_actions.data_reset`, which is why they sit together. It lived
-as a private helper inside `views/general.py` until 1.8.0, where the only way to
-exercise it was an HTTP POST; here it can be tested directly.
+as a private helper inside the system-options views until 1.8.0, where the only
+way to exercise it was an HTTP POST; here it can be tested directly.
 """
 from django.apps import apps
 from django.contrib.auth import get_user_model

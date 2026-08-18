@@ -29,6 +29,7 @@ DEFAULT_CALLABLE_NAMES = (
     'default_client_ip_config',
     'default_email_config',
     'default_extra_config',
+    'default_homepage_config',
     'default_language_config',
     'default_layout_config',
     'default_log_config',
@@ -38,6 +39,7 @@ DEFAULT_CALLABLE_NAMES = (
     'default_profile_config',
     'default_public_root_config',
     'default_registration_config',
+    'default_search_config',
     'default_theme_config',
     'default_titlebar_config',
     'default_typography_config',
@@ -50,6 +52,7 @@ NORMALIZER_NAMES = (
     'normalize_client_ip_config',
     'normalize_email_config',
     'normalize_extra_config',
+    'normalize_homepage_config',
     'normalize_language_config',
     'normalize_layout_config',
     'normalize_log_config',
@@ -59,6 +62,7 @@ NORMALIZER_NAMES = (
     'normalize_profile_config',
     'normalize_public_root_config',
     'normalize_registration_config',
+    'normalize_search_config',
     'normalize_sidebar_behavior',
     'normalize_theme_config',
     'normalize_titlebar_config',
@@ -133,12 +137,16 @@ class SystemSettingsRegistryTests(SimpleTestCase):
         self.assertEqual(aliases['profile'], 'profile_config')
         self.assertEqual(aliases['backup'], 'backup_config')
         self.assertEqual(aliases['client_ip'], 'client_ip_config')
+        self.assertEqual(aliases['homepage'], 'homepage_config')
+        self.assertEqual(aliases['search'], 'search_config')
 
     def test_import_aliases_avoid_flat_field_collisions(self):
         aliases = get_import_aliases()
 
         self.assertEqual(aliases['notifications'], 'notification_config')
         self.assertEqual(aliases['translations'], 'translations_override')
+        self.assertEqual(aliases['public_homepage'], 'homepage_config')
+        self.assertEqual(aliases['global_search'], 'search_config')
         self.assertNotIn('public_root', aliases)
         self.assertNotIn('languages', aliases)
 
@@ -187,6 +195,8 @@ class SystemSettingsRegistryTests(SimpleTestCase):
         self.assertIn('notifications', default_config)
         self.assertIn('sidebar', default_config)
         self.assertIn('titlebar', default_config)
+        self.assertIn('homepage_config', default_config)
+        self.assertIn('search_config', default_config)
 
 
 class NewLayoutAndPublicRootKeysTests(SimpleTestCase):
@@ -276,5 +286,37 @@ class NewLayoutAndPublicRootKeysTests(SimpleTestCase):
             'show_titlebar_on_public',
             'show_sidebar_on_public',
             'honeypot_enabled',
+            'homepage_config',
+            'search_config',
         ):
             self.assertIn(key, export_fields)
+
+    def test_homepage_normalizer_accepts_legacy_fields_and_emits_canonical_shape(self):
+        normalized = system_normalizers.normalize_homepage_config({
+            'home_url': '/dashboard/',
+            'allow_user_home_url': True,
+            'public_root': True,
+            'public_root_url': '/welcome/',
+            'public_root_title': ' Welcome ',
+        })
+        self.assertEqual(normalized['default_url'], '/dashboard/')
+        self.assertTrue(normalized['allow_user_override'])
+        self.assertTrue(normalized['public']['enabled'])
+        self.assertEqual(normalized['public']['url'], '/welcome/')
+        self.assertEqual(normalized['public']['title'], 'Welcome')
+
+    def test_expand_mirrors_canonical_homepage_and_search_to_legacy_keys(self):
+        expanded = expand_system_config_groups({
+            'homepage_config': {
+                'default_url': '/dashboard/',
+                'allow_user_override': True,
+                'public': {'enabled': True, 'show_titlebar': True},
+            },
+            'search_config': {'enabled': False, 'display_mode': 'always', 'include_data': True},
+        })
+        self.assertEqual(expanded['home_url'], '/dashboard/')
+        self.assertTrue(expanded['public_root'])
+        self.assertTrue(expanded['show_titlebar_on_public'])
+        self.assertTrue(expanded['profile_config']['allow_user_home_url'])
+        self.assertEqual(expanded['titlebar_config']['global_search_mode'], 'disabled')
+        self.assertTrue(expanded['titlebar_config']['global_search_include_data'])

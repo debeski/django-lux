@@ -8,14 +8,15 @@ from pathlib import Path
 
 from django.apps import apps
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.core.files.base import ContentFile
 from django.core.management import call_command, get_commands, load_command_class
 from django.core.management.base import BaseCommand, CommandError
 from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 
-from dlux.utils.sections import _is_child_model, _model_is_section
+from ...utils import get_user_scope
+from ...utils.sections import _is_child_model, _model_is_section
 
 
 BUILTIN_APP_LABELS = {
@@ -99,6 +100,130 @@ class SeedModelError(Exception):
 
 class MissingRelatedRows(SeedModelError):
     pass
+
+
+class SeedActivityContext:
+    def __init__(self, *, database, rng, user_id=None, scope_id=None):
+        self.database = database
+        self.rng = rng
+        self.user_model = apps.get_model(settings.AUTH_USER_MODEL)
+        self.scope_model = apps.get_model("dlux", "Scope")
+        self.activity_model = apps.get_model("dlux", "ActivityLog")
+        self.fixed_user = self._resolve_user(user_id)
+        self.fixed_scope = self._resolve_scope(scope_id)
+        self.users = self._active_users()
+        self.logged_count = 0
+
+    def _resolve_user(self, user_id):
+        if user_id is None:
+            return None
+        try:
+            return self.user_model._default_manager.using(self.database).get(pk=user_id)
+        except self.user_model.DoesNotExist as exc:
+            raise CommandError(f"User with ID {user_id} does not exist.") from exc
+
+    def _resolve_scope(self, scope_id):
+        if scope_id is None:
+            return None
+        try:
+            return self.scope_model._default_manager.using(self.database).get(pk=scope_id)
+        except self.scope_model.DoesNotExist as exc:
+            raise CommandError(f"Scope with ID {scope_id} does not exist.") from exc
+
+    def _active_users(self):
+        if self.fixed_user is not None:
+            return [self.fixed_user]
+        queryset = self.user_model._default_manager.using(self.database).order_by(
+            self.user_model._meta.pk.name
+        )
+        if any(field.name == "is_active" for field in self.user_model._meta.concrete_fields):
+            queryset = queryset.filter(is_active=True)
+        users = list(queryset)
+        if not users:
+            raise CommandError(
+                "Activity logging requires at least one active user or an explicit --user-id."
+            )
+        return users
+
+    def next_actor_and_scope(self):
+        actor = self.fixed_user or self.rng.choice(self.users)
+        scope = self.fixed_scope or get_user_scope(actor)
+        return actor, scope
+
+    @staticmethod
+    def _relation_targets(field, target_model):
+        return (
+            isinstance(field, (models.ForeignKey, models.OneToOneField))
+            and field.remote_field.model is target_model
+        )
+
+    def prepare_values(self, model, values, actor, scope):
+        for field_name in ("created_by", "updated_by"):
+            try:
+                field = model._meta.get_field(field_name)
+            except FieldDoesNotExist:
+                continue
+            if self._relation_targets(field, self.user_model):
+                values[field_name] = actor
+
+        if scope is None:
+            return
+        try:
+            field = model._meta.get_field("scope")
+        except FieldDoesNotExist:
+            return
+        if self._relation_targets(field, self.scope_model):
+            values["scope"] = scope
+
+    def log_created_instance(self, instance, actor, fallback_scope):
+        scope = fallback_scope
+        try:
+            field = instance._meta.get_field("scope")
+        except FieldDoesNotExist:
+            field = None
+        if field is not None and self._relation_targets(field, self.scope_model):
+            scope = getattr(instance, "scope", None)
+
+        try:
+            candidate_id = int(instance.pk) if instance.pk is not None else None
+            object_id = (
+                candidate_id
+                if candidate_id is not None and -(2 ** 31) <= candidate_id < 2 ** 31
+                else None
+            )
+        except (TypeError, ValueError):
+            object_id = None
+
+        try:
+            number = str(instance)
+        except TypeError:
+            number = str(instance.pk)
+
+        self.activity_model._default_manager.using(self.database).create(
+            created_by=actor,
+            action="CREATE",
+            category=self.activity_model.CATEGORY_USER,
+            model_name=str(instance._meta.verbose_name),
+            model_key=instance._meta.label_lower,
+            object_id=object_id,
+            number=number[:50] if number else None,
+            details={},
+            scope=scope,
+        )
+        self.logged_count += 1
+
+    def plan_summary(self):
+        actor = (
+            f"user {self.fixed_user.pk} ({self.fixed_user.get_username()})"
+            if self.fixed_user is not None
+            else "a random active user per row"
+        )
+        scope = (
+            f"scope {self.fixed_scope.pk} ({self.fixed_scope})"
+            if self.fixed_scope is not None
+            else "each actor/model row's resolved scope"
+        )
+        return f"Activity logging: enabled as {actor}; {scope}"
 
 
 def model_label(model):
@@ -226,29 +351,47 @@ def command_accepts_option(command, option_name):
 
 
 class MetadataSeeder:
-    def __init__(self, *, database, rng, batch_label):
+    def __init__(self, *, database, rng, batch_label, activity_context=None):
         self.database = database
         self.rng = rng
         self.batch_label = batch_label
+        self.activity_context = activity_context
 
     def seed_model(self, model, count):
         created = []
-        with transaction.atomic(using=self.database):
-            for index in range(1, count + 1):
-                instance = self._create_instance(model, index)
-                created.append(instance)
+        logged_before = (
+            self.activity_context.logged_count if self.activity_context is not None else 0
+        )
+        try:
+            with transaction.atomic(using=self.database):
+                for index in range(1, count + 1):
+                    instance = self._create_instance(model, index)
+                    created.append(instance)
+        except Exception:
+            if self.activity_context is not None:
+                self.activity_context.logged_count = logged_before
+            raise
         return created
 
     def _create_instance(self, model, index):
         last_error = None
+        actor = scope = None
+        if self.activity_context is not None:
+            actor, scope = self.activity_context.next_actor_and_scope()
         for attempt in range(1, 6):
             try:
                 with transaction.atomic(using=self.database):
                     values = self._model_values(model, index, attempt)
+                    if self.activity_context is not None:
+                        self.activity_context.prepare_values(model, values, actor, scope)
                     instance = model(**values)
+                    if self.activity_context is not None:
+                        instance.skip_signal_logging = True
                     instance.full_clean()
                     instance.save(using=self.database)
                     self._assign_many_to_many(instance)
+                    if self.activity_context is not None:
+                        self.activity_context.log_created_instance(instance, actor, scope)
                     return instance
             except MissingRelatedRows:
                 raise
@@ -503,6 +646,23 @@ class Command(BaseCommand):
             help="Do not invoke a project-owned populate command for empty dependencies.",
         )
         parser.add_argument(
+            "--log",
+            action="store_true",
+            help="Write one reportable CREATE activity row per seeded row using random active users.",
+        )
+        parser.add_argument(
+            "--user-id",
+            type=int,
+            default=None,
+            help="Attribute every seeded row to this user; implies --log.",
+        )
+        parser.add_argument(
+            "--scope-id",
+            type=int,
+            default=None,
+            help="Assign every seeded row and activity entry to this scope; implies --log.",
+        )
+        parser.add_argument(
             "--apply",
             action="store_true",
             help="Create rows. Without this flag the command only prints its plan.",
@@ -518,6 +678,26 @@ class Command(BaseCommand):
         selected = [model for model in selected if model_label(model) not in excluded]
         if not selected:
             raise CommandError("No eligible project models were selected.")
+
+        logging_requested = bool(
+            options["log"]
+            or options["user_id"] is not None
+            or options["scope_id"] is not None
+        )
+        activity_context = None
+        if logging_requested:
+            actor_seed = options["seed"]
+            actor_rng = (
+                random.Random(f"{actor_seed}:dlux-seed-actors")
+                if actor_seed is not None
+                else random.Random()
+            )
+            activity_context = SeedActivityContext(
+                database=options["database"],
+                rng=actor_rng,
+                user_id=options["user_id"],
+                scope_id=options["scope_id"],
+            )
 
         populate_command = get_populate_command()
         populate_labels = (
@@ -550,7 +730,12 @@ class Command(BaseCommand):
             if not model._default_manager.using(options["database"]).exists()
         ]
 
-        self._write_plan(seed_models, missing_populate_models, options)
+        self._write_plan(
+            seed_models,
+            missing_populate_models,
+            options,
+            activity_context,
+        )
         if not options["apply"]:
             self.stdout.write(self.style.WARNING(
                 "Dry run only; re-run with --apply to create rows."
@@ -563,6 +748,7 @@ class Command(BaseCommand):
             database=options["database"],
             rng=rng,
             batch_label=batch_label,
+            activity_context=activity_context,
         )
 
         created = {}
@@ -604,14 +790,22 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Created {count} row(s): {label}"))
         for label, reason in skipped.items():
             self.stderr.write(self.style.WARNING(f"Skipped {label}: {reason}"))
-        self.stdout.write(self.style.SUCCESS(
+        summary = (
             f"Seed complete: {sum(created.values())} row(s) across "
             f"{len(created)} model(s); {len(skipped)} model(s) skipped."
-        ))
+        )
+        if activity_context is not None:
+            summary += f" Logged {activity_context.logged_count} activity row(s)."
+        self.stdout.write(self.style.SUCCESS(summary))
 
-    def _write_plan(self, seed_models, populate_models, options):
+    def _write_plan(self, seed_models, populate_models, options, activity_context):
         mode = "APPLY" if options["apply"] else "DRY RUN"
         self.stdout.write(f"DjangoLux seed plan ({mode})")
+        self.stdout.write(
+            activity_context.plan_summary()
+            if activity_context is not None
+            else "Activity logging: disabled"
+        )
         if populate_models:
             label = (
                 "Empty canonical dependencies (--no-populate): "

@@ -117,9 +117,9 @@ Generated projects include a baseline Docker stack — `compose.yml`, `compose.d
 They also generate `.secrets/.env` with the bootstrap secrets used by the standard startup flow.
 The scaffolded settings baseline now also includes `django-cors-headers` and `django-csp` with their apps, middleware, and starter CORS/CSP policy settings.
 
-Inline updates are enabled only by the recognized generated Compose baseline.
-Other installations keep `DLUX_INLINE_UPDATES_ENABLED=False` unless they are
-explicitly migrated with the guarded bootstrap described in the
+Inline updates are enabled only by the recognized generated Compose baseline,
+and the development override turns them off again. Other installations keep
+`DLUX_INLINE_UPDATES_ENABLED=False` unless they are explicitly migrated with the guarded bootstrap described in the
 [Verified Inline Updater guide](docs/inline-updater.md).
 
 ## Minimal Quick Start

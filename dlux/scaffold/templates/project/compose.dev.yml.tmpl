@@ -28,6 +28,13 @@ services:
       BASE_URL: "http://localhost:90"
       DEBUG_STATUS: "True"
       CADDY_PORT: "90"
+      # Off in development. Dev runs the bind-mounted source above, not an
+      # installed release, so an inline update would stage a downloaded wheel
+      # and repoint the runtime at it — meaningless against a working tree, and
+      # one mis-click applies a real update to your dev container. It also stops
+      # every dev box making a scheduled PyPI check. Turn it back on explicitly
+      # if you are working on the updater itself.
+      DLUX_INLINE_UPDATES_ENABLED: "False"
 
   celery:
     build: .
@@ -38,3 +45,8 @@ services:
       - ./media/:/app/media/:rw
       - ./logs/:/app/logs:rw
       - dlux_runtime:/opt/dlux-runtime:rw
+    environment:
+      # celery hosts the update worker, so it needs the same switch as web —
+      # the shared anchor in compose.yml sets it for both.
+      DLUX_INLINE_UPDATES_ENABLED: "False"
+

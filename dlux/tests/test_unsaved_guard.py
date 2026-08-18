@@ -199,24 +199,33 @@ class UnsavedGuardPreferenceTests(TestCase):
             self.assertIs(stored, True)
 
 
-class UnsavedGuardOptionsCardTests(SimpleTestCase):
-    def test_options_page_can_turn_the_prompt_back_on(self):
+class UnsavedGuardOptionsSurfaceTests(SimpleTestCase):
+    def test_options_page_has_no_redundant_warning_toggle(self):
         options = (_TEMPLATES / 'system' / 'options.html').read_text(encoding='utf-8')
         js = (_STATIC.parent / 'system' / 'js' / 'options.js').read_text(encoding='utf-8')
 
-        self.assertIn('data-unsaved-warning-toggle', options)
-        self.assertIn('{% dlux_option_card slug="unsaved-warning"', options)
-        self.assertIn('function initUnsavedWarningToggle()', js)
-        self.assertIn('initUnsavedWarningToggle();', js)
-        # The card reads as "warn me", so it is the inverse of the stored skip flag.
-        self.assertIn('toggle.checked = !skipped;', js)
-        self.assertIn('skip_unsaved_settings_prompt: !warn', js)
+        self.assertNotIn('data-unsaved-warning-toggle', options)
+        self.assertNotIn('{% dlux_option_card slug="unsaved-warning"', options)
+        self.assertNotIn('initUnsavedWarningToggle', js)
 
-    def test_card_is_searchable(self):
+    def test_removed_card_is_not_searchable_or_tutorialized(self):
         from dlux.search import OPTIONS_CARDS
 
         slugs = {card[0] for card in OPTIONS_CARDS}
-        self.assertIn('unsaved-warning', slugs)
+        tutorial = (_STATIC.parent / 'tutorial' / 'js' / 'main.js').read_text(encoding='utf-8')
+
+        self.assertNotIn('unsaved-warning', slugs)
+        self.assertNotIn('[data-options-card="unsaved-warning"]', tutorial)
+
+    def test_prompt_points_to_the_existing_restore_action(self):
+        from dlux.translations.strings.ar import STRINGS as ARABIC_STRINGS
+        from dlux.translations.strings.en import STRINGS as ENGLISH_STRINGS
+
+        html = render_to_string('dlux/system/unsaved_changes_modal.html', {'DLUX_STRINGS': {}})
+
+        self.assertIn('Restore prompts', html)
+        self.assertIn(ENGLISH_STRINGS['reset_dialogs_btn'], ENGLISH_STRINGS['unsaved_skip_help'])
+        self.assertIn(ARABIC_STRINGS['reset_dialogs_btn'], ARABIC_STRINGS['unsaved_skip_help'])
 
 
 class UnsavedPromptStackingTests(SimpleTestCase):

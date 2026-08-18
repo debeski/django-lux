@@ -273,6 +273,17 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("celery:", compose_dev_contents)
             self.assertIn('published: "90"', compose_dev_contents)
             self.assertIn('BASE_URL: "http://localhost:90"', compose_dev_contents)
+            # Development runs the bind-mounted checkout, not an installed
+            # release, so inline updates are turned back off for both services
+            # that inherit the shared env anchor from compose.yml.
+            self.assertIn('DLUX_INLINE_UPDATES_ENABLED: "True"', compose_contents)
+            self.assertEqual(
+                compose_dev_contents.count('DLUX_INLINE_UPDATES_ENABLED: "False"'), 2,
+                "compose.dev.yml must disable inline updates on web AND celery",
+            )
+            dev_web = compose_dev_contents[
+                compose_dev_contents.index("\n  web:"):compose_dev_contents.index("\n  celery:")]
+            self.assertIn('DLUX_INLINE_UPDATES_ENABLED: "False"', dev_web)
             self.assertIn("server_name ${NGINX_SERVER_NAME};", nginx_contents)
             self.assertIn("client_max_body_size ${NGINX_MAX_SIZE};", nginx_contents)
             self.assertIn("resolver 127.0.0.11", nginx_contents)

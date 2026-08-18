@@ -40,6 +40,7 @@ class SystemSettingsTests(TestCase):
             'email_config',
             'registration_config',
             'public_root_config',
+            'homepage_config',
             'client_ip_config',
             'notification_config',
             'layout_config',
@@ -48,6 +49,7 @@ class SystemSettingsTests(TestCase):
             'typography_config',
             'login_config',
             'titlebar_config',
+            'search_config',
             'sidebar_config',
             'navbar_config',
             'log_config',
@@ -79,6 +81,8 @@ class SystemSettingsTests(TestCase):
         self.assertFalse(instance.backup_config['scheduled_enabled'])
         self.assertEqual(instance.backup_config['retention_days'], 0)
         self.assertEqual(instance.backup_config['max_backups_to_keep'], 0)
+        self.assertEqual(instance.homepage_config['default_url'], '/accounts/profile/')
+        self.assertTrue(instance.search_config['enabled'])
 
     def test_system_settings_flat_properties_write_grouped_json(self):
         instance = SystemSettings.load()
@@ -133,6 +137,89 @@ class SystemSettingsTests(TestCase):
 
         fresh = SystemSettings._default_manager.get(pk=instance.pk)
         self.assertEqual(fresh.theme_config['allowed_themes'], ['dark'])
+
+    def test_legacy_homepage_fields_sync_into_canonical_config(self):
+        instance = SystemSettings.load()
+        instance.home_url = '/dashboard/'
+        instance.public_root = True
+        instance.public_root_url = '/welcome/'
+        instance.profile_config = {**instance.profile_config, 'allow_user_home_url': True}
+        instance.save(update_fields=['home_url', 'public_root', 'public_root_url', 'profile_config'])
+
+        fresh = SystemSettings._default_manager.get(pk=instance.pk)
+        self.assertEqual(fresh.homepage_config['default_url'], '/dashboard/')
+        self.assertTrue(fresh.homepage_config['allow_user_override'])
+        self.assertTrue(fresh.homepage_config['public']['enabled'])
+        self.assertEqual(fresh.homepage_config['public']['url'], '/welcome/')
+
+    def test_canonical_homepage_config_syncs_legacy_fields(self):
+        instance = SystemSettings.load()
+        instance.homepage_config = {
+            'default_url': '/dashboard/',
+            'allow_user_override': True,
+            'public': {'enabled': True, 'separate_url': True, 'url': '/welcome/'},
+        }
+        instance.save(update_fields=['homepage_config'])
+
+        fresh = SystemSettings._default_manager.get(pk=instance.pk)
+        self.assertEqual(fresh.home_url, '/dashboard/')
+        self.assertTrue(fresh.public_root_config['public_root'])
+        self.assertTrue(fresh.public_root_config['public_root_split_enabled'])
+        self.assertEqual(fresh.public_root_config['public_root_url'], '/welcome/')
+        self.assertTrue(fresh.profile_config['allow_user_home_url'])
+
+    def test_search_config_and_titlebar_legacy_keys_stay_synchronized(self):
+        instance = SystemSettings.load()
+        instance.titlebar_config = {
+            **instance.titlebar_config,
+            'global_search_mode': 'disabled',
+            'global_search_include_data': True,
+        }
+        instance.save(update_fields=['titlebar_config'])
+        instance.refresh_from_db()
+        self.assertFalse(instance.search_config['enabled'])
+        self.assertTrue(instance.search_config['include_data'])
+
+        instance.search_config = {'enabled': True, 'display_mode': 'always', 'include_data': False}
+        instance.save(update_fields=['search_config'])
+        instance.refresh_from_db()
+        self.assertEqual(instance.titlebar_config['global_search_mode'], 'always')
+        self.assertFalse(instance.titlebar_config['global_search_include_data'])
+
+    def test_runtime_promotes_pre_migration_legacy_values_before_first_save(self):
+        from dlux.system.defaults import (
+            default_homepage_config,
+            default_search_config,
+            default_titlebar_config,
+        )
+        from dlux.utils import get_system_config
+
+        instance = SystemSettings.load()
+        titlebar = default_titlebar_config()
+        titlebar.update({
+            'global_search_mode': 'disabled',
+            'global_search_include_data': True,
+        })
+        SystemSettings.objects.filter(pk=instance.pk).update(
+            is_configured=True,
+            home_url='/legacy-home/',
+            public_root_config={
+                'public_root': True,
+                'public_root_split_enabled': True,
+                'public_root_url': '/legacy-public/',
+            },
+            homepage_config=default_homepage_config(),
+            titlebar_config=titlebar,
+            search_config=default_search_config(),
+        )
+        cache.clear()
+
+        config = get_system_config()
+
+        self.assertEqual(config['homepage_config']['default_url'], '/legacy-home/')
+        self.assertEqual(config['homepage_config']['public']['url'], '/legacy-public/')
+        self.assertFalse(config['search_config']['enabled'])
+        self.assertTrue(config['search_config']['include_data'])
 
     def test_system_settings_caching(self):
         """Test that SystemSettings uses caching."""

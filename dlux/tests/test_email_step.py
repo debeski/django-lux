@@ -15,6 +15,7 @@ from dlux.models import SystemSettings
 from dlux.system.constants import (
     SETUP_STEP_COUNT,
     SETUP_STEP_EMAIL,
+    SETUP_STEP_HOMEPAGE,
     SETUP_STEP_LANGUAGES,
     SETUP_STEP_SECURITY,
 )
@@ -75,8 +76,8 @@ class EmailStepPlacementTests(TestCase):
     def test_email_step_precedes_access_and_security(self):
         """Security options depend on mail, so mail is configured first."""
         self.assertLess(SETUP_STEP_EMAIL, SETUP_STEP_SECURITY)
-        self.assertEqual(SETUP_STEP_EMAIL, SETUP_STEP_LANGUAGES + 1)
-        self.assertEqual(SETUP_STEP_COUNT, 14)
+        self.assertEqual(SETUP_STEP_EMAIL, SETUP_STEP_HOMEPAGE + 1)
+        self.assertEqual(SETUP_STEP_COUNT, 17)
 
     def test_options_panel_exposes_one_tile_per_wizard_step(self):
         import re
@@ -147,7 +148,7 @@ class EmailTestSendGuardTests(TestCase):
         DEFAULT_FROM_EMAIL='noreply@example.com',
     )
     def test_successful_test_send_verifies_the_configuration(self):
-        with patch('dlux.views.general.send_dlux_mail', return_value=True):
+        with patch('dlux.views.options.send_dlux_mail', return_value=True):
             response = self._send_test()
 
         self.assertEqual(response.status_code, 200)
@@ -165,7 +166,7 @@ class EmailTestSendGuardTests(TestCase):
         _mark_verified()
         self.assertTrue(SystemSettings.load().email_config.get('verified'))
 
-        with patch('dlux.views.general.send_dlux_mail', side_effect=OSError('connection refused')):
+        with patch('dlux.views.options.send_dlux_mail', side_effect=OSError('connection refused')):
             response = self._send_test()
 
         self.assertEqual(response.status_code, 502)
@@ -208,7 +209,9 @@ class EmailDependentLockTests(_IsolatedSettingsTestCase):
         form = SystemSettingsForm(instance=SystemSettings(is_configured=False), mode='setup')
         html = Template('{% load crispy_forms_tags %}{% crispy form %}').render(Context({'form': form}))
 
-        self.assertIn('dlux-settings-toggle-field--locked', html)
+        self.assertIn('dlux-settings-toggle-field--locked dlux-dependent-settings is-disabled', html)
+        self.assertIn("aria-disabled='true'", html)
+        self.assertIn('data-dlux-tooltip=', html)
         self.assertIn('Email must be enabled and verified', html)
 
     def test_locking_preserves_a_stored_value_instead_of_clearing_it(self):
@@ -496,7 +499,7 @@ class EmailApplyEndpointTests(_IsolatedSettingsTestCase):
             EMAIL_HOST='smtp.example.com',
             EMAIL_PORT=587,
             DEFAULT_FROM_EMAIL='sender@example.com',
-        ), patch('dlux.views.general.send_dlux_mail', return_value=True):
+        ), patch('dlux.views.options.send_dlux_mail', return_value=True):
             response = self.client.post(reverse('email_send_test'), {'recipient': 'someone@example.com'})
 
         self.assertEqual(response.status_code, 200, response.content)

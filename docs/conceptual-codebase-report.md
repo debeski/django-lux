@@ -1080,8 +1080,9 @@ database by renaming tables, updating content types, rewriting migration
 history, and rewriting activity log model keys. It is dry-run by default.
 
 `dlux_update_worker` is the generated-Compose queue/check worker. `migrator`
-owns generated-project migration/static/superuser bootstrap, and
-`seed_activity_log` is a development data helper.
+owns generated-project migration/static/superuser bootstrap. `dlux_seed` owns
+both project-row generation and optional reportable activity attribution through
+`--log`, `--user-id`, and `--scope-id`.
 
 ## 46. Optional SSO Packages
 

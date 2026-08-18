@@ -1,4 +1,3 @@
-# Fundemental imports
 import json
 import inspect
 import logging
@@ -20,7 +19,6 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit
 from django_tables2 import RequestConfig
 
-# Project imports
 from ..notifications import notify
 from ..utils import (
     is_scope_enabled,
@@ -180,17 +178,13 @@ def core_models_view(request):
     elif not user_has_section_view_permission(request.user):
         return _section_permission_denied()
 
-    # Discover section models dynamically
     section_models = discover_section_models(app_name=None, include_children=False)
     
-    # Build map for easy lookup
     models_map = {sm['model_name']: sm for sm in section_models}
     
-    # Get model from query param or session fallback
     default_model = section_models[0]['model_name'] if section_models else None
     model_param = request.GET.get('model') or request.session.get('last_active_model', default_model)
     
-    # Fallback to first discovered model if invalid
     if model_param not in models_map:
         model_param = default_model
     
@@ -209,7 +203,6 @@ def core_models_view(request):
     save_label = ui_strings.get('save', 'Save')
     cancel_label = ui_strings.get('cancel', 'Cancel')
     
-    # Get classes from discovery result
     FormClass = selected_data['form_class']
     TableClass = selected_data['table_class']
     FilterClass = selected_data['filter_class']
@@ -221,7 +214,6 @@ def core_models_view(request):
             'models': [{'name': sm['model_name'], 'ar_names': sm['verbose_name_plural'], 'count': sm['model'].objects.count()} for sm in section_models],
         })
     
-    # Check for edit mode
     instance_id = request.GET.get('id')
     instance = None
     if instance_id:
@@ -241,7 +233,6 @@ def core_models_view(request):
     
     subsection_field_names = set()
 
-    # Create form
     form = FormClass(request.POST or None, instance=instance)
     # Auto-create a crispy helper if the form doesn't define one (marks it for layout generation later)
     if not hasattr(form, "helper") or form.helper is None:
@@ -435,7 +426,6 @@ def core_models_view(request):
         
         layout_components = []
         
-        # Add hidden fields first
         hidden_fields = [
             f for f in form.fields 
             if isinstance(form.fields[f].widget, forms.HiddenInput)
@@ -443,7 +433,6 @@ def core_models_view(request):
         for hf in hidden_fields:
             layout_components.append(Field(hf))
             
-        # Helper to chunk fields
         def chunked(iterable, n):
             return [iterable[i:i + n] for i in range(0, len(iterable), n)]
             
@@ -454,12 +443,10 @@ def core_models_view(request):
             is_last_chunk = (i == total_chunks - 1)
             
             if is_last_chunk:
-                # Last chunk: Add fields + Buttons
                 row_content = []
                 for field_name in chunk:
                     row_content.append(Column(Field(field_name), css_class="col"))
                 
-                # Build Buttons HTML
                 buttons_html = build_form_actions_html(cancel_url)
                 
                 row_content.append(
@@ -470,7 +457,6 @@ def core_models_view(request):
                 )
                 layout_components.append(Row(*row_content))
             else:
-                # Normal chunk: 2 columns
                 row_content = [Column(Field(field_name), css_class="col-md-6") for field_name in chunk]
                 layout_components.append(Row(*row_content))
                 
@@ -481,7 +467,6 @@ def core_models_view(request):
 
         form.helper.layout = Layout(*layout_components)
 
-    # Build context
     context = {
         'active_model': model_param,
         'models': [
@@ -534,7 +519,6 @@ def add_subsection(request):
         _notify_section_error(request, 'err_subsection_id_missing', 'subsection_model_missing')
         return redirect('manage_sections')
 
-    # Resolve child model class
     subsection_definition = _resolve_allowed_subsection_definition(
         child_model_name,
         parent_model_name=parent_model_name,
@@ -579,7 +563,6 @@ def add_subsection(request):
                 except Exception:
                     pass
             
-            # AJAX Response
             if is_ajax:
                 return JsonResponse({'success': True, 'id': instance.pk, 'name': str(instance)})
                 
@@ -589,7 +572,6 @@ def add_subsection(request):
                 return JsonResponse({'success': False, 'error': form.errors.as_text()})
             notify.error(f"خطأ في إضافة {model._meta.verbose_name}.", request=request, action='subsection_create_invalid', category='sections')
     
-    # Redirect back to parent tab
     redirect_url = reverse('manage_sections')
     if parent_model_name:
         redirect_url += f"?model={parent_model_name}"
@@ -681,7 +663,6 @@ def delete_subsection(request, pk):
         return redirect('manage_sections')
     
     if request.method == 'POST':
-        # Check if locked (has related records)
         if has_related_records(instance, ignore_relations=['affiliates', 'affiliatedepartment_set']):
             s = get_strings()
             notify.error(
@@ -740,7 +721,6 @@ def delete_section(request):
     except model.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'العنصر غير موجود'}, status=404)
     
-    # Check if has related records (protect from deletion)
     # Use generic helper to find WHAT is related
     related_objects = collect_related_objects(instance)
     
@@ -801,7 +781,6 @@ def get_section_details(request):
         except model.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'العنصر غير موجود'}, status=404)
         
-        # 1. Collect Fields
         fields_data = {}
         exclude_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'deleted_at', 'deleted_by', 'scope', 'polymorphic_ctype', 'password']
         
@@ -809,7 +788,6 @@ def get_section_details(request):
             if field.name not in exclude_fields:
                 try:
                     val = getattr(instance, field.name)
-                    # Handle choices
                     if hasattr(instance, f"get_{field.name}_display"):
                          val = getattr(instance, f"get_{field.name}_display")()
                     label = resolve_detail_field_label(instance, field, request=request)
@@ -817,7 +795,6 @@ def get_section_details(request):
                 except:
                     pass
 
-        # 2. Collect Related Objects
         related_objects = collect_related_objects(instance)
         
         return JsonResponse({
@@ -960,7 +937,6 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         if self.model:
             return self.model
         
-        # 1. Check kwargs from URL capture
         app_label = self.kwargs.get('app_label')
         model_name = self.kwargs.get('model_name')
         if app_label and model_name:
@@ -969,7 +945,6 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             except (LookupError, ValueError):
                 pass
         
-        # 2. Fallback to query param
         model_name = self.request.GET.get('model')
         if model_name:
             return resolve_model_by_name(model_name)
@@ -1006,18 +981,15 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
         if not self._guard_model_access(model, instance=instance, show_table=show_table, show_form=show_form, action=action):
             return JsonResponse({'error': 'Permission denied'}, status=403)
 
-        # 1. Resolve Classes
         classes = get_model_classes(model._meta.model_name, app_label=model._meta.app_label)
         if not classes:
             return JsonResponse({'error': 'Failed to resolve classes'}, status=500)
 
-        # 2. Handle List (Table)
         table = None
         f = None
         
         if show_table:
             queryset = _scope_filtered_modal_queryset(model, request.user)
-            # Filter (optional)
             if classes['filter']:
                 f = classes['filter'](request.GET, queryset=queryset)
                 from dlux.utils import setup_filter_helper
@@ -1030,13 +1002,11 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
             
             RequestConfig(request).configure(table)
 
-        # 4. Handle Form (Edit or Create)
         form = None
         if show_form:
             form_class = self.form_class or classes['form']
             form = self._build_form(form_class, instance=instance)
         
-        # 5. Render
         context = {
             'model': model,
             'table': table,
@@ -1117,7 +1087,6 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
                 'add_more': getattr(form, 'add_more', False),
             })
         
-        # Form invalid, return form HTML with errors
         context = {
             'model': model,
             'form': form,
@@ -1137,7 +1106,6 @@ class DynamicModalManagerView(LoginRequiredMixin, View):
                 request.GET.get('step'),
                 form.errors.get_json_data(),
             )
-        # Render combined view for validation failure
         html = render_to_string('dlux/helpers/dynamic_modal_combined.html', context, request=request)
         return JsonResponse({'success': False, 'html': html})
 
@@ -1153,7 +1121,6 @@ class DynamicModalDeleteView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         model_class = self.model
         if not model_class:
-            # 1. Check kwargs from URL capture
             app_label = kwargs.get('app_label')
             model_name = kwargs.get('model_name')
             if app_label and model_name:
@@ -1162,7 +1129,6 @@ class DynamicModalDeleteView(LoginRequiredMixin, View):
                 except (LookupError, ValueError):
                     pass
             
-            # 2. Fallback to query param
             if not model_class:
                 model_name = request.GET.get('model')
                 model_class = resolve_model_by_name(model_name)

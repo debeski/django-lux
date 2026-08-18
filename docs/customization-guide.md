@@ -931,12 +931,13 @@ window.get_custom_tutorial_steps = function(path) {
 The system automatically:
 
 - merges your custom steps with the built-in path-aware defaults
-- filters out steps whose target element is missing from the DOM
+- resolves selectors when the tour starts and filters out targets that are missing or not rendered
+- collapses duplicate steps that resolve to the same element
 - keeps Driver.js loading, controls, translations, and button chrome inside the framework layer
 
 That means project code normally only needs to supply selectors and popover content.
 
-If your project needs translated strings inside the custom hook, `dlux/base.html` already exposes the resolved translation map on `window.DLUX_STRINGS`. A tiny helper is usually enough:
+If your project needs translated strings inside the custom hook, `dlux/base.html` already exposes the active display language's resolved translation map on `window.DLUX_STRINGS`. Use that shared object rather than creating a tutorial-only payload or global. A tiny helper is usually enough:
 
 ```javascript
 function tr(key, fallback) {
@@ -963,6 +964,8 @@ window.get_custom_tutorial_steps = function(path) {
 ```
 
 Use this hook for project-specific additions. Use Dlux source edits only when the default tutorial engine itself needs to change for every project.
+
+Framework-owned tutorial copy uses explicit `tut_*` keys. Every such key referenced by the built-in JavaScript must resolve in every shipped language; the translation coverage test enforces that contract so an English literal cannot silently replace missing Arabic copy.
 
 ## Autofill and Sticky Forms
 
@@ -1153,6 +1156,37 @@ If a page is primarily a form, prefer the dedicated form base instead of loading
 - the shared scan-link helper scripts used by the file widget
 
 This keeps normal non-form pages free of form-only imports while giving full-page forms one consistent supported entrypoint.
+
+For a submit rail outside the form itself, use the opt-in `form_content` and
+`form_footer` blocks. The footer is empty by default, so existing templates that
+override `content` continue to render exactly as before. Give the form an `id` and
+associate each footer submit control with it using the HTML `form` attribute:
+
+```django
+{% extends "dlux/form_base.html" %}
+
+{% block form_content %}
+<form id="profile-form" method="post">
+    {% csrf_token %}
+    {% crispy form %}
+</form>
+{% endblock %}
+
+{% block form_footer %}
+<footer class="dlux-form-footer">
+    <button type="submit" form="profile-form" class="dlux-form-action dlux-form-action-primary">
+        Save
+    </button>
+</footer>
+{% endblock %}
+```
+
+At desktop widths (768px and up), `.dlux-form-footer` sticks to the bottom of the
+page's scrolling content pane. It visually meets `.dlux-footer` when the global
+footer is rendered and uses the viewport edge when it is not. The opt-in form
+surface establishes a page-local layout boundary, keeping wheel input in the
+content pane without adding artificial space after the final field. On smaller
+screens the footer stays in normal document flow.
 
 ### List and Filter Pages
 

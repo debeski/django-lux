@@ -35,3 +35,19 @@ celerybeat-*
 .codex
 db.sqlite3
 *plan.md
+
+# Browser test harness: the code is versioned (see tests-e2e/), only the
+# machine-local artefacts are not. `prune tests-e2e` keeps all of it out of the
+# sdist and wheel; nothing here runs in the release pipeline.
+tests-e2e/node_modules/
+tests-e2e/state/
+tests-e2e/shots/
+tests-e2e/noise.json
+# Measured per-image render noise and the theme-reach dump are machine-local
+# derived data. reach.json in particular is ~29k lines and would dominate every
+# LOC report it appears in.
+tests-e2e/reach.json
+
+# neonloc output redirected to the repo root; the tool's own .neonloc/ is
+# already ignored above.
+/LOC

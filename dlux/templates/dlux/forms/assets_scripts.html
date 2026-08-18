@@ -1,6 +1,8 @@
 {% load static %}
 {% load dlux_tags %}
+{% if DLUX_SCANLINK_ENABLED %}
 <script src="{% dlux_static 'dlux/helpers/scanlink/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>
 <script src="{% dlux_static 'dlux/helpers/scanlink/js/scan_button.js' %}" nonce="{{ request.csp_nonce }}"></script>
+{% endif %}
 <script src="{% dlux_static 'dlux/helpers/filefield/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>
 <script src="{% dlux_static 'dlux/helpers/asset_picker/js/main.js' %}" nonce="{{ request.csp_nonce }}"></script>

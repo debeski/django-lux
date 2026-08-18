@@ -38,12 +38,12 @@
     </div>
     <div class="titlebar__side titlebar__side--end pe-2">
         {% if user.is_authenticated %}
-            {% if titlebar.global_search_mode != 'disabled' %}
+            {% if search.enabled %}
             <div class="dlux-global-search no-print"
                  data-global-search
-                 data-global-search-mode="{{ titlebar.global_search_mode|default:'icon' }}"
+                 data-global-search-mode="{{ search.display_mode|default:'icon' }}"
                  data-global-search-url="{% url 'global_search' %}"
-                 data-global-search-include-data="{% if titlebar.global_search_include_data %}1{% else %}0{% endif %}">
+                 data-global-search-include-data="{% if search.include_data %}1{% else %}0{% endif %}">
                 <button type="button" class="dlux-global-search__toggle" data-global-search-toggle
                         data-dlux-tooltip="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}"
                         aria-label="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}">
@@ -56,7 +56,7 @@
                            aria-label="{{ DLUX_STRINGS.global_search_placeholder|default:'Search' }}"
                            role="combobox" aria-expanded="false" aria-autocomplete="list"
                            aria-controls="dlux-global-search-results" dir="auto"
-                           autocomplete="off" name="dlux-global-search"
+                           autocomplete="off"
                            data-1p-ignore data-lpignore="true" data-form-type="other">
                     <span class="dlux-global-search__hint" aria-hidden="true">Ctrl K</span>
                 </div>
@@ -90,7 +90,7 @@
             <div class="titlebar__actions titlebar__actions--dropdown" data-titlebar-actions-group="dropdown">
                 {% include 'dlux/notifications/main.html' %}
                 <a
-                    href="{{ APP_CONFIG.home_url }}"
+                    href="{{ APP_CONFIG.homepage_config.default_url }}"
                     class="dlux-titlebar-btn dlux-titlebar-home"
                     data-dlux-tooltip="{{ DLUX_STRINGS.btn_home }}"
                     aria-label="{{ DLUX_STRINGS.btn_home }}"

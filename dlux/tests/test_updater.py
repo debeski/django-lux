@@ -137,6 +137,52 @@ def make_wheel(path, version="1.2.3", *, manifest=None, requires=(), requires_py
     return path
 
 
+class StateOnlyMigrationGateTests(SimpleTestCase):
+    """The `SeparateDatabaseAndState` allowance in the inline-safety gate.
+
+    No shipped migration uses it right now — 0018 did until it was folded into
+    0016, where the choice became part of CreateModel and the field alteration
+    disappeared. RELEASING.md still documents the pattern for the next genuinely
+    column-free field change, so it is tested directly rather than left as
+    untested capability waiting for its first user.
+    """
+
+    @staticmethod
+    def _op(source):
+        import ast
+        return ast.parse(source, mode='eval').body
+
+    def test_an_empty_database_operations_list_is_safe(self):
+        from dlux.updater.release_check import _separate_state_is_safe
+        self.assertTrue(_separate_state_is_safe(self._op(
+            "migrations.SeparateDatabaseAndState("
+            "database_operations=[], state_operations=[migrations.AlterField()])"
+        )))
+
+    def test_a_populated_database_operations_list_is_not_safe(self):
+        from dlux.updater.release_check import _separate_state_is_safe
+        self.assertFalse(_separate_state_is_safe(self._op(
+            "migrations.SeparateDatabaseAndState("
+            "database_operations=[migrations.RunSQL('SELECT 1')], state_operations=[])"
+        )))
+
+    def test_omitting_database_operations_is_not_safe(self):
+        """Absent is not empty: Django would then run the state ops for real."""
+        from dlux.updater.release_check import _separate_state_is_safe
+        self.assertFalse(_separate_state_is_safe(self._op(
+            "migrations.SeparateDatabaseAndState(state_operations=[migrations.AlterField()])"
+        )))
+
+    def test_the_positional_form_is_read_too(self):
+        from dlux.updater.release_check import _separate_state_is_safe
+        self.assertTrue(_separate_state_is_safe(self._op(
+            "migrations.SeparateDatabaseAndState([], [migrations.AlterField()])"
+        )))
+        self.assertFalse(_separate_state_is_safe(self._op(
+            "migrations.SeparateDatabaseAndState([migrations.RunSQL('SELECT 1')], [])"
+        )))
+
+
 class ManifestTests(TestCase):
     def test_manifest_schema_and_version_are_enforced(self):
         self.assertEqual(validate_release_manifest(release_manifest(), "1.2.3")["version"], "1.2.3")

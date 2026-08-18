@@ -1,17 +1,10 @@
 (function () {
     'use strict';
 
-    const SETUP_STATE_KEY_PREFIX = 'dlux.systemSetupState:';
     // Shared Bootstrap-Icons catalog, owned by helpers/icon_picker/js/main.js
     // (loaded before this file) so the picker and the sidebar builder stay in sync.
     const ICON_SUGGESTIONS = (window.DluxIconPicker && window.DluxIconPicker.suggestions) || [];
 
-    function t(key, fallback) {
-        if (window.DLUX_STRINGS && typeof window.DLUX_STRINGS[key] === 'string' && window.DLUX_STRINGS[key]) {
-            return window.DLUX_STRINGS[key];
-        }
-        return fallback;
-    }
 
     function parseJson(text, fallback) {
         try {
@@ -34,6 +27,125 @@
     ];
 
     const TITLEBAR_ACTIONS_KNOWN = new Set(TITLEBAR_ACTIONS_DEFAULT_ORDER);
+
+    // Pure builder/config transforms live in setup/js/builder_model.js so they
+    // can be unit tested without a DOM. Destructured here so every call site in
+    // this file reads exactly as it did when they were local declarations.
+    const {
+        normalizeLanguageCode,
+        normalizeNavbarBuilderNode,
+        readNavbarBuilderConfig,
+        navbarHierarchyHasNodes,
+        sidebarLabelPayload,
+        sidebarNodeId,
+        sidebarEntryToNavbarNode,
+        normalizeCatalog,
+        buildCatalogLookup,
+        findCatalogEntry,
+        cloneEntry,
+        makeGroupId,
+        collectSelectedItemIds,
+        availableItems,
+        groupedAvailableItems,
+        findEntryLocation,
+        insertEntryIntoConfig,
+        topLevelItems,
+        availableItemDisplayLabel,
+        cloneGroupEntry,
+        extractImportedSettings,
+        frameworkDefaultLabels,
+        humanizeKey,
+        normalizeEntry,
+        normalizeSidebarConfig,
+        resolveBuilderGroupLabel,
+        resolveBuilderItemLabel
+    } = window.DluxSetupModel;
+
+    // Theme and font pickers live in setup/js/appearance.js so they can be
+    // exercised in isolation. Destructured here so `scan()` calls them exactly
+    // as it did when they were local declarations.
+    const {
+        initSetupThemePicker,
+        initSetupFontPicker,
+        unlockEmailDependentFields,
+        initEmailApply,
+        initEmailSendTest,
+        initEmailDeliveryOptions,
+        initLogBuilder,
+        initProfileBuilder,
+        applyBrandingFilePreviews,
+        applyFooterPreview,
+        applyLayoutBodyPreview,
+        applyNotificationPreview,
+        applySetupFormStateValues,
+        applyTableDensityPreview,
+        getSetupStateKey,
+        persistSetupFormState,
+        readBooleanField,
+        readSetupWizardCurrentStep,
+        readTrimmedValue,
+        rememberSetupWizardStep,
+        resolveSetupStateSurface,
+        setPreviewVisibility,
+        applyTranslationOverridesToMatrix,
+        createLanguageRow,
+        createSystemNameRow,
+        currentSetupLanguageCode,
+        ensureTranslationLanguageColumn,
+        escapeHtml,
+        findSystemNameRow,
+        getSetupLanguageCount,
+        initLanguageFontsEditor,
+        readSystemNames,
+        removeTranslationLanguageColumn,
+        syncTranslationOverrides,
+        firstInvalidControlInStep,
+        getSetupAllowedThemeCount,
+        initGlobalSearchOptions,
+        initSetupHomeFields,
+        initSystemSetupEnterBehavior,
+        initSystemSetupStepValidation,
+        isElementVisible,
+        setJsonField,
+        setNamedFieldReadonly,
+        syncTitlebarActionsBuilderVisibility
+    } = window.DluxSetup;
+
+    // Shared field/dependent helpers and the security cluster now live in
+    // setup/js/dom.js and setup/js/security.js. Destructured so every call site
+    // below reads exactly as it did when these were local declarations.
+    const {
+        t,
+        namedFieldSelector,
+        getNamedFieldInputs,
+        getNamedFieldValue,
+        setNamedFieldDisabled,
+        applyDependentTooltip,
+        dependentReason,
+        setDependentFieldEnabled,
+        getSetupStepControls,
+        isElementHiddenInsideStep,
+        restoreImportedEmailPasswordNotice,
+        setBuilderSectionEnabled,
+        setCheckboxField,
+        setDependentSectionEnabled,
+        setImportedEmailPasswordNotice,
+        setImportedSetupFinishVisible,
+        setNamedFieldValue,
+        setupRequiresEmailPassword,
+        stepHasRenderedServerError,
+        stepHasValidationError,
+        syncSetupCustomValidation,
+        updateSetupStepValidationState
+    } = window.DluxSetupDom;
+    const {
+        syncPublicRootVisibility,
+        initPublicRegistrationOptions,
+        initPublicRootOptions,
+        initClientIpOptions,
+        initAuthSecurityOptions,
+        initLoginPageOptions
+    } = window.DluxSetup;
 
     function normalizeTitlebarActionsOrder(value) {
         let rawValue = value;
@@ -73,19 +185,7 @@
         field.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    function resolveSetupStateSurface(form) {
-        const action = form && form.getAttribute ? (form.getAttribute('action') || '') : '';
-        try {
-            const url = new URL(action || window.location.href, window.location.origin);
-            return `${url.pathname}${url.search}`;
-        } catch (err) {
-            return `${window.location.pathname}${window.location.search}`;
-        }
-    }
 
-    function getSetupStateKey(form) {
-        return `${SETUP_STATE_KEY_PREFIX}${resolveSetupStateSurface(form)}`;
-    }
 
     function readSetupState(form) {
         try {
@@ -95,151 +195,9 @@
         }
     }
 
-    function readSetupWizardCurrentStep(form) {
-        if (!form) {
-            return null;
-        }
-        const datasetStep = Number(form.dataset.dluxWizardCurrentStep);
-        if (Number.isInteger(datasetStep) && datasetStep >= 0) {
-            return datasetStep;
-        }
-        const activeNavItem = form.querySelector('[data-dlux-wizard-step-target].is-active');
-        const activeNavStep = activeNavItem ? Number(activeNavItem.getAttribute('data-dlux-wizard-step-target')) : NaN;
-        if (Number.isInteger(activeNavStep) && activeNavStep >= 0) {
-            return activeNavStep;
-        }
-        const steps = Array.from(form.querySelectorAll('.wizard-step'));
-        const visibleIndex = steps.findIndex((step) => (
-            !step.classList.contains('d-none') &&
-            step.getAttribute('aria-hidden') !== 'true' &&
-            step.style.display !== 'none'
-        ));
-        return visibleIndex >= 0 ? visibleIndex : null;
-    }
 
-    function rememberSetupWizardStep(form, step) {
-        const resolvedStep = Number(step);
-        if (!form || !Number.isInteger(resolvedStep) || resolvedStep < 0) {
-            return;
-        }
-        form.dataset.dluxWizardCurrentStep = String(resolvedStep);
-    }
 
-    function persistSetupFormState(form) {
-        if (!form || !form.classList.contains('dlux-system-setup-form')) {
-            return;
-        }
 
-        const state = {
-            surface: resolveSetupStateSurface(form),
-            values: {},
-        };
-        const currentStep = readSetupWizardCurrentStep(form);
-        if (currentStep !== null) {
-            state.currentStep = currentStep;
-        }
-
-        const fieldsByName = new Map();
-        form.querySelectorAll('input[name], select[name], textarea[name]').forEach((field) => {
-            if (!field.name || field.name === 'csrfmiddlewaretoken' || field.disabled || field.type === 'file') {
-                return;
-            }
-            if (!fieldsByName.has(field.name)) {
-                fieldsByName.set(field.name, []);
-            }
-            fieldsByName.get(field.name).push(field);
-        });
-
-        fieldsByName.forEach((fields, name) => {
-            if (!fields.length) {
-                return;
-            }
-            const firstField = fields[0];
-
-            if (firstField.type === 'radio') {
-                const checked = fields.find((field) => field.checked);
-                if (checked) {
-                    state.values[name] = checked.value;
-                }
-                return;
-            }
-
-            if (firstField.type === 'checkbox') {
-                if (fields.length === 1) {
-                    state.values[name] = Boolean(firstField.checked);
-                } else {
-                    state.values[name] = fields
-                        .filter((field) => field.checked)
-                        .map((field) => field.value);
-                }
-                return;
-            }
-
-            if (firstField.multiple && firstField.options) {
-                state.values[name] = Array.from(firstField.selectedOptions).map((option) => option.value);
-                return;
-            }
-
-            state.values[name] = firstField.value;
-        });
-
-        sessionStorage.setItem(getSetupStateKey(form), JSON.stringify(state));
-    }
-
-    function applySetupFormStateValues(form, values, options) {
-        const config = options && typeof options === 'object' ? options : {};
-        const dispatchEvents = Boolean(config.dispatchEvents);
-        const fieldsToDispatch = [];
-        Object.entries(values || {}).forEach(([name, value]) => {
-            const safeName = String(name).replace(/"/g, '\\"');
-            const fields = Array.from(form.querySelectorAll(`[name="${safeName}"]`));
-            if (!fields.length) {
-                return;
-            }
-
-            if (fields[0].type === 'radio') {
-                fields.forEach((field) => {
-                    field.checked = field.value === value;
-                });
-                if (dispatchEvents) {
-                    const checked = fields.find((field) => field.checked);
-                    if (checked) {
-                        fieldsToDispatch.push({ field: checked, input: false, change: true });
-                    }
-                }
-                return;
-            }
-
-            fields.forEach((field) => {
-                if (field.type === 'checkbox') {
-                    if (Array.isArray(value)) {
-                        const allowedValues = value.map((item) => String(item));
-                        field.checked = allowedValues.includes(String(field.value));
-                    } else {
-                        field.checked = Boolean(value);
-                    }
-                } else if (field.multiple && field.options && Array.isArray(value)) {
-                    const selectedValues = value.map((item) => String(item));
-                    Array.from(field.options).forEach((option) => {
-                        option.selected = selectedValues.includes(String(option.value));
-                    });
-                } else if (field.type !== 'file') {
-                    field.value = value;
-                }
-                if (dispatchEvents && field.type !== 'file') {
-                    fieldsToDispatch.push({ field, input: field.type !== 'checkbox', change: true });
-                }
-            });
-        });
-        fieldsToDispatch.forEach(({ field, input, change }) => {
-            if (input) {
-                field.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            if (change) {
-                field.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        });
-    }
 
     function restoreSetupFormState(root) {
         root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
@@ -280,7 +238,6 @@
                 applySetupFormStateValues(form, state.values, { dispatchEvents: true });
                 rehydrateSetupLanguageEditors(form);
                 restoreImportedEmailPasswordNotice(form);
-                syncSetupLanguagePickers(form);
                 syncTranslationOverrides(form);
                 applyImmediateSystemSettingsPreview(form);
                 sessionStorage.removeItem(getSetupStateKey(form));
@@ -289,12 +246,6 @@
         });
     }
 
-    function restoreImportedEmailPasswordNotice(form) {
-        if (!form) return;
-        const importProcessed = String(getNamedFieldValue(form, 'settings_import_processed') || '').toLowerCase() === 'true';
-        if (!importProcessed) return;
-        setImportedEmailPasswordNotice(form, setupRequiresEmailPassword(form));
-    }
 
     function rehydrateSetupLanguageEditors(form) {
         if (!form || !form.querySelector('[data-language-catalog-editor]')) {
@@ -325,146 +276,17 @@
         return null;
     };
 
-    function humanizeKey(value) {
-        return String(value || '')
-            .split(':')
-            .pop()
-            .replace(/[_-]+/g, ' ')
-            .replace(/\b\w/g, (char) => char.toUpperCase())
-            .trim();
-    }
 
-    function namedFieldSelector(name) {
-        return `[name="${String(name || '').replace(/"/g, '\\"')}"]`;
-    }
 
-    function getNamedFieldInputs(form, name) {
-        return Array.from(form.querySelectorAll(namedFieldSelector(name)));
-    }
 
-    function getNamedFieldValue(form, name) {
-        const inputs = getNamedFieldInputs(form, name);
-        if (!inputs.length) {
-            return '';
-        }
 
-        if (inputs[0].type === 'radio') {
-            const checked = inputs.find((input) => input.checked);
-            return checked ? checked.value : '';
-        }
 
-        return inputs[0].value;
-    }
 
-    function setNamedFieldValue(form, name, value) {
-        const inputs = getNamedFieldInputs(form, name);
-        if (!inputs.length) {
-            return;
-        }
 
-        if (inputs[0].type === 'radio') {
-            inputs.forEach((input) => {
-                input.checked = String(input.value) === String(value);
-            });
-            // Choice-selector widgets track their highlighted option from a 'change'
-            // event on the checked input; without this they keep the previously-selected
-            // option visually marked (two options appearing selected at once).
-            const checked = inputs.find((input) => input.checked) || inputs[0];
-            checked.dispatchEvent(new Event('change', { bubbles: true }));
-            return;
-        }
 
-        inputs[0].value = value;
-        inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
-        inputs[0].dispatchEvent(new Event('change', { bubbles: true }));
-    }
 
-    function setNamedFieldReadonly(form, name, isReadonly) {
-        const inputs = getNamedFieldInputs(form, name);
-        if (!inputs.length) {
-            return;
-        }
 
-        const selectorRoot = inputs[0].closest('[data-dlux-selector]');
-        if (selectorRoot) {
-            selectorRoot.classList.toggle('is-readonly', Boolean(isReadonly));
-        }
 
-        inputs.forEach((input) => {
-            if (isReadonly) {
-                input.setAttribute('tabindex', '-1');
-                input.setAttribute('aria-disabled', 'true');
-            } else {
-                input.removeAttribute('tabindex');
-                input.removeAttribute('aria-disabled');
-            }
-        });
-    }
-
-    function setNamedFieldDisabled(form, name, isDisabled) {
-        const inputs = getNamedFieldInputs(form, name);
-        if (!inputs.length) {
-            return;
-        }
-
-        const selectorRoot = inputs[0].closest('[data-dlux-selector]');
-        if (selectorRoot) {
-            selectorRoot.classList.toggle('is-disabled', Boolean(isDisabled));
-            selectorRoot.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
-        }
-
-        inputs.forEach((input) => {
-            input.disabled = Boolean(isDisabled);
-            if (isDisabled) {
-                input.setAttribute('aria-disabled', 'true');
-            } else {
-                input.removeAttribute('aria-disabled');
-            }
-        });
-    }
-
-    function setPreviewVisibility(element, isVisible) {
-        if (!element) {
-            return;
-        }
-        element.classList.toggle('d-none', !isVisible);
-        element.style.display = isVisible ? '' : 'none';
-    }
-
-    function readBooleanField(form, selector, fallback) {
-        const field = form.querySelector(selector);
-        if (!field) {
-            return Boolean(fallback);
-        }
-        return Boolean(field.checked);
-    }
-
-    function readTrimmedValue(form, selector, fallback) {
-        const field = form.querySelector(selector);
-        if (!field) {
-            return fallback || '';
-        }
-        return String(field.value || fallback || '').trim();
-    }
-
-    function getSetupAllowedThemeCount(form) {
-        const checkboxes = Array.from(form.querySelectorAll('[data-setup-theme-allowed]'));
-        if (checkboxes.length) {
-            return checkboxes.filter((checkbox) => checkbox.checked).length;
-        }
-        const preservedCount = Number(form.dataset.dluxAllowedThemeCount);
-        return Number.isFinite(preservedCount) && preservedCount >= 0 ? preservedCount : 0;
-    }
-
-    function getSetupLanguageCount(form) {
-        const renderedCount = form.querySelectorAll('[data-language-row]').length
-            || form.querySelectorAll('[data-setup-language-choice]').length;
-        if (renderedCount) {
-            return renderedCount;
-        }
-        const preservedCount = Number(form.dataset.dluxLanguageCount);
-        return Number.isFinite(preservedCount) && preservedCount >= 0 ? preservedCount : 0;
-    }
 
     function syncSidebarBehaviorConfig(form) {
         if (!form) {
@@ -494,65 +316,6 @@
         hiddenInput.value = JSON.stringify(nextConfig);
     }
 
-    function normalizeNavbarBuilderNode(rawNode) {
-        if (!rawNode || typeof rawNode !== 'object') {
-            return null;
-        }
-        const id = String(rawNode.id || '').trim();
-        if (!id) {
-            return null;
-        }
-        const kind = rawNode.kind === 'route' ? 'route' : 'manual';
-        const labels = {};
-        Object.entries(rawNode.labels || {}).forEach(([rawCode, rawLabel]) => {
-            const code = normalizeLanguageCode(rawCode);
-            const label = String(rawLabel || '').trim();
-            if (code && label) {
-                labels[code] = label;
-            }
-        });
-        const node = {
-            kind,
-            id,
-            children: (Array.isArray(rawNode.children) ? rawNode.children : [])
-                .map(normalizeNavbarBuilderNode)
-                .filter(Boolean),
-        };
-        if (Object.keys(labels).length) {
-            node.labels = labels;
-        }
-        const url = String(rawNode.url || '').trim();
-        if (url) {
-            node.url = url;
-        }
-        if (kind === 'route') {
-            node.url_name = String(rawNode.url_name || id).trim() || id;
-        }
-        return node;
-    }
-
-    function readNavbarBuilderConfig(rawConfig) {
-        const config = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
-        const hierarchy = config.hierarchy && typeof config.hierarchy === 'object' ? config.hierarchy : {};
-        const rawRoot = config.root && typeof config.root === 'object' ? config.root : {};
-        const rootMode = ['neutral', 'home', 'route'].includes(rawRoot.mode) ? rawRoot.mode : 'neutral';
-        const rootUrlName = rootMode === 'route' ? String(rawRoot.url_name || '').trim() : '';
-        return {
-            enabled: Boolean(config.enabled),
-            default_mode: config.default_mode === 'history' ? 'history' : 'hierarchy',
-            allow_user_mode_override: config.allow_user_mode_override !== false,
-            root: {
-                mode: rootMode === 'route' && !rootUrlName ? 'neutral' : rootMode,
-                url_name: rootMode === 'route' ? rootUrlName : '',
-            },
-            hierarchy: {
-                nodes: (Array.isArray(hierarchy.nodes) ? hierarchy.nodes : [])
-                    .map(normalizeNavbarBuilderNode)
-                    .filter(Boolean),
-            },
-        };
-    }
-
     function syncNavbarBehaviorConfig(form) {
         if (!form) {
             return;
@@ -568,78 +331,6 @@
         hiddenInput.value = JSON.stringify(config);
     }
 
-    function navbarHierarchyHasNodes(config) {
-        return Boolean(config && config.hierarchy && Array.isArray(config.hierarchy.nodes) && config.hierarchy.nodes.length);
-    }
-
-    function currentSetupLanguageCode(form) {
-        return normalizeLanguageCode(getNamedFieldValue(form, 'default_language') || 'en') || 'en';
-    }
-
-    function sidebarLabelPayload(entry, langCode) {
-        const label = String(entry && entry.label ? entry.label : '').trim();
-        return label ? { [langCode]: label } : {};
-    }
-
-    function sidebarNodeId(prefix, entry, index) {
-        return String(
-            (entry && (entry.url_name || entry.id || entry.url)) || `${prefix}-${index}`
-        ).trim();
-    }
-
-    function sidebarEntryToNavbarNode(entry, index, langCode) {
-        if (!entry || typeof entry !== 'object') {
-            return null;
-        }
-        if ((entry.kind || 'item') === 'group') {
-            const children = (Array.isArray(entry.items) ? entry.items : [])
-                .map((child, childIndex) => sidebarEntryToNavbarNode(child, childIndex, langCode))
-                .filter(Boolean);
-            if (!children.length) {
-                return null;
-            }
-            const urlName = String(entry.url_name || '').trim();
-            const node = {
-                kind: urlName ? 'route' : 'manual',
-                id: sidebarNodeId('sidebar-group', entry, index),
-                children,
-            };
-            if (urlName) {
-                node.url_name = urlName;
-            }
-            const url = String(entry.url || '').trim();
-            if (url) {
-                node.url = url;
-            }
-            const labels = sidebarLabelPayload(entry, langCode);
-            if (Object.keys(labels).length) {
-                node.labels = labels;
-            }
-            return node;
-        }
-
-        const urlName = String(entry.url_name || '').trim();
-        const url = String(entry.url || '').trim();
-        if (!urlName && !url) {
-            return null;
-        }
-        const node = {
-            kind: urlName ? 'route' : 'manual',
-            id: sidebarNodeId('sidebar-item', entry, index),
-            children: [],
-        };
-        if (urlName) {
-            node.url_name = urlName;
-        }
-        if (url) {
-            node.url = url;
-        }
-        const labels = sidebarLabelPayload(entry, langCode);
-        if (Object.keys(labels).length) {
-            node.labels = labels;
-        }
-        return node;
-    }
 
     function seedNavbarConfigFromSidebar(form) {
         const shell = form ? form.closest('.dlux-system-settings-shell') : null;
@@ -1113,61 +804,7 @@
         }
     }
 
-    function applyNotificationPreview(form) {
-        const notificationsEnabled = readBooleanField(form, '#id_notifications_enabled', true);
-        const flashEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_flash_enabled', true);
-        const flashPosition = getNamedFieldValue(form, 'notification_flash_position') || 'top_center';
-        const flashSize = getNamedFieldValue(form, 'notification_flash_size') || 'balanced';
-        const flashTextSize = getNamedFieldValue(form, 'notification_flash_text_size') || 'md';
-        const flashTimeout = readTrimmedValue(form, '#id_notification_flash_timeout_ms', '3200') || '3200';
-        const flashMaxVisible = readTrimmedValue(form, '#id_notification_flash_max_visible', '3') || '3';
-        document.querySelectorAll('.dlux-flash-container, .dlux-page-alert-container').forEach((container) => {
-            container.dataset.dluxFlashPosition = flashPosition;
-            container.dataset.dluxFlashSize = flashSize;
-            container.dataset.dluxFlashTextSize = flashTextSize;
-            container.dataset.dluxFlashTimeout = flashTimeout;
-            container.dataset.dluxFlashMaxVisible = flashMaxVisible;
-            setPreviewVisibility(container, flashEnabled);
-        });
 
-        const drawerEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_drawer_enabled', true);
-        const badgeEnabled = notificationsEnabled && readBooleanField(form, '#id_notification_badge_enabled', true);
-        const notificationRoots = Array.from(document.querySelectorAll('[data-dlux-notifications]'));
-        notificationRoots.forEach((notifications) => {
-            notifications.dataset.dluxNotificationsEnabled = drawerEnabled ? 'true' : 'false';
-            notifications.dataset.badgeEnabled = badgeEnabled ? 'true' : 'false';
-            setPreviewVisibility(notifications, drawerEnabled);
-            notifications.querySelectorAll('[data-dlux-notifications-badge]').forEach((badge) => {
-                const hasCount = String(badge.textContent || '').trim().length > 0;
-                badge.classList.toggle('d-none', !badgeEnabled || !hasCount);
-            });
-        });
-    }
-
-    function applyBrandingFilePreviews(form) {
-        const logoInput = form.querySelector('#id_logo');
-        const faviconInput = form.querySelector('#id_favicon');
-
-        if (logoInput && logoInput.files && logoInput.files[0]) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                document.querySelectorAll('.titlebar__logo, .dlux-setup-page-logo').forEach((image) => {
-                    image.setAttribute('src', reader.result);
-                });
-            };
-            reader.readAsDataURL(logoInput.files[0]);
-        }
-
-        if (faviconInput && faviconInput.files && faviconInput.files[0]) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                document.querySelectorAll('link[rel="icon"]').forEach((favicon) => {
-                    favicon.setAttribute('href', reader.result);
-                });
-            };
-            reader.readAsDataURL(faviconInput.files[0]);
-        }
-    }
 
     function applySidebarPreview(form) {
         const sidebar = document.getElementById('sidebar');
@@ -1281,50 +918,8 @@
         setPreviewVisibility(sidebarDensityCard, sidebarEnabled && allowUserDensity);
     }
 
-    function applyTableDensityPreview(form) {
-        const density = getNamedFieldValue(form, 'default_table_density') || 'balanced';
-        if (typeof window.applyDluxTableDensityPreview === 'function') {
-            window.applyDluxTableDensityPreview(density);
-        }
-    }
 
-    function applyLayoutBodyPreview(form) {
-        // Live-preview only the GLOBAL layout settings on the <body> behind the
-        // modal: sticky headers, column resizing, and zebra striping (admin-only,
-        // no per-user override). `default_form_density` and `default_modal_size` are the admin
-        // DEFAULTS for those per-user preferences — previewing them here would
-        // overwrite the editing admin's OWN resolved `data-dlux-form-density` /
-        // `data-dlux-modal-size` (which reflect their personal Options choice),
-        // making every modal snap to the global default. So they are NOT previewed.
-        if (form.querySelector('[name="sticky_table_headers"]')) {
-            document.body.dataset.dluxStickyHeader = readBooleanField(form, '#id_sticky_table_headers', true) ? 'on' : 'off';
-        }
-        if (form.querySelector('[name="resizable_table_columns"]')) {
-            document.body.dataset.dluxTableResize = readBooleanField(form, '#id_resizable_table_columns', true) ? 'on' : 'off';
-        }
-        if (form.querySelector('[name="zebra_striping"]')) {
-            document.body.dataset.dluxZebra = readBooleanField(form, '#id_zebra_striping', true) ? 'on' : 'off';
-        }
-    }
 
-    function applyFooterPreview(form) {
-        // Best-effort: the footer element only exists in the DOM when enabled, so
-        // we can hide a shown footer and update its text/link live; enabling a
-        // currently-absent footer only takes effect after save.
-        if (!form.querySelector('[name="footer_enabled"]')) {
-            return;
-        }
-        const enabled = readBooleanField(form, '#id_footer_enabled', true);
-        const footer = document.querySelector('footer.dlux-footer');
-        if (footer) {
-            footer.style.display = enabled ? '' : 'none';
-            const textEl = footer.querySelector('.dlux-footer__text');
-            const text = getNamedFieldValue(form, 'footer_text');
-            if (textEl && text) {
-                textEl.textContent = text;
-            }
-        }
-    }
 
     function applyImmediateSystemSettingsPreview(form) {
         if (!form || !form.classList.contains('dlux-system-setup-form')) {
@@ -1365,329 +960,12 @@
         });
     }
 
-    function availableItemDisplayLabel(item) {
-        // Trust the server-resolved catalog label directly, exactly like the navbar
-        // builder (renderRoutes uses entry.label as-is). The catalog label already
-        // went through the full translation chain server-side. The previous logic
-        // discarded a label that merely equalled its group label and fell back to a
-        // hardcoded English name ("<Group> Dashboard" / humanized url) — which
-        // wrongly Anglicised valid translations whose name matches the group (e.g.
-        // an Arabic "product_list" or "workspace dashboard"). Only humanize the URL
-        // as a last resort when the server gave us no usable label at all.
-        const label = String(item && item.label ? item.label : '').trim();
-        if (label) {
-            return label;
-        }
-        const urlName = String(item && item.url_name ? item.url_name : item && item.id ? item.id : '').trim();
-        const groupLabel = String(item && item.group_label ? item.group_label : '').trim();
-        return humanizeKey(urlName) || groupLabel || t('sidebar_group_label', 'Item');
-    }
 
-    function normalizeCatalog(catalog) {
-        if (!Array.isArray(catalog)) {
-            return [];
-        }
-        return catalog
-            .filter(entry => entry && entry.id && entry.url_name)
-            .map(entry => ({
-                kind: 'item',
-                id: entry.id,
-                url_name: entry.url_name,
-                label: entry.label || entry.id,
-                icon: entry.icon || 'bi-link-45deg',
-                permissions: Array.isArray(entry.permissions) ? entry.permissions : [],
-                group_key: entry.group_key || 'general',
-                group_label: entry.group_label || entry.group_key || 'General',
-                group_icon: entry.group_icon || 'bi-folder2-open',
-                is_system: Boolean(entry.is_system),
-                is_form_page: Boolean(entry.is_form_page),
-            }));
-    }
 
-    function buildCatalogLookup(catalog) {
-        const lookup = new Map();
-        (catalog || []).forEach((entry) => {
-            if (!entry || typeof entry !== 'object') {
-                return;
-            }
-            const id = String(entry.id || '').trim();
-            const urlName = String(entry.url_name || '').trim();
-            if (id) {
-                lookup.set(id, entry);
-            }
-            if (urlName) {
-                lookup.set(urlName, entry);
-            }
-        });
-        return lookup;
-    }
 
-    function findCatalogEntry(entry, catalogLookup) {
-        if (!entry || typeof entry !== 'object' || !catalogLookup) {
-            return null;
-        }
-        const id = String(entry.id || '').trim();
-        const urlName = String(entry.url_name || '').trim();
-        return catalogLookup.get(id) || catalogLookup.get(urlName) || null;
-    }
 
-    function frameworkDefaultLabels(entry, discovered) {
-        const labels = new Set();
-        const candidates = [
-            entry && entry.id,
-            entry && entry.url_name,
-            discovered && discovered.label,
-            discovered && discovered.group_label,
-            discovered && discovered.id,
-            discovered && discovered.url_name,
-        ];
 
-        candidates.forEach((candidate) => {
-            const value = String(candidate || '').trim();
-            if (value) {
-                labels.add(value);
-            }
-        });
 
-        const humanized = humanizeKey((entry && (entry.url_name || entry.id)) || (discovered && (discovered.url_name || discovered.id)) || '');
-        if (humanized) {
-            labels.add(humanized);
-        }
-
-        if (discovered) {
-            const displayLabel = availableItemDisplayLabel(discovered);
-            if (displayLabel) {
-                labels.add(displayLabel);
-            }
-        }
-
-        return labels;
-    }
-
-    function resolveBuilderItemLabel(entry, currentDiscovered, fallbackDiscovered) {
-        const savedLabel = String(entry && entry.label ? entry.label : '').trim();
-        const localizedLabel = currentDiscovered ? availableItemDisplayLabel(currentDiscovered) : '';
-        const defaultLabels = new Set([
-            ...frameworkDefaultLabels(entry, currentDiscovered),
-            ...frameworkDefaultLabels(entry, fallbackDiscovered),
-        ]);
-
-        if (!savedLabel || defaultLabels.has(savedLabel)) {
-            return localizedLabel || savedLabel || String(entry && (entry.url_name || entry.id) ? (entry.url_name || entry.id) : '').trim();
-        }
-
-        return savedLabel;
-    }
-
-    function resolveBuilderGroupLabel(entry, items, fallbackCatalogLookup) {
-        const savedLabel = String(entry && entry.label ? entry.label : '').trim();
-        const localizedLabel = String(
-            (items || []).find((item) => String(item && item.group_label ? item.group_label : '').trim())?.group_label || ''
-        ).trim();
-        const fallbackReference = findCatalogEntry(((entry && entry.items) || []).find((item) => item && (item.id || item.url_name)), fallbackCatalogLookup);
-        const fallbackGroupLabel = String(fallbackReference && fallbackReference.group_label ? fallbackReference.group_label : '').trim();
-        const defaultLabels = new Set([
-            fallbackGroupLabel,
-            t('sidebar_group_label', 'Group'),
-            'Group',
-        ]);
-
-        if (!savedLabel || (localizedLabel && defaultLabels.has(savedLabel))) {
-            return localizedLabel || savedLabel || t('sidebar_group_label', 'Group');
-        }
-
-        return savedLabel;
-    }
-
-    function normalizeSidebarConfig(config, catalogLookup, fallbackCatalogLookup) {
-        if (!config || typeof config !== 'object') {
-            return { home_url_name: null, entries: [] };
-        }
-
-        const entries = Array.isArray(config.entries) ? config.entries : [];
-        return {
-            enabled: config.enabled !== false,
-            home_url_name: config.home_url_name || null,
-            entries: entries.map(entry => normalizeEntry(entry, catalogLookup, fallbackCatalogLookup)).filter(Boolean),
-            enable_reorder: config.enable_reorder !== false,
-            show_toolbar: config.show_toolbar !== false,
-            show_icons: config.show_icons !== false,
-            density: config.density || 'balanced',
-            allow_user_density: config.allow_user_density !== false,
-            collapse_mode: config.collapse_mode || 'icons',
-            toggle_icon: config.toggle_icon || 'bi-list',
-        };
-    }
-
-    function normalizeEntry(entry, catalogLookup, fallbackCatalogLookup) {
-        if (!entry || typeof entry !== 'object') {
-            return null;
-        }
-        if ((entry.kind || 'item') === 'group') {
-            const items = Array.isArray(entry.items)
-                ? entry.items.map(item => normalizeEntry(item, catalogLookup, fallbackCatalogLookup)).filter(Boolean)
-                : [];
-            return {
-                kind: 'group',
-                id: entry.id || `group-${Date.now()}`,
-                label: resolveBuilderGroupLabel(entry, items, fallbackCatalogLookup),
-                icon: entry.icon || 'bi-folder2-open',
-                items,
-            };
-        }
-        if (!entry.id && !entry.url_name) {
-            return null;
-        }
-        const currentDiscovered = findCatalogEntry(entry, catalogLookup);
-        const fallbackDiscovered = findCatalogEntry(entry, fallbackCatalogLookup);
-        return {
-            kind: 'item',
-            id: entry.id || entry.url_name,
-            url_name: entry.url_name || entry.id,
-            label: resolveBuilderItemLabel(entry, currentDiscovered, fallbackDiscovered),
-            icon: entry.icon || (currentDiscovered && currentDiscovered.icon) || 'bi-link-45deg',
-            permissions: Array.isArray(entry.permissions) ? entry.permissions : ((currentDiscovered && currentDiscovered.permissions) || []),
-            group_key: entry.group_key || (currentDiscovered && currentDiscovered.group_key) || '',
-            group_label: entry.group_label || (currentDiscovered && currentDiscovered.group_label) || '',
-        };
-    }
-
-    function cloneEntry(entry) {
-        return JSON.parse(JSON.stringify(entry));
-    }
-
-    function cloneGroupEntry(group) {
-        const items = Array.isArray(group && group.items) ? group.items.map(cloneEntry) : [];
-        const label = String(group && group.label ? group.label : '').trim() || t('sidebar_group_label', 'Group');
-        return {
-            kind: 'group',
-            id: makeGroupId(group && (group.id || group.group_key || label || 'group')),
-            label,
-            icon: group && group.icon ? group.icon : 'bi-folder2-open',
-            items,
-        };
-    }
-
-    function makeGroupId(label) {
-        const safeLabel = (label || 'group').toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/-+/g, '-');
-        return `${safeLabel || 'group'}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    }
-
-    function collectSelectedItemIds(entries, acc) {
-        acc = acc || new Set();
-        (entries || []).forEach(entry => {
-            if (entry.kind === 'group') {
-                collectSelectedItemIds(entry.items || [], acc);
-                return;
-            }
-            if (entry.id) {
-                acc.add(entry.id);
-            }
-        });
-        return acc;
-    }
-
-    function availableItems(state) {
-        const selectedIds = collectSelectedItemIds(state.config.entries);
-        // Form pages are discovered like any other route, but a sidebar lists
-        // places rather than actions — they stay out of the list until asked for.
-        return state.catalog.filter(item => (
-            !selectedIds.has(item.id)
-            && (state.showSystemItems || !item.is_system)
-            && (state.showFormPages || !item.is_form_page)
-        ));
-    }
-
-    function groupedAvailableItems(state) {
-        const grouped = {};
-        availableItems(state)
-            .filter(item => {
-                if (!state.search) return true;
-                const haystack = `${item.label} ${item.group_label} ${item.url_name}`.toLowerCase();
-                return haystack.includes(state.search.toLowerCase());
-            })
-            .forEach(item => {
-                const key = item.group_key || item.group_label || 'general';
-                if (!grouped[key]) {
-                    grouped[key] = {
-                        kind: 'group',
-                        id: key,
-                        label: item.group_label || key,
-                        icon: item.group_icon || 'bi-folder2-open',
-                        items: [],
-                    };
-                }
-                grouped[key].items.push(item);
-            });
-
-        return Object.values(grouped).sort((left, right) => left.label.localeCompare(right.label));
-    }
-
-    function findEntryLocation(entries, id, kind) {
-        for (let index = 0; index < entries.length; index += 1) {
-            const entry = entries[index];
-            if (entry.kind === kind && entry.id === id) {
-                return { parent: entries, index, entry, container: 'root' };
-            }
-            if (entry.kind === 'group') {
-                if (kind === 'group' && entry.id === id) {
-                    return { parent: entries, index, entry, container: 'root' };
-                }
-                const childIndex = (entry.items || []).findIndex(item => item.id === id && item.kind === kind);
-                if (childIndex !== -1) {
-                    return { parent: entry.items, index: childIndex, entry: entry.items[childIndex], container: 'group', group: entry };
-                }
-            }
-        }
-        return null;
-    }
-
-    function insertEntryIntoConfig(configEntries, entry, target) {
-        if (target.type === 'root-container') {
-            configEntries.push(entry);
-            return;
-        }
-
-        if (target.type === 'group-container') {
-            const groupLocation = findEntryLocation(configEntries, target.groupId, 'group');
-            if (groupLocation && groupLocation.entry.kind === 'group') {
-                groupLocation.entry.items.push(entry);
-            } else {
-                configEntries.push(entry);
-            }
-            return;
-        }
-
-        if (target.type === 'root-node') {
-            const targetLocation = findEntryLocation(configEntries, target.targetId, target.targetKind);
-            if (!targetLocation) {
-                configEntries.push(entry);
-            } else {
-                const insertIndex = target.before ? targetLocation.index : targetLocation.index + 1;
-                configEntries.splice(insertIndex, 0, entry);
-            }
-            return;
-        }
-
-        if (target.type === 'group-node') {
-            const groupLocation = findEntryLocation(configEntries, target.parentGroupId, 'group');
-            if (!groupLocation || groupLocation.entry.kind !== 'group') {
-                configEntries.push(entry);
-                return;
-            }
-            const targetLocation = findEntryLocation(groupLocation.entry.items, target.targetId, target.targetKind);
-            if (!targetLocation) {
-                groupLocation.entry.items.push(entry);
-            } else {
-                const insertIndex = target.before ? targetLocation.index : targetLocation.index + 1;
-                groupLocation.entry.items.splice(insertIndex, 0, entry);
-            }
-        }
-    }
-
-    function topLevelItems(entries) {
-        return (entries || []).filter(entry => entry.kind === 'item' && entry.url_name);
-    }
 
     function initBuilder(builder) {
         if (!builder || builder.dataset.builderBound === 'true') {
@@ -2361,154 +1639,7 @@
         renderAll();
     }
 
-    function initSetupHomeFields(root) {
-        root.querySelectorAll('form').forEach((form) => {
-            if (form.dataset.setupHomeFieldsBound === 'true') {
-                return;
-            }
 
-            const fieldPairs = [
-                { discoveredName: 'home_url_discovered', inputName: 'home_url' },
-                { discoveredName: 'public_root_url_discovered', inputName: 'public_root_url' },
-            ];
-            if (!fieldPairs.some(({ discoveredName, inputName }) => (
-                getNamedFieldInputs(form, discoveredName).length && form.querySelector(`[name="${inputName}"]`)
-            ))) {
-                return;
-            }
-
-            form.dataset.setupHomeFieldsBound = 'true';
-
-            fieldPairs.forEach(({ discoveredName, inputName }) => {
-                const routeFields = getNamedFieldInputs(form, discoveredName);
-                const urlInput = form.querySelector(`[name="${inputName}"]`);
-                if (!routeFields.length || !urlInput) {
-                    return;
-                }
-
-                const routeSelect = routeFields.find((field) => field.tagName === 'SELECT');
-                const routeRadios = routeFields.filter((field) => field.type === 'radio');
-
-                function selectableValues() {
-                    if (routeSelect) {
-                        return new Set(
-                            Array.from(routeSelect.options || [])
-                                .map((option) => option.value)
-                                .filter(Boolean)
-                        );
-                    }
-                    return new Set(routeRadios.map((field) => field.value).filter(Boolean));
-                }
-
-                function syncSelectFromInput() {
-                    const currentValue = (urlInput.value || '').trim();
-                    const values = selectableValues();
-                    if (routeSelect) {
-                        routeSelect.value = values.has(currentValue) ? currentValue : '';
-                        return;
-                    }
-                    routeRadios.forEach((field) => {
-                        if (!currentValue && !field.value) {
-                            field.checked = true;
-                            return;
-                        }
-                        field.checked = values.has(currentValue) && field.value === currentValue;
-                    });
-                }
-
-                if (routeSelect) {
-                    routeSelect.addEventListener('change', () => {
-                        if (!routeSelect.value) {
-                            return;
-                        }
-                        urlInput.value = routeSelect.value;
-                        urlInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        urlInput.dispatchEvent(new Event('change', { bubbles: true }));
-                    });
-                }
-
-                routeRadios.forEach((field) => {
-                    field.addEventListener('change', () => {
-                        if (!field.checked || !field.value) {
-                            return;
-                        }
-                        urlInput.value = field.value;
-                        urlInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        urlInput.dispatchEvent(new Event('change', { bubbles: true }));
-                    });
-                });
-
-                urlInput.addEventListener('input', syncSelectFromInput);
-                urlInput.addEventListener('change', syncSelectFromInput);
-                syncSelectFromInput();
-            });
-        });
-    }
-
-    function initSetupLanguagePicker(root) {
-        root.querySelectorAll('[data-setup-language-picker]').forEach((picker) => {
-            if (picker.dataset.bound === 'true') return;
-            picker.dataset.bound = 'true';
-
-            const inputId = picker.getAttribute('data-language-input');
-            const input = inputId ? document.getElementById(inputId) : null;
-            if (!input) return;
-
-            const options = Array.from(picker.querySelectorAll('[data-setup-language-choice]'));
-
-            function syncActive() {
-                const activeLanguage = input.value || 'en';
-                options.forEach((option) => {
-                    const isActive = option.getAttribute('data-setup-language-choice') === activeLanguage;
-                    option.classList.toggle('is-active', isActive);
-                    option.classList.toggle('lang-active', isActive);
-                });
-            }
-
-            input.addEventListener('change', syncActive);
-            input.addEventListener('input', syncActive);
-
-            options.forEach((option) => {
-                option.addEventListener('click', () => {
-                    const language = option.getAttribute('data-setup-language-choice') || 'en';
-                    input.value = language;
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                    syncActive();
-                });
-            });
-
-            syncActive();
-        });
-    }
-
-    function syncSetupLanguagePickers(form) {
-        const root = form || document;
-        root.querySelectorAll('[data-setup-language-picker]').forEach((picker) => {
-            const inputId = picker.getAttribute('data-language-input');
-            const input = inputId ? document.getElementById(inputId) : null;
-            if (!input) return;
-            const activeLanguage = input.value || 'en';
-            picker.querySelectorAll('[data-setup-language-choice]').forEach((option) => {
-                const isActive = option.getAttribute('data-setup-language-choice') === activeLanguage;
-                option.classList.toggle('is-active', isActive);
-                option.classList.toggle('lang-active', isActive);
-            });
-        });
-    }
-
-    function normalizeLanguageCode(value) {
-        return String(value || '').trim().toLowerCase().replace(/_/g, '-').replace(/[^a-z0-9-]/g, '');
-    }
-
-    function escapeHtml(value) {
-        return String(value || '').replace(/[&<>"']/g, (char) => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-        })[char]);
-    }
 
     function syncLanguageCatalog(form) {
         if (!form) return;
@@ -2545,51 +1676,8 @@
         applyImmediateSystemSettingsPreview(form);
     }
 
-    function createLanguageRow(code, name, dir, flag) {
-        const row = document.createElement('div');
-        row.className = 'dlux-language-row';
-        row.dataset.languageRow = 'true';
-        row.dataset.languageCode = code;
-        const locked = code === 'en' || code === 'ar';
-        row.innerHTML = `
-            <div class="dlux-language-row__code">${code}</div>
-            <input type="text" class="form-control glass-input" data-language-name value="${escapeHtml(name || code)}" aria-label="Display name (${escapeHtml(code)})">
-            <select class="form-select glass-input" data-language-dir aria-label="Direction (${escapeHtml(code)})">
-                <option value="ltr"${dir !== 'rtl' ? ' selected' : ''}>LTR</option>
-                <option value="rtl"${dir === 'rtl' ? ' selected' : ''}>RTL</option>
-            </select>
-            <input type="text" class="form-control glass-input dlux-language-flag-input" data-language-flag value="${escapeHtml(flag || '')}" aria-label="Flag (${escapeHtml(code)})">
-            <label class="dlux-language-default">
-                <input type="radio" data-language-default value="${code}">
-                <span>Default</span>
-            </label>
-            <button type="button" class="btn btn-sm btn-outline-danger" data-language-remove${locked ? ' disabled' : ''}>
-                <i class="bi bi-trash"></i>
-            </button>
-        `;
-        return row;
-    }
 
-    function createSystemNameRow(code, label, value) {
-        const row = document.createElement('div');
-        row.className = 'dlux-system-name-row';
-        row.dataset.systemNameRow = 'true';
-        row.dataset.languageCode = code;
-        row.innerHTML = `
-            <div class="dlux-system-name-row__meta">
-                <span class="dlux-system-name-row__code">${escapeHtml(code)}</span>
-                <span class="dlux-system-name-row__label">${escapeHtml(label || code)}</span>
-            </div>
-            <input type="text" class="form-control glass-input" data-system-name-input value="${escapeHtml(value || '')}" placeholder="System name">
-        `;
-        return row;
-    }
 
-    function findSystemNameRow(form, code) {
-        return Array.from(form.querySelectorAll('[data-system-name-row]')).find((row) => {
-            return normalizeLanguageCode(row.dataset.languageCode) === code;
-        });
-    }
 
     function ensureSystemNameRow(form, code, label, value) {
         const list = form && form.querySelector('[data-system-name-list]');
@@ -2629,19 +1717,6 @@
         });
     }
 
-    function readSystemNames(form) {
-        const systemNames = {};
-        if (!form) return systemNames;
-        form.querySelectorAll('[data-system-name-row]').forEach((row) => {
-            const code = normalizeLanguageCode(row.dataset.languageCode);
-            const input = row.querySelector('[data-system-name-input]');
-            const value = String(input && input.value ? input.value : '').trim();
-            if (code && value) {
-                systemNames[code] = value;
-            }
-        });
-        return systemNames;
-    }
 
     function syncSystemNamesField(form) {
         if (!form) return;
@@ -2662,57 +1737,8 @@
         });
     }
 
-    function ensureTranslationLanguageColumn(form, code, label) {
-        const matrix = form && form.querySelector('[data-translation-matrix]');
-        if (!matrix || !code || matrix.querySelector(`[data-translation-lang-header="${code}"]`)) return;
-        const headerRow = matrix.querySelector('thead tr');
-        if (headerRow) {
-            const header = document.createElement('th');
-            header.dataset.translationLangHeader = code;
-            header.innerHTML = `${label || code} <span class="text-muted">(${code})</span>`;
-            headerRow.appendChild(header);
-        }
-        matrix.querySelectorAll('[data-translation-row]').forEach((row) => {
-            const key = row.getAttribute('data-translation-key') || '';
-            const cell = document.createElement('td');
-            cell.dataset.translationCell = 'true';
-            cell.dataset.source = 'missing';
-            cell.innerHTML = `
-                <textarea class="form-control form-control-sm glass-input" rows="2" data-translation-input data-lang="${code}" data-key="${key}" data-base-value="" data-override-value="" placeholder=""></textarea>
-                <span class="badge dlux-translation-source">missing</span>
-            `;
-            row.appendChild(cell);
-            const input = cell.querySelector('[data-translation-input]');
-            input.addEventListener('input', () => syncTranslationOverrides(form));
-        });
-    }
 
-    function removeTranslationLanguageColumn(form, code) {
-        const matrix = form && form.querySelector('[data-translation-matrix]');
-        if (!matrix || !code) return;
-        matrix.querySelectorAll(`[data-translation-lang-header="${code}"], [data-translation-input][data-lang="${code}"]`).forEach((node) => {
-            const cell = node.closest('[data-translation-cell]');
-            (cell || node).remove();
-        });
-    }
 
-    function syncTranslationOverrides(form) {
-        const field = form && form.querySelector('[name="translations_override"]');
-        if (!field) return;
-        const overrides = {};
-        form.querySelectorAll('[data-translation-input]').forEach((input) => {
-            const lang = normalizeLanguageCode(input.dataset.lang);
-            const key = String(input.dataset.key || '').trim();
-            if (!lang || !key) return;
-            const value = String(input.value || '').trim();
-            const baseValue = String(input.dataset.baseValue || '').trim();
-            if (value && value !== baseValue) {
-                if (!overrides[lang]) overrides[lang] = {};
-                overrides[lang][key] = value;
-            }
-        });
-        field.value = JSON.stringify(overrides);
-    }
 
     function bindLanguageCatalogRow(form, row) {
         if (!form || !row || row.dataset.languageBound === 'true') return;
@@ -2799,26 +1825,8 @@
             }
         });
         syncLanguageCatalog(form);
-        syncSetupLanguagePickers(form);
     }
 
-    function applyTranslationOverridesToMatrix(form, overrides) {
-        if (!form || !overrides || typeof overrides !== 'object') return;
-        Object.entries(overrides).forEach(([rawLang, values]) => {
-            const lang = normalizeLanguageCode(rawLang);
-            if (!lang || !values || typeof values !== 'object') return;
-            Object.entries(values).forEach(([key, value]) => {
-                const input = Array.from(form.querySelectorAll(`[data-translation-input][data-lang="${lang}"]`)).find((candidate) => {
-                    return candidate.dataset.key === String(key);
-                });
-                if (input) {
-                    input.value = value || '';
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            });
-        });
-        syncTranslationOverrides(form);
-    }
 
     function initLanguageCatalogEditor(root) {
         root.querySelectorAll('[data-language-catalog-editor]').forEach((editor) => {
@@ -2908,329 +1916,21 @@
         });
     }
 
-    function isElementVisible(element) {
-        if (!element) return false;
-        return window.getComputedStyle(element).display !== 'none' && window.getComputedStyle(element).visibility !== 'hidden';
-    }
 
-    function isElementHiddenInsideStep(element, step) {
-        let node = element;
-        while (node && node !== step) {
-            if (
-                node.hidden ||
-                node.getAttribute('aria-hidden') === 'true' ||
-                (node.classList && node.classList.contains('d-none'))
-            ) {
-                return true;
-            }
-            node = node.parentElement;
-        }
-        return false;
-    }
 
-    function getSetupStepControls(step) {
-        if (!step) return [];
-        return Array.from(step.querySelectorAll('input, select, textarea')).filter((field) => {
-            const type = String(field.type || '').toLowerCase();
-            return (
-                type !== 'hidden' &&
-                type !== 'button' &&
-                type !== 'submit' &&
-                type !== 'reset' &&
-                !field.disabled &&
-                !isElementHiddenInsideStep(field, step)
-            );
-        });
-    }
 
-    function setupRequiresEmailPassword(form) {
-        // Mirrors the server rule: an SMTP password is only required when an email feature
-        // is enabled, encrypted-DB secret storage is selected, and a username is set, with
-        // no password present. A config that doesn't meet all of these is completable as-is
-        // and must NOT block "Finish setup" just because an export redacted the secret.
-        if (!form) return false;
-        const emailFeaturesEnabled = Boolean(
-            getNamedFieldInputs(form, 'public_registration_enabled')[0]?.checked ||
-            getNamedFieldInputs(form, 'email_2fa')[0]?.checked
-        );
-        if (!emailFeaturesEnabled) return false;
-        if (getNamedFieldValue(form, 'email_config_secret_storage') !== 'encrypted_db') return false;
-        if (!String(getNamedFieldValue(form, 'email_config_username') || '').trim()) return false;
-        const passwordField = form.querySelector('[name="email_config_password"]');
-        const password = String(passwordField && passwordField.value ? passwordField.value : '').trim();
-        return !password;
-    }
 
-    function syncSetupCustomValidation(form) {
-        if (!form) return;
-        const passwordField = form.querySelector('[name="email_config_password"]');
-        if (!passwordField || typeof passwordField.setCustomValidity !== 'function') return;
 
-        if (passwordField.dataset.dluxSetupCustomInvalid === 'true') {
-            passwordField.classList.remove('is-invalid');
-            passwordField.dataset.dluxSetupCustomInvalid = '';
-        }
-        passwordField.setCustomValidity('');
 
-        // Single live source of truth — recomputed here so the flag can never go stale as
-        // email features / username / password are toggled after an import.
-        const needsPassword = setupRequiresEmailPassword(form);
-        form.dataset.importNeedsEmailPassword = needsPassword ? 'true' : '';
 
-        if (needsPassword) {
-            passwordField.dataset.dluxSetupCustomInvalid = 'true';
-            passwordField.classList.add('is-invalid');
-            passwordField.setCustomValidity(t(
-                'system_setup_import_needs_email_password',
-                'The SMTP password is never included in an exported setup file for security. Re-enter it below to finish setup.'
-            ));
-        }
 
-        // Keep the import warning and the "Finish setup" CTA in sync with the live state.
-        const notice = form.querySelector('[data-import-email-password-notice]');
-        if (notice) {
-            notice.classList.toggle('d-none', !needsPassword);
-        }
-        const importProcessed = String(getNamedFieldValue(form, 'settings_import_processed') || '').toLowerCase() === 'true';
-        if (importProcessed) {
-            setImportedSetupFinishVisible(form, !needsPassword);
-        }
-    }
 
-    function stepHasRenderedServerError(step) {
-        if (!step || step.dataset.dluxStepUserEdited === 'true') return false;
-        return Boolean(step.querySelector('.invalid-feedback, .errorlist, .alert-danger'));
-    }
 
-    function stepHasValidationError(step) {
-        if (!step) return false;
-        if (stepHasRenderedServerError(step)) return true;
-        return getSetupStepControls(step).some((field) => {
-            if (typeof field.checkValidity !== 'function') return false;
-            return !field.checkValidity();
-        });
-    }
 
-    function firstInvalidControlInStep(step) {
-        return getSetupStepControls(step).find((field) => {
-            if (typeof field.checkValidity !== 'function') return false;
-            return !field.checkValidity();
-        }) || null;
-    }
 
-    function updateSetupStepValidationState(form) {
-        if (!form) return -1;
-        syncSetupCustomValidation(form);
-        const steps = Array.from(form.querySelectorAll('.wizard-step'));
-        const navItems = Array.from(form.querySelectorAll('[data-dlux-wizard-step-target]'));
-        let firstInvalidStep = -1;
 
-        steps.forEach((step, index) => {
-            const hasError = stepHasValidationError(step);
-            if (hasError && firstInvalidStep === -1) {
-                firstInvalidStep = index;
-            }
-            step.classList.toggle('dlux-setup-step-has-error', hasError);
-            step.setAttribute('data-dlux-step-validation', hasError ? 'error' : 'ok');
 
-            const navItem = navItems.find((item) => Number(item.dataset.dluxWizardStepTarget) === index);
-            if (!navItem) return;
-            navItem.classList.toggle('has-validation-error', hasError);
-            navItem.setAttribute('aria-invalid', hasError ? 'true' : 'false');
-            const bullet = navItem.querySelector('.dlux-setup-step-nav__bullet');
-            if (!bullet) return;
-            if (!bullet.dataset.dluxStepNumber) {
-                bullet.dataset.dluxStepNumber = String(bullet.textContent || index + 1).trim();
-            }
-            bullet.textContent = hasError ? '!' : bullet.dataset.dluxStepNumber;
-        });
 
-        return firstInvalidStep;
-    }
-
-    function initSystemSetupStepValidation(root) {
-        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
-            if (form.dataset.stepValidationBound === 'true') return;
-            form.dataset.stepValidationBound = 'true';
-
-            let pendingFrame = null;
-            const syncSoon = () => {
-                if (pendingFrame) return;
-                pendingFrame = window.requestAnimationFrame(() => {
-                    pendingFrame = null;
-                    updateSetupStepValidationState(form);
-                });
-            };
-
-            form.addEventListener('input', (event) => {
-                const step = event.target && event.target.closest ? event.target.closest('.wizard-step') : null;
-                if (step) step.dataset.dluxStepUserEdited = 'true';
-                syncSoon();
-            });
-            form.addEventListener('change', (event) => {
-                const step = event.target && event.target.closest ? event.target.closest('.wizard-step') : null;
-                if (step) step.dataset.dluxStepUserEdited = 'true';
-                syncSoon();
-            });
-            form.addEventListener('invalid', syncSoon, true);
-            form.addEventListener('dlux:wizard-step-change', (event) => {
-                rememberSetupWizardStep(form, event.detail && event.detail.currentStep);
-                syncSoon();
-            });
-            form.querySelectorAll('.dlux-btn-submit').forEach((button) => {
-                button.addEventListener('click', (event) => {
-                    persistSetupFormState(form);
-                    const firstInvalidStep = updateSetupStepValidationState(form);
-                    if (firstInvalidStep < 0) return;
-                    const firstInvalidControl = firstInvalidControlInStep(form.querySelectorAll('.wizard-step')[firstInvalidStep]);
-                    if (!firstInvalidControl) return;
-                    event.preventDefault();
-                    const navItem = form.querySelector(`[data-dlux-wizard-step-target="${firstInvalidStep}"]`);
-                    if (navItem) navItem.click();
-                    window.setTimeout(() => {
-                        if (typeof firstInvalidControl.reportValidity === 'function') {
-                            firstInvalidControl.reportValidity();
-                        }
-                        if (typeof firstInvalidControl.focus === 'function') {
-                            firstInvalidControl.focus({ preventScroll: false });
-                        }
-                    }, 0);
-                });
-            });
-            form.addEventListener('submit', (event) => {
-                persistSetupFormState(form);
-                const firstInvalidStep = updateSetupStepValidationState(form);
-                if (firstInvalidStep < 0) return;
-                const firstInvalidControl = firstInvalidControlInStep(form.querySelectorAll('.wizard-step')[firstInvalidStep]);
-                if (!firstInvalidControl) return;
-                event.preventDefault();
-                const navItem = form.querySelector(`[data-dlux-wizard-step-target="${firstInvalidStep}"]`);
-                if (navItem) navItem.click();
-                window.setTimeout(() => {
-                    if (typeof firstInvalidControl.reportValidity === 'function') {
-                        firstInvalidControl.reportValidity();
-                    }
-                    if (typeof firstInvalidControl.focus === 'function') {
-                        firstInvalidControl.focus({ preventScroll: false });
-                    }
-                }, 0);
-            });
-
-            updateSetupStepValidationState(form);
-        });
-    }
-
-    function initSystemSetupEnterBehavior(root) {
-        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
-            if (form.dataset.enterBehaviorBound === 'true') return;
-            form.dataset.enterBehaviorBound = 'true';
-
-            form.addEventListener('keydown', (event) => {
-                if (event.key !== 'Enter' || event.defaultPrevented || event.isComposing) {
-                    return;
-                }
-                const target = event.target;
-                const tagName = target && target.tagName ? target.tagName.toLowerCase() : '';
-                if (tagName === 'textarea') {
-                    return;
-                }
-
-                const languageEditor = target && target.closest && target.closest('[data-language-catalog-editor]');
-                if (languageEditor && target.matches('input, select')) {
-                    const addButton = languageEditor.querySelector('[data-language-add]');
-                    if (addButton) {
-                        event.preventDefault();
-                        addButton.click();
-                    }
-                    return;
-                }
-
-                const steps = Array.from(form.querySelectorAll('.wizard-step'));
-                if (steps.length < 2) {
-                    return;
-                }
-                const visibleStepIndex = steps.findIndex((step) => isElementVisible(step));
-                const nextButton = form.querySelector('.dlux-btn-next');
-                if (visibleStepIndex >= 0 && visibleStepIndex < steps.length - 1 && nextButton && isElementVisible(nextButton)) {
-                    event.preventDefault();
-                    nextButton.click();
-                }
-            });
-        });
-    }
-
-    function extractImportedSettings(payload) {
-        if (!payload || typeof payload !== 'object') return null;
-        if (payload.format === 'django-lux.system-settings' && payload.settings && typeof payload.settings === 'object') {
-            return payload.settings;
-        }
-        return payload;
-    }
-
-    function setCheckboxField(form, name, value) {
-        const field = form.querySelector(`[name="${name}"]`);
-        if (!field || field.type !== 'checkbox') return;
-        field.checked = Boolean(value);
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    function setJsonField(form, name, value) {
-        const field = form.querySelector(`[name="${name}"]`);
-        if (!field) return;
-        field.value = JSON.stringify(value || {});
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    function setImportedSetupFinishVisible(form, visible) {
-        const finish = form && form.querySelector('[data-settings-import-finish]');
-        if (!finish) return;
-        finish.classList.toggle('d-none', !visible);
-    }
-
-    function setImportedEmailPasswordNotice(form, needed) {
-        if (!form) return;
-        const passwordField = form.querySelector('[name="email_config_password"]');
-        form.dataset.importNeedsEmailPassword = needed ? 'true' : '';
-        let notice = form.querySelector('[data-import-email-password-notice]');
-        if (!needed) {
-            if (notice) notice.classList.add('d-none');
-            if (passwordField) passwordField.classList.remove('is-invalid');
-            syncSetupCustomValidation(form);
-            updateSetupStepValidationState(form);
-            return;
-        }
-        if (!notice && passwordField) {
-            notice = document.createElement('div');
-            notice.setAttribute('data-import-email-password-notice', '');
-            notice.setAttribute('data-autoclose', 'false');
-            notice.className = 'alert alert-warning dlux-import-email-password-notice mt-2 mb-0';
-            notice.textContent = t(
-                'system_setup_import_needs_email_password',
-                'The SMTP password is never included in an exported setup file for security. Re-enter it below to finish setup.'
-            );
-            const wrapper = passwordField.closest('.dlux-email-config-password-field')
-                || passwordField.closest('div')
-                || passwordField.parentElement;
-            if (wrapper) wrapper.appendChild(notice);
-        }
-        if (notice) notice.classList.remove('d-none');
-        if (passwordField) {
-            passwordField.classList.add('is-invalid');
-            if (passwordField.dataset.importPwBound !== 'true') {
-                passwordField.dataset.importPwBound = 'true';
-                passwordField.addEventListener('input', () => {
-                    if (passwordField.value.trim().length === 0) return;
-                    form.dataset.importNeedsEmailPassword = '';
-                    passwordField.classList.remove('is-invalid');
-                    const current = form.querySelector('[data-import-email-password-notice]');
-                    if (current) current.classList.add('d-none');
-                    setImportedSetupFinishVisible(form, true);
-                    updateSetupStepValidationState(form);
-                });
-            }
-        }
-        updateSetupStepValidationState(form);
-    }
 
     function applyImportedFontSettings(form, settings) {
         if (!form || !settings || typeof settings !== 'object') return;
@@ -3414,7 +2114,6 @@
         }
 
         syncLanguageCatalog(form);
-        syncSetupLanguagePickers(form);
         syncTranslationOverrides(form);
         applyImmediateSystemSettingsPreview(form);
         persistSetupFormState(form);
@@ -3466,285 +2165,36 @@
         });
     }
 
-    function initSetupFontPicker(root) {
-        root.querySelectorAll('[data-setup-font-picker]').forEach((picker) => {
-            if (picker.dataset.bound === 'true') return;
-            picker.dataset.bound = 'true';
 
-            const allowedCheckboxes = Array.from(picker.querySelectorAll('[data-setup-font-allowed]'));
 
-            allowedCheckboxes.forEach((checkbox) => {
-                checkbox.addEventListener('change', () => {
-                    const container = checkbox.closest('[data-font-option]');
-                    if (container) {
-                        container.classList.toggle('opacity-50', !checkbox.checked);
-                    }
-                });
-                // Initial state
-                const container = checkbox.closest('[data-font-option]');
-                if (container) {
-                    container.classList.toggle('opacity-50', !checkbox.checked);
-                }
-            });
-        });
-    }
 
-    function initLanguageFontsEditor(root) {
-        root.querySelectorAll('#dluxLanguageFontsEditor').forEach((editor) => {
-            if (editor.dataset.bound === 'true') return;
-            editor.dataset.bound = 'true';
 
-            const hiddenInput = document.getElementById('id_default_fonts');
-            if (!hiddenInput) return;
+    // One dependent field (rather than a whole section): same contract as
+    // setDependentSectionEnabled — visible but inert, never hidden.
 
-            function updateHiddenInput() {
-                const config = {};
-                editor.querySelectorAll('.dlux-lang-font-select').forEach((select) => {
-                    config[select.getAttribute('data-lang')] = select.value;
-                });
-                hiddenInput.value = JSON.stringify(config);
-                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
 
-            editor.querySelectorAll('.dlux-lang-font-select').forEach((select) => {
-                select.addEventListener('change', updateHiddenInput);
-            });
+    // `locked_expanded` hides the titlebar toggle on desktop, so its glyph has
+    // nothing to style there; the picker follows the collapse mode on top of the
+    // sidebar's own enable switch.
+    function syncSidebarToggleIconAvailability(form) {
+        if (!form) {
+            return;
+        }
+        const sidebarEnabledToggle = form.querySelector('#id_sidebar_enabled');
+        const sidebarEnabled = !sidebarEnabledToggle || sidebarEnabledToggle.checked;
+        const collapseMode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
+        const lockedExpanded = collapseMode === 'locked_expanded';
+        const available = sidebarEnabled && !lockedExpanded;
 
-            // Sync hidden input to selects if it has value
-            if (hiddenInput.value) {
-                try {
-                    const data = JSON.parse(hiddenInput.value);
-                    editor.querySelectorAll('.dlux-lang-font-select').forEach((select) => {
-                        const lang = select.getAttribute('data-lang');
-                        if (data[lang]) {
-                            select.value = data[lang];
-                        }
-                    });
-                } catch (e) {}
-            }
-        });
-    }
-
-    function initSetupThemePicker(root) {
-        root.querySelectorAll('[data-setup-theme-picker]').forEach((picker) => {
-            if (picker.dataset.bound === 'true') return;
-            picker.dataset.bound = 'true';
-
-            const inputId = picker.getAttribute('data-theme-input');
-            const input = inputId ? document.getElementById(inputId) : null;
-            if (!input) return;
-
-            const options = Array.from(picker.querySelectorAll('[data-setup-theme-choice]'));
-            const allowToggleContainers = Array.from(picker.querySelectorAll('[data-setup-theme-allow-toggle]'));
-            const allowedCheckboxes = Array.from(picker.querySelectorAll('[data-setup-theme-allowed]'));
-
-            function getAllowedThemes() {
-                return allowedCheckboxes
-                    .filter((checkbox) => checkbox.checked)
-                    .map((checkbox) => checkbox.getAttribute('data-setup-theme-allowed'));
-            }
-
-            function syncActive() {
-                const allowedThemes = getAllowedThemes();
-                if (!allowedThemes.length && allowedCheckboxes.length) {
-                    allowedCheckboxes[0].checked = true;
-                }
-                const resolvedAllowedThemes = getAllowedThemes();
-                const activeTheme = resolvedAllowedThemes.includes(input.value) ? input.value : (resolvedAllowedThemes[0] || 'light');
-                input.value = activeTheme;
-                allowedCheckboxes.forEach((checkbox) => {
-                    const theme = checkbox.getAttribute('data-setup-theme-allowed');
-                    const isLocked = checkbox.checked && resolvedAllowedThemes.length === 1;
-                    checkbox.setAttribute('aria-disabled', isLocked ? 'true' : 'false');
-                    const container = checkbox.closest('[data-theme-option]');
-                    if (!container) {
-                        return;
-                    }
-                    const isAllowed = resolvedAllowedThemes.includes(theme);
-                    const isDefault = theme === activeTheme;
-                    container.classList.toggle('is-locked', isLocked);
-                    container.classList.toggle('opacity-50', !isAllowed);
-                    container.classList.toggle('is-default', isDefault);
-                    const button = container.matches('[data-setup-theme-choice]')
-                        ? container
-                        : container.querySelector('[data-setup-theme-choice]');
-                    const preview = container.querySelector('.theme-preview[data-theme]');
-                    if (button) {
-                        button.setAttribute('aria-pressed', isDefault ? 'true' : 'false');
-                    }
-                    if (preview) {
-                        preview.classList.toggle('active', isDefault);
-                    }
-                });
-            }
-
-            function previewTheme(theme) {
-                if (!window.setTheme) {
-                    return;
-                }
-                const option = options.find((candidate) => candidate.getAttribute('data-setup-theme-choice') === theme);
-                window.setTheme(theme, {
-                    preview: true,
-                    cssUrl: option ? option.getAttribute('data-setup-theme-preview-url') || '' : '',
-                });
-            }
-
-            function isThemeAllowControlTarget(target) {
-                return Boolean(
-                    target &&
-                    target.closest &&
-                    target.closest('[data-setup-theme-allowed], [data-setup-theme-allowed-control]')
-                );
-            }
-
-            function isThemeDefaultControlTarget(target) {
-                return Boolean(
-                    target &&
-                    target.closest &&
-                    target.closest('[data-setup-theme-choice]')
-                );
-            }
-
-            function setDefaultThemeFromOption(option) {
-                const theme = option.getAttribute('data-setup-theme-choice') || 'light';
-                const checkbox = picker.querySelector(`[data-setup-theme-allowed="${theme}"]`);
-                if (checkbox && !checkbox.checked) {
-                    checkbox.checked = true;
-                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-                input.value = theme;
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-                syncActive();
-                previewTheme(theme);
-            }
-
-            function toggleAllowedThemeFromContainer(container) {
-                const theme = container.getAttribute('data-setup-theme-allow-toggle') || '';
-                if (!theme) return;
-                const checkbox = picker.querySelector(`[data-setup-theme-allowed="${theme}"]`);
-                if (!checkbox) return;
-                if (checkbox.checked && getAllowedThemes().length === 1) {
-                    return;
-                }
-                const previousTheme = input.value;
-                checkbox.checked = !checkbox.checked;
-                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-                if (previousTheme !== input.value) {
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                    previewTheme(input.value);
-                }
-            }
-
-            options.forEach((option) => {
-                option.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setDefaultThemeFromOption(option);
-                });
-                option.addEventListener('keydown', (event) => {
-                    if (!['Enter', ' '].includes(event.key)) {
-                        return;
-                    }
-                    event.preventDefault();
-                    event.stopPropagation();
-                    option.click();
-                });
-            });
-
-            allowToggleContainers.forEach((container) => {
-                container.addEventListener('click', (event) => {
-                    if (isThemeAllowControlTarget(event.target) || isThemeDefaultControlTarget(event.target)) {
-                        return;
-                    }
-                    event.preventDefault();
-                    toggleAllowedThemeFromContainer(container);
-                });
-            });
-
-            allowedCheckboxes.forEach((checkbox) => {
-                checkbox.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    if (checkbox.checked && getAllowedThemes().length === 1) {
-                        event.preventDefault();
-                    }
-                });
-                checkbox.addEventListener('change', () => {
-                    const previousTheme = input.value;
-                    if (!getAllowedThemes().length) {
-                        checkbox.checked = true;
-                    }
-                    syncActive();
-                    if (previousTheme !== input.value) {
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                        previewTheme(input.value);
-                    }
-                });
-            });
-
-            syncActive();
-        });
-    }
-
-    function initSetupTableDensityPicker(root) {
-        root.querySelectorAll('[data-setup-table-density-picker]').forEach((picker) => {
-            if (picker.dataset.bound === 'true') return;
-            picker.dataset.bound = 'true';
-
-            const inputId = picker.getAttribute('data-table-density-input');
-            const input = inputId ? document.getElementById(inputId) : null;
-            if (!input) return;
-
-            const options = Array.from(picker.querySelectorAll('[data-setup-table-density-choice]'));
-
-            function syncActive() {
-                const activeDensity = input.value || 'balanced';
-                options.forEach((option) => {
-                    option.classList.toggle('is-active', option.getAttribute('data-setup-table-density-choice') === activeDensity);
-                });
-            }
-
-            options.forEach((option) => {
-                option.addEventListener('click', () => {
-                    const density = option.getAttribute('data-setup-table-density-choice') || 'balanced';
-                    input.value = density;
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                    syncActive();
-                });
-            });
-
-            syncActive();
-        });
-    }
-
-    function initSetupSidebarDensityPicker(root) {
-        root.querySelectorAll('[data-setup-sidebar-density-picker]').forEach((picker) => {
-            if (picker.dataset.bound === 'true') return;
-            picker.dataset.bound = 'true';
-
-            const inputId = picker.getAttribute('data-sidebar-density-input');
-            const input = inputId ? document.getElementById(inputId) : null;
-            if (!input) return;
-
-            const options = Array.from(picker.querySelectorAll('[data-setup-sidebar-density-choice]'));
-
-            function syncActive() {
-                const activeDensity = input.value || 'balanced';
-                options.forEach((option) => {
-                    option.classList.toggle('is-active', option.getAttribute('data-setup-sidebar-density-choice') === activeDensity);
-                });
-            }
-
-            options.forEach((option) => {
-                option.addEventListener('click', () => {
-                    const density = option.getAttribute('data-setup-sidebar-density-choice') || 'balanced';
-                    input.value = density;
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                    syncActive();
-                });
-            });
-
-            syncActive();
-        });
+        setNamedFieldDisabled(form, 'sidebar_toggle_icon', !available);
+        const picker = form.querySelector('[data-dlux-icon-picker][data-icon-field="sidebar_toggle_icon"]');
+        if (!picker) {
+            return;
+        }
+        const reason = lockedExpanded && sidebarEnabled
+            ? t('sidebar_toggle_icon_locked_reason', 'The sidebar is always expanded, so the toggle is not shown on desktop.')
+            : dependentReason(sidebarEnabledToggle);
+        setDependentFieldEnabled(picker, available, reason);
     }
 
     // A step's master toggle dims and disables its dependent settings instead of
@@ -3788,94 +2238,6 @@
     // Builder sections (logging, profile) keep their state in the builder's own
     // config object rather than in the posted fields, so disabling their controls
     // is purely presentational — nothing can be lost on save.
-    function setBuilderSectionEnabled(section, enabled, reason) {
-        if (!section) {
-            return;
-        }
-        applyDependentTooltip(section, enabled, reason);
-        section.classList.remove('d-none');
-        section.classList.add('dlux-dependent-settings');
-        section.classList.toggle('is-disabled', !enabled);
-        section.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-        section.removeAttribute('aria-hidden');
-        section.querySelectorAll('input, select, textarea, button').forEach((control) => {
-            control.disabled = !enabled;
-        });
-    }
-
-    function dependentReason(toggle) {
-        const field = toggle && toggle.closest ? toggle.closest('[data-dlux-settings-toggle-field]') : null;
-        const labelEl = field ? field.querySelector('.dlux-settings-toggle-field__label') : null;
-        const name = labelEl ? String(labelEl.textContent || '').trim() : '';
-        const template = t('settings_dependent_disabled', 'Turn on “{name}” to change these settings.');
-        return name ? template.replace('{name}', name) : t('settings_dependent_disabled_generic', 'Turn on the setting above to change these.');
-    }
-
-    function applyDependentTooltip(el, enabled, reason) {
-        if (!el) {
-            return;
-        }
-        if (enabled || !reason) {
-            el.removeAttribute('data-dlux-tooltip');
-        } else {
-            el.setAttribute('data-dlux-tooltip', reason);
-        }
-    }
-
-    // One dependent field (rather than a whole section): same contract as
-    // setDependentSectionEnabled — visible but inert, never hidden.
-    function setDependentFieldEnabled(field, enabled, reason) {
-        if (!field) {
-            return;
-        }
-        applyDependentTooltip(field, enabled, reason);
-        field.classList.remove('d-none');
-        field.classList.add('dlux-dependent-settings');
-        field.classList.toggle('is-disabled', !enabled);
-        field.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-        field.removeAttribute('aria-hidden');
-        field.querySelectorAll('input, select, textarea, button').forEach((control) => {
-            control.disabled = !enabled;
-        });
-    }
-
-    function setDependentSectionEnabled(form, section, enabled, fieldNames, reason) {
-        if (section) {
-            applyDependentTooltip(section, enabled, reason);
-            section.classList.toggle('is-disabled', !enabled);
-            section.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-            // The section stays in the accessibility tree — its whole purpose is
-            // to be readable while off — so aria-hidden must not linger from the
-            // previous hide-based behaviour.
-            section.removeAttribute('aria-hidden');
-            section.classList.remove('d-none');
-        }
-        (fieldNames || []).forEach((name) => setNamedFieldDisabled(form, name, !enabled));
-    }
-
-    // `locked_expanded` hides the titlebar toggle on desktop, so its glyph has
-    // nothing to style there; the picker follows the collapse mode on top of the
-    // sidebar's own enable switch.
-    function syncSidebarToggleIconAvailability(form) {
-        if (!form) {
-            return;
-        }
-        const sidebarEnabledToggle = form.querySelector('#id_sidebar_enabled');
-        const sidebarEnabled = !sidebarEnabledToggle || sidebarEnabledToggle.checked;
-        const collapseMode = getNamedFieldValue(form, 'sidebar_collapse_mode') || 'icons';
-        const lockedExpanded = collapseMode === 'locked_expanded';
-        const available = sidebarEnabled && !lockedExpanded;
-
-        setNamedFieldDisabled(form, 'sidebar_toggle_icon', !available);
-        const picker = form.querySelector('[data-dlux-icon-picker][data-icon-field="sidebar_toggle_icon"]');
-        if (!picker) {
-            return;
-        }
-        const reason = lockedExpanded && sidebarEnabled
-            ? t('sidebar_toggle_icon_locked_reason', 'The sidebar is always expanded, so the toggle is not shown on desktop.')
-            : dependentReason(sidebarEnabledToggle);
-        setDependentFieldEnabled(picker, available, reason);
-    }
 
     function initSidebarBehaviorOptions(root) {
         root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
@@ -4106,481 +2468,19 @@
         applyImmediateSystemSettingsPreview(form);
     }
 
-    function initEmailDeliveryOptions(root) {
-        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
-            if (form.dataset.emailDeliveryBound === 'true') {
-                return;
-            }
 
-            const section = form.querySelector('[data-email-config-section]');
-            // Email owns its own wizard step now: the SMTP fields follow the step's
-            // own enable toggle, not whichever feature happens to need mail.
-            const emailEnabledToggle = form.querySelector('#id_email_config_enabled');
-            const secretStorageInput = form.querySelector('[name="email_config_secret_storage"]');
-            const passwordInput = form.querySelector('[name="email_config_password"]');
-            const passwordField = form.querySelector('.dlux-email-config-password-field') || (passwordInput && passwordInput.closest('.col-lg-4, .col-lg-6, .col-12'));
-            if (!section || !emailEnabledToggle) {
-                return;
-            }
-
-            form.dataset.emailDeliveryBound = 'true';
-
-            // Mirrors EMAIL_CONFIG_PROVIDER_PRESETS in dlux/system/constants.py.
-            const PROVIDER_PRESETS = {
-                gmail: { host: 'smtp.gmail.com', port: 587, use_tls: true, use_ssl: false },
-                outlook: { host: 'smtp.office365.com', port: 587, use_tls: true, use_ssl: false },
-                ses: { host: 'email-smtp.us-east-1.amazonaws.com', port: 587, use_tls: true, use_ssl: false },
-                mailgun: { host: 'smtp.mailgun.org', port: 587, use_tls: true, use_ssl: false },
-                relay: { host: '', port: 1025, use_tls: false, use_ssl: false },
-            };
-            const presetInput = form.querySelector('[data-email-provider-preset]');
-
-            function syncEmailConfigVisibility() {
-                const enabled = Boolean(emailEnabledToggle && emailEnabledToggle.checked);
-                const encryptedDbSecret = enabled && (!secretStorageInput || secretStorageInput.value === 'encrypted_db');
-                setDependentSectionEnabled(form, section, enabled, [], dependentReason(emailEnabledToggle));
-                [
-                    'email_config_transport',
-                    'email_config_provider_preset',
-                    'email_config_secret_storage',
-                    'email_config_host',
-                    'email_config_port',
-                    'email_config_use_tls',
-                    'email_config_use_ssl',
-                    'email_config_username',
-                    'email_config_default_from_email',
-                    'email_config_failure_recipients',
-                    'email_config_test_recipient',
-                ].forEach((name) => setNamedFieldDisabled(form, name, !enabled));
-                setNamedFieldDisabled(form, 'email_config_password', !encryptedDbSecret);
-                // Plain buttons carry no field name, so the name-based disabling
-                // above misses them — the apply/test actions stayed live and
-                // clickable while the rest of the step was switched off.
-                section.querySelectorAll('button, a.btn').forEach((control) => {
-                    if (control.tagName === 'BUTTON') {
-                        control.disabled = !enabled;
-                    } else {
-                        control.classList.toggle('disabled', !enabled);
-                        control.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-                    }
-                });
-                if (passwordField) {
-                    passwordField.classList.toggle('d-none', !encryptedDbSecret);
-                    passwordField.setAttribute('aria-hidden', encryptedDbSecret ? 'false' : 'true');
-                }
-                restoreImportedEmailPasswordNotice(form);
-            }
-
-            function applyProviderPreset() {
-                const preset = presetInput && PROVIDER_PRESETS[presetInput.value];
-                if (!preset) {
-                    return;
-                }
-                if (preset.host) {
-                    setNamedFieldValue(form, 'email_config_host', preset.host);
-                }
-                setNamedFieldValue(form, 'email_config_port', String(preset.port));
-                setCheckboxField(form, 'email_config_use_tls', preset.use_tls);
-                setCheckboxField(form, 'email_config_use_ssl', preset.use_ssl);
-            }
-
-            [emailEnabledToggle, secretStorageInput].forEach((field) => {
-                if (field) {
-                    field.addEventListener('change', syncEmailConfigVisibility);
-                }
-            });
-            if (presetInput) {
-                presetInput.addEventListener('change', applyProviderPreset);
-            }
-            initEmailApply(form);
-            initEmailSendTest(form);
-            syncEmailConfigVisibility();
-        });
-    }
-
-    function initEmailApply(form) {
-        const button = form.querySelector('[data-email-apply]');
-        const result = form.querySelector('[data-email-apply-result]');
-        if (!button || button.dataset.bound === 'true') {
-            return;
-        }
-        button.dataset.bound = 'true';
-
-        button.addEventListener('click', () => {
-            const url = button.getAttribute('data-email-apply-url');
-            const csrfInput = form.querySelector('[name="csrfmiddlewaretoken"]');
-            if (!url || !csrfInput) {
-                return;
-            }
-
-            function show(ok, message) {
-                if (!result) return;
-                result.textContent = message || '';
-                result.classList.toggle('text-success', Boolean(ok && message));
-                result.classList.toggle('text-danger', Boolean(!ok && message));
-            }
-
-            function setBusy(busy) {
-                button.disabled = busy;
-                const spinner = button.querySelector('[data-email-apply-spinner]');
-                if (spinner) spinner.classList.toggle('d-none', !busy);
-            }
-
-            // Post the whole step. The endpoint binds the form in single-step mode
-            // for Email, so other steps keep their stored values and only
-            // email_config is written.
-            const body = new URLSearchParams(new FormData(form));
-            setBusy(true);
-            show(true, '');
-
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfInput.value,
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                credentials: 'same-origin',
-                body: body.toString(),
-            })
-                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
-                .then(({ ok, data }) => {
-                    show(Boolean(ok && data && data.ok), (data && data.message) || '');
-                })
-                .catch(() => {
-                    show(false, t('email_apply_failed', 'Could not apply the email settings.'));
-                })
-                .finally(() => setBusy(false));
-        });
-    }
 
     /* The lock on mail-dependent toggles is rendered server-side, so a test that
        succeeds inside an already-open modal would leave them greyed out until a
        reload — which reads as "the test did nothing". Unlock them in place. */
-    function unlockEmailDependentFields(form, button) {
-        const names = String(button.getAttribute('data-email-dependent-fields') || '')
-            .split(',')
-            .map((name) => name.trim())
-            .filter(Boolean);
-        names.forEach((name) => {
-            const wrapper = form.querySelector(`[data-dlux-settings-toggle-field="${name}"]`);
-            if (!wrapper) return;
-            wrapper.classList.remove('dlux-settings-toggle-field--locked');
-            wrapper.removeAttribute('data-dlux-tooltip');
-            wrapper.removeAttribute('title');
-            wrapper.querySelectorAll('input').forEach((input) => {
-                input.disabled = false;
-            });
-        });
-    }
 
-    function initEmailSendTest(form) {
-        const button = form.querySelector('[data-email-send-test]');
-        const result = form.querySelector('[data-email-send-test-result]');
-        if (!button || button.dataset.bound === 'true') {
-            return;
-        }
-        button.dataset.bound = 'true';
 
-        button.addEventListener('click', () => {
-            const recipientInput = form.querySelector('[data-email-test-recipient]');
-            const recipient = String(recipientInput && recipientInput.value ? recipientInput.value : '').trim();
-            const url = button.getAttribute('data-email-send-test-url');
-            const csrfInput = form.querySelector('[name="csrfmiddlewaretoken"]');
-            if (!url || !csrfInput) {
-                return;
-            }
 
-            function showResult(ok, message) {
-                if (!result) return;
-                result.textContent = message || '';
-                result.classList.toggle('text-success', Boolean(ok && message));
-                result.classList.toggle('text-danger', Boolean(!ok && message));
-            }
 
-            function setButtonBusy(busy) {
-                button.disabled = busy;
-                button.classList.toggle('dlux-email-test-btn--busy', busy);
-                const spinner = button.querySelector('[data-email-send-test-spinner]');
-                if (spinner) {
-                    spinner.classList.toggle('d-none', !busy);
-                }
-            }
 
-            if (!recipient) {
-                showResult(false, t('email_test_invalid_recipient', 'Enter a valid recipient email address.'));
-                return;
-            }
 
-            const body = new URLSearchParams();
-            body.append('recipient', recipient);
-            // In-place spinner on the button: the old approach printed "Sending…"
-            // into the result line, which then had to be overwritten by the verdict.
-            setButtonBusy(true);
-            showResult(true, '');
 
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfInput.value,
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                credentials: 'same-origin',
-                body: body.toString(),
-            })
-                .then((response) => response.json().then((data) => ({ ok: response.ok, data })))
-                .then(({ ok, data }) => {
-                    const passed = Boolean(ok && data && data.ok);
-                    showResult(passed, (data && data.message) || '');
-                    if (passed) {
-                        unlockEmailDependentFields(form, button);
-                    }
-                })
-                .catch(() => {
-                    showResult(false, t('email_test_failed', 'Sending failed. Check the SMTP host, credentials, and from address.'));
-                })
-                .finally(() => {
-                    setButtonBusy(false);
-                });
-        });
-    }
 
-    function initPublicRegistrationOptions(root) {
-        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
-            if (form.dataset.publicRegistrationBound === 'true') {
-                return;
-            }
-
-            const publicRegistrationToggle = form.querySelector('#id_public_registration_enabled');
-            const dependentFields = Array.from(form.querySelectorAll('[data-public-registration-dependent]'));
-            if (!publicRegistrationToggle || !dependentFields.length) {
-                return;
-            }
-
-            form.dataset.publicRegistrationBound = 'true';
-
-            function syncPublicRegistrationVisibility() {
-                const enabled = Boolean(publicRegistrationToggle.checked);
-                const registrationReason = dependentReason(publicRegistrationToggle);
-                dependentFields.forEach((field) => setDependentFieldEnabled(field, enabled, registrationReason));
-                setNamedFieldDisabled(form, 'registration_activation_mode', !enabled);
-                setNamedFieldDisabled(form, 'registration_throttle_enabled', !enabled);
-            }
-
-            publicRegistrationToggle.addEventListener('change', syncPublicRegistrationVisibility);
-            syncPublicRegistrationVisibility();
-        });
-    }
-
-    function syncPublicRootVisibility(form) {
-        if (!form) {
-            return;
-        }
-
-        const publicRootToggle = getNamedFieldInputs(form, 'public_root')[0] || null;
-        const splitToggle = getNamedFieldInputs(form, 'public_root_split_enabled')[0] || null;
-        const publicRootDependents = Array.from(form.querySelectorAll('[data-public-root-dependent]'));
-        const splitDependents = Array.from(form.querySelectorAll('[data-public-root-split-dependent]'));
-        if (!publicRootToggle || !splitToggle) {
-            return;
-        }
-
-        const publicRootEnabled = Boolean(publicRootToggle.checked);
-        if (!publicRootEnabled && splitToggle.checked) {
-            splitToggle.checked = false;
-        }
-        const splitEnabled = publicRootEnabled && Boolean(splitToggle.checked);
-
-        const rootReason = dependentReason(publicRootToggle);
-        publicRootDependents.forEach((field) => setDependentFieldEnabled(field, publicRootEnabled, rootReason));
-        const splitReason = dependentReason(splitToggle);
-        splitDependents.forEach((field) => setDependentFieldEnabled(field, splitEnabled, splitReason));
-        setNamedFieldDisabled(form, 'public_root_split_enabled', !publicRootEnabled);
-        setNamedFieldDisabled(form, 'public_root_url_discovered', !splitEnabled);
-        setNamedFieldDisabled(form, 'public_root_url', !splitEnabled);
-    }
-
-    function initPublicRootOptions(root) {
-        const forms = root.matches && root.matches('form.dlux-system-setup-form')
-            ? [root]
-            : Array.from(root.querySelectorAll('form.dlux-system-setup-form'));
-
-        forms.forEach((form) => {
-            if (form.dataset.publicRootBound === 'true') {
-                syncPublicRootVisibility(form);
-                return;
-            }
-
-            const publicRootToggle = getNamedFieldInputs(form, 'public_root')[0] || null;
-            const splitToggle = getNamedFieldInputs(form, 'public_root_split_enabled')[0] || null;
-            if (!publicRootToggle || !splitToggle) {
-                return;
-            }
-
-            form.dataset.publicRootBound = 'true';
-
-            form.addEventListener('change', (event) => {
-                const target = event.target;
-                if (!target || (target.name !== 'public_root' && target.name !== 'public_root_split_enabled')) {
-                    return;
-                }
-                syncPublicRootVisibility(form);
-            });
-            syncPublicRootVisibility(form);
-        });
-    }
-
-    function initClientIpOptions(root) {
-        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
-            if (form.dataset.clientIpBound === 'true') {
-                return;
-            }
-
-            const modeInput = form.querySelector('[data-client-ip-mode-input]');
-            const hopsField = form.querySelector('[data-client-ip-hops]');
-            const customHeaderField = form.querySelector('[data-client-ip-custom-header]');
-            if (!modeInput || !hopsField || !customHeaderField) {
-                return;
-            }
-
-            form.dataset.clientIpBound = 'true';
-
-            function syncClientIpOptions() {
-                const mode = String(modeInput.value || '');
-                const showHops = mode === 'x_forwarded_for';
-                const showCustomHeader = mode === 'custom';
-
-                hopsField.classList.toggle('d-none', !showHops);
-                hopsField.setAttribute('aria-hidden', showHops ? 'false' : 'true');
-                customHeaderField.classList.toggle('d-none', !showCustomHeader);
-                customHeaderField.setAttribute('aria-hidden', showCustomHeader ? 'false' : 'true');
-
-                setNamedFieldDisabled(form, 'client_ip_trusted_proxy_hops', !showHops);
-                setNamedFieldDisabled(form, 'client_ip_custom_header', !showCustomHeader);
-            }
-
-            modeInput.addEventListener('change', syncClientIpOptions);
-            syncClientIpOptions();
-        });
-    }
-
-    function initAuthSecurityOptions(root) {
-        // Reveal the lockout tuning row only while "Enable login lockout" is on,
-        // and the strong-password minimum-length row only while enforcement is on
-        // (same idiom as the client-ip proxy-hops reveal).
-        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
-            if (form.dataset.authSecurityBound === 'true') {
-                return;
-            }
-
-            const lockoutRow = form.querySelector('[data-auth-lockout-fields]');
-            const strongRow = form.querySelector('[data-auth-strong-fields]');
-            const inactivityRow = form.querySelector('[data-auth-inactivity-fields]');
-            if (!lockoutRow && !strongRow && !inactivityRow) {
-                return;
-            }
-
-            form.dataset.authSecurityBound = 'true';
-
-            function syncAuthSecurityOptions() {
-                const lockoutInput = form.querySelector('input[name="login_lockout_enabled"]');
-                const strongInput = form.querySelector('input[name="enforce_strong_passwords"]');
-                const inactivityInput = form.querySelector('input[name="inactivity_timeout_enabled"]');
-                if (lockoutRow && lockoutInput) {
-                    setDependentFieldEnabled(lockoutRow, !!lockoutInput.checked, dependentReason(lockoutInput));
-                }
-                if (strongRow && strongInput) {
-                    setDependentFieldEnabled(strongRow, !!strongInput.checked, dependentReason(strongInput));
-                }
-                if (inactivityRow && inactivityInput) {
-                    setDependentFieldEnabled(inactivityRow, !!inactivityInput.checked, dependentReason(inactivityInput));
-                }
-            }
-
-            form.addEventListener('change', (event) => {
-                const name = event.target && event.target.name;
-                if (name === 'login_lockout_enabled' || name === 'enforce_strong_passwords' || name === 'inactivity_timeout_enabled') {
-                    syncAuthSecurityOptions();
-                }
-            });
-            syncAuthSecurityOptions();
-        });
-    }
-
-    function initGlobalSearchOptions(root) {
-        // Reveal the "include data in search" toggle only while global search is
-        // enabled (mode !== 'disabled'). The mode is a toggle choice-selector, so
-        // its value is the checked radio named titlebar_global_search_mode.
-        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
-            if (form.dataset.globalSearchBound === 'true') return;
-            const dataRow = form.querySelector('[data-global-search-data-field]');
-            if (!dataRow) return;
-            form.dataset.globalSearchBound = 'true';
-
-            function sync() {
-                const checked = form.querySelector('input[name="titlebar_global_search_mode"]:checked');
-                const mode = checked ? checked.value : 'icon';
-                setDependentFieldEnabled(
-                    dataRow,
-                    mode !== 'disabled',
-                    t('global_search_disabled_reason', 'Enable global search to include record data in results.'),
-                );
-            }
-
-            form.addEventListener('change', (event) => {
-                if (event.target && event.target.name === 'titlebar_global_search_mode') sync();
-            });
-            sync();
-        });
-    }
-
-    function initLoginPageOptions(root) {
-        root.querySelectorAll('form.dlux-system-setup-form').forEach((form) => {
-            if (form.dataset.loginPageBound === 'true') return;
-
-            const hasStyle = getNamedFieldInputs(form, 'login_style').length > 0;
-            const hasTreatment = getNamedFieldInputs(form, 'login_logo_treatment').length > 0;
-            if (!hasStyle && !hasTreatment) return;
-
-            form.dataset.loginPageBound = 'true';
-
-            function syncLoginPageOptions() {
-                const style = getNamedFieldValue(form, 'login_style') || 'split';
-                const isFullpage = style === 'fullpage';
-                const treatment = getNamedFieldValue(form, 'login_logo_treatment') || 'none';
-                const isPlate = treatment === 'plate';
-
-                form.querySelectorAll('[data-login-hero-field]').forEach((node) => {
-                    node.classList.toggle('d-none', !isFullpage);
-                    node.setAttribute('aria-hidden', isFullpage ? 'false' : 'true');
-                    // Enable/disable all textareas inside the hero field
-                    node.querySelectorAll('textarea').forEach((ta) => {
-                        ta.disabled = !isFullpage;
-                    });
-                });
-
-                form.querySelectorAll('[data-login-plate-shape]').forEach((node) => {
-                    node.classList.toggle('d-none', !isPlate);
-                    node.setAttribute('aria-hidden', isPlate ? 'false' : 'true');
-                    setNamedFieldDisabled(form, 'login_logo_treatment_shape', !isPlate);
-                });
-                form.querySelectorAll('.dlux-login-logo-treatment-primary').forEach((node) => {
-                    node.classList.toggle('dlux-logo-treatment-primary--wide', !isPlate);
-                });
-            }
-
-            // Delegate from the form so ALL radio inputs in the selector fire it
-            form.addEventListener('change', function (e) {
-                const name = e.target && e.target.name;
-                if (name === 'login_style' || name === 'login_logo_treatment') {
-                    syncLoginPageOptions();
-                }
-            });
-
-            syncLoginPageOptions();
-        });
-    }
 
     function renderTitlebarActionsOrderBuilder(builder, form) {
         const list = builder.querySelector('[data-titlebar-actions-order-list]');
@@ -4602,14 +2502,6 @@
         });
     }
 
-    function syncTitlebarActionsBuilderVisibility(form) {
-        const style = getNamedFieldValue(form, 'titlebar_user_hub_style') || 'dropdown';
-        form.querySelectorAll('[data-titlebar-actions-order-builder]').forEach((builder) => {
-            const visible = style === 'titlebar_actions';
-            builder.classList.toggle('d-none', !visible);
-            builder.setAttribute('aria-hidden', visible ? 'false' : 'true');
-        });
-    }
 
     function initTitlebarActionsOrderBuilder(form) {
         const builder = form.querySelector('[data-titlebar-actions-order-builder]');
@@ -4776,157 +2668,7 @@
         });
     }
 
-    function initLogBuilder(root) {
-        (root.querySelectorAll ? Array.from(root.querySelectorAll('[data-dlux-log-root]')) : []).forEach(function (rootEl) {
-            if (rootEl.dataset.dluxLogInit === '1') { return; }
-            rootEl.dataset.dluxLogInit = '1';
-            var config;
-            try { config = JSON.parse(rootEl.getAttribute('data-config') || '{}'); } catch (e) { config = {}; }
-            config = (config && typeof config === 'object') ? config : {};
-            config.user = config.user || {};
-            config.system = config.system || {};
-            config.audit = config.audit || {};
-            var form = rootEl.closest('form');
-            var hidden = form ? form.querySelector('[name="log_config"]') : null;
 
-            function serialize() { if (hidden) { hidden.value = JSON.stringify(config); } }
-            function sectionConf(key) {
-                config[key] = config[key] || {};
-                config[key].default_actions = config[key].default_actions || {};
-                config[key].models = config[key].models || {};
-                return config[key];
-            }
-
-            var master = rootEl.querySelector('[data-log-master]');
-            var dependent = rootEl.querySelector('[data-log-dependent]');
-            if (master) {
-                master.checked = config.enabled !== false;
-                if (dependent) { setBuilderSectionEnabled(dependent, master.checked, t('log_disabled_reason', 'Turn on activity logging to change these.')); }
-                master.addEventListener('change', function () {
-                    config.enabled = master.checked;
-                    if (dependent) { setBuilderSectionEnabled(dependent, master.checked, t('log_disabled_reason', 'Turn on activity logging to change these.')); }
-                    serialize();
-                });
-            }
-
-            rootEl.querySelectorAll('[data-log-section]').forEach(function (sectionEl) {
-                var key = sectionEl.getAttribute('data-log-section');
-                var conf = sectionConf(key);
-                var enabledInput = sectionEl.querySelector('[data-log-section-enabled]');
-                var depEl = sectionEl.querySelector('[data-log-section-dependent]');
-                if (enabledInput) {
-                    enabledInput.checked = conf.enabled !== false;
-                    if (depEl) { setBuilderSectionEnabled(depEl, enabledInput.checked, t('log_section_disabled_reason', 'Enable this log section to choose its actions.')); }
-                    enabledInput.addEventListener('change', function () {
-                        conf.enabled = enabledInput.checked;
-                        if (depEl) { setBuilderSectionEnabled(depEl, enabledInput.checked, t('log_section_disabled_reason', 'Enable this log section to choose its actions.')); }
-                        serialize();
-                    });
-                }
-                sectionEl.querySelectorAll('[data-log-default-action]').forEach(function (inp) {
-                    var act = inp.getAttribute('data-log-default-action');
-                    inp.checked = conf.default_actions[act] !== false;
-                    inp.addEventListener('change', function () { conf.default_actions[act] = inp.checked; serialize(); });
-                });
-                var ret = sectionEl.querySelector('[data-log-retention]');
-                if (ret) {
-                    ret.value = conf.retention_days || 0;
-                    ret.addEventListener('input', function () { conf.retention_days = Math.max(0, parseInt(ret.value, 10) || 0); serialize(); });
-                }
-                sectionEl.querySelectorAll('[data-log-model]').forEach(function (row) {
-                    var mkey = row.getAttribute('data-log-model');
-                    var override = conf.models[mkey] || {};
-                    var enabledCb = row.querySelector('[data-log-model-enabled]');
-                    if (enabledCb) {
-                        enabledCb.checked = override.enabled !== false;
-                        enabledCb.addEventListener('change', function () {
-                            conf.models[mkey] = conf.models[mkey] || {};
-                            conf.models[mkey].enabled = enabledCb.checked;
-                            serialize();
-                        });
-                    }
-                    row.querySelectorAll('[data-log-action]').forEach(function (acb) {
-                        var act = acb.getAttribute('data-log-action');
-                        var actions = override.actions || {};
-                        acb.checked = (act in actions) ? (actions[act] !== false) : (conf.default_actions[act] !== false);
-                        acb.addEventListener('change', function () {
-                            conf.models[mkey] = conf.models[mkey] || {};
-                            conf.models[mkey].actions = conf.models[mkey].actions || {};
-                            conf.models[mkey].actions[act] = acb.checked;
-                            serialize();
-                        });
-                    });
-                });
-                var search = sectionEl.querySelector('[data-log-model-search]');
-                if (search) {
-                    search.addEventListener('input', function () {
-                        var q = (search.value || '').toLowerCase().trim();
-                        sectionEl.querySelectorAll('[data-log-model]').forEach(function (row) {
-                            var label = row.getAttribute('data-log-model-label') || '';
-                            var mk = (row.getAttribute('data-log-model') || '').toLowerCase();
-                            var match = !q || label.indexOf(q) !== -1 || mk.indexOf(q) !== -1;
-                            row.classList.toggle('dlux-log-row-hidden', !match);
-                        });
-                    });
-                }
-            });
-
-            config.audit.events = config.audit.events || {};
-            rootEl.querySelectorAll('[data-log-audit-event]').forEach(function (inp) {
-                var ev = inp.getAttribute('data-log-audit-event');
-                inp.checked = config.audit.events[ev] !== false;
-                inp.addEventListener('change', function () { config.audit.events[ev] = inp.checked; serialize(); });
-            });
-            var auditRet = rootEl.querySelector('[data-log-audit-retention]');
-            if (auditRet) {
-                auditRet.value = config.audit.retention_days || 0;
-                auditRet.addEventListener('input', function () { config.audit.retention_days = Math.max(0, parseInt(auditRet.value, 10) || 0); serialize(); });
-            }
-            serialize();
-        });
-    }
-
-    function initProfileBuilder(root) {
-        (root.querySelectorAll ? Array.from(root.querySelectorAll('[data-dlux-profile-root]')) : []).forEach(function (rootEl) {
-            if (rootEl.dataset.dluxProfileInit === '1') { return; }
-            rootEl.dataset.dluxProfileInit = '1';
-            var config;
-            try { config = JSON.parse(rootEl.getAttribute('data-config') || '{}'); } catch (e) { config = {}; }
-            config = (config && typeof config === 'object') ? config : {};
-            config.onboarding_options = config.onboarding_options || {};
-            var form = rootEl.closest('form');
-            var hidden = form ? form.querySelector('[name="profile_config"]') : null;
-            function serialize() { if (hidden) { hidden.value = JSON.stringify(config); } }
-
-            rootEl.querySelectorAll('[data-profile-key]').forEach(function (inp) {
-                var key = inp.getAttribute('data-profile-key');
-                inp.checked = config[key] !== false;
-                inp.addEventListener('change', function () { config[key] = inp.checked; serialize(); });
-            });
-            var nudges = rootEl.querySelector('[data-profile-nudges]');
-            if (nudges) {
-                nudges.value = config.security_nudges || 'subtle';
-                nudges.addEventListener('change', function () { config.security_nudges = nudges.value; serialize(); });
-            }
-            var onbEnabled = rootEl.querySelector('[data-profile-onboarding-enabled]');
-            var onbDep = rootEl.querySelector('[data-profile-onboarding-dependent]');
-            if (onbEnabled) {
-                onbEnabled.checked = config.onboarding_enabled !== false;
-                if (onbDep) { setBuilderSectionEnabled(onbDep, onbEnabled.checked, t('onboarding_disabled_reason', 'Turn on the first-login setup modal to choose what it offers.')); }
-                onbEnabled.addEventListener('change', function () {
-                    config.onboarding_enabled = onbEnabled.checked;
-                    if (onbDep) { setBuilderSectionEnabled(onbDep, onbEnabled.checked, t('onboarding_disabled_reason', 'Turn on the first-login setup modal to choose what it offers.')); }
-                    serialize();
-                });
-            }
-            rootEl.querySelectorAll('[data-profile-onboard-key]').forEach(function (inp) {
-                var key = inp.getAttribute('data-profile-onboard-key');
-                inp.checked = config.onboarding_options[key] !== false;
-                inp.addEventListener('change', function () { config.onboarding_options[key] = inp.checked; serialize(); });
-            });
-            serialize();
-        });
-    }
 
     // Full-page setup only: lift the wizard action bar out of the scroll body into
     // the pinned footer row, so the body scrolls between the fixed nav and footer
@@ -4959,12 +2701,9 @@
         initSystemSetupEnterBehavior(root);
         initSystemSetupStepValidation(root);
         initSystemSetupImportFile(root);
-        initSetupLanguagePicker(root);
         initSetupThemePicker(root);
         initSetupFontPicker(root);
         initLanguageFontsEditor(root);
-        initSetupTableDensityPicker(root);
-        initSetupSidebarDensityPicker(root);
         initSidebarBehaviorOptions(root);
         initNavbarBehaviorOptions(root);
         root.querySelectorAll('form.dlux-system-setup-form').forEach(syncSidebarToolbarWarningFallback);
@@ -5029,11 +2768,8 @@
 	                        node.querySelector('[data-dlux-selector]') ||
 	                        node.querySelector('[data-language-catalog-editor]') ||
 	                        node.querySelector('[data-translation-matrix]') ||
-	                        node.querySelector('[data-setup-language-picker]') ||
-                        node.querySelector('[data-setup-table-density-picker]') ||
-                        node.querySelector('[data-setup-font-picker]') ||
-                        node.querySelector('#dluxLanguageFontsEditor') ||
-                        node.querySelector('[data-setup-sidebar-density-picker]')
+	                        node.querySelector('[data-setup-font-picker]') ||
+                        node.querySelector('#dluxLanguageFontsEditor')
                     )
                 ) {
                     scan(node);

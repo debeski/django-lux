@@ -1,0 +1,39 @@
+.dlux-scanlink-arch-selector .dlux-choice-selector__options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.dlux-scanlink-arch-selector .dlux-choice-option__surface {
+    justify-content: center;
+    padding: 0.6rem 0.75rem;
+}
+
+.dlux-scanlink-arch-selector .dlux-choice-option__copy {
+    align-items: center;
+}
+
+.dlux-scanlink-release-form__notes {
+    min-width: 0;
+}
+
+.dlux-scanlink-release-form__notes #div_id_notes {
+    margin-bottom: 0 !important;
+}
+
+.dlux-scanlink-release-form__publish-row [data-scanlink-publish] {
+    white-space: nowrap;
+}
+
+@media (min-width: 992px) {
+    .dlux-scanlink-release-form__installer,
+    .dlux-scanlink-release-form__installer > div,
+    .dlux-scanlink-release-form__installer [data-archive-file-widget] {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+    }
+
+    .dlux-scanlink-release-form__installer .archive-file-card {
+        flex: 1 1 auto;
+    }
+}

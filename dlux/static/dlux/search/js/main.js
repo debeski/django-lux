@@ -43,6 +43,7 @@
         var input = root.querySelector('[data-global-search-input]');
         var results = root.querySelector('[data-global-search-results]');
         var toggle = root.querySelector('[data-global-search-toggle]');
+        var mobileQuery = window.matchMedia('(max-width: 767.98px)');
         if (!input || !results) { return; }
 
         var flatItems = [];      // flattened, in render order, for keyboard nav
@@ -54,8 +55,11 @@
         function openBox() {
             root.classList.add('dlux-global-search--open');
         }
+        function usesIconInteraction() {
+            return mode === 'icon' || (mode === 'always' && mobileQuery.matches);
+        }
         function collapseIfEmpty() {
-            if (mode === 'icon' && !input.value.trim()) {
+            if (usesIconInteraction() && !input.value.trim()) {
                 root.classList.remove('dlux-global-search--open');
                 closeResults();
             }
@@ -224,6 +228,18 @@
 
         if (toggle) {
             toggle.addEventListener('click', function () { openBox(); input.focus(); });
+        }
+
+        function syncResponsiveMode(event) {
+            if (mode === 'always' && event.matches) {
+                root.classList.remove('dlux-global-search--open');
+                closeResults();
+            }
+        }
+        if (mobileQuery.addEventListener) {
+            mobileQuery.addEventListener('change', syncResponsiveMode);
+        } else {
+            mobileQuery.addListener(syncResponsiveMode);
         }
 
         document.addEventListener('click', function (e) {
