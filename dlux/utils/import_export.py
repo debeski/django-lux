@@ -252,13 +252,20 @@ def normalize_system_settings_import_payload(payload):
         normalized['languages'] = normalize_language_catalog(normalized['languages'])
     if 'translations_override' in normalized and not isinstance(normalized['translations_override'], dict):
         normalized['translations_override'] = {}
+    # Imported navigation routinely names routes this project never had or has
+    # since removed. Pruning them here keeps the builders showing only entries
+    # that can actually render.
     if 'sidebar_config' in normalized:
         normalized['sidebar_config'] = sanitize_sidebar_config(
             normalized['sidebar_config'],
             allow_system_items=True,
+            drop_unknown_routes=True,
         )
     if 'navbar_config' in normalized:
-        normalized['navbar_config'] = sanitize_navbar_config(normalized['navbar_config'])
+        normalized['navbar_config'] = sanitize_navbar_config(
+            normalized['navbar_config'],
+            drop_unknown_routes=True,
+        )
     if 'log_config' in normalized:
         normalized['log_config'] = normalize_log_config(normalized['log_config'])
     if 'profile_config' in normalized:

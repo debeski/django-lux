@@ -17,7 +17,9 @@ Use the sections below based on what you are trying to do.
 
 ## I am Configuring DjangoLux
 
-- [Admin Guide](admin-guide.md) for the first-launch setup wizard, Options view, sidebar builder, themes, languages, and runtime preferences.
+- [Admin Guide](admin-guide.md) for the operator map and safety rules.
+- [System Configuration](system-configuration.md) for the seventeen-step setup wizard, Options view, email, security, navigation, and appearance.
+- [Operations](operations.md) for users, permissions, reports, backups, assets, and deployment procedures.
 - [Deployment Configuration](deployment-configuration.md) for every accepted `DLUX_*` Django setting and environment variable, including types, defaults, precedence, and secret handling.
 - [DSRP-1 Security Standard](security-dsrp-1.md) for the active backend authorization and security-flow policy.
 - [Public Registration Playground](registration.md) for the disabled-by-default email-verified local signup path.
@@ -29,7 +31,11 @@ Use the sections below based on what you are trying to do.
 ## I am Integrating DjangoLux into a Django Project
 
 - [Developer Guide](developer-guide.md) for the system mental model, configuration layers, scoped models, discovery, and when to use each subsystem.
-- [Customization Guide](customization-guide.md) for `DLUX_CONFIG`, translations, sections, dynamic modals, context-menu integrations, fetch/export utilities, activity logging, autofill, and template overrides.
+- [Customization Guide](customization-guide.md) for the focused developer-extension references.
+- [Project Configuration](project-configuration.md) for `DLUX_CONFIG`, custom themes/fonts, app settings, and integration setup.
+- [Translations](translation-guide.md) for `DLUX_STRINGS`, overrides, and RTL verification.
+- [UI Integration](ui-integration.md) for sections, modals, tables, filters, downloads, activity logging, and tutorials.
+- [Template Customization](template-customization.md) for extension partials, page bases, form footers, and assisted entry.
 - [Adding a System Setting](adding-system-settings.md) — the A→Z procedure and trap list for adding a first-class setting to the `SystemSettings` pipeline (framework contributors).
 
 ## I Need Reference Material
@@ -39,11 +45,10 @@ Use the sections below based on what you are trying to do.
 - [Reference](reference.md) for management commands, endpoints, template tags, helper utilities, and codebase entry points.
 - [Verified Inline Updater](inline-updater.md) for updater settings, volume state, safety gates, and operator recovery.
 - [Deployment Doctor](doctor.md) for the check groups, report schema, and exit codes.
-- [Conceptual Codebase Report](conceptual-codebase-report.md) for a concept-first map of the runtime algorithms, state layers, and subsystem relationships.
 - [DSRP-1 Security Standard](security-dsrp-1.md) for the core backend authorization contract and the no-inline runtime asset policy.
-- [Customization Guide](customization-guide.md#universal-fetcher-and-excel-export) for download/export helpers.
-- [Customization Guide](customization-guide.md#context-menu-integration) for action schema and integration patterns.
-- [Customization Guide](customization-guide.md#activity-logging-and-audit-trail) for the audit-log model and manual hooks.
+- [UI Integration](ui-integration.md#download-helpers) for download/export helpers.
+- [UI Integration](ui-integration.md#sections-and-dynamic-modals) for action and modal integration patterns.
+- [UI Integration](ui-integration.md#activity-logging) for the audit-log model and manual hooks.
 
 ## Current Major Capabilities
 

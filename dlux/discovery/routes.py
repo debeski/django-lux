@@ -9,6 +9,7 @@ import re
 import sys
 from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import ImproperlyConfigured
 from django.urls import NoReverseMatch, URLPattern, URLResolver, get_resolver, reverse
 from ..system.constants import (
     DISCOVERY_PROFILE_SIDEBAR,
@@ -282,3 +283,19 @@ def discover_sidebar_catalog(lang_code=None, include_system_items=False):
         lang_code=lang_code,
         include_system_items=include_system_items,
     )
+
+
+def known_route_names():
+    """Every named route the project URLconf currently defines.
+
+    Returns ``None`` — never an empty set — when the URLconf cannot be read yet,
+    so callers can tell "no routes exist" apart from "cannot say", and skip
+    pruning stored configuration rather than emptying it.
+    """
+    if _root_urlconf_is_loading():
+        return None
+    try:
+        patterns = get_resolver().url_patterns
+    except ImproperlyConfigured:
+        return None
+    return {url_name for _, url_name, _ in _iterate_named_patterns(patterns)}

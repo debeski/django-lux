@@ -100,6 +100,8 @@ Export / Import / config.json bootstrap
   → normalize_system_settings_import_payload(payload)               (utils/import_export.py)
       → expand_system_config_groups()  flat ⇄ group reconciliation  (utils/config.py)
       → **whitelists to SYSTEM_SETTINGS_EXPORT_FIELDS**  ← drops anything not listed
+      → sanitize_sidebar_config/sanitize_navbar_config(drop_unknown_routes=True)
+                                       drops routes this URLconf lacks (discovery/sanitize.py)
   → apply_system_settings_import(instance, payload)                 (utils/import_export.py)
       → routes each field onto the instance (flat→group elif chains)
 
@@ -112,6 +114,13 @@ whitelists the payload to `SYSTEM_SETTINGS_EXPORT_FIELDS` and silently discards
 every key not in that tuple.** Export, import, *and* first-launch `config.json`
 bootstrap all pass through it. If your key isn't listed, it evaporates on any of
 those paths.
+
+`sidebar_config` and `navbar_config` get a second check on the same path: they
+name routes as strings, so an imported file routinely references routes this
+project never had or has since removed. `known_route_names()` reads the live
+URLconf and those entries are pruned, keeping the builders in step with what can
+actually render. It returns `None` — never an empty set — while the URLconf
+cannot be read, and nothing is pruned in that case.
 
 ---
 

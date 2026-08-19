@@ -294,7 +294,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
     def test_system_settings_import_accepts_runtime_config_aliases(self):
         imported = normalize_system_settings_import_payload({
             'translations': {'en': {'custom_key': 'Custom'}},
-            'sidebar': {'enabled': False, 'entries': [{'kind': 'item', 'id': 'archive:index'}]},
+            'sidebar': {'enabled': False, 'entries': [{'kind': 'item', 'id': 'manage_users'}]},
             'navbar': {'enabled': True, 'default_mode': 'history', 'hierarchy': {'nodes': []}},
             'titlebar': {'show_title': False, 'logo_treatment': 'plate', 'logo_treatment_shape': 'pill'},
             'homepage': {
@@ -307,7 +307,7 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertEqual(imported['translations_override']['en']['custom_key'], 'Custom')
         self.assertFalse(imported['sidebar_config']['enabled'])
-        self.assertEqual(imported['sidebar_config']['entries'][0]['id'], 'archive:index')
+        self.assertEqual(imported['sidebar_config']['entries'][0]['id'], 'manage_users')
         self.assertTrue(imported['navbar_config']['enabled'])
         self.assertFalse(imported['titlebar_config']['show_title'])
         self.assertEqual(imported['titlebar_config']['logo_treatment'], 'plate')
@@ -320,18 +320,20 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
     def test_system_settings_import_export_prunes_api_navigation_routes(self):
         instance = SystemSettings.load()
+        # Real routes: import now also prunes names the URLconf no longer has,
+        # so an invented route name would be dropped for the wrong reason.
         instance.sidebar_config = {
             'entries': [
-                {'kind': 'item', 'id': 'archive:index', 'url_name': 'archive:index'},
-                {'kind': 'item', 'id': 'archive:records_api', 'url_name': 'archive:records_api'},
+                {'kind': 'item', 'id': 'manage_users', 'url_name': 'manage_users'},
+                {'kind': 'item', 'id': 'api_get_model_details', 'url_name': 'api_get_model_details'},
             ],
         }
         instance.navbar_config = {
             'enabled': True,
             'hierarchy': {
                 'nodes': [
-                    {'kind': 'route', 'id': 'archive:index', 'url_name': 'archive:index'},
-                    {'kind': 'route', 'id': 'archive:api:records', 'url_name': 'archive:api:records'},
+                    {'kind': 'route', 'id': 'manage_users', 'url_name': 'manage_users'},
+                    {'kind': 'route', 'id': 'api_get_last_entry', 'url_name': 'api_get_last_entry'},
                 ],
             },
         }
@@ -341,11 +343,11 @@ class DluxDefaultRouteTests(SimpleTestCase):
 
         self.assertEqual(
             [entry['id'] for entry in imported['sidebar_config']['entries']],
-            ['archive:index'],
+            ['manage_users'],
         )
         self.assertEqual(
             [node['id'] for node in imported['navbar_config']['hierarchy']['nodes']],
-            ['archive:index'],
+            ['manage_users'],
         )
 
     def test_system_settings_import_accepts_grouped_config_aliases(self):

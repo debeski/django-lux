@@ -72,8 +72,8 @@ volumes and env keys.
 
 Every service carries an `org.dlux.restart` label — `safe` (stateless / owns no
 in-flight operation: web, celery, smtp-relay, caddy) or `protected` (data store,
-holds state, or manages its own lifecycle: db, redis, dlux-updater,
-docker-socket-proxy, composer-agent). Composer classifies restart safety from
+holds state, or manages its own lifecycle: db, redis, docker-socket-proxy,
+composer-agent, composer-executor). Composer classifies restart safety from
 these labels instead of a hardcoded name list; the `safe` set mirrors
 `COMPOSER_AGENT_RESTART_SERVICES`, and a scaffold test keeps the two from
 drifting. The contract is the single source of truth for the stack's shape —

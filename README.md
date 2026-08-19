@@ -56,7 +56,7 @@ Generated projects include `start.sh` and `start.ps1` wrappers plus the resident
 ## What DjangoLux gives you
 
 - A complete, themeable design system on Bootstrap 5: multiple built-in themes with a shared theme registry, full RTL/LTR and multilingual rendering, custom font management, responsive layouts, reusable components (tables, forms, modals, selectors, sidebar, navbar, titlebar global search, tutorials), and theme/language/direction-aware surfaces — all driven by a single `dlux` token vocabulary.
-- A 13-step first-launch setup wizard at `/sys/setup/` with category-owned identity, localization, security, login, sidebar, navigation, titlebar, notifications, themes/typography, layout, logging, profile, and backup settings.
+- A 17-step first-launch setup wizard at `/sys/setup/` with category-owned identity, localization, homepage, email, security, login, sidebar, navigation, titlebar, search, notifications, themes/typography, layout, logging, profile, backup, and optional-feature settings.
 - A runtime system UI for users and superusers, including Options, user management, profiles, 2FA, activity logs, scopes, and system settings.
 - A disabled-by-default public registration playground for email-first local signup with mandatory email verification, Dlux email readiness checks, public-account provenance badges, throttles, and optional approval.
 - A database-backed `SystemSettings` singleton layered over `DLUX_CONFIG`, so projects can seed defaults in code and refine them in the UI later.
@@ -113,7 +113,7 @@ python -m dlux startapp billing --register
 - `--repo owner/name` — the GitHub repository (a full `https://github.com/owner/name` URL is also accepted), used for the release URL in `release-manifest.json`. Optional; left blank it writes an obvious `OWNER/REPO` placeholder.
 - `--no-input` — never prompt; use the flag values or their defaults (for CI/non-interactive use).
 
-Generated projects include a baseline Docker stack — `compose.yml`, `compose.dev.yml`, a `config/celery.py` worker entrypoint, a `/health/` endpoint via `django-health-check`, the verified `dlux-updater` and outbound-only `composer-agent` services with a persistent runtime volume, and a Caddy reverse proxy (nginx fallback) with a maintenance/progress page — plus a tag-driven release pipeline: `release-manifest.json`, a `.github/workflows/release.yml` that builds and pushes `--image` and bakes the version labels, and `tools/validate_project_release_manifest.py`.
+Generated projects include a baseline Docker stack — `compose.yml`, `compose.dev.yml`, a `config/celery.py` worker entrypoint, a `/health/` endpoint via `django-health-check`, Composer's outbound-only agent, isolated executor, and read-only Docker proxy with a persistent runtime volume, and a Caddy reverse proxy (nginx fallback) with a maintenance/progress page — plus a tag-driven release pipeline: `release-manifest.json`, a `.github/workflows/release.yml` that builds and pushes `--image` and bakes the version labels, and `tools/validate_project_release_manifest.py`.
 They also generate `.secrets/.env` with the bootstrap secrets used by the standard startup flow.
 The scaffolded settings baseline now also includes `django-cors-headers` and `django-csp` with their apps, middleware, and starter CORS/CSP policy settings.
 

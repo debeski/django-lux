@@ -13,11 +13,9 @@ see [Deployment Configuration](deployment-configuration.md).
 | `python -m dlux startproject myproject --no-input` | Scaffold without prompting; use `--image`/`--repo` values or their defaults (CI). |
 | `python -m dlux startapp billing` | Create a new DjangoLux-native app in the current project. |
 | `python -m dlux startapp billing --register` | Create the app and also patch project settings and URLs. |
-| `python -m dlux enable-updater` | **Deprecated (removed in 1.9.0).** Dry-run the guarded inline-updater bootstrap for an existing generated Compose project. Since 1.8.0 Composer stages, activates and health-gates inline updates; migrate with `composer check --fix`. |
-| `python -m dlux enable-updater --apply` | Preserve changed originals under `.xpose/`, apply idempotent updater wiring, validate with `docker compose config`, and print the one-time rebuild command. |
-| `./start.sh enable-agent` | Ask Composer 1.2+ to print the migration diff from `composer-updater` to one outbound-only `composer-agent`. |
-| `./start.sh enable-agent --apply` | Preserve `compose.yml` under `.xpose/dlux-agent-bootstrap/`, pre-validate, and atomically apply the agent/state-volume topology. |
-| `python -m dlux enable-agent` | Deprecated one-cycle compatibility forwarder to Composer's canonical command. |
+| `./start.sh check` | Inspect a generated stack for Composer topology, runtime-volume, and migration drift. |
+| `./start.sh check --fix` | Apply only Composer's recognized, reviewed repairs; originals are preserved under `.xpose/` and the resulting Compose configuration is validated. |
+| `python -m dlux enable-updater` | **Deprecated; removed in 1.9.0.** Legacy in-container update bootstrap compatibility path. New stacks use Composer; see [Verified Inline Updates](inline-updater.md). |
 
 Agent-capable ASGI projects may set `DLUX_MIDDLEWARE` to a compatible middleware wrapper and `DLUX_SETUP_GUARD_ALLOWED_PREFIXES` to explicit machine API prefixes. The control panel uses these only for `/api/agent/v1/`; bearer authentication still applies at the endpoint.
 
@@ -26,7 +24,7 @@ Generated project baseline:
 - `config/settings.py` wired for env-driven Django secret, Postgres, Redis cache, and Celery
 - `config/settings.py` wired with `corsheaders` / `csp`, their middleware, and starter CORS/CSP settings
 - `compose.yml` and `compose.dev.yml` keeping the standard inline-env pattern
-- a generated Docker baseline with `web`, `celery`, `dlux-updater`, outbound-only `composer-agent` (read-only Docker access via a `POST=0`/`EXEC=0` `docker-socket-proxy`), the isolated `composer-executor` that holds the real Docker socket and performs all writes, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal `smtp-relay` services. Requires composer ≥ 1.3.0 (the `executor` role); existing agent stacks harden in place via `composer check --fix` / `composer enable-executor --apply`.
+- a generated Docker baseline with `web`, `celery`, outbound-only `composer-agent` (read-only Docker access via a `POST=0`/`EXEC=0` `docker-socket-proxy`), the isolated `composer-executor` that holds the real Docker socket and performs all writes, `db`, `redis`, `caddy` (active proxy; `nginx` fallback), and internal `smtp-relay` services. It requires Compose 5.3.0+ for the `celery` `pre_start` migration hooks; existing stacks are checked and repaired through `./start.sh check --fix`.
 - `requirements.txt` pinned to the generated stable `django-lux` release
 - a persistent `dlux_runtime` volume, project-owned process supervisor, and a proxy-served maintenance/progress page
 
@@ -67,8 +65,8 @@ Generated app scaffold baseline:
 | `python manage.py dlux_seed app.Model --apply` | Seed only the named model; `--app`, `--exclude`, `--database`, and `--no-populate` further constrain the run. |
 | `python manage.py dlux_migrate_from_microsys` | Dry-run the supported Microsys 2.4.1 database relabel. |
 | `python manage.py dlux_migrate_from_microsys --yes` | Apply the database relabel after an external backup. |
-| `python manage.py dlux_update_worker` | Internal generated-Compose update worker; normally started only by `dlux-updater`. |
-| `python manage.py migrator` | Internal generated-project migration/static/bootstrap command. Composer runs it once per start via the `org.dlux.post-start` label. |
+| `python manage.py dlux_update_worker` | Legacy in-container update worker retained only during the v1.8 compatibility window; new stacks hand intent to Composer through Celery Beat. |
+| `python manage.py migrator` | Internal generated-project migration/static/bootstrap command, run by Celery's Compose `pre_start` hook under the runtime supervisor. |
 | `python manage.py migrator -mm` | Force makemigrations for every target app, then migrate, then collectstatic. |
 | `python manage.py migrator -nm` | Skip makemigrations and migrate; still collect static. Mutually exclusive with `-mm`. |
 | `python manage.py migrator -a APP` | Scope the target-app list instead of auto-discovering local apps. |

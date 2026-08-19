@@ -3,7 +3,7 @@
 
 from .inference import _normalize_sidebar_labels, _plain_text
 from .meta import HIDDEN_SIDEBAR_GROUP_KEYS, SYSTEM_ROUTE_META, _route_leaf
-from .routes import _is_api_navigation_route, _is_configurable_system_url
+from .routes import _is_api_navigation_route, _is_configurable_system_url, known_route_names
 
 
 def _is_hidden_sidebar_url(url_name, allow_system_items=False):
@@ -46,7 +46,25 @@ def _is_hidden_sidebar_entry(entry, allow_system_items=False):
     return False
 
 
-def _sanitize_sidebar_entry(entry, allow_system_items=False):
+def _sidebar_entry_route_is_missing(entry, known_routes):
+    """True when the entry names a route the URLconf no longer defines.
+
+    ``known_routes`` of ``None`` means the URLconf could not be read, so nothing
+    is pruned. Manual links carry a literal ``url`` instead of a route name and
+    are always kept.
+    """
+    if known_routes is None:
+        return False
+    url_name = entry.get('url_name')
+    if not isinstance(url_name, str) or not url_name.strip():
+        if str(entry.get('url') or '').strip():
+            return False
+        url_name = entry.get('id')
+    url_name = url_name.strip() if isinstance(url_name, str) else ''
+    return bool(url_name) and url_name not in known_routes
+
+
+def _sanitize_sidebar_entry(entry, allow_system_items=False, known_routes=None):
     if not isinstance(entry, dict):
         return None
 
@@ -54,7 +72,7 @@ def _sanitize_sidebar_entry(entry, allow_system_items=False):
     if kind == 'group':
         items = []
         for item in entry.get('items', []):
-            cleaned_item = _sanitize_sidebar_entry(item, allow_system_items=allow_system_items)
+            cleaned_item = _sanitize_sidebar_entry(item, allow_system_items=allow_system_items, known_routes=known_routes)
             if cleaned_item:
                 items.append(cleaned_item)
 
@@ -75,6 +93,9 @@ def _sanitize_sidebar_entry(entry, allow_system_items=False):
     if _is_hidden_sidebar_entry(entry, allow_system_items=allow_system_items):
         return None
 
+    if _sidebar_entry_route_is_missing(entry, known_routes):
+        return None
+
     cleaned_item = dict(entry)
     if 'label' in cleaned_item:
         cleaned_item['label'] = _plain_text(cleaned_item.get('label'))
@@ -90,8 +111,17 @@ def _sanitize_sidebar_entry(entry, allow_system_items=False):
     return cleaned_item
 
 
-def sanitize_sidebar_config(sidebar_config, allow_system_items=False):
+def sanitize_sidebar_config(sidebar_config, allow_system_items=False, drop_unknown_routes=False):
+    """Clean a stored sidebar tree.
+
+    ``drop_unknown_routes`` additionally discards entries whose ``url_name`` is
+    not in the current URLconf — imported configuration otherwise keeps naming
+    routes that were removed, and the builder shows them as chosen even though
+    the rendered sidebar drops them.
+    """
     from ..utils import normalize_sidebar_behavior
+
+    known_routes = known_route_names() if drop_unknown_routes else None
 
     if not isinstance(sidebar_config, dict):
         return normalize_sidebar_behavior({
@@ -102,12 +132,14 @@ def sanitize_sidebar_config(sidebar_config, allow_system_items=False):
     sanitized = dict(sidebar_config)
     sanitized_entries = []
     for entry in sidebar_config.get('entries', []):
-        cleaned_entry = _sanitize_sidebar_entry(entry, allow_system_items=allow_system_items)
+        cleaned_entry = _sanitize_sidebar_entry(entry, allow_system_items=allow_system_items, known_routes=known_routes)
         if cleaned_entry:
             sanitized_entries.append(cleaned_entry)
 
     home_url_name = sidebar_config.get('home_url_name')
     if _is_hidden_sidebar_url(home_url_name, allow_system_items=allow_system_items):
+        home_url_name = None
+    if known_routes is not None and home_url_name and home_url_name not in known_routes:
         home_url_name = None
 
     top_level_items = [
@@ -126,10 +158,17 @@ def sanitize_sidebar_config(sidebar_config, allow_system_items=False):
     return sanitized
 
 
-def sanitize_navbar_config(navbar_config):
+def sanitize_navbar_config(navbar_config, drop_unknown_routes=False):
+    """Clean a stored navbar hierarchy.
+
+    ``drop_unknown_routes`` discards route nodes the URLconf no longer defines,
+    lifting their children in their place, the same way removed API routes are
+    handled.
+    """
     from ..system.defaults import default_navbar_config
     from ..system.normalizers import normalize_navbar_config
 
+    known_routes = known_route_names() if drop_unknown_routes else None
     sanitized = normalize_navbar_config(navbar_config)
 
     def sanitize_nodes(nodes):
@@ -144,6 +183,9 @@ def sanitize_navbar_config(navbar_config):
             if kind == 'route' and _is_api_navigation_route(url_name, url):
                 cleaned.extend(children)
                 continue
+            if kind == 'route' and known_routes is not None and url_name not in known_routes:
+                cleaned.extend(children)
+                continue
             if kind != 'route' and url and _is_api_navigation_route(url=url):
                 node.pop('url', None)
                 if not children:
@@ -155,7 +197,10 @@ def sanitize_navbar_config(navbar_config):
 
     sanitized['hierarchy']['nodes'] = sanitize_nodes(sanitized.get('hierarchy', {}).get('nodes'))
     root = sanitized.get('root', {})
-    if root.get('mode') == 'route' and _is_api_navigation_route(root.get('url_name')):
+    if root.get('mode') == 'route' and (
+        _is_api_navigation_route(root.get('url_name'))
+        or (known_routes is not None and root.get('url_name') not in known_routes)
+    ):
         sanitized['root'] = default_navbar_config()['root']
     return sanitized
 

@@ -1,100 +1,55 @@
-# Project Tracker (django-lux)
+# Project Tracker (django-lux) [Max 100 lines total]
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- BOOT ORDER (1.8.0, requires Compose 5.3.0+): reconcile+migrator are native Compose `pre_start` init containers on CELERY (not web — a step inherits its service's mounts and `dlux_reconcile` writes the runtime pointer, which is ro on web, where it silently no-ops). Each step needs `DLUX_BOOT_GATE: "off"` — a step inherits the entrypoint, whose gate waits on those very migrations (verified empirically). Flags reach the static step via `${DLUX_MIGRATOR_FLAGS:-}`, set by composer's compose env. `entrypoint.sh` waits on `migrate --check` — the net for reboots, which Compose skips pre_start on. web depends only on db/redis/smtp-relay. `composer check` FAILs Compose <5.3.0 (it IGNORES pre_start rather than erroring).
-- Current source version: v1.8.0 release retry; the prior tag failed to publish and was recreated, so its manifest URL and changelog entry remain v1.8.0.
-- Canonical routing/search settings are `homepage_config` and `search_config`, each with its own wizard/Options/search step; v1.x mirrors legacy home/public/profile/titlebar keys bidirectionally and promotes pre-migration values at runtime before first save.
-- `dlux/form_base.html` has opt-in `form_content`/`form_footer` blocks; the latter is empty unless a project supplies it, and `.dlux-form-page` establishes the shared submit rail's desktop-local layout boundary so `.dlux-form-footer` can meet the global footer without document overscroll or artificial form-end space; it is normal-flow below 768px.
-- DjangoLux includes the typed Composer bridge and state-row-serialized update admission; generated projects emit one hardened `composer-agent` while Composer owns legacy migration.
+- Source manifest is v1.8.1 (unreleased documentation update); v1.8.0 is the latest tag.
+- Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
+- Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 
 ### Current Project Adopted Standards:
-- ONE switch: reuse `dlux-settings-toggle-field__control form-switch` + `form-check-input dlux-settings-toggle-field__input` + `type=checkbox`; `helpers/toggle/css/main.css` + the themes style those names only. Never hand-roll `form-check form-switch`. Keep host layout (e.g. `dlux-assist-bar`) separate from it.
-- Integrate settings with `from dlux.utils import dlux_settings`; call `dlux_settings(globals())`; mount `dlux.urls` at root.
-- `dlux.system` owns settings defaults/schema/normalizers/registry; migration-history wrappers remain in `dlux.models`.
-- DSRP-1: backend authorization must match UI visibility; security mutations are POST-only.
-- Static layout is feature-first: `dlux/static/dlux/<feature>/{css,js}/main.*`; a single-file feature uses `main.*`, extra files keep descriptive names. Shared primitives live under `helpers/<name>/`. Never add assets back into `base/`.
-- Dlux-first UI: use `DluxFileInput`/`AssetPickerField` (never raw file inputs), Dlux choice widgets, Dlux icon picker, toggle builders, `DluxTable` shells, dynamic-modal protocol, and `DluxLoadingButton` before generic controls; catalog: `docs/developer-guide.md`.
+- Integrate settings with `from dlux.utils import dlux_settings; dlux_settings(globals())`; mount `dlux.urls` at root.
+- Use Dlux-native UI primitives and feature-first static layout; backend authorization must match UI visibility and mutations are POST-only.
+- `dlux.system` owns settings defaults/schema/normalizers; migration-history wrappers remain in `dlux.models`.
 
 ### Adopted Standards' rules and policies:
-- Read `tracker.md` every turn; keep it under 100 lines; preserve unrelated user work; use `apply_patch` for manual edits.
-- Before changelog edits, check `git tag`; tagged versions are immutable, so start a new version and bump manifest.
-- Feature/config/schema/API/security/deployment changes require same-turn docs and changelog.
-- No raw HTML in i18n strings/form help; crispy help_text is unescaped. No `{# #}`/`{% comment %}` in HTML/CSS/JS — rationale goes in the tracker, a test docstring, or Python.
-- Reuse Dlux components and full schema -> form -> config import/export patterns.
+- Read/update this tracker each turn; retain under 100 lines. Use `apply_patch` for edits and preserve user work.
+- Check tags before changelog edits; tagged versions are immutable. Change code/config/docs and their changelog together.
+- Never delete files; move superseded material into `.xpose/` with its relative path.
 
 ### Cross-Cutting Audits if any:
-- 2026-06/07 updater/report/scaffold and 2026-08-03 table integration audits; mounted test Compose uses Redis sessions, so never run live `cache.clear()` probes that delete browser sessions.
-- 2026-08-07 structure audit: preserve root public import façades; reduce `forms.py`, `views/options.py`, `reports.py`, `discovery.py`, `backup.py`, and domain-specific `utils` incrementally behind contract tests.
-- 2026-08-12 LOC audit: theme CSS is 7 copies of one sheet — 264 selectors shared by >=5 of the 7 full themes hold 80% of declarations; 92% carry `!important`, 64% hard-code a literal despite ~140 vars/theme. The 5 palette themes (~70 ln, zero non-`:root` selectors) are the target shape. Plan: safety net -> token parity test -> extract `_structure.css` -> drop `!important`. NOTE: the LOC tool's Comments column over-reports (sections/test_scaffold/test_updater by +292/+373/+430); Lines/Blanks/Total are sound.
+- Import-cycle and template/render-cost guards remain active; do not replace function-scope imports blindly.
+- Generated deployment docs must reflect Compose 5.3+ `pre_start`, Composer external execution, and the retired updater service.
 
 ### Current Project's Unsolved Known Bugs:
-- Inline updates need a WRITABLE runtime volume; `runtime_volume_problem()` (pure stat, no mkdir) gates `queue_run` + `serialize_state` + a doctor check. Never fall back to another directory — supervisor/Composer resolve releases via `runtime_contract.json`, so staging elsewhere silently no-ops the update.
-- Guarded failure classes: template wrappers must render in the CURRENT context and fonts stay request-memoised (`test_render_cost.py`); swallowed PostgreSQL `ProgrammingError` queries require `transaction.atomic()` (`test_transaction_safety.py`).
-- Isolated `dlux.tests.test_groups` has two 302 failures because setup middleware sees default unconfigured settings; package discovery passes after earlier tests cache configured state.
-- dlux has ZERO module-scope import cycles (verified v1.8.0); the 421 function-scope imports are load-bearing mitigation, not clutter. Two deferred-coupling clusters (28 + 7 modules) remain — promoting any of their imports to module scope creates a real cycle. Detector: `scripts/import_cycles.py`; guards: `dlux/tests/test_import_graph.py`.
-- Deployment review: `_safe_referer()` guards fallback redirects; old `switch_pos` state and pre-exclusion `composer-updater` blocks can remain degraded until runtime reconciliation or Composer migration.
+- `test_groups` has two isolated 302 failures before configured-settings cache state exists.
+- Inline updates require a writable runtime volume; no fallback path is valid.
 
 ### Incomplete Tasks:
 - **Priority 1:**
-  - **Completed Recently:** [x] CI repair: `test_package_facades` now imports committed split modules and no longer reads `.xpose/`; v1.8.0 retry metadata and notes updated.
-  - [ ] Updater consolidation (`docs/updater-consolidation.md`), dlux-side executor DEPRECATED 1.8.0 / REMOVED 1.9.0. STEPS 1-4 DONE, ready at the 1.8.0 release: composer executes apply/rollback/check (`dlux.package_update`, `dlux_runtime.py`, `dlux_release_source.py`, `dlux_package_update.py`, `composer dlux-update`), runtime contract asserted both sides, `DLUX_UPDATE_EXECUTOR` (default composer; `inline` = legacy until 1.9.0), `_process_check` reads composer's `package-available.json` (absent = UNKNOWN, never 'up to date'), `enable-updater` deprecation notice, `composer check` verifies loop + `dlux_runtime` mount. CORRECTED: the `dlux-updater` SERVICE is never removed — it also runs `dlux_reconcile`/`migrator`, `web` gates on its health, and `dlux_update_worker` is the sole `process_next()` caller. Suites 1567 + 425 GREEN. DECIDED 2026-08-11: Composer is a HARD REQUIREMENT from 1.8.0 — a service in the deployment (latest stable image), not just the deployer; dlux is being stripped of outbound responsibilities by design. `check` FAILs a dlux stack with no Composer service; `check --fix` installs the hardened trio via `install_composer_stack()`. The "does anyone run dlux without composer" question is CLOSED — not a constraint. NEXT: `composer check` diff of a DEPLOYED volume vs the fetched contract.
-  - [ ] project-archive: unresolved `dlux-updater` restart loop — still runs retired `tools.dlux_runtime_supervisor` (no strictly-newer gate) and `manage.py` lacks the release resolver; run `dlux enable-updater` and re-check `DluxUpdateState.active_version` vs running `dlux.__version__`.
-  - [ ] Doctor P3 (composer repo): wire `composer check` drift-diff to exec `dlux_stack_contract` + mirror `diff_attachments()` AND `diff_command_modules()`/`fix_command_modules()` (contract schema 2).
-  - [ ] Doctor P4: add `dlux.doctor` remote action + Control Panel surface; redact before the report leaves the host.
-  - [ ] Browser-validate at desktop+mobile widths: setup Step 11 logging grid hydrate/serialize + audit tab + prune after collectstatic; General Reports; Navigation Root; anonymous public root; Control Panel.
-  - [x] Canonical homepage/search settings (2026-08-16): dedicated 17-step UI, aliases/import-export/runtime rewiring, inline-safe 0016 DB defaults, v1.x compatibility mirrors documented for v2.0 removal.
-  - [ ] Live Docker staging acceptance: central image update, backup creation, outage replay, control-panel self-update, AND `dlux_check --apply` (collectstatic + migrator paths, unit-tested only so far).
+  - [x] Validate the documentation reorganization with targeted Django docs tests, JSON parsing, Markdown-link checks, and `git diff --check`.
+  - [ ] Review live Docker staging acceptance for Composer migration and `dlux_check --apply`.
+  - [ ] Decide whether builder save (`clean_sidebar_config`) should prune stale routes too, or stay import-only.
 - **Priority 2:**
-  - [x] THEME CSS DE-DUP: CLOSED 2026-08-13, do not reopen without new page coverage. Measured (`tests-e2e/reach.mjs`), not guessed: of 1,602 static theme declarations only 299 ever match an element on the 9 harness pages — **81% would be refactored blind**. Projected line saving is only ~13% (10,213->8,886) because a differing value still needs one token line PER THEME, so declarations move 1:1 into token blocks; only selector/brace repetition is saved. The earlier '10,422->2,000' estimate was WRONG — it assumed semantic token consolidation, which no generator can do. Ordering is NOT the blocker (two-sheet placement reaches 93% of *measured* declarations). PH1 harness + PH2 token contract KEPT; PH3 partial reverted to `.xpose/`; extractor at `.xpose/tools/theme_extract.py`.
-  - [ ] 5 dead custom properties (`--text`, `--muted`/`--text-muted`, `--glass-bg`/`--body-bg`) — in `KNOWN_DEAD_TOKENS`; fixing them is a VISUAL decision (dead declarations would start applying). Needs your call.
-  - [ ] `setup/js/main.js` split — 5047->2783 (10 modules). 37 e2e + 41 unit + 4 module-contract tests, all mutation-verified. FLOOR IS 36 fns/~1450 ln: `scan()` calls every init and the inits call back into the shell — `initBuilder`(672)/`initNavbarBuilder`(349) are inside that SCC. ~6 fns/~260 ln still movable; biggest `applySidebarPreview` 115 is UNTESTABLE (wizard renders no sidebar) — diminishing returns from here.
-  - GUARD: `dlux/tests/test_setup_js_modules.py` catches cross-module calls with no import, and base.html load order. `node --check` sees NEITHER; both broke at runtime during this split.
-  - CONFIG IMPORT UI: review reuses the PERMISSIONS widget markup+CSS (`permissions-card`/`app-master-checkbox`/`permissions.css`) — do NOT invent a second selection pattern. Dynamic modal is URL-driven and expects `JsonResponse({'html': ...})`; handing it raw HTML silently renders inline and wrecks the page. Rows render `change.label` from `settings_diff.field_labels()` (borrowed from SystemSettingsForm, mapping sub-keys use the flattened `email_config_host` name) — rendering `change.field` shipped raw English keys under Arabic headings.
-  - CONFIG IMPORT (Options): `system/settings_diff.py` builds the change set; `views/settings_import.py` = preview/apply/revert; `SystemSettingsSnapshot` (0016) + revert. RULES: default KEEP CURRENT, absent key = leave alone (never reset), change set re-read from SESSION on apply (never trust the post), mapping keys MERGE into current (replacing wipes untouched keys). Adding a field to `SYSTEM_SETTINGS_EXPORT_FIELDS` requires grouping it in `settings_diff.GROUPS` — guarded.
-  - BACK LINKS: shared `.dlux-back-link` + Bootstrap `justify-content-end` — inline-END in both directions (right in en, LEFT in ar). Arrow mirrors under `[dir=rtl]` in `base/css/main.css` (same idiom as the table pagination chevrons); a `bi-arrow-left` reads as FORWARD in Arabic. Guard: `tests-e2e/scanlink.test.mjs`.
-  - RAIL/CHIP CSS RULE: hit-test with `elementFromPoint` after `scrollIntoView`; no absolute popover (`.dlux-admin-panel` clips it). Open rail stays beside title at >=768px and takes a full-width second row below 768px; constrained rails scroll. Never animate `max-width`. Guard: `admin_rail.test.mjs` (17).
-  - WIZARD STEP NAV: nav buttons index DIRECTLY into `.wizard-step` panels via `showStep(target)` — there must be exactly ONE button per panel in `setup/main.html` or every later button opens the wrong panel and the last is unreachable (shipped that way until 2026-08-14; Email had no button). Adding a step = constants `SETUP_STEP_*`/`SETUP_STEP_COUNT` + layout Div + nav button + options.html tile + `search.py` entry. Guard: `tests-e2e/setup_step_nav.test.mjs` (4).
-  - MIGRATIONS FOLDED (2026-08-18): unreleased 0017+0018 AND the homepage/search 0017 are all squashed into 0016 — v1.7.1 ends at 0015 so none had shipped. 0016 = Scope.default_theme + ManagedAsset/fonts/SystemSettingsSnapshot/ScanLinkRelease + inline-safe homepage_config/search_config JSON defaults; dlux HEAD is 0016. Dev/staging DBs that ran any old numbering need rebuilding; old files are in `.xpose/dlux/migrations/`.
-  - MANIFEST SCHEMA 2 (`dlux/release-manifest.json`): states FACTS (`migrations.effect`/`rollback_compatible`, `install.inline`, `requires.{updater_schema,baked_image,services}`), updater derives `inline_safe`. `install.inline` is a PERMISSION not an override — destructive effect is refused inline regardless. Unknown enum OR unknown `requires` key = REFUSE (that rule is what makes `requires` extensible). NO python/deps key — the wheel owns those. Schema 1 still validates via `_v2_to_internal` normalisation. Guard: `test_manifest_schema_v2.py` (20, mutation-verified 4 ways).
-  - IMAGE FLOOR IS COMPUTED: `release_check.expected_image_baseline()` walks tags for the highest inline-forbidden release; `validate_image_baseline()` refuses a lower/absent floor. Found a REAL gap — v1.2.7 shipped image_rebuild, v1.3.0-v1.7.1 all omitted the floor. 1.8.0 declares `baked_image: ">=1.2.7"`. Never carry this by hand again.
-  - MIGRATION GATE RULE: `AlterField` is rejected OUTRIGHT (Django serialises the WHOLE field — a `choices` edit is byte-identical to a `max_length` shrink). For a column-free change use `SeparateDatabaseAndState(database_operations=[], state_operations=[...])`; the gate checks the list IS empty, never that it SHOULD be, so prove it with `sqlmigrate` (`-- (no-op)`) or you silently diverge schema from Django state. No shipped migration uses it (guard: `test_updater.StateOnlyMigrationGateTests`). Composer executing does NOT relax any of this — `inline_safe` is about the DATABASE and `queue_run()` gates APPLY under either executor.
-  - SCANLINK SWITCH IS IMMEDIATE: `scanlink/toggle/` (POST, superuser) writes `extra_config['scanlink']['enabled']` on click — releases are gated on it, so save-then-reopen was a detour. `scanlink_releases.js` is NOT gated (same-origin + it carries the switch; gating it meant the switch could never turn ScanLink ON). Only `scanlink_update.js` (probes localhost) is gated. Releases modal = crispy + `DluxFileInput`/`DluxChoiceSelectorWidget`/dlux switch + Back to step 14.
-  - SCANLINK RELEASES: protected `ManagedAsset` installers, numeric versions, gated endpoints. Options update card preserves archive intro + 3 bordered status tiles via current data hooks. Publisher: Dlux inputs, adjacent x86/x64, compact Active, responsive details/file columns, full Notes beside Publish. Guards: `test_scanlink_releases.py` (34), `scanlink.test.mjs` (8).
-  - SCANLINK GATE: extra_config['scanlink']['enabled'], default OFF, via `utils.settings.scanlink_enabled()`. Probes localhost:5443/5000 — a refused connection is logged BY THE BROWSER, no `catch` silences it, so the gate is about NOT PROBING. `DluxFileInput` withholds the scan button even with `show_scan=True`. Guard: `test_scanlink_gate.py` (20).
-  - EXTRA_CONFIG RULE: `default_extra_config()` MUST stay `{}` and `normalize_extra_config()` a pure copy-through — seeding a dlux key as a default makes it beat a host project's `DLUX_CONFIG['extra']` and DROPS that project's keys (caught by `test_get_system_config_accepts_nested_config_aliases`). Dlux keys go top-level, read defensively, written by copy-then-set; projects own `extra_config['app'][<ns>]` (verified across all 7 siblings).
-  - TEST HYGIENE: `SystemSettings.load()` reads through the CACHE; a `TestCase` rollback does NOT clear it, so settings leak between tests — `cache.clear()` in `setUp` (isolated per-pid). Views also need `is_configured=True` or setup middleware 302s everything.
-  - AUTOFILL RULE: any `type=password` needs an `autocomplete="username"` input BEFORE it in the DOM, or Chrome fills the titlebar search box with a saved username (it ignores `autocomplete=off` for this; `data-1p-ignore`/`data-lpignore` only cover third-party managers). Guarded by `tests-e2e/autofill.test.mjs`.
-  - MODULE LOAD ORDER (base.html): dom.js -> builder_model.js -> appearance/security/email/builders/state/previews/language -> main.js. builder_model needs `t` from dom.js, so that pair is NOT interchangeable; the unit tests require both in order and stub `window`/`DLUX_STRINGS`. Move dependency-closed BATCHES, not lone leaves; what disqualifies a move is a closure reaching the CORE SCC, not merely calling a shell helper.
-  - DEAD CODE POLICY: verify against dlux AND every sibling project in `~/Desktop/depy/` (grep identifiers, data-attrs, template paths, fn names), then DELETE to `.xpose/`. Done 2026-08-13 for the 4 `picker_mode=='setup'` functions. Expect source-text assertions in `dlux/tests/` to break — search by PATH FRAGMENT not variable name; 4 sites used 4 different names.
-  - RUN JS TESTS: unit `node --test 'tests-js/*.test.mjs'` (25); functional `node --test 'tests-e2e/*.test.mjs'` (7, real server+browser). Neither is in the Python suite; `prune tests-js`/`prune tests-e2e` keep both out of the sdist.
-  - SETUP SPLIT PLAN: `setup_split_plan.md` (gitignored via `*plan.md`). 33 `init*(root)` fns behind one `scan(root)`; 59 helpers shared by >=2 clusters -> `dom.js`. Order by COUPLING not size: appearance (0 shared) -> security (8) -> email (19) -> builders (30, 1394 ln) -> chrome (34) -> language (35); shell (52) stays as orchestrator. Test-first per cluster, mutation-verified.
-  - WIZARD FACTS (found by testing, easy to get wrong): state is in **sessionStorage** not localStorage; written on SUBMIT + settings-import ONLY (a step change just records the index in a dataset attr); Dlux switches render the real input 0x0 so Playwright cannot click them — set `checked` + dispatch bubbling `change`.
-  - ACCESS/SECURITY CONDITIONALS: strong-password minimum length + inactivity timeout share one row, but each dependent wrapper keeps its own data hook, disabled state, tooltip, and master switch. Guard: `wizard_security.test.mjs`.
-  - PUBLIC CHROME CONDITIONAL ROWS: public-page sidebar sits with notification badges; public-page titlebar sits with language switcher. Only each public toggle is gated by `public_root`, so dependent wrappers stay on their columns, never shared rows. Guard: `wizard_security.test.mjs`.
-  - [ ] `forms/system_settings.py` `__init__` is a single 2,213-LOC method (62% of the file) — the real target of the structure audit, seam is `forms/system_settings_groups/`.
-  - [ ] Stage the domain-oriented package restructure after adding public-import, URL-name, migration-drift, template/static-path, and task-path contract checks.
-  - [ ] project-decrees still reads the OLD sticky-form cookie; convert it to `sticky_forms_enabled`/`sticky_form_initial` as archive was (v1.7.2).
+  - [ ] Finish `forms/system_settings.py` group extraction behind existing contracts.
+- **Completed Recently:**
+  - [x] Import now prunes sidebar/navbar entries naming routes absent from the URLconf (`known_route_names`, `drop_unknown_routes`) (2026-08-19).
+  - [x] Replaced stale v1.2.5 Features inventory and split admin/customization documentation into focused v1.8.1 references (2026-08-18).
+
 ### One-line info about last verified Tests:
-- 2026-08-18: exact CI regressions are GREEN without a full rerun: manifest + facade guards 10 tests, and `TemplatePackagingTests` 3 tests after replacing Python-3.13-only `Path.full_match()` with a portable package-data matcher.
-- 2026-08-18: after folding 0017 into 0016, full `dlux` suite 1769 GREEN (2 skipped); `makemigrations --check` detects no changes and `sqlmigrate 0016` emits both JSON columns with their db_defaults.
-- 2026-08-16: admin rail browser suite 17 GREEN at 1280/992/979/768/576/390/320px plus narrow RTL; >=768 same-row and <768 full-row expansion, closed trigger, non-animated width, and scrolling guarded.
-- BROWSER HARNESS `tests-e2e/` (VERSIONED; `prune tests-e2e`; node_modules/state/shots/noise.json/reach.json gitignored). `./run.sh baseline|current|compare` = 9 pages x 12 themes. Verified BOTH ways: clean PASS; injected `--primal` break caught all 6 dark pages (221-15,057 px), zero false positives. Determinism needs: fresh DB per run (live counters), 2 phases (wizard needs is_configured=False), digit-flattening (live host stats), viewport NOT fullPage (neon fixed overlays), `animation: none`, `fonts.ready`, freeze injected via `addInitScript` BEFORE render. Residual Skia shadow noise on neon/gothic is INTERMITTENT (5 clean runs then 2,258px) — judge the SHAPE: same count across many pages = real; 1-2 images in neon/gothic that move between runs = noise; ANY palette theme = real.
+- 2026-08-19: Full `django test dlux` run passed (1778 tests, 2 skipped) after adding `StaleRouteImportPruningTests` and re-pointing two `test_defaults_and_urls` cases at real routes.
+
 ### One-line info about last time edited Docs:
-- 2026-08-18: `docs/deprecation-countdown.md` now documents that package-facade integrity checks inspect only committed split sources, never `.xpose/` archives.
-- 2026-08-15: developer/customization guides also document authenticated scroll and form-footer layout boundaries; `CHANGELOG.md` records both regressions.
+- 2026-08-19: `system-configuration.md` navigation section and `adding-system-settings.md` import pipeline document stale-route pruning on import.
 
 ## Part 2: Global
 ### Global Standard Helpers, Shortcuts, Info, etc.:
-- Prefer `rg`/`rg --files`; `scripts/find_template_comments.py` targets malformed/leaking Django comments (`--include-valid` broadens it); inspect updater runs through DB/runtime state, not web logs. Static cache-busting: `{% dlux_static %}` appends version + mtime in DEBUG.
+- Prefer `rg`; run generated Compose commands through `./start.sh`; inspect updater state through DB/runtime records, not web logs.
 
 ### Global Rulesets:
-- Keep tracker/changelog/docs synchronized with verified code and executed checks; move obsolete files into `.xpose/<relative path>`, never delete; project-side runtime helpers belong in the package so scaffold copies do not strand fixes.
+- Keep tracker, docs, and changelog grounded in verified code/runtime behavior.
 
 ### Agent Handoff Rules:
-- Moving/renaming a template, static file or public symbol: grep the six active projects FIRST, shim what they use, and record it in `docs/deprecation-countdown.md` + `test_downstream_compat.py`.
-- Preserve user work; if tagged version exists, create next changelog/manifest version.
-- Adding/extending a system setting: read `docs/adding-system-settings.md`; add keys to `SYSTEM_SETTINGS_EXPORT_FIELDS`. Downstream app config: `reference.md` (`extra_config[app]`).
+- Move/rename public paths only after downstream-usage checks; record compatibility shims in `docs/deprecation-countdown.md`.
 
 ### References and Links:
-- Security: `docs/security-dsrp-1.md`; updater: `docs/inline-updater.md` + `updater-consolidation.md`; release + manifest schema: `docs/RELEASING.md`; shims: `deprecation-countdown.md`.
+- Deployment: `docs/inline-updater.md`, `docs/composer-agent.md`, `docs/doctor.md`; settings: `docs/adding-system-settings.md`.

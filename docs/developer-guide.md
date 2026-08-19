@@ -480,8 +480,12 @@ For the full contract and more examples, use:
 
 - [Reference](reference.md)
 - [Customization Guide](customization-guide.md)
+- [Project Configuration](project-configuration.md)
+- [Translations](translation-guide.md)
+- [UI Integration](ui-integration.md)
+- [Template Customization](template-customization.md)
 
 ## Where to Go Next
 
-- Use the [Customization Guide](customization-guide.md) when you are ready to wire your own translations, sections, modals, or template overrides.
+- Use the [Customization Guide](customization-guide.md) when you are ready to wire your own extensions; it links to the focused translation, UI, project-configuration, and template references.
 - Use the [Reference](reference.md) when you need commands, endpoints, template tags, or helper names quickly.

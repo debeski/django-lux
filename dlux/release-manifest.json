@@ -1,12 +1,12 @@
 {
   "schema_version": 2,
-  "version": "1.8.0",
+  "version": "1.8.1",
   "display": {
-    "summary": "Package split integrity checks now run consistently in clean CI checkouts.",
+    "summary": "Documentation now reflects the Composer-based v1.8 deployment topology and focused guide structure.",
     "highlights": [
-      "Package-facade checks inspect committed split modules instead of ignored local archives."
+      "Operator and customization guides link to focused configuration, operations, UI, template, and translation references."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.0"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.1"
   },
   "requires": {
     "updater_schema": ">=1",

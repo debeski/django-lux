@@ -11,7 +11,7 @@
 - Use `/health/` as the project health endpoint when checking container readiness
 - Keep secret bootstrap values in `.secrets/.env`; the generated compose file itself stays in the standard inline-env pattern
 - Check the [DjangoLux Deployment Configuration reference](https://github.com/debeski/django-lux/blob/v{{ dlux_version }}/docs/deployment-configuration.md) before adding `DLUX_*` settings or environment variables
-- Keep `dlux_runtime` mounted read-only in web/Celery/nginx and read/write only in `dlux-updater`; do not add a Docker socket or published updater port
+- Keep `dlux_runtime` read-only in web/proxy and writable only where state is owned (`celery` and Composer services); do not add a Docker socket or published update port to DjangoLux services
 - Operate Dlux updates from the superuser System Info card; checks may run daily, but apply and rollback are always explicit
 
 ## Suggested App Pattern
@@ -28,6 +28,6 @@
 - `python -m dlux startapp app_name`
 - `python -m dlux startapp app_name --register`
 - `python -m dlux enable-updater` (existing generated projects only; dry-run by default)
-- `./start.sh enable-agent` (Composer 1.2+ migration from `composer-updater`; exact-diff dry run)
+- `./start.sh check` (inspect Composer topology and drift; add `--fix` only after reviewing the repair)
 - `docker compose -f compose.yml -f compose.dev.yml up`
 - `./start.sh -d`

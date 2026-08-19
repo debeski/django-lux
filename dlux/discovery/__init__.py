@@ -55,6 +55,7 @@ from .routes import (  # noqa: F401
     discover_routes,
     discover_routes_for,
     discover_sidebar_catalog,
+    known_route_names,
 )
 from .sanitize import (  # noqa: F401
     _clone_sidebar_entry,
@@ -62,6 +63,7 @@ from .sanitize import (  # noqa: F401
     _is_hidden_sidebar_url,
     _sanitize_sidebar_entry,
     _sidebar_entry_id,
+    _sidebar_entry_route_is_missing,
     sanitize_navbar_config,
     sanitize_sidebar_config,
 )
@@ -106,6 +108,7 @@ __all__ = [
     'discover_routes',
     'discover_routes_for',
     'discover_sidebar_catalog',
+    'known_route_names',
     'merge_sidebar_entries',
     'sanitize_navbar_config',
     'sanitize_sidebar_config',

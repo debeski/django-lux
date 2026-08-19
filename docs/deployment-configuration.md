@@ -24,9 +24,9 @@ uses `setdefault`, so explicitly declared Django settings win.
 
 | Setting | Source | Type / default | Purpose |
 |---|---|---|---|
-| `DLUX_CONFIG` | Django setting | `dict`, `{}` | Code-owned defaults layered beneath database System Settings. See the [Customization Guide](customization-guide.md#project-defaults-with-dlux_config). |
-| `DLUX_CUSTOM_FONTS` | Django setting | `list` or `tuple`, empty | Registers project-owned WOFF2 families. See [Project-Configured Custom Fonts](customization-guide.md#project-configured-custom-fonts). |
-| `DLUX_CUSTOM_THEMES` | Django setting | `list` or `tuple`, empty | Registers project-owned scoped theme CSS. See [Project-Configured Custom Themes](customization-guide.md#project-configured-custom-themes). |
+| `DLUX_CONFIG` | Django setting | `dict`, `{}` | Code-owned defaults layered beneath database System Settings. See [Project Configuration](project-configuration.md#dlux_config). |
+| `DLUX_CUSTOM_FONTS` | Django setting | `list` or `tuple`, empty | Registers project-owned WOFF2 families. See [Project Configuration](project-configuration.md#themes-and-fonts). |
+| `DLUX_CUSTOM_THEMES` | Django setting | `list` or `tuple`, empty | Registers project-owned scoped theme CSS. See [Project Configuration](project-configuration.md#themes-and-fonts). |
 | `DLUX_MIDDLEWARE` | Django setting | dotted path, `dlux.middleware.DluxMiddleware` | Selects the middleware inserted by `dlux_settings()`. A compatible replacement must preserve the setup guard and session/security behavior the project needs. |
 | `DLUX_SETUP_GUARD_ALLOWED_PREFIXES` | Django setting | iterable of URL prefixes, empty | Allows explicit machine/API paths through the pre-setup guard. It does not bypass authentication on those endpoints. |
 | `DLUX_ISOLATE_TEST_CACHE` | Django setting | boolean, `True` | Replaces the default cache with process-local memory during test processes. Set `False` only when a dedicated test cache is already isolated from live sessions and settings. |

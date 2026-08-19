@@ -7,6 +7,13 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.8.1
+
+- **Imported Navigation Route Validation**: `normalize_system_settings_import_payload` now prunes `sidebar_config` entries and `navbar_config` route nodes whose `url_name` is absent from the live URLconf, via `known_route_names()` and the new `drop_unknown_routes` flag on `sanitize_sidebar_config`/`sanitize_navbar_config`; stale nodes lift their children, a stale Navigation Root resets to neutral, and manual `url` entries are untouched.
+- **Documentation Topology**: Split the former `admin-guide.md` and `customization-guide.md` monoliths into focused system configuration, operations, project configuration, translations, UI integration, and template customization references.
+- **Composer Deployment Docs**: Corrected `composer-agent.md`, `inline-updater.md`, generated-project documentation, and command references for the v1.8 `composer-agent`/`composer-executor`/`docker-socket-proxy` topology, Celery `pre_start` bootstrap, and retired `dlux-updater` service.
+- **Current Feature Inventory**: Replaced the v1.2.5-era `docs/FEATURES.md` with a v1.8.1 capability map linked to maintained operational and developer references.
+
 ## v1.8.0
 
 - **Python 3.12 Template Package Guard**: `TemplatePackagingTests` now uses a portable package-data glob matcher instead of `Path.full_match()`, which is unavailable on Python 3.12.

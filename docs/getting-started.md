@@ -57,9 +57,10 @@ python -m dlux startapp billing --register
 ```
 
 The generated project already includes a Docker baseline, a `config/celery.py`
-entrypoint, `celery`, `dlux-updater`, and outbound-only `composer-agent` services,
-persistent `dlux_runtime` and private agent-state volumes, a Caddy proxy (nginx fallback) with a
-maintenance/progress page, a `/health/` endpoint, a generated
+entrypoint, `celery`, outbound-only `composer-agent`, isolated
+`composer-executor`, and read-only `docker-socket-proxy` services, persistent
+`dlux_runtime` and private agent-state volumes, a Caddy proxy (nginx fallback)
+with a maintenance/progress page, a `/health/` endpoint, a generated
 `.secrets/.env` file with the bootstrap secret values, baseline
 `django-cors-headers` / `django-csp` setup in `config/settings.py`, and a
 tag-driven release pipeline (`release-manifest.json`,
@@ -71,15 +72,13 @@ block into `settings.TIME_ZONE` and `CELERY_TIMEZONE`; it defaults to `UTC`.
 See [Deployment Configuration](deployment-configuration.md) for the canonical
 list of accepted `DLUX_*` Django settings and environment variables.
 
-The scaffold pins `django-lux[updater]` and enables verified inline updates.
-Hand-wired and non-Compose projects remain updater-disabled by default. Existing
-generated projects can adopt the infrastructure once with
-`python -m dlux enable-updater`; see the [Verified Inline Updater](inline-updater.md).
-Deployments with the former resident updater migrate with a dry run of
-`./start.sh enable-agent`, followed by `./start.sh enable-agent --apply` after
-reviewing the diff. Pull Composer 1.2.0 first with `./start.sh --update`.
-See [Composer Agent Integration](composer-agent.md) for enrollment, volumes,
-security boundaries, and the typed DLUX bridge.
+The scaffold enables Composer-driven verified inline updates. Hand-wired and
+non-Compose projects remain without that update path by default. Existing
+generated projects should run `./start.sh check`, review the result, and use
+`./start.sh check --fix` only when Composer proposes a recognized migration.
+See [Verified Inline Updates](inline-updater.md) and
+[Composer Agent Integration](composer-agent.md) for the boot, enrollment, volume,
+and security boundaries.
 
 ### Behind a Front Proxy / TLS Terminator
 

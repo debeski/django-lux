@@ -1092,3 +1092,143 @@ class HalfBuiltUrlconfTests(SimpleTestCase):
                 with patch('dlux.discovery.routes.reverse') as reverse_spy:
                     sanitize_sidebar_config(stored, allow_system_items=True)
                     reverse_spy.assert_not_called()
+
+
+class StaleRouteImportPruningTests(SimpleTestCase):
+    """Imported navigation names routes by string, so a config.json written for a
+    different (or older) project keeps entries whose route no longer exists. The
+    rendered sidebar drops them, but the builder showed them as chosen until the
+    import path started pruning against the live URLconf."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_known_route_names_reports_the_live_urlconf(self):
+        from dlux.discovery import known_route_names
+
+        names = known_route_names()
+        self.assertIn('user_profile', names)
+        self.assertNotIn('catalog:gone', names)
+
+    def test_known_route_names_declines_while_the_urlconf_is_loading(self):
+        import sys as _sys
+        import types
+
+        from dlux.discovery import known_route_names
+
+        half_built = types.ModuleType('dlux_tests_half_built_urls')  # no urlpatterns
+        with patch.dict(_sys.modules, {'dlux_tests_half_built_urls': half_built}):
+            with self.settings(ROOT_URLCONF='dlux_tests_half_built_urls'):
+                self.assertIsNone(known_route_names())
+
+    def test_sidebar_keeps_stale_entries_unless_pruning_is_asked_for(self):
+        sidebar = sanitize_sidebar_config({
+            'entries': [{'kind': 'item', 'id': 'catalog:gone', 'url_name': 'catalog:gone'}],
+        }, allow_system_items=True)
+
+        self.assertEqual([entry['id'] for entry in sidebar['entries']], ['catalog:gone'])
+
+    def test_sidebar_pruning_drops_stale_routes_and_empty_groups(self):
+        sidebar = sanitize_sidebar_config({
+            'home_url_name': 'catalog:gone',
+            'entries': [
+                {'kind': 'item', 'id': 'manage_users', 'url_name': 'manage_users'},
+                {'kind': 'item', 'id': 'catalog:gone', 'url_name': 'catalog:gone'},
+                {'kind': 'item', 'id': 'external-docs', 'url': 'https://example.com/docs/'},
+                {
+                    'kind': 'group',
+                    'id': 'gone-group',
+                    'items': [{'kind': 'item', 'id': 'catalog:also_gone', 'url_name': 'catalog:also_gone'}],
+                },
+                {
+                    'kind': 'group',
+                    'id': 'mixed-group',
+                    'items': [
+                        {'kind': 'item', 'id': 'catalog:gone_too', 'url_name': 'catalog:gone_too'},
+                        {'kind': 'item', 'id': 'global_search', 'url_name': 'global_search'},
+                    ],
+                },
+            ],
+        }, allow_system_items=True, drop_unknown_routes=True)
+
+        self.assertEqual(
+            [entry['id'] for entry in sidebar['entries']],
+            ['manage_users', 'external-docs', 'mixed-group'],
+        )
+        self.assertEqual(
+            [item['id'] for item in sidebar['entries'][2]['items']],
+            ['global_search'],
+        )
+        self.assertIsNone(sidebar['home_url_name'])
+
+    def test_navbar_pruning_drops_stale_nodes_and_lifts_their_children(self):
+        navbar = sanitize_navbar_config({
+            'enabled': True,
+            'root': {'mode': 'route', 'url_name': 'catalog:gone'},
+            'hierarchy': {
+                'nodes': [
+                    {
+                        'kind': 'route',
+                        'id': 'catalog:gone',
+                        'url_name': 'catalog:gone',
+                        'children': [{
+                            'kind': 'route',
+                            'id': 'user_profile',
+                            'url_name': 'user_profile',
+                        }],
+                    },
+                    {'kind': 'manual', 'id': 'docs', 'url': '/docs/', 'labels': {'en': 'Docs'}},
+                ],
+            },
+        }, drop_unknown_routes=True)
+
+        self.assertEqual(navbar['root'], {'mode': 'neutral', 'url_name': ''})
+        self.assertEqual(
+            [node['id'] for node in navbar['hierarchy']['nodes']],
+            ['user_profile', 'docs'],
+        )
+
+    def test_navbar_keeps_stale_nodes_unless_pruning_is_asked_for(self):
+        navbar = sanitize_navbar_config({
+            'root': {'mode': 'route', 'url_name': 'catalog:gone'},
+            'hierarchy': {
+                'nodes': [{'kind': 'route', 'id': 'catalog:gone', 'url_name': 'catalog:gone'}],
+            },
+        })
+
+        self.assertEqual(navbar['root'], {'mode': 'route', 'url_name': 'catalog:gone'})
+        self.assertEqual([node['id'] for node in navbar['hierarchy']['nodes']], ['catalog:gone'])
+
+    def test_import_payload_prunes_sidebar_and_navbar_routes_that_no_longer_exist(self):
+        from dlux.utils import normalize_system_settings_import_payload
+
+        normalized = normalize_system_settings_import_payload({
+            'format': 'django-lux.system-settings',
+            'version': 1,
+            'settings': {
+                'sidebar_config': {
+                    'entries': [
+                        {'kind': 'item', 'id': 'manage_users', 'url_name': 'manage_users'},
+                        {'kind': 'item', 'id': 'catalog:gone', 'url_name': 'catalog:gone'},
+                    ],
+                },
+                'navbar_config': {
+                    'enabled': True,
+                    'hierarchy': {
+                        'nodes': [
+                            {'kind': 'route', 'id': 'user_profile', 'url_name': 'user_profile'},
+                            {'kind': 'route', 'id': 'catalog:gone', 'url_name': 'catalog:gone'},
+                        ],
+                    },
+                },
+            },
+        })
+
+        self.assertEqual(
+            [entry['id'] for entry in normalized['sidebar_config']['entries']],
+            ['manage_users'],
+        )
+        self.assertEqual(
+            [node['id'] for node in normalized['navbar_config']['hierarchy']['nodes']],
+            ['user_profile'],
+        )
