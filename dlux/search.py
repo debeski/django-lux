@@ -287,7 +287,11 @@ def _visible_option_slugs(config):
         fonts = []
     sidebar = normalize_sidebar_behavior(config.get('sidebar', {}) or {})
     navbar = normalize_navbar_config(config.get('navbar', {}) or {})
-    options_style = (config.get('appearance', {}) or {}).get('options_style', 'cards')
+    from .system.constants import DEFAULT_OPTIONS_STYLE
+
+    options_style = (config.get('appearance', {}) or {}).get(
+        'options_style', DEFAULT_OPTIONS_STYLE
+    )
 
     theme_ok = bool(config.get('allow_user_theme_override', True)) and len(themes) > 1
     language_ok = allow_language and len(languages) > 1

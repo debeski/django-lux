@@ -1,23 +1,30 @@
 {
   "schema_version": 2,
-  "version": "1.8.1",
+  "version": "1.8.2",
   "display": {
-    "summary": "Documentation now reflects the Composer-based v1.8 deployment topology and focused guide structure.",
+    "summary": "The Options page defaults to tabs, and the setup wizard scrolls to each step instead of leaving the operator mid-page.",
     "highlights": [
-      "Operator and customization guides link to focused configuration, operations, UI, template, and translation references."
+      "Options layout defaults to tabs; the style choices no longer share a constant with the default.",
+      "Wizard Next/Back scrolls the new step into view rather than keeping the previous step's scroll position."
     ],
-    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.1"
+    "release_url": "https://github.com/debeski/django-lux/releases/tag/v1.8.2"
   },
   "requires": {
     "updater_schema": ">=1",
     "baked_image": ">=1.2.7",
-    "services": { "composer": ">=5.3.0" }
+    "services": {
+      "composer": ">=5.3.0"
+    }
   },
   "migrations": {
     "effect": "additive",
     "rollback_compatible": true,
     "downtime": "none"
   },
-  "install": { "inline": "allowed" },
-  "rollback": { "supported": true }
+  "install": {
+    "inline": "allowed"
+  },
+  "rollback": {
+    "supported": true
+  }
 }

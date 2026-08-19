@@ -1134,7 +1134,7 @@ class SystemSettingsForm(
             'How the Options page is laid out: rearrangeable cards, a tabbed view, or a dense single-page compact view.',
         )
         self.fields['options_style'].choices = (
-            (DEFAULT_OPTIONS_STYLE, s.get('options_style_cards', 'Cards')),
+            ('cards', s.get('options_style_cards', 'Cards')),
             ('tabs', s.get('options_style_tabs', 'Tabs')),
             ('compact', s.get('options_style_compact', 'Compact')),
         )

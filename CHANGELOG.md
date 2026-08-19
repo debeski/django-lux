@@ -7,6 +7,12 @@ This file owns the release history for `django-lux`.
 > Release history prior to v1.0.0 lives in that archived repository.
 
 
+## v1.8.2
+
+- **Options Page Defaults To Tabs**: `DEFAULT_OPTIONS_STYLE` is now `tabs`. It previously doubled as the literal value for Cards — it was `OPTIONS_STYLE_CHOICES[0]` and the key of the form's Cards label — so changing which style is default would have relabelled Cards and produced a duplicate `tabs` entry. The choices are spelled literally now, and the two other copies of the default (`schema.py`'s hardcoded `default='cards'` and `search.py`'s `.get('options_style', 'cards')` fallback) reference the constant instead, so they cannot drift. An administrator can still choose any style.
+- **Wizard Scrolls To Each Step**: `showStep()` toggled step visibility without moving the viewport, so finishing a long step and pressing Next opened the following one already scrolled past its first options — the operator had to scroll up every time. Next, Back and the step nav now scroll the new step into view; the initial render deliberately does not, so a restored step is not yanked. Handles the dynamic-modal case, where the scroller is `.modal-body` rather than the window, and honours `prefers-reduced-motion`.
+- **Card-Merge Tests Pin Their Layout**: `OptionCardVisibilityTests` asserted how the *cards* layout merges the theme and language cards while silently relying on the ambient default; it now sets `appearance.options_style` explicitly, so it tests the behaviour rather than the default.
+
 ## v1.8.1
 
 - **Imported Navigation Route Validation**: `normalize_system_settings_import_payload` now prunes `sidebar_config` entries and `navbar_config` route nodes whose `url_name` is absent from the live URLconf, via `known_route_names()` and the new `drop_unknown_routes` flag on `sanitize_sidebar_config`/`sanitize_navbar_config`; stale nodes lift their children, a stale Navigation Root resets to neutral, and manual `url` entries are untouched.

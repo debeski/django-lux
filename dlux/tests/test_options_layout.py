@@ -47,15 +47,15 @@ def _set_small_theme_language_options(style):
 
 
 class OptionsStyleNormalizerTests(TestCase):
-    def test_default_is_cards(self):
-        self.assertEqual(normalize_layout_config({})['options_style'], 'cards')
+    def test_default_is_tabs(self):
+        self.assertEqual(normalize_layout_config({})['options_style'], 'tabs')
 
     def test_valid_values(self):
         self.assertEqual(normalize_layout_config({'options_style': 'tabs'})['options_style'], 'tabs')
         self.assertEqual(normalize_layout_config({'options_style': 'compact'})['options_style'], 'compact')
 
-    def test_invalid_falls_back_to_cards(self):
-        self.assertEqual(normalize_layout_config({'options_style': 'nope'})['options_style'], 'cards')
+    def test_invalid_falls_back_to_the_default(self):
+        self.assertEqual(normalize_layout_config({'options_style': 'nope'})['options_style'], 'tabs')
 
 
 class OptionsStyleConfigExposureTests(TestCase):

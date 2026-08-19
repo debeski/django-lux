@@ -411,6 +411,12 @@ class OptionCardVisibilityTests(TestCase):
     def setUp(self):
         _configure_system()
         self.config = get_system_config()
+        # These assert how the *cards* layout merges theme and language, so pin
+        # it rather than inherit whichever style happens to be the default.
+        self.config = {
+            **self.config,
+            'appearance': {**(self.config.get('appearance') or {}), 'options_style': 'cards'},
+        }
 
     def _slugs(self, **overrides):
         from dlux.search import _visible_option_slugs

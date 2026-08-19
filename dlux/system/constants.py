@@ -175,14 +175,16 @@ MODAL_SIZE_CLASSES = {
     'standard': 'modal-xl',
     'wide': 'modal-xl dlux-modal-wide',
 }
-# Options page/view layout style (layout_config.options_style): a rearrangeable
-# card grid (default), a tabbed layout, or a dense single-page "desktop app" view.
-DEFAULT_OPTIONS_STYLE = 'cards'
+# Options page/view layout style (layout_config.options_style): a tabbed layout
+# (default), a rearrangeable card grid, or a dense single-page "desktop app" view.
+# The choices are spelled literally: this constant used to double as the value for
+# Cards, so changing which style is default silently relabelled that option.
 OPTIONS_STYLE_CHOICES = (
-    (DEFAULT_OPTIONS_STYLE, 'Cards'),
+    ('cards', 'Cards'),
     ('tabs', 'Tabs'),
     ('compact', 'Compact'),
 )
+DEFAULT_OPTIONS_STYLE = 'tabs'
 OPTIONS_STYLE_VALUES = {value for value, _label in OPTIONS_STYLE_CHOICES}
 # Table row-actions trigger style (layout_config.row_actions_style): right-click/
 # long-press context menu (default, unchanged behavior), a dedicated three-dot

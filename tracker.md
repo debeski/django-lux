@@ -2,7 +2,7 @@
 
 ## Part 1: Project Related
 ### Current Verified Snapshot:
-- Source manifest is v1.8.1 (unreleased documentation update); v1.8.0 is the latest tag.
+- Source manifest is v1.8.2 (unreleased); v1.8.1 is the latest tag and is on PyPI.
 - Generated Compose stacks use Composer agent/executor/proxy services; `dlux-updater` is retired. Celery `pre_start` runs reconcile/migrator and Celery Beat writes the state tick.
 - Canonical runtime settings are `homepage_config` and `search_config`; legacy keys remain v1.x mirrors.
 
@@ -26,6 +26,9 @@
 
 ### Incomplete Tasks:
 - **Priority 1:**
+  - [ ] Initial setup shows a yellow `!` on the Identity and Login steps before any input; both hold DluxFileInput controls, whose visible file input is counted by `stepHasValidationError` -> `checkValidity()`.
+  - [ ] Managed assets should persist on upload, not on form submit: an asset added on Identity cannot be picked on Login because the form has not been saved.
+  - [ ] Login-page markdown fields: the EN field carries an Arabic placeholder, and Arabic should precede English in field order.
   - [x] Validate the documentation reorganization with targeted Django docs tests, JSON parsing, Markdown-link checks, and `git diff --check`.
   - [ ] Review live Docker staging acceptance for Composer migration and `dlux_check --apply`.
   - [ ] Decide whether builder save (`clean_sidebar_config`) should prune stale routes too, or stay import-only.

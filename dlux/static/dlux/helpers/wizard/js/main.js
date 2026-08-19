@@ -103,7 +103,24 @@
             });
         }
 
-        function showStep(index) {
+        function scrollWizardIntoView() {
+            // A long step leaves the viewport far down the page. Without this the
+            // next step opens already scrolled past its own first options, and the
+            // operator has to scroll back up on every Next.
+            const reduced = window.matchMedia
+                && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const behavior = reduced ? 'auto' : 'smooth';
+            // Inside a dynamic modal the scroller is the modal body, not the window.
+            const modalBody = container.closest ? container.closest('.modal-body') : null;
+            if (modalBody) {
+                modalBody.scrollTo({ top: 0, behavior: behavior });
+                return;
+            }
+            const top = container.getBoundingClientRect().top + window.pageYOffset - 24;
+            window.scrollTo({ top: top < 0 ? 0 : top, behavior: behavior });
+        }
+
+        function showStep(index, scroll) {
             steps.forEach(function(step, i) {
                 const isActive = i === index;
                 step.classList.toggle('d-none', !isActive);
@@ -118,6 +135,9 @@
 
             currentStep = index;
             syncStepNav(index);
+            // Not on the initial render: that would yank a restored step or an
+            // in-page form the operator has already positioned.
+            if (scroll) scrollWizardIntoView();
             container.dispatchEvent(new CustomEvent('dlux:wizard-step-change', {
                 bubbles: true,
                 detail: {
@@ -131,7 +151,7 @@
             item.addEventListener('click', function() {
                 const target = Number(item.dataset.dluxWizardStepTarget);
                 if (Number.isInteger(target) && target >= 0 && target < steps.length) {
-                    showStep(target);
+                    showStep(target, true);
                 }
             });
         });
@@ -150,13 +170,13 @@
             });
 
             if (valid && currentStep < steps.length - 1) {
-                showStep(currentStep + 1);
+                showStep(currentStep + 1, true);
             }
         });
 
         btnPrev.addEventListener('click', function() {
             if (currentStep > 0) {
-                showStep(currentStep - 1);
+                showStep(currentStep - 1, true);
             }
         });
 

@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from .constants import DEFAULT_THEME_PICKER_LOCATION
+from .constants import DEFAULT_OPTIONS_STYLE, DEFAULT_THEME_PICKER_LOCATION
 from .defaults import (
     default_auth_config,
     default_backup_config,
@@ -244,7 +244,7 @@ SYSTEM_SETTING_GROUPS = (
             _field('layout', 'zebra_striping', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('layout', 'show_audit_fields', field_type='bool', default=False, widget='switch', legacy_flat=True),
             _field('layout', 'show_soft_deleted', field_type='bool', default=False, widget='switch', legacy_flat=True),
-            _field('layout', 'options_style', default='cards', widget='choice', legacy_flat=True),
+            _field('layout', 'options_style', default=DEFAULT_OPTIONS_STYLE, widget='choice', legacy_flat=True),
             _field('layout', 'row_actions_style', default='context', widget='choice', legacy_flat=True),
             _field('layout', 'footer_enabled', field_type='bool', default=True, widget='switch', legacy_flat=True),
             _field('layout', 'footer_text', default='', widget='text', legacy_flat=True),
