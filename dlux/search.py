@@ -182,19 +182,18 @@ def _component_index(lang_code):
         options_url = None
     if options_url:
         options_group = strings.get('search_group_options', 'Options')
-        visible_slugs, slug_remap = _visible_option_slugs(config)
+        visible_slugs = _visible_option_slugs(config)
         for slug, label_key, fallback, icon, keywords in OPTIONS_CARDS:
-            target = slug_remap.get(slug, slug)
             # A card this configuration does not render must not be offered:
             # its deep link would land on Options and highlight nothing.
-            if target not in visible_slugs:
+            if slug not in visible_slugs:
                 continue
             entries.append({
                 'type': 'option',
                 'label': strings.get(label_key, fallback),
                 'sublabel': options_group,
                 'icon': icon,
-                'url': f'{options_url}#dlux-option-{target}',
+                'url': f'{options_url}#dlux-option-{slug}',
                 'mode': 'link',
                 'keywords': ' '.join(keywords),
                 '_vis': ('authenticated', ()),
@@ -261,9 +260,6 @@ def _visible_option_slugs(config):
     ``dlux/system/options.html``; a card missing from this map is unguarded and
     always shown.
 
-    Theme and Language are the awkward pair: below the split thresholds the page
-    merges them into one ``theme-language`` card, so their slugs are remapped
-    rather than dropped and both still resolve to a card that exists.
     """
     from .utils import (
         get_effective_allowed_themes,
@@ -287,12 +283,6 @@ def _visible_option_slugs(config):
         fonts = []
     sidebar = normalize_sidebar_behavior(config.get('sidebar', {}) or {})
     navbar = normalize_navbar_config(config.get('navbar', {}) or {})
-    from .system.constants import DEFAULT_OPTIONS_STYLE
-
-    options_style = (config.get('appearance', {}) or {}).get(
-        'options_style', DEFAULT_OPTIONS_STYLE
-    )
-
     theme_ok = bool(config.get('allow_user_theme_override', True)) and len(themes) > 1
     language_ok = allow_language and len(languages) > 1
 
@@ -306,22 +296,12 @@ def _visible_option_slugs(config):
     if sidebar.get('enabled', True) and sidebar.get('allow_user_density', True):
         visible.add('sidebar-density')
 
-    # Slug remap for the theme/language pair, matching the template's branch.
-    remap = {}
-    if theme_ok or language_ok:
-        split = options_style == 'tabs' or len(themes) > 5 or len(languages) > 2
-        if split:
-            if theme_ok:
-                visible.add('theme')
-            if language_ok:
-                visible.add('language')
-        else:
-            visible.add('theme-language')
-            if theme_ok:
-                remap['theme'] = 'theme-language'
-            if language_ok:
-                remap['language'] = 'theme-language'
-    return visible, remap
+    # Theme and Language are always their own cards, in every layout style.
+    if theme_ok:
+        visible.add('theme')
+    if language_ok:
+        visible.add('language')
+    return visible
 
 
 def get_component_index(lang_code=None):

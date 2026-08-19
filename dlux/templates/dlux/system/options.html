@@ -626,67 +626,19 @@
         {% endif %}
 
         <!-- Theme / Language Selection -->
-        {% if options_theme_card_enabled or language_picker_enabled %}
+        {% if options_theme_card_enabled %}
+        {% dlux_option_card slug="theme" icon="bi-palette" title=DLUX_STRINGS.themes desc=DLUX_STRINGS.themes_desc %}
+                {% include 'dlux/system/previews/theme.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
+        {% enddlux_option_card %}
+        {% endif %}
 
-            {% if APP_CONFIG.appearance.options_style == 'tabs' or DLUX_THEMES|length > 5 or LANGUAGES|length > 2 %}
+        {% if language_picker_enabled %}
+        {% dlux_option_card slug="language" icon="bi-translate" title=DLUX_STRINGS.language desc=DLUX_STRINGS.language_desc %}
 
-                {% if options_theme_card_enabled %}
-                {% dlux_option_card slug="theme" icon="bi-palette" title=DLUX_STRINGS.themes desc=DLUX_STRINGS.themes_desc %}
-                        {% include 'dlux/system/previews/theme.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
-                {% enddlux_option_card %}
+                {% if LANGUAGES|length > 1 %}
+                    {% include 'dlux/system/previews/language.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
                 {% endif %}
-
-                {% if language_picker_enabled %}
-                {% dlux_option_card slug="language" icon="bi-translate" title=DLUX_STRINGS.language desc=DLUX_STRINGS.language_desc %}
-
-                        {% if LANGUAGES|length > 1 %}
-                            {% include 'dlux/system/previews/language.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
-                        {% endif %}
-                {% enddlux_option_card %}
-                {% endif %}
-
-            {% else %}
-
-                <div class="dlux-options-card no-print" data-options-card="theme-language">
-                    <div class="glass-profile option-section h-100 dlux-options-panel">
-                        <button class="dlux-options-card-handle"
-                                type="button"
-                                data-options-card-handle
-                                aria-label="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}"
-                                title="{{ DLUX_STRINGS.sidebar_reorder|default:'Reorder' }}">
-                            <i class="bi bi-grip-vertical"></i>
-                        </button>
-
-                        {% if options_theme_card_enabled %}
-                            <div class="mb-4">
-                                <h4 class="mb-3"><i class="bi bi-palette me-2"></i> {{ DLUX_STRINGS.themes }}</h4>
-                                <p class="text-muted small mb-4">{{ DLUX_STRINGS.themes_desc }}</p>
-                                {% include 'dlux/system/previews/theme.html' with selected_theme=user_preferences.theme|default:APP_CONFIG.default_theme picker_mode='options' %}
-                            </div>
-                        {% endif %}
-
-                        {% if options_theme_card_enabled %}
-                            {% if language_picker_enabled %}
-                                <hr class="my-4">
-                            {% endif %}
-                        {% endif %}
-
-                        {% if language_picker_enabled %}
-                            <div>
-                                <h4 class="mb-3"><i class="bi bi-translate me-2"></i> {{ DLUX_STRINGS.language }}</h4>
-                                <p class="text-muted small mb-4">{{ DLUX_STRINGS.language_desc }}</p>
-
-                                {% if LANGUAGES|length > 1 %}
-                                    {% include 'dlux/system/previews/language.html' with selected_language=CURRENT_LANG picker_mode='options' languages=LANGUAGES %}
-                                {% endif %}
-                            </div>
-                        {% endif %}
-
-                    </div>
-                </div>
-
-            {% endif %}
-
+        {% enddlux_option_card %}
         {% endif %}
         
         <!-- Typography Section -->

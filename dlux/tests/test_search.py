@@ -411,12 +411,6 @@ class OptionCardVisibilityTests(TestCase):
     def setUp(self):
         _configure_system()
         self.config = get_system_config()
-        # These assert how the *cards* layout merges theme and language, so pin
-        # it rather than inherit whichever style happens to be the default.
-        self.config = {
-            **self.config,
-            'appearance': {**(self.config.get('appearance') or {}), 'options_style': 'cards'},
-        }
 
     def _slugs(self, **overrides):
         from dlux.search import _visible_option_slugs
@@ -425,9 +419,7 @@ class OptionCardVisibilityTests(TestCase):
 
     def test_single_language_hides_the_language_card(self):
         localization = {**(self.config.get('localization') or {}), 'languages': {'en': 'English'}}
-        visible, _remap = self._slugs(localization=localization)
-        self.assertNotIn('language', visible)
-        self.assertNotIn('theme-language', visible)
+        self.assertNotIn('language', self._slugs(localization=localization))
 
     def test_language_override_off_hides_it_even_with_two_languages(self):
         localization = {
@@ -435,49 +427,36 @@ class OptionCardVisibilityTests(TestCase):
             'languages': {'en': 'English', 'ar': 'Arabic'},
             'allow_user_language_override': False,
         }
-        visible, _remap = self._slugs(localization=localization)
-        self.assertNotIn('language', visible)
+        self.assertNotIn('language', self._slugs(localization=localization))
 
-    def test_single_theme_hides_the_standalone_theme_card(self):
-        """The merged card still renders for the language half alone, matching
-        the template, so only the standalone 'theme' slug disappears."""
-        visible, remap = self._slugs(allowed_themes=['light'])
+    def test_a_single_theme_hides_the_theme_card(self):
+        visible = self._slugs(allowed_themes=['light'])
         self.assertNotIn('theme', visible)
-        self.assertIsNone(remap.get('theme'))
-        self.assertEqual(remap.get('language'), 'theme-language')
+        self.assertIn('language', visible)  # the other half is unaffected
 
-    def test_no_theme_and_no_language_hides_the_pair_entirely(self):
+    def test_no_theme_and_no_language_hides_both(self):
         localization = {**(self.config.get('localization') or {}), 'languages': {'en': 'English'}}
-        visible, remap = self._slugs(allowed_themes=['light'], localization=localization)
+        visible = self._slugs(allowed_themes=['light'], localization=localization)
         self.assertNotIn('theme', visible)
         self.assertNotIn('language', visible)
-        self.assertNotIn('theme-language', visible)
-        self.assertEqual(remap, {})
 
-    def test_merged_theme_language_card_remaps_both_slugs(self):
-        """Below the split thresholds the page renders one combined card."""
-        appearance = {**(self.config.get('appearance') or {}), 'options_style': 'cards'}
-        visible, remap = self._slugs(allowed_themes=['light', 'dark'], appearance=appearance)
-        self.assertIn('theme-language', visible)
-        self.assertEqual(remap.get('theme'), 'theme-language')
-        self.assertEqual(remap.get('language'), 'theme-language')
-
-    def test_tabs_layout_splits_them_into_their_own_cards(self):
-        appearance = {**(self.config.get('appearance') or {}), 'options_style': 'tabs'}
-        visible, remap = self._slugs(allowed_themes=['light', 'dark'], appearance=appearance)
-        self.assertIn('theme', visible)
-        self.assertIn('language', visible)
-        self.assertNotIn('theme-language', visible)
-        self.assertEqual(remap, {})
+    def test_theme_and_language_are_separate_cards_in_every_style(self):
+        """They were once merged below a size threshold; they no longer are."""
+        for style in ('cards', 'tabs', 'compact'):
+            with self.subTest(style=style):
+                appearance = {**(self.config.get('appearance') or {}), 'options_style': style}
+                visible = self._slugs(allowed_themes=['light', 'dark'], appearance=appearance)
+                self.assertIn('theme', visible)
+                self.assertIn('language', visible)
 
     def test_landing_page_follows_allow_user_home_url(self):
-        off, _ = self._slugs(profile_config={'allow_user_home_url': False})
+        off = self._slugs(profile_config={'allow_user_home_url': False})
         self.assertNotIn('landing-page', off)
-        on, _ = self._slugs(profile_config={'allow_user_home_url': True})
+        on = self._slugs(profile_config={'allow_user_home_url': True})
         self.assertIn('landing-page', on)
 
     def test_sidebar_density_follows_the_sidebar_being_enabled(self):
-        off, _ = self._slugs(sidebar={'enabled': False})
+        off = self._slugs(sidebar={'enabled': False})
         self.assertNotIn('sidebar-density', off)
 
     def test_index_drops_the_language_result_for_a_single_language_install(self):
@@ -500,7 +479,7 @@ class OptionCardVisibilityTests(TestCase):
     def test_every_indexed_option_points_at_a_renderable_card(self):
         from dlux.search import _visible_option_slugs
 
-        visible, _remap = _visible_option_slugs(get_system_config())
+        visible = _visible_option_slugs(get_system_config())
         for entry in get_component_index('en'):
             if entry['type'] != 'option':
                 continue

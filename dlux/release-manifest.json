@@ -2,8 +2,9 @@
   "schema_version": 2,
   "version": "1.8.2",
   "display": {
-    "summary": "The Options page defaults to tabs, and the setup wizard scrolls to each step instead of leaving the operator mid-page.",
+    "summary": "The Options page defaults to tabs, Theme and Language are always separate cards, and the setup wizard scrolls to each step.",
     "highlights": [
+      "Theme and Language are always their own Options cards; the size-dependent merge is removed.",
       "Options layout defaults to tabs; the style choices no longer share a constant with the default.",
       "Wizard Next/Back scrolls the new step into view rather than keeping the previous step's scroll position."
     ],

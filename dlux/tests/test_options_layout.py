@@ -118,20 +118,14 @@ class OptionsStyleRenderTests(TestCase):
             _set_options_style(style)
             self.assertEqual(self._rendered_style(), style)
 
-    def test_tabbed_small_theme_language_options_remain_separate_cards(self):
-        _set_small_theme_language_options('tabs')
+    def test_theme_and_language_are_separate_cards_in_every_style(self):
+        """They were once merged below a size threshold. That merge is gone:
+        a card's identity no longer depends on how many themes exist."""
+        for style in ('cards', 'tabs', 'compact'):
+            with self.subTest(style=style):
+                _set_small_theme_language_options(style)
 
-        html = self._rendered_html()
+                html = self._rendered_html()
 
-        self.assertIn('data-options-card="theme"', html)
-        self.assertIn('data-options-card="language"', html)
-        self.assertNotIn('data-options-card="theme-language"', html)
-
-    def test_card_small_theme_language_options_still_merge(self):
-        _set_small_theme_language_options('cards')
-
-        html = self._rendered_html()
-
-        self.assertIn('data-options-card="theme-language"', html)
-        self.assertNotIn('data-options-card="theme"', html)
-        self.assertNotIn('data-options-card="language"', html)
+                self.assertIn('data-options-card="theme"', html)
+                self.assertIn('data-options-card="language"', html)
